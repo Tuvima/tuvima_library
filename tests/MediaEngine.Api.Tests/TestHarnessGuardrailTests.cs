@@ -40,7 +40,7 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("Arrival (2016) {imdb-tt2543164}.mp4", source);
         Assert.Contains("The Shawshank Redemption (1994) {imdb-tt0111161}.mp4", source);
         Assert.Contains("Shogun S01E01 Anjin (2024).mp4", source);
-        Assert.Contains("large ? \"118\" : \"47\"", source);
+        Assert.Contains("large ? \"132\" : \"47\"", source);
     }
 
     [Fact]
@@ -55,13 +55,66 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("var largeMovies", source);
         Assert.Contains("var largeTv", source);
         Assert.Contains("var largeMusic", source);
+        Assert.Contains("var largeComics", source);
+        Assert.Contains("var audiobooksDir = Path.Combine(watchRoot, \"audiobooks\")", source);
+        Assert.Contains("var generalDir = Path.Combine(watchRoot, \"general\")", source);
+        Assert.Contains("Path.Combine(audiobooksDir, spec.FileName)", source);
+        Assert.Contains("Path.Combine(audiobooksDir, \"large-audiobooks\"", source);
+        Assert.Contains("audiobooks_directory = audiobooksDir", source);
+        Assert.Contains("general_directory = generalDir", source);
+        Assert.DoesNotContain("var generalDir = watchRoot", source);
+        Assert.DoesNotContain("Path.Combine(booksDir, \"large-audiobooks\"", source);
         Assert.Contains("The Shining (1980) {imdb-tt0081505}.mp4", source);
         Assert.Contains("Blade Runner (1982) {imdb-tt0083658}.mp4", source);
         Assert.Contains("Foundation S01E01 The Emperor's Peace", source);
+        Assert.Contains("Breaking Bad S02E01 Seven Thirty-Seven", source);
+        Assert.Contains("Game of Thrones S02E01 The North Remembers", source);
+        Assert.Contains("Saga 003 (2012).cbz", source);
+        Assert.Contains("Batman #405: Year One Part 2 - War Is Declared", source);
+        Assert.Contains("The Sandman #2: Imperfect Hosts", source);
+        Assert.Contains("Akira 002 (1982).cbz", source);
         Assert.Contains("Hans Zimmer", source);
-        Assert.Contains("large ? \"118\" : \"47\"", source);
+        Assert.Contains("large ? \"132\" : \"47\"", source);
         Assert.Contains("[switch]$Large", resetScript);
         Assert.Contains(@"""C:\temp\tuvima-watch""", resetScript);
+    }
+
+    [Fact]
+    public void LegacyBookHarnessReadsPluralWatchDirectories()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "tools", "Test-BookIngestion.ps1"));
+
+        Assert.Contains("Resolve-WatchDirectoryFromSettings", source);
+        Assert.Contains("[\"watch_directories\"]", source);
+        Assert.Contains("[\"watch_directory\"]", source);
+        Assert.Contains("$resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreSettings", source);
+        Assert.Contains("$resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreFile", source);
+    }
+
+    [Fact]
+    public void DevSeedHarness_IncludesComicsAndMultiSeasonTvFixtures()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "DevSeedEndpoints.cs"));
+
+        Assert.Contains("Seven Thirty-Seven", source);
+        Assert.Contains("SeasonNumber: 2", source);
+        Assert.Contains("No Mas", source);
+        Assert.Contains("SeasonNumber: 3", source);
+        Assert.Contains("Batman: Year One Part 4", source);
+        Assert.Contains("Saga Chapter Three", source);
+        Assert.Contains("The Sandman: Imperfect Hosts", source);
+    }
+
+    [Fact]
+    public void ComicVine_TitleDoesNotOverrideLocalIssueIdentity()
+    {
+        var config = File.ReadAllText(Path.Combine(FindRepoRoot(), "config", "providers", "comicvine.json"));
+        var harness = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("\"claim_key\": \"title\"", config);
+        Assert.Contains("\"confidence\": 0.7", config);
+        Assert.Contains("HasComicIssueTitleDrift", harness);
+        Assert.Contains("does not preserve its series and issue identity", harness);
     }
 
     [Fact]

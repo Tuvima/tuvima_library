@@ -110,10 +110,10 @@
 
 ::deep .library-update-metric {
     display: grid;
-    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-columns: 64px minmax(0, 1fr);
     align-items: center;
     min-height: 96px;
-    padding: 16px;
+    padding: 15px;
 }
 
 ::deep .library-update-metric__icon,
@@ -152,8 +152,9 @@
     display: block;
     margin-top: 3px;
     color: #f8fbff;
-    font-size: 1.95rem;
+    font-size: clamp(1.45rem, 1.7vw, 1.95rem);
     line-height: 1;
+    white-space: nowrap;
 }
 
 ::deep .is-purple .library-update-metric__icon,

@@ -94,6 +94,9 @@ public sealed class IngestionOperationsJobDto
     [JsonPropertyName("total_count")]
     public int TotalCount { get; init; }
 
+    [JsonPropertyName("count_unit")]
+    public string CountUnit { get; init; } = "files";
+
     [JsonPropertyName("percent_complete")]
     public double PercentComplete { get; init; }
 
@@ -132,6 +135,9 @@ public sealed class IngestionCurrentActivityDto
 
     [JsonPropertyName("total_count")]
     public int TotalCount { get; init; }
+
+    [JsonPropertyName("count_unit")]
+    public string CountUnit { get; init; } = "files";
 
     [JsonPropertyName("percent_complete")]
     public double PercentComplete { get; init; }

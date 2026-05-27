@@ -95,7 +95,7 @@
     {
       "claim_key": "title",
       "json_path": "name",
-      "confidence": 0.85,
+      "confidence": 0.7,
       "transform": null,
       "transform_args": null,
       "media_types": null,

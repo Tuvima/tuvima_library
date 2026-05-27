@@ -37,11 +37,12 @@ var watchRoot = string.Equals(Path.GetFileName(normalizedRequestedOutputDir), "b
     ? Directory.GetParent(normalizedRequestedOutputDir)?.FullName ?? normalizedRequestedOutputDir
     : normalizedRequestedOutputDir;
 var booksDir = Path.Combine(watchRoot, "books");
+var audiobooksDir = Path.Combine(watchRoot, "audiobooks");
 var moviesDir = Path.Combine(watchRoot, "movies");
 var tvDir = Path.Combine(watchRoot, "tv");
 var musicDir = Path.Combine(watchRoot, "music");
 var comicsDir = Path.Combine(watchRoot, "comics");
-var generalDir = watchRoot;
+var generalDir = Path.Combine(watchRoot, "general");
 var tempDir   = Path.Combine(Path.GetTempPath(), "tuvima-test-gen");
 var ffmpegPath = FindFfmpeg();
 
@@ -55,6 +56,7 @@ if (clean && Directory.Exists(watchRoot))
 }
 
 Directory.CreateDirectory(booksDir);
+Directory.CreateDirectory(audiobooksDir);
 Directory.CreateDirectory(moviesDir);
 Directory.CreateDirectory(tvDir);
 Directory.CreateDirectory(musicDir);
@@ -63,11 +65,13 @@ Directory.CreateDirectory(generalDir);
 Directory.CreateDirectory(tempDir);
 
 Console.WriteLine($"Watch root       : {watchRoot}");
-Console.WriteLine($"Books/Audiobooks: {booksDir}");
+Console.WriteLine($"Books            : {booksDir}");
+Console.WriteLine($"Audiobooks       : {audiobooksDir}");
 Console.WriteLine($"Movies           : {moviesDir}");
 Console.WriteLine($"TV               : {tvDir}");
 Console.WriteLine($"Music            : {musicDir}");
 Console.WriteLine($"Comics           : {comicsDir}");
+Console.WriteLine($"General          : {generalDir}");
 Console.WriteLine($"Corpus           : {(large ? "large" : "standard")}");
 Console.WriteLine($"FFmpeg           : {ffmpegPath ?? "NOT FOUND - M4B files will be skipped; MP4/MP3 use built-in fallback"}");
 Console.WriteLine();
@@ -700,7 +704,7 @@ var m4bsFlat = new M4bSpec[]
 // when the first file is ingested, then applies it to the second â€” skipping a
 // redundant Stage 1 SPARQL query and pre-assigning the second file to the same Collection.
 
-var hpSubdir = Path.Combine(booksDir, "hp-series");
+var hpSubdir = Path.Combine(audiobooksDir, "hp-series");
 var tempHpSubdir = Path.Combine(tempDir, "hp-series");
 Directory.CreateDirectory(tempHpSubdir);
 var m4bsHpSeries = new M4bSpec[]
@@ -732,7 +736,7 @@ var m4bsHpSeries = new M4bSpec[]
 
 // â”€â”€ Ingestion hinting â€” expanse-audio/ subdirectory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-var expanseSubdir = Path.Combine(booksDir, "expanse-audio");
+var expanseSubdir = Path.Combine(audiobooksDir, "expanse-audio");
 var tempExpanseSubdir = Path.Combine(tempDir, "expanse-audio");
 Directory.CreateDirectory(tempExpanseSubdir);
 var m4bsExpanse = new M4bSpec[]
@@ -779,14 +783,14 @@ else
     {
         var num      = 11 + idx;
         var outPath  = Path.Combine(tempDir, spec.FileName);
-        var finalPath = Path.Combine(booksDir, spec.FileName);
+        var finalPath = Path.Combine(audiobooksDir, spec.FileName);
         try
         {
             byte[]? cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
             generatedFiles.Add((outPath, finalPath));
             Console.WriteLine($"  âœ“  [{num,2}] {spec.FileName,-46} {(cover is not null ? "[sq cover]" : "[no cover]")}");
-            manifest.Add(new(num, spec.FileName, "m4b", $"Scenario {num}"));
+            manifest.Add(new(num, Path.Combine("audiobooks", spec.FileName).Replace('\\', '/'), "m4b", $"Scenario {num}"));
             total++;
         }
         catch (Exception ex)
@@ -811,7 +815,7 @@ else
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
             generatedFiles.Add((outPath, finalPath));
             Console.WriteLine($"  âœ“  [{num,2}] hp-series/{spec.FileName,-38} {(cover is not null ? "[sq cover]" : "[no cover]")}");
-            manifest.Add(new(num, $"hp-series/{spec.FileName}", "m4b", $"Scenario {num}"));
+            manifest.Add(new(num, Path.Combine("audiobooks", "hp-series", spec.FileName).Replace('\\', '/'), "m4b", $"Scenario {num}"));
             total++;
         }
         catch (Exception ex)
@@ -836,7 +840,7 @@ else
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
             generatedFiles.Add((outPath, finalPath));
             Console.WriteLine($"  âœ“  [{num,2}] expanse-audio/{spec.FileName,-34} {(cover is not null ? "[sq cover]" : "[no cover]")}");
-            manifest.Add(new(num, $"expanse-audio/{spec.FileName}", "m4b", $"Scenario {num}"));
+            manifest.Add(new(num, Path.Combine("audiobooks", "expanse-audio", spec.FileName).Replace('\\', '/'), "m4b", $"Scenario {num}"));
             total++;
         }
         catch (Exception ex)
@@ -902,8 +906,8 @@ var musicTracks = new MusicSpec[]
 
 var comics = new ComicSpec[]
 {
-    new(45, "watchmen", "Watchmen 001 (1986).cbz", "Watchmen", "1", "Alan Moore", "Dave Gibbons", "1986"),
-    new(46, "watchmen", "Watchmen 002 (1986).cbz", "Watchmen", "2", "Alan Moore", "Dave Gibbons", "1986"),
+    new(45, "watchmen", "Watchmen 001 (1986).cbz", "Watchmen", "1", "Alan Moore", "Dave Gibbons", "1986", "Watchmen #1: At Midnight, All the Agents..."),
+    new(46, "watchmen", "Watchmen 002 (1986).cbz", "Watchmen", "2", "Alan Moore", "Dave Gibbons", "1986", "Watchmen #2: Absent Friends"),
 };
 
 Console.WriteLine();
@@ -1080,6 +1084,10 @@ if (large)
         new(1091, Path.Combine("the-last-of-us", "Season 01"), "The Last of Us S01E02 Infected (2023) {imdb-tt14500888}.mp4", "The Last of Us: Infected", "2023", "Drama", "#047857"),
         new(1092, Path.Combine("shogun-2024", "Season 01"), "Shogun S01E02 Servants of Two Masters (2024).mp4", "Shogun: Servants of Two Masters", "2024", "Drama", "#7B1FA2"),
         new(1093, Path.Combine("shogun-2024", "Season 01"), "Shogun S01E03 Tomorrow Is Tomorrow (2024).mp4", "Shogun: Tomorrow Is Tomorrow", "2024", "Drama", "#6D28D9"),
+        new(1094, Path.Combine("breaking-bad", "Season 02"), "Breaking Bad S02E01 Seven Thirty-Seven (2009).mp4", "Breaking Bad: Seven Thirty-Seven", "2009", "Drama", "#2E7D32"),
+        new(1095, Path.Combine("breaking-bad", "Season 03"), "Breaking Bad S03E01 No Mas (2010).mp4", "Breaking Bad: No Mas", "2010", "Drama", "#33691E"),
+        new(1096, Path.Combine("the-expanse", "Season 02"), "The Expanse S02E01 Safe (2017).mp4", "The Expanse: Safe", "2017", "Science Fiction", "#0D47A1"),
+        new(1097, Path.Combine("game-of-thrones", "Season 02"), "Game of Thrones S02E01 The North Remembers (2012).mp4", "Game of Thrones: The North Remembers", "2012", "Fantasy", "#334155"),
     };
 
     var largeMusic = new MusicSpec[]
@@ -1096,6 +1104,20 @@ if (large)
         new(1109, Path.Combine("Kendrick Lamar", "DAMN"), "02 DNA.mp3", "DNA.", "Kendrick Lamar", "DAMN.", "2017", "Hip-Hop", "2"),
         new(1110, Path.Combine("Hans Zimmer", "Interstellar"), "01 Dreaming of the Crash.mp3", "Dreaming of the Crash", "Hans Zimmer", "Interstellar: Original Motion Picture Soundtrack", "2014", "Soundtrack", "1"),
         new(1111, Path.Combine("Hans Zimmer", "Interstellar"), "02 Cornfield Chase.mp3", "Cornfield Chase", "Hans Zimmer", "Interstellar: Original Motion Picture Soundtrack", "2014", "Soundtrack", "2"),
+    };
+
+    var largeComics = new ComicSpec[]
+    {
+        new(1120, "batman-year-one", "Batman 405 Year One Part 2 (1987).cbz", "Batman", "405", "Frank Miller", "David Mazzucchelli", "1987", "Batman #405: Year One Part 2 - War Is Declared"),
+        new(1121, "batman-year-one", "Batman 406 Year One Part 3 (1987).cbz", "Batman", "406", "Frank Miller", "David Mazzucchelli", "1987", "Batman #406: Year One Part 3 - Black Dawn"),
+        new(1122, "batman-year-one", "Batman 407 Year One Part 4 (1987).cbz", "Batman", "407", "Frank Miller", "David Mazzucchelli", "1987", "Batman #407: Year One Part 4 - Friend in Need"),
+        new(1123, "saga", "Saga 001 (2012).cbz", "Saga", "1", "Brian K. Vaughan", "Fiona Staples", "2012", "Saga #1"),
+        new(1124, "saga", "Saga 002 (2012).cbz", "Saga", "2", "Brian K. Vaughan", "Fiona Staples", "2012", "Saga #2"),
+        new(1125, "saga", "Saga 003 (2012).cbz", "Saga", "3", "Brian K. Vaughan", "Fiona Staples", "2012", "Saga #3"),
+        new(1126, "sandman", "The Sandman 001 Sleep of the Just (1989).cbz", "The Sandman", "1", "Neil Gaiman", "Sam Kieth", "1989", "The Sandman #1: Sleep of the Just"),
+        new(1127, "sandman", "The Sandman 002 Imperfect Hosts (1989).cbz", "The Sandman", "2", "Neil Gaiman", "Sam Kieth", "1989", "The Sandman #2: Imperfect Hosts"),
+        new(1128, "akira", "Akira 001 (1982).cbz", "Akira", "1", "Katsuhiro Otomo", "Katsuhiro Otomo", "1982", "Akira #1"),
+        new(1129, "akira", "Akira 002 (1982).cbz", "Akira", "2", "Katsuhiro Otomo", "Katsuhiro Otomo", "1982", "Akira #2"),
     };
 
     foreach (var (num, spec) in largeBooks)
@@ -1115,12 +1137,12 @@ if (large)
         foreach (var (num, subdir, spec) in largeAudiobooks)
         {
             var outPath = Path.Combine(tempDir, "large-audiobooks", subdir, spec.FileName);
-            var finalPath = Path.Combine(booksDir, "large-audiobooks", subdir, spec.FileName);
+            var finalPath = Path.Combine(audiobooksDir, "large-audiobooks", subdir, spec.FileName);
             Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
             var cover = spec.IncludeCover ? GeneratePng(ffmpegPath, tempDir, spec.CoverHex, 400, 400) : null;
             CreateM4b(ffmpegPath, tempDir, outPath, spec, cover);
             generatedFiles.Add((outPath, finalPath));
-            manifest.Add(new(num, $"large-audiobooks/{subdir}/{spec.FileName}", "m4b", "Large corpus - audiobooks, narrators, cross-format works"));
+            manifest.Add(new(num, Path.Combine("audiobooks", "large-audiobooks", subdir, spec.FileName).Replace('\\', '/'), "m4b", "Large corpus - audiobooks, narrators, cross-format works"));
             total++;
         }
     }
@@ -1162,7 +1184,18 @@ if (large)
         total++;
     }
 
-    Console.WriteLine($"  Added large corpus: {largeBooks.Length} books, {largeAudiobooks.Length} audiobooks, {largeMovies.Length} movies, {largeTv.Length} TV episodes, {largeMusic.Length} music tracks");
+    foreach (var spec in largeComics)
+    {
+        var outPath = Path.Combine(tempDir, "large-comics", spec.Subdir, spec.FileName);
+        var finalPath = Path.Combine(comicsDir, "large", spec.Subdir, spec.FileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+        CreateCbz(outPath, spec);
+        generatedFiles.Add((outPath, finalPath));
+        manifest.Add(new(spec.Scenario, Path.Combine("large", spec.Subdir, spec.FileName).Replace('\\', '/'), "cbz", "Large corpus - comics, series, and issue ordering"));
+        total++;
+    }
+
+    Console.WriteLine($"  Added large corpus: {largeBooks.Length} books, {largeAudiobooks.Length} audiobooks, {largeMovies.Length} movies, {largeTv.Length} TV episodes, {largeMusic.Length} music tracks, {largeComics.Length} comics");
 }
 
 Console.WriteLine();
@@ -1272,10 +1305,12 @@ var manifestJson = JsonSerializer.Serialize(new
     generated_at = DateTimeOffset.UtcNow.ToString("O"),
     watch_root = watchRoot,
     books_directory = booksDir,
+    audiobooks_directory = audiobooksDir,
     movies_directory = moviesDir,
     tv_directory = tvDir,
     music_directory = musicDir,
     comics_directory = comicsDir,
+    general_directory = generalDir,
     total_files = total,
     files = manifest.Select(m => new { scenario = m.Scenario, path = m.Path, type = m.Type, note = m.Note }),
     expected_person_enrichment = expectedPeopleForManifest.Select(p => new
@@ -1296,7 +1331,7 @@ File.WriteAllText(manifestPath, manifestJson);
 // â”€â”€ Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Console.WriteLine();
 Console.WriteLine($"â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
-Console.WriteLine($"  Generated : {total} / {(large ? "118" : "47")}");
+Console.WriteLine($"  Generated : {total} / {(large ? "132" : "47")}");
 if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
 Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();
@@ -1319,7 +1354,7 @@ Console.WriteLine($"  Multi-author         : 2 scenarios (29, 30)");
 Console.WriteLine($"  Same-author diff-work: 1 scenario  (27)");
 Console.WriteLine($"  All media watch roots: 10 scenarios (38-47)");
 Console.WriteLine($"  Repeated-person checks: {expectedPeopleForManifest.Length} people declared in MANIFEST.json");
-Console.WriteLine($"  Total: {(large ? "118" : "47")} files covering {(large ? "19" : "14")} test categories");
+Console.WriteLine($"  Total: {(large ? "132" : "47")} files covering {(large ? "21" : "14")} test categories");
 Console.WriteLine();
 
 return failed > 0 ? 1 : 0;
@@ -1637,7 +1672,7 @@ static void CreateCbz(string outPath, ComicSpec spec)
         <ComicInfo>
           <Series>{Esc(spec.Series)}</Series>
           <Number>{Esc(spec.IssueNumber)}</Number>
-          <Title>{Esc(spec.Series)} #{Esc(spec.IssueNumber)}</Title>
+          <Title>{Esc(spec.IssueTitle ?? $"{spec.Series} #{spec.IssueNumber}")}</Title>
           <Writer>{Esc(spec.Writer)}</Writer>
           <Penciller>{Esc(spec.Artist)}</Penciller>
           <Year>{Esc(spec.Year)}</Year>
@@ -1849,7 +1884,8 @@ record ComicSpec(
     string IssueNumber,
     string Writer,
     string Artist,
-    string Year);
+    string Year,
+    string? IssueTitle = null);
 
 record ManifestEntry(int Scenario, string Path, string Type, string Note);
 

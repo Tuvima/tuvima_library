@@ -226,6 +226,18 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
+    public void EpisodesTab_UsesSeasonSelectorWhenMultipleSeasonsExist()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/EpisodesTab.razor");
+
+        Assert.Contains("VisibleGroups.Count > 1", source);
+        Assert.Contains("<AppNativeSelect Value=\"@SelectedKey\" OnChange=\"SelectSeason\">", source);
+        Assert.Contains("<option value=\"@group.Key\">@group.Title</option>", source);
+        Assert.Contains("VisibleGroups[0].Key", source);
+        Assert.Contains("episode.IsOwned && episode.Actions.Any", source);
+    }
+
+    [Fact]
     public void DetailPage_CastTabDoesNotInlineCharacters()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");

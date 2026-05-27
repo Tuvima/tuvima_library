@@ -64,6 +64,22 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void OperationsService_ReconcilesCompletedReviewCountersAgainstVisibleLibraryAssets()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("isCompletedWithReviewCounters", source, StringComparison.Ordinal);
+        Assert.Contains("ma.status = 'Normal'", source, StringComparison.Ordinal);
+        Assert.Contains("hasSnapshotRows ? snapshot.Review : batch.FilesReview", source, StringComparison.Ordinal);
+        Assert.Contains("activity.QueuedCount > 0", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OperationsSnapshot_ExposesBatchAwareCurrentActivityContract()
     {
         var dtoSource = File.ReadAllText(Path.Combine(
@@ -82,6 +98,7 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("current_batch", dtoSource, StringComparison.Ordinal);
         Assert.Contains("sample_items", dtoSource, StringComparison.Ordinal);
         Assert.Contains("queued_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("count_unit", dtoSource, StringComparison.Ordinal);
         Assert.Contains("IngestionActivityBatchDto", dtoSource, StringComparison.Ordinal);
         Assert.Contains("ActivityBatchSize = 50", serviceSource, StringComparison.Ordinal);
         Assert.Contains("Linking Wikidata QIDs", serviceSource, StringComparison.Ordinal);
@@ -91,6 +108,33 @@ public sealed class IngestionOperationsContractTests
         Assert.DoesNotContain("Metadata validation", serviceSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"validation\"", serviceSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"summary\" =>", serviceSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OperationsSnapshot_UsesDurableOperationsAndRealWorkerArtifactCounts()
+    {
+        var serviceSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("ReadOperationProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("MediaOperationType.IdentityWikidataBridge", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("MediaOperationType.EnrichmentCoverArt", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ReadPeopleProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ReadRelationshipsProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ReadArtworkProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("countUnit: \"artwork assets\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("countUnit: \"people\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("countUnit: \"links\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("stage3_enriched_at", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("p.enriched_at", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("FROM entity_assets", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("FROM persons", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("FROM series_manifest_items", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("TaskProgressOverride", serviceSource, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -174,6 +218,40 @@ public sealed class IngestionOperationsContractTests
         Assert.Equal(91, progress.Total);
     }
 
+    [Fact]
+    public void OperationsService_AggregatesCoStartedBatchesForFullScanProgress()
+    {
+        var started = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var batches = new List<IngestionBatch>
+        {
+            Batch(started.AddSeconds(20), total: 12, processed: 12, identified: 8, review: 4),
+            Batch(started.AddSeconds(10), total: 56, processed: 54, identified: 50, review: 4),
+            Batch(started.AddSeconds(70), total: 28, processed: 20, identified: 18, review: 2),
+            Batch(started.AddHours(-3), total: 2, processed: 2, identified: 2, review: 0),
+        };
+
+        var selectMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "SelectDisplayBatches",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var aggregateMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "AggregateDisplayBatch",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(selectMethod);
+        Assert.NotNull(aggregateMethod);
+
+        var selected = Assert.IsAssignableFrom<IReadOnlyList<IngestionBatch>>(
+            selectMethod.Invoke(null, [batches]));
+        var aggregate = Assert.IsType<IngestionBatch>(
+            aggregateMethod.Invoke(null, [selected]));
+
+        Assert.Equal(3, selected.Count);
+        Assert.Equal(96, aggregate.FilesTotal);
+        Assert.Equal(86, aggregate.FilesProcessed);
+        Assert.Equal(76, aggregate.FilesIdentified);
+        Assert.Equal(10, aggregate.FilesReview);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -188,6 +266,24 @@ public sealed class IngestionOperationsContractTests
         Key = key,
         Count = count,
         TotalCount = total,
+    };
+
+    private static IngestionBatch Batch(
+        DateTimeOffset startedAt,
+        int total,
+        int processed,
+        int identified,
+        int review) => new()
+    {
+        StartedAt = startedAt,
+        CreatedAt = startedAt,
+        UpdatedAt = startedAt.AddMinutes(1),
+        CompletedAt = startedAt.AddMinutes(2),
+        Status = "completed",
+        FilesTotal = total,
+        FilesProcessed = processed,
+        FilesIdentified = identified,
+        FilesReview = review,
     };
 
     private static (int Count, int Total) ResolveActivityProgress(

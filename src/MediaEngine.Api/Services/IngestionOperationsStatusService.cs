@@ -70,10 +70,42 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         SystemActionType.LocationEnriched,
         SystemActionType.OrganizationEnriched,
     ];
+    private static readonly string[] ActiveOperationStatuses =
+    [
+        MediaOperationStatus.Leased,
+        MediaOperationStatus.Running,
+    ];
+    private static readonly string[] QueuedOperationStatuses =
+    [
+        MediaOperationStatus.Pending,
+        MediaOperationStatus.Queued,
+        MediaOperationStatus.RetryWaiting,
+        MediaOperationStatus.Interrupted,
+    ];
+    private static readonly string[] TerminalOperationStatuses =
+    [
+        MediaOperationStatus.Succeeded,
+        MediaOperationStatus.NoResult,
+        MediaOperationStatus.MissingConfirmed,
+        MediaOperationStatus.NotApplicable,
+        MediaOperationStatus.Blocked,
+        MediaOperationStatus.FailedTerminal,
+        MediaOperationStatus.DeadLettered,
+        MediaOperationStatus.Cancelled,
+        MediaOperationStatus.Skipped,
+    ];
+    private static readonly string[] VisibleOperationTypes =
+    [
+        MediaOperationType.IdentityWikidataBridge,
+        MediaOperationType.EnrichmentCoverArt,
+        MediaOperationType.EnrichmentPeople,
+        MediaOperationType.EnrichmentRelationships,
+    ];
     // Wikidata and artwork batches can legitimately spend many minutes in one
     // leased state before per-item finalisation updates the row. Keep those rows
     // visible as active so the Library Update page does not look frozen.
-    private static readonly TimeSpan ActiveActivityFreshness = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan ActiveActivityFreshness = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan ActiveBatchFreshness = TimeSpan.FromMinutes(2);
     private static readonly string[] CurrentActivityStates =
     [
         nameof(IdentityJobState.RetailSearching),
@@ -112,7 +144,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         var recentBatches = await _batchRepository.GetRecentAsync(12, ct);
         recentBatches = await ReconcileCompletedBatchesAsync(recentBatches, ct);
-        var displayBatch = SelectDisplayBatch(recentBatches);
+        var displayBatches = SelectDisplayBatches(recentBatches);
+        var displayBatch = AggregateDisplayBatch(displayBatches);
         var lifecycle = await _libraryItems.GetFourStateCountsAsync(ct: ct);
         var projection = await _libraryItems.GetProjectionSummaryAsync(ct);
         var providers = _configLoader.LoadAllProviders();
@@ -132,12 +165,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             WHERE operation_type = 'ingestion.file'
             GROUP BY status
             """)).ToDictionary(r => r.Key, r => ToInt(r.Count), StringComparer.OrdinalIgnoreCase);
-        var scopedPipelineRows = displayBatch is null
+        var scopedPipelineRows = displayBatches.Count == 0
             ? pipelineRows
-            : await ReadIdentityStateCountsAsync(displayBatch.Id, ct);
-        var scopedIngestionRows = displayBatch is null
+            : await ReadIdentityStateCountsAsync(displayBatches.Select(batch => batch.Id).ToArray(), ct);
+        var scopedIngestionRows = displayBatches.Count == 0
             ? ingestionRows
-            : await ReadIngestionStatusCountsAsync(displayBatch.Id, ct);
+            : await ReadIngestionStatusCountsAsync(displayBatches.Select(batch => batch.Id).ToArray(), ct);
 
         var reviewRows = (await conn.QueryAsync<ReviewCountRow>("""
             SELECT trigger AS Trigger, detail AS Detail, COUNT(*) AS Count
@@ -188,9 +221,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var summaryTotals = BuildSummaryTotals(displayBatch, lifecycle, projection);
         var pipelineStages = BuildPipelineStages(scopedPipelineRows, scopedIngestionRows, lifecycle, projection, displayBatch);
         var batchStats = await ReadBatchStatsAsync(recentBatches, ct);
-        var currentActivities = displayBatch is null
-            ? []
-            : await ReadTaskActivitiesAsync(displayBatch.Id, pipelineStages, ct);
+        var currentActivities = await ReadTaskActivitiesAsync(displayBatches.Select(batch => batch.Id).ToArray(), pipelineStages, ct);
         if (currentActivities.Count == 0)
         {
             currentActivities = activeJobs
@@ -238,8 +269,16 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     }
 
     private async Task<IReadOnlyDictionary<string, int>> ReadIdentityStateCountsAsync(Guid batchId, CancellationToken ct)
+        => await ReadIdentityStateCountsAsync([batchId], ct);
+
+    private async Task<IReadOnlyDictionary<string, int>> ReadIdentityStateCountsAsync(
+        IReadOnlyCollection<Guid> batchIds,
+        CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        if (batchIds.Count == 0)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<StageCountRow>("""
             WITH latest_jobs AS (
@@ -251,30 +290,50 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                         ORDER BY updated_at DESC, created_at DESC
                     ) AS rn
                 FROM identity_jobs
-                WHERE ingestion_run_id = @batchId
+                WHERE ingestion_run_id IN @batchIds
             )
             SELECT state AS Key, COUNT(*) AS Count
             FROM latest_jobs
             WHERE rn = 1
             GROUP BY state
-            """, new { batchId = batchId.ToString() });
+            """, new { batchIds = batchIds.Select(id => id.ToString()).ToArray() });
 
         return rows.ToDictionary(r => r.Key, r => ToInt(r.Count), StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task<IReadOnlyDictionary<string, int>> ReadIngestionStatusCountsAsync(Guid batchId, CancellationToken ct)
+        => await ReadIngestionStatusCountsAsync([batchId], ct);
+
+    private async Task<IReadOnlyDictionary<string, int>> ReadIngestionStatusCountsAsync(
+        IReadOnlyCollection<Guid> batchIds,
+        CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        if (batchIds.Count == 0)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<StageCountRow>("""
             SELECT status AS Key, COUNT(*) AS Count
             FROM media_operations
-            WHERE batch_id = @batchId
+            WHERE batch_id IN @batchIds
               AND operation_type = 'ingestion.file'
             GROUP BY status
-            """, new { batchId = batchId.ToString() });
+            """, new { batchIds = batchIds.Select(id => id.ToString()).ToArray() });
 
         return rows.ToDictionary(r => r.Key, r => ToInt(r.Count), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<IngestionBatch> SelectDisplayBatches(IReadOnlyList<IngestionBatch> recentBatches)
+    {
+        var anchor = SelectDisplayBatch(recentBatches);
+        if (anchor is null)
+            return [];
+
+        var anchorStart = anchor.StartedAt.ToUniversalTime();
+        return recentBatches
+            .Where(batch => DurationBetween(batch.StartedAt.ToUniversalTime(), anchorStart) <= TimeSpan.FromMinutes(3))
+            .ToList();
     }
 
     private static IngestionBatch? SelectDisplayBatch(IReadOnlyList<IngestionBatch> recentBatches)
@@ -282,6 +341,49 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return recentBatches.FirstOrDefault(HasOutcomeCounters)
             ?? recentBatches.FirstOrDefault(batch => batch.FilesProcessed > 0)
             ?? recentBatches.FirstOrDefault();
+    }
+
+    private static IngestionBatch? AggregateDisplayBatch(IReadOnlyList<IngestionBatch> displayBatches)
+    {
+        if (displayBatches.Count == 0)
+            return null;
+
+        if (displayBatches.Count == 1)
+            return displayBatches[0];
+
+        var active = displayBatches.Any(batch =>
+            ActiveBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase)
+            && ShouldShowActiveBatch(batch));
+        var failed = displayBatches.Any(batch =>
+            FailedBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase));
+        var completedAt = displayBatches.All(batch => batch.CompletedAt.HasValue)
+            ? displayBatches.Max(batch => batch.CompletedAt)
+            : null;
+
+        return new IngestionBatch
+        {
+            Id = displayBatches
+                .OrderByDescending(batch => batch.UpdatedAt)
+                .ThenByDescending(batch => batch.StartedAt)
+                .First().Id,
+            Status = active ? "running" : failed ? "failed" : "completed",
+            FilesTotal = displayBatches.Sum(batch => Math.Max(0, batch.FilesTotal)),
+            FilesProcessed = displayBatches.Sum(batch => Math.Max(0, batch.FilesProcessed)),
+            FilesIdentified = displayBatches.Sum(batch => Math.Max(0, batch.FilesIdentified)),
+            FilesReview = displayBatches.Sum(batch => Math.Max(0, batch.FilesReview)),
+            FilesNoMatch = displayBatches.Sum(batch => Math.Max(0, batch.FilesNoMatch)),
+            FilesFailed = displayBatches.Sum(batch => Math.Max(0, batch.FilesFailed)),
+            StartedAt = displayBatches.Min(batch => batch.StartedAt),
+            CompletedAt = completedAt,
+            CreatedAt = displayBatches.Min(batch => batch.CreatedAt),
+            UpdatedAt = displayBatches.Max(batch => batch.UpdatedAt),
+        };
+    }
+
+    private static TimeSpan DurationBetween(DateTimeOffset left, DateTimeOffset right)
+    {
+        var delta = left - right;
+        return delta < TimeSpan.Zero ? -delta : delta;
     }
 
     private static BatchSummaryTotals BuildSummaryTotals(
@@ -304,7 +406,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         if (HasOutcomeCounters(batch) || batch.FilesProcessed > 0)
         {
-            return true;
+            return IsFreshActiveBatch(batch);
         }
 
         return DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime() <= NoWorkBatchGrace;
@@ -312,6 +414,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static bool HasOutcomeCounters(IngestionBatch batch) =>
         batch.FilesIdentified + batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed > 0;
+
+    private static bool IsFreshActiveBatch(IngestionBatch batch)
+    {
+        var updatedAt = batch.UpdatedAt == default ? batch.StartedAt : batch.UpdatedAt;
+        return DateTimeOffset.UtcNow - updatedAt.ToUniversalTime() <= ActiveBatchFreshness;
+    }
 
     private List<IngestionSourceGroupDto> BuildSourceGroups(IReadOnlyDictionary<string, FolderStatsRow> folderStats)
     {
@@ -466,6 +574,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     entity_id,
                     state,
                     media_type,
+                    lease_owner,
+                    lease_expires_at,
                     updated_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY entity_id
@@ -478,6 +588,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 lj.entity_id AS EntityId,
                 lj.state AS State,
                 lj.media_type AS MediaType,
+                lj.lease_owner AS LeaseOwner,
+                lj.lease_expires_at AS LeaseExpiresAt,
                 lj.updated_at AS UpdatedAt,
                 ma.file_path_root AS SourcePath,
                 COALESCE(
@@ -526,11 +638,16 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     }
 
     private async Task<List<IngestionCurrentActivityDto>> ReadTaskActivitiesAsync(
-        Guid batchId,
+        IReadOnlyCollection<Guid> batchIds,
         IReadOnlyList<IngestionPipelineStageDto> stages,
         CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+
+        var hasBatchScope = batchIds.Count > 0 ? 1 : 0;
+        var batchIdValues = batchIds.Count > 0
+            ? batchIds.Select(id => id.ToString()).ToArray()
+            : ["__all_batches__"];
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<CurrentActivityRow>("""
             WITH latest_jobs AS (
@@ -538,18 +655,22 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     entity_id,
                     state,
                     media_type,
+                    lease_owner,
+                    lease_expires_at,
                     updated_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY entity_id
                         ORDER BY updated_at DESC, created_at DESC
                     ) AS rn
                 FROM identity_jobs
-                WHERE ingestion_run_id = @batchId
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
             )
             SELECT
                 lj.entity_id AS EntityId,
                 lj.state AS State,
                 lj.media_type AS MediaType,
+                lj.lease_owner AS LeaseOwner,
+                lj.lease_expires_at AS LeaseExpiresAt,
                 lj.updated_at AS UpdatedAt,
                 ma.file_path_root AS SourcePath,
                 COALESCE(
@@ -580,23 +701,38 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             LEFT JOIN works w ON w.id = e.work_id
             WHERE lj.rn = 1
             ORDER BY lj.updated_at DESC;
-            """, new { batchId = batchId.ToString() })).AsList();
-
-        if (rows.Count == 0)
-        {
-            return [];
-        }
+            """, new { batchIds = batchIdValues, hasBatchScope })).AsList();
 
         var metrics = await conn.QueryFirstOrDefaultAsync<ActivityMetricCounts>("""
             SELECT
-                (SELECT COUNT(*) FROM canonical_values WHERE key IN ('cover_url', 'poster_url', 'image', 'thumbnail', 'hero_image') AND value IS NOT NULL AND value <> '') AS ArtworkCount,
-                (SELECT COUNT(*) FROM collection_relationships) AS RelationshipCount,
-                (SELECT COUNT(DISTINCT person_id) FROM person_media_links) AS PersonCount,
+                (SELECT COUNT(*) FROM entity_assets WHERE COALESCE(asset_class, 'Artwork') = 'Artwork') AS ArtworkCount,
+                (
+                    (SELECT COUNT(*) FROM collection_relationships)
+                  + (SELECT COUNT(*) FROM entity_relationships)
+                  + (SELECT COUNT(*) FROM fictional_entity_work_links)
+                  + (SELECT COUNT(*) FROM character_performer_links)
+                  + (SELECT COUNT(*) FROM series_members)
+                  + (SELECT COUNT(*) FROM series_manifest_items)
+                ) AS RelationshipCount,
+                (SELECT COUNT(*) FROM persons) AS PersonCount,
                 (SELECT COUNT(*) FROM review_queue WHERE status = 'Pending') AS IssueCount;
             """) ?? new ActivityMetricCounts();
-        var artworkRows = await ReadArtworkWorkerRowsAsync(conn, batchId);
-        var seriesRows = await ReadSeriesWorkerRowsAsync(conn, batchId);
-        var peopleRows = await ReadPeopleWorkerRowsAsync(conn, batchId);
+        var operationProgress = await ReadOperationProgressAsync(conn, batchIdValues, hasBatchScope);
+        var artworkOperation = operationProgress.GetValueOrDefault("artwork");
+        var wikidataOperation = operationProgress.GetValueOrDefault("wikidata");
+        var relationshipsOperation = operationProgress.GetValueOrDefault("relationships");
+        var peopleOperation = operationProgress.GetValueOrDefault("people");
+        var artworkRows = await ReadArtworkWorkerRowsAsync(conn, batchIdValues, hasBatchScope);
+        var seriesRows = await ReadSeriesWorkerRowsAsync(conn, batchIdValues, hasBatchScope);
+        var peopleRows = await ReadPeopleWorkerRowsAsync(conn, batchIdValues, hasBatchScope);
+        var artworkDisplayRows = MergeActivityRows(artworkRows, artworkOperation?.Rows);
+        var wikidataDisplayRows = wikidataOperation?.Rows ?? [];
+        var seriesDisplayRows = MergeActivityRows(seriesRows, relationshipsOperation?.Rows);
+        var peopleDisplayRows = MergeActivityRows(peopleRows, peopleOperation?.Rows);
+        var artworkProgress = await ReadArtworkProgressAsync(conn, batchIdValues, hasBatchScope, artworkOperation);
+        var wikidataProgress = BuildOperationProgressOverride(wikidataOperation);
+        var relationshipsProgress = await ReadRelationshipsProgressAsync(conn, batchIdValues, hasBatchScope, relationshipsOperation);
+        var peopleProgress = await ReadPeopleProgressAsync(conn, batchIdValues, hasBatchScope, peopleOperation);
 
         var result = new List<IngestionCurrentActivityDto>
         {
@@ -621,10 +757,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 ],
                 completedStates: [..RetailMatchedStates, ..RetailReviewStates, ..RetailNoMatchStates],
                 reviewStates: [..RetailReviewStates, ..RetailNoMatchStates, nameof(IdentityJobState.Failed)],
-                metricLabel: "Artwork found",
+                metricLabel: "Artwork assets",
                 metricValue: metrics.ArtworkCount.ToString("N0"),
                 metricTone: "info",
-                displayRows: artworkRows),
+                countUnit: "artwork assets",
+                displayRows: artworkDisplayRows,
+                progressOverride: artworkProgress),
             BuildTaskActivity(
                 "wikidata",
                 "Linking Wikidata QIDs",
@@ -643,7 +781,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 reviewStates: WikidataReviewStates,
                 metricLabel: "QIDs linked",
                 metricValue: CountStage(stages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase), "canonicalized").ToString("N0"),
-                metricTone: "success"),
+                metricTone: "success",
+                countUnit: "items",
+                displayRows: wikidataDisplayRows,
+                progressOverride: wikidataProgress),
             BuildTaskActivity(
                 "relationships",
                 "Series & relationships",
@@ -663,7 +804,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 metricLabel: "Links created",
                 metricValue: metrics.RelationshipCount.ToString("N0"),
                 metricTone: "success",
-                displayRows: seriesRows),
+                countUnit: "links",
+                displayRows: seriesDisplayRows,
+                progressOverride: relationshipsProgress),
             BuildTaskActivity(
                 "people",
                 "People & cast enrichment",
@@ -686,7 +829,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 metricLabel: "People resolved",
                 metricValue: metrics.PersonCount.ToString("N0"),
                 metricTone: "warning",
-                displayRows: peopleRows),
+                countUnit: "people",
+                displayRows: peopleDisplayRows,
+                progressOverride: peopleProgress),
         };
 
         return result
@@ -694,7 +839,525 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .ToList();
     }
 
-    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadArtworkWorkerRowsAsync(SqliteConnection conn, Guid batchId)
+    private static async Task<IReadOnlyDictionary<string, TaskOperationProgress>> ReadOperationProgressAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope)
+    {
+        var rows = (await conn.QueryAsync<TaskOperationRow>("""
+            SELECT
+                mo.operation_type AS OperationType,
+                mo.status AS Status,
+                mo.stage AS Stage,
+                mo.provider_id AS ProviderId,
+                mo.source_path AS SourcePath,
+                mo.result_summary AS ResultSummary,
+                mo.lease_owner AS LeaseOwner,
+                mo.lease_expires_at AS LeaseExpiresAt,
+                mo.updated_at AS UpdatedAt,
+                COALESCE(
+                    (
+                        SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = mo.entity_id
+                          AND cv.key IN ('title', 'show_name', 'episode_title')
+                          AND cv.value IS NOT NULL
+                          AND cv.value <> ''
+                        ORDER BY CASE cv.key WHEN 'title' THEN 0 WHEN 'show_name' THEN 1 ELSE 2 END
+                        LIMIT 1
+                    ),
+                    mo.result_summary,
+                    mo.operation_type
+                ) AS Title
+            FROM media_operations mo
+            WHERE mo.operation_type IN @operationTypes
+              AND (@hasBatchScope = 0 OR mo.batch_id IN @batchIds)
+            ORDER BY
+                CASE
+                    WHEN mo.status IN @activeStatuses THEN 0
+                    WHEN mo.status IN @queuedStatuses THEN 1
+                    ELSE 2
+                END,
+                mo.updated_at DESC;
+            """, new
+            {
+                batchIds,
+                hasBatchScope,
+                operationTypes = VisibleOperationTypes,
+                activeStatuses = ActiveOperationStatuses,
+                queuedStatuses = QueuedOperationStatuses,
+            })).AsList();
+
+        return rows
+            .GroupBy(row => ResolveOperationTaskKey(row.OperationType), StringComparer.OrdinalIgnoreCase)
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var operationRows = group.ToList();
+                    var completed = operationRows.Count(row => IsTerminalOperationStatus(row.Status));
+                    var active = operationRows.Count(row => IsActiveOperationStatus(row.Status));
+                    var queued = operationRows.Count(row => IsQueuedOperationStatus(row.Status));
+                    var displayRows = operationRows
+                        .Take(12)
+                        .Select(row => ToOperationActivityRow(group.Key, row))
+                        .ToList();
+
+                    return new TaskOperationProgress(
+                        Processed: completed,
+                        Total: operationRows.Count,
+                        Active: active,
+                        Queued: queued,
+                        LastUpdated: LatestUpdated(displayRows),
+                        Rows: displayRows);
+                },
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static async Task<TaskProgressOverride?> ReadArtworkProgressAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope,
+        TaskOperationProgress? operationProgress)
+    {
+        var counts = await conn.QueryFirstOrDefaultAsync<TaskProgressCountRow>("""
+            WITH batch_targets AS (
+                SELECT DISTINCT COALESCE(gp.id, p.id, w.id, ma.id) AS entity_id
+                FROM identity_jobs ij
+                LEFT JOIN media_assets ma ON ma.id = ij.entity_id
+                LEFT JOIN editions e ON e.id = ma.edition_id
+                LEFT JOIN works w ON w.id = e.work_id
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                WHERE (@hasBatchScope = 0 OR ij.ingestion_run_id IN @batchIds)
+                  AND COALESCE(gp.id, p.id, w.id, ma.id) IS NOT NULL
+                UNION
+                SELECT DISTINCT pml.person_id AS entity_id
+                FROM identity_jobs ij
+                JOIN person_media_links pml ON pml.media_asset_id = ij.entity_id
+                WHERE (@hasBatchScope = 0 OR ij.ingestion_run_id IN @batchIds)
+            )
+            SELECT
+                COUNT(*) AS Total,
+                COALESCE(SUM(CASE
+                    WHEN image_url IS NOT NULL
+                      OR local_image_path IS NOT NULL
+                      OR local_image_path_s IS NOT NULL
+                      OR local_image_path_m IS NOT NULL
+                      OR local_image_path_l IS NOT NULL
+                    THEN 1 ELSE 0 END), 0) AS Processed,
+                MAX(COALESCE(updated_at, created_at)) AS UpdatedAt
+            FROM entity_assets
+            WHERE COALESCE(asset_class, 'Artwork') = 'Artwork'
+              AND (@hasBatchScope = 0 OR entity_id IN (SELECT entity_id FROM batch_targets));
+            """, new { batchIds, hasBatchScope }) ?? new TaskProgressCountRow();
+
+        var recent = await ReadRecentActivityProgressAsync(
+            conn,
+            batchIds,
+            hasBatchScope,
+            [SystemActionType.CoverArtSaved, SystemActionType.HeroBannerGenerated]);
+        var operation = BuildOperationProgressOverride(operationProgress);
+        var hasArtifactCounts = counts.Total > 0 || counts.Processed > 0;
+        var total = hasArtifactCounts ? counts.Total : operation?.Total ?? 0;
+        var processed = hasArtifactCounts ? counts.Processed : operation?.Processed ?? 0;
+        var active = Math.Max(operation?.Active ?? 0, recent.Active);
+        var queued = operation?.Queued ?? 0;
+        if (total <= 0 && processed <= 0 && active <= 0 && queued <= 0)
+            return null;
+
+        return new TaskProgressOverride(
+            processed,
+            total,
+            active,
+            queued,
+            ParseDate(counts.UpdatedAt) ?? operation?.LastUpdated ?? recent.LastUpdated,
+            PreferExact: true);
+    }
+
+    private static TaskProgressOverride? BuildOperationProgressOverride(TaskOperationProgress? operationProgress) =>
+        operationProgress is null
+            ? null
+            : new TaskProgressOverride(
+                operationProgress.Processed,
+                operationProgress.Total,
+                operationProgress.Active,
+                operationProgress.Queued,
+                operationProgress.LastUpdated,
+                PreferExact: true);
+
+    private static IReadOnlyList<CurrentActivityRow> MergeActivityRows(
+        IReadOnlyList<CurrentActivityRow> primary,
+        IReadOnlyList<CurrentActivityRow>? secondary)
+    {
+        if (secondary is not { Count: > 0 })
+            return primary;
+
+        if (primary.Count == 0)
+            return secondary;
+
+        return secondary.Concat(primary)
+            .OrderBy(row => TaskSort(
+                row,
+                [
+                    nameof(IdentityJobState.RetailSearching),
+                    nameof(IdentityJobState.BridgeSearching),
+                    nameof(IdentityJobState.Hydrating),
+                    nameof(IdentityJobState.UniverseEnriching),
+                ],
+                EnrichmentCompleteStates,
+                WikidataReviewStates))
+            .ThenByDescending(row => ParseDate(row.UpdatedAt))
+            .Take(20)
+            .ToList();
+    }
+
+    private static async Task<TaskProgressOverride?> ReadPeopleProgressAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope,
+        TaskOperationProgress? operationProgress)
+    {
+        var counts = await conn.QueryFirstOrDefaultAsync<TaskProgressCountRow>("""
+            WITH batch_assets AS (
+                SELECT DISTINCT entity_id
+                FROM identity_jobs
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
+                  AND entity_id IS NOT NULL
+                  AND entity_id <> ''
+            ),
+            linked_people AS (
+                SELECT DISTINCT
+                    p.id,
+                    p.enriched_at,
+                    p.wikidata_qid,
+                    p.biography,
+                    p.headshot_url,
+                    p.local_headshot_path,
+                    p.created_at
+                FROM batch_assets ba
+                JOIN person_media_links pml ON pml.media_asset_id = ba.entity_id
+                JOIN persons p ON p.id = pml.person_id
+                UNION
+                SELECT DISTINCT
+                    p.id,
+                    p.enriched_at,
+                    p.wikidata_qid,
+                    p.biography,
+                    p.headshot_url,
+                    p.local_headshot_path,
+                    p.created_at
+                FROM persons p
+                WHERE @hasBatchScope = 0
+            )
+            SELECT
+                COUNT(*) AS Total,
+                COALESCE(SUM(CASE
+                    WHEN enriched_at IS NOT NULL
+                      OR wikidata_qid IS NOT NULL
+                      OR biography IS NOT NULL
+                      OR headshot_url IS NOT NULL
+                      OR local_headshot_path IS NOT NULL
+                    THEN 1 ELSE 0 END), 0) AS Processed,
+                MAX(COALESCE(enriched_at, created_at)) AS UpdatedAt
+            FROM linked_people;
+            """, new { batchIds, hasBatchScope }) ?? new TaskProgressCountRow();
+
+        var recent = await ReadRecentActivityProgressAsync(conn, batchIds, hasBatchScope, PeopleActivityTypes);
+        var operation = BuildOperationProgressOverride(operationProgress);
+        var active = Math.Max(operation?.Active ?? 0, recent.Active);
+        var queued = operation?.Queued ?? 0;
+        var hasPeopleCounts = counts.Total > 0 || counts.Processed > 0;
+        var total = hasPeopleCounts ? counts.Total : operation?.Total ?? 0;
+        var processed = hasPeopleCounts ? counts.Processed : operation?.Processed ?? 0;
+        if (total <= 0 && processed <= 0 && active <= 0 && queued <= 0)
+            return null;
+
+        return new TaskProgressOverride(
+            processed,
+            total,
+            active,
+            queued,
+            ParseDate(counts.UpdatedAt) ?? operation?.LastUpdated ?? recent.LastUpdated,
+            PreferExact: true);
+    }
+
+    private static async Task<TaskProgressOverride?> ReadRelationshipsProgressAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope,
+        TaskOperationProgress? operationProgress)
+    {
+        var jobCounts = await conn.QueryFirstOrDefaultAsync<TaskProgressCountRow>("""
+            WITH latest_jobs AS (
+                SELECT
+                    entity_id,
+                    state,
+                    lease_owner,
+                    lease_expires_at,
+                    updated_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM identity_jobs
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
+            ),
+            job_states AS (
+                SELECT entity_id, state, lease_owner, lease_expires_at, updated_at
+                FROM latest_jobs
+                WHERE rn = 1
+                  AND state IN @relationshipStates
+            ),
+            stage3_flags AS (
+                SELECT
+                    entity_id,
+                    MAX(CASE WHEN key IN ('stage3_enriched_at', 'stage3_enhanced_at') THEN 1 ELSE 0 END) AS Stage3Done
+                FROM canonical_values
+                WHERE key IN ('stage3_enriched_at', 'stage3_enhanced_at')
+                GROUP BY entity_id
+            )
+            SELECT
+                COUNT(*) AS Total,
+                COALESCE(SUM(CASE
+                    WHEN js.state IN @completeStates THEN 1
+                    WHEN COALESCE(sf.Stage3Done, 0) = 1 THEN 1
+                    ELSE 0 END), 0) AS Processed,
+                COALESCE(SUM(CASE
+                    WHEN js.state = @universeState
+                     AND js.lease_owner IS NOT NULL
+                     AND js.lease_expires_at IS NOT NULL
+                     AND js.lease_expires_at > @now
+                    THEN 1 ELSE 0 END), 0) AS Active,
+                COALESCE(SUM(CASE
+                    WHEN js.state IN @queuedStates
+                     AND js.state NOT IN @completeStates
+                     AND COALESCE(sf.Stage3Done, 0) = 0
+                    THEN 1 ELSE 0 END), 0) AS Queued,
+                MAX(js.updated_at) AS UpdatedAt
+            FROM job_states js
+            LEFT JOIN stage3_flags sf ON sf.entity_id = js.entity_id;
+            """, new
+            {
+                batchIds,
+                hasBatchScope,
+                now = DateTimeOffset.UtcNow.ToString("O"),
+                relationshipStates = new[]
+                {
+                    nameof(IdentityJobState.QidResolved),
+                    nameof(IdentityJobState.Hydrating),
+                    nameof(IdentityJobState.UniverseEnriching),
+                    nameof(IdentityJobState.Ready),
+                    nameof(IdentityJobState.ReadyWithoutUniverse),
+                    nameof(IdentityJobState.Completed),
+                },
+                completeStates = EnrichmentCompleteStates,
+                queuedStates = new[]
+                {
+                    nameof(IdentityJobState.QidResolved),
+                    nameof(IdentityJobState.Hydrating),
+                    nameof(IdentityJobState.UniverseEnriching),
+                },
+                universeState = nameof(IdentityJobState.UniverseEnriching),
+            }) ?? new TaskProgressCountRow();
+
+        var artifactCounts = await conn.QueryFirstOrDefaultAsync<TaskProgressCountRow>("""
+            WITH batch_assets AS (
+                SELECT DISTINCT ij.entity_id
+                FROM identity_jobs ij
+                WHERE (@hasBatchScope = 0 OR ij.ingestion_run_id IN @batchIds)
+                  AND ij.entity_id IS NOT NULL
+                  AND ij.entity_id <> ''
+            ),
+            batch_works AS (
+                SELECT DISTINCT
+                    w.id AS work_id,
+                    w.collection_id AS collection_id,
+                    COALESCE(
+                        (
+                            SELECT cv.value
+                            FROM canonical_values cv
+                            WHERE cv.entity_id = w.id
+                              AND cv.key = 'wikidata_qid'
+                              AND cv.value IS NOT NULL
+                              AND cv.value <> ''
+                            LIMIT 1
+                        ),
+                        (
+                            SELECT cv.value
+                            FROM canonical_values cv
+                            WHERE cv.entity_id = ma.id
+                              AND cv.key = 'wikidata_qid'
+                              AND cv.value IS NOT NULL
+                              AND cv.value <> ''
+                            LIMIT 1
+                        )
+                    ) AS qid
+                FROM batch_assets ba
+                JOIN media_assets ma ON ma.id = ba.entity_id
+                JOIN editions e ON e.id = ma.edition_id
+                JOIN works w ON w.id = e.work_id
+            ),
+            batch_collections AS (
+                SELECT DISTINCT collection_id
+                FROM batch_works
+                WHERE collection_id IS NOT NULL
+                  AND collection_id <> ''
+            ),
+            batch_qids AS (
+                SELECT DISTINCT qid
+                FROM batch_works
+                WHERE qid IS NOT NULL
+                  AND qid <> ''
+            ),
+            counts AS (
+                SELECT COUNT(*) AS ItemCount, MAX(discovered_at) AS UpdatedAt
+                FROM collection_relationships
+                WHERE @hasBatchScope = 0
+                   OR collection_id IN (SELECT collection_id FROM batch_collections)
+                UNION ALL
+                SELECT COUNT(*) AS ItemCount, MAX(discovered_at) AS UpdatedAt
+                FROM entity_relationships
+                WHERE @hasBatchScope = 0
+                   OR subject_qid IN (SELECT qid FROM batch_qids)
+                   OR object_qid IN (SELECT qid FROM batch_qids)
+                   OR context_work_qid IN (SELECT qid FROM batch_qids)
+                UNION ALL
+                SELECT COUNT(*) AS ItemCount, NULL AS UpdatedAt
+                FROM fictional_entity_work_links
+                WHERE @hasBatchScope = 0
+                   OR work_qid IN (SELECT qid FROM batch_qids)
+                UNION ALL
+                SELECT COUNT(*) AS ItemCount, NULL AS UpdatedAt
+                FROM character_performer_links
+                WHERE @hasBatchScope = 0
+                   OR work_qid IN (SELECT qid FROM batch_qids)
+                UNION ALL
+                SELECT COUNT(*) AS ItemCount, MAX(created_at) AS UpdatedAt
+                FROM series_members
+                WHERE @hasBatchScope = 0
+                   OR work_qid IN (SELECT qid FROM batch_qids)
+                   OR series_qid IN (SELECT qid FROM batch_qids)
+                UNION ALL
+                SELECT COUNT(*) AS ItemCount, MAX(COALESCE(updated_at, last_hydrated_at, created_at)) AS UpdatedAt
+                FROM series_manifest_items
+                WHERE @hasBatchScope = 0
+                   OR collection_id IN (SELECT collection_id FROM batch_collections)
+                   OR linked_work_id IN (SELECT work_id FROM batch_works)
+                   OR item_qid IN (SELECT qid FROM batch_qids)
+                   OR series_qid IN (SELECT qid FROM batch_qids)
+            )
+            SELECT
+                COALESCE(SUM(ItemCount), 0) AS Total,
+                COALESCE(SUM(ItemCount), 0) AS Processed,
+                MAX(UpdatedAt) AS UpdatedAt
+            FROM counts;
+            """, new { batchIds, hasBatchScope }) ?? new TaskProgressCountRow();
+
+        var recent = await ReadRecentActivityProgressAsync(conn, batchIds, hasBatchScope, RelationshipActivityTypes);
+        var operation = BuildOperationProgressOverride(operationProgress);
+        var active = Math.Max(Math.Max(jobCounts.Active, operation?.Active ?? 0), recent.Active);
+        var queued = Math.Max(jobCounts.Queued, operation?.Queued ?? 0);
+        var hasArtifactCounts = artifactCounts.Total > 0 || artifactCounts.Processed > 0;
+        var total = hasArtifactCounts ? artifactCounts.Total : Math.Max(jobCounts.Total, operation?.Total ?? 0);
+        var processed = hasArtifactCounts ? artifactCounts.Processed : Math.Max(jobCounts.Processed, operation?.Processed ?? 0);
+        if (total <= 0 && processed <= 0 && active <= 0 && queued <= 0)
+            return null;
+
+        return new TaskProgressOverride(
+            processed,
+            total,
+            active,
+            queued,
+            ParseDate(artifactCounts.UpdatedAt) ?? ParseDate(jobCounts.UpdatedAt) ?? operation?.LastUpdated ?? recent.LastUpdated,
+            PreferExact: true);
+    }
+
+    private static async Task<RecentActivityProgress> ReadRecentActivityProgressAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope,
+        IReadOnlyCollection<string> actionTypes)
+    {
+        var recentCutoff = DateTimeOffset.UtcNow.Subtract(ActiveActivityFreshness).ToString("O");
+        var row = await conn.QueryFirstOrDefaultAsync<TaskProgressCountRow>("""
+            SELECT
+                COUNT(*) AS Active,
+                MAX(occurred_at) AS UpdatedAt
+            FROM system_activity
+            WHERE action_type IN @actionTypes
+              AND occurred_at >= @recentCutoff
+              AND (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds);
+            """, new { batchIds, hasBatchScope, actionTypes, recentCutoff }) ?? new TaskProgressCountRow();
+
+        return new RecentActivityProgress(row.Active > 0 ? 1 : 0, ParseDate(row.UpdatedAt));
+    }
+
+    private static CurrentActivityRow ToOperationActivityRow(string taskKey, TaskOperationRow row)
+    {
+        var completed = IsTerminalOperationStatus(row.Status);
+        var active = IsActiveOperationStatus(row.Status);
+        var noResult = string.Equals(row.Status, MediaOperationStatus.NoResult, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(row.Status, MediaOperationStatus.MissingConfirmed, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(row.Status, MediaOperationStatus.NotApplicable, StringComparison.OrdinalIgnoreCase);
+        var state = taskKey switch
+        {
+            "wikidata" => active
+                ? nameof(IdentityJobState.BridgeSearching)
+                : noResult ? nameof(IdentityJobState.QidNoMatch)
+                : completed ? nameof(IdentityJobState.QidResolved) : nameof(IdentityJobState.RetailMatched),
+            "relationships" => active
+                ? nameof(IdentityJobState.UniverseEnriching)
+                : completed ? nameof(IdentityJobState.Ready) : nameof(IdentityJobState.QidResolved),
+            "people" => active
+                ? nameof(IdentityJobState.Hydrating)
+                : completed ? nameof(IdentityJobState.Ready) : nameof(IdentityJobState.QidResolved),
+            "artwork" => active
+                ? nameof(IdentityJobState.Hydrating)
+                : completed ? nameof(IdentityJobState.Ready) : nameof(IdentityJobState.RetailMatched),
+            _ => row.Stage ?? row.Status,
+        };
+
+        return new CurrentActivityRow
+        {
+            EntityId = string.Empty,
+            State = state,
+            MediaType = taskKey,
+            LeaseOwner = row.LeaseOwner,
+            LeaseExpiresAt = row.LeaseExpiresAt,
+            UpdatedAt = row.UpdatedAt,
+            SourcePath = FirstNonBlank(row.ProviderId, row.SourcePath),
+            Title = FirstNonBlank(row.Title, row.ResultSummary, row.OperationType),
+        };
+    }
+
+    private static string ResolveOperationTaskKey(string? operationType) =>
+        operationType switch
+        {
+            MediaOperationType.IdentityWikidataBridge => "wikidata",
+            MediaOperationType.EnrichmentCoverArt => "artwork",
+            MediaOperationType.EnrichmentPeople => "people",
+            MediaOperationType.EnrichmentRelationships => "relationships",
+            _ => string.Empty,
+        };
+
+    private static bool IsActiveOperationStatus(string? status) =>
+        !string.IsNullOrWhiteSpace(status)
+        && ActiveOperationStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
+
+    private static bool IsQueuedOperationStatus(string? status) =>
+        !string.IsNullOrWhiteSpace(status)
+        && QueuedOperationStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
+
+    private static bool IsTerminalOperationStatus(string? status) =>
+        !string.IsNullOrWhiteSpace(status)
+        && TerminalOperationStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
+
+    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadArtworkWorkerRowsAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope)
     {
         var rows = (await conn.QueryAsync<CurrentActivityRow>("""
             WITH latest_jobs AS (
@@ -702,18 +1365,22 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     entity_id,
                     state,
                     media_type,
+                    lease_owner,
+                    lease_expires_at,
                     updated_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY entity_id
                         ORDER BY updated_at DESC, created_at DESC
                     ) AS rn
                 FROM identity_jobs
-                WHERE ingestion_run_id = @batchId
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
             )
             SELECT
                 lj.entity_id AS EntityId,
                 lj.state AS State,
                 lj.media_type AS MediaType,
+                lj.lease_owner AS LeaseOwner,
+                lj.lease_expires_at AS LeaseExpiresAt,
                 lj.updated_at AS UpdatedAt,
                 ma.file_path_root AS SourcePath,
                 COALESCE(
@@ -753,24 +1420,27 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE lj.rn = 1
             ORDER BY lj.updated_at DESC;
-            """, new { batchId = batchId.ToString() })).AsList();
+            """, new { batchIds, hasBatchScope })).AsList();
 
         return rows;
     }
 
-    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadSeriesWorkerRowsAsync(SqliteConnection conn, Guid batchId)
+    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadSeriesWorkerRowsAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope)
     {
         var batchRows = (await conn.QueryAsync<WorkerItemRow>("""
             WITH batch_assets AS (
                 SELECT DISTINCT entity_id
                 FROM identity_jobs
-                WHERE ingestion_run_id = @batchId
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
                   AND entity_id IS NOT NULL
                   AND entity_id <> ''
             ),
             batch_collections AS (
                 SELECT DISTINCT
-                    COALESCE(c.display_name, c.name, c.wikidata_qid) AS Title,
+                    COALESCE(c.display_name, c.wikidata_qid) AS Title,
                     NULL AS Detail,
                     COALESCE(c.created_at, datetime('now')) AS UpdatedAt
                 FROM batch_assets ba
@@ -778,8 +1448,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 JOIN editions e ON e.id = ma.edition_id
                 JOIN works w ON w.id = e.work_id
                 JOIN collections c ON c.id = w.collection_id
-                WHERE COALESCE(c.display_name, c.name, c.wikidata_qid) IS NOT NULL
-                  AND COALESCE(c.display_name, c.name, c.wikidata_qid) <> ''
+                WHERE COALESCE(c.display_name, c.wikidata_qid) IS NOT NULL
+                  AND COALESCE(c.display_name, c.wikidata_qid) <> ''
             ),
             activity_collections AS (
                 SELECT DISTINCT
@@ -787,7 +1457,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     detail AS Detail,
                     occurred_at AS UpdatedAt
                 FROM system_activity
-                WHERE ingestion_run_id = @batchId
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
                   AND action_type IN @actionTypes
             )
             SELECT Title, Detail, MAX(UpdatedAt) AS UpdatedAt
@@ -801,7 +1471,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             GROUP BY COALESCE(Title, Detail)
             ORDER BY MAX(UpdatedAt) DESC
             LIMIT 10;
-            """, new { batchId = batchId.ToString(), actionTypes = RelationshipActivityTypes })).AsList();
+            """, new { batchIds, hasBatchScope, actionTypes = RelationshipActivityTypes })).AsList();
 
         if (batchRows.Count > 0)
         {
@@ -810,13 +1480,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         var fallbackRows = (await conn.QueryAsync<WorkerItemRow>("""
             SELECT
-                COALESCE(smh.series_label, c.display_name, c.name, smh.series_qid) AS Title,
+                COALESCE(smh.series_label, c.display_name, smh.series_qid) AS Title,
                 NULL AS Detail,
                 COALESCE(smh.last_hydrated_at, smh.updated_at, smh.created_at) AS UpdatedAt
             FROM series_manifest_hydrations smh
             LEFT JOIN collections c ON c.id = smh.collection_id
-            WHERE COALESCE(smh.series_label, c.display_name, c.name, smh.series_qid) IS NOT NULL
-              AND COALESCE(smh.series_label, c.display_name, c.name, smh.series_qid) <> ''
+            WHERE COALESCE(smh.series_label, c.display_name, smh.series_qid) IS NOT NULL
+              AND COALESCE(smh.series_label, c.display_name, smh.series_qid) <> ''
             ORDER BY COALESCE(smh.last_hydrated_at, smh.updated_at, smh.created_at) DESC
             LIMIT 10;
             """)).AsList();
@@ -824,13 +1494,16 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return ToCompletedWorkerRows(fallbackRows, "Series");
     }
 
-    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadPeopleWorkerRowsAsync(SqliteConnection conn, Guid batchId)
+    private static async Task<IReadOnlyList<CurrentActivityRow>> ReadPeopleWorkerRowsAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<string> batchIds,
+        int hasBatchScope)
     {
         var batchRows = (await conn.QueryAsync<WorkerItemRow>("""
             WITH batch_assets AS (
                 SELECT DISTINCT entity_id
                 FROM identity_jobs
-                WHERE ingestion_run_id = @batchId
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
                   AND entity_id IS NOT NULL
                   AND entity_id <> ''
             ),
@@ -851,7 +1524,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     detail AS Detail,
                     occurred_at AS UpdatedAt
                 FROM system_activity
-                WHERE ingestion_run_id = @batchId
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
                   AND action_type IN @actionTypes
             )
             SELECT Title, Detail, MAX(UpdatedAt) AS UpdatedAt
@@ -865,7 +1538,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             GROUP BY COALESCE(Title, Detail)
             ORDER BY MAX(UpdatedAt) DESC
             LIMIT 10;
-            """, new { batchId = batchId.ToString(), actionTypes = PeopleActivityTypes })).AsList();
+            """, new { batchIds, hasBatchScope, actionTypes = PeopleActivityTypes })).AsList();
 
         if (batchRows.Count > 0)
         {
@@ -966,7 +1639,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         string metricLabel,
         string metricValue,
         string metricTone,
-        IReadOnlyList<CurrentActivityRow>? displayRows = null)
+        string countUnit = "files",
+        IReadOnlyList<CurrentActivityRow>? displayRows = null,
+        TaskProgressOverride? progressOverride = null)
     {
         var relevant = rows
             .Where(row => ContainsState(relevantStates, row.State))
@@ -985,9 +1660,21 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             : relevant;
         var displayActive = displayRelevant.Where(row => IsFreshActive(row, activeStates)).ToList();
         var progress = ResolveActivityProgress(progressStageKey, stages);
-        var total = Math.Max(progress.Total, relevant.Count);
-        var processed = Math.Clamp(Math.Max(progress.Count, completed.Count + review.Count), 0, Math.Max(0, total));
-        var queued = Math.Max(0, total - processed - active.Count);
+        var total = progressOverride?.PreferExact == true
+            ? Math.Max(0, progressOverride.Total)
+            : Math.Max(Math.Max(progress.Total, relevant.Count), progressOverride?.Total ?? 0);
+        var processed = progressOverride?.PreferExact == true
+            ? Math.Max(0, progressOverride.Processed)
+            : Math.Max(Math.Max(progress.Count, completed.Count + review.Count), progressOverride?.Processed ?? 0);
+        processed = Math.Clamp(processed, 0, Math.Max(0, total));
+        var rawActiveCount = Math.Max(active.Count, progressOverride?.Active ?? 0);
+        var remainingAfterProcessed = Math.Max(0, total - processed);
+        var activeCount = progressOverride?.PreferExact == true
+            ? Math.Min(rawActiveCount, remainingAfterProcessed)
+            : rawActiveCount;
+        var queued = progressOverride?.PreferExact == true
+            ? Math.Min(Math.Max(0, progressOverride.Queued), Math.Max(0, remainingAfterProcessed - activeCount))
+            : Math.Max(0, total - processed - activeCount);
         var samples = active.Count > 0
             ? (displayActive.Count > 0 ? displayActive : displayRelevant.Take(10).ToList())
             : displayRelevant.Where(row => !ContainsState(completedStates, row.State)).Take(8).ToList();
@@ -1006,10 +1693,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Source = FirstNonBlank(active.Select(row => ShortPath(row.SourcePath)).FirstOrDefault(), relevant.Select(row => ShortPath(row.SourcePath)).FirstOrDefault()),
             ProcessedCount = processed,
             TotalCount = total,
+            CountUnit = countUnit,
             PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : 0,
-            LastUpdatedTime = LatestUpdated(relevant),
+            LastUpdatedTime = progressOverride?.LastUpdated ?? LatestUpdated(relevant),
             QueuedCount = queued,
-            ActiveCount = active.Count,
+            ActiveCount = activeCount,
             SampleItems = samples.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Take(10).ToList(),
             MetricLabel = metricLabel,
             MetricValue = metricValue,
@@ -1096,6 +1784,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             return false;
         }
 
+        if (!string.IsNullOrWhiteSpace(row.LeaseOwner) || !string.IsNullOrWhiteSpace(row.LeaseExpiresAt))
+        {
+            var leaseExpires = ParseDate(row.LeaseExpiresAt);
+            return !string.IsNullOrWhiteSpace(row.LeaseOwner)
+                && leaseExpires is not null
+                && leaseExpires.Value.ToUniversalTime() > DateTimeOffset.UtcNow;
+        }
+
         var updated = ParseDate(row.UpdatedAt);
         return updated is null || DateTimeOffset.UtcNow - updated.Value.ToUniversalTime() <= ActiveActivityFreshness;
     }
@@ -1174,16 +1870,20 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         foreach (var batch in recentBatches)
         {
-            if (!ActiveBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase))
+            var isActiveStatus = ActiveBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase);
+            var isCompletedWithReviewCounters = string.Equals(batch.Status, "completed", StringComparison.OrdinalIgnoreCase)
+                && batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed > 0;
+            if (!isActiveStatus && !isCompletedWithReviewCounters)
             {
                 continue;
             }
 
             var snapshot = await ReadBatchTerminalSnapshotAsync(batch.Id, ct);
-            var identified = Math.Max(batch.FilesIdentified, snapshot.Identified);
-            var review = Math.Max(batch.FilesReview, snapshot.Review);
-            var noMatch = Math.Max(batch.FilesNoMatch, snapshot.NoMatch);
-            var failed = Math.Max(batch.FilesFailed, snapshot.Failed);
+            var hasSnapshotRows = snapshot.TotalJobs > 0 || snapshot.LogRows > 0;
+            var identified = hasSnapshotRows ? snapshot.Identified : batch.FilesIdentified;
+            var review = hasSnapshotRows ? snapshot.Review : batch.FilesReview;
+            var noMatch = hasSnapshotRows ? snapshot.NoMatch : batch.FilesNoMatch;
+            var failed = hasSnapshotRows ? snapshot.Failed : batch.FilesFailed;
             var terminal = identified + review + noMatch + failed;
             var noActivePipelineWork = snapshot.Queued == 0 && snapshot.Active == 0;
             var age = DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime();
@@ -1217,6 +1917,17 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 processed = Math.Clamp(processed, 0, batch.FilesTotal);
             }
 
+            var nextStatus = failed > 0 && failed >= Math.Max(1, batch.FilesTotal) ? "failed" : "completed";
+            if (batch.FilesProcessed == processed
+                && batch.FilesIdentified == identified
+                && batch.FilesReview == review
+                && batch.FilesNoMatch == noMatch
+                && batch.FilesFailed == failed
+                && string.Equals(batch.Status, nextStatus, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             await _batchRepository.UpdateCountsAsync(
                 batch.Id,
                 batch.FilesTotal,
@@ -1229,7 +1940,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
             await _batchRepository.CompleteAsync(
                 batch.Id,
-                failed > 0 && failed >= Math.Max(1, batch.FilesTotal) ? "failed" : "completed",
+                nextStatus,
                 ct);
 
             changed = true;
@@ -1249,6 +1960,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 SELECT
                     entity_id,
                     state,
+                    lease_owner,
+                    lease_expires_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY entity_id
                         ORDER BY updated_at DESC, created_at DESC
@@ -1257,7 +1970,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 WHERE ingestion_run_id = @batchId
             ),
             job_states AS (
-                SELECT entity_id, state
+                SELECT entity_id, state, lease_owner, lease_expires_at
                 FROM latest_jobs
                 WHERE rn = 1
             ),
@@ -1267,18 +1980,26 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 WHERE status = 'Pending'
             )
             SELECT
-                COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS Identified,
                 COALESCE(SUM(CASE
+                    WHEN ma.status = 'Normal' AND pr.entity_id IS NULL THEN 1
+                    WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1
+                    ELSE 0
+                END), 0) AS Identified,
+                COALESCE(SUM(CASE
+                    WHEN pr.entity_id IS NOT NULL THEN 1
                     WHEN js.state IN ('QidNeedsReview', 'RetailMatchedNeedsReview') THEN 1
-                    WHEN pr.entity_id IS NOT NULL
-                         AND js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'Failed')
-                        THEN 1
                     ELSE 0
                 END), 0) AS Review,
                 COALESCE(SUM(CASE WHEN js.state IN ('RetailNoMatch', 'QidNoMatch') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS NoMatch,
                 COALESCE(SUM(CASE WHEN js.state = 'Failed' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS Failed,
                 COALESCE(SUM(CASE WHEN js.state = 'Queued' THEN 1 ELSE 0 END), 0) AS Queued,
-                COALESCE(SUM(CASE WHEN js.state IN ('RetailSearching', 'RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved', 'Hydrating', 'UniverseEnriching') THEN 1 ELSE 0 END), 0) AS Active,
+                COALESCE(SUM(CASE
+                    WHEN js.state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
+                         AND js.lease_owner IS NOT NULL
+                         AND js.lease_expires_at IS NOT NULL
+                         AND js.lease_expires_at > @now
+                        THEN 1 ELSE 0
+                    END), 0) AS Active,
                 COUNT(js.entity_id) AS TotalJobs,
                 (
                     SELECT COUNT(*)
@@ -1286,9 +2007,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     WHERE il.ingestion_run_id = @batchId
                 ) AS LogRows
             FROM job_states js
+            LEFT JOIN media_assets ma ON ma.id = js.entity_id
             LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
             """,
-            new { batchId = batchId.ToString() }) ?? new BatchTerminalSnapshot();
+            new { batchId = batchId.ToString(), now = DateTimeOffset.UtcNow.ToString("O") }) ?? new BatchTerminalSnapshot();
     }
 
     private static IngestionOperationsJobDto ToActiveJob(
@@ -1775,7 +2497,19 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         progress.Total > 0 && progress.Count < progress.Total;
 
     private static bool IsActiveActivity(IngestionCurrentActivityDto activity) =>
-        activity.ActiveCount > 0;
+        activity.ActiveCount > 0
+        || (activity.QueuedCount > 0
+            && activity.TotalCount > 0
+            && activity.ProcessedCount < activity.TotalCount
+            && IsFreshQueuedActivity(activity.LastUpdatedTime));
+
+    private static bool IsFreshQueuedActivity(DateTimeOffset? updatedAt)
+    {
+        if (!updatedAt.HasValue)
+            return true;
+
+        return DateTimeOffset.UtcNow - updatedAt.Value.ToUniversalTime() <= ActiveActivityFreshness;
+    }
 
     private static string ResolveHealthLabel(int review, int providerWarnings, int failedJobs, int activeJobs)
     {
@@ -1901,6 +2635,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public string EntityId { get; set; } = "";
         public string State { get; set; } = "";
         public string? MediaType { get; set; }
+        public string? LeaseOwner { get; set; }
+        public string? LeaseExpiresAt { get; set; }
         public string? UpdatedAt { get; set; }
         public string? SourcePath { get; set; }
         public string? Title { get; set; }
@@ -1911,6 +2647,29 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         public string? Title { get; init; }
         public string? Detail { get; init; }
+        public string? UpdatedAt { get; init; }
+    }
+
+    private sealed class TaskOperationRow
+    {
+        public string OperationType { get; init; } = "";
+        public string Status { get; init; } = "";
+        public string? Stage { get; init; }
+        public string? ProviderId { get; init; }
+        public string? SourcePath { get; init; }
+        public string? ResultSummary { get; init; }
+        public string? LeaseOwner { get; init; }
+        public string? LeaseExpiresAt { get; init; }
+        public string? UpdatedAt { get; init; }
+        public string? Title { get; init; }
+    }
+
+    private sealed class TaskProgressCountRow
+    {
+        public int Processed { get; init; }
+        public int Total { get; init; }
+        public int Active { get; init; }
+        public int Queued { get; init; }
         public string? UpdatedAt { get; init; }
     }
 
@@ -1937,4 +2696,22 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private sealed record BatchSummaryTotals(int Total, int Registered, int Review);
 
     private sealed record FolderProbe(string Label, bool? IsReachable, bool? PermissionsValid);
+
+    private sealed record TaskOperationProgress(
+        int Processed,
+        int Total,
+        int Active,
+        int Queued,
+        DateTimeOffset? LastUpdated,
+        IReadOnlyList<CurrentActivityRow> Rows);
+
+    private sealed record TaskProgressOverride(
+        int Processed,
+        int Total,
+        int Active,
+        int Queued,
+        DateTimeOffset? LastUpdated,
+        bool PreferExact);
+
+    private sealed record RecentActivityProgress(int Active, DateTimeOffset? LastUpdated);
 }

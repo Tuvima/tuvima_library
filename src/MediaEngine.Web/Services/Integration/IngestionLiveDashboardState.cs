@@ -487,6 +487,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             activity.StageKey = "relationships";
             activity.Message = "Series & relationships";
             activity.Detail = FirstNonBlank(batch.CurrentStage, activity.Detail, "Stage 3 enrichment");
+            activity.CountUnit = "links";
         }
 
         activity.ActiveCount = Math.Max(activity.ActiveCount, Math.Max(0, batch.FilesActive));
@@ -530,6 +531,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             Source = "Wikidata",
             ProcessedCount = completed,
             TotalCount = total,
+            CountUnit = "links",
             PercentComplete = percent,
             LastUpdatedTime = receivedAt,
             QueuedCount = queued,
@@ -954,11 +956,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (totalFiles == 0)
             totalFiles = Math.Max(0, latestBatch?.TotalFiles ?? snapshot?.Summary.TotalItems ?? 0);
 
-        var processedFiles = Math.Max(0, metrics.ProcessedFiles);
-        if (processedFiles == 0 && latestBatch is not null)
-        {
-            processedFiles = Math.Max(0, latestBatch.RegisteredCount + latestBatch.ReviewCount);
-        }
+        var processedFiles = ResolveFileProcessingCount(snapshot, activeJobs, latestBatch, metrics, totalFiles);
 
         if (totalFiles > 0)
             processedFiles = Math.Clamp(processedFiles, 0, totalFiles);
@@ -973,7 +971,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var activeItems = currentActivities.Sum(activity => Math.Max(0, activity.ActiveCount));
         if (activeItems == 0)
             activeItems = activeJobs.Count(job => IsActiveJob(job));
-        var queuedItems = Math.Max(0, totalFiles - processedFiles - activeItems);
+        var queuedItems = ResolveQueuedPipelineCount(currentActivities, activeJobs, metrics, totalFiles, activeItems);
 
         var addedOrUpdatedCount = latestBatch is not null
             ? Math.Max(0, latestBatch.RegisteredCount + latestBatch.ReviewCount)
@@ -1088,6 +1086,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             Source = job.SourceFolder,
             ProcessedCount = processed,
             TotalCount = total,
+            CountUnit = CountUnitForStage(stageKey),
             PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : Math.Clamp(job.PercentComplete, 0, 100),
             LastUpdatedTime = job.LastUpdatedTime,
             QueuedCount = Math.Max(0, total - processed),
@@ -1101,6 +1100,15 @@ public sealed class IngestionLiveDashboardState : IDisposable
         EngineConnectionState.Online => IngestionLiveMode.Live,
         EngineConnectionState.Checking or EngineConnectionState.LiveUpdatesDisconnected => IngestionLiveMode.Reconnecting,
         _ => IngestionLiveMode.Polling,
+    };
+
+    private static string CountUnitForStage(string? stageKey) => stageKey?.ToLowerInvariant() switch
+    {
+        "artwork" => "artwork assets",
+        "relationships" => "links",
+        "people" => "people",
+        "wikidata" => "items",
+        _ => "files",
     };
 
     private void PruneOperationCaches()
@@ -1203,12 +1211,84 @@ public sealed class IngestionLiveDashboardState : IDisposable
             : Math.Max(0, terminalCount);
     }
 
+    private static int ResolveFileProcessingCount(
+        IngestionOperationsSnapshotViewModel? snapshot,
+        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IngestionOperationsBatchViewModel? latestBatch,
+        IngestionDashboardMetrics metrics,
+        int totalFiles)
+    {
+        var parsed = Count(snapshot, "parsed");
+        if (parsed > 0)
+            return ClampFileCount(parsed, totalFiles);
+
+        if (latestBatch?.ProcessedFiles > 0)
+            return ClampFileCount(latestBatch.ProcessedFiles, totalFiles);
+
+        var detected = Count(snapshot, "detected");
+        if (detected > 0)
+            return ClampFileCount(detected, totalFiles);
+
+        var terminalFileOutcomes =
+            Count(snapshot, "registered", snapshot?.Summary.RegisteredItems ?? 0)
+            + Math.Max(Count(snapshot, "needs_review"), snapshot?.Summary.ItemsNeedingReview ?? 0)
+            + Count(snapshot, "duplicate")
+            + Count(snapshot, "skipped")
+            + Count(snapshot, "failed");
+        if (terminalFileOutcomes > 0)
+            return ClampFileCount(terminalFileOutcomes, totalFiles);
+
+        var activeJobProcessed = activeJobs.Sum(job => Math.Max(0, job.ProcessedCount));
+        if (activeJobProcessed > 0)
+            return ClampFileCount(activeJobProcessed, totalFiles);
+
+        return ClampFileCount(metrics.ProcessedFiles, totalFiles);
+    }
+
+    private static int ResolveQueuedPipelineCount(
+        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities,
+        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IngestionDashboardMetrics metrics,
+        int totalFiles,
+        int activeItems)
+    {
+        var queuedFromActivities = currentActivities
+            .Where(activity => activity.TotalCount <= 0 || activity.ProcessedCount < activity.TotalCount)
+            .Sum(activity => Math.Max(0, activity.QueuedCount));
+        if (queuedFromActivities > 0)
+            return queuedFromActivities;
+        if (currentActivities.Any(IsActiveActivity))
+            return 0;
+
+        var queuedFromJobs = activeJobs
+            .Where(IsActiveJob)
+            .Sum(job => Math.Max(0, job.TotalCount - job.ProcessedCount));
+        if (queuedFromJobs > 0)
+            return queuedFromJobs;
+
+        return Math.Max(0, totalFiles - Math.Max(0, metrics.ProcessedFiles) - activeItems);
+    }
+
+    private static int ClampFileCount(int count, int totalFiles) =>
+        totalFiles > 0
+            ? Math.Clamp(Math.Max(0, count), 0, totalFiles)
+            : Math.Max(0, count);
+
     private static bool IsUsefulActivity(ActivityEntryViewModel activity) =>
         activity.ActionType.Contains("Ingest", StringComparison.OrdinalIgnoreCase)
         || activity.ActionType.Contains("MediaAdded", StringComparison.OrdinalIgnoreCase)
         || activity.ActionType.Contains("Batch", StringComparison.OrdinalIgnoreCase)
         || activity.ActionType.Contains("Review", StringComparison.OrdinalIgnoreCase)
-        || activity.ActionType.Contains("Metadata", StringComparison.OrdinalIgnoreCase);
+        || activity.ActionType.Contains("Metadata", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("Artwork", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("CoverArt", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("Person", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("Character", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("Location", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("Organization", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("Relationship", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("NarrativeRoot", StringComparison.OrdinalIgnoreCase)
+        || activity.ActionType.Contains("Universe", StringComparison.OrdinalIgnoreCase);
 
     private static LibraryUpdatePageState ResolveLibraryUpdatePageState(
         IngestionOperationsSnapshotViewModel? snapshot,
@@ -1412,7 +1492,19 @@ public sealed class IngestionLiveDashboardState : IDisposable
         && activity.QueuedCount <= 0;
 
     private static bool IsActiveActivity(IngestionCurrentActivityViewModel activity) =>
-        activity.ActiveCount > 0;
+        activity.ActiveCount > 0
+        || (activity.QueuedCount > 0
+            && activity.TotalCount > 0
+            && activity.ProcessedCount < activity.TotalCount
+            && IsFreshQueuedActivity(activity.LastUpdatedTime));
+
+    private static bool IsFreshQueuedActivity(DateTimeOffset? updatedAt)
+    {
+        if (!updatedAt.HasValue)
+            return true;
+
+        return DateTimeOffset.UtcNow - updatedAt.Value.ToUniversalTime() <= LiveUniverseProgressFreshness;
+    }
 
     private static string ResolveCurrentStepLabel(
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,

@@ -158,6 +158,28 @@ function Write-RL {
     $script:ReportLines.Add($t)
 }
 
+function Resolve-WatchDirectoryFromSettings {
+    param($Settings)
+
+    if ($null -eq $Settings) { return $null }
+
+    $watchDirectoriesProperty = $Settings.PSObject.Properties["watch_directories"]
+    if ($watchDirectoriesProperty -and $watchDirectoriesProperty.Value) {
+        $watchDirectories = @($watchDirectoriesProperty.Value) |
+            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+        if ($watchDirectories.Count -gt 0) {
+            return [string]$watchDirectories[0]
+        }
+    }
+
+    $legacyWatchDirectoryProperty = $Settings.PSObject.Properties["watch_directory"]
+    if ($legacyWatchDirectoryProperty -and -not [string]::IsNullOrWhiteSpace([string]$legacyWatchDirectoryProperty.Value)) {
+        return [string]$legacyWatchDirectoryProperty.Value
+    }
+
+    return $null
+}
+
 # ---------------------------------------------------------------------------
 # API helper
 # ---------------------------------------------------------------------------
@@ -581,8 +603,9 @@ if ($engineWasUp) {
     # -- 2. Resolve watch directory from engine settings
     if (-not $WatchDirectory) {
         $coreSettings = Invoke-Api "/settings/folders"
-        if ($coreSettings -and $coreSettings.watch_directory) {
-            $WatchDirectory = $coreSettings.watch_directory
+        $resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreSettings
+        if ($resolvedWatchDirectory) {
+            $WatchDirectory = $resolvedWatchDirectory
         }
     }
 } elseif ($doWipe) {
@@ -608,7 +631,7 @@ $LibraryRoot = ""
 if ($null -ne $coreSettings -and $coreSettings.library_root) {
     $LibraryRoot = $coreSettings.library_root
 }
-# Fallback: read library_root and watch_directory from config/core.json when engine is offline
+# Fallback: read library_root and watch_directories from config/core.json when engine is offline
 if (-not $LibraryRoot -or (-not $WatchDirectory)) {
     $configDir = Join-Path $RepoRoot "src\MediaEngine.Api\config"
     $coreJson  = Join-Path $configDir "core.json"
@@ -619,8 +642,13 @@ if (-not $LibraryRoot -or (-not $WatchDirectory)) {
                 $LibraryRoot = $coreFile.library_root
                 Write-R " Library root (from config): $LibraryRoot" -c "DarkYellow"
             }
-            if (-not $WatchDirectory -and $coreFile.watch_directory) {
-                $WatchDirectory = $coreFile.watch_directory
+            if (-not $WatchDirectory) {
+                $resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreFile
+                if ($resolvedWatchDirectory) {
+                    $WatchDirectory = $resolvedWatchDirectory
+                }
+            }
+            if ($WatchDirectory) {
                 Write-R " Watch dir (from config): $WatchDirectory" -c "DarkYellow"
             }
         } catch {
@@ -688,8 +716,11 @@ if ($doWipe) {
         # Re-fetch settings after restart (fresh DB, fresh config)
         $coreSettings = Invoke-Api "/settings/folders"
         if ($coreSettings -and $coreSettings.library_root) { $LibraryRoot = $coreSettings.library_root }
-        if (-not $WatchDirectory -and $coreSettings -and $coreSettings.watch_directory) {
-            $WatchDirectory = $coreSettings.watch_directory
+        if (-not $WatchDirectory) {
+            $resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreSettings
+            if ($resolvedWatchDirectory) {
+                $WatchDirectory = $resolvedWatchDirectory
+            }
         }
     } else {
         Write-R " Engine did not restart within 60s. Check the engine manually." -c "Red"

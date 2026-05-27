@@ -148,6 +148,135 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_TreatsQueuedIncompleteStageWorkAsRunning()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 131,
+                RegisteredItems = 121,
+                ItemsNeedingReview = 10,
+                ActiveJobs = 0,
+                LastSuccessfulScanTime = now.AddMinutes(-1),
+            },
+            CurrentActivities =
+            [
+                new()
+                {
+                    StageKey = "wikidata",
+                    Message = "Linking Wikidata QIDs",
+                    ProcessedCount = 64,
+                    TotalCount = 124,
+                    ActiveCount = 0,
+                    QueuedCount = 60,
+                },
+            ],
+            RecentBatches =
+            [
+                new()
+                {
+                    StartedAt = now.AddMinutes(-10),
+                    CompletedAt = now.AddMinutes(-1),
+                    TotalFiles = 131,
+                    ProcessedFiles = 131,
+                    RegisteredCount = 121,
+                    ReviewCount = 10,
+                    Status = "completed",
+                },
+            ],
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            snapshot.CurrentActivities,
+            [],
+            [],
+            new IngestionDashboardMetrics(131, 121, 0, 10),
+            null,
+            now.AddMinutes(-1),
+            now);
+
+        Assert.Equal(LibraryUpdatePageState.Running, status.PageState);
+        Assert.Equal("Updating your library", status.Heading);
+        Assert.True(status.ShowProgress);
+        Assert.Equal(131, status.ProcessedFiles);
+        Assert.Equal(60, status.QueuedItems);
+    }
+
+    [Fact]
+    public void LiveDashboardState_SeparatesFileProcessingFromWikidataProgress()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 131,
+                RegisteredItems = 121,
+                ItemsNeedingReview = 10,
+                LastSuccessfulScanTime = now.AddMinutes(-1),
+            },
+            PipelineStages =
+            [
+                new() { Key = "detected", Count = 131, TotalCount = 131 },
+                new() { Key = "parsed", Count = 131, TotalCount = 131 },
+                new() { Key = "matched", Count = 124, TotalCount = 131 },
+                new() { Key = "canonicalized", Count = 68, TotalCount = 124 },
+                new() { Key = "needs_review", Count = 10, TotalCount = 131 },
+            ],
+            CurrentActivities =
+            [
+                new()
+                {
+                    StageKey = "wikidata",
+                    Message = "Linking Wikidata QIDs",
+                    ProcessedCount = 68,
+                    TotalCount = 124,
+                    ActiveCount = 50,
+                    QueuedCount = 6,
+                    CurrentItem = "Saga #3",
+                },
+            ],
+            RecentBatches =
+            [
+                new()
+                {
+                    StartedAt = now.AddMinutes(-10),
+                    CompletedAt = now.AddMinutes(-1),
+                    TotalFiles = 131,
+                    ProcessedFiles = 131,
+                    RegisteredCount = 121,
+                    ReviewCount = 10,
+                    Status = "completed",
+                },
+            ],
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            snapshot.CurrentActivities,
+            [],
+            [],
+            IngestionLiveDashboardState.BuildMetrics(snapshot, []),
+            null,
+            now.AddMinutes(-1),
+            now);
+
+        Assert.Equal(LibraryUpdatePageState.Running, status.PageState);
+        Assert.Equal(131, status.TotalFiles);
+        Assert.Equal(131, status.ProcessedFiles);
+        Assert.Equal(50, status.ActiveItems);
+        Assert.Equal(6, status.QueuedItems);
+        Assert.Equal(100, status.ProgressPercent);
+        Assert.Equal("131 of 131 files finished", status.MainLine);
+        Assert.Contains("6 still in pipeline", status.SecondaryLine, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LiveDashboardState_MapsNoPriorRunToReadyState()
     {
         var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
@@ -242,9 +371,9 @@ public sealed class IngestionOperationsPageGuardrailTests
             DateTimeOffset.UtcNow);
 
         Assert.Equal(117, status.TotalFiles);
-        Assert.Equal(64, status.ProcessedFiles);
-        Assert.Equal(5, status.QueuedItems);
-        Assert.Equal(54.7, Math.Round(status.ProgressPercent, 1));
+        Assert.Equal(117, status.ProcessedFiles);
+        Assert.Equal(0, status.QueuedItems);
+        Assert.Equal(100, Math.Round(status.ProgressPercent, 1));
         Assert.Equal("The Empire Strikes Back", status.CurrentItemTitle);
         Assert.Equal("Matching titles and identity", status.CurrentStep);
         Assert.Contains(status.Steps, step => step.Label == "Matched identity" && step.Status == LibraryUpdateStepStatus.InProgress);
@@ -509,6 +638,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             PercentComplete = 67,
             ActiveCount = 0,
             QueuedCount = 1,
+            LastUpdatedTime = DateTimeOffset.UtcNow.AddMinutes(-10),
         };
 
         var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
@@ -538,6 +668,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     {
         var workerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\QuickHydrationWorker.cs"));
         var progressSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\BatchProgressService.cs"));
+        var normalizedProgressSource = progressSource.Replace("\r\n", "\n", StringComparison.Ordinal);
         var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
         var operationsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\IngestionOperationsStatusService.cs"));
 
@@ -546,6 +677,11 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("\"Hydrating\" => \"Hydrating metadata\"", progressSource, StringComparison.Ordinal);
         Assert.Contains("BuildLiveBatchActivity", stateSource, StringComparison.Ordinal);
         Assert.Contains("nameof(IdentityJobState.Hydrating)", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("ActiveBatchFreshness", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("js.lease_expires_at > @now", operationsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("+ snapshot.RetailMatched\n                + snapshot.RetailMatchedNeedsReview", normalizedProgressSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("+ snapshot.QidResolved\n                + snapshot.Hydrating", normalizedProgressSource, StringComparison.Ordinal);
+        Assert.Contains("var queued = snapshot.QueuedJobs\n                + snapshot.RetailMatched\n                + snapshot.QidResolved;", normalizedProgressSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -917,7 +1053,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
-    public void ActivityList_ShowsIdleForIncompleteWorkerWithoutActiveItems()
+    public void ActivityList_ShowsQueuedForIncompleteWorkerWithoutActiveItems()
     {
         var activities = new[]
         {
@@ -928,6 +1064,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 Detail = "Building series graph",
                 ProcessedCount = 2,
                 TotalCount = 3,
+                CountUnit = "links",
                 PercentComplete = 67,
                 ActiveCount = 0,
                 QueuedCount = 1,
@@ -945,7 +1082,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("Idle", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Queued", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("2 / 3 links", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("1 queued", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("A New Hope", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("The Empire Strikes Back", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("67%</span>", cut.Markup, StringComparison.Ordinal);
@@ -991,6 +1130,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 Detail = "Retrieving covers and posters from providers.",
                 ProcessedCount = 1,
                 TotalCount = 1,
+                CountUnit = "artwork assets",
                 PercentComplete = 100,
                 ActiveCount = 0,
                 QueuedCount = 0,
@@ -1009,6 +1149,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.Contains("Shawshank Redemption - 7", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("1 / 1 artwork assets", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1070,6 +1211,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("entity_assets", source, StringComparison.Ordinal);
         Assert.Contains("person_media_links", source, StringComparison.Ordinal);
         Assert.Contains("series_manifest_hydrations", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("c.name", source, StringComparison.Ordinal);
         Assert.Contains("displayRows", source, StringComparison.Ordinal);
     }
 
@@ -1257,6 +1399,14 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Detail = "Working through this batch.",
         ProcessedCount = 31,
         TotalCount = 50,
+        CountUnit = key switch
+        {
+            "artwork" => "artwork assets",
+            "relationships" => "links",
+            "people" => "people",
+            "wikidata" => "items",
+            _ => "files",
+        },
         PercentComplete = 62,
         QueuedCount = 12,
         ActiveCount = 3,

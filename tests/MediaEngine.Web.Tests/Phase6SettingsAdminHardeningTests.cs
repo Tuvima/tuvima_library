@@ -63,6 +63,18 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
+    public void WatchTv_UsesSharedBrowseShellSystemView()
+    {
+        var watchPage = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\WatchPage.razor");
+        var browseShell = ReadRepoFile(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
+
+        Assert.Contains("<MediaBrowseShell Tab=\"@Tab\"", watchPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("<TvBrowsePage", watchPage, StringComparison.Ordinal);
+        Assert.Contains("GetSystemViewGroupsAsync(mediaType, systemGroupField)", browseShell, StringComparison.Ordinal);
+        Assert.Contains("BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping)", browseShell, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProvidersTab_DoesNotUseHardcodedFallbackAsLiveConfig()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor");

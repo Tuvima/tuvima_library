@@ -105,6 +105,15 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void OverallPass_FailsWhenIngestionProgressSnapshotHasImpossibleCounts()
+    {
+        var report = CreateTestReport();
+        AddToListProperty(report, "IngestionProgressSnapshots", CreateIngestionProgressSnapshot(progressPercent: 125));
+
+        Assert.False(GetOverallPass(report));
+    }
+
+    [Fact]
     public void GenerateHtmlReport_DoesNotShowAllPassWhenReconciliationMismatches()
     {
         var report = CreateTestReport();
@@ -306,6 +315,25 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         SetProperty(result, "Count", count);
         SetProperty(result, "Failed", failed);
         return result;
+    }
+
+    private static object CreateIngestionProgressSnapshot(double progressPercent)
+    {
+        var type = typeof(IntegrationTestEndpoints).GetNestedType(
+            "IngestionProgressSnapshot",
+            BindingFlags.NonPublic);
+
+        Assert.NotNull(type);
+        var snapshot = Activator.CreateInstance(type!, nonPublic: true)!;
+        SetProperty(snapshot, "AssetCount", 10);
+        SetProperty(snapshot, "ExpectedCount", 10);
+        SetProperty(snapshot, "ResolvedCount", 10);
+        SetProperty(snapshot, "WorkCount", 10);
+        SetProperty(snapshot, "PendingCount", 0);
+        SetProperty(snapshot, "ClaimCount", 20);
+        SetProperty(snapshot, "ActiveJobCount", 0);
+        SetProperty(snapshot, "ProgressPercent", progressPercent);
+        return snapshot;
     }
 
     private static string InvokeDescribeFileSystemCheck(object check)

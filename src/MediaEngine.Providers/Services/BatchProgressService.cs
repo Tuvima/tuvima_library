@@ -16,9 +16,7 @@ public sealed class BatchProgressService
     private static readonly string[] ActiveStates =
     [
         "RetailSearching",
-        "RetailMatched",
         "BridgeSearching",
-        "QidResolved",
         "Hydrating",
         "UniverseEnriching",
     ];
@@ -252,12 +250,11 @@ public sealed class BatchProgressService
             var identified = ready + readyWithoutUniverse;
             var review = snapshot.FilesReview;
             var noMatch = snapshot.FilesNoMatch;
-            var queued = snapshot.QueuedJobs;
-            var active = snapshot.RetailSearching
+            var queued = snapshot.QueuedJobs
                 + snapshot.RetailMatched
-                + snapshot.RetailMatchedNeedsReview
+                + snapshot.QidResolved;
+            var active = snapshot.RetailSearching
                 + snapshot.BridgeSearching
-                + snapshot.QidResolved
                 + snapshot.Hydrating
                 + snapshot.UniverseEnriching;
 

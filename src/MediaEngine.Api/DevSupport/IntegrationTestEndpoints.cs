@@ -54,6 +54,7 @@ public static class IntegrationTestEndpoints
         public List<FileSystemCheckResult> FileSystemChecks { get; set; } = [];
         public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
+        public List<IngestionProgressSnapshot> IngestionProgressSnapshots { get; set; } = [];
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
         public List<SeriesHarnessCheckResult> SeriesHarnessChecks { get; set; } = [];
         public List<CharacterArtworkCheckResult> CharacterArtworkChecks { get; set; } = [];
@@ -74,6 +75,7 @@ public static class IntegrationTestEndpoints
             && FileSystemChecks.All(result => result.Pass)
             && WatchFolderChecks.All(result => result.Pass)
             && StageGatingResults.All(result => result.Pass)
+            && IngestionProgressSnapshots.All(result => result.Pass)
             && Stage3FanartSummaries.All(result => result.Pass)
             && SeriesHarnessChecks.All(result => result.Pass)
             && CharacterArtworkChecks.All(result => result.Pass)
@@ -187,6 +189,31 @@ public static class IntegrationTestEndpoints
         public string Check { get; set; } = "";
         public bool Pass { get; set; }
         public string? Detail { get; set; }
+    }
+
+    /// <summary>Point-in-time ingestion count sample used to catch impossible progress math.</summary>
+    private sealed class IngestionProgressSnapshot
+    {
+        public DateTimeOffset CapturedAt { get; set; } = DateTimeOffset.UtcNow;
+        public int AssetCount { get; set; }
+        public int ExpectedCount { get; set; }
+        public int ResolvedCount { get; set; }
+        public int WorkCount { get; set; }
+        public int PendingCount { get; set; }
+        public int ClaimCount { get; set; }
+        public int ActiveJobCount { get; set; }
+        public int StableSnapshots { get; set; }
+        public double ProgressPercent { get; set; }
+        public bool Pass =>
+            AssetCount >= 0
+            && ExpectedCount >= 0
+            && ResolvedCount >= 0
+            && WorkCount >= 0
+            && PendingCount >= 0
+            && ClaimCount >= 0
+            && ActiveJobCount >= 0
+            && ProgressPercent is >= 0 and <= 100
+            && (ExpectedCount == 0 || AssetCount <= ExpectedCount || ProgressPercent == 100);
     }
 
     // â”€â”€ Reconciliation models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -641,6 +668,7 @@ public static class IntegrationTestEndpoints
             bool ingestionComplete = await WaitForIngestionAsync(
                 db,
                 logger,
+                report,
                 ingestionTimeout,
                 report.TotalFilesSeeded,
                 stages,
@@ -865,6 +893,7 @@ public static class IntegrationTestEndpoints
     private static async Task<bool> WaitForIngestionAsync(
         IDatabaseConnection db,
         ILogger logger,
+        TestReport report,
         TimeSpan timeout,
         int expectedCount,
         int stages,
@@ -942,6 +971,21 @@ public static class IntegrationTestEndpoints
                 activeIdentityJobs,
                 stableSnapshots,
                 jobStateSummary);
+
+            report.IngestionProgressSnapshots.Add(new IngestionProgressSnapshot
+            {
+                AssetCount = assetCount,
+                ExpectedCount = expectedCount,
+                ResolvedCount = resolvedCount,
+                WorkCount = totalWorks,
+                PendingCount = pendingCount,
+                ClaimCount = claimCount,
+                ActiveJobCount = activeIdentityJobs,
+                StableSnapshots = stableSnapshots,
+                ProgressPercent = expectedCount > 0
+                    ? Math.Clamp(assetCount * 100d / expectedCount, 0d, 100d)
+                    : 0d,
+            });
 
             if (assetCount >= expectedCount && totalWorks > 0 && pendingCount == 0 && activeIdentityJobs == 0 && stableSnapshots >= 2)
             {
@@ -1254,6 +1298,11 @@ public static class IntegrationTestEndpoints
             if (check.RequiresRetailProvider && !check.HasExpectedRetailProvider)
             {
                 report.IssuesFound.Add($"Library: '{item.Title}' retail provider '{actualProvider ?? "unknown"}' did not match expected '{expectedProvider}'");
+            }
+
+            if (HasComicIssueTitleDrift(item, detail))
+            {
+                report.IssuesFound.Add($"Library: comic issue '{item.Title}' does not preserve its series and issue identity");
             }
 
             if (!check.HasCoverArt)
@@ -2744,6 +2793,12 @@ public static class IntegrationTestEndpoints
         }
 
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
+        if (report.IngestionProgressSnapshots.Count > 0)
+        {
+            var lastProgress = report.IngestionProgressSnapshots[^1];
+            SummaryCard(sb, $"{lastProgress.AssetCount}/{lastProgress.ExpectedCount}", "Progress Samples", "#2DD4BF");
+        }
+
         if (report.Reconciliation is not null)
         {
             SummaryCard(sb, report.Reconciliation.Matched + "/" + report.Reconciliation.ExpectedTotal, "Reconciliation", "#F472B6");
@@ -2782,6 +2837,24 @@ public static class IntegrationTestEndpoints
             foreach (var (type, reason) in report.SkippedTypes.OrderBy(s => s.Key))
             {
                 sb.AppendLine($"<tr><td>{Esc(type)}</td><td><span class=\"badge badge-skip\">{Esc(reason)}</span></td></tr>");
+            }
+
+            sb.AppendLine("</table>");
+        }
+
+        if (report.IngestionProgressSnapshots.Count > 0)
+        {
+            sb.AppendLine("<h2>Ingestion Progress Samples</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Time UTC</th><th>Assets</th><th>Resolved / Works</th><th>Pending</th><th>Claims</th><th>Active Jobs</th><th>Progress</th><th>Status</th></tr>");
+            foreach (var sample in report.IngestionProgressSnapshots.TakeLast(12))
+            {
+                string badge = sample.Pass
+                    ? "<span class=\"badge badge-pass\">OK</span>"
+                    : "<span class=\"badge badge-fail\">BAD COUNT</span>";
+                sb.AppendLine($"<tr><td>{sample.CapturedAt:HH:mm:ss}</td><td>{sample.AssetCount}/{sample.ExpectedCount}</td>" +
+                    $"<td>{sample.ResolvedCount}/{sample.WorkCount}</td><td>{sample.PendingCount}</td><td>{sample.ClaimCount}</td>" +
+                    $"<td>{sample.ActiveJobCount}</td><td>{sample.ProgressPercent:F1}%</td><td>{badge}</td></tr>");
             }
 
             sb.AppendLine("</table>");
@@ -3581,6 +3654,84 @@ public static class IntegrationTestEndpoints
 
     private static string NormalizeExpectationKey(string title, string mediaType) =>
         $"{title.Trim().ToLowerInvariant()}|{mediaType.Trim().ToLowerInvariant()}";
+
+    private static bool HasComicIssueTitleDrift(LibraryCatalogItem item, LibraryItemDetail? detail)
+    {
+        if (!item.MediaType.Equals("Comics", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var series = FirstCanonicalValue(detail, "series");
+        var issue = FirstCanonicalValue(detail, "series_position", "issue_number", "issue");
+        var title = detail?.Title ?? item.Title;
+        if (string.IsNullOrWhiteSpace(series)
+            || string.IsNullOrWhiteSpace(issue)
+            || string.IsNullOrWhiteSpace(title))
+        {
+            return false;
+        }
+
+        return !ContainsNormalized(title, series)
+            || !ContainsNormalized(title, issue);
+    }
+
+    private static string? FirstCanonicalValue(LibraryItemDetail? detail, params string[] keys)
+    {
+        if (detail is null)
+        {
+            return null;
+        }
+
+        var values = new List<string?>();
+        if (keys.Contains("series", StringComparer.OrdinalIgnoreCase))
+        {
+            values.Add(detail.Series);
+        }
+
+        if (keys.Contains("series_position", StringComparer.OrdinalIgnoreCase)
+            || keys.Contains("issue_number", StringComparer.OrdinalIgnoreCase)
+            || keys.Contains("issue", StringComparer.OrdinalIgnoreCase))
+        {
+            values.Add(detail.SeriesPosition);
+        }
+
+        values.AddRange(detail.CanonicalValues
+            .Where(c => keys.Contains(c.Key, StringComparer.OrdinalIgnoreCase))
+            .Select(c => c.Value));
+
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool ContainsNormalized(string text, string fragment)
+    {
+        static string Normalize(string value)
+        {
+            var builder = new StringBuilder(value.Length);
+            foreach (var ch in value)
+            {
+                if (char.IsLetterOrDigit(ch))
+                {
+                    builder.Append(char.ToLowerInvariant(ch));
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        var normalizedText = Normalize(text);
+        var normalizedFragment = Normalize(fragment);
+        return normalizedFragment.Length > 0
+            && normalizedText.Contains(normalizedFragment, StringComparison.Ordinal);
+    }
 
     private sealed class DescriptionClaimRow
     {

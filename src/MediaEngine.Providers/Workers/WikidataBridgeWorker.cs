@@ -619,7 +619,6 @@ public sealed class WikidataBridgeWorker
 
             await _jobRepo.SetResolvedQidAsync(job.Id, ctx.ResolvedQid, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidResolved, ct: ct);
-            await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
 
             // Skip post-resolve property fetch for music — the resolved QID is the
             // ALBUM, not the track. Fetching its properties would overwrite the
@@ -628,6 +627,12 @@ public sealed class WikidataBridgeWorker
             {
                 if (ctx.MatchedBy == "music_album")
                 {
+                    await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.ProviderLookup, 75, "Fetching Wikidata album properties.", ct, new
+                    {
+                        qid = ctx.ResolvedQid,
+                        media_type = ctx.MediaType.ToString(),
+                    }).ConfigureAwait(false);
+
                     IReadOnlyList<ProviderClaim> albumClaims;
                     if (ctx.PreFetchedClaims is not null)
                     {
@@ -680,6 +685,7 @@ public sealed class WikidataBridgeWorker
 
                 await _postPipeline.EvaluateAndOrganizeAsync(
                     job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
+                await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
                 return;
             }
 
@@ -688,6 +694,12 @@ public sealed class WikidataBridgeWorker
             // for this QID group, use it directly — no HTTP call needed.
             // Otherwise fall back to FetchAsync (covers the single-job case and
             // any group whose representative FetchAsync failed).
+            await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.ProviderLookup, 75, "Fetching full Wikidata properties.", ct, new
+            {
+                qid = ctx.ResolvedQid,
+                media_type = ctx.MediaType.ToString(),
+            }).ConfigureAwait(false);
+
             IReadOnlyList<ProviderClaim> fullClaims;
             if (ctx.PreFetchedClaims is not null)
             {
@@ -720,6 +732,12 @@ public sealed class WikidataBridgeWorker
 
             if (fullClaims.Count > 0)
             {
+                await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.WritingArtifact, 85, "Persisting Wikidata claims and related people.", ct, new
+                {
+                    qid = ctx.ResolvedQid,
+                    claim_count = fullClaims.Count,
+                }).ConfigureAwait(false);
+
                 // Phase 3c: lineage-aware persist mirrors parent-scope
                 // display claims (show_name, year, description, cover,
                 // genre, cast) onto the parent Work — the show or series.
@@ -740,6 +758,7 @@ public sealed class WikidataBridgeWorker
 
             await _postPipeline.EvaluateAndOrganizeAsync(
                 job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
+            await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
         }
         else
         {
@@ -752,6 +771,12 @@ public sealed class WikidataBridgeWorker
             {
                 try
                 {
+                    await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.ProviderLookup, 70, "Searching Wikidata by title fallback.", ct, new
+                    {
+                        title = ctx.TitleHint,
+                        media_type = ctx.MediaType.ToString(),
+                    }).ConfigureAwait(false);
+
                     var fallbackClaims = await reconAdapter.FetchAsync(
                         new ProviderLookupRequest
                         {
@@ -791,6 +816,12 @@ public sealed class WikidataBridgeWorker
                             {
                                 new ProviderClaim(MetadataFieldConstants.QidResolutionMethod, "text", 1.0),
                             };
+
+                            await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.WritingArtifact, 85, "Persisting title-fallback Wikidata claims.", ct, new
+                            {
+                                qid = ctx.ResolvedQid,
+                                claim_count = fallbackClaims.Count,
+                            }).ConfigureAwait(false);
 
                             // Phase 3c: lineage-aware persist for the
                             // text-fallback path so parent-scope claims still

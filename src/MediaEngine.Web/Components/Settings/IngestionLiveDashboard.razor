@@ -551,9 +551,11 @@
             : $"/settings/activity?batchId={batch.BatchId:D}";
 
     private static string FormatEnrichmentValue(LibraryUpdateStatusViewModel model) =>
-        model.EnrichmentTotal > 0
-            ? $"{FormatCount(model.EnrichmentCompleted)} / {FormatCount(model.EnrichmentTotal)}"
-            : FormatCount(model.EnrichmentCompleted);
+        model.EnrichmentTotal <= 0
+            ? FormatCount(model.EnrichmentCompleted)
+            : model.EnrichmentCompleted >= model.EnrichmentTotal
+                ? FormatCount(model.EnrichmentTotal)
+                : $"{FormatCount(model.EnrichmentCompleted)}/{FormatCount(model.EnrichmentTotal)}";
 
     private static string FormatPercent(double percent) =>
         $"{Math.Clamp(percent, 0, 100).ToString("0", CultureInfo.CurrentCulture)}%";

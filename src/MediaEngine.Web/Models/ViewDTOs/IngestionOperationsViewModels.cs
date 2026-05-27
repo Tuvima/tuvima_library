@@ -75,6 +75,7 @@ public sealed class IngestionCurrentActivityViewModel
     [JsonPropertyName("source")] public string? Source { get; set; }
     [JsonPropertyName("processed_count")] public int ProcessedCount { get; set; }
     [JsonPropertyName("total_count")] public int TotalCount { get; set; }
+    [JsonPropertyName("count_unit")] public string CountUnit { get; set; } = "files";
     [JsonPropertyName("percent_complete")] public double PercentComplete { get; set; }
     [JsonPropertyName("last_updated_time")] public DateTimeOffset? LastUpdatedTime { get; set; }
     [JsonPropertyName("queued_count")] public int QueuedCount { get; set; }

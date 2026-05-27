@@ -94,6 +94,24 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateStageAsync_RevivesInterruptedOperationAsRunning()
+    {
+        var repo = new MediaOperationRepository(_db);
+        var operation = await repo.EnsureAsync(NewOperation(
+            $"identity:wikidata:{Guid.NewGuid():N}",
+            status: MediaOperationStatus.Interrupted));
+
+        await repo.UpdateStageAsync(operation.Id, MediaOperationStage.ProviderLookup, 35);
+        var updated = await repo.GetByIdAsync(operation.Id);
+
+        Assert.NotNull(updated);
+        Assert.Equal(MediaOperationStatus.Running, updated.Status);
+        Assert.Equal(MediaOperationStage.ProviderLookup, updated.Stage);
+        Assert.Equal(35, updated.ProgressPercent);
+        Assert.NotNull(updated.StartedAt);
+    }
+
+    [Fact]
     public async Task EntityCapabilityState_UsesSingleKeyForNullSubKey()
     {
         var repo = new EntityCapabilityStateRepository(_db);

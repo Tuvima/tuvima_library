@@ -1,7 +1,7 @@
 # Tuvima Library — Ingestion Test Scenarios
 
 **47 standard scenarios** covering Books, Audiobooks, Movies, TV, Music, Comics, and the general drop zone.
-**118 large-corpus scenarios** are available with `--large` for stress testing canonical matching, people enrichment, series linking, and batched provider flow.
+**132 large-corpus files** are available with `--large` for stress testing canonical matching, people enrichment, series linking, multi-season TV, comics, and batched provider flow.
 The generator now includes cross-media person and series coverage so the ingestion harness can validate links across formats.
 
 ---
@@ -12,7 +12,7 @@ The generator now includes cross-media person and series coverage so the ingesti
 # One command - wipes dev environment, regenerates all 47 files:
 powershell -ExecutionPolicy Bypass -File tools/test-data/reset-and-generate.ps1
 
-# Large stress corpus - wipes dev environment, regenerates 118 files:
+# Large stress corpus - wipes dev environment, regenerates 132 files:
 powershell -ExecutionPolicy Bypass -File tools/test-data/reset-and-generate.ps1 -Large
 
 # Generator only (no wipe):
@@ -33,6 +33,8 @@ dotnet run --project src/MediaEngine.Api
 ---
 
 ## Watch folder layout
+
+Current generated output is media-type scoped: `books`, `audiobooks`, `tv`, `movies`, `music`, `comics`, and `general` live under the watch root, with `MANIFEST.json` written at the watch root. The large corpus includes TV episodes across multiple seasons and expanded comic issue fixtures.
 
 ```
 C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)

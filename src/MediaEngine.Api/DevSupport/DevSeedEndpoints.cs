@@ -501,6 +501,27 @@ public static class DevSeedEndpoints
             TestCategory: "TV pattern Ã¢â‚¬â€ higher season and two-digit episode, stress late-series batching",
             ExpectedProvider: "tmdb"),
 
+        new("Seven Thirty-Seven", null, 2009, "TV",
+            Series: "Breaking Bad", SeasonNumber: 2, EpisodeNumber: 1,
+            EpisodeTitle: "Seven Thirty-Seven",
+            FileNameOverride: "Breaking Bad/Season 02/Breaking Bad - S02E01 - Seven Thirty-Seven.mp4",
+            TestCategory: "TV pattern - second season episode, validates season selector grouping",
+            ExpectedProvider: "tmdb"),
+
+        new("No Mas", null, 2010, "TV",
+            Series: "Breaking Bad", SeasonNumber: 3, EpisodeNumber: 1,
+            EpisodeTitle: "No Mas",
+            FileNameOverride: "Breaking Bad/Season 03/Breaking Bad - S03E01 - No Mas.mp4",
+            TestCategory: "TV pattern - third season episode, validates multi-season library display",
+            ExpectedProvider: "tmdb"),
+
+        new("Safe", null, 2017, "TV",
+            Series: "The Expanse", SeasonNumber: 2, EpisodeNumber: 1,
+            EpisodeTitle: "Safe",
+            FileNameOverride: "The Expanse/Season 02/The Expanse - S02E01 - Safe.mp4",
+            TestCategory: "TV pattern - second season sci-fi episode, validates cross-season grouping",
+            ExpectedProvider: "tmdb"),
+
         new("Spider-Man: Into the Spider-Verse", "Bob Persichetti", 2018, "Movie",
             TestCategory: "Movie Ã¢â‚¬â€ colon title with subtitle and punctuation, strong TMDB match",
             ExpectedProvider: "tmdb"),
@@ -641,7 +662,7 @@ public static class DevSeedEndpoints
             ExpectedReason: "Synthetic comic issue should not match ComicVine",
             ExpectedCoverArt: false),
 
-        // Comics expectations: ComicVine issue search should identify all four issues.
+        // Comics expectations: ComicVine issue search should identify known real issues.
         // Some may still miss a Wikidata QID, but retail identification remains valid
         // and the item should stay usable without being forced into review.
         new("Batman: Year One Part 1", Writer: "Frank Miller",
@@ -670,6 +691,43 @@ public static class DevSeedEndpoints
             Summary: "In the year 2019, Neo-Tokyo has risen from the ashes of World War III.",
             Publisher: "Kodansha", Penciller: "Katsuhiro Otomo",
             TestCategory: "Comic â€” manga, Japanese creator",
+            ExpectIdentified: true),
+
+        new("Batman: Year One Part 2", Writer: "Frank Miller",
+            Series: "Batman", Number: 405, Year: 1987, Genre: "Superhero",
+            Summary: "Jim Gordon and Bruce Wayne continue their first year in Gotham.",
+            Publisher: "DC Comics", Penciller: "David Mazzucchelli",
+            TestCategory: "Comic - consecutive issue, validates volume ordering"),
+
+        new("Batman: Year One Part 3", Writer: "Frank Miller",
+            Series: "Batman", Number: 406, Year: 1987, Genre: "Superhero",
+            Summary: "Batman becomes a symbol while Gordon closes in on Gotham corruption.",
+            Publisher: "DC Comics", Penciller: "David Mazzucchelli",
+            TestCategory: "Comic - consecutive issue, validates volume ordering"),
+
+        new("Batman: Year One Part 4", Writer: "Frank Miller",
+            Series: "Batman", Number: 407, Year: 1987, Genre: "Superhero",
+            Summary: "The first-year arc closes with Batman and Gordon finding their footing.",
+            Publisher: "DC Comics", Penciller: "David Mazzucchelli",
+            TestCategory: "Comic - consecutive issue, validates volume ordering"),
+
+        new("Saga Chapter Two", Writer: "Brian K. Vaughan",
+            Series: "Saga", Number: 2, Year: 2012, Genre: "Science Fiction, Fantasy",
+            Summary: "Alana, Marko, and Hazel flee across a hostile galaxy.",
+            Publisher: "Image Comics", Penciller: "Fiona Staples",
+            TestCategory: "Comic - same series second issue, validates comic shelf grouping"),
+
+        new("Saga Chapter Three", Writer: "Brian K. Vaughan",
+            Series: "Saga", Number: 3, Year: 2012, Genre: "Science Fiction, Fantasy",
+            Summary: "The chase intensifies as both sides hunt the new family.",
+            Publisher: "Image Comics", Penciller: "Fiona Staples",
+            TestCategory: "Comic - same series third issue, validates comic shelf grouping"),
+
+        new("The Sandman: Imperfect Hosts", Writer: "Neil Gaiman",
+            Series: "The Sandman", Number: 2, Year: 1989, Genre: "Fantasy, Horror",
+            Summary: "Dream begins to recover the tools of his office.",
+            Publisher: "DC Comics/Vertigo", Penciller: "Sam Kieth",
+            TestCategory: "Comic - second Sandman issue, validates creator and series grouping",
             ExpectIdentified: true),
     ];
 

@@ -441,33 +441,37 @@
     {
         public bool IsRunning => ActiveCount > 0;
 
+        public bool IsQueued => !IsRunning && QueuedCount > 0;
+
         public bool IsRecentlyComplete =>
             !IsRunning
+            && !IsQueued
             && Percent >= 100
             && LastUpdatedTime.HasValue
             && DateTimeOffset.UtcNow - LastUpdatedTime.Value.ToUniversalTime() <= CompletedWorkerFreshness;
 
-        public bool ShowProgress => IsRunning || IsRecentlyComplete;
+        public bool ShowProgress => (IsRunning && Percent < 100) || IsRecentlyComplete;
 
-        public string StatusLabel => IsRunning ? "Running" : IsRecentlyComplete ? "Complete" : "Idle";
+        public string StatusLabel => IsRunning ? "Running" : IsQueued ? "Queued" : IsRecentlyComplete ? "Complete" : "Idle";
 
-        public string StatusCss => IsRunning ? "is-running" : IsRecentlyComplete ? "is-complete" : "is-idle";
+        public string StatusCss => IsRunning ? "is-running" : IsQueued ? "is-running" : IsRecentlyComplete ? "is-complete" : "is-idle";
 
         public string DetailLine => IsRunning
             ? FirstNonBlank(Detail, "Working")
+            : IsQueued ? FirstNonBlank(Detail, "Waiting for the worker to pick up queued work")
             : $"Idle - last update {Updated}";
 
         public static CurrentRow FromActivity(IngestionCurrentActivityViewModel activity)
         {
             var percent = Math.Clamp(activity.PercentComplete, 0, 100);
             var activeCount = Math.Max(0, activity.ActiveCount);
-            var queuedCount = activeCount > 0 ? Math.Max(0, activity.QueuedCount) : 0;
+            var queuedCount = Math.Max(0, activity.QueuedCount);
             return new CurrentRow(
                 FirstNonBlank(activity.StageKey, activity.Message),
                 FirstNonBlank(activity.Message, "Processing files"),
                 FirstNonBlank(activity.Detail, activity.CurrentItem, "Working on the current item"),
                 ShortPath(activity.Source),
-                FormatCounts(activity.ProcessedCount, activity.TotalCount),
+                FormatCounts(activity.ProcessedCount, activity.TotalCount, activity.CountUnit),
                 FormatUpdated(activity.LastUpdatedTime),
                 activity.LastUpdatedTime,
                 StageIcon(activity.StageKey),
@@ -503,7 +507,7 @@
                 StageMessage(stageKey),
                 FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running"),
                 ShortPath(job.SourceFolder),
-                FormatCounts(count, total),
+                FormatCounts(count, total, "files"),
                 FormatUpdated(job.LastUpdatedTime),
                 job.LastUpdatedTime,
                 StageIcon(stageKey),
@@ -559,7 +563,9 @@
         {
             if (active <= 0)
             {
-                return "No active item";
+                return queued > 0
+                    ? $"{queued.ToString("N0", CultureInfo.CurrentCulture)} queued"
+                    : "No active item";
             }
 
             return queued > 0
@@ -597,10 +603,13 @@
         return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(spaced.ToLowerInvariant());
     }
 
-    private static string FormatCounts(int count, int total) =>
+    private static string FormatCounts(int count, int total, string? unit) =>
         total > 0
-            ? $"{count.ToString("N0", CultureInfo.CurrentCulture)} / {total.ToString("N0", CultureInfo.CurrentCulture)} files"
+            ? $"{count.ToString("N0", CultureInfo.CurrentCulture)} / {total.ToString("N0", CultureInfo.CurrentCulture)} {NormalizeUnit(unit)}"
             : "Working";
+
+    private static string NormalizeUnit(string? unit) =>
+        string.IsNullOrWhiteSpace(unit) ? "items" : unit.Trim();
 
     private static string FormatUpdated(DateTimeOffset? value)
     {

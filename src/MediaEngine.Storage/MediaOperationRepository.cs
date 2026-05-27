@@ -183,7 +183,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         => ExecuteAsync("""
             UPDATE media_operations
             SET stage = @stage,
-                status = CASE WHEN status IN ('pending','queued','leased') THEN 'running' ELSE status END,
+                status = CASE WHEN status IN ('pending','queued','retry_waiting','interrupted','leased') THEN 'running' ELSE status END,
                 progress_percent = COALESCE(@progressPercent, progress_percent),
                 heartbeat_at = @now,
                 started_at = COALESCE(started_at, @now),
