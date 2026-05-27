@@ -58,6 +58,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--tl-space-2);
+    width: 100%;
 }
 
 .file-org-path-list {
@@ -69,17 +70,51 @@
 .file-org-path-row,
 .file-org-source-row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: 24px minmax(320px, 1fr) auto auto;
     align-items: center;
-    gap: var(--tl-space-2);
-    padding: var(--tl-space-2);
+    gap: var(--tl-space-3);
+    min-height: 64px;
+    padding: var(--tl-space-3);
     border: 1px solid var(--tl-border-subtle);
     border-radius: 8px;
     background: color-mix(in srgb, var(--tl-surface-raised) 72%, transparent);
 }
 
 .file-org-source-row {
-    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    grid-template-areas:
+        "source-icon source-path source-actions"
+        ". source-meta source-actions";
+}
+
+.file-org-source-row > .mud-icon-root {
+    grid-area: source-icon;
+}
+
+.file-org-source-row > .app-field,
+.file-org-source-path-input {
+    grid-area: source-path;
+}
+
+.file-org-source-row__meta {
+    grid-area: source-meta;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--tl-space-2);
+}
+
+.file-org-source-row__actions {
+    grid-area: source-actions;
+    display: flex;
+    align-items: center;
+    gap: var(--tl-space-1);
+}
+
+.folder-path-input-row .app-field,
+.file-org-path-row .app-field,
+.file-org-source-row .app-field {
+    min-width: 0;
+    width: 100%;
 }
 
 .folder-path-status {
@@ -94,13 +129,12 @@
 
 .file-org-media-grid {
     display: grid;
-    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.05fr) minmax(260px, 0.82fr);
+    grid-template-columns: minmax(360px, 1.2fr) minmax(340px, 1.05fr) minmax(300px, 1fr);
     gap: var(--tl-space-4);
 }
 
-.file-org-media-grid--global,
 .file-org-media-grid--import {
-    grid-template-columns: minmax(320px, 1fr) minmax(280px, 0.82fr);
+    grid-template-columns: minmax(420px, 1.2fr) minmax(300px, 0.8fr);
 }
 
 .file-org-media-panel {
@@ -114,8 +148,7 @@
     background: color-mix(in srgb, var(--tl-surface-raised) 58%, transparent);
 }
 
-.file-org-media-panel--folders,
-.file-org-media-panel--global {
+.file-org-media-panel--folders {
     border-color: color-mix(in srgb, var(--tl-accent-primary) 48%, var(--tl-border-subtle));
     box-shadow: 0 0 22px color-mix(in srgb, var(--tl-accent-primary) 12%, transparent);
 }
@@ -123,6 +156,46 @@
 .file-org-structure-mode,
 .file-org-option-segments {
     width: 100%;
+}
+
+.file-org-option-segments {
+    display: flex;
+}
+
+.file-org-option-segments ::deep .app-segmented-control__item {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+    text-align: center;
+    white-space: normal;
+}
+
+.file-org-option-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tl-space-2);
+    padding: var(--tl-space-3);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--tl-surface-raised) 58%, transparent);
+}
+
+.file-org-option-block__header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.file-org-option-block__header span {
+    color: var(--tl-text-primary);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.file-org-option-block__header small {
+    color: var(--tl-text-muted);
+    font-size: 0.74rem;
+    line-height: 1.4;
 }
 
 .file-org-token-strip {
@@ -190,21 +263,14 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: var(--tl-space-3);
 }
 
-.file-org-save-bar__note,
 .file-org-save-bar__actions {
     display: flex;
     align-items: center;
     gap: var(--tl-space-2);
-}
-
-.file-org-save-bar__note {
-    min-width: 0;
-    color: var(--tl-text-muted);
-    font-size: 0.78rem;
 }
 
 @media (max-width: 1180px) {
@@ -219,8 +285,11 @@
     .file-org-path-row,
     .file-org-source-row,
     .file-org-save-bar {
-        grid-template-columns: 1fr;
         align-items: stretch;
+    }
+
+    .folder-path-input-row {
+        grid-template-columns: 1fr;
     }
 
     .file-org-path-row,
@@ -228,6 +297,12 @@
     .file-org-save-bar {
         display: flex;
         flex-direction: column;
+    }
+
+    .file-org-source-row__meta,
+    .file-org-source-row__actions {
+        width: 100%;
+        justify-content: flex-start;
     }
 
     .file-org-save-bar__actions {

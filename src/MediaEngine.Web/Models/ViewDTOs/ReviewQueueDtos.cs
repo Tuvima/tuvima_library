@@ -130,5 +130,44 @@ public sealed class HydrationSettingsDto
     public int MaxQidCandidates { get; set; } = 5;
 
     [JsonPropertyName("skip_stage2_without_bridge_ids")]
-    public bool SkipStage2WithoutBridgeIds { get; set; }
+    public bool? SkipStage2WithoutBridgeIds { get; set; }
+
+    [JsonPropertyName("max_concurrent_fanart_jobs")]
+    public int MaxConcurrentFanartJobs { get; set; } = 1;
+
+    [JsonPropertyName("wikidata_batch_size")]
+    public int WikidataBatchSize { get; set; } = 50;
+
+    [JsonPropertyName("batch_sparql_size")]
+    public int BatchSparqlSize { get; set; } = 50;
+
+    [JsonPropertyName("lineage_depth")]
+    public int LineageDepth { get; set; } = 2;
+
+    [JsonPropertyName("lore_delta_check_on_explorer_open")]
+    public bool LoreDeltaCheckOnExplorerOpen { get; set; } = true;
+
+    [JsonPropertyName("fictional_entity_enrichment_depth")]
+    public int FictionalEntityEnrichmentDepth { get; set; } = 2;
+
+    [JsonPropertyName("stage3_enabled")]
+    public bool Stage3Enabled { get; set; } = true;
+
+    [JsonPropertyName("stage3_schedule_cron")]
+    public string Stage3ScheduleCron { get; set; } = "0 3 * * *";
+
+    [JsonPropertyName("stage3_rate_limit_ms")]
+    public int Stage3RateLimitMs { get; set; } = 2000;
+
+    [JsonPropertyName("stage3_max_items_per_sweep")]
+    public int Stage3MaxItemsPerSweep { get; set; } = 50;
+
+    [JsonPropertyName("stage3_refresh_days")]
+    public int Stage3RefreshDays { get; set; } = 30;
+
+    [JsonPropertyName("stage3_media_types_for_images")]
+    public List<string> Stage3MediaTypesForImages { get; set; } = ["Movies", "TV", "Music"];
+
+    [JsonPropertyName("stage3_max_depth")]
+    public int Stage3MaxDepth { get; set; } = 2;
 }

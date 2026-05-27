@@ -316,7 +316,7 @@ public sealed class UiShellRenderTests : TestContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPriorityTab.razor"));
 
-        Assert.Contains("unavailable state instead of sample defaults", source);
+        Assert.Contains("sample data is not presented as live configuration", source);
         Assert.Contains("_loadError", source);
         Assert.Contains("InitializeEmptyAssignments", source);
         Assert.Contains("sample data is not presented as live configuration", source);

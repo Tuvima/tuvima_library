@@ -26,7 +26,7 @@ else
 {
     <div class="tl-page file-organization-page">
         <AppPageHeader Title="File Organization"
-                       Subtitle="Manage global library paths and the folders used by each media type."
+                       Subtitle="Manage import folders and the folders used by each media type."
                        Class="file-organization-page__header">
             <Stats>
                 <AppStatusBadge Text="@(_engineUnavailable ? "Engine unavailable" : "Live")"
@@ -69,7 +69,6 @@ else
                          Rounded="true"
                          Elevation="0"
                          Color="Color.Primary">
-                    <MudTabPanel Text="Global" Icon="@Icons.Material.Outlined.Public" />
                     <MudTabPanel Text="Import Folders" Icon="@Icons.Material.Outlined.MoveToInbox" />
                     @foreach (var tab in _libraryTabs)
                     {
@@ -77,51 +76,7 @@ else
                     }
                 </AppTabs>
 
-                @if (IsGlobalTab)
-                {
-                    <div class="file-org-media-grid file-org-media-grid--global">
-                        <section class="file-org-media-panel file-org-media-panel--global" aria-label="Global library root">
-                            <div class="file-org-panel-title">
-                                <MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Small" />
-                                <div>
-                                    <h3>Global Library Root</h3>
-                                    <p>The root folder for your entire Tuvima Library.</p>
-                                </div>
-                            </div>
-
-                            <div class="folder-path-input-row">
-                                <AppTextField Value="@_libraryRoot"
-                                              ValueChanged="@((string? value) => OnLibraryRootChanged(value))"
-                                              Placeholder="/path/to/library"
-                                              ReadOnly="@(readOnly || _engineUnavailable)" />
-                                <AppButton Label="Browse"
-                                           StartIcon="@Icons.Material.Outlined.FolderOpen"
-                                           Disabled="@(readOnly || _engineUnavailable)"
-                                           OnClick="@(() => BrowseLibraryRootAsync())" />
-                            </div>
-                            <div class="@StatusTextClass(_libraryRoot)">
-                                @StatusLabel(_libraryRoot)
-                            </div>
-                        </section>
-
-                        <section class="file-org-media-panel file-org-media-panel--global-info" aria-label="Global root behavior">
-                            <div class="file-org-panel-title">
-                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                                <div>
-                                    <h3>Applies Everywhere</h3>
-                                    <p>Media-type folders can override this root only when their saved library entry has a different root.</p>
-                                </div>
-                            </div>
-                            <AppPanel Density="AppSurfaceDensity.Compact" Class="file-org-preview">
-                                <div class="file-org-preview__none">
-                                    <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
-                                    <span>Recommended and custom structures place organized files underneath this root.</span>
-                                </div>
-                            </AppPanel>
-                        </section>
-                    </div>
-                }
-                else if (IsImportFoldersTab)
+                @if (IsImportFoldersTab)
                 {
                     <div class="file-org-media-grid file-org-media-grid--import">
                         <section class="file-org-media-panel file-org-media-panel--folders" aria-label="Import folders">
@@ -129,7 +84,7 @@ else
                                 <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" Size="Size.Small" />
                                 <div>
                                     <h3>Import Folders</h3>
-                                    <p>Incoming files land here before Tuvima routes them to a media type.</p>
+                                    <p>Drop new files here for Tuvima to identify and move into the matching media library.</p>
                                 </div>
                             </div>
 
@@ -142,6 +97,7 @@ else
                                         <AppTextField Value="@_watchFolders[index]"
                                                       ValueChanged="@((string? value) => OnWatchFolderChanged(index, value))"
                                                       Placeholder="/path/to/import"
+                                                      Size="AppControlSize.Large"
                                                       ReadOnly="@(readOnly || _engineUnavailable)" />
                                         <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen"
                                                        Tooltip="@L["Libraries_BrowseFolders"].Value"
@@ -174,13 +130,13 @@ else
                                 <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
                                 <div>
                                     <h3>No Folder Structure</h3>
-                                    <p>Import folders are intake locations only.</p>
+                                    <p>Import folders are intake locations only; naming and folder structure belong to the media library that receives the file.</p>
                                 </div>
                             </div>
                             <AppPanel Density="AppSurfaceDensity.Compact" Class="file-org-preview">
                                 <div class="file-org-preview__none">
                                     <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" Size="Size.Small" />
-                                    <span>Tuvima detects files here and imports them. These folders do not get a media-type folder structure.</span>
+                                    <span>Tuvima detects files here, identifies the media type, and moves accepted files into the matching Books, Movies, TV, Music, Audiobooks, Comics, or General folder.</span>
                                 </div>
                             </AppPanel>
                             <AppButton Label="Scan Import Folders"
@@ -199,7 +155,7 @@ else
                                 <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" />
                                 <div>
                                     <h3>Folders for @activeLibrary.Label</h3>
-                                    <p>Add one or more folders that belong to this media type.</p>
+                                    <p>@FolderPanelDescription(activeLibrary)</p>
                                 </div>
                             </div>
 
@@ -212,22 +168,28 @@ else
                                         <AppTextField Value="@activeLibrary.SourcePaths[index]"
                                                       ValueChanged="@((string? value) => OnSourcePathChanged(activeLibrary, index, value))"
                                                       Placeholder="@($"/media/{activeLibrary.Label}")"
+                                                      Size="AppControlSize.Large"
+                                                      Class="file-org-source-path-input"
                                                       ReadOnly="@(readOnly || _engineUnavailable)" />
-                                        <AppChip Text="@(activeLibrary.IncludeSubdirectories ? "Recursive" : "Top level")"
-                                                 Tone="@(activeLibrary.IncludeSubdirectories ? AppUiTone.Primary : AppUiTone.Neutral)" />
-                                        <AppChip Text="@(activeLibrary.ReadOnly ? "Read only" : "Writable")"
-                                                 Tone="@(activeLibrary.ReadOnly ? AppUiTone.Warning : AppUiTone.Success)" />
-                                        <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen"
-                                                       Tooltip="@L["Libraries_BrowseFolders"].Value"
-                                                       AriaLabel="@L["Libraries_BrowseFolders"].Value"
-                                                       Disabled="@(readOnly || _engineUnavailable)"
-                                                       OnClick="@(() => BrowseSourceFolderAsync(activeLibrary, index))" />
-                                        <AppIconButton Icon="@Icons.Material.Outlined.Delete"
-                                                       Tooltip="Remove folder"
-                                                       AriaLabel="Remove folder"
-                                                       Tone="AppUiTone.Error"
-                                                       Disabled="@(readOnly || _engineUnavailable)"
-                                                       OnClick="@(() => RemoveSourceFolder(activeLibrary, index))" />
+                                        <div class="file-org-source-row__meta">
+                                            <AppChip Text="@(activeLibrary.IncludeSubdirectories ? "Recursive" : "Top level")"
+                                                     Tone="@(activeLibrary.IncludeSubdirectories ? AppUiTone.Primary : AppUiTone.Neutral)" />
+                                            <AppChip Text="@(activeLibrary.ReadOnly ? "Read only" : "Writable")"
+                                                     Tone="@(activeLibrary.ReadOnly ? AppUiTone.Warning : AppUiTone.Success)" />
+                                        </div>
+                                        <div class="file-org-source-row__actions">
+                                            <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen"
+                                                           Tooltip="@L["Libraries_BrowseFolders"].Value"
+                                                           AriaLabel="@L["Libraries_BrowseFolders"].Value"
+                                                           Disabled="@(readOnly || _engineUnavailable)"
+                                                           OnClick="@(() => BrowseSourceFolderAsync(activeLibrary, index))" />
+                                            <AppIconButton Icon="@Icons.Material.Outlined.Delete"
+                                                           Tooltip="Remove folder"
+                                                           AriaLabel="Remove folder"
+                                                           Tone="AppUiTone.Error"
+                                                           Disabled="@(readOnly || _engineUnavailable)"
+                                                           OnClick="@(() => RemoveSourceFolder(activeLibrary, index))" />
+                                        </div>
                                     </div>
                                 }
                             </div>
@@ -241,12 +203,12 @@ else
                                        OnClick="@(() => AddSourceFolder(activeLibrary))" />
                         </section>
 
-                        <section class="file-org-media-panel file-org-media-panel--structure" aria-label="Folder structure">
+                        <section class="file-org-media-panel file-org-media-panel--structure" aria-label="Naming and folder structure">
                             <div class="file-org-panel-title">
                                 <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
                                 <div>
-                                    <h3>Folder Structure</h3>
-                                    <p>Choose how @activeLibrary.Label.ToLowerInvariant() files are organized on disk.</p>
+                                    <h3>Naming and Folder Structure</h3>
+                                    <p>Choose how @MediaFileNoun(activeLibrary) files are named and organized on disk.</p>
                                 </div>
                             </div>
 
@@ -298,11 +260,11 @@ else
                             </AppPanel>
                         </section>
 
-                        <section class="file-org-media-panel file-org-media-panel--options" aria-label="Scanning and import options">
+                        <section class="file-org-media-panel file-org-media-panel--options" aria-label="Scanning options">
                             <div class="file-org-panel-title">
                                 <MudIcon Icon="@Icons.Material.Outlined.Tune" Size="Size.Small" />
                                 <div>
-                                    <h3>Scanning &amp; Import Options</h3>
+                                    <h3>Scanning Options</h3>
                                     <p>Settings saved for this media type.</p>
                                 </div>
                             </div>
@@ -311,22 +273,21 @@ else
                                           Description="Include all subfolders"
                                           Value="@activeLibrary.IncludeSubdirectories"
                                           ValueChanged="@((bool value) => SetRecursive(activeLibrary, value))"
-                                          Disabled="@(readOnly || _engineUnavailable || activeLibrary.StructureMode == StructureModeNone)"
+                                          Disabled="@(readOnly || _engineUnavailable)"
                                           Tone="AppUiTone.Primary" />
 
-                            <AppSegmentedControl Options="@IntakeModeOptions"
-                                                 Value="@activeLibrary.IntakeMode"
-                                                 ValueChanged="@((string value) => SetIntakeMode(activeLibrary, value))"
-                                                 AriaLabel="Intake mode"
-                                                 Disabled="@(readOnly || _engineUnavailable || activeLibrary.StructureMode == StructureModeNone)"
-                                                 Class="file-org-option-segments" />
-
-                            <AppSegmentedControl Options="@WritebackOptions"
-                                                 Value="@WritebackValue(activeLibrary)"
-                                                 ValueChanged="@((string value) => SetWriteback(activeLibrary, value))"
-                                                 AriaLabel="Writeback override"
-                                                 Disabled="@(readOnly || _engineUnavailable || activeLibrary.StructureMode == StructureModeNone)"
-                                                 Class="file-org-option-segments" />
+                            <div class="file-org-option-block">
+                                <div class="file-org-option-block__header">
+                                    <span>Writeback behavior</span>
+                                    <small>Control whether Tuvima writes metadata changes back to files.</small>
+                                </div>
+                                <AppSegmentedControl Options="@WritebackOptions"
+                                                     Value="@WritebackValue(activeLibrary)"
+                                                     ValueChanged="@((string value) => SetWriteback(activeLibrary, value))"
+                                                     AriaLabel="Writeback override"
+                                                     Disabled="@(readOnly || _engineUnavailable || activeLibrary.StructureMode == StructureModeNone)"
+                                                     Class="file-org-option-segments" />
+                            </div>
 
                             <AppButton Label="Scan This Media Type"
                                        StartIcon="@Icons.Material.Outlined.ManageSearch"
@@ -344,13 +305,9 @@ else
             <AppAlert Tone="AppUiTone.Warning">@_templateValidationError</AppAlert>
         }
 
-        <AppPanel Class="file-org-save-bar" Density="AppSurfaceDensity.Compact">
-            <div class="file-org-save-bar__note">
-                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                <span>The Library Root applies to all libraries. Import folders collect incoming files; media-type folders are configured in their own tabs.</span>
-            </div>
-            @if (!readOnly)
-            {
+        @if (!readOnly)
+        {
+            <AppPanel Class="file-org-save-bar" Density="AppSurfaceDensity.Compact">
                 <div class="file-org-save-bar__actions">
                     <AppButton Label="Discard Changes"
                                StartIcon="@Icons.Material.Outlined.Undo"
@@ -363,8 +320,8 @@ else
                                Disabled="@(_savingFolders || _engineUnavailable || !HasUnsavedChanges)"
                                OnClick="@SaveAllAsync" />
                 </div>
-            }
-        </AppPanel>
+            </AppPanel>
+        }
     </div>
 }
 
@@ -384,17 +341,11 @@ else
         new(StructureModeNone, "None", Icons.Material.Outlined.Lock),
     ];
 
-    private static readonly IReadOnlyList<AppSelectOption> IntakeModeOptions =
-    [
-        new("watch", "Watch", Icons.Material.Outlined.Visibility),
-        new("import", "Import", Icons.Material.Outlined.FileDownload),
-    ];
-
     private static readonly IReadOnlyList<AppSelectOption> WritebackOptions =
     [
-        new("default", "Writeback: Default", Icons.Material.Outlined.Settings),
-        new("on", "Writeback: On", Icons.Material.Outlined.Edit),
-        new("off", "Writeback: Off", Icons.Material.Outlined.Block),
+        new("default", "Default", Icons.Material.Outlined.Settings),
+        new("on", "On", Icons.Material.Outlined.Edit),
+        new("off", "Off", Icons.Material.Outlined.Block),
     ];
 
     private static readonly BuiltInLibraryTab[] BuiltInTabs =
@@ -407,7 +358,6 @@ else
         new("Comic", "Comics", "Comics", Icons.Material.Outlined.AutoStories, ["Comics", "Comic"]),
     ];
 
-    private string _libraryRoot = string.Empty;
     private string _defaultTemplate = DefaultOrganizationTemplate;
     private Dictionary<string, string> _organizationTemplates = new(StringComparer.OrdinalIgnoreCase);
     private List<string> _watchFolders = [];
@@ -421,12 +371,11 @@ else
     private string? _templateValidationError;
     private string _savedSnapshot = string.Empty;
 
-    private bool IsGlobalTab => _activeTabIndex == 0;
-    private bool IsImportFoldersTab => _activeTabIndex == 1;
+    private bool IsImportFoldersTab => _activeTabIndex == 0;
 
     private LibraryEditorState? ActiveLibrary =>
-        _activeTabIndex > 1 && _activeTabIndex - 2 < _libraryTabs.Count
-            ? _libraryTabs[_activeTabIndex - 2]
+        _activeTabIndex > 0 && _activeTabIndex - 1 < _libraryTabs.Count
+            ? _libraryTabs[_activeTabIndex - 1]
             : null;
 
     private bool HasUnsavedChanges => SerializeSnapshot() != _savedSnapshot;
@@ -452,7 +401,6 @@ else
         var settings = await Orchestrator.GetFolderSettingsAsync();
         if (settings is not null)
         {
-            _libraryRoot = settings.LibraryRoot;
             _watchFolders = settings.EffectiveWatchDirectories.ToList();
         }
         else
@@ -477,7 +425,7 @@ else
 
         var libraries = await Orchestrator.GetLibrariesAsync();
         _libraryTabs = BuildLibraryTabs(libraries ?? []);
-        _activeTabIndex = Math.Clamp(_activeTabIndex, 0, _libraryTabs.Count + 1);
+        _activeTabIndex = Math.Clamp(_activeTabIndex, 0, _libraryTabs.Count);
 
         await CheckInitialHealthAsync();
         SnapSavedValues();
@@ -489,7 +437,6 @@ else
 
     private string SerializeSnapshot() => System.Text.Json.JsonSerializer.Serialize(new
     {
-        _libraryRoot,
         WatchFolders = _watchFolders.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray(),
         Libraries = _libraryTabs.Select(tab => new
         {
@@ -498,7 +445,6 @@ else
             tab.SourcePaths,
             tab.IncludeSubdirectories,
             tab.ReadOnly,
-            tab.IntakeMode,
             tab.WritebackOverride,
             tab.StructureMode,
             Template = GetEditableTemplate(tab),
@@ -531,9 +477,25 @@ else
         return result;
     }
 
+    private static string FolderPanelDescription(LibraryEditorState library) =>
+        library.MediaTypes.Count == 0
+            ? "Add folders for media that cannot be categorized yet. Tuvima scans these folders and sends uncertain items to review."
+            : $"Add folders that contain {MediaFileNoun(library)} files. Tuvima scans these folders and applies this library's naming and folder structure.";
+
+    private static string MediaFileNoun(LibraryEditorState library) => library.Label switch
+    {
+        "Books" => "book",
+        "Movies" => "movie",
+        "TV Shows" => "TV show",
+        "Music" => "music",
+        "Audiobooks" => "audiobook",
+        "Comics" => "comic",
+        "General" => "uncategorized media",
+        _ => library.Label.ToLowerInvariant(),
+    };
+
     private async Task CheckInitialHealthAsync()
     {
-        await TestAndRecordPathAsync(_libraryRoot);
         foreach (var path in _watchFolders)
             await TestAndRecordPathAsync(path);
     }
@@ -559,12 +521,6 @@ else
     {
         _activeTabIndex = index;
         return Task.CompletedTask;
-    }
-
-    private void OnLibraryRootChanged(string? value)
-    {
-        _libraryRoot = value ?? string.Empty;
-        ClearPathStatus(_libraryRoot);
     }
 
     private void OnWatchFolderChanged(int index, string? value)
@@ -609,14 +565,6 @@ else
         if (index < 0 || index >= library.SourcePaths.Count) return;
         library.SourcePaths.RemoveAt(index);
         library.IsExisting = true;
-    }
-
-    private async Task BrowseLibraryRootAsync()
-    {
-        var selected = await BrowseForPathAsync(_libraryRoot);
-        if (selected is null) return;
-        _libraryRoot = selected;
-        await TestAndRecordPathAsync(selected);
     }
 
     private async Task BrowseWatchFolderAsync(int index)
@@ -689,12 +637,6 @@ else
     private void SetRecursive(LibraryEditorState library, bool value)
     {
         library.IncludeSubdirectories = value;
-        library.IsExisting = true;
-    }
-
-    private void SetIntakeMode(LibraryEditorState library, string value)
-    {
-        library.IntakeMode = string.IsNullOrWhiteSpace(value) ? "watch" : value;
         library.IsExisting = true;
     }
 
@@ -832,13 +774,10 @@ else
 
         try
         {
-            if (!await ValidatePathForSaveAsync(_libraryRoot, requireWrite: true, "Library root"))
-                return;
-
             var watchFolders = CleanPaths(_watchFolders);
             foreach (var watchFolder in watchFolders)
             {
-                if (!await ValidatePathForSaveAsync(watchFolder, requireWrite: true, "Watch folder"))
+                if (!await ValidatePathForSaveAsync(watchFolder, requireWrite: true, "Import folder"))
                     return;
             }
 
@@ -860,6 +799,9 @@ else
                 }
             }
 
+            if (!ValidateImportFoldersAreSeparate(watchFolders))
+                return;
+
             var previewResult = await ApiClient.PreviewOrganizationTemplateAsync(_defaultTemplate, _organizationTemplates);
             if (previewResult is null)
             {
@@ -868,10 +810,7 @@ else
                 return;
             }
 
-            var folderSettings = new FolderSettingsDto(
-                watchFolders.FirstOrDefault() ?? string.Empty,
-                _libraryRoot,
-                watchFolders);
+            var folderSettings = new FolderSettingsDto(watchFolders);
             var folderSuccess = await Orchestrator.UpdateFolderSettingsAsync(folderSettings);
             if (!folderSuccess)
             {
@@ -899,7 +838,7 @@ else
                 templateResult.Templates ?? _organizationTemplates,
                 StringComparer.OrdinalIgnoreCase);
             SnapSavedValues();
-            Snackbar.Add($"{L["Libraries_SettingsSaved"]} Watcher hot-swap was requested. A rescan is recommended if files already exist in the watch folders.", Severity.Success);
+            Snackbar.Add($"{L["Libraries_SettingsSaved"]} Folder monitoring was updated. A rescan is recommended if files already exist in the import folders.", Severity.Success);
         }
         finally
         {
@@ -916,8 +855,7 @@ else
                 MediaTypes = [.. library.MediaTypes],
                 SourcePath = library.SourcePaths.FirstOrDefault(),
                 SourcePaths = [.. library.SourcePaths],
-                LibraryRoot = _libraryRoot,
-                IntakeMode = library.IntakeMode,
+                IntakeMode = "watch",
                 IncludeSubdirectories = library.IncludeSubdirectories,
                 ReadOnly = library.ReadOnly,
                 WritebackOverride = library.WritebackOverride,
@@ -951,6 +889,50 @@ else
         }
 
         return true;
+    }
+
+    private bool ValidateImportFoldersAreSeparate(IReadOnlyList<string> importFolders)
+    {
+        var libraryPaths = _libraryTabs
+            .SelectMany(library => library.SourcePaths.Select(path => new { library.Label, Path = path }))
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Path))
+            .Select(entry => new
+            {
+                entry.Label,
+                entry.Path,
+                Normalized = NormalizeConfigPath(entry.Path),
+            })
+            .ToList();
+
+        foreach (var importFolder in importFolders)
+        {
+            var normalizedImport = NormalizeConfigPath(importFolder);
+            foreach (var libraryPath in libraryPaths)
+            {
+                if (!PathsOverlap(normalizedImport, libraryPath.Normalized))
+                    continue;
+
+                Snackbar.Add(
+                    $"Import folder '{importFolder}' overlaps the {libraryPath.Label} folder '{libraryPath.Path}'. Import folders must be separate intake locations.",
+                    Severity.Error);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string NormalizeConfigPath(string path) =>
+        path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
+
+    private static bool PathsOverlap(string left, string right) =>
+        IsUnderPath(left, right) || IsUnderPath(right, left);
+
+    private static bool IsUnderPath(string child, string prefix)
+    {
+        if (child.Length < prefix.Length) return false;
+        if (!child.StartsWith(prefix, StringComparison.Ordinal)) return false;
+        return child.Length == prefix.Length || child[prefix.Length] == '/';
     }
 
     private async Task ResetAllChangesAsync()
@@ -1045,8 +1027,6 @@ else
         public string Icon { get; init; } = Icons.Material.Outlined.Folder;
         public List<string> MediaTypes { get; init; } = [];
         public List<string> SourcePaths { get; set; } = [];
-        public string? LibraryRoot { get; init; }
-        public string IntakeMode { get; set; } = "watch";
         public bool IncludeSubdirectories { get; set; } = true;
         public bool ReadOnly { get; set; }
         public bool? WritebackOverride { get; set; }
@@ -1065,8 +1045,6 @@ else
                 Icon = tab.Icon,
                 MediaTypes = source?.MediaTypes.Count > 0 ? [.. source.MediaTypes] : [.. tab.MediaTypes],
                 SourcePaths = [.. (source?.EffectiveSourcePaths ?? [])],
-                LibraryRoot = source?.LibraryRoot,
-                IntakeMode = string.IsNullOrWhiteSpace(source?.IntakeMode) ? "watch" : source.IntakeMode,
                 IncludeSubdirectories = source?.IncludeSubdirectories ?? true,
                 ReadOnly = source?.ReadOnly ?? false,
                 WritebackOverride = source?.WritebackOverride,
@@ -1091,8 +1069,6 @@ else
                 Icon = Icons.Material.Outlined.Folder,
                 MediaTypes = [.. source.MediaTypes],
                 SourcePaths = [.. source.EffectiveSourcePaths],
-                LibraryRoot = source.LibraryRoot,
-                IntakeMode = string.IsNullOrWhiteSpace(source.IntakeMode) ? "watch" : source.IntakeMode,
                 IncludeSubdirectories = source.IncludeSubdirectories,
                 ReadOnly = source.ReadOnly,
                 WritebackOverride = source.WritebackOverride,

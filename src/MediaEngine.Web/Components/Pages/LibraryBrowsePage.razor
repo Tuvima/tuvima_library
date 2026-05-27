@@ -201,10 +201,14 @@ else
             }
 
             var folders = await Orchestrator.GetFolderSettingsAsync();
-            if (!await IsReadyFolderAsync(folders?.LibraryRoot)
-                || !await IsReadyFolderAsync(folders?.WatchDirectory))
-            {
+            var importFolders = folders?.EffectiveWatchDirectories ?? [];
+            if (importFolders.Count == 0)
                 return false;
+
+            foreach (var importFolder in importFolders)
+            {
+                if (!await IsReadyFolderAsync(importFolder))
+                    return false;
             }
 
             var operations = await ApiClient.GetIngestionOperationsSnapshotAsync();

@@ -29,7 +29,15 @@
     private string? AccentStyle =>
         string.IsNullOrWhiteSpace(AccentColor) ? null : $"--app-provider-logo-accent: {AccentColor};";
 
+    private bool HasImage => !string.IsNullOrWhiteSpace(ImageUrl);
+
     private string RootClass =>
-        string.Join(" ", new[] { "app-provider-logo", AppUiMaps.SizeClass(Size), Class }
+        string.Join(" ", new[]
+        {
+            "app-provider-logo",
+            HasImage ? "app-provider-logo--image" : "app-provider-logo--fallback",
+            AppUiMaps.SizeClass(Size),
+            Class,
+        }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
 }

@@ -165,7 +165,21 @@ public sealed class SharedUiPrimitiveTests : TestContext
 
         Assert.Single(cut.FindAll(".app-provider-logo"));
         Assert.Single(cut.FindAll(".app-control--large"));
+        Assert.Single(cut.FindAll(".app-provider-logo--fallback"));
         Assert.Contains("TM", cut.Markup);
+    }
+
+    [Fact]
+    public void AppProviderLogo_UsesTransparentImageTreatmentForProviderAssets()
+    {
+        var cut = RenderComponent<AppProviderLogo>(parameters => parameters
+            .Add(component => component.ImageUrl, "images/providers/tmdb.svg")
+            .Add(component => component.AltText, "TMDB")
+            .Add(component => component.Size, AppControlSize.Normal));
+
+        Assert.Single(cut.FindAll(".app-provider-logo--image"));
+        Assert.Single(cut.FindAll("img[src='images/providers/tmdb.svg']"));
+        Assert.Empty(cut.FindAll(".app-provider-logo__fallback"));
     }
 
     [Fact]

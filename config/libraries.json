@@ -76,14 +76,14 @@
     {
       "category": "General",
       "media_types": [],
-      "source_path": "C:\\temp\\tuvima-watch",
-      "source_paths": ["C:\\temp\\tuvima-watch"],
+      "source_path": "C:\\temp\\tuvima-general",
+      "source_paths": ["C:\\temp\\tuvima-general"],
       "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": false,
       "read_only": false,
       "writeback_override": null,
-      "notes": "General drop zone. No media type prior — classification via AI and heuristics only. Files dropped here go to Needs Review if confidence is low. include_subdirectories false to avoid double-processing the typed subfolders above."
+      "notes": "General library for media that cannot be categorized yet. Files here are scanned without a media type prior and go to Needs Review if confidence is low."
     }
   ]
 }

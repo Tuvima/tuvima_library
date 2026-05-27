@@ -20,11 +20,13 @@ This guide explains what metadata providers are, which ones work out of the box,
 
 When the Engine identifies a file in your library, it reaches out to external sources to gather extra information: cover art, descriptions, ratings, cast and crew, identifiers like ISBNs or TMDB IDs, and more. These external sources are called **metadata providers**.
 
-Providers work in two stages:
+The Providers screen is organized into three setup stages:
 
 1. **Retail providers** (Stage 1) - run first. These gather practical information: cover art, descriptions, ratings, and identifiers. The Engine uses this data both to enrich your library and to improve its confidence in identifying what the file is.
 
 2. **Wikidata** (Stage 2) - runs second, using identifiers gathered in Stage 1. Wikidata is the authority for canonical structured data: the author's full name, the official series name, genre classifications, director credits, and so on. Wikidata is always free to use and requires no key.
+
+3. **Enrichment and artwork providers** (Stage 3) - run after identity is known. These providers add focused enrichment such as fan art, synced lyrics, subtitles, and periodic refresh data.
 
 ---
 
@@ -55,9 +57,9 @@ TMDB supplies cover art, descriptions, cast and crew, ratings, and backdrops for
 1. Go to `https://www.themoviedb.org/settings/api` and create a free account.
 2. Request an API key (choose "Developer" use type).
 3. Copy the key.
-4. In the Dashboard, go to **Settings -> Providers -> Connections**.
-5. Find TMDB in the list and paste your key into the API Key field.
-6. Click **Save**.
+4. In the Dashboard, go to **Settings -> Providers** and keep **Retail Lookup** selected.
+5. Find TMDB in the Provider Library and paste your key into the API Key field in the settings panel.
+6. Click **Save Provider**.
 
 ### Comic Vine
 
@@ -66,9 +68,9 @@ Comic Vine supplies metadata for comics - issue numbers, story arcs, publishers,
 1. Go to `https://comicvine.gamespot.com/api/` and create a free account.
 2. Click **Get API Key**.
 3. Copy the key.
-4. In the Dashboard, go to **Settings -> Providers -> Connections**.
-5. Find Comic Vine and paste your key.
-6. Click **Save**.
+4. In the Dashboard, go to **Settings -> Providers** and keep **Retail Lookup** selected.
+5. Find Comic Vine in the Provider Library and paste your key into the API Key field in the settings panel.
+6. Click **Save Provider**.
 
 ---
 
@@ -77,11 +79,14 @@ Comic Vine supplies metadata for comics - issue numbers, story arcs, publishers,
 For each media type, you can control which provider's data is preferred when multiple providers return conflicting information. This is the **provider priority** order.
 
 1. Go to **Settings -> Providers**.
-2. Select the media type you want to adjust (Books, Movies, TV, and so on).
-3. You will see the providers listed in their current priority order.
-4. Drag providers up or down to change the order. Providers at the top are preferred over providers further down.
+2. Select **Retail Lookup**.
+3. Select the media type you want to adjust (Books, Movies, TV, and so on).
+4. You will see the providers listed in their current priority order.
+5. Drag providers up or down to change the order. Providers at the top are preferred over providers further down.
 
 The provider priority affects how the Priority Cascade resolves conflicts. When two providers disagree about a title or description, the one higher in the list wins - unless a user lock or Wikidata data overrides it.
+
+The **Canonical Identity** stage is intentionally different. It shows Wikidata identity, bridge, and relationship settings so you can understand what canonical data is being tracked; it does not assign providers to media types. The **Enrichment & Artwork** stage shows focused enrichment providers such as Fanart.tv, LRCLIB, and OpenSubtitles.
 
 ---
 

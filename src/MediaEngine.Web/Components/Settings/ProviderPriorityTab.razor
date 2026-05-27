@@ -11,9 +11,9 @@
     <header class="provider-hero">
         <div class="provider-hero__bar">
             <div>
-                <h2 class="provider-hero__title">Metadata Providers</h2>
+                <h2 class="provider-hero__title">Provider Setup</h2>
                 <div class="provider-hero__copy">
-                    Assign providers to every media type and manage Engine-backed provider settings from one place. If Engine configuration cannot load, this page shows an unavailable state instead of sample defaults.
+                    Configure retail data providers and lookup strategies for all media types.
                 </div>
             </div>
             <SettingsStatusBadge Status="@(_engineConfigurationUnavailable ? SettingsStatusKind.EngineUnavailable : SettingsStatusKind.Live)" />
@@ -23,7 +23,10 @@
     <section class="provider-stage-strip" aria-label="Metadata provider stages">
         @foreach (var stage in ProviderStages)
         {
-            <div class="provider-stage-card @(stage.Number == 1 ? "is-active" : null)">
+            <div class="provider-stage-card @(IsActiveStage(stage.Id) ? "is-active" : null)"
+                 role="button"
+                 tabindex="0"
+                 @onclick="@(() => SetProviderStage(stage.Id))">
                 <div class="provider-stage-card__number">@stage.Number</div>
                 <div class="provider-stage-card__body">
                     <div class="provider-stage-card__title">@stage.Title</div>
@@ -47,28 +50,45 @@
     }
 
     <div class="provider-layout">
-        <section class="provider-panel">
+        <section class="provider-panel provider-library-panel">
             <div class="provider-panel__header">
                 <div>
-                    <h3 class="provider-panel__title">Available Providers</h3>
-                    <div class="provider-panel__copy">Drag providers into media type slots, or select one to edit its settings.</div>
+                    <h3 class="provider-panel__title">Provider Library</h3>
+                    <div class="provider-panel__copy">@ActiveStage.LibraryDescription</div>
+                </div>
+            </div>
+            <div class="provider-library-tools">
+                <AppSearchField @bind-Value="_providerSearch"
+                                Placeholder="Search providers..."
+                                Size="AppControlSize.Compact" />
+                <div class="provider-filter-row" aria-label="Filter providers by media type">
+                    @foreach (var filter in GetProviderFilterOptions())
+                    {
+                        <AppChip Text="@GetMediaTypeDisplay(filter)"
+                                 Tone="@(IsActiveProviderFilter(filter) ? AppUiTone.Primary : AppUiTone.Neutral)"
+                                 OnClick="@(() => SetProviderMediaFilter(filter))"
+                                 Class="provider-filter-chip" />
+                    }
                 </div>
             </div>
             <div class="provider-list">
-                @if (GetProviderCards().Count == 0)
+                @{
+                    var providerCards = GetProviderCards();
+                }
+                @if (providerCards.Count == 0)
                 {
                     <div class="provider-empty-state">
-                        Provider catalogue metadata is unavailable from the Engine. Existing assignments remain visible on the right.
+                        No Engine-backed providers are available for this stage.
                     </div>
                 }
                 else
                 {
-                    @foreach (var provider in GetProviderCards())
+                    @foreach (var provider in providerCards)
                     {
                         var providerName = provider.Name;
                         var logoUrl = GetProviderLogoUrl(providerName);
-                        <div class="provider-list-card @(IsSelectedProvider(providerName) ? "is-selected" : null)"
-                             draggable="true"
+                        <div class="provider-list-card @(IsSelectedProvider(providerName) ? "is-selected" : null) @(CanDragProviders ? "is-draggable" : null)"
+                             draggable="@CanDragProviders"
                              @ondragstart="@(() => BeginProviderDrag(providerName))"
                              @onclick="@(() => SelectProvider(providerName))"
                              role="button"
@@ -90,106 +110,210 @@
                                     }
                                 </div>
                             </div>
-                            <div class="provider-drag-handle" title="Drag to assign">
-                                <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
-                            </div>
+                            @if (IsSelectedProvider(providerName))
+                            {
+                                <div class="provider-drag-handle" title="Selected">
+                                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
+                                </div>
+                            }
+                            else if (CanDragProviders)
+                            {
+                                <div class="provider-drag-handle" title="Drag to assign">
+                                    <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
+                                </div>
+                            }
                         </div>
                     }
                 }
             </div>
+            <div class="provider-library-footer">
+                @GetStageProviderCountLabel()
+            </div>
         </section>
 
         <div class="provider-min">
-            <section class="provider-panel provider-assignment-card">
-                <div class="provider-panel__header">
-                    <div>
-                        <h3 class="provider-panel__title">Assign to Media Types (Retail Lookup)</h3>
-                        <div class="provider-panel__copy">Every supported Tuvima media type has its own provider order and lookup strategy.</div>
-                    </div>
-                    <AppButton Label="How it works"
-                               StartIcon="@Icons.Material.Outlined.HelpOutline"
-                               Size="AppControlSize.Compact" />
-                </div>
-
-                <div class="provider-media-grid">
-                    @foreach (var mediaType in _mediaTypes)
-                    {
-                        var chain = GetChain(mediaType);
-                        <div class="provider-media-slot @(mediaType == _activeTab ? "is-selected" : null)"
-                             @onclick="@(() => _activeTab = mediaType)"
-                             @ondragover:preventDefault="true"
-                             @ondrop="@(() => DropProviderOnMediaType(mediaType))">
-                            <div class="provider-media-slot__header">
-                                <div class="provider-media-slot__icon">
-                                    <MudIcon Icon="@GetMediaTypeIcon(mediaType)" Size="Size.Small" />
-                                </div>
-                                <div class="provider-media-slot__title">@GetMediaTypeDisplay(mediaType)</div>
-                                <div class="provider-media-slot__strategy">@GetStrategy(mediaType)</div>
-                            </div>
-
-                            <div class="provider-assignment-list">
-                                @for (var i = 0; i < chain.Count; i++)
-                                {
-                                    var idx = i;
-                                    var assignment = chain[idx];
-                                    var assignmentLogoUrl = GetProviderLogoUrl(assignment.Name);
-                                    <div class="provider-assignment-row @(IsSelectedAssignment(mediaType, idx) ? "is-selected" : null)"
-                                         draggable="true"
-                                         @ondragstart="@(() => BeginAssignmentDrag(mediaType, idx))"
-                                         @ondragover:preventDefault="true"
-                                         @ondrop="@(() => DropOnAssignment(mediaType, idx))"
-                                         @onclick:stopPropagation="true"
-                                         @onclick="@(() => SelectAssignment(mediaType, idx))"
-                                         role="button"
-                                         tabindex="0">
-                                        <div class="provider-assignment-rank">@(idx + 1)</div>
-                                        <AppProviderLogo ImageUrl="@assignmentLogoUrl"
-                                                         Icon="@GetProviderIcon(assignment.Name)"
-                                                         AccentColor="@GetProviderAccent(assignment.Name)"
-                                                         FallbackText="@GetProviderInitials(assignment.Name)"
-                                                         Size="AppControlSize.Compact"
-                                                         AltText="" />
-                                        <div class="provider-min">
-                                            <div class="provider-assignment-row__name">@assignment.Name</div>
-                                            <div class="provider-assignment-row__meta">@GetSuccessRateDisplay(assignment.Name)</div>
-                                        </div>
-                                        <div class="provider-assignment-actions" @onclick:stopPropagation="true">
-                                            <AppIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
-                                                           Size="AppControlSize.Compact"
-                                                           Disabled="@(idx == 0)"
-                                                           AriaLabel="Move provider up"
-                                                           Tooltip="Move up"
-                                                           OnClick="@(() => MoveLeft(mediaType, idx))" />
-                                            <AppIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
-                                                           Size="AppControlSize.Compact"
-                                                           Disabled="@(idx == chain.Count - 1)"
-                                                           AriaLabel="Move provider down"
-                                                           Tooltip="Move down"
-                                                           OnClick="@(() => MoveRight(mediaType, idx))" />
-                                            <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-
-                            <div class="provider-drop-zone">Drag providers here</div>
-                            <div class="provider-media-slot__footer" @onclick:stopPropagation="true">
-                                <AppSelect T="string" Value="@GetStrategy(mediaType)"
-                                           ValueChanged="@(v => SetStrategy(mediaType, v ?? "Waterfall"))"
-                                           Options="@StrategyOptions"
-                                           Disabled="@(_engineConfigurationUnavailable || _liveCatalogue.Count == 0)"
-                                           Size="AppControlSize.Compact"
-                                           Class="provider-strategy-select" />
-                                <AppButton Label="Add"
-                                           StartIcon="@Icons.Material.Filled.Add"
-                                           Size="AppControlSize.Compact"
-                                           Disabled="@_engineConfigurationUnavailable"
-                                           OnClick="@(() => OpenAddDialog(mediaType))" />
-                            </div>
+            @if (IsRetailStage)
+            {
+                <section class="provider-panel provider-assignment-card">
+                    <div class="provider-panel__header">
+                        <div>
+                            <h3 class="provider-panel__title">Assign Providers to Media Types</h3>
+                            <div class="provider-panel__copy">Set lookup order and strategy for each media type.</div>
                         </div>
-                    }
-                </div>
-            </section>
+                        <AppButton Label="How it works"
+                                   StartIcon="@Icons.Material.Outlined.HelpOutline"
+                                   Size="AppControlSize.Compact" />
+                    </div>
+
+                    <div class="provider-media-grid">
+                        @foreach (var mediaType in _mediaTypes)
+                        {
+                            var chain = GetChain(mediaType);
+                            <div class="provider-media-slot @(mediaType == _activeTab ? "is-selected" : null)"
+                                 @onclick="@(() => _activeTab = mediaType)"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="@(() => DropProviderOnMediaType(mediaType))">
+                                <div class="provider-media-slot__header">
+                                    <div class="provider-media-slot__icon">
+                                        <MudIcon Icon="@GetMediaTypeIcon(mediaType)" Size="Size.Small" />
+                                    </div>
+                                    <div class="provider-media-slot__title">@GetMediaTypeDisplay(mediaType)</div>
+                                    <div class="provider-media-slot__strategy">@GetStrategy(mediaType)</div>
+                                </div>
+
+                                <div class="provider-assignment-list">
+                                    @for (var i = 0; i < chain.Count; i++)
+                                    {
+                                        var idx = i;
+                                        var assignment = chain[idx];
+                                        var assignmentLogoUrl = GetProviderLogoUrl(assignment.Name);
+                                        <div class="provider-assignment-row @(IsSelectedAssignment(mediaType, idx) ? "is-selected" : null)"
+                                             draggable="true"
+                                             @ondragstart="@(() => BeginAssignmentDrag(mediaType, idx))"
+                                             @ondragover:preventDefault="true"
+                                             @ondrop="@(() => DropOnAssignment(mediaType, idx))"
+                                             @onclick:stopPropagation="true"
+                                             @onclick="@(() => SelectAssignment(mediaType, idx))"
+                                             role="button"
+                                             tabindex="0">
+                                            <div class="provider-assignment-rank">@(idx + 1)</div>
+                                            <AppProviderLogo ImageUrl="@assignmentLogoUrl"
+                                                             Icon="@GetProviderIcon(assignment.Name)"
+                                                             AccentColor="@GetProviderAccent(assignment.Name)"
+                                                             FallbackText="@GetProviderInitials(assignment.Name)"
+                                                             Size="AppControlSize.Compact"
+                                                             AltText="" />
+                                            <div class="provider-min">
+                                                <div class="provider-assignment-row__name">@assignment.Name</div>
+                                                <div class="provider-assignment-row__meta">@GetSuccessRateDisplay(assignment.Name)</div>
+                                            </div>
+                                            <div class="provider-assignment-actions" @onclick:stopPropagation="true">
+                                                <AppIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
+                                                               Size="AppControlSize.Compact"
+                                                               Disabled="@(idx == 0)"
+                                                               AriaLabel="Move provider up"
+                                                               Tooltip="Move up"
+                                                               OnClick="@(() => MoveLeft(mediaType, idx))" />
+                                                <AppIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                                               Size="AppControlSize.Compact"
+                                                               Disabled="@(idx == chain.Count - 1)"
+                                                               AriaLabel="Move provider down"
+                                                               Tooltip="Move down"
+                                                               OnClick="@(() => MoveRight(mediaType, idx))" />
+                                                <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="provider-drop-zone">Drag providers here</div>
+                                <div class="provider-media-slot__footer" @onclick:stopPropagation="true">
+                                    <AppSelect T="string" Value="@GetStrategy(mediaType)"
+                                               ValueChanged="@(v => SetStrategy(mediaType, v ?? "Waterfall"))"
+                                               Options="@StrategyOptions"
+                                               Disabled="@(_engineConfigurationUnavailable || _liveCatalogue.Count == 0)"
+                                               Size="AppControlSize.Compact"
+                                               Class="provider-strategy-select" />
+                                    <AppButton Label="Add"
+                                               StartIcon="@Icons.Material.Filled.Add"
+                                               Size="AppControlSize.Compact"
+                                               Disabled="@_engineConfigurationUnavailable"
+                                               OnClick="@(() => OpenAddDialog(mediaType))" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+            else if (IsCanonicalStage)
+            {
+                <section class="provider-panel provider-stage-detail-panel">
+                    <div class="provider-panel__header">
+                        <div>
+                            <h3 class="provider-panel__title">Canonical Identity</h3>
+                            <div class="provider-panel__copy">Wikidata resolves canonical titles, people, bridge identifiers, and universe relationships after retail lookup finds reliable anchors.</div>
+                        </div>
+                    </div>
+                    <div class="provider-insight-grid">
+                        @foreach (var card in GetCanonicalSummaryCards())
+                        {
+                            <div class="provider-insight-card">
+                                <div class="provider-insight-card__icon">
+                                    <MudIcon Icon="@card.Icon" Size="Size.Small" />
+                                </div>
+                                <div class="provider-insight-card__body">
+                                    <div class="provider-insight-card__title">@card.Title</div>
+                                    <div class="provider-insight-card__copy">@card.Description</div>
+                                    <div class="provider-chip-row">
+                                        @foreach (var chip in card.Chips)
+                                        {
+                                            <AppChip Text="@chip" Tone="AppUiTone.Info" Class="provider-chip" />
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="provider-metric-grid">
+                        @foreach (var metric in GetWikidataMetrics())
+                        {
+                            <div class="provider-metric">
+                                <div class="provider-metric__value">@metric.Value</div>
+                                <div class="provider-metric__label">@metric.Label</div>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+            else
+            {
+                <section class="provider-panel provider-stage-detail-panel">
+                    <div class="provider-panel__header">
+                        <div>
+                            <h3 class="provider-panel__title">Enrichment & Artwork</h3>
+                            <div class="provider-panel__copy">Artwork, synced lyrics, and subtitles run as focused enrichment providers after identity is known.</div>
+                        </div>
+                    </div>
+                    <div class="provider-enrichment-grid">
+                        @foreach (var provider in GetEnrichmentProviderCards())
+                        {
+                            var providerLogoUrl = GetProviderLogoUrl(provider.Name);
+                            <div class="provider-enrichment-card @(IsSelectedProvider(provider.Name) ? "is-selected" : null)"
+                                 @onclick="@(() => SelectProvider(provider.Name))"
+                                 role="button"
+                                 tabindex="0">
+                                <AppProviderLogo ImageUrl="@providerLogoUrl"
+                                                 Icon="@GetProviderIcon(provider.Name)"
+                                                 AccentColor="@GetProviderAccent(provider.Name)"
+                                                 FallbackText="@GetProviderInitials(provider.Name)"
+                                                 AltText="" />
+                                <div class="provider-min">
+                                    <div class="provider-enrichment-card__title">@provider.Name</div>
+                                    <div class="provider-enrichment-card__copy">@GetProviderDescription(provider.Name)</div>
+                                    <div class="provider-chip-row">
+                                        @foreach (var chip in GetEnrichmentCapabilityChips(provider.Name))
+                                        {
+                                            <AppChip Text="@chip" Tone="AppUiTone.Info" Class="provider-chip" />
+                                        }
+                                    </div>
+                                </div>
+                                <div class="provider-status-pill @(IsProviderHealthy(provider.Name) ? "is-healthy" : "is-unavailable")">
+                                    @GetSuccessRateDisplay(provider.Name)
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="provider-metric-grid">
+                        @foreach (var metric in GetEnrichmentMetrics())
+                        {
+                            <div class="provider-metric">
+                                <div class="provider-metric__value">@metric.Value</div>
+                                <div class="provider-metric__label">@metric.Label</div>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
 
             <section class="provider-panel provider-settings-card">
                 @if (_drawerAssignment is null)
@@ -279,13 +403,23 @@
                                                  Label="Request Timeout (ms)"
                                                  Min="500"
                                                  Max="60000" />
+                                <AppNumericField @bind-Value="_drawerAssignment.ThrottleMs"
+                                                 Label="Throttle (ms)"
+                                                 Min="0"
+                                                 Max="60000" />
+                                <AppNumericField @bind-Value="_drawerAssignment.MaxConcurrency"
+                                                 Label="Max Concurrency"
+                                                 Min="1"
+                                                 Max="8" />
+                                <AppTextField @bind-Value="_drawerAssignment.Endpoint"
+                                              Label="Primary Endpoint" />
                                 <AppSelect T="string" @bind-Value="_drawerAssignment.LanguageStrategy"
                                            Label="Region / Language"
                                            Options="@LanguageStrategyOptions" />
                             </div>
 
                             <AppActionBar Class="provider-settings-actions">
-                                @if (_drawerIndex >= 0)
+                                @if (IsRetailStage && _drawerIndex >= 0)
                                 {
                                     <AppButton Label="Remove"
                                                Tone="AppUiTone.Error"
@@ -304,13 +438,16 @@
                                            OnClick="SaveDrawerAsync"
                                            Disabled="@_drawerSaving"
                                            Label="@(_drawerSaving ? "Saving..." : "Save Provider")" />
-                                <AppButton Tone="AppUiTone.Primary"
-                                           ButtonStyle="AppButtonStyle.Filled"
-                                           Size="AppControlSize.Compact"
-                                           StartIcon="@Icons.Material.Outlined.Done"
-                                           OnClick="@SaveAsync"
-                                           Disabled="@(_saving || _engineConfigurationUnavailable || !HasProviderChanges)"
-                                           Label="@(_saving ? "Saving..." : "Save Changes")" />
+                                @if (IsRetailStage)
+                                {
+                                    <AppButton Tone="AppUiTone.Primary"
+                                               ButtonStyle="AppButtonStyle.Filled"
+                                               Size="AppControlSize.Compact"
+                                               StartIcon="@Icons.Material.Outlined.Done"
+                                               OnClick="@SaveAsync"
+                                               Disabled="@(_saving || _engineConfigurationUnavailable || !HasProviderChanges)"
+                                               Label="@(_saving ? "Saving..." : "Save Changes")" />
+                                }
                             </AppActionBar>
 
                             @if (_lastProviderTests.TryGetValue(_drawerAssignment.Name, out var test))
@@ -406,14 +543,41 @@
         double   SuccessRate,
         string   AuthType = "api_key");
 
-    private sealed record ProviderStageDef(int Number, string Title, string Description);
+    private sealed record ProviderStageDef(
+        string Id,
+        int Number,
+        string Title,
+        string Description,
+        string LibraryDescription);
+
+    private sealed record ProviderInsightCard(
+        string Icon,
+        string Title,
+        string Description,
+        IReadOnlyList<string> Chips);
+
+    private sealed record ProviderMetric(string Label, string Value);
+
+    private const string ProviderStageRetail = "retail";
+    private const string ProviderStageCanonical = "canonical";
+    private const string ProviderStageEnrichment = "enrichment";
+    private const string AllProviderFilter = "All";
 
     private static readonly ProviderStageDef[] ProviderStages =
     [
-        new(1, "Retail Lookup", "Find metadata from retail sources"),
-        new(2, "Canonical Identity", "Build people and title identity"),
-        new(3, "Enrichment & Artwork", "Add artwork and enrich data"),
+        new(ProviderStageRetail, 1, "Retail Lookup", "Find metadata from retail sources", "Discover and manage retail data providers."),
+        new(ProviderStageCanonical, 2, "Canonical Identity", "Build people and title identity", "Review Wikidata identity and relationship configuration."),
+        new(ProviderStageEnrichment, 3, "Enrichment & Artwork", "Add artwork and enrich data", "Manage artwork, lyrics, and subtitle enrichment providers."),
     ];
+
+    private static readonly string[] RetailProviderKeys =
+        ["apple_api", "comicvine", "musicbrainz", "open_library", "tmdb"];
+
+    private static readonly string[] CanonicalProviderKeys =
+        ["wikidata", "wikidata_reconciliation"];
+
+    private static readonly string[] EnrichmentProviderKeys =
+        ["fanart_tv", "lrclib", "opensubtitles"];
 
     private static readonly IReadOnlyList<AppSelectOption> StrategyOptions =
     [
@@ -452,6 +616,9 @@
         public bool   Enabled          { get; set; } = true;
         public int    Retries          { get; set; } = 1;
         public string LanguageStrategy { get; set; } = "source";
+        public string Endpoint         { get; set; } = "";
+        public int    ThrottleMs       { get; set; } = 500;
+        public int    MaxConcurrency   { get; set; } = 1;
     }
 
     private sealed record ProviderTestSessionResult(bool Success, DateTimeOffset TestedAt, string Message);
@@ -506,7 +673,10 @@
         ["wikidata_reconciliation"] = "images/providers/wikidata_reconciliation.svg",
     };
 
+    private string _activeStage = ProviderStageRetail;
     private string _activeTab = "Movies";
+    private string? _providerSearch;
+    private string _providerMediaFilter = AllProviderFilter;
     private Dictionary<string, List<ProviderAssignment>> _assignments = new();
     private Dictionary<string, string> _strategies = new();
     private PipelineConfiguration _pipelineConfiguration = new();
@@ -525,6 +695,7 @@
     private Dictionary<string, ProviderHealthDto> _healthData = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<ProviderCatalogueDto> _liveCatalogue = [];
     private Dictionary<string, ProviderStatusDto> _providerStatusByKey = new(StringComparer.OrdinalIgnoreCase);
+    private HydrationSettingsDto? _hydrationSettings;
     private string? _loadError;
     private bool _engineConfigurationUnavailable;
     private Dictionary<string, List<ProviderAssignment>> _savedAssignments = new(StringComparer.OrdinalIgnoreCase);
@@ -539,6 +710,15 @@
         || !_strategies.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .SequenceEqual(_savedStrategies.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase));
 
+    private ProviderStageDef ActiveStage =>
+        ProviderStages.FirstOrDefault(stage => string.Equals(stage.Id, _activeStage, StringComparison.OrdinalIgnoreCase))
+        ?? ProviderStages[0];
+
+    private bool IsRetailStage => string.Equals(_activeStage, ProviderStageRetail, StringComparison.OrdinalIgnoreCase);
+    private bool IsCanonicalStage => string.Equals(_activeStage, ProviderStageCanonical, StringComparison.OrdinalIgnoreCase);
+    private bool IsEnrichmentStage => string.Equals(_activeStage, ProviderStageEnrichment, StringComparison.OrdinalIgnoreCase);
+    private bool CanDragProviders => IsRetailStage && !_engineConfigurationUnavailable && _liveCatalogue.Count > 0;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -552,7 +732,20 @@
         }
         await LoadFromEngineAsync();
         await LoadHealthDataAsync();
+        await LoadHydrationSettingsAsync();
         SelectFirstAssignmentIfNeeded();
+    }
+
+    private async Task LoadHydrationSettingsAsync()
+    {
+        try
+        {
+            _hydrationSettings = await ApiClient.GetHydrationSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not load hydration settings for provider setup tab");
+        }
     }
 
     private async Task LoadFromEngineAsync()
@@ -606,15 +799,17 @@
         var displayName = ResolveDisplayName(providerSlotName);
         var info = AllProviderCatalogue.FirstOrDefault(p =>
             p.Name.Replace(" ", "_").Equals(providerSlotName, StringComparison.OrdinalIgnoreCase));
-        _providerStatusByKey.TryGetValue(providerSlotName, out var status);
-        status ??= _providerStatusByKey.GetValueOrDefault(displayName);
-        var resolvedName = status?.DisplayName ?? info?.Name ?? displayName;
+        var status = FindProviderStatus(providerSlotName) ?? FindProviderStatus(displayName);
+        var resolvedName = ResolveProviderDisplayName(status?.Name ?? providerSlotName, status?.DisplayName ?? info?.Name ?? displayName);
 
         return new ProviderAssignment
         {
             Name             = resolvedName,
             Enabled          = status?.Enabled ?? true,
             TimeoutMs        = (status?.TimeoutSeconds ?? 3) * 1000,
+            Endpoint         = ResolvePrimaryEndpoint(status),
+            ThrottleMs       = status?.ThrottleMs ?? 500,
+            MaxConcurrency   = status?.MaxConcurrency ?? 1,
             LanguageStrategy = NormalizeLanguageStrategy(status?.LanguageStrategy)
                                ?? GetDefaultLanguageStrategy(resolvedName),
         };
@@ -630,6 +825,9 @@
             AddProviderStatusLookup(lookup, status.DisplayName, status);
             AddProviderStatusLookup(lookup, status.Name.Replace("_", " "), status);
             AddProviderStatusLookup(lookup, status.DisplayName.Replace(" ", "_"), status);
+            AddProviderStatusLookup(lookup, ResolveProviderDisplayName(status.Name, status.DisplayName), status);
+            AddProviderStatusLookup(lookup, NormalizeProviderLookupKey(status.Name), status);
+            AddProviderStatusLookup(lookup, NormalizeProviderLookupKey(status.DisplayName), status);
         }
 
         return lookup;
@@ -667,14 +865,16 @@
 
     private ProviderAssignment CreateAssignmentFromProviderName(string providerName)
     {
-        _providerStatusByKey.TryGetValue(providerName, out var status);
-        status ??= _providerStatusByKey.GetValueOrDefault(providerName.Replace(" ", "_"));
+        var status = FindProviderStatus(providerName);
 
         return new ProviderAssignment
         {
-            Name             = status?.DisplayName ?? providerName,
+            Name             = ResolveProviderDisplayName(status?.Name ?? providerName, status?.DisplayName ?? providerName),
             Enabled          = status?.Enabled ?? true,
             TimeoutMs        = (status?.TimeoutSeconds ?? 3) * 1000,
+            Endpoint         = ResolvePrimaryEndpoint(status),
+            ThrottleMs       = status?.ThrottleMs ?? 500,
+            MaxConcurrency   = status?.MaxConcurrency ?? 1,
             LanguageStrategy = NormalizeLanguageStrategy(status?.LanguageStrategy)
                                ?? GetDefaultLanguageStrategy(providerName),
         };
@@ -762,27 +962,148 @@
         if (_liveCatalogue.Count == 0)
             return [];
 
-        return _liveCatalogue
-            .Where(p => MediaEngine.Web.Models.ProviderAccentMap.IsVisibleProvider(p.Name))
-            .Select(p => new ProviderInfo(
-                Name: p.DisplayName,
-                Type: p.Category,
-                RequiresKey: p.RequiresKey,
-                Supports: [.. p.MediaTypes],
-                LatencyMs: 120,
-                SuccessRate: 0.90,
-                AuthType: p.AuthType))
+        return GetStageCatalogueEntries(applySearch: true, applyMediaFilter: true)
+            .Select(ToProviderInfo)
             .OrderBy(p => GetProviderStageSort(p.Name))
             .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
+    private IReadOnlyList<ProviderInfo> GetEnrichmentProviderCards() =>
+        _liveCatalogue.Count == 0
+            ? []
+            : GetStageCatalogueEntries(ProviderStageEnrichment, applySearch: false, applyMediaFilter: false)
+                .Select(ToProviderInfo)
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+    private IEnumerable<ProviderCatalogueDto> GetStageCatalogueEntries(
+        bool applySearch,
+        bool applyMediaFilter) =>
+        GetStageCatalogueEntries(_activeStage, applySearch, applyMediaFilter);
+
+    private IEnumerable<ProviderCatalogueDto> GetStageCatalogueEntries(
+        string stageId,
+        bool applySearch,
+        bool applyMediaFilter)
+    {
+        var query = _liveCatalogue
+            .Where(p => MediaEngine.Web.Models.ProviderAccentMap.IsVisibleProvider(p.Name))
+            .Where(p => ProviderBelongsToStage(p, stageId));
+
+        if (applyMediaFilter && !string.Equals(_providerMediaFilter, AllProviderFilter, StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(p =>
+                p.MediaTypes.Contains(_providerMediaFilter, StringComparer.OrdinalIgnoreCase)
+                || p.MediaTypes.Contains("All", StringComparer.OrdinalIgnoreCase));
+        }
+
+        if (applySearch && !string.IsNullOrWhiteSpace(_providerSearch))
+        {
+            query = query.Where(p =>
+                ResolveProviderDisplayName(p.Name, p.DisplayName).Contains(_providerSearch, StringComparison.OrdinalIgnoreCase)
+                || p.Name.Contains(_providerSearch, StringComparison.OrdinalIgnoreCase)
+                || p.MediaTypes.Any(mt => mt.Contains(_providerSearch, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return query
+            .GroupBy(p => ResolveProviderDisplayName(p.Name, p.DisplayName), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First());
+    }
+
+    private static ProviderInfo ToProviderInfo(ProviderCatalogueDto p) =>
+        new(
+            Name: ResolveProviderDisplayName(p.Name, p.DisplayName),
+            Type: p.Category,
+            RequiresKey: p.RequiresKey,
+            Supports: [.. p.MediaTypes],
+            LatencyMs: 120,
+            SuccessRate: 0.90,
+            AuthType: p.AuthType);
+
     private static int GetProviderStageSort(string providerName)
     {
-        var normalized = providerName.Trim().ToLowerInvariant();
-        return normalized is "lrclib" or "opensubtitles" or "fanart.tv" ? 2
-            : normalized is "wikidata" or "wikidata reconciliation" ? 1
+        var normalized = NormalizeProviderLookupKey(providerName);
+        return EnrichmentProviderKeys.Any(key => NormalizeProviderLookupKey(key) == normalized) ? 2
+            : CanonicalProviderKeys.Any(key => NormalizeProviderLookupKey(key) == normalized) ? 1
             : 0;
+    }
+
+    private bool IsActiveStage(string stageId) =>
+        string.Equals(_activeStage, stageId, StringComparison.OrdinalIgnoreCase);
+
+    private void SetProviderStage(string stageId)
+    {
+        if (IsActiveStage(stageId))
+            return;
+
+        _activeStage = stageId;
+        _providerMediaFilter = AllProviderFilter;
+        _providerSearch = null;
+        ClearDragState();
+        SelectFirstProviderForActiveStage();
+    }
+
+    private void SetProviderMediaFilter(string filter)
+    {
+        _providerMediaFilter = filter;
+        SelectFirstProviderForActiveStage();
+    }
+
+    private bool IsActiveProviderFilter(string filter) =>
+        string.Equals(_providerMediaFilter, filter, StringComparison.OrdinalIgnoreCase);
+
+    private IReadOnlyList<string> GetProviderFilterOptions()
+    {
+        var options = GetStageCatalogueEntries(_activeStage, applySearch: false, applyMediaFilter: false)
+            .SelectMany(p => p.MediaTypes.Count == 0 ? ["All"] : p.MediaTypes)
+            .Where(mt => !string.IsNullOrWhiteSpace(mt))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(mt => mt == "All" ? 0 : 1)
+            .ThenBy(GetMediaTypeDisplay, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!options.Contains(AllProviderFilter, StringComparer.OrdinalIgnoreCase))
+            options.Insert(0, AllProviderFilter);
+
+        return options;
+    }
+
+    private string GetStageProviderCountLabel()
+    {
+        var count = GetProviderCards().Count;
+        var noun = count == 1 ? "provider" : "providers";
+        return $"{count} {noun} available";
+    }
+
+    private bool ProviderBelongsToStage(ProviderCatalogueDto provider, string stageId)
+    {
+        var normalized = NormalizeProviderLookupKey(provider.Name);
+        var display = NormalizeProviderLookupKey(provider.DisplayName);
+        return stageId switch
+        {
+            ProviderStageRetail => RetailProviderKeys.Any(key => NormalizeProviderLookupKey(key) == normalized || NormalizeProviderLookupKey(key) == display),
+            ProviderStageCanonical => CanonicalProviderKeys.Any(key => NormalizeProviderLookupKey(key) == normalized || NormalizeProviderLookupKey(key) == display),
+            ProviderStageEnrichment => EnrichmentProviderKeys.Any(key => NormalizeProviderLookupKey(key) == normalized || NormalizeProviderLookupKey(key) == display),
+            _ => false,
+        };
+    }
+
+    private static string NormalizeProviderLookupKey(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : new string(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+
+    private static string ResolveProviderDisplayName(string providerKey, string? configuredDisplayName = null)
+    {
+        var mapped = MediaEngine.Web.Models.ProviderAccentMap.GetDisplayName(providerKey);
+        var formatted = MediaEngine.Web.Models.ProviderAccentMap.FormatProviderName(providerKey);
+        if (!string.Equals(mapped, formatted, StringComparison.OrdinalIgnoreCase))
+            return mapped;
+
+        return string.IsNullOrWhiteSpace(configuredDisplayName)
+            ? mapped
+            : configuredDisplayName;
     }
 
     private void SelectFirstAssignmentIfNeeded()
@@ -797,6 +1118,32 @@
             {
                 SelectAssignment(mediaType, 0);
                 return;
+            }
+        }
+
+        var firstProvider = GetProviderCards().FirstOrDefault();
+        if (firstProvider is not null)
+            SelectProvider(firstProvider.Name);
+    }
+
+    private void SelectFirstProviderForActiveStage()
+    {
+        _drawerAssignment = null;
+        _drawerMediaType = "";
+        _drawerIndex = -1;
+        _drawerSaveMessage = "";
+        _drawerSaveSuccess = false;
+
+        if (IsRetailStage)
+        {
+            foreach (var mediaType in _mediaTypes)
+            {
+                var chain = GetChain(mediaType);
+                if (chain.Count > 0)
+                {
+                    SelectAssignment(mediaType, 0);
+                    return;
+                }
             }
         }
 
@@ -829,8 +1176,7 @@
     }
 
     private bool IsSelectedProvider(string providerName) =>
-        _drawerIndex < 0
-        && string.Equals(_drawerAssignment?.Name, providerName, StringComparison.OrdinalIgnoreCase);
+        string.Equals(_drawerAssignment?.Name, providerName, StringComparison.OrdinalIgnoreCase);
 
     private bool IsSelectedAssignment(string mediaType, int idx) =>
         idx == _drawerIndex
@@ -838,6 +1184,9 @@
 
     private void BeginProviderDrag(string providerName)
     {
+        if (!CanDragProviders)
+            return;
+
         _dragProviderName = providerName;
         _dragAssignmentMediaType = null;
         _dragAssignmentIndex = -1;
@@ -845,6 +1194,9 @@
 
     private void BeginAssignmentDrag(string mediaType, int idx)
     {
+        if (!IsRetailStage)
+            return;
+
         _dragAssignmentMediaType = mediaType;
         _dragAssignmentIndex = idx;
         _dragProviderName = null;
@@ -852,6 +1204,9 @@
 
     private void DropProviderOnMediaType(string mediaType)
     {
+        if (!IsRetailStage)
+            return;
+
         if (!string.IsNullOrWhiteSpace(_dragProviderName))
         {
             AddProviderToChain(mediaType, _dragProviderName);
@@ -868,6 +1223,9 @@
 
     private void DropOnAssignment(string mediaType, int targetIndex)
     {
+        if (!IsRetailStage)
+            return;
+
         if (!string.IsNullOrWhiteSpace(_dragProviderName))
         {
             InsertProviderIntoChain(mediaType, targetIndex, _dragProviderName);
@@ -999,6 +1357,9 @@
             {
                 Enabled         = _drawerAssignment.Enabled,
                 TimeoutSeconds  = _drawerAssignment.TimeoutMs / 1000,
+                ThrottleMs      = _drawerAssignment.ThrottleMs,
+                MaxConcurrency  = _drawerAssignment.MaxConcurrency,
+                Endpoints       = BuildEndpointUpdate(providerName, _drawerAssignment.Endpoint),
                 ApiKey          = apiKeyValue,
                 LanguageStrategy = _drawerAssignment.LanguageStrategy,
             };
@@ -1035,16 +1396,10 @@
         {
             return _liveCatalogue
                 .Where(p => MediaEngine.Web.Models.ProviderAccentMap.IsVisibleProvider(p.Name))
-                .Where(p => !inChain.Contains(p.DisplayName)
-                            && ProviderSupportsMedia(p.DisplayName, mediaType))
-                .Select(p => new ProviderInfo(
-                    Name:        p.DisplayName,
-                    Type:        p.Category,
-                    RequiresKey: p.RequiresKey,
-                    Supports:    [.. p.MediaTypes],
-                    LatencyMs:   120,
-                    SuccessRate: 0.90,
-                    AuthType:    p.AuthType))
+                .Where(p => ProviderBelongsToStage(p, ProviderStageRetail))
+                .Select(ToProviderInfo)
+                .Where(p => !inChain.Contains(p.Name)
+                            && ProviderSupportsMedia(p.Name, mediaType))
                 .ToList();
         }
         return [];
@@ -1102,6 +1457,9 @@
                     {
                         Enabled        = assignment.Enabled,
                         TimeoutSeconds = assignment.TimeoutMs / 1000,
+                        ThrottleMs     = assignment.ThrottleMs,
+                        MaxConcurrency = assignment.MaxConcurrency,
+                        Endpoints      = BuildEndpointUpdate(providerName, assignment.Endpoint),
                         ApiKey         = apiKeyValue,
                         LanguageStrategy = assignment.LanguageStrategy,
                     };
@@ -1179,9 +1537,7 @@
 
     private string ResolveProviderConfigName(string providerName)
     {
-        var live = _liveCatalogue.FirstOrDefault(p =>
-            string.Equals(p.DisplayName, providerName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
+        var live = FindProviderCatalogueEntry(providerName);
         if (live is not null)
             return live.Name;
 
@@ -1189,10 +1545,53 @@
     }
 
     private ProviderCatalogueDto? FindProviderCatalogueEntry(string providerName) =>
-        _liveCatalogue.FirstOrDefault(p =>
-            string.Equals(p.DisplayName, providerName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.Name.Replace("_", " "), providerName, StringComparison.OrdinalIgnoreCase));
+        _liveCatalogue.FirstOrDefault(p => ProviderMatches(p, providerName));
+
+    private static bool ProviderMatches(ProviderCatalogueDto provider, string providerName)
+    {
+        var normalized = NormalizeProviderLookupKey(providerName);
+        return NormalizeProviderLookupKey(provider.Name) == normalized
+               || NormalizeProviderLookupKey(provider.DisplayName) == normalized
+               || NormalizeProviderLookupKey(ResolveProviderDisplayName(provider.Name, provider.DisplayName)) == normalized;
+    }
+
+    private ProviderStatusDto? FindProviderStatus(string providerName)
+    {
+        if (_providerStatusByKey.TryGetValue(providerName, out var status))
+            return status;
+
+        if (_providerStatusByKey.TryGetValue(providerName.Replace(" ", "_"), out status))
+            return status;
+
+        return _providerStatusByKey.GetValueOrDefault(NormalizeProviderLookupKey(providerName));
+    }
+
+    private static string ResolvePrimaryEndpoint(ProviderStatusDto? status)
+    {
+        if (status?.Endpoints is null || status.Endpoints.Count == 0)
+            return string.Empty;
+
+        if (status.Endpoints.TryGetValue("api", out var api) && !string.IsNullOrWhiteSpace(api))
+            return api;
+
+        return status.Endpoints.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? string.Empty;
+    }
+
+    private Dictionary<string, string> BuildEndpointUpdate(string providerName, string endpoint)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint))
+            return [];
+
+        var status = FindProviderStatus(providerName);
+        var key = status?.Endpoints?.ContainsKey("api") == true
+            ? "api"
+            : status?.Endpoints?.Keys.FirstOrDefault() ?? "api";
+
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [key] = endpoint,
+        };
+    }
 
     private static string GetMediaTypeDisplay(string mediaType) => mediaType switch
     {
@@ -1228,7 +1627,7 @@
             return live.Domain;
 
         var status = _providerStatusByKey.GetValueOrDefault(providerName)
-                     ?? _providerStatusByKey.GetValueOrDefault(providerName.Replace(" ", "_"));
+                     ?? FindProviderStatus(providerName);
         return status?.Domain ?? "Unknown";
     }
 
@@ -1310,7 +1709,7 @@
         if (live is not null)
         {
             return new ProviderInfo(
-                Name:        live.DisplayName,
+                Name:        ResolveProviderDisplayName(live.Name, live.DisplayName),
                 Type:        live.Category,
                 RequiresKey: live.RequiresKey,
                 Supports:    [.. live.MediaTypes],
@@ -1322,7 +1721,7 @@
     }
     private string GetLatencyDisplay(string providerName)
     {
-        var key = providerName.Replace(" ", "_").ToLowerInvariant();
+        var key = ResolveProviderConfigName(providerName);
         if (_healthData.TryGetValue(key, out var h) && h.LastSuccessAt is not null)
             return h.Status;
         var info = GetProviderInfo(providerName);
@@ -1330,7 +1729,7 @@
     }
     private string GetSuccessRateDisplay(string providerName)
     {
-        var key = providerName.Replace(" ", "_").ToLowerInvariant();
+        var key = ResolveProviderConfigName(providerName);
         if (_healthData.TryGetValue(key, out var h))
         {
             return h.Status switch
@@ -1341,19 +1740,17 @@
                 _          => h.Status,
             };
         }
-        var status = _providerStatusByKey.GetValueOrDefault(providerName)
-                     ?? _providerStatusByKey.GetValueOrDefault(providerName.Replace(" ", "_"));
+        var status = FindProviderStatus(providerName);
         if (status is not null)
             return status.IsReachable ? "Reachable" : "Unavailable";
         return "No status";
     }
     private bool IsProviderHealthy(string providerName)
     {
-        var key = providerName.Replace(" ", "_").ToLowerInvariant();
+        var key = ResolveProviderConfigName(providerName);
         if (_healthData.TryGetValue(key, out var h))
             return !string.Equals(h.Status, "Down", StringComparison.OrdinalIgnoreCase);
-        var status = _providerStatusByKey.GetValueOrDefault(providerName)
-                     ?? _providerStatusByKey.GetValueOrDefault(providerName.Replace(" ", "_"));
+        var status = FindProviderStatus(providerName);
         return status?.IsReachable == true;
     }
 
@@ -1367,13 +1764,93 @@
 
     private string ProviderStatusDescription(ProviderAssignment assignment)
     {
-        var status = _providerStatusByKey.GetValueOrDefault(assignment.Name)
-                     ?? _providerStatusByKey.GetValueOrDefault(assignment.Name.Replace(" ", "_"));
+        var status = FindProviderStatus(assignment.Name);
         if (!assignment.Enabled)
             return "Provider is disabled and will be skipped.";
         if (status?.RequiresApiKey == true && !status.HasApiKey)
             return "Provider is enabled but requires credentials before live matching will work.";
         return "Provider is enabled and saved through Engine configuration.";
+    }
+
+    private IReadOnlyList<ProviderInsightCard> GetCanonicalSummaryCards()
+    {
+        var allProperties = WikidataPropertyDefaults.GetAllProperties();
+        var bridgeCount = WikidataPropertyDefaults.GetBridgeEntries().Count;
+        var universeCount = allProperties.Count(p => p.StageApplicability == "Universe Graph");
+        var personCount = allProperties.Count(p => p.EntityScope == "Person");
+
+        return
+        [
+            new(
+                Icons.Material.Outlined.VerifiedUser,
+                "Identity Resolution",
+                "Wikidata receives bridge IDs from retail providers and resolves the canonical work, creator, title, and release identity.",
+                ["95% auto accept", "55% review floor", "15 candidates"]),
+            new(
+                Icons.Material.Outlined.Link,
+                "Bridge Identifiers",
+                "Cross-provider IDs connect retail results to stable Wikidata QIDs before canonical data is trusted.",
+                [$"{bridgeCount} bridges", "ISBN/ASIN", "TMDB/IMDb", "MusicBrainz"]),
+            new(
+                Icons.Material.Outlined.Map,
+                "Canonical Properties",
+                "Core facts, creative credits, series data, narrative context, and external IDs are tracked as claim keys.",
+                ["Core facts", "Credits", "Series", "Bridge IDs"]),
+            new(
+                Icons.Material.Outlined.AccountTree,
+                "Universe Relationships",
+                "People, characters, locations, organizations, and child entities feed the relationship graph after identity is known.",
+                [$"{personCount} person props", $"{universeCount} universe props", "TV/music/comics child discovery"]),
+        ];
+    }
+
+    private IReadOnlyList<ProviderMetric> GetWikidataMetrics()
+    {
+        var wikidata = FindProviderStatus("Wikidata") ?? FindProviderStatus("wikidata_reconciliation");
+        return
+        [
+            new("Language Strategy", NormalizeLanguageStrategy(wikidata?.LanguageStrategy) ?? "both"),
+            new("Request Throttle", $"{(wikidata?.ThrottleMs ?? 500)}ms"),
+            new("Bridge Batch Size", $"{_hydrationSettings?.WikidataBatchSize ?? 50}"),
+            new("SPARQL Batch Size", $"{_hydrationSettings?.BatchSparqlSize ?? 50}"),
+            new("Lineage Depth", $"{_hydrationSettings?.LineageDepth ?? 2}"),
+            new("Fictional Depth", $"{_hydrationSettings?.FictionalEntityEnrichmentDepth ?? 2}"),
+            new("Lore Delta", (_hydrationSettings?.LoreDeltaCheckOnExplorerOpen ?? true) ? "On open" : "Manual"),
+            new("Stage 3 Refresh", $"{_hydrationSettings?.Stage3RefreshDays ?? 30} days"),
+        ];
+    }
+
+    private IReadOnlyList<string> GetEnrichmentCapabilityChips(string providerName)
+    {
+        var live = FindProviderCatalogueEntry(providerName);
+        var chips = live?.SearchChips.Values.SelectMany(values => values).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (chips is { Count: > 0 })
+            return chips;
+
+        return ResolveProviderConfigName(providerName) switch
+        {
+            "fanart_tv" => ["Artwork", "Backdrops", "Logos"],
+            "lrclib" => ["Synced lyrics", "LRC"],
+            "opensubtitles" => ["Subtitles", "WebVTT", "SRT"],
+            _ => ["Enrichment"],
+        };
+    }
+
+    private IReadOnlyList<ProviderMetric> GetEnrichmentMetrics()
+    {
+        var imageMediaTypes = _hydrationSettings?.Stage3MediaTypesForImages is { Count: > 0 } mediaTypes
+            ? string.Join(", ", mediaTypes.Select(GetMediaTypeDisplay))
+            : "Movies, TV Shows, Music";
+
+        return
+        [
+            new("Stage 3", (_hydrationSettings?.Stage3Enabled ?? true) ? "Enabled" : "Disabled"),
+            new("Artwork Media", imageMediaTypes),
+            new("Fanart Jobs", $"{_hydrationSettings?.MaxConcurrentFanartJobs ?? 1}"),
+            new("Sweep Schedule", _hydrationSettings?.Stage3ScheduleCron ?? "0 3 * * *"),
+            new("Sweep Size", $"{_hydrationSettings?.Stage3MaxItemsPerSweep ?? 50} items"),
+            new("Rate Limit", $"{_hydrationSettings?.Stage3RateLimitMs ?? 2000}ms"),
+        ];
     }
 
     private void SnapshotProviderBaseline()
@@ -1390,6 +1867,9 @@
                 Enabled = a.Enabled,
                 Retries = a.Retries,
                 LanguageStrategy = a.LanguageStrategy,
+                Endpoint = a.Endpoint,
+                ThrottleMs = a.ThrottleMs,
+                MaxConcurrency = a.MaxConcurrency,
             }).ToList(),
             StringComparer.OrdinalIgnoreCase);
         _savedStrategies = new Dictionary<string, string>(_strategies, StringComparer.OrdinalIgnoreCase);
@@ -1398,5 +1878,5 @@
     private static string SerializeAssignments(Dictionary<string, List<ProviderAssignment>> assignments) =>
         string.Join("|", assignments
             .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(kv => $"{kv.Key}:{string.Join(",", kv.Value.Select(a => $"{a.Name}:{a.Enabled}:{a.TimeoutMs}:{a.Retries}:{a.LanguageStrategy}"))}"));
+            .Select(kv => $"{kv.Key}:{string.Join(",", kv.Value.Select(a => $"{a.Name}:{a.Enabled}:{a.TimeoutMs}:{a.ThrottleMs}:{a.MaxConcurrency}:{a.Endpoint}:{a.Retries}:{a.LanguageStrategy}"))}"));
 }

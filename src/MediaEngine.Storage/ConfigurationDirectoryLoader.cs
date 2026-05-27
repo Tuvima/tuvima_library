@@ -172,7 +172,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             SchemaVersion          = core.SchemaVersion,
             DatabasePath           = core.DatabasePath,
             DataRoot               = core.DataRoot,
-            WatchDirectory         = core.WatchDirectory,
+            WatchDirectory         = core.EffectiveWatchDirectories.FirstOrDefault() ?? string.Empty,
             LibraryRoot            = core.LibraryRoot,
             OrganizationTemplate   = core.OrganizationTemplate,
             Providers              = bootstraps,
@@ -199,7 +199,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             SchemaVersion        = manifest.SchemaVersion,
             DatabasePath         = manifest.DatabasePath,
             DataRoot             = manifest.DataRoot,
-            WatchDirectory       = manifest.WatchDirectory,
+            WatchDirectories     = string.IsNullOrWhiteSpace(manifest.WatchDirectory)
+                ? []
+                : [manifest.WatchDirectory],
             LibraryRoot          = manifest.LibraryRoot,
             OrganizationTemplate = manifest.OrganizationTemplate,
         });
@@ -797,7 +799,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             SchemaVersion        = manifest.SchemaVersion,
             DatabasePath         = manifest.DatabasePath,
             DataRoot             = manifest.DataRoot,
-            WatchDirectory       = manifest.WatchDirectory,
+            WatchDirectories     = string.IsNullOrWhiteSpace(manifest.WatchDirectory)
+                ? []
+                : [manifest.WatchDirectory],
             LibraryRoot          = manifest.LibraryRoot,
             OrganizationTemplate = manifest.OrganizationTemplate,
         });

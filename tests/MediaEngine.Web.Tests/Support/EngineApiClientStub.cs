@@ -257,8 +257,7 @@ internal class EngineApiClientStub : DispatchProxy
 
         _handlers[nameof(IEngineApiClient.GetFolderSettingsAsync)] =
             _ => Task.FromResult<FolderSettingsDto?>(new FolderSettingsDto(
-                WatchDirectory: @"C:\Tuvima\Incoming",
-                LibraryRoot: @"C:\Tuvima\Library"));
+                WatchDirectories: [@"C:\Tuvima\Incoming"]));
 
         _handlers[nameof(IEngineApiClient.TestPathAsync)] =
             args =>

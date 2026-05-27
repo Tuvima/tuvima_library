@@ -34,8 +34,6 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("File Organization", source, StringComparison.Ordinal);
         Assert.Contains("<AppTabs ActivePanelIndex", source, StringComparison.Ordinal);
         Assert.Contains("settings-tab-strip settings-file-org-tabs", source, StringComparison.Ordinal);
-        Assert.Contains("Global Library Root", source, StringComparison.Ordinal);
-        Assert.Contains("IsGlobalTab", source, StringComparison.Ordinal);
         Assert.Contains("Import Folders", source, StringComparison.Ordinal);
         Assert.Contains("IsImportFoldersTab", source, StringComparison.Ordinal);
         Assert.Contains("Folders for @activeLibrary.Label", source, StringComparison.Ordinal);
@@ -45,13 +43,19 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("Recommended", source, StringComparison.Ordinal);
         Assert.Contains("Custom", source, StringComparison.Ordinal);
         Assert.Contains("None", source, StringComparison.Ordinal);
+        Assert.Contains("Naming and Folder Structure", source, StringComparison.Ordinal);
         Assert.Contains("Tuvima will index these files in place", source, StringComparison.Ordinal);
         Assert.Contains("Engine unavailable - path could not be checked.", source, StringComparison.Ordinal);
-        Assert.Contains("Watcher hot-swap was requested", source, StringComparison.Ordinal);
+        Assert.Contains("Folder monitoring was updated", source, StringComparison.Ordinal);
         Assert.Contains("A rescan is recommended", source, StringComparison.Ordinal);
         Assert.Contains("PreviewOrganizationTemplateAsync", source, StringComparison.Ordinal);
         Assert.Contains("UpdateLibrariesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ValidateImportFoldersAreSeparate", source, StringComparison.Ordinal);
         Assert.Contains("Disabled=\"@(_savingFolders || _engineUnavailable || !HasUnsavedChanges)\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("The Library Root applies to all libraries", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Global Library Root", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Move to Library", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Import in Place", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Global Paths &amp; Watch Folders", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Class=\"file-org-tabs\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Year + Title", source, StringComparison.Ordinal);
@@ -69,11 +73,32 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("Last tested", source, StringComparison.Ordinal);
         Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Metadata Providers", source, StringComparison.Ordinal);
-        Assert.Contains("Assign to Media Types (Retail Lookup)", source, StringComparison.Ordinal);
+        Assert.Contains("Provider Setup", source, StringComparison.Ordinal);
+        Assert.Contains("Assign Providers to Media Types", source, StringComparison.Ordinal);
         Assert.Contains("[\"Movies\", \"TV\", \"Music\", \"Books\", \"Audiobooks\", \"Comics\"]", source, StringComparison.Ordinal);
         Assert.Contains("GetProviderLogoUrl", source, StringComparison.Ordinal);
         Assert.Contains("GetProviderCards", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProvidersTab_DefinesStageScopedProviderSetsAndRetailOnlyPipelineSave()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor");
+
+        Assert.Contains("new(ProviderStageRetail, 1, \"Retail Lookup\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(ProviderStageCanonical, 2, \"Canonical Identity\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(ProviderStageEnrichment, 3, \"Enrichment & Artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("[\"apple_api\", \"comicvine\", \"musicbrainz\", \"open_library\", \"tmdb\"]", source, StringComparison.Ordinal);
+        Assert.Contains("[\"wikidata\", \"wikidata_reconciliation\"]", source, StringComparison.Ordinal);
+        Assert.Contains("[\"fanart_tv\", \"lrclib\", \"opensubtitles\"]", source, StringComparison.Ordinal);
+        Assert.Contains("GetStageCatalogueEntries(_activeStage", source, StringComparison.Ordinal);
+        Assert.Contains("ProviderBelongsToStage", source, StringComparison.Ordinal);
+        Assert.Contains("GetCanonicalSummaryCards", source, StringComparison.Ordinal);
+        Assert.Contains("GetWikidataMetrics", source, StringComparison.Ordinal);
+        Assert.Contains("GetEnrichmentProviderCards", source, StringComparison.Ordinal);
+        Assert.Contains("GetEnrichmentMetrics", source, StringComparison.Ordinal);
+        Assert.Contains("@if (IsRetailStage)", source, StringComparison.Ordinal);
+        Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
     }
 
     [Fact]

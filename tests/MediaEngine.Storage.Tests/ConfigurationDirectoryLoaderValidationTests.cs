@@ -18,7 +18,7 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
-    public void CoreConfiguration_LoadsMultipleWatchDirectoriesAndLegacyFallback()
+    public void CoreConfiguration_LoadsMultipleWatchDirectoriesOnly()
     {
         using var temp = TempConfig.Create();
         var corePath = System.IO.Path.Combine(temp.Path, "core.json");
@@ -27,7 +27,6 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
               "schema_version": "2.0",
               "database_path": "library.db",
               "server_name": "Tuvima",
-              "watch_directory": "C:\\legacy-drop",
               "watch_directories": ["C:\\drop-a", "D:\\drop-b"]
             }
             """);
@@ -37,19 +36,6 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
 
         Assert.Equal([@"C:\drop-a", @"D:\drop-b"], core.WatchDirectories);
         Assert.Equal([@"C:\drop-a", @"D:\drop-b"], core.EffectiveWatchDirectories);
-
-        using var legacyTemp = TempConfig.Create();
-        File.WriteAllText(System.IO.Path.Combine(legacyTemp.Path, "core.json"), """
-            {
-              "schema_version": "2.0",
-              "database_path": "library.db",
-              "server_name": "Tuvima",
-              "watch_directory": "C:\\legacy-drop"
-            }
-            """);
-
-        var legacyLoader = new ConfigurationDirectoryLoader(legacyTemp.Path);
-        Assert.Equal([@"C:\legacy-drop"], legacyLoader.LoadCore().EffectiveWatchDirectories);
     }
 
     [Fact]

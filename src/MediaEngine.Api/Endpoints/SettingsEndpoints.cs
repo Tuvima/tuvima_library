@@ -27,8 +27,8 @@ namespace MediaEngine.Api.Endpoints;
 ///   Providers (write) — Administrator only.
 ///
 /// <list type="bullet">
-///   <item><c>GET    /settings/folders</c>   — current Watch Folder + Library Folder</item>
-///   <item><c>PUT    /settings/folders</c>   — save paths to manifest + hot-swap FileSystemWatcher</item>
+///   <item><c>GET    /settings/folders</c>   — current import folders</item>
+///   <item><c>PUT    /settings/folders</c>   — save import folders + hot-swap FileSystemWatcher</item>
 ///   <item><c>POST   /settings/test-path</c> — probe a path for existence / read / write access</item>
 ///   <item><c>GET    /settings/providers</c> — enabled state + async reachability for each provider</item>
 /// </list>
@@ -132,13 +132,11 @@ public static class SettingsEndpoints
             var core = configLoader.LoadCore();
             return Results.Ok(new FolderSettingsResponse
             {
-                WatchDirectory = core.WatchDirectory,
                 WatchDirectories = [.. core.EffectiveWatchDirectories],
-                LibraryRoot    = core.LibraryRoot,
             });
         })
         .WithName("GetFolderSettings")
-        .WithSummary("Returns the currently configured Watch Folder and Library Folder paths.")
+        .WithSummary("Returns the currently configured import folder paths.")
         .Produces<FolderSettingsResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
@@ -157,9 +155,7 @@ public static class SettingsEndpoints
 
             var requestedWatchDirectories = request.WatchDirectories is not null
                 ? CleanPaths(request.WatchDirectories)
-                : (!string.IsNullOrWhiteSpace(request.WatchDirectory)
-                    ? CleanPaths([request.WatchDirectory])
-                    : null);
+                : null;
 
             // Path traversal validation.
             if (requestedWatchDirectories is not null)
@@ -171,22 +167,24 @@ public static class SettingsEndpoints
                         return Results.BadRequest(new { error = err });
                 }
             }
-            if (!string.IsNullOrWhiteSpace(request.LibraryRoot))
-            {
-                var err = PathValidator.Validate(request.LibraryRoot);
-                if (err is not null)
-                    return Results.BadRequest(new { error = err });
-            }
             var core = configLoader.LoadCore();
+            var libraries = configLoader.LoadLibraries();
+
+            if (requestedWatchDirectories is not null)
+            {
+                var overlapError = FindPathOverlapError(
+                    "Import folder",
+                    requestedWatchDirectories,
+                    "library folder",
+                    libraries.Libraries.SelectMany(EffectiveSourcePaths));
+                if (overlapError is not null)
+                    return Results.BadRequest(new { error = overlapError });
+            }
 
             if (requestedWatchDirectories is not null)
             {
                 core.WatchDirectories = requestedWatchDirectories;
-                core.WatchDirectory = requestedWatchDirectories.FirstOrDefault() ?? string.Empty;
             }
-
-            if (request.LibraryRoot is not null)
-                core.LibraryRoot = request.LibraryRoot;
 
             configLoader.SaveCore(core);
 
@@ -226,13 +224,13 @@ public static class SettingsEndpoints
             // Broadcast the new active watch path to all connected Dashboard circuits.
             await publisher.PublishAsync(
                 SignalREvents.WatchFolderActive,
-                new WatchFolderActiveEvent(core.WatchDirectory, DateTimeOffset.UtcNow),
+                new WatchFolderActiveEvent(core.EffectiveWatchDirectories.FirstOrDefault() ?? string.Empty, DateTimeOffset.UtcNow),
                 ct);
 
             return Results.Ok();
         })
         .WithName("UpdateFolderSettings")
-        .WithSummary("Saves Watch Folder + Library Folder paths and hot-swaps the FileSystemWatcher.")
+        .WithSummary("Saves import folder paths and hot-swaps the FileSystemWatcher.")
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
@@ -296,14 +294,11 @@ public static class SettingsEndpoints
                 };
 
                 mappedLibraries.Add(config);
-                if (mediaTypes.Count > 0)
+                overlapEntries.Add(new LibraryFolderEntry
                 {
-                    overlapEntries.Add(new LibraryFolderEntry
-                    {
-                        SourcePath = config.SourcePath,
-                        SourcePaths = sourcePaths,
-                    });
-                }
+                    SourcePath = config.SourcePath,
+                    SourcePaths = sourcePaths,
+                });
             }
 
             try
@@ -316,6 +311,15 @@ public static class SettingsEndpoints
             }
 
             var current = configLoader.LoadLibraries();
+            var core = configLoader.LoadCore();
+            var importOverlapError = FindPathOverlapError(
+                "Import folder",
+                core.EffectiveWatchDirectories,
+                "library folder",
+                mappedLibraries.SelectMany(EffectiveSourcePaths));
+            if (importOverlapError is not null)
+                return Results.BadRequest(new { error = importOverlapError });
+
             current.Libraries = mappedLibraries;
             configLoader.SaveLibraries(current);
 
@@ -1417,6 +1421,52 @@ public static class SettingsEndpoints
             .Select(path => path.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static IEnumerable<string> EffectiveSourcePaths(LibraryFolderConfig library) =>
+        library.SourcePaths is { Count: > 0 }
+            ? library.SourcePaths.Where(path => !string.IsNullOrWhiteSpace(path))
+            : (string.IsNullOrWhiteSpace(library.SourcePath) ? [] : [library.SourcePath]);
+
+    private static string? FindPathOverlapError(
+        string leftLabel,
+        IEnumerable<string> leftPaths,
+        string rightLabel,
+        IEnumerable<string> rightPaths)
+    {
+        var left = CleanPaths(leftPaths)
+            .Select(path => (Original: path, Normalized: NormalizeConfigPath(path)))
+            .ToList();
+        var right = CleanPaths(rightPaths)
+            .Select(path => (Original: path, Normalized: NormalizeConfigPath(path)))
+            .ToList();
+
+        foreach (var leftPath in left)
+        {
+            foreach (var rightPath in right)
+            {
+                if (PathsOverlap(leftPath.Normalized, rightPath.Normalized))
+                {
+                    return $"{leftLabel} '{leftPath.Original}' overlaps {rightLabel} '{rightPath.Original}'. " +
+                           "Import folders must be separate intake locations and cannot be the same as, inside, or contain a media library folder.";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string NormalizeConfigPath(string path) =>
+        path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
+
+    private static bool PathsOverlap(string left, string right) =>
+        IsUnderPath(left, right) || IsUnderPath(right, left);
+
+    private static bool IsUnderPath(string child, string prefix)
+    {
+        if (child.Length < prefix.Length) return false;
+        if (!child.StartsWith(prefix, StringComparison.Ordinal)) return false;
+        return child.Length == prefix.Length || child[prefix.Length] == '/';
+    }
 
     private static LibraryFolderSettingsDto ToLibraryFolderSettingsDto(LibraryFolderConfig library) => new()
     {

@@ -511,27 +511,14 @@ public sealed class ResolveResponse
 
 public sealed class FolderSettingsResponse
 {
-    [JsonPropertyName("watch_directory")]
-    public string WatchDirectory { get; init; } = string.Empty;
-
     [JsonPropertyName("watch_directories")]
     public List<string> WatchDirectories { get; init; } = [];
-
-    [JsonPropertyName("library_root")]
-    public string LibraryRoot { get; init; } = string.Empty;
-
 }
 
 public sealed class UpdateFoldersRequest
 {
-    [JsonPropertyName("watch_directory")]
-    public string? WatchDirectory { get; init; }
-
     [JsonPropertyName("watch_directories")]
     public List<string>? WatchDirectories { get; init; }
-
-    [JsonPropertyName("library_root")]
-    public string? LibraryRoot { get; init; }
 }
 
 public sealed class LibraryFolderSettingsDto
