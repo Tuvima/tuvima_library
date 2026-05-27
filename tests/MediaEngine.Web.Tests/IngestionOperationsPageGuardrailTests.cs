@@ -1064,7 +1064,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 Detail = "Building series graph",
                 ProcessedCount = 2,
                 TotalCount = 3,
-                CountUnit = "links",
+                CountUnit = "items",
                 PercentComplete = 67,
                 ActiveCount = 0,
                 QueuedCount = 1,
@@ -1083,7 +1083,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.Contains("Queued", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("2 / 3 links", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("2 / 3 items", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("1 queued", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("A New Hope", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("The Empire Strikes Back", cut.Markup, StringComparison.Ordinal);
@@ -1402,7 +1402,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         CountUnit = key switch
         {
             "artwork" => "artwork assets",
-            "relationships" => "links",
+            "relationships" => "items",
             "people" => "people",
             "wikidata" => "items",
             _ => "files",

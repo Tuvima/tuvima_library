@@ -487,7 +487,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             activity.StageKey = "relationships";
             activity.Message = "Series & relationships";
             activity.Detail = FirstNonBlank(batch.CurrentStage, activity.Detail, "Stage 3 enrichment");
-            activity.CountUnit = "links";
+            activity.CountUnit = "items";
         }
 
         activity.ActiveCount = Math.Max(activity.ActiveCount, Math.Max(0, batch.FilesActive));
@@ -531,7 +531,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             Source = "Wikidata",
             ProcessedCount = completed,
             TotalCount = total,
-            CountUnit = "links",
+            CountUnit = "items",
             PercentComplete = percent,
             LastUpdatedTime = receivedAt,
             QueuedCount = queued,
@@ -1105,7 +1105,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private static string CountUnitForStage(string? stageKey) => stageKey?.ToLowerInvariant() switch
     {
         "artwork" => "artwork assets",
-        "relationships" => "links",
+        "relationships" => "items",
         "people" => "people",
         "wikidata" => "items",
         _ => "files",

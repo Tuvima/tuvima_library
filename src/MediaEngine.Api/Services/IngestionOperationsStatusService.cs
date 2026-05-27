@@ -804,7 +804,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 metricLabel: "Links created",
                 metricValue: metrics.RelationshipCount.ToString("N0"),
                 metricTone: "success",
-                countUnit: "links",
+                countUnit: "items",
                 displayRows: seriesDisplayRows,
                 progressOverride: relationshipsProgress),
             BuildTaskActivity(
@@ -1259,9 +1259,16 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var operation = BuildOperationProgressOverride(operationProgress);
         var active = Math.Max(Math.Max(jobCounts.Active, operation?.Active ?? 0), recent.Active);
         var queued = Math.Max(jobCounts.Queued, operation?.Queued ?? 0);
-        var hasArtifactCounts = artifactCounts.Total > 0 || artifactCounts.Processed > 0;
-        var total = hasArtifactCounts ? artifactCounts.Total : Math.Max(jobCounts.Total, operation?.Total ?? 0);
-        var processed = hasArtifactCounts ? artifactCounts.Processed : Math.Max(jobCounts.Processed, operation?.Processed ?? 0);
+        var hasWorkCounts = jobCounts.Total > 0
+            || jobCounts.Active > 0
+            || jobCounts.Queued > 0
+            || operation is not null;
+        var total = hasWorkCounts
+            ? Math.Max(jobCounts.Total, operation?.Total ?? 0)
+            : artifactCounts.Total;
+        var processed = hasWorkCounts
+            ? Math.Max(jobCounts.Processed, operation?.Processed ?? 0)
+            : artifactCounts.Processed;
         if (total <= 0 && processed <= 0 && active <= 0 && queued <= 0)
             return null;
 
@@ -1271,7 +1278,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             active,
             queued,
             ParseDate(artifactCounts.UpdatedAt) ?? ParseDate(jobCounts.UpdatedAt) ?? operation?.LastUpdated ?? recent.LastUpdated,
-            PreferExact: true);
+            PreferExact: true,
+            CountUnit: hasWorkCounts ? "items" : "links");
     }
 
     private static async Task<RecentActivityProgress> ReadRecentActivityProgressAsync(
@@ -1693,7 +1701,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Source = FirstNonBlank(active.Select(row => ShortPath(row.SourcePath)).FirstOrDefault(), relevant.Select(row => ShortPath(row.SourcePath)).FirstOrDefault()),
             ProcessedCount = processed,
             TotalCount = total,
-            CountUnit = countUnit,
+            CountUnit = progressOverride?.CountUnit ?? countUnit,
             PercentComplete = total > 0 ? Math.Clamp(processed * 100d / total, 0, 100) : 0,
             LastUpdatedTime = progressOverride?.LastUpdated ?? LatestUpdated(relevant),
             QueuedCount = queued,
@@ -2711,7 +2719,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         int Active,
         int Queued,
         DateTimeOffset? LastUpdated,
-        bool PreferExact);
+        bool PreferExact,
+        string? CountUnit = null);
 
     private sealed record RecentActivityProgress(int Active, DateTimeOffset? LastUpdated);
 }

@@ -128,7 +128,8 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("ReadArtworkProgressAsync", serviceSource, StringComparison.Ordinal);
         Assert.Contains("countUnit: \"artwork assets\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("countUnit: \"people\"", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("countUnit: \"links\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("countUnit: \"items\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("CountUnit: hasWorkCounts ? \"items\" : \"links\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("stage3_enriched_at", serviceSource, StringComparison.Ordinal);
         Assert.Contains("p.enriched_at", serviceSource, StringComparison.Ordinal);
         Assert.Contains("FROM entity_assets", serviceSource, StringComparison.Ordinal);

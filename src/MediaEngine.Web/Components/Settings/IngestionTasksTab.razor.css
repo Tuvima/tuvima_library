@@ -92,7 +92,7 @@
 
 ::deep .library-update__metrics {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 14px;
     margin-bottom: 12px;
 }
@@ -110,10 +110,11 @@
 
 ::deep .library-update-metric {
     display: grid;
-    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-columns: 48px minmax(0, 1fr);
     align-items: center;
-    min-height: 96px;
-    padding: 15px;
+    gap: 12px;
+    min-height: 88px;
+    padding: 13px;
 }
 
 ::deep .library-update-metric__icon,
@@ -127,16 +128,16 @@
 ::deep .library-update-metric__icon {
     display: grid;
     place-items: center;
-    width: 58px;
-    height: 58px;
+    width: 48px;
+    height: 48px;
     border-radius: 999px;
 }
 
 ::deep .library-update-metric__icon .mud-icon-root {
     display: block;
-    width: 31px;
-    height: 31px;
-    font-size: 31px;
+    width: 27px;
+    height: 27px;
+    font-size: 27px;
     line-height: 1;
     margin: 0;
 }
@@ -152,7 +153,8 @@
     display: block;
     margin-top: 3px;
     color: #f8fbff;
-    font-size: clamp(1.45rem, 1.7vw, 1.95rem);
+    font-size: clamp(1.12rem, 1.45vw, 1.65rem);
+    font-variant-numeric: tabular-nums;
     line-height: 1;
     white-space: nowrap;
 }
