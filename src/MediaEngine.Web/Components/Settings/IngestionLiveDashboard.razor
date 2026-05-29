@@ -297,7 +297,7 @@
             {
                 <details class="library-update-recent" aria-label="Recent update runs" open>
                     <summary class="library-update-recent__summary">
-                        <span>Last batch runs</span>
+                        <span>Recent library updates</span>
                         <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
                     </summary>
                     <div class="library-update-recent__content">
@@ -307,9 +307,9 @@
                         }
                         else
                         {
-                            <div class="library-update-batch-grid" role="table" aria-label="Recent batch runs">
+                            <div class="library-update-batch-grid" role="table" aria-label="Recent library updates">
                                 <div class="library-update-batch-grid__head" role="row">
-                                    <span>Batch</span>
+                                    <span>Update</span>
                                     @BatchHeader("Movies", Icons.Material.Outlined.Movie, "movies")
                                     @BatchHeader("TV Shows", Icons.Material.Outlined.Tv, "tv")
                                     @BatchHeader("Books", Icons.Material.Outlined.MenuBook, "books")
@@ -541,8 +541,8 @@
     private static string BatchTitle(IngestionOperationsBatchViewModel batch)
     {
         if (batch.BatchId != Guid.Empty)
-            return $"Batch {batch.BatchId.ToString("N")[..6]}";
-        return "Batch";
+            return $"Update {batch.BatchId.ToString("N")[..6]}";
+        return "Update";
     }
 
     private static string BatchActivityHref(IngestionOperationsBatchViewModel batch) =>

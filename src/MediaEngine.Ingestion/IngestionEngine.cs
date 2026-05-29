@@ -287,11 +287,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // them through the normal debounce ? hash ? duplicate-check ? process flow.
         // After reconciliation, orphaned records are cleaned, so files in the
         // watch folder are treated as genuinely new — no false duplicate skips.
-        foreach (var watchDirectory in watchDirectories.Where(Directory.Exists))
-        {
-            await ScanExistingFilesAsync(watchDirectory, _options.IncludeSubdirectories, stoppingToken)
-                .ConfigureAwait(false);
-        }
+        var startupScanTargets = watchDirectories
+            .Where(Directory.Exists)
+            .Select(path => new IngestionScanTarget(path, _options.IncludeSubdirectories))
+            .ToList();
+        await ScanExistingFilesAsync(startupScanTargets, stoppingToken).ConfigureAwait(false);
 
         // Start the polling fallback in the background.
         // FileSystemWatcher can miss events on certain configurations — the poller
@@ -345,15 +345,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Re-scan the watch directory for files that were already present before
         // the watcher started.  This covers the post-wipe restart scenario where
         // files are seeded into the watch folder and then the engine is restarted.
-        foreach (var watchDirectory in _options.EffectiveWatchDirectories.Where(Directory.Exists))
-        {
-            _ = ScanExistingFilesAsync(watchDirectory, _options.IncludeSubdirectories, CancellationToken.None)
-                .ContinueWith(
-                    task => _logger.LogError(task.Exception, "Initial scan failed after IIngestionEngine.Start"),
-                    CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnFaulted,
-                    TaskScheduler.Default);
-        }
+        var startupScanTargets = _options.EffectiveWatchDirectories
+            .Where(Directory.Exists)
+            .Select(path => new IngestionScanTarget(path, _options.IncludeSubdirectories))
+            .ToList();
+        _ = ScanExistingFilesAsync(startupScanTargets, CancellationToken.None)
+            .ContinueWith(
+                task => _logger.LogError(task.Exception, "Initial scan failed after IIngestionEngine.Start"),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
     }
 
     /// <inheritdoc/>
@@ -362,7 +363,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     /// <inheritdoc/>
     Task IIngestionEngine.ScanDirectory(string directory, bool includeSubdirectories, CancellationToken ct)
-        => ScanExistingFilesAsync(directory, includeSubdirectories, ct);
+        => ScanExistingFilesAsync([new IngestionScanTarget(directory, includeSubdirectories)], ct);
+
+    /// <inheritdoc/>
+    Task IIngestionEngine.ScanDirectories(IReadOnlyList<IngestionScanTarget> targets, CancellationToken ct)
+        => ScanExistingFilesAsync(targets, ct);
 
     /// <inheritdoc/>
     void IIngestionEngine.PauseWatcher()
@@ -2114,17 +2119,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// Duplicates are harmless: step 5 (hash-based duplicate check) in
     /// <see cref="ProcessCandidateAsync"/> short-circuits them instantly.
     /// </summary>
-    private async Task ScanExistingFilesAsync(string directory, bool includeSubdirectories, CancellationToken ct = default)
+    private async Task ScanExistingFilesAsync(IReadOnlyList<IngestionScanTarget> targets, CancellationToken ct = default)
     {
-        var searchOption = includeSubdirectories
-            ? SearchOption.AllDirectories
-            : SearchOption.TopDirectoryOnly;
+        var scanTargets = targets
+            .Where(target => !string.IsNullOrWhiteSpace(target.Path))
+            .Select(target => new IngestionScanTarget(NormalizeDirectoryPath(target.Path), target.IncludeSubdirectories))
+            .Where(target => Directory.Exists(target.Path))
+            .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new IngestionScanTarget(
+                group.Key,
+                group.Any(target => target.IncludeSubdirectories)))
+            .ToList();
+
+        if (scanTargets.Count == 0)
+            return;
 
         // Fetch all known file paths from the database in a single query.
         // Files whose path is already tracked are skipped without being
         // enqueued, preventing a spurious batch from being created on restart
         // for files that were processed in a previous session.
-        // Note: files that moved after processing (e.g. watch folder ? staging)
+        // Note: files that moved after processing (e.g. watch folder -> staging)
         // will not be caught by this path check, but the hash-based duplicate
         // check inside ProcessCandidateAsync (step 5) serves as the safety net.
         // Normalize all stored paths to full, canonical forms so the comparison
@@ -2149,94 +2163,129 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not load known file paths from database — skipping pre-filter");
+            _logger.LogWarning(ex, "Could not load known file paths from database - skipping pre-filter");
             knownPaths = [];
         }
 
-        // Create an ingestion batch for this scan.
-        var batchId = Guid.NewGuid();
+        var acceptedEvents = new List<FileEvent>();
+        var acceptedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var skipped = 0;
 
-        int count = 0;
-        int skipped = 0;
-        try
+        foreach (var target in scanTargets)
         {
-            foreach (var filePath in Directory.EnumerateFiles(directory, "*.*", searchOption))
+            var searchOption = target.IncludeSubdirectories
+                ? SearchOption.AllDirectories
+                : SearchOption.TopDirectoryOnly;
+
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                // Skip files inside the .data directory — staging, images, and database
-                // live here and must not be re-ingested automatically.
-                if (filePath.Contains(Path.DirectorySeparatorChar + ".data" + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase)
-                    || filePath.Contains('/' + ".data" + '/', StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                // Skip non-media files (sidecar data, cover art, manifests, etc.)
-                // that may appear in the watch folder alongside media files.
-                if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
-                    continue;
-
-                // Seed the polling fingerprint cache during the initial scan so the
-                // fallback sweep does not immediately reconsider settled files.
-                var normalizedPath = Path.GetFullPath(filePath);
-                TrackPollFingerprint(normalizedPath, GetPollFingerprint(filePath));
-
-                // Skip files already tracked by the database (path-based pre-filter).
-                // The pipeline's hash check remains the authoritative duplicate guard
-                // for files whose path has changed since initial ingestion.
-                if (knownPaths.Contains(normalizedPath))
+                foreach (var filePath in Directory.EnumerateFiles(target.Path, "*.*", searchOption))
                 {
-                    skipped++;
-                    continue;
+                    ct.ThrowIfCancellationRequested();
+
+                    // Skip files inside the .data directory - staging, images, and database
+                    // live here and must not be re-ingested automatically.
+                    if (IsIgnoredScanFile(filePath))
+                        continue;
+
+                    // Seed the polling fingerprint cache during the initial scan so the
+                    // fallback sweep does not immediately reconsider settled files.
+                    var normalizedPath = Path.GetFullPath(filePath);
+                    TrackPollFingerprint(normalizedPath, GetPollFingerprint(filePath));
+
+                    if (!acceptedPaths.Add(normalizedPath))
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    // Skip files already tracked by the database (path-based pre-filter).
+                    // The pipeline's hash check remains the authoritative duplicate guard
+                    // for files whose path has changed since initial ingestion.
+                    if (knownPaths.Contains(normalizedPath))
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    acceptedEvents.Add(new FileEvent
+                    {
+                        Path       = normalizedPath,
+                        EventType  = FileEventType.Created,
+                        OccurredAt = DateTimeOffset.UtcNow,
+                    });
                 }
-
-                _debounce.Enqueue(new FileEvent
-                {
-                    Path       = filePath,
-                    EventType  = FileEventType.Created,
-                    OccurredAt = DateTimeOffset.UtcNow,
-                    BatchId    = batchId,
-                });
-                count++;
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Initial scan of watch directory failed after {Count} files: {Dir}",
-                count, directory);
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Initial scan of watch directory failed after {Count} accepted file(s): {Dir}",
+                    acceptedEvents.Count, target.Path);
+            }
         }
 
         if (skipped > 0)
             _logger.LogInformation(
-                "Initial scan: skipped {Skipped} already-known file(s) from {Dir}",
-                skipped, directory);
+                "Initial scan: skipped {Skipped} already-known or duplicate file(s) across {TargetCount} scan target(s)",
+                skipped, scanTargets.Count);
 
-        if (count > 0)
+        if (acceptedEvents.Count == 0)
+            return;
+
+        var batchId = Guid.NewGuid();
+        foreach (var evt in acceptedEvents)
         {
-            _logger.LogInformation(
-                "Initial scan: enqueued {Count} existing file(s) from {Dir}",
-                count, directory);
-
-            // Persist a batch record now that we know the exact file count.
-            try
-            {
-                await _batchRepo.CreateAsync(new IngestionBatch
-                {
-                    Id          = batchId,
-                    Status      = "running",
-                    SourcePath  = directory,
-                    FilesTotal  = count,
-                    StartedAt   = DateTimeOffset.UtcNow,
-                }, ct).ConfigureAwait(false);
-                await PublishInitialBatchProgressAsync(batchId, count).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Batch record creation failed for scan batchId {BatchId} — pipeline continues", batchId);
-            }
+            evt.BatchId = batchId;
         }
 
+        _logger.LogInformation(
+            "Initial scan: enqueued {Count} existing file(s) across {TargetCount} scan target(s)",
+            acceptedEvents.Count, scanTargets.Count);
+
+        // Persist one batch record for the whole scan before any file is processed.
+        try
+        {
+            await _batchRepo.CreateAsync(new IngestionBatch
+            {
+                Id          = batchId,
+                Status      = "running",
+                SourcePath  = ResolveScanBatchSourcePath(scanTargets),
+                FilesTotal  = acceptedEvents.Count,
+                StartedAt   = DateTimeOffset.UtcNow,
+            }, ct).ConfigureAwait(false);
+            await PublishInitialBatchProgressAsync(batchId, acceptedEvents.Count).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Batch record creation failed for scan batchId {BatchId} - pipeline continues", batchId);
+        }
+
+        foreach (var evt in acceptedEvents)
+        {
+            _debounce.Enqueue(evt);
+        }
     }
+
+    private static bool IsIgnoredScanFile(string filePath)
+    {
+        if (filePath.Contains(Path.DirectorySeparatorChar + ".data" + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase)
+            || filePath.Contains('/' + ".data" + '/', StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return NonMediaExtensions.Contains(Path.GetExtension(filePath));
+    }
+
+    private static string NormalizeDirectoryPath(string path)
+        => Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    private static string ResolveScanBatchSourcePath(IReadOnlyList<IngestionScanTarget> targets)
+        => targets.Count == 1
+            ? targets[0].Path
+            : "Multiple source folders";
 
     // =========================================================================
     // Polling fallback — safety net when FSW misses events

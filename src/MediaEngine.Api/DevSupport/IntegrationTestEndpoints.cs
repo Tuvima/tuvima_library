@@ -631,6 +631,7 @@ public static class IntegrationTestEndpoints
 
             logger.LogInformation("[Phase 3] Triggering directory scans...");
             var scanConfig = configLoader.LoadLibraries();
+            var scanTargets = new List<IngestionScanTarget>();
             foreach (var lib in scanConfig.Libraries)
             {
                 bool libraryIsActive =
@@ -657,9 +658,15 @@ public static class IntegrationTestEndpoints
                     }
 
                     int fileCount = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories).Length;
-                    await ingestionEngine.ScanDirectory(sourcePath, lib.IncludeSubdirectories, ct);
-                    logger.LogInformation("  Scan triggered: {Path} ({Category}, {Files} files)", sourcePath, lib.Category, fileCount);
+                    scanTargets.Add(new IngestionScanTarget(sourcePath, lib.IncludeSubdirectories));
+                    logger.LogInformation("  Scan target collected: {Path} ({Category}, {Files} files)", sourcePath, lib.Category, fileCount);
                 }
+            }
+
+            if (scanTargets.Count > 0)
+            {
+                await ingestionEngine.ScanDirectories(scanTargets, ct);
+                logger.LogInformation("[Phase 3] Grouped ScanDirectories triggered for {Count} target(s)", scanTargets.Count);
             }
 
             var ingestionTimeout = ResolveIngestionTimeout(configLoader, stages, activeTypes.Count, logger);

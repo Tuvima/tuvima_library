@@ -1253,13 +1253,13 @@ public static class DevSeedEndpoints
                 if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
                     paths.Add(lib.SourcePath);
 
-                return paths.Select(path => new SeedScanTarget(
+                return paths.Select(path => new IngestionScanTarget(
                     NormalizeDirectoryPath(path),
                     lib.IncludeSubdirectories));
             })
             .Where(target => Directory.Exists(target.Path))
             .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new SeedScanTarget(
+            .Select(group => new IngestionScanTarget(
                 group.Key,
                 group.Any(target => target.IncludeSubdirectories)))
             .ToList();
@@ -1272,34 +1272,38 @@ public static class DevSeedEndpoints
                 && IsDirectoryAncestor(target.Path, other.Path)))
             .ToList();
 
-        var scannedPaths = new List<string>();
-        foreach (var target in scanTargets)
-        {
-            await ingestionEngine.ScanDirectory(target.Path, target.IncludeSubdirectories, context.RequestAborted);
-            scannedPaths.Add(target.Path);
-            logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", target.Path);
-        }
+        var scannedPaths = scanTargets.Select(target => target.Path).ToList();
 
         // Legacy watch folder scan â€” only if no per-library source paths were scanned.
         // When source_paths are configured, the legacy scan is redundant (the watch
         // folder is typically the parent of all source paths) and doubles the event
         // count, slowing down the pipeline.
         string? watchDir = options.Value.WatchDirectory;
-        if (scannedPaths.Count == 0 && !string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
+        if (scanTargets.Count == 0 && !string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
         {
-            await ingestionEngine.ScanDirectory(watchDir, ct: context.RequestAborted);
-            scannedPaths.Add(watchDir);
-            logger.LogInformation("[FullTest] ScanDirectory triggered for legacy watch folder {Path}", watchDir);
+            var normalizedWatchDir = NormalizeDirectoryPath(watchDir);
+            scanTargets.Add(new IngestionScanTarget(normalizedWatchDir, true));
+            scannedPaths.Add(normalizedWatchDir);
+            logger.LogInformation("[FullTest] Legacy watch folder included for grouped scan: {Path}", normalizedWatchDir);
+        }
+
+        if (scanTargets.Count > 0)
+        {
+            await ingestionEngine.ScanDirectories(scanTargets, context.RequestAborted);
+            foreach (var target in scanTargets)
+            {
+                logger.LogInformation("[FullTest] Grouped ScanDirectories target: {Path}", target.Path);
+            }
         }
 
         // â”€â”€ Step 4: Do NOT resume the FSW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // ScanDirectory already enqueued every seed file directly into the pipeline.
+        // ScanDirectories already enqueued every seed file directly into the pipeline.
         // Resuming the FSW here causes a race: the watcher fires events for the
         // same files that are already being processed, and the lock probe fails
         // (the first processing attempt holds the file open), quarantining ~50
         // files. The FSW stays paused until the engine is restarted or a manual
         // POST /dev/resume-watcher is called.
-        logger.LogInformation("[FullTest] FSW intentionally left paused â€” ScanDirectory handles all seed files");
+        logger.LogInformation("[FullTest] FSW intentionally left paused â€” grouped ScanDirectories handles all seed files");
 
         return Results.Ok(new
         {
@@ -1328,8 +1332,6 @@ public static class DevSeedEndpoints
     /// Deletes all files and subdirectories inside a directory, preserving the directory itself.
     /// Returns the number of items deleted.
     /// </summary>
-    private sealed record SeedScanTarget(string Path, bool IncludeSubdirectories);
-
     private static string NormalizeDirectoryPath(string path)
         => Path.GetFullPath(path)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

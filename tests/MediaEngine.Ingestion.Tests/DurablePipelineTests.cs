@@ -241,6 +241,59 @@ public sealed class DurablePipelineTests : IDisposable
     }
 
     [Fact]
+    public async Task IngestionEngine_ScanDirectories_CreatesSingleBatchForCombinedTargets()
+    {
+        var booksDir = Path.Combine(_tempRoot, "books");
+        var comicsDir = Path.Combine(_tempRoot, "comics");
+        Directory.CreateDirectory(booksDir);
+        Directory.CreateDirectory(comicsDir);
+        File.WriteAllText(Path.Combine(booksDir, "Dune.epub"), "dune");
+        File.WriteAllText(Path.Combine(booksDir, "Foundation.epub"), "foundation");
+        File.WriteAllText(Path.Combine(comicsDir, "Saga 001.cbz"), "saga");
+
+        using var debounce = new DebounceQueue(new DebounceOptions
+        {
+            SettleDelay = TimeSpan.FromMilliseconds(1),
+            ProbeInterval = TimeSpan.FromMilliseconds(1),
+            MaxProbeAttempts = 1,
+            MaxProbeDelay = TimeSpan.FromMilliseconds(10),
+        });
+        using var engine = CreateEngine(debounce, new IngestionOptions
+        {
+            WatchDirectory = booksDir,
+            WatchDirectories = [booksDir, comicsDir],
+            LibraryRoot = _libraryDir,
+            AutoOrganize = false,
+            IncludeSubdirectories = false,
+            PollIntervalSeconds = 0,
+        });
+
+        await ((IIngestionEngine)engine).ScanDirectories(
+            [
+                new IngestionScanTarget(booksDir, IncludeSubdirectories: false),
+                new IngestionScanTarget(comicsDir, IncludeSubdirectories: false),
+            ],
+            CancellationToken.None);
+
+        using var conn = _dbFactory.Connection.CreateConnection();
+        Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM ingestion_batches;"));
+        Assert.Equal(3, conn.ExecuteScalar<int>("SELECT COALESCE(SUM(files_total), 0) FROM ingestion_batches;"));
+        Assert.Equal("Multiple source folders", conn.ExecuteScalar<string>("SELECT source_path FROM ingestion_batches LIMIT 1;"));
+
+        var candidates = new List<IngestionCandidate>();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        while (candidates.Count < 3)
+        {
+            candidates.Add(await debounce.Reader.ReadAsync(timeout.Token));
+        }
+
+        var batchIdText = conn.ExecuteScalar<string>("SELECT id FROM ingestion_batches LIMIT 1;");
+        Assert.NotNull(batchIdText);
+        var batchId = Guid.Parse(batchIdText);
+        Assert.All(candidates, candidate => Assert.Equal(batchId, candidate.BatchId));
+    }
+
+    [Fact]
     public async Task IngestionEngine_DuplicateDifferentPath_RecordsDuplicateOutcome()
     {
         var firstPath = CreateWatchFile("Dune.epub", "same bytes");
@@ -658,7 +711,27 @@ public sealed class DurablePipelineTests : IDisposable
 
         using var debounce = new DebounceQueue(debounceOptions);
 
-        var engine = new IngestionEngine(
+        using var engine = CreateEngine(debounce, options);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            await engine.StartAsync(cts.Token);
+            await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
+        }
+        catch (OperationCanceledException) { /* expected timeout */ }
+        finally
+        {
+            using var stopCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try { await engine.StopAsync(stopCts.Token); }
+            catch (OperationCanceledException) { /* stop timeout is acceptable */ }
+        }
+    }
+
+    // Helpers - IngestionEngine factory
+
+    private IngestionEngine CreateEngine(DebounceQueue debounce, IngestionOptions options) =>
+        new(
             _watcher,
             debounce,
             _hasher,
@@ -689,25 +762,6 @@ public sealed class DurablePipelineTests : IDisposable
             _entityAssetRepo,
             _assetPaths,
             _workRepo);
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        try
-        {
-            await engine.StartAsync(cts.Token);
-            await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
-        }
-        catch (OperationCanceledException) { /* expected timeout */ }
-        finally
-        {
-            using var stopCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            try { await engine.StopAsync(stopCts.Token); }
-            catch (OperationCanceledException) { /* stop timeout is acceptable */ }
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // Helpers — Worker factory helpers
-    // ══════════════════════════════════════════════════════════════════════
 
     private static StageOutcomeFactory CreateOutcomeFactory() =>
         new StageOutcomeFactory(

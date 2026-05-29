@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Services;
@@ -237,20 +238,36 @@ public sealed class IngestionOperationsContractTests
         var aggregateMethod = typeof(IngestionOperationsStatusService).GetMethod(
             "AggregateDisplayBatch",
             BindingFlags.Static | BindingFlags.NonPublic);
+        var recentGroupMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "BuildRecentBatchGroups",
+            BindingFlags.Static | BindingFlags.NonPublic);
 
         Assert.NotNull(selectMethod);
         Assert.NotNull(aggregateMethod);
+        Assert.NotNull(recentGroupMethod);
 
         var selected = Assert.IsAssignableFrom<IReadOnlyList<IngestionBatch>>(
             selectMethod.Invoke(null, [batches]));
         var aggregate = Assert.IsType<IngestionBatch>(
             aggregateMethod.Invoke(null, [selected]));
+        var recentGroups = Assert.IsAssignableFrom<IEnumerable>(
+            recentGroupMethod.Invoke(null, [batches]));
+        var groupObjects = recentGroups.Cast<object>().ToList();
+        var firstGroupBatch = Assert.IsType<IngestionBatch>(
+            groupObjects[0].GetType().GetProperty("Batch")!.GetValue(groupObjects[0]));
+        var firstSourceBatchIds = Assert.IsAssignableFrom<IEnumerable>(
+            groupObjects[0].GetType().GetProperty("SourceBatchIds")!.GetValue(groupObjects[0]));
 
         Assert.Equal(3, selected.Count);
         Assert.Equal(96, aggregate.FilesTotal);
         Assert.Equal(86, aggregate.FilesProcessed);
         Assert.Equal(76, aggregate.FilesIdentified);
         Assert.Equal(10, aggregate.FilesReview);
+        Assert.Equal("Multiple source folders", aggregate.SourcePath);
+        Assert.Equal("Mixed", aggregate.Category);
+        Assert.Equal(2, groupObjects.Count);
+        Assert.Equal(96, firstGroupBatch.FilesTotal);
+        Assert.Equal(3, firstSourceBatchIds.Cast<object>().Count());
     }
 
     private static string FindRepoRoot()
@@ -276,6 +293,7 @@ public sealed class IngestionOperationsContractTests
         int identified,
         int review) => new()
     {
+        Id = Guid.NewGuid(),
         StartedAt = startedAt,
         CreatedAt = startedAt,
         UpdatedAt = startedAt.AddMinutes(1),

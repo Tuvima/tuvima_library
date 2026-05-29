@@ -35,6 +35,13 @@ public interface IIngestionEngine
     Task ScanDirectory(string directory, bool includeSubdirectories = true, CancellationToken ct = default);
 
     /// <summary>
+    /// Scans multiple directories as one logical ingestion run. All accepted files
+    /// share a single ingestion batch ID so the Dashboard shows one user-facing
+    /// library update rather than one row per source folder.
+    /// </summary>
+    Task ScanDirectories(IReadOnlyList<IngestionScanTarget> targets, CancellationToken ct = default);
+
+    /// <summary>
     /// Stops the FileSystemWatcher and clears the FSW event buffer without
     /// touching the debounce queue or its consumer loop.
     /// Used by the dev wipe operation so that seed files written immediately
@@ -50,6 +57,9 @@ public interface IIngestionEngine
     /// </summary>
     void ResumeWatcher();
 }
+
+/// <summary>One directory included in a grouped ingestion scan.</summary>
+public sealed record IngestionScanTarget(string Path, bool IncludeSubdirectories = true);
 
 /// <summary>
 /// A file system operation that the ingestion engine intends to perform,

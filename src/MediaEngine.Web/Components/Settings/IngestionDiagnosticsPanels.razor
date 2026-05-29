@@ -88,10 +88,10 @@
             </div>
         </MudExpansionPanel>
 
-        <MudExpansionPanel Text="Recent batches">
+        <MudExpansionPanel Text="Recent library updates">
             @if (Snapshot.RecentBatches.Count == 0)
             {
-                @Empty(Icons.Material.Outlined.History, "No recent ingestion batches", "Batches will appear after a scan processes files.")
+                @Empty(Icons.Material.Outlined.History, "No recent library updates", "Library updates will appear after a scan processes files.")
             }
             else
             {

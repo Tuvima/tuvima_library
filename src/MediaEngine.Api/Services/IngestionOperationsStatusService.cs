@@ -221,6 +221,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var summaryTotals = BuildSummaryTotals(displayBatch, lifecycle, projection);
         var pipelineStages = BuildPipelineStages(scopedPipelineRows, scopedIngestionRows, lifecycle, projection, displayBatch);
         var batchStats = await ReadBatchStatsAsync(recentBatches, ct);
+        var recentBatchGroups = BuildRecentBatchGroups(recentBatches);
         var currentActivities = await ReadTaskActivitiesAsync(displayBatches.Select(batch => batch.Id).ToArray(), pipelineStages, ct);
         if (currentActivities.Count == 0)
         {
@@ -262,7 +263,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ReviewReasons = BuildReviewReasons(reviewRows, lifecycle.TriggerCounts),
             SourceGroups = BuildSourceGroups(folderStats),
             ProviderHealth = providerDtos,
-            RecentBatches = recentBatches.Select(batch => ToRecentBatch(batch, batchStats.GetValueOrDefault(batch.Id))).ToList(),
+            RecentBatches = recentBatchGroups
+                .Select(group => ToRecentBatch(
+                    group.Batch,
+                    AggregateBatchStats(group.SourceBatchIds, batchStats)))
+                .ToList(),
             Organization = BuildOrganizationRules(),
             GeneratedAt = DateTimeOffset.UtcNow,
         };
@@ -367,6 +372,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 .ThenByDescending(batch => batch.StartedAt)
                 .First().Id,
             Status = active ? "running" : failed ? "failed" : "completed",
+            SourcePath = displayBatches.Count == 1 ? displayBatches[0].SourcePath : "Multiple source folders",
+            Category = displayBatches.Count == 1 ? displayBatches[0].Category : "Mixed",
             FilesTotal = displayBatches.Sum(batch => Math.Max(0, batch.FilesTotal)),
             FilesProcessed = displayBatches.Sum(batch => Math.Max(0, batch.FilesProcessed)),
             FilesIdentified = displayBatches.Sum(batch => Math.Max(0, batch.FilesIdentified)),
@@ -378,6 +385,37 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             CreatedAt = displayBatches.Min(batch => batch.CreatedAt),
             UpdatedAt = displayBatches.Max(batch => batch.UpdatedAt),
         };
+    }
+
+    private static IReadOnlyList<DisplayBatchGroup> BuildRecentBatchGroups(IReadOnlyList<IngestionBatch> recentBatches)
+    {
+        if (recentBatches.Count == 0)
+            return [];
+
+        var remaining = recentBatches
+            .OrderByDescending(batch => batch.StartedAt)
+            .ToList();
+        var groups = new List<DisplayBatchGroup>();
+
+        while (remaining.Count > 0)
+        {
+            var anchor = remaining[0];
+            var anchorStart = anchor.StartedAt.ToUniversalTime();
+            var grouped = remaining
+                .Where(batch => DurationBetween(batch.StartedAt.ToUniversalTime(), anchorStart) <= TimeSpan.FromMinutes(3))
+                .ToList();
+
+            foreach (var batch in grouped)
+            {
+                remaining.Remove(batch);
+            }
+
+            groups.Add(new DisplayBatchGroup(
+                AggregateDisplayBatch(grouped) ?? anchor,
+                grouped.Select(batch => batch.Id).ToArray()));
+        }
+
+        return groups;
     }
 
     private static TimeSpan DurationBetween(DateTimeOffset left, DateTimeOffset right)
@@ -2312,6 +2350,38 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Summary = $"{batch.FilesIdentified:N0} registered, {batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed:N0} review",
         };
     }
+
+    private static BatchActivityStats AggregateBatchStats(
+        IReadOnlyCollection<Guid> batchIds,
+        IReadOnlyDictionary<Guid, BatchActivityStats> statsByBatch)
+    {
+        if (batchIds.Count == 0)
+            return new();
+
+        var stats = batchIds
+            .Select(id => statsByBatch.GetValueOrDefault(id))
+            .Where(stats => stats is not null)
+            .Cast<BatchActivityStats>()
+            .ToList();
+
+        if (stats.Count == 0)
+            return new();
+
+        return new BatchActivityStats(
+            MoviesCount: stats.Sum(item => item.MoviesCount),
+            TvShowsCount: stats.Sum(item => item.TvShowsCount),
+            BooksCount: stats.Sum(item => item.BooksCount),
+            AudiobooksCount: stats.Sum(item => item.AudiobooksCount),
+            MusicCount: stats.Sum(item => item.MusicCount),
+            ComicsCount: stats.Sum(item => item.ComicsCount),
+            PeopleGeneratedCount: stats.Sum(item => item.PeopleGeneratedCount),
+            ArtworkDownloadedCount: stats.Sum(item => item.ArtworkDownloadedCount),
+            MetadataUpdatedCount: stats.Sum(item => item.MetadataUpdatedCount));
+    }
+
+    private sealed record DisplayBatchGroup(
+        IngestionBatch Batch,
+        IReadOnlyCollection<Guid> SourceBatchIds);
 
     private sealed record BatchActivityStats(
         int MoviesCount = 0,

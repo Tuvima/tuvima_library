@@ -205,22 +205,21 @@ public static class SettingsEndpoints
                     logger.LogWarning(ex, "Watcher hot-swap failed for {WatchDirectories}; saved configuration remains active", string.Join(", ", existingWatchDirectories));
                 }
 
-                // Scan existing files in the new watch directory so files that were
-                // already present before the hot-swap are picked up.  Duplicates are
-                // harmless — the pipeline's hash check short-circuits them.
-                foreach (var watchDirectory in existingWatchDirectories)
+                // Scan existing files in the new watch directories as one logical
+                // library update. Duplicates are harmless: the pipeline's hash check
+                // short-circuits them.
+                try
                 {
-                    try
-                    {
-                        await ingestionEngine.ScanDirectory(watchDirectory, ct: ct);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Initial scan failed for updated watch directory {WatchDirectory}", watchDirectory);
-                    }
+                    var scanTargets = existingWatchDirectories
+                        .Select(path => new IngestionScanTarget(path, true))
+                        .ToList();
+                    await ingestionEngine.ScanDirectories(scanTargets, ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Initial grouped scan failed for updated watch directories {WatchDirectories}", string.Join(", ", existingWatchDirectories));
                 }
             }
-
             // Broadcast the new active watch path to all connected Dashboard circuits.
             await publisher.PublishAsync(
                 SignalREvents.WatchFolderActive,

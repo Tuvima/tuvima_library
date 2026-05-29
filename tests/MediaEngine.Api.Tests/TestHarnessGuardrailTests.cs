@@ -106,6 +106,18 @@ public sealed class TestHarnessGuardrailTests
     }
 
     [Fact]
+    public void Harnesses_GroupMultipleSourceFoldersIntoOneIngestionBatch()
+    {
+        var devSeed = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "DevSeedEndpoints.cs"));
+        var integration = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("await ingestionEngine.ScanDirectories(scanTargets", devSeed, StringComparison.Ordinal);
+        Assert.Contains("await ingestionEngine.ScanDirectories(scanTargets", integration, StringComparison.Ordinal);
+        Assert.DoesNotContain("await ingestionEngine.ScanDirectory(target.Path", devSeed, StringComparison.Ordinal);
+        Assert.DoesNotContain("await ingestionEngine.ScanDirectory(sourcePath", integration, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ComicVine_TitleDoesNotOverrideLocalIssueIdentity()
     {
         var config = File.ReadAllText(Path.Combine(FindRepoRoot(), "config", "providers", "comicvine.json"));

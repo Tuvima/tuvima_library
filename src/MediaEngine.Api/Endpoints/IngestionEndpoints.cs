@@ -175,20 +175,17 @@ public static class IngestionEndpoints
                 return Results.BadRequest(
                     "Watch directory is not configured. Set Ingestion:WatchDirectory first.");
 
-            var scanned = 0;
-            foreach (var watchDir in watchDirs)
-            {
-                if (!Directory.Exists(watchDir))
-                    continue;
+            var scanTargets = watchDirs
+                .Where(Directory.Exists)
+                .Select(watchDir => new IngestionScanTarget(watchDir, includeSubdirectories))
+                .ToList();
 
-                await engine.ScanDirectory(watchDir, includeSubdirectories, ct);
-                scanned++;
-            }
-
-            if (scanned == 0)
+            if (scanTargets.Count == 0)
                 return Results.BadRequest("No configured watch directories exist on disk.");
 
-            return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly.", paths_scanned = scanned });
+            await engine.ScanDirectories(scanTargets, ct);
+
+            return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly.", paths_scanned = scanTargets.Count });
         })
         .WithName("TriggerRescan")
         .WithSummary(

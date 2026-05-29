@@ -1296,7 +1296,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("Last batch runs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Recent library updates", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Update 830000", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Last batch runs", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Movies", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("TV Shows", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Books", cut.Markup, StringComparison.Ordinal);
@@ -1338,6 +1340,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("31 of 50 enrichment tasks complete", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Artwork lookup", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Neuromancer", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("library-update-batch-grid__row", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
