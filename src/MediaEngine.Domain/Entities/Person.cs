@@ -123,7 +123,7 @@ public sealed class Person
 
     /// <summary>
     /// Path to the locally downloaded headshot image under
-    /// <c>{LibraryRoot}/.people/{id}/headshot.jpg</c>.
+    /// <c>{LibraryRoot}/.data/assets/people/{id}/headshot.*</c>.
     /// Null until the headshot has been downloaded from Wikimedia Commons.
     /// </summary>
     public string? LocalHeadshotPath { get; set; }

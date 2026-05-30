@@ -695,6 +695,7 @@ public sealed class DurablePipelineTests : IDisposable
         var options = new IngestionOptions
         {
             WatchDirectory        = _watchDir,
+            WatchDirectories      = [_watchDir],
             LibraryRoot           = _libraryDir,
             AutoOrganize          = true,
             IncludeSubdirectories = false,

@@ -26,7 +26,7 @@ For large existing libraries, start with one media lane at a time. It is easier 
 
 1. Open the Dashboard at `http://localhost:5016`.
 2. Go to **Settings > Libraries**.
-3. Set the Watch Folder and Library Root.
+3. Set the library source folder(s) and Library Root.
 4. Confirm path checks show the Engine can read and write where required.
 5. Save the settings.
 6. Run **Scan saved watch folder**.
@@ -53,10 +53,12 @@ MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous. Tuvima uses folder context, 
 3. **Scan:** read embedded metadata and artwork.
 4. **Classify:** resolve media type where needed.
 5. **Stage:** register the file safely before promotion.
-6. **Hydrate:** call configured providers for metadata and bridge IDs.
-7. **Resolve Wikidata:** use bridge IDs for canonical identity when possible.
-8. **Settle artwork:** decide whether artwork is present, missing, or still pending.
-9. **Surface:** show the item only where it is ready and backed by real data.
+6. **Stage 1 Retail:** call active retail providers for metadata, artwork, people, ratings, and bridge IDs.
+7. **Stage 2 Wikidata:** use bridge IDs for canonical identity when possible.
+8. **Quick Hydration:** store core canonical values and managed artwork under `.data/assets`.
+9. **Stage 3 Enrichment:** expand people, universe relationships, lyrics/subtitles, and additional artwork.
+10. **Settle artwork:** decide whether artwork is present, missing, or still pending.
+11. **Surface:** show the item only where it is ready and backed by real data.
 
 ## When Items Become Visible
 

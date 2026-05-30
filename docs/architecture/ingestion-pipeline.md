@@ -54,7 +54,7 @@ The Engine is configured with one or more **Library Folders**, each declaring:
 | `import_action` | For import mode only: `move` or `copy` |
 | `include_subdirectories` | Whether to scan nested folders within the source path |
 
-Configuration lives in `config/libraries.json`. When this file is absent, the Engine falls back to a single default library folder derived from the legacy `WatchDirectory` and `LibraryRoot` values in `core.json`, treating all media types as eligible.
+Configuration lives in `config/libraries.json`. Normal runtime ingestion requires these library entries; the old single `WatchDirectory` value is no longer a fallback source for watched/imported folders. `WatchDirectory` may still be exposed as a derived first-source compatibility value after `config/libraries.json` has loaded.
 
 ```json
 {
@@ -151,9 +151,9 @@ If multiple files from the same source folder have already been processed (e.g. 
 
 ### 6. Move to Staging
 
-The file is moved from its source location into `{LibraryRoot}/.staging/`, where it waits for hydration and promotion. Cover art is extracted and written alongside the file at this stage - the processor's cover image bytes are only available during the Scan step and must be persisted immediately.
+The file is moved from its source location into `{LibraryRoot}/.data/staging/`, where it waits for hydration and promotion. Cover art is extracted as a claim at this stage and persisted through the managed asset store when the artwork pipeline writes it.
 
-Cover art for items that have not yet received a Wikidata QID is written to `.data/images/_pending/{GUID12}/` (previously named `_provisional/`). When a QID is assigned, `ImagePathService.PromoteToQid()` renames the directory to `.data/images/{QID}/`.
+Managed artwork is stored through `AssetPathService` and `entity_assets` under `.data/assets/...`; it is never keyed by provisional QID folders.
 
 ---
 
@@ -214,7 +214,7 @@ On startup, if `{LibraryRoot}/.orphans/` exists and `.staging/` does not, the En
 
 The database is the authoritative data store for all metadata, relationships, and canonical values. User metadata edits are additionally written back into the file's embedded metadata via `IMetadataTagger` (EPUB OPF, ID3 tags, M4B atoms), ensuring portability - the file carries its own metadata independently of the database.
 
-Wikidata properties are re-fetchable via the batch Reconciliation API as a recovery fallback. Cover art is never stored in the database; `cover.jpg` lives alongside the file on disk and is always read from there.
+Wikidata properties are re-fetchable through provider reconciliation. Managed artwork is indexed in the database through `entity_assets`; optional local sidecars are exports, not runtime fallback reads.
 
 Recovery scenarios:
 - **Standard:** Scheduled SQLite backups (by domain: universe, people, library) as primary recovery
@@ -245,10 +245,10 @@ Books and Audiobooks share the same title folder under the `Books` category, dis
 ```
 {LibraryRoot}/Books/Dune - Q190159/Epub/Dune.epub
 {LibraryRoot}/Books/Dune - Q190159/Audiobook/Dune.m4b
-{LibraryRoot}/Books/Dune - Q190159/cover.jpg
+{LibraryRoot}/.data/assets/artwork/Work/{workId}/CoverArt/{variantId}.jpg
 ```
 
-Cover art lives at the title folder level, not inside the format subfolder, so both formats share the same cover image.
+Cover art is owned by the work-level entity asset, so ebook and audiobook variants can share the same preferred cover without duplicating files beside each media item.
 
 ### Category Mapping
 

@@ -124,6 +124,7 @@ nav:
       - Run Tests: guides/running-tests.md
   - Architecture:
       - Pipeline Overview: explanation/how-the-pipeline-works.md
+      - Ingestion, Identity, Enrichment: architecture/ingestion-identity-enrichment-pipeline.md
       - Durable Media Operations: architecture/durable-media-operations.md
       - Ingestion Pipeline: architecture/ingestion-pipeline.md
       - Hydration Pipeline and Providers: architecture/hydration-and-providers.md

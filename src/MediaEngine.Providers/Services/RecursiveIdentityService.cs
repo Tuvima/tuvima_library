@@ -27,7 +27,7 @@ namespace MediaEngine.Providers.Services;
 ///     <see cref="HarvestRequest"/> with <see cref="EntityType.Person"/>
 ///     so the caller can decide whether to process it synchronously or
 ///     enqueue it for background processing.
-///  4. Creates the <c>.people/{QID}/</c> folder under the library root.
+///  4. Leaves person imagery to the canonical asset pipeline.
 ///
 /// This service is intentionally lightweight: all heavy I/O runs later,
 /// either synchronously (during review resolution) or asynchronously
@@ -166,9 +166,6 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         await _personRepo.LinkToMediaAssetAsync(mediaAssetId, person.Id, reference.Role, ct)
             .ConfigureAwait(false);
 
-        // 2a. Ensure the .people/ folder exists for this person.
-        EnsurePersonFolder(person);
-
         // 3. If not yet enriched, or still missing visible profile data, return a harvest request for the caller to handle.
         //    QID is always present — the harvest service uses it directly for
         //    Data Extension property fetching (no name-based search needed).
@@ -205,22 +202,6 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
                && string.IsNullOrWhiteSpace(person.LocalHeadshotPath));
 
     // ── Private helpers ───────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Creates the <c>.people/{Name} ({QID})/</c> directory under the configured
-    /// library root. Directory creation is deferred to the enrichment service
-    /// (MetadataHarvestingService.PersistPersonStorageAsync), which creates the
-    /// person image directory only when a headshot image is actually saved.
-    /// This prevents empty directories from accumulating for unenriched persons.
-    ///
-    /// This method is intentionally a no-op: it exists as a hook for callers
-    /// that previously triggered folder creation at entity-creation time.
-    /// </summary>
-    private void EnsurePersonFolder(Domain.Entities.Person person)
-    {
-        // No-op: person image directory is created lazily when a headshot is downloaded,
-        // not at entity-creation time. See MetadataHarvestingService.PersistPersonStorageAsync.
-    }
 
     /// <summary>
     /// Normalizes author names from "Last, First" to "First Last" format.

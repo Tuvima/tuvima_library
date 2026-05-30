@@ -132,7 +132,6 @@ public sealed class DevHarnessResetService
         }
 
         var assetPathService = new AssetPathService(libraryRoot);
-        WipePathWithReport(details, "Central artwork cache", assetPathService.LegacyImagesRoot);
         WipePathWithReport(details, "Central artwork and renditions", assetPathService.AssetsRoot);
 
         if (Directory.Exists(libraryRoot))

@@ -1,8 +1,8 @@
 using System.Reflection;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
-using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -52,117 +52,20 @@ public static class SystemEndpoints
         .WithSummary("Returns file watcher diagnostic status.")
         .RequireAdmin();
 
-        // ── POST /maintenance/sweep-orphan-images ─────────────────────────────
-        // Scans the .images/ directory tree for subdirectories whose QID (or
-        // provisional GUID prefix) no longer exists in the database.  Safe to run
-        // at any time — best-effort, never throws on individual directory failures.
-        app.MapPost("/maintenance/sweep-orphan-images", async (
-            ImagePathService imagePaths,
-            IOrphanImageReferenceReadService references,
+        app.MapPost("/maintenance/sweep-orphan-assets", (
+            AssetStoreCleanupService cleanupService,
             CancellationToken ct) =>
         {
-            var imagesRoot = imagePaths.ImagesRoot;
-            if (!Directory.Exists(imagesRoot))
-            {
-                return Results.Ok(new { cleaned = 0, message = ".images/ directory does not exist — nothing to sweep." });
-            }
-
-            int cleaned = 0;
-
-            // ── Collect known QIDs and work IDs from the database ─────────────
-            OrphanImageReferenceSet known;
-
-            try
-            {
-                known = await references.GetKnownReferencesAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                return Results.Problem($"Failed to query database: {ex.Message}");
-            }
-
-            ct.ThrowIfCancellationRequested();
-
-            // ── Sweep .images/works/{QID}/ ────────────────────────────────────
-            var worksDir = Path.Combine(imagesRoot, "works");
-            if (Directory.Exists(worksDir))
-            {
-                foreach (var dir in Directory.EnumerateDirectories(worksDir))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var name = Path.GetFileName(dir);
-                    if (string.Equals(name, "_pending", StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue; // handled separately below
-                    }
-
-                    if (!known.KnownWorkQids.Contains(name))
-                    {
-                        try { Directory.Delete(dir, recursive: true); cleaned++; }
-                        catch { /* best-effort */ }
-                    }
-                }
-
-                // ── Sweep .images/works/_pending/{id12}/ ─────────────────────
-                var provisionalDir = Path.Combine(worksDir, "_pending");
-                if (Directory.Exists(provisionalDir))
-                {
-                    foreach (var dir in Directory.EnumerateDirectories(provisionalDir))
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        var name = Path.GetFileName(dir);
-                        if (!known.KnownWorkId12.Contains(name))
-                        {
-                            try { Directory.Delete(dir, recursive: true); cleaned++; }
-                            catch { /* best-effort */ }
-                        }
-                    }
-                }
-            }
-
-            // ── Sweep .images/people/{QID}/ ───────────────────────────────────
-            var peopleDir = Path.Combine(imagesRoot, "people");
-            if (Directory.Exists(peopleDir))
-            {
-                foreach (var dir in Directory.EnumerateDirectories(peopleDir))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var name = Path.GetFileName(dir);
-                    if (!known.KnownPersonQids.Contains(name))
-                    {
-                        try { Directory.Delete(dir, recursive: true); cleaned++; }
-                        catch { /* best-effort */ }
-                    }
-                }
-            }
-
-            // ── Sweep .images/universes/{QID}/ ────────────────────────────────
-            var universesDir = Path.Combine(imagesRoot, "universes");
-            if (Directory.Exists(universesDir))
-            {
-                foreach (var dir in Directory.EnumerateDirectories(universesDir))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var name = Path.GetFileName(dir);
-                    if (!known.KnownUniverseQids.Contains(name))
-                    {
-                        try { Directory.Delete(dir, recursive: true); cleaned++; }
-                        catch { /* best-effort */ }
-                    }
-                }
-            }
-
+            var result = cleanupService.SweepOrphanAssets(ct);
             return Results.Ok(new
             {
-                cleaned,
-                message = cleaned == 0
-                    ? "No orphaned image directories found."
-                    : $"Removed {cleaned} orphaned image director{(cleaned == 1 ? "y" : "ies")}.",
+                cleaned = result.Cleaned,
+                message = result.Message,
             });
         })
         .WithTags("System")
-        .WithName("SweepOrphanImages")
-        .WithSummary("Scans .images/ for directories with no matching database entity and removes them.")
+        .WithName("SweepOrphanAssets")
+        .WithSummary("Scans .data/assets for managed files not referenced by the database and removes them.")
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 

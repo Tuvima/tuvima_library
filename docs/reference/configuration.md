@@ -18,15 +18,15 @@ All configuration lives in the `config/` directory as individual JSON files grou
 
 ## config/core.json
 
-Core Engine settings. Most changes are read at startup, but Settings > Libraries can save folder changes and ask the running Engine to hot-swap watch folders.
+Core Engine settings. Most changes are read at startup. Normal ingestion source folders come from `config/libraries.json`; Settings > Libraries can save folder changes and ask the running Engine to hot-swap watchers.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `schema_version` | string | `"2.0"` | Config schema version. Used for migration compatibility checks. |
 | `database_path` | string | `".data/database/library.db"` | Path to the SQLite database file. Relative paths resolve from `data_root`. |
 | `data_root` | string | `""` | Root directory for all internal Engine storage (`.data/`). Must be set before first run. |
-| `watch_directory` | string | `""` | Legacy single-directory global intake folder. The Settings UI keeps this set to the first `watch_directories` entry for compatibility. |
-| `watch_directories` | string[] | `[]` | Global intake/drop folders watched for new files before media-type routing. If empty, the Engine falls back to `watch_directory`. |
+| `watch_directory` | string | `""` | Derived first-source compatibility value after `config/libraries.json` loads. Not a normal runtime ingestion fallback. |
+| `watch_directories` | string[] | `[]` | Derived compatibility list after `config/libraries.json` loads. Runtime watchers are configured from library entries, not this field. |
 | `library_root` | string | `""` | Root directory where the Engine places organized media after promotion. |
 | `organization_template` | string | - | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
 | `organization_templates` | object | - | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |

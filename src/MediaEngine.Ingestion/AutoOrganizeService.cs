@@ -219,8 +219,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         // Move companion artwork files from staging to the library edition folder.
         // CoverArtWorker writes poster.jpg next to the media file (even in staging) via
-        // ImagePathService.GetMediaFilePosterPath, so companion files must always be moved
-        // on promotion — regardless of whether ImagePathService is active.
+        // AssetPathService.GetMediaFilePosterPath, so companion files must always be moved
+        // on promotion when storage policy enables local artwork mirrors.
         MoveCompanionFiles(sourcePath, destPath);
 
         // Clean up any .tuvima.bak files left behind by metadata taggers.
@@ -402,7 +402,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         if (existingSources.Count == 0 || string.IsNullOrWhiteSpace(destinationPath))
             return;
 
-        ImagePathService.EnsureDirectory(destinationPath);
+        AssetPathService.EnsureDirectory(destinationPath);
 
         foreach (var sourcePath in existingSources)
         {
@@ -427,7 +427,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         return new[]
         {
-            ImagePathService.GetMediaFilePosterPath(mediaPath),
+            AssetPathService.GetMediaFilePosterPath(mediaPath),
             Path.Combine(folder, "poster.jpg"),
             Path.Combine(folder, $"{basename}-poster.jpg"),
         };
@@ -440,7 +440,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         return new[]
         {
-            ImagePathService.GetMediaFileThumbPath(mediaPath),
+            AssetPathService.GetMediaFileThumbPath(mediaPath),
             Path.Combine(folder, "poster-thumb.jpg"),
             Path.Combine(folder, $"{basename}-poster-thumb.jpg"),
         };
@@ -491,14 +491,14 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private static string BuildScopedCompanionPath(string mediaPath, string artKind, string extension) =>
         artKind switch
         {
-            "poster" => Path.ChangeExtension(ImagePathService.GetMediaFilePosterPath(mediaPath), extension),
-            "poster-thumb" => Path.ChangeExtension(ImagePathService.GetMediaFileThumbPath(mediaPath), extension),
-            "fanart" => Path.ChangeExtension(ImagePathService.GetMediaFileFanartPath(mediaPath), extension),
-            "banner" => Path.ChangeExtension(ImagePathService.GetMediaFileBannerPath(mediaPath), extension),
-            "logo" => Path.ChangeExtension(ImagePathService.GetMediaFileLogoPath(mediaPath), extension),
-            "discart" => Path.ChangeExtension(ImagePathService.GetMediaFileDiscArtPath(mediaPath), extension),
-            "clearart" => Path.ChangeExtension(ImagePathService.GetMediaFileClearArtPath(mediaPath), extension),
-            "square" => Path.ChangeExtension(ImagePathService.GetMediaFileSquareArtPath(mediaPath), extension),
+            "poster" => Path.ChangeExtension(AssetPathService.GetMediaFilePosterPath(mediaPath), extension),
+            "poster-thumb" => Path.ChangeExtension(AssetPathService.GetMediaFileThumbPath(mediaPath), extension),
+            "fanart" => Path.ChangeExtension(AssetPathService.GetMediaFileFanartPath(mediaPath), extension),
+            "banner" => Path.ChangeExtension(AssetPathService.GetMediaFileBannerPath(mediaPath), extension),
+            "logo" => Path.ChangeExtension(AssetPathService.GetMediaFileLogoPath(mediaPath), extension),
+            "discart" => Path.ChangeExtension(AssetPathService.GetMediaFileDiscArtPath(mediaPath), extension),
+            "clearart" => Path.ChangeExtension(AssetPathService.GetMediaFileClearArtPath(mediaPath), extension),
+            "square" => Path.ChangeExtension(AssetPathService.GetMediaFileSquareArtPath(mediaPath), extension),
             _ => throw new ArgumentOutOfRangeException(nameof(artKind), artKind, "Unsupported companion art kind."),
         };
 
@@ -519,7 +519,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             ? sourceFileName[oldPrefix.Length..]
             : sourceFileName;
 
-        if (ImagePathService.GetMediaFileArtScope(newMediaPath) == MediaFileArtScope.Dedicated)
+        if (AssetPathService.GetMediaFileArtScope(newMediaPath) == MediaFileArtScope.Dedicated)
             return Path.Combine(newFolder, scopedFileName);
 
         return Path.Combine(newFolder, $"{newBaseName}-{scopedFileName}");

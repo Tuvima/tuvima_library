@@ -4333,7 +4333,7 @@ public static class IntegrationTestEndpoints
 
         foreach (var candidate in new[]
         {
-            ImagePathService.GetMediaFilePosterPath(mediaFilePath),
+            AssetPathService.GetMediaFilePosterPath(mediaFilePath),
             Path.Combine(dir, "poster.jpg"),
             Path.Combine(dir, $"{basename}-poster.jpg"),
         })
@@ -4358,7 +4358,7 @@ public static class IntegrationTestEndpoints
 
         foreach (var candidate in new[]
         {
-            ImagePathService.GetMediaFileThumbPath(mediaFilePath),
+            AssetPathService.GetMediaFileThumbPath(mediaFilePath),
             Path.Combine(dir, "poster-thumb.jpg"),
             Path.Combine(dir, $"{basename}-poster-thumb.jpg"),
         })

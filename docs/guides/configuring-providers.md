@@ -39,10 +39,9 @@ These providers require no account, no sign-up, and no configuration. They are a
 | **Wikidata** | Canonical identity, structured metadata, people, series, genre |
 | **Wikipedia** | Plain-language descriptions |
 | **Apple API** | Cover art, descriptions, ratings (books, audiobooks, music) |
-| **Open Library** | Book metadata, ISBN data |
-| **MusicBrainz** | Music metadata, release data, artist information |
+| **LRCLIB** | Lyrics and timed lyrics for music |
 
-These providers are enabled by default. You don't need to do anything to start using them.
+These providers are enabled by default where their config marks them active. Open Library and MusicBrainz configs are retained for future or explicit use, but they are disabled in the normal runtime setup.
 
 ---
 
@@ -96,7 +95,7 @@ Providers differ in what languages they support. Each provider has a **language 
 
 | Strategy | What it means |
 |---|---|
-| **Source** | Always query this provider in English, regardless of your language settings. Use this for providers whose data is English-only (Open Library, MusicBrainz). |
+| **Source** | Always query this provider in English, regardless of your language settings. Use this for providers whose data is English-only or not localized. |
 | **Localized** | Query this provider in your metadata language setting. Use this for providers with strong international content (TMDB, Apple API). |
 | **Both** | Query in your metadata language first; if the result is empty, retry in English and merge the results. Wikidata uses this by default. |
 
@@ -111,7 +110,7 @@ To change the language strategy for a provider:
 
 ## How cover art is handled
 
-Each provider that supports cover art will download images and store them locally in your library's data directory. You never need to re-download them.
+Each provider that supports cover art downloads images into the managed asset store under `.data/assets/...` and records them in the database, usually through `entity_assets`. You never need to re-download them. Images beside media files are optional export mirrors only when storage policy enables them.
 
 When multiple providers supply cover art for the same title, the Engine also checks the artwork visually against the cover already embedded in the file. This comparison helps identify the best match and can improve the Engine's confidence in its identification - not just the quality of the image.
 

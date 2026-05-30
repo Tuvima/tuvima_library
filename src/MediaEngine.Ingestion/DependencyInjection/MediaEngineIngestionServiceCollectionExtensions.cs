@@ -90,24 +90,15 @@ public static class MediaEngineIngestionServiceCollectionExtensions
 
         services.PostConfigure<IngestionOptions>(opts =>
         {
-            string? envWatch = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
+            opts.WatchDirectory = string.Empty;
+            opts.WatchDirectories = [];
+
             string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
-            if (!string.IsNullOrWhiteSpace(envWatch))
-            {
-                opts.WatchDirectory = envWatch;
-                opts.WatchDirectories = [envWatch];
-            }
             if (!string.IsNullOrWhiteSpace(envLibrary)) opts.LibraryRoot = envLibrary;
 
             try
             {
                 CoreConfiguration core = configLoader.LoadCore();
-                var watchDirectories = core.EffectiveWatchDirectories;
-                if (watchDirectories.Count > 0)
-                {
-                    opts.WatchDirectories = watchDirectories;
-                    opts.WatchDirectory = watchDirectories[0];
-                }
                 if (!string.IsNullOrWhiteSpace(core.LibraryRoot))
                 {
                     opts.LibraryRoot = core.LibraryRoot;
@@ -162,6 +153,14 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                     .ToList();
 
                 LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
+
+                var sourcePaths = opts.LibraryFolders
+                    .SelectMany(folder => folder.EffectiveSourcePaths)
+                    .Where(path => !string.IsNullOrWhiteSpace(path))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                opts.WatchDirectories = sourcePaths;
+                opts.WatchDirectory = sourcePaths.FirstOrDefault() ?? string.Empty;
             }
             catch (InvalidOperationException ex)
             {

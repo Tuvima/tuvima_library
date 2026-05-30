@@ -47,10 +47,11 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 10. ScoringEngine.ScoreEntityAsync → persist CanonicalValues
 11. MediaEntityChainFactory → create Collection→Work→Edition
 12. MediaAssetRepository.InsertAsync (INSERT OR IGNORE)
-13. If confidence ≥ 0.85 or user-locked: FileOrganizer.ExecuteMoveAsync + SidecarWriter + cover.jpg
-14. If WriteBack enabled: EpubMetadataTagger.WriteTagsAsync
-15. MetadataHarvestingService.EnqueueAsync → background enrichment
-16. RecursiveIdentityService.ProcessAsync → person creation + linking
+13. If confidence ≥ 0.85 or user-locked: FileOrganizer.ExecuteMoveAsync + optional SidecarWriter export
+14. Managed artwork is persisted through AssetPathService + entity_assets under .data/assets
+15. If WriteBack enabled: EpubMetadataTagger.WriteTagsAsync
+16. MetadataHarvestingService.EnqueueAsync → Stage 1 retail, Stage 2 Wikidata, Quick Hydration, and Stage 3 enrichment
+17. RecursiveIdentityService.ProcessAsync → person creation + linking
 ```
 
 ---

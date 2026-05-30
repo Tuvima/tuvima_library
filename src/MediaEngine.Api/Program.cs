@@ -271,11 +271,6 @@ builder.Services.AddSingleton(sp =>
     var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
     return new AssetPathService(core.LibraryRoot, core.StoragePolicy);
 });
-builder.Services.AddSingleton(sp =>
-{
-    var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
-    return new ImagePathService(core.LibraryRoot);
-});
 builder.Services.AddSingleton<IAssetExportService, AssetExportService>();
 builder.Services.AddHostedService<AssetStorageStartupService>();
 builder.Services.AddSingleton<ICollectionRepository, CollectionRepository>();
@@ -303,6 +298,7 @@ builder.Services.AddSingleton<IVideoMetadataExtractor, FFmpegVideoMetadataExtrac
 
 builder.Services.AddMediaEngineIngestion(config, configLoader);
 builder.Services.AddSingleton<DevHarnessResetService>();
+builder.Services.AddSingleton<AssetStoreCleanupService>();
 
 builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
 builder.Services.AddApiReadServices();

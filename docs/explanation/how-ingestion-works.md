@@ -25,8 +25,11 @@ File appears in a watched folder
   -> scan embedded metadata
   -> classify ambiguous formats
   -> move to staging
-  -> Retail and Wikidata enrichment
-  -> artwork settlement
+  -> Stage 1 Retail
+  -> Stage 2 Wikidata
+  -> Quick Hydration
+  -> Stage 3 enrichment
+  -> managed artwork settlement
   -> browse readiness gate
   -> library organisation
 ```
@@ -99,8 +102,8 @@ This staging decision is separate from whether the item is visible in the main b
 
 After scan and staging, the Engine starts the two identity stages:
 
-- **Retail** finds practical provider candidates and bridge IDs
-- **Wikidata** resolves canonical identity from those bridge IDs
+- **Stage 1 Retail** finds practical provider candidates, artwork, people, ratings, descriptions, and bridge IDs
+- **Stage 2 Wikidata** resolves canonical identity from those bridge IDs
 
 Retail matching is now stricter than older documentation described:
 
@@ -110,9 +113,13 @@ Retail matching is now stricter than older documentation described:
 
 That stricter gate reduces false positives and improves the quality of later Wikidata resolution.
 
+If Retail cannot produce a safe match, Wikidata is not used as a broad text fallback. The item goes to review instead. If Retail succeeds but no QID is found, the item keeps its retail data and can be retried later.
+
 ---
 
 ## Step 7: Artwork settlement
+
+Quick Hydration gets the item visible with core identity and accepted artwork when enough facts are available. Managed artwork is stored under `.data/assets/...` and referenced from the database; media-folder sidecars are optional exports only.
 
 The Engine also tracks whether artwork is:
 
@@ -120,7 +127,9 @@ The Engine also tracks whether artwork is:
 - still pending
 - explicitly missing
 
-That matters because the main browse surfaces does not show an item until its artwork outcome has settled. A file can be safely staged and partly identified without being ready for the main browse surfaces yet.
+That matters because the main browse surfaces do not show an item until its artwork outcome has settled. A file can be safely staged and partly identified without being ready for the main browse surfaces yet.
+
+Stage 3 enrichment continues in the background after the fast path. It expands people, fictional entities, narrative roots, relationships, lyrics/subtitles, extra artwork, and other universe details.
 
 ---
 
@@ -183,6 +192,7 @@ While work is active, the Dashboard updates from SignalR `BatchProgress` and `In
 
 - [How the Entire Pipeline Works](how-the-pipeline-works.md)
 - [How Two-Stage Enrichment Works](how-hydration-works.md)
+- [Ingestion, Identity, and Enrichment Pipeline](../architecture/ingestion-identity-enrichment-pipeline.md)
 - [How to Add Media to Your Library](../guides/adding-media.md)
 - [Ingestion Pipeline](../architecture/ingestion-pipeline.md)
 

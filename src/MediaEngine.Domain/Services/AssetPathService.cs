@@ -41,8 +41,6 @@ public sealed class AssetPathService
 
     public string PeopleRoot => Path.Combine(AssetsRoot, "people");
 
-    public string LegacyImagesRoot => Path.Combine(DataRoot, "images");
-
     public bool IsHybridMode => _policy.Mode == StorageMode.Hybrid;
 
     public bool IsArtworkCentralized => _policy.Mode != StorageMode.CoLocated;
@@ -182,18 +180,18 @@ public sealed class AssetPathService
         var normalizedExtension = NormalizeExtension(extension);
 
         if (variantId.HasValue && variantId.Value != Guid.Empty)
-            return ImagePathService.GetMediaFileArtworkVariantPath(mediaFilePath, assetType, variantId.Value, normalizedExtension);
+            return GetMediaFileArtworkVariantPath(mediaFilePath, assetType, variantId.Value, normalizedExtension);
 
         return assetType switch
         {
-            "CoverArt" => ImagePathService.GetMediaFilePosterPath(mediaFilePath),
-            "Background" => ImagePathService.GetMediaFileFanartPath(mediaFilePath),
-            "Banner" => ImagePathService.GetMediaFileBannerPath(mediaFilePath),
-            "Logo" => ImagePathService.GetMediaFileLogoPath(mediaFilePath),
-            "DiscArt" => ImagePathService.GetMediaFileDiscArtPath(mediaFilePath),
-            "ClearArt" => ImagePathService.GetMediaFileClearArtPath(mediaFilePath),
-            "SquareArt" => ImagePathService.GetMediaFileSquareArtPath(mediaFilePath),
-            "EpisodeStill" => ImagePathService.GetMediaFileThumbPath(mediaFilePath),
+            "CoverArt" => GetMediaFilePosterPath(mediaFilePath),
+            "Background" => GetMediaFileFanartPath(mediaFilePath),
+            "Banner" => GetMediaFileBannerPath(mediaFilePath),
+            "Logo" => GetMediaFileLogoPath(mediaFilePath),
+            "DiscArt" => GetMediaFileDiscArtPath(mediaFilePath),
+            "ClearArt" => GetMediaFileClearArtPath(mediaFilePath),
+            "SquareArt" => GetMediaFileSquareArtPath(mediaFilePath),
+            "EpisodeStill" => GetMediaFileThumbPath(mediaFilePath),
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported export artwork type."),
         };
     }
@@ -246,6 +244,153 @@ public sealed class AssetPathService
         return Path.Combine(directory, $"{basename}{normalizedExtension}");
     }
 
+    /// <summary>
+    /// Resolves whether sidecar artwork should use folder-level names or
+    /// file-prefixed names for a media file's current directory.
+    /// </summary>
+    public static MediaFileArtScope GetMediaFileArtScope(string mediaFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            return MediaFileArtScope.Dedicated;
+
+        var dir = Path.GetDirectoryName(mediaFilePath);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+            return MediaFileArtScope.Dedicated;
+
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(dir))
+            {
+                if (string.Equals(file, mediaFilePath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (IsMediaExtension(Path.GetExtension(file)))
+                    return MediaFileArtScope.Shared;
+            }
+        }
+        catch
+        {
+            return MediaFileArtScope.Dedicated;
+        }
+
+        return MediaFileArtScope.Dedicated;
+    }
+
+    public static string GetMediaFilePosterPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "poster", ".jpg");
+
+    public static string GetMediaFileFanartPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "fanart", ".jpg");
+
+    public static string GetMediaFileLogoPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "logo", ".png");
+
+    public static string GetMediaFileDiscArtPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "discart", ".png");
+
+    public static string GetMediaFileClearArtPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "clearart", ".png");
+
+    public static string GetMediaFileSquareArtPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "square", ".jpg");
+
+    public static string GetMediaFileBannerPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "banner", ".jpg");
+
+    public static string GetMediaFileHeroPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "hero", ".jpg");
+
+    public static string GetMediaFileThumbPath(string mediaFilePath) =>
+        BuildSiblingPath(mediaFilePath, "poster-thumb", ".jpg");
+
+    public static string GetMediaFileArtworkVariantPath(
+        string mediaFilePath,
+        string assetType,
+        Guid variantId,
+        string extension)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            throw new ArgumentException("Media file path is required.", nameof(mediaFilePath));
+        if (variantId == Guid.Empty)
+            throw new ArgumentException("Variant id is required.", nameof(variantId));
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new ArgumentException("File extension is required.", nameof(extension));
+
+        var artKind = assetType.Trim() switch
+        {
+            "CoverArt" => "poster",
+            "Background" => "fanart",
+            "Banner" => "banner",
+            "SquareArt" => "square",
+            "Logo" => "logo",
+            "DiscArt" => "discart",
+            "ClearArt" => "clearart",
+            "EpisodeStill" => "thumb",
+            _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
+        };
+
+        var normalizedExtension = NormalizeExtension(extension);
+        return BuildSiblingPath(mediaFilePath, $"{artKind}-{variantId:N}", normalizedExtension);
+    }
+
+    public static string GetFolderArtworkVariantPath(
+        string folderPath,
+        string assetType,
+        Guid variantId,
+        string extension)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+            throw new ArgumentException("Folder path is required.", nameof(folderPath));
+        if (variantId == Guid.Empty)
+            throw new ArgumentException("Variant id is required.", nameof(variantId));
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new ArgumentException("File extension is required.", nameof(extension));
+
+        var artKind = assetType.Trim() switch
+        {
+            "CoverArt" => "poster",
+            "Background" => "fanart",
+            "Banner" => "banner",
+            "SquareArt" => "square",
+            "Logo" => "logo",
+            "DiscArt" => "discart",
+            "ClearArt" => "clearart",
+            "SeasonPoster" => "poster",
+            "SeasonThumb" => "thumb",
+            _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported folder artwork type."),
+        };
+
+        return Path.Combine(folderPath, $"{artKind}-{variantId:N}{NormalizeExtension(extension)}");
+    }
+
+    private static string BuildSiblingPath(string mediaFilePath, string artKind, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            throw new ArgumentException("Media file path is required.", nameof(mediaFilePath));
+
+        var dir = Path.GetDirectoryName(mediaFilePath) ?? ".";
+        if (GetMediaFileArtScope(mediaFilePath) == MediaFileArtScope.Dedicated)
+            return Path.Combine(dir, artKind + extension);
+
+        var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
+        return Path.Combine(dir, $"{basename}-{artKind}{extension}");
+    }
+
+    private static bool IsMediaExtension(string extension)
+    {
+        if (string.IsNullOrEmpty(extension))
+            return false;
+
+        return extension.ToLowerInvariant() switch
+        {
+            ".mkv" or ".mp4" or ".m4v" or ".avi" or ".mov" or ".wmv" or ".webm" or ".ts" => true,
+            ".m4b" or ".mp3" or ".flac" or ".m4a" or ".ogg" or ".opus" or ".wav" or ".aac" => true,
+            ".epub" or ".pdf" => true,
+            ".cbz" or ".cbr" or ".cb7" => true,
+            _ => false,
+        };
+    }
+
     private static string NormalizeAssetTypeSegment(string assetType) =>
         assetType.Trim().ToLowerInvariant() switch
         {
@@ -276,4 +421,10 @@ public sealed class AssetPathService
 
         return extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
     }
+}
+
+public enum MediaFileArtScope
+{
+    Dedicated,
+    Shared,
 }

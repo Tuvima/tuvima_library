@@ -29,7 +29,6 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     private readonly WorkRepository _works;
     private readonly ImageCacheRepository _imageCache;
     private readonly AssetPathService _assetPaths;
-    private readonly ImagePathService _imagePaths;
     private readonly ConfigurationDirectoryLoader _configLoader;
 
     public ImageEnrichmentServiceTests()
@@ -51,7 +50,6 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         _works = new WorkRepository(_db);
         _imageCache = new ImageCacheRepository(_db);
         _assetPaths = new AssetPathService(_libraryRoot);
-        _imagePaths = new ImagePathService(_libraryRoot);
         _configLoader = new ConfigurationDirectoryLoader(_configRoot);
         _configLoader.SaveProvider(new StorageProviderConfiguration
         {
@@ -372,7 +370,6 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             new StubProviderConfigurationRepository(),
             _configLoader,
             _imageCache,
-            _imagePaths,
             _assetPaths,
             new StubAssetExportService(),
             new RoutingHttpClientFactory(responder),

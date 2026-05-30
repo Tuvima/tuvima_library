@@ -2445,7 +2445,7 @@ internal sealed class SchemaMigrator
 
     /// <summary>
     /// Migration M-018: Add <c>local_headshot_path</c> column to the <c>persons</c>
-    /// table for centralized people storage under <c>.people/</c>.
+    /// table for canonical person headshot asset paths.
     /// </summary>
     private static void MigratePersonHeadshotPath(SqliteConnection conn)
     {

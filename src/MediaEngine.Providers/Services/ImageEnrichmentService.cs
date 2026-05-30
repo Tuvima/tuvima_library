@@ -33,7 +33,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private readonly IProviderConfigurationRepository _providerConfigRepo;
     private readonly IConfigurationLoader _configLoader;
     private readonly IImageCacheRepository _imageCache;
-    private readonly ImagePathService _imagePaths;
     private readonly AssetPathService _assetPaths;
     private readonly IAssetExportService? _assetExportService;
     private readonly IHttpClientFactory _httpFactory;
@@ -100,7 +99,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         IProviderConfigurationRepository providerConfigRepo,
         IConfigurationLoader configLoader,
         IImageCacheRepository imageCache,
-        ImagePathService imagePaths,
         AssetPathService assetPaths,
         IAssetExportService? assetExportService,
         IHttpClientFactory httpFactory,
@@ -117,7 +115,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ArgumentNullException.ThrowIfNull(providerConfigRepo);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(imageCache);
-        ArgumentNullException.ThrowIfNull(imagePaths);
+        ArgumentNullException.ThrowIfNull(assetPaths);
         ArgumentNullException.ThrowIfNull(httpFactory);
         ArgumentNullException.ThrowIfNull(fuzzy);
         ArgumentNullException.ThrowIfNull(logger);
@@ -132,7 +130,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         _providerConfigRepo  = providerConfigRepo;
         _configLoader        = configLoader;
         _imageCache          = imageCache;
-        _imagePaths          = imagePaths;
         _assetPaths          = assetPaths;
         _assetExportService  = assetExportService;
         _httpFactory          = httpFactory;
@@ -1171,12 +1168,12 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var cached = await _imageCache.FindByHashAsync(hash, ct);
         if (cached is not null && File.Exists(cached))
         {
-            ImagePathService.EnsureDirectory(localPath);
+            AssetPathService.EnsureDirectory(localPath);
             File.Copy(cached, localPath, overwrite: true);
         }
         else
         {
-            ImagePathService.EnsureDirectory(localPath);
+            AssetPathService.EnsureDirectory(localPath);
             await File.WriteAllBytesAsync(localPath, bytes, ct);
             await _imageCache.InsertAsync(hash, localPath, sourceUrl, ct);
         }

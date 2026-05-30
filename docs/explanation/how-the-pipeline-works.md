@@ -28,12 +28,13 @@ New file appears
   -> fingerprint
   -> scan and media-type classification
   -> safe staging on disk
-  -> Retail stage
-  -> Wikidata stage
+  -> Stage 1 Retail
+  -> Stage 2 Wikidata
+  -> Quick Hydration
   -> metadata cascade
   -> artwork settlement
   -> browse readiness gate
-  -> organisation and later enrichment
+  -> organisation and Stage 3 enrichment
 ```
 
 Two important ideas sit underneath the whole design:
@@ -43,7 +44,7 @@ Two important ideas sit underneath the whole design:
 
 ---
 
-## Stage 1: Ingestion
+## Stage 0: Ingestion
 
 The first phase is about making the file safe to work with.
 
@@ -61,9 +62,9 @@ Staging is a safety mechanism, not a user-facing "ready" signal.
 
 ---
 
-## Stage 2: Retail matching
+## Stage 1: Retail matching
 
-Retail is the first identity stage. The Engine queries providers such as Apple, TMDB, MusicBrainz, or comic sources depending on media type.
+Retail is the first identity stage. The Engine queries active providers such as Apple, TMDB, and Comic Vine depending on media type. Open Library and MusicBrainz configs exist but are disabled by default; Fanart.tv is reserved for Stage 3 artwork, and LRCLIB/OpenSubtitles are text-track providers rather than identity sources.
 
 Retail does three important jobs:
 
@@ -90,7 +91,7 @@ That stricter Retail stage is what improves match quality.
 
 ---
 
-## Stage 3: Wikidata resolution
+## Stage 2: Wikidata resolution
 
 Wikidata runs after Retail, not in parallel with it.
 
@@ -118,7 +119,7 @@ This is a deliberate precision-preserving choice.
 
 ---
 
-## Stage 4: The metadata cascade
+## Quick Hydration and the metadata cascade
 
 By this point the Engine may have metadata from:
 
@@ -138,7 +139,7 @@ This lets the system combine the strengths of different sources instead of prete
 
 ---
 
-## Stage 5: Artwork settlement and browse readiness
+## Artwork settlement and browse readiness
 
 The main browse surfaces has its own quality gate.
 
@@ -156,9 +157,11 @@ That last point matters. The Engine now distinguishes between:
 
 Items that fail this gate remain visible in **Activity**, **Review**, and the **Review Queue**, but they are held back from the main browse surfaces until the story is trustworthy.
 
+Managed artwork is stored under `.data/assets/...` and indexed through database records such as `entity_assets` and `persons.local_headshot_path`. Sidecar images beside media files are optional exports only.
+
 ---
 
-## Stage 6: Organisation on disk
+## Stage 3: Organisation on disk and deeper enrichment
 
 Organisation is a separate decision from browse visibility.
 
@@ -175,6 +178,8 @@ So there are really two questions:
 2. Is this item ready to be promoted into the organised library structure?
 
 Those questions are related, but they are no longer the same thing.
+
+After the fast identity path, Stage 3 enrichment expands people, fictional entities, narrative roots, universe relationships, extra artwork, lyrics/subtitles, summaries, and other non-blocking details.
 
 ---
 
@@ -231,5 +236,6 @@ The result is a system that surfaces items a little later, but with much higher 
 - [How File Ingestion Works](how-ingestion-works.md)
 - [How Two-Stage Enrichment Works](how-hydration-works.md)
 - [How the Review Queue Works](../guides/resolving-reviews.md)
+- [Ingestion, Identity, and Enrichment Pipeline](../architecture/ingestion-identity-enrichment-pipeline.md)
 - [Ingestion Pipeline Architecture](../architecture/ingestion-pipeline.md)
 - [Scoring and Cascade Architecture](../architecture/scoring-and-cascade.md)

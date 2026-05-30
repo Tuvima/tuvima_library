@@ -490,7 +490,7 @@ Cached candidate lists from previous search/resolve operations.
 
 ### image_cache
 
-Tracks all images stored in `.data/images/`.
+Tracks managed entity artwork stored under `.data/assets`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -708,5 +708,4 @@ Named factual entries in a Wikidata series manifest, including works the local l
 | `order_source` | TEXT | How ordering was determined. |
 | `ownership_state` | TEXT | `Owned`, `Missing`, `Provisional`, or `Ambiguous`. |
 | `linked_work_id` | TEXT | FK to `works.id` when exactly one local work matches. |
-
 

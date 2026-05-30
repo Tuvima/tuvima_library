@@ -159,7 +159,7 @@ public interface IPersonRepository
     /// <summary>
     /// Finds a person by Wikidata QID.
     /// Returns <c>null</c> if no matching person exists.
-    /// Used by the Great Inhale people scanner to match person.xml records by QID.
+    /// Used by QID-first person enrichment and reconciliation.
     /// </summary>
     Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default);
 

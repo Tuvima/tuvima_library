@@ -35,9 +35,12 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 |---|---|---|---|---|---|
 | Apple API | Books, Audiobooks, Music | None | 500ms throttle | Localized (user language) | Active |
 | TMDB | Movies, TV | Bearer token | 250ms, max 2 concurrent | Localized (user language) | Active (requires key) |
-| MusicBrainz | Music | None | 1100ms, max 1 concurrent | Source (English only) | Active |
+| MusicBrainz | Music | None | 1100ms, max 1 concurrent | Source (English only) | Disabled (config kept) |
 | Comic Vine | Comics | API key | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
 | Open Library | Books | None | 500ms | Source (English only) | Disabled (config kept) |
+| Fanart.tv | Movies, TV, Music | API key | Configured provider throttle | ID lookup | Stage 3 artwork only |
+| LRCLIB | Music | None | Configured provider throttle | Source | Text-track provider |
+| OpenSubtitles | Movies, TV | API key | Configured provider throttle | Source | Text-track provider, disabled by default |
 
 ---
 
@@ -67,14 +70,14 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 
 **Notes:** Year is optional but included when available from file metadata. Director is not a query parameter - used for post-search ranking only. Returns poster and backdrop image paths (prepend `https://image.tmdb.org/t/p/w500` or `w1280`).
 
-#### MusicBrainz
+#### MusicBrainz (Disabled)
 
 | Strategy | Priority | Required Fields | URL Pattern | Media Types |
 |---|---|---|---|---|
 | Release Search | 1 | `title` | `/release?query={title}&fmt=json&limit={limit}` | Music |
 | Recording Search | 2 | `title` | `/recording?query={title}&fmt=json&limit={limit}` | Music |
 
-**Notes:** Title only. Artist, Album, and Year are not query parameters - used for post-search ranking. Cover art from Cover Art Archive (`https://coverartarchive.org/release/{id}/front-250`). Strict rate limit (1100ms between requests, max 1 concurrent) per MusicBrainz policy.
+**Notes:** The config is retained but disabled by default, so MusicBrainz is not an active Stage 1 provider in the normal runtime path. If re-enabled, title-only search is used and Artist, Album, and Year are post-search ranking signals. Embedded MusicBrainz tags from local files can still exist as local metadata/bridge evidence.
 
 #### Comic Vine
 
@@ -94,6 +97,14 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 
 **Notes:** The only provider whose title search also sends `{author}` in the query (combined as `{title} {author}`). ISBN search returns up to 3 results. Returns first_sentence as description (lower quality than dedicated description APIs). 14-day cache TTL. Currently disabled but config preserved for future use.
 
+#### Fanart.tv (Stage 3 Only)
+
+Fanart.tv is not an identity provider. It runs after identity is established and uses bridge IDs to fetch additional artwork such as backgrounds, logos, banners, thumbnails, clear art, disc art, and square art.
+
+#### LRCLIB and OpenSubtitles
+
+LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do not decide identity, do not unlock Wikidata resolution, and do not participate in retail candidate scoring.
+
 ---
 
 ## Response Fields - What We Extract
@@ -110,7 +121,7 @@ Each provider's config defines a `field_mappings` array that maps JSON response 
 | **Comic Vine** | 0.85 | -- | 0.85 | 0.85 | 0.80 | -- | 0.85 | 0.90 | -- | -- |
 | **Open Library** | 0.75 | 0.80 | 0.85 | 0.70 | 0.60 | -- | 0.70 | -- | 0.65 | 0.70 |
 
-Numbers represent confidence values assigned to extracted claims. `--` means the provider does not return that field.
+Numbers represent confidence values assigned to extracted claims when the provider is enabled. `--` means the provider does not return that field.
 
 ### Value Transforms
 
@@ -130,7 +141,7 @@ The `ValueTransformCatalog` applies transformations during extraction:
 
 ## Bridge IDs - What Feeds Stage 2
 
-Bridge IDs are external platform identifiers that the Wikidata Reconciliation adapter uses to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code.
+Bridge IDs are external platform identifiers that the Wikidata Reconciliation adapter uses to resolve the item's Wikidata QID after Stage 1 has produced a safe retail match. Each bridge ID maps to a Wikidata property code.
 
 ### Bridge IDs by Provider
 
@@ -166,7 +177,7 @@ The hydration config specifies which bridge IDs to try first per media type:
 | Audiobooks | `apple_books_id`, `isbn`, `asin` |
 | Movies | `tmdb_id`, `imdb_id` |
 | TV | `tmdb_id`, `imdb_id` |
-| Music | `musicbrainz_id`, `isrc` |
+| Music | `apple_music_id`, `musicbrainz_id`, `isrc` where present/enabled |
 | Comics | `comic_vine_id`, `gcd_id`, `isbn` |
 
 ---

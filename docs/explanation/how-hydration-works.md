@@ -14,12 +14,13 @@ tags:
 
 Once a file has been scanned and classified, the Engine starts enrichment. This is where cover art, descriptions, bridge IDs, canonical identity, people, and relationships are filled in.
 
-Hydration is split into two identity stages:
+Hydration is split into two identity stages plus a follow-up enrichment stage:
 
 - **Stage 1: Retail**
 - **Stage 2: Wikidata**
+- **Stage 3: Enrichment and universe expansion**
 
-Later follow-up enrichment can continue after that, but those first two stages are where the system decides what the item actually is.
+The first two stages decide what the item actually is. Stage 3 makes the item richer after identity is safe enough.
 
 ---
 
@@ -61,6 +62,18 @@ Retail produces:
 - ratings
 - bridge IDs
 - extra evidence used for ranking
+
+The active Stage 1 provider matrix is:
+
+| Provider | Use |
+|---|---|
+| Apple | Books, audiobooks, and music retail lookup |
+| TMDB | Movies and TV |
+| Comic Vine | Comics |
+| Open Library | Disabled config retained, not active runtime input |
+| MusicBrainz | Disabled config retained, not active runtime input |
+| Fanart.tv | Stage 3 artwork only, not Stage 1 identity |
+| LRCLIB / OpenSubtitles | Lyrics/subtitles/text tracks, not identity |
 
 ### The stricter confidence gate
 
@@ -117,9 +130,9 @@ The pipeline stays marked at the Wikidata step so the missing QID is visible.
 
 ---
 
-## Artwork truth now matters explicitly
+## Quick Hydration and artwork truth
 
-Artwork is not treated as "maybe there somewhere" anymore. The system tracks whether artwork is:
+Quick Hydration is the fast path after identity: it stores the core values needed for browsing and persists accepted managed artwork. Artwork is not treated as "maybe there somewhere" anymore. The system tracks whether artwork is:
 
 - **present**
 - **pending**
@@ -129,17 +142,21 @@ The main browse surfaces waits for that result to settle. An item is not conside
 
 That makes cover display and readiness much more honest.
 
+Managed artwork and headshots live under `.data/assets/...` and are referenced from `entity_assets` or person/entity records. Sidecar artwork beside media files is an optional export mirror, not the Engine's canonical store.
+
 ---
 
-## What happens after identity is settled
+## Stage 3: Enrichment and universe expansion
 
-Once Retail and Wikidata have done enough to identify the item, later enrichment can continue with:
+Once Retail and Wikidata have done enough to identify the item, Stage 3 enrichment continues with:
 
 - people resolution
 - relationship discovery
 - extra images
 - summaries and vibe tags
 - universe and graph data
+- lyrics and subtitles from text-track providers
+- Fanart.tv artwork where bridge IDs are available
 
 These deeper steps make the item richer, but they are not the same thing as deciding whether the item is the right match.
 
@@ -173,7 +190,7 @@ That is why an item that was review-only last month can become a clean match lat
 
 - [How the Entire Pipeline Works](how-the-pipeline-works.md)
 - [How the Review Queue Works](../guides/resolving-reviews.md)
+- [Ingestion, Identity, and Enrichment Pipeline](../architecture/ingestion-identity-enrichment-pipeline.md)
 - [Hydration Pipeline, Provider Architecture and Enrichment Strategy](../architecture/hydration-and-providers.md)
 - [Providers Reference](../reference/providers.md)
-
 

@@ -127,8 +127,9 @@ private static string SniffMimeType(byte[] data)
 }
 ```
 
-The ingestion engine writes cover bytes to `.data/images/` via `ImagePathService` and
-generates a 200px thumbnail automatically. You do not need to resize the image.
+The ingestion engine hands cover bytes to the managed asset pipeline. Accepted
+artwork is stored under `.data/assets` and indexed through `entity_assets` with
+generated renditions. You do not need to resize the image.
 
 ### Ambiguous formats - `MediaTypeCandidates`
 
@@ -484,4 +485,3 @@ Update the approved tools table in `CLAUDE.md` section 5.1 once the package is c
 - [Supported Media Types and Formats](../reference/media-types.md)
 - [Ingestion Pipeline](../architecture/ingestion-pipeline.md)
 - [Developer Setup](../tutorials/dev-setup.md)
-

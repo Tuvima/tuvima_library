@@ -14,9 +14,8 @@ namespace MediaEngine.Ingestion.Contracts;
 /// </para>
 ///
 /// <para>
-/// Person and universe data is recovered separately from <c>.people/*/person.xml</c>
-/// and <c>.universe/*/universe.xml</c> sidecar files which are maintained
-/// independently of the media file scanning pipeline.
+/// Person and universe data are database-owned. The scanner does not import
+/// retired filesystem sidecars for those entities.
 /// </para>
 /// </summary>
 public interface ILibraryScanner
@@ -47,13 +46,8 @@ public interface ILibraryScanner
         CancellationToken ct = default);
 
     /// <summary>
-    /// Scans <c>{libraryRoot}/.people/*/person.xml</c> files and upserts
-    /// Person records by Wikidata QID (or by person ID if no QID). Known-names
-    /// are matched against existing canonical author values to rebuild
-    /// <c>person_media_links</c>.
-    ///
-    /// Called as part of the Great Inhale to recover person data from the
-    /// filesystem after a database wipe.
+    /// Retired compatibility hook. Person recovery from filesystem sidecars is disabled;
+    /// people are sourced from the database and canonical headshot assets.
     /// </summary>
     /// <param name="libraryRoot">Absolute path to the Library Root directory.</param>
     /// <param name="ct">Cancellation token; checked between files.</param>

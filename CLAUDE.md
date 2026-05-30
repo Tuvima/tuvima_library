@@ -173,7 +173,7 @@ The Engine and Dashboard are two independent apps that communicate over HTTP + S
 ### 3.1 — Ingestion Pipeline
 **Detail:** [`docs/architecture/ingestion-pipeline.md`](docs/architecture/ingestion-pipeline.md)
 
-Configured Library Folders tell the Engine where to look and what media to expect. Files go through Settle → Lock Check → Fingerprint → Scan → Identify → Stage 1 retail match → Move to organised library (if a title is found) → Stage 2 Wikidata enrichment. Items surface in the UI with a `RetailMatched` status as soon as Stage 1 produces a title — a QID is not required. The database tracks every status transition; rejected files land under `.data/staging/rejected/`. Work-level deduplication ensures duplicate files create new Editions under an existing Work instead of creating new Works. Config: `config/libraries.json`, `config/disambiguation.json`.
+Configured Library Folders from `config/libraries.json` tell the Engine where to look and what media to expect. Files go through Settle → Lock Check → Fingerprint → Scan → Identify → Stage 1 retail match → Stage 2 Wikidata bridge resolution → Quick Hydration → Stage 3 universe enrichment → organisation/write-back when confidence allows. No normal runtime path falls back to the old single `WatchDirectory`; that value is only a derived compatibility view after library folders load. Items surface when browse readiness is satisfied (non-placeholder title, resolved media type, settled artwork), and a QID is not required if Stage 1 succeeded but Stage 2 found no QID. The database tracks every status transition; rejected files land under `.data/staging/rejected/`. Work-level deduplication ensures duplicate files create new Editions under an existing Work instead of creating new Works. Config: `config/libraries.json`, `config/disambiguation.json`. Full flow: [`docs/architecture/ingestion-identity-enrichment-pipeline.md`](docs/architecture/ingestion-identity-enrichment-pipeline.md).
 
 Schema is maintained by idempotent startup migrations (`M-001` through current) orchestrated by `DatabaseConnection.RunStartupChecks()` and owned by `SchemaMigrator`. `DatabaseConnection` remains the `IDatabaseConnection` facade: `SqliteConnectionFactory` owns connection PRAGMAs, `SchemaInitializer` owns embedded `Schema/schema.sql` loading and base DDL execution, `SchemaMigrator` owns incremental migrations plus startup seed rows, and `DatabaseIntegrityChecker` owns `PRAGMA integrity_check` / `PRAGMA optimize`. Each migration is guarded so re-running on an already-migrated DB is a no-op.
 
@@ -235,25 +235,27 @@ All Engine-managed artefacts live under a single `.data/` directory at the libra
 ```
 {LibraryRoot}/.data/
   database/library.db
-  images/
-    {QID}/                 ← cover.jpg, hero.jpg, cover-thumb.jpg
-    _pending/{GUID12}/     ← items awaiting QID
-    people/{QID}/          ← headshot.jpg + thumb (lazy-created)
+  assets/
+    artwork/{EntityType}/{EntityId}/{AssetType}/
+    people/{personId}/headshot.*
+    text-tracks/
+    transcripts/
   staging/
     {assetId12}/           ← in-flight assets
     rejected/              ← explicitly rejected files
 ```
 
-`ImagePathService` (Domain layer, singleton) is the single source of truth for image paths. Thumbnails are SkiaSharp-generated JPEGs (200px wide, quality 75). User-uploaded images are flagged and protected from orphan sweeps.
+`AssetPathService` (Domain layer, singleton) is the single source of truth for managed asset paths. Artwork variants are indexed through `entity_assets`; person headshots resolve through `Person.LocalHeadshotPath` and `.data/assets/people/{personId}/headshot.*`.
 
 ### 3.7 — Hydration Pipeline & Providers
 **Detail:** [`docs/architecture/hydration-and-providers.md`](docs/architecture/hydration-and-providers.md)
 
-A durable, two-stage enrichment pipeline runs after ingestion. `identity_jobs` rows (SQLite) replace any in-memory queue. Three pipeline workers poll for jobs:
+A durable staged enrichment pipeline runs after ingestion. `identity_jobs` rows (SQLite) replace any in-memory queue. Pipeline workers poll for jobs:
 
-- **`RetailMatchWorker`** — Stage 1. Retail providers score candidates through `RetailMatchScoringService`. Scores ≥0.85 auto-accept, 0.50–0.85 accept-with-review, below 0.50 routes to review.
-- **`WikidataBridgeWorker`** — Stage 2. Uses retail bridge IDs (ISBN, ASIN, TMDB ID, etc.) to resolve a QID. A batch gate holds Stage 2 until Stage 1 finishes for the run.
+- **`RetailMatchWorker`** — Stage 1. Active retail providers (Apple, TMDB, Comic Vine) score candidates through `RetailMatchScoringService`. Strong candidates auto-accept, ambiguous candidates route to review, and failed retail matches do not trigger broad Wikidata fallback.
+- **`WikidataBridgeWorker`** — Stage 2. Uses retail bridge IDs (ISBN, ASIN, TMDB ID, Comic Vine ID, etc.) to resolve a QID. A batch gate holds Stage 2 until Stage 1 finishes for the run.
 - **`QuickHydrationWorker`** — Populates canonical values, hero images, collection assignment.
+- **Stage 3 enrichment workers** — Fanart.tv, people enrichment, universe graph population, lyrics/subtitles, fictional entities, relationships, and additional images.
 
 `SynchronousIdentityPipelineService` provides an inline implementation for synchronous callers.
 

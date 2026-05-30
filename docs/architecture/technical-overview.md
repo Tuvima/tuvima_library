@@ -32,14 +32,16 @@ Library folders
   -> Settle, lock check, fingerprint
   -> File processor
   -> Identity/scoring
-  -> Retail provider stage
-  -> Wikidata bridge stage
-  -> SQLite, artwork, organization, write-back
+  -> Stage 1 retail provider stage
+  -> Stage 2 Wikidata bridge stage
+  -> Quick Hydration
+  -> Stage 3 universe enrichment
+  -> SQLite, .data/assets, organization, write-back
   -> Display/detail/search APIs
   -> Dashboard
 ```
 
-The Engine owns business rules and persistence. The Dashboard consumes contracts, typed HTTP clients, and SignalR events. Razor components must not contain direct SQL.
+The Engine owns business rules and persistence. Managed artwork and headshots are stored under `.data/assets/...` and referenced from SQLite. The Dashboard consumes contracts, typed HTTP clients, and SignalR events. Razor components must not contain direct SQL.
 
 ## Repository Shape
 

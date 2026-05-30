@@ -89,11 +89,11 @@ Local exports are mirrors only. The central asset store remains the source of tr
 
 ### Negative
 
-- Startup reconciliation is needed to move legacy `.data/images` and local artwork sidecars into the central store.
+- Startup reconciliation can migrate DB-referenced legacy image files into the central store, after which runtime reads use only `.data/assets` and database references.
 - Optional compatibility exports must be maintained separately from the canonical asset store.
 
 ## Implementation Notes
 
 - `AssetPathService` is the policy authority for managed asset paths.
 - `entity_assets` records track storage location and export state.
-- Legacy `.data/images` and local managed artwork are reconciled into `.data/assets` at startup.
+- DB-referenced legacy image files and local managed artwork are reconciled into `.data/assets` at startup; runtime fallback reads from legacy paths are not allowed.

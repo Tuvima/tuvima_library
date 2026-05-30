@@ -142,14 +142,10 @@ public static class SettingsEndpoints
 
         // ── PUT /settings/folders ──────────────────────────────────────────────
 
-        grp.MapPut("/folders", async (
+        grp.MapPut("/folders", (
             UpdateFoldersRequest request,
             IConfigurationLoader configLoader,
-            IFileWatcher         fileWatcher,
-            IIngestionEngine     ingestionEngine,
-            IEventPublisher      publisher,
-            ILoggerFactory       loggerFactory,
-            CancellationToken    ct) =>
+            ILoggerFactory       loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("MediaEngine.Api.Endpoints.SettingsEndpoints");
 
@@ -188,48 +184,15 @@ public static class SettingsEndpoints
 
             configLoader.SaveCore(core);
 
-            // Hot-swap the FileSystemWatcher when the watch directory is provided and accessible.
-            // Wrapped in try/catch because the watcher may not have been started yet in the
             // API process — the config save is the durable side-effect that matters.
-            var existingWatchDirectories = core.EffectiveWatchDirectories
-                .Where(Directory.Exists)
-                .ToList();
-            if (requestedWatchDirectories is not null && existingWatchDirectories.Count > 0)
-            {
-                try
-                {
-                    fileWatcher.UpdateDirectories(existingWatchDirectories);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Watcher hot-swap failed for {WatchDirectories}; saved configuration remains active", string.Join(", ", existingWatchDirectories));
-                }
-
-                // Scan existing files in the new watch directories as one logical
-                // library update. Duplicates are harmless: the pipeline's hash check
-                // short-circuits them.
-                try
-                {
-                    var scanTargets = existingWatchDirectories
-                        .Select(path => new IngestionScanTarget(path, true))
-                        .ToList();
-                    await ingestionEngine.ScanDirectories(scanTargets, ct);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Initial grouped scan failed for updated watch directories {WatchDirectories}", string.Join(", ", existingWatchDirectories));
-                }
-            }
-            // Broadcast the new active watch path to all connected Dashboard circuits.
-            await publisher.PublishAsync(
-                SignalREvents.WatchFolderActive,
-                new WatchFolderActiveEvent(core.EffectiveWatchDirectories.FirstOrDefault() ?? string.Empty, DateTimeOffset.UtcNow),
-                ct);
+            // Compatibility only: watcher state now comes from config/libraries.json.
+            logger.LogInformation(
+                "Saved compatibility import folder paths. Runtime ingestion watchers are loaded from config/libraries.json.");
 
             return Results.Ok();
         })
         .WithName("UpdateFolderSettings")
-        .WithSummary("Saves import folder paths and hot-swaps the FileSystemWatcher.")
+        .WithSummary("Saves compatibility import folder paths. Runtime ingestion watchers come from config/libraries.json.")
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 

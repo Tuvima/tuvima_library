@@ -62,13 +62,13 @@ public class OrganizationHintParserTests
     }
 
     [Fact]
-    public void Parse_TuvimaLegacyQid_ExtractsWikidataQid()
+    public void Parse_BareWikidataQidPath_DoesNotExtractWikidataQid()
     {
         var path = @"D:\Books\Frank Herbert\Dune (Q165666)\Dune.epub";
 
         var hints = OrganizationHintParser.Parse(path);
 
-        Assert.Equal("Q165666", hints.BridgeIds[BridgeIdKeys.WikidataQid]);
+        Assert.False(hints.BridgeIds.ContainsKey(BridgeIdKeys.WikidataQid));
     }
 
     [Fact]

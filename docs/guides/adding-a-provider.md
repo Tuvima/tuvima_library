@@ -28,9 +28,11 @@ enrichment pipeline. For standard providers that return JSON from a public HTTP 
 
 ## Step 1 - Understand where providers fit
 
-All providers run during **Stage 1 (RetailIdentification)** of the hydration pipeline.
+Identity providers run during **Stage 1 (RetailIdentification)** of the hydration pipeline.
 They gather cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID, etc.)
-that Stage 2 (WikidataBridge) later uses for precise QID resolution.
+that Stage 2 (WikidataBridge) later uses for precise QID resolution. Artwork-only,
+lyrics, subtitle, and other follow-up providers should run as Stage 3 or text-track
+enrichment instead; they must not unlock Wikidata identity by themselves.
 
 The `ConfigDrivenAdapter` is the single implementation that reads every `config_driven`
 provider config at startup and builds a live HTTP client for each one. Your config file
@@ -45,6 +47,9 @@ config/providers/
   tmdb.json
   musicbrainz.json
   comicvine.json
+  fanart_tv.json               <- Stage 3 artwork, not Stage 1 identity
+  lrclib.json                  <- text-track enrichment
+  opensubtitles.json           <- text-track enrichment
   wikidata_reconciliation.json    <- Stage 2, not Stage 1
 ```
 
@@ -99,7 +104,7 @@ for fields that vary in quality (descriptions, genres).
   "throttle_ms": 300,          // Minimum milliseconds between requests
   "max_concurrency": 2,         // Parallel request cap
   "cache_ttl_hours": 72,        // null = no caching, integer = cache TTL
-  "hydration_stages": [1],      // Stage 1 = RetailIdentification; never use 2 here
+  "hydration_stages": [1],      // Stage 1 identity; use [3] only for post-identity enrichment providers
 
   "adapter_type": "config_driven",  // Always this value for JSON providers
 
@@ -518,7 +523,7 @@ GET http://localhost:61495/swagger  -> Providers section -> GET /settings/provid
 | `domain` | string | yes | - | Ebook / Video / Music / Comics / Universal |
 | `adapter_type` | string | yes | - | Must be `config_driven` |
 | `provider_id` | UUID string | yes | - | Stable FK - never change after first use |
-| `hydration_stages` | int[] | yes | - | `[1]` for Stage 1 (RetailIdentification) |
+| `hydration_stages` | int[] | yes | - | `[1]` for Stage 1 identity, `[3]` for post-identity enrichment, `[2]` only for the Wikidata reconciliation provider |
 | `can_handle.media_types` | string[] | yes | - | Restricts to named media types |
 | `can_handle.entity_types` | string[] | yes | - | Work / MediaAsset |
 | `endpoints.api` | string | yes | - | Base URL for all requests |

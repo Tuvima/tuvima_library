@@ -55,8 +55,7 @@ public sealed class FictionalEntity
 
     /// <summary>
     /// URL to a representative image (e.g. Wikimedia Commons).
-    /// For characters, the Graph API typically resolves the performer's headshot
-    /// from <c>.people/</c> instead of using this field directly.
+    /// Character-specific local portraits are stored separately in character portrait assets.
     /// </summary>
     public string? ImageUrl { get; set; }
 

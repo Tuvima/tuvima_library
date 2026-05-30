@@ -450,7 +450,7 @@ public sealed class LibraryScanResponse
     [JsonPropertyName("editions_upserted")]
     public int EditionsUpserted { get; init; }
 
-    /// <summary>Number of Person records recovered from .people/ person.xml sidecars.</summary>
+    /// <summary>Retired compatibility count; person sidecar recovery is disabled.</summary>
     [JsonPropertyName("people_recovered")]
     public int PeopleRecovered { get; init; }
 

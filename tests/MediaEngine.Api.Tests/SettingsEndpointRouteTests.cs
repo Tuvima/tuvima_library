@@ -40,7 +40,8 @@ public sealed class SettingsEndpointRouteTests
 
         Assert.Contains("grp.MapGet(\"/folders\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/folders\"", source, StringComparison.Ordinal);
-        Assert.Contains("fileWatcher.UpdateDirectories", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("fileWatcher.UpdateDirectories", source, StringComparison.Ordinal);
+        Assert.Contains("Runtime ingestion watchers come from config/libraries.json", source, StringComparison.Ordinal);
         Assert.Contains("WatchDirectories", source, StringComparison.Ordinal);
         Assert.DoesNotContain("request.WatchDirectory", source, StringComparison.Ordinal);
         Assert.DoesNotContain("core.WatchDirectory", source, StringComparison.Ordinal);

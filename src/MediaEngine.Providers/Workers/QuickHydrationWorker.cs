@@ -49,8 +49,7 @@ public sealed class QuickHydrationWorker
         IUniverseEnrichmentScheduler universeEnrichment,
         IConfigurationLoader configLoader,
         ILogger<QuickHydrationWorker> logger,
-        BatchProgressService? batchProgress = null,
-        ImagePathService? imagePathService = null)
+        BatchProgressService? batchProgress = null)
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
@@ -61,7 +60,6 @@ public sealed class QuickHydrationWorker
         _universeEnrichment = universeEnrichment;
         _logger = logger;
         _batchProgress = batchProgress;
-        _ = imagePathService;
 
         _batchSize = Math.Max(1, configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
     }

@@ -75,26 +75,26 @@ public sealed class IngestionOptions
     public const string SectionName = "Ingestion";
 
     /// <summary>
-    /// Absolute path of the "Watch" folder monitored by the file watcher.
-    /// Required.  The process must have read access to this directory.
+    /// First configured source folder derived from <c>config/libraries.json</c>.
+    /// Kept for older internal callers; new ingestion code should use
+    /// <see cref="WatchDirectories"/>.
     /// </summary>
     public string WatchDirectory { get; set; } = string.Empty;
 
     /// <summary>
-    /// Directories monitored for new files. The legacy <see cref="WatchDirectory"/>
-    /// remains the first/default entry for older config and callers.
+    /// Directories monitored for new files, sourced from <c>config/libraries.json</c>.
     /// </summary>
     public IReadOnlyList<string> WatchDirectories { get; set; } = [];
 
     /// <summary>
-    /// Normalized watch directory list, falling back to <see cref="WatchDirectory"/>.
+    /// Normalized watch directory list. Legacy single-folder configuration is not
+    /// used as a fallback.
     /// </summary>
     public IReadOnlyList<string> EffectiveWatchDirectories =>
-        WatchDirectories.Count > 0
-            ? WatchDirectories.Where(path => !string.IsNullOrWhiteSpace(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList()
-            : (string.IsNullOrWhiteSpace(WatchDirectory) ? [] : [WatchDirectory]);
+        WatchDirectories
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     /// <summary>
     /// Root of the organised library into which accepted files are moved.

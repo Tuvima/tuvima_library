@@ -73,8 +73,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IQidLabelRepository _qidLabelRepo;
     private readonly IEntityTimelineRepository? _timelineRepo;
-    private readonly AssetPathService? _assetPathService;
-    private readonly ImagePathService? _imagePathService;
+    private readonly AssetPathService _assetPathService;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -93,9 +92,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IImageCacheRepository imageCache,
         ISystemActivityRepository activityRepo,
         IQidLabelRepository qidLabelRepo,
+        AssetPathService assetPathService,
         ILogger<MetadataHarvestingService> logger,
-        AssetPathService? assetPathService = null,
-        ImagePathService? imagePathService = null,
         IEntityTimelineRepository? timelineRepo = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
@@ -111,6 +109,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(imageCache);
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(qidLabelRepo);
+        ArgumentNullException.ThrowIfNull(assetPathService);
         ArgumentNullException.ThrowIfNull(logger);
 
         _providers            = providers.ToList();
@@ -127,7 +126,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _activityRepo         = activityRepo;
         _qidLabelRepo         = qidLabelRepo;
         _assetPathService     = assetPathService;
-        _imagePathService     = imagePathService;
         _timelineRepo         = timelineRepo;
         _logger               = logger;
 
@@ -687,7 +685,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             }
         }
 
-        // Persist headshot + person sidecar under {LibraryRoot}/.people/{Name} ({QID})/
+        // Persist the headshot under the canonical .data/assets person asset folder.
         // Skip if this person shares a QID with a canonical record — avoids duplicate folders.
         if (!isQidDuplicate)
         {
@@ -901,14 +899,10 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     }
 
     /// <summary>
-    /// Downloads headshot from Wikimedia Commons and saves it to the person's image
-    /// directory under <c>{LibraryRoot}/.data/images/people/{QID}/headshot.jpg</c>
-    /// (via <see cref="ImagePathService"/>). The directory is created only when a
+    /// Downloads headshot from Wikimedia Commons and saves it to
+    /// <c>{LibraryRoot}/.data/assets/people/{personId}/headshot.*</c>. The directory is created only when a
     /// headshot URL is available — no empty directories are created during entity
     /// creation without an image.
-    ///
-    /// Person metadata is stored exclusively in the database; the images directory
-    /// holds only the headshot image.
     /// </summary>
     private async Task PersistPersonStorageAsync(
         Guid personId,
@@ -932,28 +926,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
         try
         {
-            string headshotPath;
-            if (_assetPathService is not null)
-            {
-                headshotPath = _assetPathService.GetPersonHeadshotPath(personId);
-            }
-            else if (_imagePathService is not null
-                     && !string.IsNullOrWhiteSpace(person.WikidataQid))
-            {
-                // Use centralized .data/images/people/{QID}/ path.
-                headshotPath = Path.Combine(_imagePathService.GetPersonImageDir(person.WikidataQid), "headshot.jpg");
-            }
-            else
-            {
-                // Legacy fallback: .people/{Name} ({QID})/ under LibraryRoot.
-                var core = _configLoader.LoadCore();
-                if (string.IsNullOrWhiteSpace(core.LibraryRoot)
-                    || string.IsNullOrWhiteSpace(person.WikidataQid)
-                    || string.IsNullOrWhiteSpace(person.Name))
-                    return;
-                var folderName = $"{SanitizeForFilesystem(person.Name)} ({person.WikidataQid})";
-                headshotPath = Path.Combine(core.LibraryRoot, ".people", folderName, "headshot.jpg");
-            }
+            var headshotPath = _assetPathService.GetPersonHeadshotPath(personId, InferImageExtension(headshotUrl));
 
             // Download headshot if URL is available and file doesn't exist.
             if (File.Exists(headshotPath))
@@ -1017,6 +990,18 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         }
     }
 
+    private static string InferImageExtension(string imageUrl)
+    {
+        var extension = Path.GetExtension(imageUrl.Split('?', '#')[0]);
+        return extension.ToLowerInvariant() switch
+        {
+            ".png" => ".png",
+            ".webp" => ".webp",
+            ".gif" => ".gif",
+            _ => ".jpg",
+        };
+    }
+
     /// <summary>
     /// Normalizes multi-valued strings that use <c>|||</c> separator into
     /// human-readable comma-separated form (e.g. "Actor, Screenwriter, Producer").
@@ -1035,62 +1020,17 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     }
 
     /// <summary>
-    /// Reads the <c>&lt;id&gt;</c> element from a person.xml file.
-    /// Returns <c>null</c> if the file doesn't exist or can't be parsed.
-    /// Used for collision detection when multiple persons share the same display name.
-    /// </summary>
-    private static Guid? ReadPersonIdFromXml(string xmlPath)
-    {
-        try
-        {
-            if (!File.Exists(xmlPath)) return null;
-            var doc = System.Xml.Linq.XDocument.Load(xmlPath);
-            var idText = doc.Root?.Element("identity")?.Element("id")?.Value;
-            return Guid.TryParse(idText, out var id) ? id : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Deletes the person image directory from disk during QID-based deduplication.
-    /// When ImagePathService is active, deletes the .data/images/people/{QID}/ directory.
-    /// Legacy fallback: searches .people/ for any folder owned by the given person (via person.xml ID).
+    /// Deletes the canonical person asset directory from disk during QID-based deduplication.
     /// </summary>
     private void DeletePersonFolder(Person person)
     {
         try
         {
-            if (_assetPathService is not null)
+            var personDir = _assetPathService.GetPersonRoot(person.Id);
+            if (Directory.Exists(personDir))
             {
-                var personDir = _assetPathService.GetPersonRoot(person.Id);
-                if (Directory.Exists(personDir))
-                {
-                    Directory.Delete(personDir, recursive: true);
-                    _logger.LogInformation("Deleted duplicate person asset dir: {Dir}", personDir);
-                }
-                return;
-            }
-
-            // Legacy fallback: search .people/ for a folder identified by person.xml.
-            var core = _configLoader.LoadCore();
-            if (string.IsNullOrWhiteSpace(core.LibraryRoot)) return;
-
-            var peopleRoot = Path.Combine(core.LibraryRoot, ".people");
-            if (!Directory.Exists(peopleRoot)) return;
-
-            foreach (var dir in Directory.EnumerateDirectories(peopleRoot))
-            {
-                var xmlPath = Path.Combine(dir, "person.xml");
-                var ownerId = ReadPersonIdFromXml(xmlPath);
-                if (ownerId == person.Id)
-                {
-                    Directory.Delete(dir, recursive: true);
-                    _logger.LogInformation("Deleted duplicate person folder: {Folder}", dir);
-                    return;
-                }
+                Directory.Delete(personDir, recursive: true);
+                _logger.LogInformation("Deleted duplicate person asset dir: {Dir}", personDir);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1098,22 +1038,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             _logger.LogWarning(ex, "Failed to delete person folder for {PersonId}", person.Id);
         }
     }
-
-    /// <summary>
-    /// Sanitizes a string for use as a filesystem path segment.
-    /// Replaces invalid path characters with underscores and trims trailing dots
-    /// (which Windows silently strips, causing path mismatches).
-    /// </summary>
-    internal static string SanitizeForFilesystem(string name)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        var sanitized = new char[name.Length];
-        for (var i = 0; i < name.Length; i++)
-            sanitized[i] = Array.IndexOf(invalid, name[i]) >= 0 ? '_' : name[i];
-
-        return new string(sanitized).TrimEnd('.', ' ');
-    }
-
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

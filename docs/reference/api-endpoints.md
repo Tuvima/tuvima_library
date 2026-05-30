@@ -26,7 +26,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 |---|---|---|---|
 | GET | `/system/status` | Service health, version, uptime | None |
 | GET | `/system/watcher-status` | File watcher diagnostic - shows monitored folders and last event | Required |
-| POST | `/maintenance/sweep-orphan-images` | Scan `.data/images/` for directories with no matching database record and remove them. Skips user-uploaded images (`user_override` flag). | Administrator |
+| POST | `/maintenance/sweep-orphan-assets` | Scan `.data/assets/` for managed files with no database reference and remove them. | Administrator |
 
 ---
 
@@ -112,7 +112,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/ingestion/batches` | Recent ingestion batches. | Curator |
 | GET | `/ingestion/batches/{batchId}` | Single ingestion batch summary. | Curator |
 | GET | `/ingestion/batches/{batchId}/items` | Durable per-file item ledger for a batch, sourced from `media_operations`. | Curator |
-| GET | `/ingestion/watch-folder` | Returns current watch folder configuration | Required |
+| GET | `/ingestion/watch-folder` | Returns the derived current watch folder view from configured library source folders. | Required |
 
 ---
 

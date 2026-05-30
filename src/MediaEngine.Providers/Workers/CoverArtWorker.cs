@@ -115,7 +115,7 @@ public sealed class CoverArtWorker
         // Side-by-side-with-Plex plan §D — prefer the per-file location next
         // to the media file (Plex/Jellyfin convention) so the same disk path
         // serves Tuvima, Plex, and Jellyfin without duplication. Fall back to
-        // the legacy QID/asset-id-keyed location under .data/images/ when
+        // the current managed asset location under .data/assets/ when
         // the asset has no resolvable file path (e.g. pre-organize states or
         // entities that aren't backed by a file).
         string coverPath;
@@ -239,7 +239,7 @@ public sealed class CoverArtWorker
             // /stream/{entityId}/cover here. The /stream URL is a display hint that the
             // Dashboard layer can build on the fly from the entity id; it is not
             // persisted state. The authoritative source URL (the provider URL) lives in
-            // the original claims, and the disk location is owned by ImagePathService.
+            // the original claims, and the disk location is owned by AssetPathService.
             _logger.LogInformation(
                 "Cover art: downloaded poster for '{Title}' ({SizeKB:F1} KB) → {LocalPath}",
                 titleForDone, bytes.Length / 1024.0, coverPath);

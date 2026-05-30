@@ -60,19 +60,23 @@ The wizard collects information in preparation for Engine-side custom source reg
 
 ---
 
-## Two-Stage Enrichment Pipeline
+## Staged Enrichment Pipeline
 
-Metadata enrichment is a strict two-stage sequence. The stages are never reversed or bypassed.
+Metadata enrichment is a strict staged sequence. The identity stages are never reversed or bypassed.
 
-**Stage 1 — Retail Identification:** Commercial catalogues (e.g. Apple Books, TMDB) are searched for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). Each candidate is scored by `RetailMatchScoringService`. If no retail provider returns a confident match, the item is routed to the review queue and Stage 2 is never attempted.
+**Stage 1 — Retail Identification:** Active commercial catalogues (Apple, TMDB, Comic Vine) are searched for cover art, descriptions, ratings, people, and bridge identifiers (ISBN, ASIN, TMDB ID, Comic Vine ID). Each candidate is scored by `RetailMatchScoringService`. If no retail provider returns a confident match, the item is routed to the review queue and Stage 2 is never attempted.
 
-**Stage 2 — Wikidata Bridge Resolution:** Bridge IDs from Stage 1 are used to resolve a canonical Wikidata entity (QID) via the `Tuvima.Wikidata` v2.4.1 `Stage2Service` sub-service. This provides universe linkage, person relationships, and canonical metadata authority. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking. The text-only Wikidata fallback (sentinel-only Stage 2 calls with no real bridge IDs) is disabled — Stage 1 must supply real bridge IDs.
+**Stage 2 — Wikidata Bridge Resolution:** Bridge IDs from Stage 1 are used to resolve a canonical Wikidata entity (QID) via the `Tuvima.Wikidata` bridge resolution service. This provides universe linkage, person relationships, and canonical metadata authority. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking. The text-only Wikidata fallback (sentinel-only Stage 2 calls with no real bridge IDs) is disabled — Stage 1 must supply real bridge IDs.
+
+**Quick Hydration:** Core identity, canonical values, and managed artwork are written for fast browse readiness. Artwork is stored through `entity_assets` and `.data/assets`, not legacy QID image folders.
+
+**Stage 3 — Universe Enrichment:** Fanart.tv artwork, LRCLIB/OpenSubtitles text tracks, people, fictional entities, narrative roots, and relationships run after identity is safe enough.
 
 **Post-resolution P31 validation:** After bridge resolution returns a QID and Data Extension fetches its properties, the adapter validates the entity's P31 (instance_of) against `exclude_classes` and `instance_of_classes` from `wikidata_reconciliation.json` for the requesting media type. If the entity type doesn't match — for example, a book's ISBN resolving to a film entity (P31 = Q11424) because both share the same ISBN — the result is rejected and the text fallback retries with CirrusSearch type filtering. This prevents cross-type contamination where a single shared identifier could pull in entirely wrong metadata.
 
 **CirrusSearch type narrowing:** When text fallback searches Wikidata via CirrusSearch, `GetCirrusTypesForMediaType` now prefers narrow `work_classes` from the edition pivot config (e.g. Q571 literary work, Q7725634 written work for Books) over the broader `instance_of_classes`. This reduces false matches where a search term matches entities of the wrong media type.
 
-**Two-pass enrichment:** The Quick pass gets the item visible on the Dashboard fast (core identity + cover art). The Universe pass runs later in the background for deep enrichment (relationships, people, fictional entities, additional images).
+**Two-pass enrichment:** The Quick pass gets the item visible on the Dashboard fast (core identity + managed artwork). The Universe pass runs later in the background for deep enrichment (relationships, people, fictional entities, additional images).
 
 ---
 

@@ -12,7 +12,7 @@ tags:
 
 # Hydration Pipeline, Provider Architecture & Enrichment Strategy
 
-This document describes how Tuvima Library discovers metadata for ingested media files: the provider architecture, the two-stage hydration pipeline, the current single-pass default for enrichment, provider response caching, and the review queue data model.
+This document describes how Tuvima Library discovers metadata for ingested media files: the provider architecture, the Stage 1 retail gate, Stage 2 Wikidata bridge resolution, Quick Hydration, Stage 3 enrichment, provider response caching, and the review queue data model.
 
 ---
 
@@ -27,7 +27,7 @@ All providers divide cleanly into two categories:
 **Retail providers** - exist solely to supply matching data that aids identity resolution, plus media assets that Wikidata cannot host. Their output is never treated as canonical structured data. Retail providers contribute:
 - Cover art and promotional imagery (copyright-safe sources that Wikimedia cannot host)
 - Descriptions and ratings (for display and candidate ranking)
-- Bridge identifiers: ISBN, ASIN, TMDB ID, Apple Books ID, MusicBrainz ID, Comic Vine ID - these are used by Stage 2 to resolve the QID precisely
+- Bridge identifiers: ISBN, ASIN, TMDB ID, Apple Books ID, Comic Vine ID, and any enabled provider-specific IDs - these are used by Stage 2 to resolve the QID precisely
 
 The distinction matters for trust: a title or author name from Apple API is a hint used to rank candidates, not a fact stored as canonical data. Only Wikidata-sourced claims become canonical values.
 
@@ -37,9 +37,10 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 
 | Provider | Media Types | What it contributes |
 |---|---|---|
-| Apple API | Books, Audiobooks | Cover art (up to 3000x3000 via the 9999 trick), description, rating, Apple Books ID |
-| Open Library | Books | Cover art, ISBN, bridge IDs |
-| MusicBrainz | Music | Cover Art Archive images, MusicBrainz ID (MBID) |
+| Apple API | Books, Audiobooks, Music | Cover art (up to 3000x3000 via the 9999 trick), description, rating, Apple Books/Apple Music IDs |
+| Open Library | Books | Disabled by default; retained config for ISBN/book lookup |
+| MusicBrainz | Music | Disabled by default; retained config for MBID lookup |
+| LRCLIB | Music | Lyrics and timed lyrics; text-track enrichment, not identity |
 | Wikidata / Wikidata Reconciliation | All | QID, all structured properties, Wikipedia descriptions, person headshots (P18, persons only) |
 
 **Key-required providers (free API key):**
@@ -48,6 +49,8 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 |---|---|---|
 | TMDB | Movies, TV | Cover art (up to 2000x3000 at w500/w1280), TMDB ID, IMDb ID, network (TV only) |
 | Comic Vine | Comics | Cover art (super_url, ~900px), Comic Vine ID |
+| Fanart.tv | Movies, TV, Music | Stage 3 rich artwork after identity is known |
+| OpenSubtitles | Movies, TV | Subtitle candidates and normalized text tracks |
 
 **Copyright constraint - P18 (Image):** Wikidata P18 is exclusively for Person entities (author/director headshots from Wikimedia Commons). P18 is never fetched for media items. Media cover art comes exclusively from retail providers.
 
@@ -102,11 +105,11 @@ Provider HTTP calls still go through `IHttpClientFactory` and named clients (`ap
 
 ---
 
-## 3. Two-Stage Hydration Pipeline
+## 3. Staged Hydration Pipeline
 
 ### Overview
 
-When a media file is ingested, the hydration pipeline runs in two sequential stages. Stage 1 gathers matching assets from retail providers. Stage 2 uses the bridge IDs deposited by Stage 1 for precise Wikidata identity resolution.
+When a media file is ingested, the hydration pipeline runs through strict identity stages before deeper enrichment. Stage 1 gathers matching assets from retail providers. Stage 2 uses the bridge IDs deposited by Stage 1 for precise Wikidata identity resolution. Quick Hydration writes the fast browse data, and Stage 3 fills in universe and rich enrichment details.
 
 ```
 File ingested
@@ -115,20 +118,26 @@ File ingested
 Stage 1: RetailIdentification
   |-- Retail providers run in ranked pipeline order (config/pipelines.json)
   |-- Deposit: cover art, descriptions, ratings, bridge IDs
-  `- Result: cover.jpg on disk, bridge IDs in metadata_claims
+  `- Result: managed cover asset candidates, bridge IDs in metadata_claims
      |
      v
 Stage 2: WikidataBridge
   |-- ReconciliationAdapter uses bridge IDs for edition-first QID resolution
-  |-- Fallback: work-level title search if no bridge IDs matched
+  |-- Gated fallback only after Stage 1 has provided a safe retail/provider match
   |-- Data Extension API fetches configured properties
   |-- Wikipedia descriptions via GetWikipediaSummariesAsync
   `- On failure: AuthorityMatchFailed review item created
      |
      v
-Post-pipeline confidence check
+Quick Hydration
   |-- Reload canonical values, compute overall confidence
+  |-- Persist accepted managed artwork through entity_assets + .data/assets
   `- If below auto_review_confidence_threshold (0.60): LowConfidence review item created
+     |
+     v
+Stage 3: Universe + rich enrichment
+  |-- People, fictional entities, narrative roots, relationships
+  `-- Fanart.tv artwork, LRCLIB lyrics, OpenSubtitles subtitles
 ```
 
 ### Stage 1 - RetailIdentification
@@ -139,7 +148,7 @@ Providers participate in Stage 1 by declaring `"hydration_stages": [1]` in their
 
 **Retail match confidence gate:** After each provider returns claims, `RetailMatchScoringService` scores the candidate against file metadata (title 45%, author 35%, year 10%, format 10% + cross-field boosts). Scores below 0.65 are discarded; scores between 0.65-0.90 are accepted with a review flag; scores >= 0.90 are auto-accepted. Auto-accept is further capped to review when creator evidence contradicts the file, when grouped TV matching lacks exact show+season+episode agreement, when grouped music matching lacks track-number or duration corroboration, or when cover similarity would be the only reason a weak-text candidate crossed the gate. This uses the same unified scoring as manual search from the media detail editor.
 
-Stage 1 never waits on Stage 2. Cover art is written to disk during Stage 1 (`cover.jpg` alongside the staged file). If Stage 1 fails to find any matching provider, the item routes directly to the review queue - **no text-only Wikidata fallback is attempted**. The principle: no retail match = no Wikidata.
+Stage 1 never waits on Stage 2. Cover art from retail providers is persisted through `entity_assets` and `.data/assets` when accepted. If Stage 1 fails to find any matching provider, the item routes directly to the review queue - **no text-only Wikidata fallback is attempted**. The principle: no retail match = no Wikidata.
 
 ### Manual Identity Corrections
 
@@ -199,7 +208,7 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 
 The pipeline maintains two separate processing paths that are safe to run concurrently:
 
-- **`HydrationPipelineService`** handles `MediaAsset`-type requests using the two-stage pipeline (Stage 1 retail -> Stage 2 Wikidata).
+- **`HydrationPipelineService`** handles `MediaAsset`-type requests using the staged identity pipeline (Stage 1 retail -> Stage 2 Wikidata -> Quick Hydration, with Stage 3 follow-up enrichment).
 - **`MetadataHarvestingService`** handles `Person`-type requests from `RecursiveIdentityService`, running Wikidata enrichment directly without the retail Stage 1.
 
 Person creation is idempotent - both paths can run simultaneously without conflict.
@@ -494,16 +503,16 @@ The review count is used in two places in the Dashboard: the notification bell b
 
 ## 10. Artwork Quality Strategy
 
-Cover art is never stored in the database. `cover.jpg` lives alongside the media file on disk and is always read from there. Art is sourced exclusively from retail providers - Wikidata P18 is reserved for Person headshots only.
+Managed artwork is tracked in the database through `entity_assets` and stored under `.data/assets`. Sidecar art beside media files is an optional export only. Art is sourced from retail and artwork providers; Wikidata P18 remains Person-only and is not used as media cover art.
 
 | Media Type | Primary Art Source | Max Resolution | Notes |
 |---|---|---|---|
 | Books & Audiobooks | Apple API | Up to 3000x3000 | 9999 trick in URL template |
 | Movies & TV | TMDB | Up to 2000x3000 | Backdrop available at w1280 |
 | Comics | Comic Vine | ~900px | `super_url` field |
-| Music | Cover Art Archive (MusicBrainz) | 500px | `front-500` path |
+| Music | Apple API, then Fanart.tv in Stage 3 where IDs allow | Varies | MusicBrainz config is disabled by default |
 
-**Cover art timing:** `cover.jpg` is written alongside the file in `.staging/` during Stage 1 when art is available. Canonical artwork flags (`cover_state`, `cover_source`, `hero_state`, `artwork_settled_at`) persist whether art is present, still pending, or explicitly missing. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when the downstream image and organisation flow settles.
+**Cover art timing:** Stage 1 records provider art and bridge evidence. The artwork pipeline persists accepted files under `.data/assets` and records canonical artwork flags (`cover_state`, `cover_source`, `hero_state`, `artwork_settled_at`) whether art is present, still pending, or explicitly missing. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when the downstream image and organisation flow settles.
 
 **Image hash validation:** Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `image_cache` table to prevent redundant re-downloads. When the same image URL appears across multiple entities, the hash is checked first; if found, the cached file path is reused.
 

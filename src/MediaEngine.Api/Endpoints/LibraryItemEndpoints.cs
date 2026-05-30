@@ -534,7 +534,6 @@ public static class LibraryItemEndpoints
         group.MapDelete("/{entityId}", async (
             Guid entityId,
             IDatabaseConnection db,
-            ImagePathService imagePaths,
             WorkHierarchyMaintenanceService hierarchyMaintenance,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
@@ -543,17 +542,15 @@ public static class LibraryItemEndpoints
             var filePaths = new List<string>();
             string? collectionId = null;
             string? workTitle = null;
-            string? wikidataQid = null;
             Guid? parentWorkId = null;
-            Guid firstAssetId = Guid.Empty;
 
             using (var conn = db.CreateConnection())
             {
-                // Get file paths and first asset ID
+                // Get file paths
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = """
-                        SELECT ma.file_path_root, ma.id
+                        SELECT ma.file_path_root
                         FROM editions e
                         INNER JOIN media_assets ma ON ma.edition_id = e.id
                         WHERE e.work_id = @workId
@@ -565,22 +562,19 @@ public static class LibraryItemEndpoints
                         var path = reader.GetString(0);
                         if (!string.IsNullOrWhiteSpace(path))
                             filePaths.Add(path);
-                        if (firstAssetId == Guid.Empty && Guid.TryParse(reader.GetString(1), out var aid))
-                            firstAssetId = aid;
                     }
                 }
 
-                // Get collection ID and QID for cleanup
+                // Get collection ID for cleanup
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT collection_id, wikidata_qid, parent_work_id FROM works WHERE id = @workId";
+                    cmd2.CommandText = "SELECT collection_id, parent_work_id FROM works WHERE id = @workId";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
                         collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
-                        wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
-                        parentWorkId = reader2.IsDBNull(2) ? null : Guid.Parse(reader2.GetString(2));
+                        parentWorkId = reader2.IsDBNull(1) ? null : Guid.Parse(reader2.GetString(1));
                     }
                 }
 
@@ -608,20 +602,9 @@ public static class LibraryItemEndpoints
                     if (File.Exists(filePath))
                         File.Delete(filePath);
 
-                    // Best-effort: also remove any cover.jpg/hero.jpg alongside the media file
-                    // (legacy location — new files use .images/ instead)
                     var dir = Path.GetDirectoryName(filePath);
                     if (dir is not null)
                     {
-                        try
-                        {
-                            var coverPath = Path.Combine(dir, "cover.jpg");
-                            if (File.Exists(coverPath)) File.Delete(coverPath);
-                            var heroPath = Path.Combine(dir, "hero.jpg");
-                            if (File.Exists(heroPath)) File.Delete(heroPath);
-                        }
-                        catch { /* best-effort legacy cleanup */ }
-
                         // Remove empty directory
                         if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
                         {
@@ -654,6 +637,7 @@ public static class LibraryItemEndpoints
             // 4. Delete the work (CASCADE handles editions → media_assets → claims → canonical_values)
             using (var conn = db.CreateConnection())
             {
+                CleanupEntityAssetFiles(conn, entityId);
                 conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId.ToString("D") });
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "DELETE FROM works WHERE id = @workId";
@@ -662,10 +646,6 @@ public static class LibraryItemEndpoints
             }
 
             await hierarchyMaintenance.CleanupEmptyParentsAsync(parentWorkId, ct);
-
-            // 5. Clean up .images/ directory — only after DB delete so QID sibling check is valid
-            if (firstAssetId != Guid.Empty)
-                CleanupWorkImages(imagePaths, wikidataQid, firstAssetId, db);
 
             // 6. Clean up collection if no remaining works
             if (collectionId is not null)
@@ -915,7 +895,6 @@ public static class LibraryItemEndpoints
         group.MapPost("/batch/delete", async (
             BatchLibraryItemRequest request,
             IDatabaseConnection db,
-            ImagePathService imagePaths,
             WorkHierarchyMaintenanceService hierarchyMaintenance,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
@@ -933,16 +912,14 @@ public static class LibraryItemEndpoints
                     var filePaths    = new List<string>();
                     string? collectionId      = null;
                     string? workTitle  = null;
-                    string? wikidataQid = null;
                     Guid? parentWorkId = null;
-                    Guid firstAssetId = Guid.Empty;
 
                     using (var conn = db.CreateConnection())
                     {
                         using (var cmd = conn.CreateCommand())
                         {
                             cmd.CommandText = """
-                                SELECT ma.file_path_root, ma.id
+                                SELECT ma.file_path_root
                                 FROM editions e
                                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                                 WHERE e.work_id = @workId
@@ -954,21 +931,18 @@ public static class LibraryItemEndpoints
                                 var path = reader.GetString(0);
                                 if (!string.IsNullOrWhiteSpace(path))
                                     filePaths.Add(path);
-                                if (firstAssetId == Guid.Empty && Guid.TryParse(reader.GetString(1), out var aid))
-                                    firstAssetId = aid;
                             }
                         }
 
                         using (var cmd2 = conn.CreateCommand())
                         {
-                            cmd2.CommandText = "SELECT collection_id, wikidata_qid, parent_work_id FROM works WHERE id = @workId";
+                            cmd2.CommandText = "SELECT collection_id, parent_work_id FROM works WHERE id = @workId";
                             cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                             using var reader2 = cmd2.ExecuteReader();
                             if (reader2.Read())
                             {
                                 collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
-                                wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
-                                parentWorkId = reader2.IsDBNull(2) ? null : Guid.Parse(reader2.GetString(2));
+                                parentWorkId = reader2.IsDBNull(1) ? null : Guid.Parse(reader2.GetString(1));
                             }
                         }
 
@@ -995,16 +969,6 @@ public static class LibraryItemEndpoints
                             var dir = Path.GetDirectoryName(filePath);
                             if (dir is not null)
                             {
-                                // Best-effort legacy cover/hero cleanup
-                                try
-                                {
-                                    var coverPath = Path.Combine(dir, "cover.jpg");
-                                    if (File.Exists(coverPath)) File.Delete(coverPath);
-                                    var heroPath = Path.Combine(dir, "hero.jpg");
-                                    if (File.Exists(heroPath)) File.Delete(heroPath);
-                                }
-                                catch { /* best-effort */ }
-
                                 if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
                                 {
                                     try { Directory.Delete(dir); } catch { /* best-effort */ }
@@ -1032,6 +996,7 @@ public static class LibraryItemEndpoints
 
                     using (var conn = db.CreateConnection())
                     {
+                        CleanupEntityAssetFiles(conn, entityId);
                         conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId.ToString("D") });
                         using var cmd = conn.CreateCommand();
                         cmd.CommandText = "DELETE FROM works WHERE id = @workId";
@@ -1040,10 +1005,6 @@ public static class LibraryItemEndpoints
                     }
 
                     await hierarchyMaintenance.CleanupEmptyParentsAsync(parentWorkId, ct);
-
-                    // Clean up .images/ after DB delete so QID sibling check is valid
-                    if (firstAssetId != Guid.Empty)
-                        CleanupWorkImages(imagePaths, wikidataQid, firstAssetId, db);
 
                     if (collectionId is not null)
                     {
@@ -1523,66 +1484,74 @@ public static class LibraryItemEndpoints
         return app;
     }
 
-    /// <summary>
-    /// Removes the .images/ directory for a work after it has been deleted from the database.
-    /// For QID-keyed works, only deletes the directory if no other work in the DB shares the same QID
-    /// (i.e., the QID is no longer referenced at all — the delete already happened).
-    /// For provisional works (no QID), always deletes the provisional slot.
-    /// </summary>
-    private static void CleanupWorkImages(
-        ImagePathService imagePaths,
-        string? wikidataQid,
-        Guid assetId,
-        IDatabaseConnection db)
+    private static void CleanupEntityAssetFiles(System.Data.IDbConnection conn, Guid entityId)
     {
-        try
-        {
-            if (!string.IsNullOrEmpty(wikidataQid) &&
-                !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
-            {
-                // QID-keyed: only delete if no other work still holds this QID
-                // (the work has already been deleted, so if the QID directory is still needed
-                //  it would be referenced by another work — but in practice each QID maps to
-                //  one canonical entity, so this check is a safety guard for edge cases)
-                bool qidStillReferenced;
-                using (var conn = db.CreateConnection())
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid";
-                    cmd.Parameters.AddWithValue("@qid", wikidataQid);
-                    qidStillReferenced = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
-                }
+        var rows = conn.Query<(string? LocalImagePath, string? LocalImagePathSmall, string? LocalImagePathMedium, string? LocalImagePathLarge)>(
+            """
+            SELECT local_image_path   AS LocalImagePath,
+                   local_image_path_s AS LocalImagePathSmall,
+                   local_image_path_m AS LocalImagePathMedium,
+                   local_image_path_l AS LocalImagePathLarge
+            FROM entity_assets
+            WHERE entity_id = @entityId
+            """,
+            new { entityId = entityId.ToString("D") });
 
-                // Always delete this asset's image subdirectory.
-                var assetDir = imagePaths.GetWorkImageDir(wikidataQid, assetId);
-                if (Directory.Exists(assetDir))
-                    Directory.Delete(assetDir, recursive: true);
-
-                // If no other works reference this QID, clean up the empty QID parent.
-                if (!qidStillReferenced)
-                {
-                    var qidParent = Path.GetDirectoryName(assetDir);
-                    if (qidParent is not null && Directory.Exists(qidParent)
-                        && !Directory.EnumerateFileSystemEntries(qidParent).Any())
-                    {
-                        try { Directory.Delete(qidParent); } catch { /* best-effort */ }
-                    }
-                }
-            }
-            else
-            {
-                // Provisional: always delete the provisional slot
-                var provDir = imagePaths.GetWorkImageDir(null, assetId);
-                if (Directory.Exists(provDir))
-                    Directory.Delete(provDir, recursive: true);
-            }
-        }
-        catch
+        foreach (var path in rows
+                     .SelectMany(row => new[] { row.LocalImagePath, row.LocalImagePathSmall, row.LocalImagePathMedium, row.LocalImagePathLarge })
+                     .Where(path => !string.IsNullOrWhiteSpace(path))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            // Image cleanup is best-effort — never fail the deletion because of it
+            TryDeleteManagedAssetFile(path!);
         }
     }
 
+    private static void TryDeleteManagedAssetFile(string path)
+    {
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!IsManagedAssetPath(fullPath))
+                return;
+
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
+
+            PruneEmptyManagedAssetParents(fullPath);
+        }
+        catch
+        {
+            // Asset file cleanup is best-effort; the database delete must still complete.
+        }
+    }
+
+    private static bool IsManagedAssetPath(string fullPath)
+    {
+        var normalized = fullPath.Replace('\\', '/');
+        return normalized.Contains("/.data/assets/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void PruneEmptyManagedAssetParents(string fullPath)
+    {
+        var current = Path.GetDirectoryName(fullPath);
+        while (!string.IsNullOrWhiteSpace(current)
+               && IsManagedAssetPath(current)
+               && !string.Equals(Path.GetFileName(current), "assets", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                if (!Directory.Exists(current) || Directory.EnumerateFileSystemEntries(current).Any())
+                    return;
+
+                Directory.Delete(current);
+                current = Path.GetDirectoryName(current);
+            }
+            catch
+            {
+                return;
+            }
+        }
+    }
     /// <summary>Converts a system_activity action_type into a human-readable label for the History tab.</summary>
     private static string FormatActionTypeLabel(string actionType) => actionType switch
     {

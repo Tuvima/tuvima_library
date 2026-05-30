@@ -75,6 +75,8 @@ When the Engine successfully identifies a work and fetches its Wikidata properti
 
 Secondary signals also contribute: shared author, shared narrative roots, shared characters detected by the Universe Graph. Shared author alone doesn't necessarily create a Universe - an author might write in completely unrelated genres - but combined with shared series membership or franchise identifiers, the grouping becomes clear.
 
+This happens after the retail and Wikidata identity gates. Stage 1 retail must first provide a safe match and bridge IDs; Stage 2 Wikidata resolves the canonical QID; Stage 3 then expands narrative roots, fictional entities, people, relationships, and additional artwork. If Stage 2 cannot find a QID, the item can remain usable with retail data, but universe graph enrichment waits for a canonical identity.
+
 **Importantly, Universes and Series have no presence on the filesystem.** Your files are organized by media type and title. The Universe grouping exists only in the data store and is resolved at query time. This means the grouping can change as the Engine learns more - a standalone novel might later be recognized as part of a franchise when new metadata arrives.
 
 ---
@@ -142,5 +144,6 @@ For technical details about the Universe Graph schema, the relationship model, S
 ## Related
 
 - [Universe Graph](../architecture/universe-graph.md)
+- [Ingestion, Identity, and Enrichment Pipeline](../architecture/ingestion-identity-enrichment-pipeline.md)
 - [Glossary](../reference/glossary.md)
 - [Your First Library](../tutorials/first-library.md)

@@ -114,7 +114,7 @@ Each Person record carries:
 - Social links stored as Actionable URI Schemes (see below)
 - Pseudonym links via `person_aliases` table (bidirectional: P1773 attributed_to, P742 pseudonym)
 
-Person folders on disk: `.people/{person_qid}/` containing `headshot.jpg` sourced from Wikimedia Commons P18. P18 is strictly Person-only - never used for media cover art.
+Person headshots on disk: `.data/assets/people/{personId}/headshot.*` referenced by `persons.local_headshot_path`. Wikimedia Commons P18 is strictly Person-only - never used for media cover art.
 
 ### Actionable URI Schemes
 

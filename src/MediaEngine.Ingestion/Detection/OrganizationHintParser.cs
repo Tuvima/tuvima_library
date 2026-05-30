@@ -6,7 +6,7 @@ namespace MediaEngine.Ingestion.Detection;
 /// <summary>
 /// Parses curated-library filename and folder hints out of a media file's
 /// path. Recognises the bracket formats Plex and Jellyfin write into folder
-/// names for movies and TV shows, plus Tuvima's legacy <c>(Q12345)</c> form.
+/// names for movies and TV shows.
 ///
 /// When a library has been curated by another media manager the bridge IDs
 /// (IMDB, TMDB, TVDB) are sitting right in the path — parsing them here and
@@ -45,11 +45,6 @@ public static class OrganizationHintParser
 
     private static readonly Regex JellyfinTvdb = new(
         @"\[tvdbid-(\d+)\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    // Tuvima legacy QID marker — kept so existing Tuvima-organised libraries
-    // continue to resolve without re-running identity.
-    private static readonly Regex TuvimaQid = new(
-        @"\(Q(\d+)\)", RegexOptions.Compiled);
 
     // Extras subfolder names — recognised so items inside them are tagged
     // as extras rather than main works. Match by whole folder component.
@@ -97,11 +92,6 @@ public static class OrganizationHintParser
         if (tvdbMatch.Success)
             bridgeIds[BridgeIdKeys.TvdbId] = tvdbMatch.Groups[1].Value;
 
-        // Tuvima legacy QID
-        var qidMatch = TuvimaQid.Match(path);
-        if (qidMatch.Success)
-            bridgeIds[BridgeIdKeys.WikidataQid] = "Q" + qidMatch.Groups[1].Value;
-
         // Edition label — always Plex form; Jellyfin uses a suffix after a
         // separator which is ambiguous without more context and is left to
         // the higher-level edition splitter.
@@ -147,8 +137,7 @@ public sealed class OrganizationHints
 
     /// <summary>
     /// Bridge IDs keyed by <see cref="BridgeIdKeys"/> constants.
-    /// Values include <c>imdb_id</c>, <c>tmdb_id</c>, <c>tvdb_id</c>,
-    /// and <c>wikidata_qid</c> when any are present in the path.
+    /// Values include <c>imdb_id</c>, <c>tmdb_id</c>, and <c>tvdb_id</c>.
     /// </summary>
     public IReadOnlyDictionary<string, string> BridgeIds { get; }
 

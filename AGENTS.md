@@ -196,7 +196,9 @@ Watch folders
   -> Intelligence/scoring
   -> Retail identification (Stage 1)
   -> Wikidata bridge resolution (Stage 2)
-  -> SQLite + file organization + write-back
+  -> Quick hydration
+  -> Universe enrichment (Stage 3)
+  -> SQLite + .data/assets + file organization + write-back
   -> API + SignalR
   -> Dashboard
 ```
@@ -209,12 +211,16 @@ In plain English:
 4. Intelligence services decide the best current title/author/type values from the claims gathered so far.
 5. Retail Identification (Stage 1) searches commercial catalogues for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). If no retail provider matches, the item goes to review - Wikidata is never attempted.
 6. Wikidata Bridge Resolution (Stage 2) uses bridge IDs from Stage 1 to find the canonical Wikidata entity (QID). This provides universe linkage, person relationships, and canonical metadata. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking.
-7. Storage writes the results into SQLite and caches supporting data for fast reads later.
-8. Organization and write-back services can move files into the library structure and write metadata back into the files.
-9. The API exposes all of that state to the Dashboard.
-10. SignalR broadcasts live events so the UI can update while ingestion and enrichment are happening.
+7. Quick Hydration gets the item visible with core identity, canonical values, and managed artwork.
+8. Universe enrichment (Stage 3) expands people, fictional entities, relationships, narrative roots, lyrics/subtitles, and additional artwork.
+9. Storage writes the results into SQLite and stores managed artwork/headshots under `.data/assets/...` through `entity_assets` or the relevant person/entity table. Sidecars beside media files are optional exports only.
+10. Organization and write-back services can move files into the library structure and write metadata back into the files.
+11. The API exposes all of that state to the Dashboard.
+12. SignalR broadcasts live events so the UI can update while ingestion and enrichment are happening.
 
 Two-pass enrichment: The Quick pass gets the item visible on the Dashboard fast (core identity + cover art). The Universe pass runs later in the background for deep enrichment (relationships, people, fictional entities, additional images).
+
+Canonical deep-dive: `docs/architecture/ingestion-identity-enrichment-pipeline.md`.
 
 ## A Non-Developer Guide To The Data Model
 

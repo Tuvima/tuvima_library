@@ -44,9 +44,11 @@ Watch folders
   -> Ingestion
   -> File processors
   -> Identity and scoring
-  -> Retail identification
-  -> Wikidata bridge resolution
-  -> SQLite, artwork, organization, write-back
+  -> Retail identification (Stage 1)
+  -> Wikidata bridge resolution (Stage 2)
+  -> Quick hydration
+  -> Universe enrichment (Stage 3)
+  -> SQLite, .data/assets artwork, organization, write-back
   -> API and SignalR
   -> Dashboard
 ```
@@ -56,12 +58,14 @@ In plain English:
 1. A file appears in a configured folder.
 2. Tuvima waits until the file is stable, fingerprints it, and reads embedded metadata.
 3. Processors extract details from EPUB, audio, video, comic, and other supported files.
-4. Retail providers such as Apple, TMDB, MusicBrainz, Comic Vine, or Open Library can provide artwork, descriptions, ratings, and bridge IDs.
-5. Wikidata resolution uses bridge IDs such as ISBN, TMDB ID, MusicBrainz ID, or Comic Vine ID to find canonical identity when possible.
-6. The Priority Cascade decides which metadata wins, while user corrections stay final.
-7. The Dashboard updates through HTTP and SignalR so ingestion and review progress are visible.
+4. Stage 1 retail providers such as Apple, TMDB, and Comic Vine can provide artwork, descriptions, ratings, people, and bridge IDs. Disabled configs such as Open Library and MusicBrainz are not treated as active runtime sources.
+5. Stage 2 Wikidata resolution uses bridge IDs such as ISBN, TMDB ID, Apple ID, or Comic Vine ID to find canonical identity when possible. If Stage 1 finds no safe retail match, Wikidata is not used as a broad fallback.
+6. Quick Hydration gets the item visible with core identity and managed artwork, then Stage 3 enrichment expands people, fictional entities, relationships, narrative roots, text tracks, and additional artwork.
+7. Managed artwork and headshots are stored under `.data/assets/...` and indexed in SQLite through `entity_assets` or person/entity records. Sidecar files beside media are optional exports only.
+8. The Priority Cascade decides which metadata wins, while user corrections stay final.
+9. The Dashboard updates through HTTP and SignalR so ingestion and review progress are visible.
 
-Learn more in [How File Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/), [How Enrichment Works](https://tuvima.github.io/tuvima_library/explanation/how-hydration-works/), and the [Technical Overview](https://tuvima.github.io/tuvima_library/architecture/technical-overview/).
+Learn more in [How File Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/), [How Enrichment Works](https://tuvima.github.io/tuvima_library/explanation/how-hydration-works/), the [Ingestion, Identity, and Enrichment Pipeline](https://tuvima.github.io/tuvima_library/architecture/ingestion-identity-enrichment-pipeline/), and the [Technical Overview](https://tuvima.github.io/tuvima_library/architecture/technical-overview/).
 
 ## Built Today
 
