@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -28,6 +29,7 @@ namespace MediaEngine.Providers.Services;
 public sealed class NarrativeRootResolver : INarrativeRootResolver
 {
     private readonly ICanonicalValueRepository _canonicalValues;
+    private readonly ICanonicalValueArrayRepository _canonicalArrays;
     private readonly INarrativeRootRepository _narrativeRoots;
     private readonly IQidLabelRepository _qidLabelRepo;
     private readonly ISystemActivityRepository _activity;
@@ -35,12 +37,14 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
 
     public NarrativeRootResolver(
         ICanonicalValueRepository canonicalValues,
+        ICanonicalValueArrayRepository canonicalArrays,
         INarrativeRootRepository narrativeRoots,
         IQidLabelRepository qidLabelRepo,
         ISystemActivityRepository activity,
         ILogger<NarrativeRootResolver> logger)
     {
         _canonicalValues = canonicalValues;
+        _canonicalArrays = canonicalArrays;
         _narrativeRoots = narrativeRoots;
         _qidLabelRepo = qidLabelRepo;
         _activity = activity;
@@ -52,6 +56,17 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
     {
         var values = await _canonicalValues.GetByEntityAsync(entityId, ct);
         var lookup = values.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+        var arrays = await _canonicalArrays.GetAllByEntityAsync(entityId, ct);
+        foreach (var (key, entries) in arrays)
+        {
+            var first = entries.OrderBy(entry => entry.Ordinal).FirstOrDefault();
+            if (first is null)
+                continue;
+
+            lookup.TryAdd(key, first.Value);
+            if (!string.IsNullOrWhiteSpace(first.ValueQid))
+                lookup.TryAdd($"{key}{MetadataFieldConstants.CompanionQidSuffix}", first.ValueQid);
+        }
 
         // Priority 1: fictional_universe (P1434) — broadest
         if (TryExtractQidAndLabel(lookup, "fictional_universe", out var qid, out var label))

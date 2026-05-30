@@ -71,7 +71,6 @@ public sealed class RetailMatchWorker
     /// processes in one lease cycle instead of being chopped into multiple leases
     /// — which is what enables one Apple album call to cover all its tracks.
     /// </summary>
-    private readonly int _batchSize;
 
     public RetailMatchWorker(
         IIdentityJobRepository jobRepo,
@@ -138,7 +137,6 @@ public sealed class RetailMatchWorker
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.
-        _batchSize = Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Retail);
     }
 
     /// <summary>
@@ -151,7 +149,7 @@ public sealed class RetailMatchWorker
         var jobs = await _jobRepo.LeaseNextAsync(
             "RetailMatchWorker",
             [IdentityJobState.Queued],
-            _batchSize,
+            GetBatchSize(),
             LeaseDuration,
             ct: ct);
 
@@ -189,6 +187,7 @@ public sealed class RetailMatchWorker
                     job,
                     IdentityJobState.Queued,
                     ex,
+                    _configLoader.LoadHydration(),
                     ct);
             }
         }
@@ -222,6 +221,9 @@ public sealed class RetailMatchWorker
 
         return jobs.Count;
     }
+
+    private int GetBatchSize() =>
+        Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Retail);
 
     // ── Music group processing ──────────────────────────────────────────────
 
@@ -278,6 +280,7 @@ public sealed class RetailMatchWorker
                             job,
                             IdentityJobState.Queued,
                             innerEx,
+                            _configLoader.LoadHydration(),
                             ct);
                     }
                 }

@@ -23,7 +23,7 @@ public sealed class SearchResultsCacheRepository : ISearchResultsCacheRepository
             SELECT results_json FROM search_results_cache
             WHERE entity_id = @entityId AND searched_at >= @cutoff
             """,
-            new { entityId = entityId.ToString(), cutoff });
+            new { entityId, cutoff });
         return Task.FromResult(result);
     }
 
@@ -40,7 +40,7 @@ public sealed class SearchResultsCacheRepository : ISearchResultsCacheRepository
             """,
             new
             {
-                entityId = entityId.ToString(),
+                entityId,
                 resultsJson,
                 searchedAt = DateTimeOffset.UtcNow.ToString("o"),
             });

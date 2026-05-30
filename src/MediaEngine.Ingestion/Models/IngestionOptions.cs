@@ -205,6 +205,15 @@ public sealed class IngestionOptions
     /// </summary>
     public int PollIntervalSeconds { get; set; } = 300;
 
+    /// <summary>
+    /// Seconds to wait after the last FileSystemWatcher/poll event before
+    /// flushing the collected file batch into the debounce queue. Default: 30.
+    /// </summary>
+    public int FswQuietPeriodSeconds { get; set; } = 30;
+
+    public TimeSpan FswQuietPeriod =>
+        TimeSpan.FromSeconds(Math.Max(1, FswQuietPeriodSeconds));
+
     // ── Language configuration ────────────────────────────────────────
 
     /// <summary>

@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -196,16 +197,24 @@ public sealed class LibraryItemProjectionTests : IDisposable
         var editionId = Guid.NewGuid();
         var assetId = Guid.NewGuid();
 
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"""
-            INSERT INTO collections (id, created_at) VALUES ('{collectionId}', datetime('now'));
+        await conn.ExecuteAsync("""
+            INSERT INTO collections (id, created_at) VALUES (@collectionId, datetime('now'));
             INSERT INTO works (id, collection_id, media_type)
-                VALUES ('{workId}', '{collectionId}', '{mediaType}');
-            INSERT INTO editions (id, work_id) VALUES ('{editionId}', '{workId}');
+                VALUES (@workId, @collectionId, @mediaType);
+            INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
             INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
-                VALUES ('{assetId}', '{editionId}', 'hash_{assetId:N}', '/library/{assetId:N}.bin', 'Normal');
-            """;
-        await cmd.ExecuteNonQueryAsync();
+                VALUES (@assetId, @editionId, @hash, @filePath, 'Normal');
+            """,
+            new
+            {
+                collectionId,
+                workId,
+                editionId,
+                assetId,
+                mediaType,
+                hash = $"hash_{assetId:N}",
+                filePath = $"/library/{assetId:N}.bin",
+            });
 
         return (workId, assetId);
     }
@@ -218,10 +227,11 @@ public sealed class LibraryItemProjectionTests : IDisposable
             INSERT OR REPLACE INTO canonical_values (entity_id, key, value, last_scored_at, winning_provider_id)
             VALUES (@entityId, @key, @value, datetime('now'), @winningProviderId);
             """;
-        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", value);
-        cmd.Parameters.AddWithValue("@winningProviderId", winningProviderId?.ToString() ?? (object)DBNull.Value);
+        cmd.Parameters.Add("@winningProviderId", Microsoft.Data.Sqlite.SqliteType.Blob).Value =
+            winningProviderId.HasValue ? GuidSql.ToBlob(winningProviderId.Value) : DBNull.Value;
         await cmd.ExecuteNonQueryAsync();
     }
 
@@ -233,9 +243,9 @@ public sealed class LibraryItemProjectionTests : IDisposable
             INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
             VALUES (@id, @entityId, @providerId, @key, @value, @confidence, datetime('now'));
             """;
-        cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
-        cmd.Parameters.AddWithValue("@providerId", providerId.ToString());
+        cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(Guid.NewGuid());
+        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+        cmd.Parameters.Add("@providerId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(providerId);
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", value);
         cmd.Parameters.AddWithValue("@confidence", confidence);
@@ -251,7 +261,7 @@ public sealed class LibraryItemProjectionTests : IDisposable
             SET curator_state = @state
             WHERE id = @workId;
             """;
-        cmd.Parameters.AddWithValue("@workId", workId.ToString());
+        cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(workId);
         cmd.Parameters.AddWithValue("@state", state);
         await cmd.ExecuteNonQueryAsync();
     }

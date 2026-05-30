@@ -6,7 +6,7 @@ namespace MediaEngine.Storage.Models;
 /// The media domain a provider specialises in.
 /// Used for UI grouping and as metadata when building scoring contexts;
 /// the Intelligence engine itself is domain-agnostic.
-/// Spec: Phase 8 – Categorized Provider LibraryItem.
+/// Spec: Phase 8 â€“ Categorized Provider LibraryItem.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ProviderDomain
@@ -28,7 +28,7 @@ public enum ProviderDomain
 /// <summary>
 /// Root model for the legacy manifest.
 /// Contains environment-level bootstrap settings for the platform.
-/// Spec: Phase 4 – Configuration Management responsibility.
+/// Spec: Phase 4 â€“ Configuration Management responsibility.
 /// </summary>
 public sealed class LegacyManifest
 {
@@ -73,7 +73,7 @@ public sealed class LegacyManifest
     /// Tokenized path template for file organization.
     /// When set (non-empty), overrides the <c>Ingestion:OrganizationTemplate</c>
     /// default from <c>appsettings.json</c>.
-    /// Supports conditional groups: <c>({Token})</c> — when the token is empty,
+    /// Supports conditional groups: <c>({Token})</c> â€” when the token is empty,
     /// the parentheses and leading space are collapsed.
     /// </summary>
     [JsonPropertyName("organization_template")]
@@ -89,7 +89,7 @@ public sealed class LegacyManifest
 
     /// <summary>
     /// Thresholds and tuning parameters for the Intelligence &amp; Scoring Engine.
-    /// Spec: Phase 6 – Threshold Enforcement; Weight Management.
+    /// Spec: Phase 6 â€“ Threshold Enforcement; Weight Management.
     /// </summary>
     [JsonPropertyName("scoring")]
     public ScoringSettings Scoring { get; set; } = new();
@@ -105,7 +105,7 @@ public sealed class LegacyManifest
     /// <summary>
     /// Per-property overrides for the Wikidata property map.
     /// Each entry targets a P-code and may override the claim key, confidence,
-    /// or enabled state of a default property — or define an entirely new one.
+    /// or enabled state of a default property â€” or define an entirely new one.
     /// Kept for backward compatibility during legacy manifest migration.
     /// </summary>
     [JsonPropertyName("wikidata_property_map")]
@@ -167,7 +167,7 @@ public sealed class ProviderBootstrap
     /// <summary>
     /// The media domain this provider specialises in.
     /// Informational: used for UI grouping and future domain-filtered scoring.
-    /// Spec: Phase 8 – Categorized Provider LibraryItem § Domain.
+    /// Spec: Phase 8 â€“ Categorized Provider LibraryItem Â§ Domain.
     /// </summary>
     [JsonPropertyName("domain")]
     public ProviderDomain Domain { get; set; } = ProviderDomain.Universal;
@@ -177,7 +177,7 @@ public sealed class ProviderBootstrap
     /// (e.g. <c>["cover", "narrator", "series"]</c>).
     /// Informational: shown in the UI to explain why a particular provider's value
     /// was chosen; the actual trust level is encoded in <see cref="FieldWeights"/>.
-    /// Spec: Phase 8 – Categorized Provider LibraryItem § Capability Tags.
+    /// Spec: Phase 8 â€“ Categorized Provider LibraryItem Â§ Capability Tags.
     /// </summary>
     [JsonPropertyName("capability_tags")]
     public List<string> CapabilityTags { get; set; } = [];
@@ -191,8 +191,8 @@ public sealed class ProviderBootstrap
     /// here first; if absent, it falls back to <see cref="Weight"/>.
     ///
     /// These values are loaded from provider config files and injected into
-    /// <c>ScoringContext.ProviderFieldWeights</c> at scoring time — never hard-coded.
-    /// Spec: Phase 8 – Field-Level Weight Matrix.
+    /// <c>ScoringContext.ProviderFieldWeights</c> at scoring time â€” never hard-coded.
+    /// Spec: Phase 8 â€“ Field-Level Weight Matrix.
     /// </summary>
     [JsonPropertyName("field_weights")]
     public Dictionary<string, double> FieldWeights { get; set; } = [];
@@ -207,7 +207,7 @@ public sealed class ScoringSettings
     /// <summary>
     /// Minimum confidence score required for the arbiter to automatically link
     /// a Work to an existing Collection without human review.
-    /// Spec: Phase 6 – Collection Integrity invariant.
+    /// Spec: Phase 6 â€“ Collection Integrity invariant.
     /// </summary>
     [JsonPropertyName("auto_link_threshold")]
     public double AutoLinkThreshold { get; set; } = 0.85;
@@ -215,7 +215,7 @@ public sealed class ScoringSettings
     /// <summary>
     /// Scores at or above this value but below <see cref="AutoLinkThreshold"/>
     /// are flagged as NeedsReview rather than auto-linked or rejected.
-    /// Spec: Phase 6 – Low Confidence Flags.
+    /// Spec: Phase 6 â€“ Low Confidence Flags.
     /// </summary>
     [JsonPropertyName("conflict_threshold")]
     public double ConflictThreshold { get; set; } = 0.60;
@@ -231,7 +231,7 @@ public sealed class ScoringSettings
     /// <summary>
     /// Claims older than this many days receive a time-decay multiplier.
     /// Set to 0 to disable stale-claim decay entirely.
-    /// Spec: Phase 6 – Stale Claim Handling.
+    /// Spec: Phase 6 â€“ Stale Claim Handling.
     /// </summary>
     [JsonPropertyName("stale_claim_decay_days")]
     public int StaleClaimDecayDays { get; set; } = 90;
@@ -330,23 +330,29 @@ public sealed class MaintenanceSettings
     public RetagSweepSettings RetagSweep { get; set; } = new();
 
     /// <summary>
+    /// Database and generated-cache housekeeping parameters.
+    /// </summary>
+    [JsonPropertyName("storage_maintenance")]
+    public StorageMaintenanceSettings StorageMaintenance { get; set; } = new();
+
+    /// <summary>
     /// Cron expressions for all background services. Keys are service names,
     /// values are standard 5-field cron expressions. Centralised here so all
     /// schedules are visible and tuneable in one place.
     ///
     /// <para>Recognised keys (all default to overnight, low-traffic windows):</para>
     /// <list type="bullet">
-    ///   <item><c>activity_pruning</c> — ActivityPruningService (default: 3 AM daily)</item>
-    ///   <item><c>library_reconciliation</c> — LibraryReconciliationService (default: 5 AM daily)</item>
-    ///   <item><c>missing_universe_sweep</c> — MissingUniverseSweepService (default: 4 AM Sundays)</item>
-    ///   <item><c>rejected_file_cleanup</c> — RejectedFileCleanupService (default: 4 AM daily)</item>
-    ///   <item><c>universe_enrichment</c> — UniverseEnrichmentService (default: 3 AM daily)</item>
-    ///   <item><c>pass2_nightly_sweep</c> — Pass 2 hydration sweep (default: 2 AM daily)</item>
-    ///   <item><c>vibe_batch</c> — AI vibe tagging batch (default: 4 AM daily)</item>
-    ///   <item><c>series_check</c> — AI series alignment check (default: 3 AM daily)</item>
-    ///   <item><c>whisper_bake</c> — Whisper audio bake (default: 2 AM daily)</item>
-    ///   <item><c>taste_profile_update</c> — Taste profile update (default: 5 AM Sundays)</item>
-    ///   <item><c>description_intelligence</c> — Description intelligence batch (default: every 15 min)</item>
+    ///   <item><c>activity_pruning</c> â€” ActivityPruningService (default: 3 AM daily)</item>
+    ///   <item><c>library_reconciliation</c> â€” LibraryReconciliationService (default: 5 AM daily)</item>
+    ///   <item><c>missing_universe_sweep</c> â€” MissingUniverseSweepService (default: 4 AM Sundays)</item>
+    ///   <item><c>rejected_file_cleanup</c> â€” RejectedFileCleanupService (default: 4 AM daily)</item>
+    ///   <item><c>universe_enrichment</c> â€” UniverseEnrichmentService (default: 3 AM daily)</item>
+    ///   <item><c>pass2_nightly_sweep</c> â€” Pass 2 hydration sweep (default: 2 AM daily)</item>
+    ///   <item><c>vibe_batch</c> â€” AI vibe tagging batch (default: 4 AM daily)</item>
+    ///   <item><c>series_check</c> â€” AI series alignment check (default: 3 AM daily)</item>
+    ///   <item><c>whisper_bake</c> â€” Whisper audio bake (default: 2 AM daily)</item>
+    ///   <item><c>taste_profile_update</c> â€” Taste profile update (default: 5 AM Sundays)</item>
+    ///   <item><c>description_intelligence</c> â€” Description intelligence batch (default: every 15 min)</item>
     /// </list>
     ///
     /// Missing keys fall back to each service's hardcoded default, so existing
@@ -367,7 +373,29 @@ public sealed class MaintenanceSettings
         ["taste_profile_update"]     = "0 5 * * 0",
         ["description_intelligence"] = "*/15 * * * *",
         ["retag_sweep"]              = "0 3 * * *",
+        ["storage_maintenance"]      = "0 2 * * *",
     };
+}
+
+public sealed class StorageMaintenanceSettings
+{
+    /// <summary>Enable the nightly storage maintenance hosted service.</summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Delete search result cache entries older than this many days.</summary>
+    [JsonPropertyName("search_cache_max_age_days")]
+    public int SearchCacheMaxAgeDays { get; set; } = 30;
+
+    /// <summary>
+    /// Delete unreferenced, non-user-override image cache rows/files older than this many days.
+    /// </summary>
+    [JsonPropertyName("image_cache_retention_days")]
+    public int ImageCacheRetentionDays { get; set; } = 30;
+
+    /// <summary>Maximum exact duplicate non-user-locked claims to compact per pass.</summary>
+    [JsonPropertyName("claim_compaction_batch_size")]
+    public int ClaimCompactionBatchSize { get; set; } = 5000;
 }
 
 /// <summary>

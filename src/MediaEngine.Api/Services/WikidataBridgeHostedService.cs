@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Workers;
 
 namespace MediaEngine.Api.Services;
@@ -10,6 +11,7 @@ namespace MediaEngine.Api.Services;
 public sealed class WikidataBridgeHostedService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IIdentityPipelineSignal _signal;
     private readonly ILogger<WikidataBridgeHostedService> _logger;
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
@@ -19,9 +21,11 @@ public sealed class WikidataBridgeHostedService : BackgroundService
 
     public WikidataBridgeHostedService(
         IServiceScopeFactory scopeFactory,
+        IIdentityPipelineSignal signal,
         ILogger<WikidataBridgeHostedService> logger)
     {
         _scopeFactory = scopeFactory;
+        _signal = signal;
         _logger = logger;
     }
 
@@ -49,9 +53,11 @@ public sealed class WikidataBridgeHostedService : BackgroundService
 
                 var worker = scope.ServiceProvider.GetRequiredService<WikidataBridgeWorker>();
                 var processed = await worker.PollAsync(stoppingToken);
+                if (processed > 0)
+                    _signal.Signal(IdentityPipelineSignalKind.Hydration);
 
                 var delay = processed > 0 ? PollInterval : IdleInterval;
-                await Task.Delay(delay, stoppingToken);
+                await _signal.WaitAsync(IdentityPipelineSignalKind.WikidataBridge, delay, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -60,7 +66,7 @@ public sealed class WikidataBridgeHostedService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "WikidataBridgeHostedService poll error");
-                await Task.Delay(IdleInterval, stoppingToken);
+                await _signal.WaitAsync(IdentityPipelineSignalKind.WikidataBridge, IdleInterval, stoppingToken);
             }
         }
     }

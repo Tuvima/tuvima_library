@@ -1,5 +1,8 @@
 using System.Data;
 using System.Threading.Tasks;
+using MediaEngine.Domain;
+using MediaEngine.Domain.Entities;
+using MediaEngine.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage.Tests;
@@ -50,6 +53,130 @@ public sealed class DatabaseStartupSafetyTests
         Assert.Equal("1", Scalar(conn, "PRAGMA foreign_keys;"));
         Assert.Equal("5000", Scalar(conn, "PRAGMA busy_timeout;"));
         Assert.Equal("ok", Scalar(conn, "PRAGMA integrity_check;"));
+    }
+
+    [Fact]
+    public void FreshDatabase_UsesGuidBlobStorageEpoch()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        using var conn = fixture.Database.CreateConnection();
+        Assert.Equal("guid-blob-v1", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+
+        (string Table, string Column)[] internalGuidColumns =
+        [
+            ("metadata_providers", "id"),
+            ("provider_config", "provider_id"),
+            ("collections", "id"),
+            ("works", "id"),
+            ("editions", "id"),
+            ("media_assets", "id"),
+            ("metadata_claims", "id"),
+            ("metadata_claims", "entity_id"),
+            ("metadata_claims", "provider_id"),
+            ("canonical_values", "entity_id"),
+            ("canonical_values", "winning_provider_id"),
+            ("canonical_value_arrays", "entity_id"),
+            ("profiles", "id"),
+            ("review_queue", "id"),
+            ("review_queue", "entity_id"),
+            ("identity_jobs", "id"),
+            ("identity_jobs", "entity_id"),
+            ("retail_match_candidates", "id"),
+            ("retail_match_candidates", "job_id"),
+            ("wikidata_bridge_candidates", "id"),
+            ("wikidata_bridge_candidates", "job_id"),
+            ("media_operations", "id"),
+            ("media_operations", "entity_id"),
+        ];
+
+        foreach (var (table, column) in internalGuidColumns)
+        {
+            Assert.Equal("BLOB", ColumnType(conn, table, column));
+        }
+
+        Assert.Equal("TEXT", ColumnType(conn, "works", "wikidata_qid"));
+        Assert.Equal("TEXT", ColumnType(conn, "media_assets", "content_hash"));
+        Assert.Equal("TEXT", ColumnType(conn, "provider_response_cache", "provider_id"));
+    }
+
+    [Fact]
+    public void Open_RejectsLegacyTextGuidDatabaseWithoutResetFlag()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"tuvima_legacy_{Guid.NewGuid():N}.db");
+        try
+        {
+            CreateLegacyTextGuidDatabase(path);
+
+            using var database = new DatabaseConnection(path);
+            var ex = Assert.Throws<InvalidOperationException>(() => database.Open());
+            Assert.Contains("guid-blob-v1", ex.Message);
+            Assert.Contains("TUVIMA_STORAGE_RESET", ex.Message);
+        }
+        finally
+        {
+            TryDelete(path);
+        }
+    }
+
+    [Fact]
+    public void Open_WithResetFlagRenamesLegacyTextGuidDatabase()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"tuvima_legacy_reset_{Guid.NewGuid():N}.db");
+        var previous = Environment.GetEnvironmentVariable("TUVIMA_STORAGE_RESET");
+        try
+        {
+            CreateLegacyTextGuidDatabase(path);
+            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", "1");
+
+            using var database = new DatabaseConnection(path);
+            database.Open();
+            database.InitializeSchema();
+
+            Assert.True(File.Exists(path));
+            Assert.NotEmpty(Directory.GetFiles(System.IO.Path.GetDirectoryName(path)!, $"{System.IO.Path.GetFileName(path)}.legacy-text-guid.*.bak"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", previous);
+            TryDelete(path);
+            foreach (var backup in Directory.GetFiles(System.IO.Path.GetTempPath(), $"{System.IO.Path.GetFileName(path)}.legacy-text-guid.*.bak"))
+                TryDelete(backup);
+        }
+    }
+
+    [Fact]
+    public async Task CanonicalValueRepository_KeepsMultiValuedKeysOutOfScalarTable()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        var repo = new CanonicalValueRepository(fixture.Database);
+        var entityId = Guid.NewGuid();
+        await repo.UpsertBatchAsync([
+            new CanonicalValue
+            {
+                EntityId = entityId,
+                Key = MetadataFieldConstants.Title,
+                Value = "Dune",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+            new CanonicalValue
+            {
+                EntityId = entityId,
+                Key = MetadataFieldConstants.Author,
+                Value = "Frank Herbert",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+        ]);
+
+        using var conn = fixture.Database.CreateConnection();
+        Assert.Equal(1, Convert.ToInt32(Scalar(conn, "SELECT COUNT(*) FROM canonical_values;")));
+        Assert.Equal("Dune", Scalar(conn, "SELECT value FROM canonical_values WHERE key = 'title';"));
+        Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM canonical_values WHERE key = 'author';"));
     }
 
     [Fact]
@@ -194,6 +321,37 @@ public sealed class DatabaseStartupSafetyTests
         return Convert.ToString(cmd.ExecuteScalar()) ?? string.Empty;
     }
 
+    private static string ColumnType(SqliteConnection conn, string table, string column)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info([{table}]);";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return reader.GetString(2);
+        }
+
+        throw new InvalidOperationException($"Column {table}.{column} was not found.");
+    }
+
+    private static void CreateLegacyTextGuidDatabase(string path)
+    {
+        using var conn = new SqliteConnection($"Data Source={path}");
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE metadata_providers (
+                id TEXT NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                version TEXT NOT NULL
+            );
+            INSERT INTO metadata_providers (id, name, version)
+            VALUES ('00000000-0000-0000-0000-000000000001', 'legacy', '1.0');
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
     private sealed class TempDatabase : IDisposable
     {
         private TempDatabase(string path)
@@ -212,24 +370,24 @@ public sealed class DatabaseStartupSafetyTests
         public void Dispose()
         {
             Database.Dispose();
-            TryDelete(Path);
-            TryDelete($"{Path}-wal");
-            TryDelete($"{Path}-shm");
+            DatabaseStartupSafetyTests.TryDelete(Path);
+            DatabaseStartupSafetyTests.TryDelete($"{Path}-wal");
+            DatabaseStartupSafetyTests.TryDelete($"{Path}-shm");
         }
+    }
 
-        private static void TryDelete(string path)
+    private static void TryDelete(string path)
+    {
+        try
         {
-            try
+            if (File.Exists(path))
             {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
+                File.Delete(path);
             }
-            catch
-            {
-                // Test cleanup is best effort; failure should not hide the test assertion result.
-            }
+        }
+        catch
+        {
+            // Test cleanup is best effort; failure should not hide the test assertion result.
         }
     }
 }

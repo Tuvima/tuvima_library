@@ -14,13 +14,21 @@ tags:
 
 SQLite database located at `.data/database/library.db` (path set in `config/core.json`).
 
-Latest migration: **M-090**. All migrations are idempotent (`IF NOT EXISTS` guards). Schema changes are applied automatically on Engine startup.
+Latest storage epoch: **guid-blob-v1**. Fresh databases are initialized from `src/MediaEngine.Storage/Schema/schema.sql`; startup migrations are still idempotent, but databases from the previous TEXT-GUID epoch are not read in place.
 
 **Conventions:**
-- UUIDs stored as `TEXT`
+- Internal UUIDs are stored as 16-byte SQLite `BLOB` values in RFC4122/network byte order. API JSON still serializes GUIDs as strings.
+- External identifiers remain `TEXT`, including `wikidata_qid`, provider item IDs, URLs, hashes, plugin IDs, cache keys, and provider-specific IDs.
 - Booleans stored as `INTEGER` (`0` = false, `1` = true)
 - Timestamps stored as `TEXT` in ISO-8601 format (`2026-03-29T14:00:00Z`)
 - Foreign keys enabled via `PRAGMA foreign_keys = ON`
+- `canonical_values` is scalar-only. Multi-valued keys from `MetadataFieldConstants.MultiValuedKeys` are stored only as rows in `canonical_value_arrays`.
+
+Startup safety:
+
+- Current databases record `storage_metadata.storage_epoch = guid-blob-v1`.
+- Legacy TEXT-GUID databases are rejected on startup.
+- Setting `TUVIMA_STORAGE_RESET=1` or `TUVIMA_STORAGE_RESET=destructive-reingest` renames the legacy database and starts a clean database for reingestion. The old database is kept as a `.legacy-text-guid.<timestamp>.bak` file.
 
 ---
 
@@ -32,11 +40,11 @@ Represents a Series (user-facing) or Universe (ParentCollection). Both are store
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT | UUID, primary key |
+| `id` | BLOB | Internal UUID, primary key |
 | `collection_type` | TEXT | `"Collection"` = Series, `"ParentCollection"` = Universe |
 | `title` | TEXT | Display title |
 | `wikidata_qid` | TEXT | Wikidata entity identifier. Indexed. |
-| `parent_collection_id` | TEXT | FK -> `collections.id`. NULL for top-level Universes and standalone Series. |
+| `parent_collection_id` | BLOB | FK -> `collections.id`. NULL for top-level Universes and standalone Series. |
 | `media_type` | TEXT | Primary media type for this collection |
 | `description` | TEXT | Wikipedia or provider description |
 | `sort_title` | TEXT | Normalized title for alphabetical sorting |
@@ -52,8 +60,8 @@ A single title, independent of version or format.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT | UUID, primary key |
-| `collection_id` | TEXT | FK -> `collections.id`. The Series this work belongs to. |
+| `id` | BLOB | Internal UUID, primary key |
+| `collection_id` | BLOB | FK -> `collections.id`. The Series this work belongs to. |
 | `wikidata_qid` | TEXT | Wikidata entity identifier. Indexed. |
 | `title` | TEXT | Canonical display title |
 | `original_title` | TEXT | Title in the work's source language (Phase 2 localization) |
@@ -74,8 +82,8 @@ A specific version of a Work (e.g., "4K HDR Blu-ray Remux", "First Edition Hardc
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT | UUID, primary key |
-| `work_id` | TEXT | FK -> `works.id` |
+| `id` | BLOB | Internal UUID, primary key |
+| `work_id` | BLOB | FK -> `works.id` |
 | `title` | TEXT | Edition label |
 | `created_at` | TEXT | Timestamp |
 
@@ -85,8 +93,8 @@ A single file on disk.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT | UUID, primary key |
-| `edition_id` | TEXT | FK -> `editions.id` |
+| `id` | BLOB | Internal UUID, primary key |
+| `edition_id` | BLOB | FK -> `editions.id` |
 | `file_path` | TEXT | Absolute path on disk |
 | `file_name` | TEXT | Filename only |
 | `fingerprint` | TEXT | SHA-256 hash. Used for deduplication and move detection. |
@@ -106,8 +114,8 @@ Links works to collections (Series to Universe relationships).
 
 | Column | Type | Notes |
 |---|---|---|
-| `collection_id` | TEXT | FK -> `collections.id` |
-| `work_id` | TEXT | FK -> `works.id` |
+| `collection_id` | BLOB | FK -> `collections.id` |
+| `work_id` | BLOB | FK -> `works.id` |
 | `sort_order` | INTEGER | Position within the collection |
 
 ### collection_work_links
@@ -130,12 +138,12 @@ Append-only log of every metadata value ever received for an entity, with its so
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT | UUID, primary key |
-| `entity_id` | TEXT | The work, edition, collection, or person this claim belongs to |
+| `id` | BLOB | Internal UUID, primary key |
+| `entity_id` | BLOB | Internal entity UUID |
 | `entity_type` | TEXT | `"Work"`, `"Collection"`, `"Person"`, etc. |
 | `field_key` | TEXT | Field identifier (e.g., `"title"`, `"author"`, `"genre"`). See `MetadataFieldConstants.cs`. |
 | `value` | TEXT | Claim value |
-| `source_id` | TEXT | Provider GUID |
+| `source_id` | BLOB | Internal provider UUID |
 | `source_name` | TEXT | Human-readable provider name |
 | `confidence` | REAL | Score 0.0 - 1.0 |
 | `source_language` | TEXT | BCP-47 language code of this claim's value (Phase 6) |
@@ -151,11 +159,11 @@ The winning single-valued claim for each field after Priority Cascade resolution
 
 | Column | Type | Notes |
 |---|---|---|
-| `entity_id` | TEXT | |
+| `entity_id` | BLOB | Internal entity UUID |
 | `entity_type` | TEXT | |
 | `field_key` | TEXT | |
 | `value` | TEXT | Winning value |
-| `source_id` | TEXT | Which provider won |
+| `source_id` | BLOB | Which provider won |
 | `confidence` | REAL | Winning confidence score |
 | `resolved_at` | TEXT | Timestamp of last resolution |
 
@@ -165,16 +173,17 @@ Artwork truth is also persisted here through canonical keys such as `cover_state
 
 ### canonical_value_arrays
 
-The winning multi-valued claims (genres, authors, vibe tags, cast members).
+The winning multi-valued claims (genres, authors, vibe tags, cast members). Each value is one row with an ordinal and optional QID; packed delimiter strings are not supported.
 
 | Column | Type | Notes |
 |---|---|---|
-| `entity_id` | TEXT | |
-| `entity_type` | TEXT | |
-| `field_key` | TEXT | |
-| `values` | TEXT | JSON array of winning values |
-| `source_id` | TEXT | |
-| `resolved_at` | TEXT | Timestamp |
+| `entity_id` | BLOB | Internal entity UUID |
+| `key` | TEXT | Canonical field key |
+| `ordinal` | INTEGER | Display order |
+| `value` | TEXT | One display value |
+| `value_qid` | TEXT | Optional external Wikidata QID for this value |
+| `source_id` | BLOB | Optional winning provider UUID |
+| `last_scored_at` | TEXT | Timestamp |
 
 **Unique index:** `entity_id + field_key`
 
@@ -708,4 +717,3 @@ Named factual entries in a Wikidata series manifest, including works the local l
 | `order_source` | TEXT | How ordering was determined. |
 | `ownership_state` | TEXT | `Owned`, `Missing`, `Provisional`, or `Ambiguous`. |
 | `linked_work_id` | TEXT | FK to `works.id` when exactly one local work matches. |
-

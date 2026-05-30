@@ -513,9 +513,9 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                id   = collection.Id.ToString(),
-                uid  = collection.UniverseId.HasValue ? collection.UniverseId.Value.ToString() : null,
-                phid = collection.ParentCollectionId.HasValue ? collection.ParentCollectionId.Value.ToString() : null,
+                id   = collection.Id,
+                uid  = collection.UniverseId,
+                phid = collection.ParentCollectionId,
                 dn   = collection.DisplayName,
                 ca   = collection.CreatedAt.ToString("O"),
                 us   = collection.UniverseStatus ?? "Unknown",
@@ -526,7 +526,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 squareArtworkPath = collection.SquareArtworkPath,
                 squareArtworkMimeType = collection.SquareArtworkMimeType,
                 scope = collection.Scope ?? "library",
-                pid  = collection.ProfileId.HasValue ? collection.ProfileId.Value.ToString() : null,
+                pid  = collection.ProfileId,
                 enabled = collection.IsEnabled ? 1 : 0,
                 featured = collection.IsFeatured ? 1 : 0,
                 minItems = collection.MinItems,
@@ -720,7 +720,7 @@ public sealed class CollectionRepository : ICollectionRepository
             FROM   collections
             WHERE  parent_collection_id = @parentCollectionId
             ORDER  BY display_name;
-            """, new { parentCollectionId = parentCollectionId.ToString() })
+            """, new { parentCollectionId })
             .Select(NormalizeCollection)
             .ToList();
 
@@ -743,8 +743,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 "UPDATE collections SET parent_collection_id = @parentCollectionId WHERE id = @id;",
                 new
                 {
-                    parentCollectionId = parentCollectionId.HasValue ? parentCollectionId.Value.ToString() : null,
-                    id          = collectionId.ToString(),
+                    parentCollectionId,
+                    id = collectionId,
                 });
         }
         finally
@@ -797,7 +797,7 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var results = conn.Query<string>("""
+        var results = conn.Query<Guid>("""
             SELECT DISTINCT hr.collection_id
             FROM   collection_relationships hr
             INNER JOIN collections h ON h.id = hr.collection_id
@@ -805,7 +805,6 @@ public sealed class CollectionRepository : ICollectionRepository
               AND  hr.rel_type IN ('series', 'franchise', 'fictional_universe')
               AND  COALESCE(h.collection_type, 'ContentGroup') IN ('ContentGroup', 'Series');
             """, new { qid })
-            .Select(Guid.Parse)
             .ToList();
 
         return Task.FromResult<IReadOnlyList<Guid>>(results);
@@ -821,7 +820,7 @@ public sealed class CollectionRepository : ICollectionRepository
             SELECT {RelSelectColumns}
             FROM   collection_relationships
             WHERE  collection_id = @collectionId;
-            """, new { collectionId = collectionId.ToString() }).AsList();
+            """, new { collectionId }).AsList();
 
         return Task.FromResult<IReadOnlyList<CollectionRelationship>>(results);
     }
@@ -837,7 +836,7 @@ public sealed class CollectionRepository : ICollectionRepository
             FROM   collections
             WHERE  id = @id
             LIMIT  1;
-            """, new { id = collectionId.ToString() });
+            """, new { id = collectionId });
 
         return Task.FromResult(collection is null ? null : (Collection)NormalizeCollection(collection));
     }
@@ -992,7 +991,7 @@ public sealed class CollectionRepository : ICollectionRepository
             FROM collection_items WHERE collection_id = @CollectionId
             ORDER BY sort_order LIMIT @Limit
             """,
-            new { CollectionId = collectionId.ToString(), Limit = limit });
+            new { CollectionId = collectionId, Limit = limit });
         return items.ToList();
     }
 
@@ -1003,7 +1002,7 @@ public sealed class CollectionRepository : ICollectionRepository
         using var conn = _db.CreateConnection();
         return await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM collection_items WHERE collection_id = @CollectionId",
-            new { CollectionId = collectionId.ToString() });
+            new { CollectionId = collectionId });
     }
 
     /// <inheritdoc/>
@@ -1015,21 +1014,22 @@ public sealed class CollectionRepository : ICollectionRepository
             return [];
 
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<(string CollectionId, int Count)>(
-            """
+        var counts = ids.ToDictionary(id => id, _ => 0);
+        var parameters = ids.Select((_, index) => $"@p{index}").ToArray();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"""
             SELECT collection_id AS CollectionId, COUNT(*) AS Count
             FROM collection_items
-            WHERE collection_id IN @CollectionIds
-            GROUP BY collection_id
-            """,
-            new { CollectionIds = ids.Select(id => id.ToString()).ToArray() });
+            WHERE collection_id IN ({string.Join(", ", parameters)})
+            GROUP BY collection_id;
+            """;
 
-        var counts = ids.ToDictionary(id => id, _ => 0);
-        foreach (var row in rows)
-        {
-            if (Guid.TryParse(row.CollectionId, out var collectionId))
-                counts[collectionId] = row.Count;
-        }
+        for (var i = 0; i < ids.Count; i++)
+            cmd.Parameters.AddWithValue(parameters[i], GuidSql.ToBlob(ids[i]));
+
+        using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            counts[GuidSql.FromDb(reader.GetValue(0))] = reader.GetInt32(1);
 
         return counts;
     }
@@ -1041,7 +1041,7 @@ public sealed class CollectionRepository : ICollectionRepository
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync(
             "UPDATE collections SET is_enabled = @Enabled, modified_at = datetime('now') WHERE id = @Id",
-            new { Id = collectionId.ToString(), Enabled = enabled ? 1 : 0 });
+            new { Id = collectionId, Enabled = enabled ? 1 : 0 });
     }
 
     /// <inheritdoc/>
@@ -1051,7 +1051,7 @@ public sealed class CollectionRepository : ICollectionRepository
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync(
             "UPDATE collections SET is_featured = @Featured, modified_at = datetime('now') WHERE id = @Id",
-            new { Id = collectionId.ToString(), Featured = featured ? 1 : 0 });
+            new { Id = collectionId, Featured = featured ? 1 : 0 });
     }
 
     /// <inheritdoc/>
@@ -1067,7 +1067,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 modified_at = datetime('now')
             WHERE id = @Id
             """,
-            new { Id = collectionId.ToString(), LocalPath = localPath, MimeType = mimeType });
+            new { Id = collectionId, LocalPath = localPath, MimeType = mimeType });
     }
 
     /// <inheritdoc/>
@@ -1082,9 +1082,9 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                Id = (item.Id == Guid.Empty ? Guid.NewGuid() : item.Id).ToString(),
-                CollectionId = item.CollectionId.ToString(),
-                WorkId = item.WorkId.ToString(),
+                Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+                item.CollectionId,
+                item.WorkId,
                 item.SortOrder,
                 item.ProgressState,
                 item.ProgressPosition,
@@ -1099,7 +1099,7 @@ public sealed class CollectionRepository : ICollectionRepository
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync(
             "DELETE FROM collection_items WHERE id = @Id",
-            new { Id = itemId.ToString() });
+            new { Id = itemId });
     }
 
     /// <inheritdoc/>
@@ -1119,8 +1119,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 """,
                 new
                 {
-                    Id = itemIds[index].ToString(),
-                    CollectionId = collectionId.ToString(),
+                    Id = itemIds[index],
+                    CollectionId = collectionId,
                     SortOrder = index + 1,
                 },
                 tx);

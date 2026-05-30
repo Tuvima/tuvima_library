@@ -28,6 +28,7 @@ public sealed class QuickHydrationWorker
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ICollectionRepository _collectionRepo;
     private readonly IUniverseEnrichmentScheduler _universeEnrichment;
+    private readonly IConfigurationLoader _configLoader;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
 
@@ -37,8 +38,6 @@ public sealed class QuickHydrationWorker
     /// Hydration is per-job (no cross-job batching benefit), so the limit is set
     /// lower than the retail/wikidata stages to keep individual cycles responsive.
     /// </summary>
-    private readonly int _batchSize;
-
     public QuickHydrationWorker(
         IIdentityJobRepository jobRepo,
         IEnrichmentService enrichment,
@@ -58,10 +57,9 @@ public sealed class QuickHydrationWorker
         _canonicalRepo = canonicalRepo;
         _collectionRepo = collectionRepo;
         _universeEnrichment = universeEnrichment;
+        _configLoader = configLoader;
         _logger = logger;
         _batchProgress = batchProgress;
-
-        _batchSize = Math.Max(1, configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
     }
 
     /// <summary>
@@ -73,7 +71,7 @@ public sealed class QuickHydrationWorker
         var jobs = await _jobRepo.LeaseNextAsync(
             "QuickHydrationWorker",
             [IdentityJobState.QidResolved],
-            _batchSize,
+            GetBatchSize(),
             LeaseDuration,
             ct: ct);
 
@@ -91,6 +89,7 @@ public sealed class QuickHydrationWorker
                     job,
                     IdentityJobState.QidResolved,
                     ex,
+                    _configLoader.LoadHydration(),
                     ct);
             }
         }
@@ -109,6 +108,9 @@ public sealed class QuickHydrationWorker
 
         return jobs.Count;
     }
+
+    private int GetBatchSize() =>
+        Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
 
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {

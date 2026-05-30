@@ -71,8 +71,8 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
             INSERT INTO editions (id, work_id, format_label)
             VALUES (@id, @work_id, @format_label);
             """;
-        insertEdition.Parameters.AddWithValue("@id",           editionId.ToString());
-        insertEdition.Parameters.AddWithValue("@work_id",      resolved.WorkId.ToString());
+        insertEdition.Parameters.AddWithValue("@id",           GuidSql.ToBlob(editionId));
+        insertEdition.Parameters.AddWithValue("@work_id",      GuidSql.ToBlob(resolved.WorkId));
         insertEdition.Parameters.AddWithValue("@format_label",
             formatLabel ?? (object)DBNull.Value);
         insertEdition.ExecuteNonQuery();

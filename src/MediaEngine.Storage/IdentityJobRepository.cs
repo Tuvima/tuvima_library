@@ -41,17 +41,17 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """,
             new
             {
-                Id                  = job.Id.ToString(),
-                EntityId            = job.EntityId.ToString(),
+                job.Id,
+                job.EntityId,
                 job.EntityType,
                 job.MediaType,
-                IngestionRunId      = job.IngestionRunId?.ToString(),
+                job.IngestionRunId,
                 job.State,
                 job.Pass,
                 job.AttemptCount,
                 job.LeaseOwner,
                 LeaseExpiresAt      = job.LeaseExpiresAt?.ToString("O"),
-                SelectedCandidateId = job.SelectedCandidateId?.ToString(),
+                job.SelectedCandidateId,
                 job.ResolvedQid,
                 job.LastError,
                 NextRetryAt         = job.NextRetryAt?.ToString("O"),
@@ -75,7 +75,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                       created_at DESC
              LIMIT 1;
             """,
-            new { entityId = entityId.ToString() });
+            new { entityId });
         return row is null ? null : MapRow(row);
     }
 
@@ -84,7 +84,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<IdentityJobRow>(SelectSql + " WHERE id = @jobId LIMIT 1;",
-            new { jobId = jobId.ToString() });
+            new { jobId });
         return row is null ? null : MapRow(row);
     }
 
@@ -105,12 +105,16 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
 
         // Validate all run ID strings are valid GUIDs before interpolating into SQL.
         // Values are written by this codebase but validated defensively.
-        var validExcludeRunIds = excludeRunIds?.Where(id => Guid.TryParse(id, out _)).ToList();
+        var validExcludeRunIds = excludeRunIds?
+            .Select(id => Guid.TryParse(id, out var parsed) ? parsed : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
 
         // Build optional exclusion clause. Jobs with NULL ingestion_run_id
         // (ad-hoc / manual) always pass through regardless of the gate.
         var excludeClause = validExcludeRunIds is { Count: > 0 }
-            ? $"AND (ingestion_run_id IS NULL OR ingestion_run_id NOT IN ({string.Join(", ", validExcludeRunIds.Select(id => $"'{id}'"))}))"
+            ? "AND (ingestion_run_id IS NULL OR ingestion_run_id NOT IN @excludeRunIds)"
             : "";
 
         var sql = $"""
@@ -146,7 +150,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """;
 
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<IdentityJobRow>(sql, new { workerName, leaseExpiry, now, batchSize });
+        var rows = await conn.QueryAsync<IdentityJobRow>(sql, new { workerName, leaseExpiry, now, batchSize, excludeRunIds = validExcludeRunIds });
         return rows.Select(MapRow).ToList();
     }
 
@@ -171,7 +175,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """,
             new
             {
-                jobId = jobId.ToString(),
+                jobId,
                 state = newState.ToString(),
                 error,
                 preserveLease = preserveLease ? 1 : 0,
@@ -197,7 +201,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """,
             new
             {
-                jobId = jobId.ToString(),
+                jobId,
                 state = retryState.ToString(),
                 error,
                 nextRetryAt = nextRetryAt.ToString("O"),
@@ -220,8 +224,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """,
             new
             {
-                jobId       = jobId.ToString(),
-                candidateId = candidateId.ToString(),
+                jobId,
+                candidateId,
                 now         = DateTimeOffset.UtcNow.ToString("O"),
             });
     }
@@ -238,7 +242,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """,
             new
             {
-                jobId = jobId.ToString(),
+                jobId,
                 qid,
                 now   = DateTimeOffset.UtcNow.ToString("O"),
             });
@@ -364,7 +368,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             WHERE  ingestion_run_id = @runId
             GROUP BY state;
             """,
-            new { runId = ingestionRunId.ToString() });
+            new { runId = ingestionRunId });
         return rows.ToDictionary(
             r => (string)r.state,
             r => (int)r.cnt);
@@ -387,26 +391,28 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             return new Dictionary<string, int>();
 
         // Validate all run ID strings are valid GUIDs before interpolating into SQL.
-        var validRunIds = ingestionRunIds.Where(id => Guid.TryParse(id, out _)).ToList();
+        var validRunIds = ingestionRunIds
+            .Select(id => Guid.TryParse(id, out var parsed) ? parsed : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
         if (validRunIds.Count == 0)
             return new Dictionary<string, int>();
 
         // Build IN clause from validated GUID strings.
-        var idList = string.Join(", ", validRunIds.Select(id => $"'{id}'"));
-
-        var sql = $"""
-            SELECT ingestion_run_id, COUNT(*) AS cnt
+        const string sql = """
+            SELECT ingestion_run_id AS IngestionRunId, COUNT(*) AS Count
             FROM   identity_jobs
-            WHERE  ingestion_run_id IN ({idList})
+            WHERE  ingestion_run_id IN @validRunIds
               AND  state IN ('Queued', 'RetailSearching')
             GROUP BY ingestion_run_id;
             """;
 
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync(sql);
+        var rows = await conn.QueryAsync<PendingStageCountRow>(sql, new { validRunIds });
         return rows.ToDictionary(
-            r => (string)r.ingestion_run_id,
-            r => (int)r.cnt);
+            r => r.IngestionRunId.ToString("D"),
+            r => r.Count);
     }
 
     public async Task ReleaseLeaseAsync(Guid jobId, CancellationToken ct = default)
@@ -422,7 +428,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """,
             new
             {
-                jobId = jobId.ToString(),
+                jobId,
                 now   = DateTimeOffset.UtcNow.ToString("O"),
             });
     }
@@ -453,17 +459,17 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
 
     private sealed class IdentityJobRow
     {
-        public string  Id                  { get; set; } = "";
-        public string  EntityId            { get; set; } = "";
+        public Guid    Id                  { get; set; }
+        public Guid    EntityId            { get; set; }
         public string  EntityType          { get; set; } = "";
         public string  MediaType           { get; set; } = "";
-        public string? IngestionRunId      { get; set; }
+        public Guid?   IngestionRunId      { get; set; }
         public string  State               { get; set; } = "";
         public string  Pass                { get; set; } = "";
         public int     AttemptCount        { get; set; }
         public string? LeaseOwner          { get; set; }
         public string? LeaseExpiresAt      { get; set; }
-        public string? SelectedCandidateId { get; set; }
+        public Guid?   SelectedCandidateId { get; set; }
         public string? ResolvedQid         { get; set; }
         public string? LastError           { get; set; }
         public string? NextRetryAt         { get; set; }
@@ -473,21 +479,27 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
 
     private static IdentityJob MapRow(IdentityJobRow r) => new()
     {
-        Id                  = Guid.Parse(r.Id),
-        EntityId            = Guid.Parse(r.EntityId),
+        Id                  = r.Id,
+        EntityId            = r.EntityId,
         EntityType          = r.EntityType,
         MediaType           = r.MediaType,
-        IngestionRunId      = r.IngestionRunId is not null ? Guid.Parse(r.IngestionRunId) : null,
+        IngestionRunId      = r.IngestionRunId,
         State               = r.State,
         Pass                = r.Pass,
         AttemptCount        = r.AttemptCount,
         LeaseOwner          = r.LeaseOwner,
         LeaseExpiresAt      = r.LeaseExpiresAt is not null ? DateTimeOffset.Parse(r.LeaseExpiresAt) : null,
-        SelectedCandidateId = r.SelectedCandidateId is not null ? Guid.Parse(r.SelectedCandidateId) : null,
+        SelectedCandidateId = r.SelectedCandidateId,
         ResolvedQid         = r.ResolvedQid,
         LastError           = r.LastError,
         NextRetryAt         = r.NextRetryAt is not null ? DateTimeOffset.Parse(r.NextRetryAt) : null,
         CreatedAt           = DateTimeOffset.Parse(r.CreatedAt),
         UpdatedAt           = DateTimeOffset.Parse(r.UpdatedAt),
     };
+
+    private sealed class PendingStageCountRow
+    {
+        public Guid IngestionRunId { get; set; }
+        public int Count { get; set; }
+    }
 }

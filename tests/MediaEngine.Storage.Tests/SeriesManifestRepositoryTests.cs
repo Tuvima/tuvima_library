@@ -125,7 +125,7 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
             INSERT INTO works (id, collection_id, media_type, work_kind, wikidata_qid, external_identifiers)
             VALUES (@id, NULL, 'Books', 'standalone', @qid, @externalIdentifiers);
             """;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.Parameters.AddWithValue("@id", GuidSql.ToBlob(id));
         cmd.Parameters.AddWithValue("@qid", qid);
         cmd.Parameters.AddWithValue("@externalIdentifiers", $$"""{"wikidata_qid":"{{qid}}"}""");
         cmd.ExecuteNonQuery();

@@ -14,7 +14,7 @@ namespace MediaEngine.Domain.Entities;
 /// </summary>
 public sealed class MetadataClaim
 {
-    /// <summary>Stable row identifier (UUID → TEXT in SQLite).</summary>
+    /// <summary>Stable row identifier (UUID stored as BLOB in SQLite).</summary>
     public Guid Id { get; set; }
 
     /// <summary>

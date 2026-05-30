@@ -10,5 +10,11 @@
     "max_retry_attempts": 3,
     "batch_size": 50,
     "batch_delay_ms": 200
+  },
+  "storage_maintenance": {
+    "enabled": true,
+    "search_cache_max_age_days": 30,
+    "image_cache_retention_days": 30,
+    "claim_compaction_batch_size": 5000
   }
 }

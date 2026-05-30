@@ -160,18 +160,18 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         {
             items.Add(new LibraryCatalogItem
             {
-                EntityId = Guid.Parse(reader.GetString(0)),
+                EntityId = GuidSql.FromDb(reader.GetValue(0)),
                 Title = reader.GetString(1),
                 Year = reader.IsDBNull(2) ? null : reader.GetString(2),
                 MediaType = reader.IsDBNull(3) ? "" : reader.GetString(3),
                 CoverUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
                 BackgroundUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
                 BannerUrl = reader.IsDBNull(6) ? null : reader.GetString(6),
-                MatchSource = reader.IsDBNull(7) ? null : reader.GetString(7),
+                MatchSource = reader.IsDBNull(7) ? null : GuidSql.ToText(reader.GetValue(7)),
                 Confidence = reader.IsDBNull(8) ? 0.0 : reader.GetDouble(8),
                 Status = reader.IsDBNull(9) ? "Confirmed" : reader.GetString(9),
                 HasDuplicate = !reader.IsDBNull(10) && reader.GetInt32(10) == 1,
-                ReviewItemId = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                ReviewItemId = reader.IsDBNull(11) ? null : GuidSql.FromDb(reader.GetValue(11)),
                 ReviewTrigger = reader.IsDBNull(12) ? null : reader.GetString(12),
                 HasUserLocks = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
                 FileName = reader.IsDBNull(14) ? null : reader.GetString(14),
@@ -264,9 +264,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             FROM full_data fd
             WHERE fd.entity_id = @entityId;
             """,
-            new { entityId = entityId.ToString() });
+            new { entityId });
 
-        var lineageRow = conn.QueryFirstOrDefault<(string? AssetId, string RootParentWorkId, string MediaType)>("""
+        var lineageRow = conn.QueryFirstOrDefault<(Guid? AssetId, Guid RootParentWorkId, string MediaType)>("""
             WITH RECURSIVE work_tree(id, depth) AS (
                 SELECT w.id, 0
                 FROM works w
@@ -292,15 +292,15 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
         if (lineageRow == default)
             return null;
 
-        var assetIdStr = lineageRow.AssetId;
-        var rootParentStr = lineageRow.RootParentWorkId;
+        var assetId = lineageRow.AssetId;
+        var rootParentId = lineageRow.RootParentWorkId;
 
-        var selfValues = conn.Query<(string Key, string Value, int IsConflicted, string? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
+        var selfValues = conn.Query<(string Key, string Value, int IsConflicted, Guid? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
             SELECT key AS Key,
                    value AS Value,
                    is_conflicted AS IsConflicted,
@@ -310,17 +310,17 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             FROM canonical_values
             WHERE entity_id = @assetId
             ORDER BY key;
-            """, new { assetId = assetIdStr })
+            """, new { assetId })
             .Select(r => new LibraryItemCanonicalValue(
                 Key: r.Key,
                 Value: r.Value,
                 IsConflicted: r.IsConflicted == 1,
-                WinningProviderId: r.WinningProviderId,
+                WinningProviderId: r.WinningProviderId?.ToString(),
                 NeedsReview: r.NeedsReview == 1,
                 LastScoredAt: ParseDateTimeOffset(r.LastScoredAt) ?? DateTimeOffset.MinValue))
             .ToList();
 
-        var targetValues = conn.Query<(string Key, string Value, int IsConflicted, string? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
+        var targetValues = conn.Query<(string Key, string Value, int IsConflicted, Guid? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
             SELECT key AS Key,
                    value AS Value,
                    is_conflicted AS IsConflicted,
@@ -330,17 +330,17 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             FROM canonical_values
             WHERE entity_id = @entityId
             ORDER BY key;
-            """, new { entityId = entityId.ToString() })
+            """, new { entityId })
             .Select(r => new LibraryItemCanonicalValue(
                 Key: r.Key,
                 Value: r.Value,
                 IsConflicted: r.IsConflicted == 1,
-                WinningProviderId: r.WinningProviderId,
+                WinningProviderId: r.WinningProviderId?.ToString(),
                 NeedsReview: r.NeedsReview == 1,
                 LastScoredAt: ParseDateTimeOffset(r.LastScoredAt) ?? DateTimeOffset.MinValue))
             .ToList();
 
-        var parentValues = conn.Query<(string Key, string Value, int IsConflicted, string? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
+        var parentValues = conn.Query<(string Key, string Value, int IsConflicted, Guid? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
             SELECT key AS Key,
                    value AS Value,
                    is_conflicted AS IsConflicted,
@@ -350,12 +350,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             FROM canonical_values
             WHERE entity_id = @parentId
             ORDER BY key;
-            """, new { parentId = rootParentStr })
+            """, new { parentId = rootParentId })
             .Select(r => new LibraryItemCanonicalValue(
                 Key: r.Key,
                 Value: r.Value,
                 IsConflicted: r.IsConflicted == 1,
-                WinningProviderId: r.WinningProviderId,
+                WinningProviderId: r.WinningProviderId?.ToString(),
                 NeedsReview: r.NeedsReview == 1,
                 LastScoredAt: ParseDateTimeOffset(r.LastScoredAt) ?? DateTimeOffset.MinValue))
             .ToList();
@@ -366,7 +366,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             .Concat(selfValues)
             .ToList();
 
-        var claims = conn.Query<(string Id, string ClaimKey, string ClaimValue, string ProviderId, double Confidence, int IsUserLocked, string ClaimedAt)>("""
+        var claims = conn.Query<(Guid Id, string ClaimKey, string ClaimValue, Guid ProviderId, double Confidence, int IsUserLocked, string ClaimedAt)>("""
             SELECT id AS Id,
                    claim_key AS ClaimKey,
                    claim_value AS ClaimValue,
@@ -377,12 +377,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             FROM metadata_claims
             WHERE entity_id IN (@assetId, @entityId, @parentId)
             ORDER BY claimed_at DESC;
-            """, new { assetId = assetIdStr, entityId = entityId.ToString(), parentId = rootParentStr })
+            """, new { assetId, entityId, parentId = rootParentId })
             .Select(r => new LibraryItemClaimRecord(
-                Id: Guid.Parse(r.Id),
+                Id: r.Id,
                 ClaimKey: r.ClaimKey,
                 ClaimValue: r.ClaimValue,
-                ProviderId: Guid.Parse(r.ProviderId),
+                ProviderId: r.ProviderId,
                 Confidence: r.Confidence,
                 IsUserLocked: r.IsUserLocked == 1,
                 ClaimedAt: ParseDateTimeOffset(r.ClaimedAt) ?? DateTimeOffset.MinValue))
@@ -391,7 +391,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         var providerNamesById = LoadProviderNamesById(conn);
         var retailProviderName = ResolveRetailProviderName(canonicalValues, claims, providerNamesById);
 
-        var rqRow = conn.QueryFirstOrDefault<(string Id, string Trigger, double? ConfidenceScore, string? Detail, string? CandidatesJson)>("""
+        var rqRow = conn.QueryFirstOrDefault<(Guid Id, string Trigger, double? ConfidenceScore, string? Detail, string? CandidatesJson)>("""
             SELECT id AS Id,
                    trigger AS Trigger,
                    confidence_score AS ConfidenceScore,
@@ -401,7 +401,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             WHERE (entity_id = @assetId OR entity_id = @entityId) AND status = 'Pending'
             ORDER BY created_at DESC
             LIMIT 1;
-            """, new { assetId = assetIdStr, entityId = entityId.ToString() });
+            """, new { assetId, entityId });
 
         var maRow = conn.QueryFirstOrDefault<(string? FilePath, string? ContentHash)>("""
             SELECT ma.file_path_root AS FilePath,
@@ -410,11 +410,11 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             INNER JOIN media_assets ma ON ma.edition_id = e.id
             WHERE e.work_id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
         var workIdentity = conn.QueryFirstOrDefault<(string? MatchLevel, string? WorkKind)>(
             "SELECT match_level AS MatchLevel, work_kind AS WorkKind FROM works WHERE id = @entityId;",
-            new { entityId = entityId.ToString() });
+            new { entityId });
         var matchLevel = workIdentity.MatchLevel ?? "work";
 
         string? Canonical(string key)
@@ -451,7 +451,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         if (!string.IsNullOrWhiteSpace(projection?.WikidataQid) && !bridgeIds.ContainsKey(BridgeIdKeys.WikidataQid))
             bridgeIds[BridgeIdKeys.WikidataQid] = projection.WikidataQid;
 
-        var latestJobEntityId = string.IsNullOrWhiteSpace(assetIdStr) ? entityId.ToString() : assetIdStr;
+        var latestJobEntityId = assetId ?? entityId;
         var latestJobState = conn.QueryFirstOrDefault<string?>("""
             SELECT state
             FROM identity_jobs
@@ -473,7 +473,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
         var playbackSummary = await BuildPlaybackSummaryAsync(Canonical, ProbeAsync, ct);
 
-        Guid? reviewItemId = rqRow == default ? null : Guid.Parse(rqRow.Id);
+        Guid? reviewItemId = rqRow == default ? null : rqRow.Id;
         var universeQid = Canonical("fictional_universe_qid")
             ?? Canonical("franchise_qid")
             ?? Canonical("series_qid");
@@ -578,7 +578,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             HeroUrl = projection?.HeroUrl,
             Confidence = projection?.Confidence ?? (rqRow == default ? 0.0 : rqRow.ConfidenceScore ?? 0.0),
             Status = projection?.Status ?? "Confirmed",
-            MatchSource = projection?.MatchSource,
+            MatchSource = projection?.MatchSource?.ToString(),
             MatchMethod = projection?.PipelineStep,
             RetailProviderName = retailProviderName,
             RetailProviderItemId = GetProviderBridgeId(bridgeIds, retailProviderName),
@@ -819,9 +819,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
     private static string BuildProjectionSql()
     {
-        var wikidataId = WellKnownProviders.Wikidata.ToString();
-        var localProcessorId = WellKnownProviders.LocalProcessor.ToString();
-        var libraryScanId = WellKnownProviders.LibraryScanner.ToString();
+        var wikidataId = SqlGuidLiteral(WellKnownProviders.Wikidata);
+        var localProcessorId = SqlGuidLiteral(WellKnownProviders.LocalProcessor);
+        var libraryScanId = SqlGuidLiteral(WellKnownProviders.LibraryScanner);
 
         var sql = $"""
             WITH primary_asset_data AS (
@@ -977,10 +977,10 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                         INNER JOIN metadata_providers pr ON pr.id = mc_rt.provider_id
                         WHERE e_rt.work_id = w.id
                           AND mc_rt.claim_key IN ('title', 'episode_title', 'show_name', 'album')
-                          AND mc_rt.provider_id != '{wikidataId}'
+                          AND mc_rt.provider_id != {wikidataId}
                           AND mc_rt.provider_id != 'local_filesystem'
-                          AND mc_rt.provider_id != '{localProcessorId}'
-                          AND mc_rt.provider_id != '{libraryScanId}'
+                          AND mc_rt.provider_id != {localProcessorId}
+                          AND mc_rt.provider_id != {libraryScanId}
                         ORDER BY mc_rt.confidence DESC
                         LIMIT 1
                     ) AS retail_match_detail
@@ -1354,6 +1354,11 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         return sql;
     }
 
+    private static string SqlGuidLiteral(Guid id)
+    {
+        return $"X'{Convert.ToHexString(GuidSql.ToBlob(id))}'";
+    }
+
     private static void AddParameters(SqliteCommand cmd, LibraryItemQuery query)
     {
         if (!string.IsNullOrWhiteSpace(query.Search))
@@ -1389,13 +1394,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
     private static IReadOnlyDictionary<Guid, string> LoadProviderNamesById(SqliteConnection conn)
     {
-        return conn.Query<(string Id, string Name)>("""
+        return conn.Query<(Guid Id, string Name)>("""
             SELECT id AS Id,
                    name AS Name
             FROM metadata_providers;
             """)
-            .Where(row => Guid.TryParse(row.Id, out _))
-            .ToDictionary(row => Guid.Parse(row.Id), row => row.Name, EqualityComparer<Guid>.Default);
+            .ToDictionary(row => row.Id, row => row.Name, EqualityComparer<Guid>.Default);
     }
 
     private static string? ResolveRetailProviderName(
@@ -1668,7 +1672,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
     private sealed class ProjectionRow
     {
-        public string EntityId { get; set; } = "";
+        public Guid EntityId { get; set; }
         public string Title { get; set; } = "";
         public string? Year { get; set; }
         public string MediaType { get; set; } = "";
@@ -1678,7 +1682,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         public string? HeroUrl { get; set; }
         public double Confidence { get; set; }
         public string Status { get; set; } = "Confirmed";
-        public string? MatchSource { get; set; }
+        public Guid? MatchSource { get; set; }
         public string? Author { get; set; }
         public string? Director { get; set; }
         public string? Artist { get; set; }
@@ -1697,7 +1701,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         public string? WikidataStatus { get; set; }
         public string? FileName { get; set; }
         public string? FilePath { get; set; }
-        public string? ReviewId { get; set; }
+        public Guid? ReviewId { get; set; }
         public string? ReviewTrigger { get; set; }
         public string? CandidatesJson { get; set; }
         public bool HasUserLocks { get; set; }

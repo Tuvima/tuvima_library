@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -38,7 +39,11 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        if (values.Count == 0)
+        var scalarValues = values
+            .Where(cv => !MetadataFieldConstants.IsMultiValued(cv.Key))
+            .ToList();
+
+        if (scalarValues.Count == 0)
             return;
 
         await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
@@ -61,16 +66,14 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
                     VALUES
                         (@EntityId, @Key, @Value, @LastScoredAt, @IsConflicted, @WinningProviderId, @NeedsReview);
                     """,
-                    values.Select(cv => new
+                    scalarValues.Select(cv => new
                     {
-                        EntityId          = cv.EntityId.ToString(),
+                        cv.EntityId,
                         cv.Key,
                         cv.Value,
                         LastScoredAt      = cv.LastScoredAt.ToString("o"),
                         IsConflicted      = cv.IsConflicted ? 1 : 0,
-                        WinningProviderId = cv.WinningProviderId.HasValue
-                                               ? cv.WinningProviderId.Value.ToString()
-                                               : (string?)null,
+                        cv.WinningProviderId,
                         NeedsReview       = cv.NeedsReview ? 1 : 0,
                     }),
                     transaction: tx);
@@ -127,8 +130,6 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
             return Task.FromResult(empty);
         }
 
-        var entityIdStrings = entityIds.Select(id => id.ToString()).ToList();
-
         using var conn = _db.CreateConnection();
         var rows = conn.Query<CanonicalValueRow>("""
             SELECT entity_id           AS EntityId,
@@ -141,10 +142,10 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
             FROM   canonical_values
             WHERE  entity_id IN @entityIds
             ORDER  BY entity_id, key ASC;
-            """, new { entityIds = entityIdStrings }).AsList();
+            """, new { entityIds }).AsList();
 
         var grouped = rows
-            .GroupBy(r => Guid.TryParse(r.EntityId, out var gid) ? gid : Guid.Empty)
+            .GroupBy(r => r.EntityId)
             .ToDictionary(
                 g => g.Key,
                 g => (IReadOnlyList<CanonicalValue>)g.Select(MapRow).ToList());
@@ -225,13 +226,12 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         using var conn = _db.CreateConnection();
-        var ids = conn.Query<string>("""
+        var ids = conn.Query<Guid>("""
             SELECT entity_id
             FROM   canonical_values
             WHERE  key   = @key   COLLATE NOCASE
               AND  value = @value COLLATE NOCASE;
             """, new { key, value })
-            .Select(Guid.Parse)
             .ToList();
 
         return Task.FromResult<IReadOnlyList<Guid>>(ids);
@@ -276,7 +276,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(missingField);
 
         using var conn = _db.CreateConnection();
-        var ids = conn.Query<string>("""
+        var ids = conn.Query<Guid>("""
             SELECT DISTINCT cv1.entity_id
             FROM   canonical_values cv1
             WHERE  cv1.key IN (@HasField1, @HasField2)
@@ -293,7 +293,6 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
                 MissingField = missingField,
                 Limit        = limit,
             })
-            .Select(Guid.Parse)
             .ToList();
 
         return Task.FromResult<IReadOnlyList<Guid>>(ids);
@@ -306,37 +305,30 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     /// <summary>
     /// Intermediate row type for Dapper mapping.
     /// <see cref="IsConflicted"/> and <see cref="NeedsReview"/> are integers (0/1) in SQLite;
-    /// <see cref="WinningProviderId"/> is a nullable TEXT Guid;
+    /// <see cref="WinningProviderId"/> is a nullable BLOB Guid;
     /// <see cref="LastScoredAt"/> is TEXT ISO-8601.
     /// </summary>
     private sealed class CanonicalValueRow
     {
-        public string  EntityId          { get; set; } = string.Empty;
+        public Guid    EntityId          { get; set; }
         public string  Key               { get; set; } = string.Empty;
         public string  Value             { get; set; } = string.Empty;
         public string  LastScoredAt      { get; set; } = string.Empty;
         public int     IsConflicted      { get; set; }
-        public string? WinningProviderId { get; set; }
+        public Guid?   WinningProviderId { get; set; }
         public int     NeedsReview       { get; set; }
     }
 
     private static CanonicalValue MapRow(CanonicalValueRow r)
     {
-        Guid? winningProviderId = null;
-        if (r.WinningProviderId is not null)
-        {
-            if (Guid.TryParse(r.WinningProviderId, out var parsed))
-                winningProviderId = parsed;
-        }
-
         return new CanonicalValue
         {
-            EntityId          = Guid.Parse(r.EntityId),
+            EntityId          = r.EntityId,
             Key               = r.Key,
             Value             = r.Value,
             LastScoredAt      = DateTimeOffset.Parse(r.LastScoredAt),
             IsConflicted      = r.IsConflicted == 1,
-            WinningProviderId = winningProviderId,
+            WinningProviderId = r.WinningProviderId,
             NeedsReview       = r.NeedsReview == 1,
         };
     }

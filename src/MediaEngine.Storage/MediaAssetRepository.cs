@@ -23,8 +23,8 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
     /// <see cref="AssetStatus"/> enum in <see cref="ToAsset"/>.
     /// </summary>
     private sealed record MediaAssetRow(
-        string Id,
-        string EditionId,
+        Guid Id,
+        Guid EditionId,
         string ContentHash,
         string FilePathRoot,
         string Status,
@@ -34,8 +34,8 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
 
     private static MediaAsset ToAsset(MediaAssetRow r) => new()
     {
-        Id           = Guid.Parse(r.Id),
-        EditionId    = Guid.Parse(r.EditionId),
+        Id           = r.Id,
+        EditionId    = r.EditionId,
         ContentHash  = r.ContentHash,
         FilePathRoot = r.FilePathRoot,
         Status       = Enum.Parse<AssetStatus>(r.Status, ignoreCase: true),
@@ -108,7 +108,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             FROM   media_assets
             WHERE  id = @id
             LIMIT  1;
-            """, new { id = id.ToString() });
+            """, new { id });
 
         return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }
@@ -140,8 +140,8 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             """,
             new
             {
-                id           = asset.Id.ToString(),
-                editionId    = asset.EditionId.ToString(),
+                id           = asset.Id,
+                editionId    = asset.EditionId,
                 contentHash  = asset.ContentHash,
                 filePathRoot = asset.FilePathRoot,
                 status       = asset.Status.ToString(),
@@ -169,7 +169,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             new
             {
                 status = status.ToString(),
-                id     = id.ToString(),
+                id,
             });
 
         return Task.CompletedTask;
@@ -190,7 +190,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             new
             {
                 path = newPath,
-                id   = id.ToString(),
+                id,
             });
 
         return Task.CompletedTask;
@@ -204,7 +204,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         using var conn = _db.CreateConnection();
         conn.Execute(
             "DELETE FROM media_assets WHERE id = @id;",
-            new { id = id.ToString() });
+            new { id });
 
         return Task.CompletedTask;
     }
@@ -244,7 +244,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             WHERE  e.work_id = @workId
               AND  ma.status = 'Normal'
             LIMIT  1;
-            """, new { workId = workId.ToString() });
+            """, new { workId });
 
         return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }
@@ -289,7 +289,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         // produce a full batch when many rows happen to match the expected hash.
         var fetchLimit = Math.Max(batchSize * 4, 200);
 
-        var rows = conn.Query<(string Id, string FilePathRoot, string MediaType, string? Hash, int Attempts)>($"""
+        var rows = conn.Query<(Guid Id, string FilePathRoot, string MediaType, string? Hash, int Attempts)>($"""
             SELECT ma.id             AS Id,
                    ma.file_path_root AS FilePathRoot,
                    w.media_type      AS MediaType,
@@ -315,7 +315,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
                 continue;
 
             stale.Add(new StaleRetagAsset(
-                AssetId:      Guid.Parse(r.Id),
+                AssetId:      r.Id,
                 FilePathRoot: r.FilePathRoot,
                 MediaType:    r.MediaType,
                 CurrentHash:  r.Hash,
@@ -343,7 +343,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
                    writeback_next_retry_at = NULL
             WHERE  id = @id;
             """,
-            new { hash = newHash, id = assetId.ToString() });
+            new { hash = newHash, id = assetId });
 
         return Task.CompletedTask;
     }
@@ -370,7 +370,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             {
                 error = error ?? string.Empty,
                 next  = nextRetryAtEpochSeconds,
-                id    = assetId.ToString(),
+                id    = assetId,
             });
 
         return Task.CompletedTask;
@@ -388,7 +388,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
                    writeback_last_error = @error
             WHERE  id = @id;
             """,
-            new { error = error ?? string.Empty, id = assetId.ToString() });
+            new { error = error ?? string.Empty, id = assetId });
 
         return Task.CompletedTask;
     }
@@ -404,7 +404,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             SET    library_id = @libraryId
             WHERE  id         = @id;
             """,
-            new { libraryId, id = id.ToString() });
+            new { libraryId, id });
 
         return Task.CompletedTask;
     }
@@ -424,7 +424,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             new
             {
                 now = DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-                id  = id.ToString(),
+                id,
             });
 
         return Task.CompletedTask;
@@ -442,7 +442,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
                    orphaned_at = NULL
             WHERE  id          = @id;
             """,
-            new { id = id.ToString() });
+            new { id });
 
         return Task.CompletedTask;
     }

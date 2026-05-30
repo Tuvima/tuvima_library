@@ -18,6 +18,7 @@ public sealed class FictionalEntityWorker
     private readonly INarrativeRootResolver _narrativeRootResolver;
     private readonly IRecursiveFictionalEntityService _fictionalEntityService;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ICanonicalValueArrayRepository _canonicalArrayRepo;
     private readonly IWorkRepository _workRepo;
     private readonly ILogger<FictionalEntityWorker> _logger;
 
@@ -25,12 +26,14 @@ public sealed class FictionalEntityWorker
         INarrativeRootResolver narrativeRootResolver,
         IRecursiveFictionalEntityService fictionalEntityService,
         ICanonicalValueRepository canonicalRepo,
+        ICanonicalValueArrayRepository canonicalArrayRepo,
         IWorkRepository workRepo,
         ILogger<FictionalEntityWorker> logger)
     {
         _narrativeRootResolver = narrativeRootResolver;
         _fictionalEntityService = fictionalEntityService;
         _canonicalRepo = canonicalRepo;
+        _canonicalArrayRepo = canonicalArrayRepo;
         _workRepo = workRepo;
         _logger = logger;
     }
@@ -43,6 +46,7 @@ public sealed class FictionalEntityWorker
     {
         var canonicalEntityId = await ResolveCanonicalEntityIdAsync(entityId, ct);
         var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
+        var canonicalArrays = await _canonicalArrayRepo.GetAllByEntityAsync(canonicalEntityId, ct);
 
         // 1. Resolve narrative root
         var narrativeRoot = await _narrativeRootResolver.ResolveAsync(canonicalEntityId, ct);
@@ -56,7 +60,7 @@ public sealed class FictionalEntityWorker
         }
 
         // 2. Extract fictional entity references from canonicals
-        var entityRefs = ExtractFictionalEntityReferences(canonicals);
+        var entityRefs = ExtractFictionalEntityReferences(canonicals, canonicalArrays);
         if (entityRefs.Count == 0)
         {
             _logger.LogDebug("No fictional entity references found for entity {Id}", entityId);
@@ -90,9 +94,20 @@ public sealed class FictionalEntityWorker
     /// Extracts character and location QIDs from canonical values.
     /// </summary>
     private static IReadOnlyList<FictionalEntityReference> ExtractFictionalEntityReferences(
-        IReadOnlyList<CanonicalValue> canonicals)
+        IReadOnlyList<CanonicalValue> canonicals,
+        IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> canonicalArrays)
     {
         var refs = new List<FictionalEntityReference>();
+        AddArrayReferences(
+            refs,
+            canonicalArrays,
+            MetadataFieldConstants.Characters,
+            "Character");
+        AddArrayReferences(
+            refs,
+            canonicalArrays,
+            MetadataFieldConstants.NarrativeLocation,
+            "Location");
 
         var entityKeys = new Dictionary<string, (string LabelKey, string EntitySubType)>(
             StringComparer.OrdinalIgnoreCase)
@@ -109,11 +124,11 @@ public sealed class FictionalEntityWorker
 
             if (string.IsNullOrWhiteSpace(qidValue)) continue;
 
-            var qidParts = qidValue.Split(["|||", "; "], StringSplitOptions.RemoveEmptyEntries);
+            var qidParts = qidValue.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var labelParts = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, labelKey, StringComparison.OrdinalIgnoreCase))
                 ?.Value
-                ?.Split(["|||", "; "], StringSplitOptions.RemoveEmptyEntries) ?? [];
+                ?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
 
             for (var i = 0; i < qidParts.Length; i++)
             {
@@ -132,5 +147,24 @@ public sealed class FictionalEntityWorker
         }
 
         return refs;
+    }
+
+    private static void AddArrayReferences(
+        List<FictionalEntityReference> refs,
+        IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> canonicalArrays,
+        string key,
+        string entitySubType)
+    {
+        if (!canonicalArrays.TryGetValue(key, out var entries))
+            return;
+
+        foreach (var entry in entries)
+        {
+            var qid = entry.ValueQid;
+            if (string.IsNullOrWhiteSpace(qid) || !qid.StartsWith('Q'))
+                continue;
+
+            refs.Add(new FictionalEntityReference(qid, entry.Value, entitySubType));
+        }
     }
 }

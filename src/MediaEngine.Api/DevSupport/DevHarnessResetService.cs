@@ -71,6 +71,7 @@ public sealed class DevHarnessResetService
 
         try
         {
+            EnsureDestructivePathSafety(details);
             WipeGeneratedLibraryState(details);
 
             if (scope == DevHarnessWipeScope.Full)
@@ -90,6 +91,20 @@ public sealed class DevHarnessResetService
         }
 
         return new DevHarnessResetResult(scope, details);
+    }
+
+    public async Task<DevHarnessResetResult> PrepareForReingestAsync(CancellationToken ct = default)
+    {
+        var details = new List<string>();
+
+        PauseWatcher(details);
+
+        WipeGeneratedCachesOnly(details);
+        await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
+        WipeRuntimeLogs(details);
+        details.Add("Ingestion engine: FSW resume deferred");
+
+        return new DevHarnessResetResult(DevHarnessWipeScope.GeneratedState, details);
     }
 
     public void PauseWatcher(List<string>? details = null)
@@ -153,6 +168,55 @@ public sealed class DevHarnessResetService
         }
     }
 
+    private void WipeGeneratedCachesOnly(List<string> details)
+    {
+        string? libraryRoot = _options.Value.LibraryRoot;
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            details.Add("Generated caches: library root not configured - skipped");
+            return;
+        }
+
+        var assetPathService = new AssetPathService(libraryRoot);
+        WipePathWithReport(details, "Central artwork and renditions", assetPathService.AssetsRoot);
+
+        var generatedDirs = new[]
+        {
+            Path.Combine(libraryRoot, ".data", "sidecars-cache"),
+            Path.Combine(libraryRoot, ".data", "staging"),
+            Path.Combine(libraryRoot, ".data", "generated"),
+        };
+
+        foreach (var dir in generatedDirs)
+            WipePathWithReport(details, "Generated cache", dir);
+    }
+
+    private void EnsureDestructivePathSafety(List<string> details)
+    {
+        string? libraryRoot = _options.Value.LibraryRoot;
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+            return;
+
+        var normalizedLibraryRoot = NormalizePathOrNull(libraryRoot);
+        if (normalizedLibraryRoot is null)
+            return;
+
+        foreach (var sourcePath in EnumerateConfiguredSourcePaths())
+        {
+            var normalizedSource = NormalizePathOrNull(sourcePath);
+            if (normalizedSource is null)
+                continue;
+
+            if (PathsOverlap(normalizedLibraryRoot, normalizedSource))
+            {
+                var message =
+                    $"Refusing destructive dev wipe because library output '{normalizedLibraryRoot}' overlaps source folder '{normalizedSource}'.";
+                details.Add(message);
+                throw new InvalidOperationException(message);
+            }
+        }
+    }
+
     private void WipeKnownSeedFiles(List<string> details)
     {
         var seedFiles = DevSeedEndpoints.GetSeedFilePaths(_options, _configLoader);
@@ -185,29 +249,20 @@ public sealed class DevHarnessResetService
 
     private void WipeAllSourcePaths(List<string> details)
     {
-        var libConfig = _configLoader.LoadLibraries();
-        foreach (var lib in libConfig.Libraries)
+        foreach (string srcPath in EnumerateConfiguredSourcePaths().Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
-                        ?? [];
-            if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                paths.Add(lib.SourcePath);
+            if (!Directory.Exists(srcPath))
+                continue;
 
-            foreach (string srcPath in paths.Distinct(StringComparer.OrdinalIgnoreCase))
+            try
             {
-                if (!Directory.Exists(srcPath))
-                    continue;
-
-                try
-                {
-                    int count = WipeDirectoryContents(srcPath);
-                    details.Add($"Library source ({srcPath}): {count} items deleted");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "[HarnessReset] Failed to wipe source path {Path}", srcPath);
-                    details.Add($"Library source ({srcPath}): FAILED - {ex.Message}");
-                }
+                int count = WipeDirectoryContents(srcPath);
+                details.Add($"Library source ({srcPath}): {count} items deleted");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[HarnessReset] Failed to wipe source path {Path}", srcPath);
+                details.Add($"Library source ({srcPath}): FAILED - {ex.Message}");
             }
         }
 
@@ -402,5 +457,51 @@ public sealed class DevHarnessResetService
         }
 
         return count;
+    }
+
+    private IEnumerable<string> EnumerateConfiguredSourcePaths()
+    {
+        var libConfig = _configLoader.LoadLibraries();
+        foreach (var lib in libConfig.Libraries)
+        {
+            var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
+                        ?? [];
+            if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
+                paths.Add(lib.SourcePath);
+
+            foreach (string path in paths)
+                yield return path;
+        }
+
+        string? watchDir = _options.Value.WatchDirectory;
+        if (!string.IsNullOrWhiteSpace(watchDir))
+            yield return watchDir;
+    }
+
+    private static string? NormalizePathOrNull(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool PathsOverlap(string first, string second)
+    {
+        return IsSameOrChild(first, second) || IsSameOrChild(second, first);
+    }
+
+    private static bool IsSameOrChild(string maybeParent, string maybeChild)
+    {
+        var parent = maybeParent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        var child = maybeChild.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        return child.StartsWith(parent, StringComparison.OrdinalIgnoreCase);
     }
 }

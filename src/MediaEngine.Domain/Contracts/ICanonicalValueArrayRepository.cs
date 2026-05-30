@@ -8,7 +8,7 @@ namespace MediaEngine.Domain.Contracts;
 /// separate row with an ordinal for display ordering and an optional QID
 /// for entity-valued items.
 ///
-/// This replaces the old <c>|||</c>-separated string storage in
+/// This replaces the old packed-delimiter string storage in
 /// <c>canonical_values</c> for multi-valued fields.
 ///
 /// Implementations live in <c>MediaEngine.Storage</c>.

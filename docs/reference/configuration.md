@@ -206,6 +206,13 @@ Scheduled maintenance task configuration.
 | `reconciliation_interval_hours` | int | `24` | How often the Wikidata reconciliation refresh cycle runs. |
 | `rejected_retention_days` | int | `30` | How long explicitly rejected files remain in `.data/staging/rejected/` before deletion. |
 | `edition_recheck_interval_days` | int | `7` | How often editions in the library are re-checked against provider data for updates. |
+| `storage_maintenance.enabled` | bool | `true` | Enables the nightly storage maintenance hosted service. |
+| `storage_maintenance.search_cache_max_age_days` | int | `30` | Age threshold for provider, resolver, and search cache purges. |
+| `storage_maintenance.image_cache_retention_days` | int | `30` | Age threshold for unused image cache rows/files. User-preserved images are not removed. |
+| `storage_maintenance.claim_compaction_batch_size` | int | `5000` | Maximum duplicate non-user-locked metadata claims compacted in one pass. |
+| `schedules.storage_maintenance` | cron | `0 2 * * *` | Nightly storage maintenance schedule. |
+
+Administrators can run the same maintenance manually with `POST /maintenance/storage/run?dryRun=true`.
 
 ---
 

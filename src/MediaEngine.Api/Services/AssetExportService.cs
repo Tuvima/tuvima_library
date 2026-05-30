@@ -253,7 +253,7 @@ public sealed class AssetExportService : IAssetExportService
             FROM works w
             WHERE w.id = @workId
             LIMIT 1;
-            """, new { workId = workId.ToString() });
+            """, new { workId });
     }
 
     private bool ShouldExportArtworkType(string assetType)

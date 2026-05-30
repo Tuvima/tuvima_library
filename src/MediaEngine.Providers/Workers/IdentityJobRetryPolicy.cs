@@ -1,12 +1,17 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Providers.Workers;
 
 internal static class IdentityJobRetryPolicy
 {
     public const int MaxAttempts = 5;
+    private const int DefaultBaseDelaySeconds = 10;
+    private const int DefaultMaxDelaySeconds = 300;
+    private const int DefaultJitterMinMilliseconds = 250;
+    private const int DefaultJitterMaxMilliseconds = 1750;
 
     public static bool IsTransient(Exception ex) =>
         ex is TimeoutException
@@ -19,17 +24,38 @@ internal static class IdentityJobRetryPolicy
         IdentityJob job,
         IdentityJobState retryState,
         Exception exception,
+        HydrationSettings? settings,
         CancellationToken ct)
     {
+        settings ??= new HydrationSettings();
         var nextAttempt = job.AttemptCount + 1;
-        if (IsTerminalDataFailure(exception) || nextAttempt >= MaxAttempts)
+        var maxAttempts = settings.IdentityRetryMaxAttempts > 0
+            ? settings.IdentityRetryMaxAttempts
+            : MaxAttempts;
+
+        if (IsTerminalDataFailure(exception) || nextAttempt >= maxAttempts)
         {
             await repository.MarkDeadLetteredAsync(job.Id, exception.Message, ct).ConfigureAwait(false);
             return;
         }
 
-        var delay = TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, nextAttempt) * 10))
-                    + TimeSpan.FromMilliseconds(Random.Shared.Next(250, 1750));
+        var baseDelaySeconds = settings.IdentityRetryBaseDelaySeconds > 0
+            ? settings.IdentityRetryBaseDelaySeconds
+            : DefaultBaseDelaySeconds;
+        var maxDelaySeconds = settings.IdentityRetryMaxDelaySeconds > 0
+            ? settings.IdentityRetryMaxDelaySeconds
+            : DefaultMaxDelaySeconds;
+        var jitterMin = settings.IdentityRetryJitterMinMilliseconds >= 0
+            ? settings.IdentityRetryJitterMinMilliseconds
+            : DefaultJitterMinMilliseconds;
+        var jitterMax = settings.IdentityRetryJitterMaxMilliseconds > jitterMin
+            ? settings.IdentityRetryJitterMaxMilliseconds
+            : DefaultJitterMaxMilliseconds;
+        if (jitterMax <= jitterMin)
+            jitterMax = jitterMin + 1;
+
+        var delay = TimeSpan.FromSeconds(Math.Min(maxDelaySeconds, Math.Pow(2, nextAttempt) * baseDelaySeconds))
+                    + TimeSpan.FromMilliseconds(Random.Shared.Next(jitterMin, jitterMax));
         await repository.ScheduleRetryAsync(
                 job.Id,
                 retryState,
@@ -38,6 +64,15 @@ internal static class IdentityJobRetryPolicy
                 ct)
             .ConfigureAwait(false);
     }
+
+    public static Task ScheduleRetryOrDeadLetterAsync(
+        IIdentityJobRepository repository,
+        IdentityJob job,
+        IdentityJobState retryState,
+        Exception exception,
+        CancellationToken ct) =>
+        ScheduleRetryOrDeadLetterAsync(repository, job, retryState, exception, null, ct);
+
     private static bool IsBusySqliteError(Exception ex)
     {
         var code = ex.GetType().GetProperty("SqliteErrorCode")?.GetValue(ex) as int?;

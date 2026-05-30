@@ -2694,8 +2694,6 @@ public static partial class MetadataEndpoints
         var qid = value.Trim();
         if (qid.Contains('/'))
             qid = qid.Split('/')[^1];
-        if (qid.Contains("|||", StringComparison.Ordinal))
-            qid = qid.Split("|||", 2, StringSplitOptions.None)[0].Trim();
         if (qid.Contains("::", StringComparison.Ordinal))
             qid = qid.Split("::", 2, StringSplitOptions.None)[0].Trim();
 

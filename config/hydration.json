@@ -46,6 +46,11 @@
   },
   "preserve_html_tags": ["b", "i", "em", "strong", "p", "br"],
   "wikidata_batch_size": 50,
+  "identity_retry_max_attempts": 5,
+  "identity_retry_base_delay_seconds": 10,
+  "identity_retry_max_delay_seconds": 300,
+  "identity_retry_jitter_min_ms": 250,
+  "identity_retry_jitter_max_ms": 1750,
   "local_match_enabled": true,
   "local_match_fuzzy_threshold": 0.95,
 

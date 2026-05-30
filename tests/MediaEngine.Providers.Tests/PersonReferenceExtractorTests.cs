@@ -250,8 +250,8 @@ public sealed class PersonReferenceExtractorTests
     {
         var canonicals = new List<CanonicalValue>
         {
-            new() { EntityId = TestEntity, Key = MetadataFieldConstants.Author, Value = "Neil Gaiman|||Terry Pratchett" },
-            new() { EntityId = TestEntity, Key = "author_qid", Value = "Q210112::Neil Gaiman|||Q46248::Terry Pratchett" },
+            new() { EntityId = TestEntity, Key = MetadataFieldConstants.Author, Value = "Neil Gaiman; Terry Pratchett" },
+            new() { EntityId = TestEntity, Key = "author_qid", Value = "Q210112::Neil Gaiman; Q46248::Terry Pratchett" },
         };
 
         var refs = PersonReferenceExtractor.FromCanonicals(canonicals);
@@ -296,7 +296,7 @@ public sealed class PersonReferenceExtractorTests
         {
             new() { EntityId = TestEntity, Key = MetadataFieldConstants.Author, Value = "James S.A. Corey" },
             new() { EntityId = TestEntity, Key = "author_qid", Value = "Q6142591::James S.A. Corey" },
-            new() { EntityId = TestEntity, Key = "collective_members_qid", Value = "Q123456::Daniel Abraham|||Q789012::Ty Franck" },
+            new() { EntityId = TestEntity, Key = "collective_members_qid", Value = "Q123456::Daniel Abraham; Q789012::Ty Franck" },
         };
 
         var refs = PersonReferenceExtractor.FromCanonicals(canonicals);

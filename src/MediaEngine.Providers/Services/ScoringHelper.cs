@@ -107,6 +107,7 @@ public static class ScoringHelper
         // Upsert canonical values (current best answers).
         var canonicals = scored.FieldScores
             .Where(f => !string.IsNullOrEmpty(f.WinningValue))
+            .Where(f => !MetadataFieldConstants.IsMultiValued(f.Key))
             .Select(f => new CanonicalValue
             {
                 EntityId          = entityId,
@@ -118,20 +119,6 @@ public static class ScoringHelper
                 NeedsReview       = f.IsConflicted, // Unit 5: conflicted fields immediately flagged for review
             })
             .ToList();
-
-        // Sanitise single-valued fields: strip leaked ||| separators.
-        foreach (var cv in canonicals)
-        {
-            if (!MultiValuedKeys.Contains(cv.Key)
-                && cv.Value.Contains("|||", StringComparison.Ordinal))
-            {
-                var first = cv.Value.Split("|||",
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .FirstOrDefault();
-                if (!string.IsNullOrEmpty(first))
-                    cv.Value = first;
-            }
-        }
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
@@ -146,7 +133,7 @@ public static class ScoringHelper
         }
 
         // Decompose multi-valued fields into proper array rows.
-        // Instead of splitting a single winning value on |||, collect ALL claims
+        // Collect ALL claims
         // from the winning provider for each multi-valued key.
         var multiValueCanonicalChanged = false;
         if (arrayRepo is not null)

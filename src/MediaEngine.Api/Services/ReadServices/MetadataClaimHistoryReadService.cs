@@ -22,26 +22,21 @@ public sealed class MetadataClaimHistoryReadService(
         if (claims.Count == 0)
         {
             using var conn = db.CreateConnection();
-            var assetIds = (await conn.QueryAsync<string>(new CommandDefinition(
+            var assetIds = (await conn.QueryAsync<Guid>(new CommandDefinition(
                 """
                 SELECT ma.id
                 FROM media_assets ma
                 INNER JOIN editions e ON ma.edition_id = e.id
                 WHERE e.work_id = @WorkId;
                 """,
-                new { WorkId = entityId.ToString("D") },
+                new { WorkId = entityId },
                 cancellationToken: ct))).ToList();
 
             if (assetIds.Count > 0)
             {
                 var allClaims = new List<MetadataClaim>();
                 foreach (var assetId in assetIds)
-                {
-                    if (Guid.TryParse(assetId, out var assetGuid))
-                    {
-                        allClaims.AddRange(await claimRepo.GetByEntityAsync(assetGuid, ct));
-                    }
-                }
+                    allClaims.AddRange(await claimRepo.GetByEntityAsync(assetId, ct));
 
                 claims = allClaims
                     .GroupBy(c => (c.ClaimKey, c.ClaimValue, c.ProviderId))

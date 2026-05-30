@@ -18,6 +18,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     private readonly SqliteMaintenanceService _maintenanceService;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private SqliteConnection? _connection;
+    private bool _epochChecked;
 
     /// <param name="databasePath">
     /// Absolute or relative path to the <c>.db</c> file.
@@ -57,6 +58,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
         if (_connection is not null)
         {
             return _connection;
+        }
+
+        if (!_epochChecked)
+        {
+            StorageEpochGuard.EnsureCompatibleOrReset(_databasePath);
+            _epochChecked = true;
         }
 
         _connection = _connectionFactory.OpenSharedConnection();

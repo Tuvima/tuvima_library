@@ -8,6 +8,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Ingestion.Services;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Intelligence;
 using MediaEngine.Intelligence.Contracts;
@@ -760,6 +761,14 @@ public sealed class DurablePipelineTests : IDisposable
             new ScoringConfiguration(),
             _batchRepo,
             _identityJobRepo,
+            new MediaTypeResolver(
+                new OptionsMonitorStub<IngestionOptions>(options),
+                new LibraryFolderResolver(new OptionsMonitorStub<IngestionOptions>(options)),
+                new StubMediaTypeAdvisor(),
+                NullLogger<MediaTypeResolver>.Instance),
+            new DuplicateResolver(_assetRepo),
+            new IngestionLogScribe(_ingestionLog, _publisher, NullLogger<IngestionLogScribe>.Instance),
+            new IdentityPipelineSignal(),
             _entityAssetRepo,
             _assetPaths,
             _workRepo);
@@ -775,12 +784,12 @@ public sealed class DurablePipelineTests : IDisposable
     private async Task<MediaAsset?> FindAssetByFileNameAsync(string fileName)
     {
         using var conn = _dbFactory.Connection.CreateConnection();
-        var assetId = conn.QueryFirstOrDefault<string?>(
+        var assetId = conn.QueryFirstOrDefault<Guid?>(
             "SELECT id FROM media_assets WHERE file_path_root LIKE @pattern LIMIT 1;",
             new { pattern = "%" + fileName });
 
-        return assetId is not null && Guid.TryParse(assetId, out var parsedId)
-            ? await _assetRepo.FindByIdAsync(parsedId)
+        return assetId.HasValue
+            ? await _assetRepo.FindByIdAsync(assetId.Value)
             : null;
     }
 

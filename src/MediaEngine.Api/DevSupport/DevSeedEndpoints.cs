@@ -923,6 +923,9 @@ public static class DevSeedEndpoints
         group.MapPost("/full-test", FullTestAsync)
             .WithSummary("Wipe generated state -> seed test files -> scan fixtures (?types= to filter; ?wipe=false to skip reset)");
 
+        group.MapPost("/reingest-library", ReingestLibraryAsync)
+            .WithSummary("Development-only clean database/cache reset, then scan every configured library source path. FSW remains paused.");
+
         group.MapGet("/pipeline-status", PipelineStatusAsync)
             .WithSummary("Show identity job counts by state + details of non-Completed jobs");
     }
@@ -1175,7 +1178,15 @@ public static class DevSeedEndpoints
             return Results.BadRequest(new { error = ex.Message });
         }
 
-        DevHarnessResetResult result = await resetService.WipeAsync(scope, startEngineAfterWipe, ct);
+        DevHarnessResetResult result;
+        try
+        {
+            result = await resetService.WipeAsync(scope, startEngineAfterWipe, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { error = ex.Message });
+        }
         string scopeName = result.Scope == DevHarnessWipeScope.Full
             ? DevHarnessResetService.FullScopeName
             : DevHarnessResetService.GeneratedStateScopeName;
@@ -1187,6 +1198,53 @@ public static class DevSeedEndpoints
                 : $"Wipe complete ({scopeName}). Database reinitialized. Watcher resume deferred.",
             wipe_scope = scopeName,
             details = result.Details,
+        });
+    }
+
+    private static async Task<IResult> ReingestLibraryAsync(
+        HttpContext context,
+        Storage.Contracts.IConfigurationLoader configLoader,
+        IIngestionEngine ingestionEngine,
+        DevHarnessResetService resetService,
+        ILogger<Program> logger)
+    {
+        logger.LogInformation("[ReingestLibrary] Preparing clean storage reset and source scan");
+
+        var resetResult = await resetService.PrepareForReingestAsync(context.RequestAborted);
+        var libConfig = configLoader.LoadLibraries();
+        var scanTargets = libConfig.Libraries
+            .SelectMany(lib =>
+            {
+                var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
+                            ?? new List<string>();
+                if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
+                    paths.Add(lib.SourcePath);
+
+                return paths.Select(path => new IngestionScanTarget(
+                    NormalizeDirectoryPath(path),
+                    lib.IncludeSubdirectories));
+            })
+            .Where(target => Directory.Exists(target.Path))
+            .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new IngestionScanTarget(
+                group.Key,
+                group.Any(target => target.IncludeSubdirectories)))
+            .ToList();
+
+        if (scanTargets.Count > 0)
+            await ingestionEngine.ScanDirectories(scanTargets, context.RequestAborted);
+
+        logger.LogInformation(
+            "[ReingestLibrary] Reingest scan queued for {Count} configured source folder(s); FSW remains paused",
+            scanTargets.Count);
+
+        return Results.Ok(new
+        {
+            message = "Reingest initiated: database/generated state reset, configured source folders enqueued, FSW remains paused.",
+            reset = resetResult,
+            scanned_directories = scanTargets.Select(target => target.Path).ToArray(),
+            source_count = scanTargets.Count,
+            fsw_paused = true,
         });
     }
 

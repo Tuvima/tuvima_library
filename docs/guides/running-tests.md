@@ -196,6 +196,18 @@ Runs wipe then seed in sequence and returns a per-media-type summary.
 curl -X POST http://localhost:61495/dev/full-test
 ```
 
+### POST /dev/reingest-library
+
+Development-only harness for rebuilding a clean `guid-blob-v1` database from the configured media folders without deleting source media.
+
+The harness pauses file watching, validates destructive path safety, removes generated database/cache/artwork state, scans every configured `source_path` / `source_paths` value through ingestion, and leaves file watching paused until the Engine restarts or an explicit resume is requested.
+
+```bash
+curl -X POST http://localhost:61495/dev/reingest-library
+```
+
+Use this when validating a clean-break storage reset against a real or large library. Use `/dev/full-test` for synthetic coverage first.
+
 ### POST /dev/integration-test
 
 The most thorough validation. Runs the complete cycle:

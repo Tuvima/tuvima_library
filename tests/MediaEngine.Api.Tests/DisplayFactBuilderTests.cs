@@ -11,7 +11,7 @@ public sealed class DisplayFactBuilderTests
             mediaKind: "Movie",
             title: "Arrival",
             year: "2016",
-            genre: "Science Fiction|||Drama|||Science Fiction");
+            genre: "Science Fiction; Drama; Science Fiction");
 
         Assert.Equal(["2016", "Science Fiction", "Drama"], facts);
     }

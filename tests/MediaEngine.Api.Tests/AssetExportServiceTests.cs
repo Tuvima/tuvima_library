@@ -208,9 +208,9 @@ public sealed class AssetExportServiceTests : IDisposable
             """,
             new
             {
-                CollectionId = collectionId.ToString(),
-                WorkId = workId.ToString(),
-                EditionId = editionId.ToString(),
+                CollectionId = collectionId,
+                WorkId = workId,
+                EditionId = editionId,
             });
 
         var assetRepo = new MediaAssetRepository(_db);

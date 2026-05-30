@@ -1002,21 +1002,10 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         };
     }
 
-    /// <summary>
-    /// Normalizes multi-valued strings that use <c>|||</c> separator into
-    /// human-readable comma-separated form (e.g. "Actor, Screenwriter, Producer").
-    /// Returns <c>null</c> for null/whitespace input.
-    /// <para>DEPRECATED: Legacy safety net. New Reconciliation API emits individual claims;
-    /// canonical_values_array stores decomposed values. This helper is retained for
-    /// backward compatibility with pre-array data.</para>
-    /// </summary>
+    /// <summary>Returns the stored display string for optional multi-value presentation.</summary>
     private static string? NormalizeMultiValue(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return value;
-        if (!value.Contains("|||", StringComparison.Ordinal)) return value;
-
-        var parts = value.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return parts.Length > 0 ? string.Join(", ", parts) : value;
+        return string.IsNullOrWhiteSpace(value) ? value : value.Trim();
     }
 
     /// <summary>

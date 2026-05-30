@@ -197,8 +197,8 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "INSERT INTO works (id, collection_id, media_type) VALUES ($id, $collectionId, 'Music')";
-        cmd.Parameters.AddWithValue("$id", workId.ToString());
-        cmd.Parameters.AddWithValue("$collectionId", collectionId.ToString());
+        cmd.Parameters.Add("$id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(workId);
+        cmd.Parameters.Add("$collectionId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(collectionId);
         cmd.ExecuteNonQuery();
     }
 }

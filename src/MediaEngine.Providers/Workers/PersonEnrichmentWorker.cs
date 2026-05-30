@@ -586,7 +586,7 @@ public sealed class PersonEnrichmentWorker
         if (string.IsNullOrWhiteSpace(raw))
             return null;
 
-        var first = raw.Split(["|||", "; "], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+        var first = raw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         if (string.IsNullOrWhiteSpace(first))
             return null;
 
@@ -602,7 +602,7 @@ public sealed class PersonEnrichmentWorker
         if (string.IsNullOrWhiteSpace(raw))
             return null;
 
-        var first = raw.Split(["|||", "; "], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+        var first = raw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         if (string.IsNullOrWhiteSpace(first))
             return null;
 

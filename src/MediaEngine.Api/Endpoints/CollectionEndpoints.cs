@@ -3252,11 +3252,6 @@ public static class CollectionEndpoints
     private static string NormalizeCatalogQid(string qid)
     {
         var value = qid.Contains('/') ? qid.Split('/')[^1] : qid;
-        if (value.Contains("|||", StringComparison.Ordinal))
-        {
-            value = value.Split("|||", 2)[0];
-        }
-
         if (value.Contains("::", StringComparison.Ordinal))
         {
             value = value.Split("::", 2)[0];
@@ -3882,18 +3877,11 @@ public static class CollectionEndpoints
         public string? CoverUrl { get; init; }
     }
 
-    private static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
-
     private static string? GetCanonical(WorkDto? w, string key)
     {
         var raw = w?.CanonicalValues
             .FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
             ?.Value;
-        if (raw is not null && raw.Contains("|||", StringComparison.Ordinal) && !MultiValuedKeys.Contains(key))
-        {
-            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
-        }
-
         return raw;
     }
 

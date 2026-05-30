@@ -19,6 +19,7 @@ public sealed class FictionalEntityWorkerTests : IDisposable
     private readonly WorkRepository _workRepo;
     private readonly MediaAssetRepository _assetRepo;
     private readonly CanonicalValueRepository _canonicalRepo;
+    private readonly CanonicalValueArrayRepository _canonicalArrayRepo;
     private readonly FictionalEntityRepository _fictionalEntityRepo;
 
     public FictionalEntityWorkerTests()
@@ -35,6 +36,7 @@ public sealed class FictionalEntityWorkerTests : IDisposable
         _workRepo = new WorkRepository(_db);
         _assetRepo = new MediaAssetRepository(_db);
         _canonicalRepo = new CanonicalValueRepository(_db);
+        _canonicalArrayRepo = new CanonicalValueArrayRepository(_db);
         _fictionalEntityRepo = new FictionalEntityRepository(_db);
     }
 
@@ -55,17 +57,25 @@ public sealed class FictionalEntityWorkerTests : IDisposable
         await SeedCanonicalsAsync(
             showWorkId,
             (MetadataFieldConstants.Title, "The Expanse"),
-            ("wikidata_qid", "QSHOW"),
-            (MetadataFieldConstants.FictionalUniverse, "The Expanse universe"),
-            ("fictional_universe_qid", "QUNIVERSE::The Expanse universe"),
-            (MetadataFieldConstants.Characters, "James Holden|||Chrisjen Avasarala"),
-            ("characters_qid", "QCHAR1::James Holden|||QCHAR2::Chrisjen Avasarala"),
-            (MetadataFieldConstants.NarrativeLocation, "Rocinante"),
-            ("narrative_location_qid", "QLOC1::Rocinante"));
+            ("wikidata_qid", "QSHOW"));
+        await _canonicalArrayRepo.SetValuesAsync(showWorkId, MetadataFieldConstants.FictionalUniverse,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "The Expanse universe", ValueQid = "QUNIVERSE" },
+        ]);
+        await _canonicalArrayRepo.SetValuesAsync(showWorkId, MetadataFieldConstants.Characters,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "James Holden", ValueQid = "QCHAR1" },
+            new CanonicalArrayEntry { Ordinal = 1, Value = "Chrisjen Avasarala", ValueQid = "QCHAR2" },
+        ]);
+        await _canonicalArrayRepo.SetValuesAsync(showWorkId, MetadataFieldConstants.NarrativeLocation,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Rocinante", ValueQid = "QLOC1" },
+        ]);
 
         var harvesting = new RecordingMetadataHarvestingService();
         var resolver = new NarrativeRootResolver(
             _canonicalRepo,
+            _canonicalArrayRepo,
             new NarrativeRootRepository(_db),
             new QidLabelRepository(_db),
             new SystemActivityRepository(_db),
@@ -78,6 +88,7 @@ public sealed class FictionalEntityWorkerTests : IDisposable
             resolver,
             recursiveService,
             _canonicalRepo,
+            _canonicalArrayRepo,
             _workRepo,
             NullLogger<FictionalEntityWorker>.Instance);
 
@@ -107,8 +118,8 @@ public sealed class FictionalEntityWorkerTests : IDisposable
             "INSERT INTO editions (id, work_id) VALUES (@EditionId, @WorkId);",
             new
             {
-                EditionId = editionId.ToString(),
-                WorkId = workId.ToString(),
+                EditionId = editionId,
+                WorkId = workId,
             });
 
         var assetId = Guid.NewGuid();

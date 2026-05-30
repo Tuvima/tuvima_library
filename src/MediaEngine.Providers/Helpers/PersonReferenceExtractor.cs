@@ -186,10 +186,9 @@ public static class PersonReferenceExtractor
         var qidCanonical = canonicals.FirstOrDefault(c =>
             string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase));
 
-        // Split multi-valued canonicals (joined with |||).
-        var names = nameCanonical.Value.Split("|||",
+        var names = nameCanonical.Value.Split(';',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var qidParts = qidCanonical?.Value?.Split("|||",
+        var qidParts = qidCanonical?.Value?.Split(';',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             ?? [];
 

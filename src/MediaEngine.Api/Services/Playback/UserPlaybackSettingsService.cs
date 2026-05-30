@@ -97,7 +97,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
             FROM user_playback_settings
             WHERE profile_id = @profileId
             LIMIT 1;
-            """, new { profileId = profileId.ToString() });
+            """, new { profileId });
 
         if (row is null)
             return UserPlaybackSettingsDto.CreateDefaults(profileId);
@@ -142,7 +142,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
                 updated_at = excluded.updated_at;
             """, new
         {
-            profileId = profileId.ToString(),
+            profileId,
             json,
             updatedAt = normalized.UpdatedAt.ToString("O"),
         });
@@ -164,7 +164,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
     {
         conn.Execute("""
             CREATE TABLE IF NOT EXISTS user_playback_settings (
-                profile_id    TEXT NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+                profile_id    BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
                 settings_json TEXT NOT NULL,
                 updated_at    TEXT NOT NULL
             );
@@ -262,7 +262,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
 
     private sealed class SettingsRow
     {
-        public string ProfileId { get; set; } = string.Empty;
+        public Guid ProfileId { get; set; }
         public string SettingsJson { get; set; } = string.Empty;
         public string UpdatedAt { get; set; } = string.Empty;
     }

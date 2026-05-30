@@ -53,6 +53,9 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         services.TryAddSingleton<IOrganizationGate, OrganizationGate>();
         services.TryAddSingleton<IAutoOrganizeService, AutoOrganizeService>();
         services.TryAddSingleton<ILibraryScanner, LibraryScanner>();
+        services.TryAddSingleton<IMediaTypeResolver, MediaTypeResolver>();
+        services.TryAddSingleton<IDuplicateResolver, DuplicateResolver>();
+        services.TryAddSingleton<IIngestionLogScribe, IngestionLogScribe>();
         services.TryAddSingleton<IEnrichmentConcurrencyLimiter>(sp =>
             new EnrichmentConcurrencyLimiter(
                 sp.GetRequiredService<IConfigurationLoader>().LoadHydration(),

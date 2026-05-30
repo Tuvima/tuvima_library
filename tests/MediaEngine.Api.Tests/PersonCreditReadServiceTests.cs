@@ -52,9 +52,9 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                 INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
                     VALUES ($personId, $characterId, 'QSHOW');
                 """;
-            cmd.Parameters.AddWithValue("$collectionId", collectionId.ToString("D"));
-            cmd.Parameters.AddWithValue("$personId", personId.ToString("D"));
-            cmd.Parameters.AddWithValue("$characterId", characterId.ToString("D"));
+            AddGuid(cmd, "$collectionId", collectionId);
+            AddGuid(cmd, "$personId", personId);
+            AddGuid(cmd, "$characterId", characterId);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
 
@@ -79,16 +79,16 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                     INSERT INTO person_media_links (media_asset_id, person_id, role)
                         VALUES ($assetId, $personId, 'Director');
                     """;
-                episodeCmd.Parameters.AddWithValue("$workId", workId.ToString("D"));
-                episodeCmd.Parameters.AddWithValue("$collectionId", collectionId.ToString("D"));
+                AddGuid(episodeCmd, "$workId", workId);
+                AddGuid(episodeCmd, "$collectionId", collectionId);
                 episodeCmd.Parameters.AddWithValue("$workQid", $"QEP{episode}");
                 episodeCmd.Parameters.AddWithValue("$episode", episode);
-                episodeCmd.Parameters.AddWithValue("$editionId", editionId.ToString("D"));
-                episodeCmd.Parameters.AddWithValue("$assetId", assetId.ToString("D"));
+                AddGuid(episodeCmd, "$editionId", editionId);
+                AddGuid(episodeCmd, "$assetId", assetId);
                 episodeCmd.Parameters.AddWithValue("$hash", $"sample-crime-show-{episode}");
                 episodeCmd.Parameters.AddWithValue("$path", $"C:/library/Sample Crime Show/S01E0{episode}.mkv");
                 episodeCmd.Parameters.AddWithValue("$title", $"Episode {episode}");
-                episodeCmd.Parameters.AddWithValue("$personId", personId.ToString("D"));
+                AddGuid(episodeCmd, "$personId", personId);
                 episodeCmd.Parameters.AddWithValue("$now", now);
                 episodeCmd.ExecuteNonQuery();
             }
@@ -141,16 +141,16 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                 INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
                     VALUES ($claim4, $workId, $providerId, 'cast_member_character', 'Ian Donnelly', 0.90, $now);
                 """;
-            cmd.Parameters.AddWithValue("$providerId", providerId.ToString("D"));
-            cmd.Parameters.AddWithValue("$workId", workId.ToString("D"));
-            cmd.Parameters.AddWithValue("$editionId", editionId.ToString("D"));
-            cmd.Parameters.AddWithValue("$assetId", assetId.ToString("D"));
-            cmd.Parameters.AddWithValue("$personId", personId.ToString("D"));
+            AddGuid(cmd, "$providerId", providerId);
+            AddGuid(cmd, "$workId", workId);
+            AddGuid(cmd, "$editionId", editionId);
+            AddGuid(cmd, "$assetId", assetId);
+            AddGuid(cmd, "$personId", personId);
             cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$claim1", Guid.NewGuid().ToString("D"));
-            cmd.Parameters.AddWithValue("$claim2", Guid.NewGuid().ToString("D"));
-            cmd.Parameters.AddWithValue("$claim3", Guid.NewGuid().ToString("D"));
-            cmd.Parameters.AddWithValue("$claim4", Guid.NewGuid().ToString("D"));
+            AddGuid(cmd, "$claim1", Guid.NewGuid());
+            AddGuid(cmd, "$claim2", Guid.NewGuid());
+            AddGuid(cmd, "$claim3", Guid.NewGuid());
+            AddGuid(cmd, "$claim4", Guid.NewGuid());
             cmd.ExecuteNonQuery();
         }
 
@@ -185,9 +185,9 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                 INSERT INTO person_group_members (group_id, member_id)
                     VALUES ($groupId, $secondMemberId);
                 """;
-            cmd.Parameters.AddWithValue("$groupId", groupId.ToString("D"));
-            cmd.Parameters.AddWithValue("$firstMemberId", firstMemberId.ToString("D"));
-            cmd.Parameters.AddWithValue("$secondMemberId", secondMemberId.ToString("D"));
+            AddGuid(cmd, "$groupId", groupId);
+            AddGuid(cmd, "$firstMemberId", firstMemberId);
+            AddGuid(cmd, "$secondMemberId", secondMemberId);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
@@ -213,4 +213,9 @@ public sealed class PersonCreditReadServiceTests : IDisposable
 
     private PersonCreditReadService CreateService() =>
         new(new CanonicalValueArrayRepository(_db), new PersonRepository(_db), _db);
+
+    private static void AddGuid(Microsoft.Data.Sqlite.SqliteCommand command, string name, Guid value)
+    {
+        command.Parameters.AddWithValue(name, GuidSql.ToBlob(value));
+    }
 }

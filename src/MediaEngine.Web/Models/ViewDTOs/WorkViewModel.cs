@@ -25,17 +25,14 @@ public sealed class WorkViewModel
     public string  Title          => Canonical("title") ?? $"Untitled ({MediaType})";
     public string? OriginalTitle  => Canonical("original_title");
 
-    /// <summary>
-    /// All credited authors/creators. The <c>author</c> canonical value uses
-    /// <c>|||</c> as a multi-value separator (pen names first per audit ordering).
-    /// </summary>
+    /// <summary>All credited authors/creators from presentation-ready canonical text.</summary>
     public IReadOnlyList<string> Authors
     {
         get
         {
             var raw = Canonical("author") ?? Canonical("creator");
             if (string.IsNullOrWhiteSpace(raw)) return [];
-            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return SplitPresentationList(raw);
         }
     }
 
@@ -141,18 +138,14 @@ public sealed class WorkViewModel
     public string? EpisodeNumber  => Canonical("episode_number");
     public string? TrackNumber    => Canonical("track_number");
 
-    /// <summary>
-    /// Genre as an array of individual values. Splits <c>|||</c>-separated
-    /// or semicolon-separated genre strings into individual entries.
-    /// </summary>
+    /// <summary>Genre as an array of individual presentation values.</summary>
     public IReadOnlyList<string> Genres
     {
         get
         {
             var raw = Canonical("genre");
             if (string.IsNullOrWhiteSpace(raw)) return [];
-            var sep = raw.Contains("|||", StringComparison.Ordinal) ? "|||" : ";";
-            return raw.Split(sep, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return SplitPresentationList(raw);
         }
     }
 
@@ -165,8 +158,7 @@ public sealed class WorkViewModel
         {
             var raw = Canonical("genre_qid");
             if (string.IsNullOrWhiteSpace(raw)) return [];
-            var sep = raw.Contains("|||", StringComparison.Ordinal) ? "|||" : ";";
-            return raw.Split(sep, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return SplitPresentationList(raw);
         }
     }
     public string? Narrator       => Canonical("narrator");
@@ -196,13 +188,9 @@ public sealed class WorkViewModel
         }
     }
 
-    private static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
-
     private string? Canonical(string key)
     {
         var raw = CanonicalValues.FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Value;
-        if (raw is not null && raw.Contains("|||", StringComparison.Ordinal) && !MultiValuedKeys.Contains(key))
-            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         return raw;
     }
 
@@ -212,13 +200,13 @@ public sealed class WorkViewModel
     private IReadOnlyList<string> CanonicalList(string key) =>
         CanonicalValues
             .Where(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
-            .SelectMany(cv =>
-                cv.Value.Contains("|||", StringComparison.Ordinal)
-                    ? cv.Value.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    : [cv.Value])
+            .SelectMany(cv => SplitPresentationList(cv.Value))
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static IReadOnlyList<string> SplitPresentationList(string raw) =>
+        raw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
 
 /// <summary>A single scored metadata field on a Work or Edition.</summary>

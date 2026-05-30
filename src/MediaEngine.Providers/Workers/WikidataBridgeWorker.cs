@@ -63,7 +63,6 @@ public sealed class WikidataBridgeWorker
     /// Larger values mean more jobs share a single Wikidata reconciliation call
     /// (one call per unique album/show, one call per unique bridge ID).
     /// </summary>
-    private readonly int _batchSize;
 
     public WikidataBridgeWorker(
         IIdentityJobRepository jobRepo,
@@ -120,7 +119,6 @@ public sealed class WikidataBridgeWorker
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.
-        _batchSize = Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Wikidata);
     }
 
     /// <summary>
@@ -130,7 +128,7 @@ public sealed class WikidataBridgeWorker
     ///
     /// PollAsync runs in six phases so that N jobs produce far fewer than N Wikidata calls:
     ///
-    ///   Phase 1 — Lease: lease up to <see cref="_batchSize"/> eligible jobs.
+    ///   Phase 1 — Lease: lease up to the configured batch size.
     ///   Phase 2 — Load context: batch-fetch bridge IDs and canonical values
     ///             for all jobs in two SQL queries (vs N×2 previously).
     ///   Phase 3 — Build job contexts: assemble per-job working DTOs and
@@ -153,6 +151,9 @@ public sealed class WikidataBridgeWorker
             PollCoreAsync,
             ct);
 
+    private int GetBatchSize() =>
+        Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Wikidata);
+
     private async Task<int> PollCoreAsync(CancellationToken ct)
     {
         // ── Phase 1: Lease ────────────────────────────────────────────────────
@@ -168,7 +169,7 @@ public sealed class WikidataBridgeWorker
         var jobs = await _jobRepo.LeaseNextAsync(
             "WikidataBridgeWorker",
             [IdentityJobState.RetailMatched, IdentityJobState.RetailMatchedNeedsReview],
-            _batchSize,
+            GetBatchSize(),
             LeaseDuration,
             excludeRunIds: gatedRunIds.Count > 0 ? gatedRunIds : null,
             ct: ct);
@@ -414,6 +415,7 @@ public sealed class WikidataBridgeWorker
                         job,
                         resetState,
                         ex,
+                        _configLoader.LoadHydration(),
                         ct);
                 }
                 catch (Exception resetEx)

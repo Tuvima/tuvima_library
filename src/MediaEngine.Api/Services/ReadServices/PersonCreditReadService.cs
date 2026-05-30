@@ -90,7 +90,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             WHERE w.id = @workId
             LIMIT 1;
             """,
-            new { workId = workId.ToString() });
+            new { workId });
 
         if (work is null)
         {
@@ -296,7 +296,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             GROUP BY p.id, p.name, p.wikidata_qid, p.headshot_url, p.local_headshot_path
             ORDER BY MIN(pml.rowid);
             """,
-            new { workId = workId.ToString() })).ToList();
+            new { workId })).ToList();
 
         return rows
             .Where(row => row.ActorPersonId.HasValue && !string.IsNullOrWhiteSpace(row.ActorName))
@@ -377,7 +377,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
               AND NULLIF(mc.claim_value, '') IS NOT NULL
             ORDER BY mc.rowid;
             """,
-            new { workId = workId.ToString("D") },
+            new { workId },
             cancellationToken: ct))).ToList();
 
         var entries = BuildCastEntriesFromClaims(rows)
@@ -568,7 +568,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                 WHERE e.work_id = @workId
                 ORDER BY cva.ordinal ASC;
                 """,
-                new { workId = workId.ToString("D") },
+                new { workId },
                 cancellationToken: ct))).ToList();
 
             foreach (var entry in assetCastEntries)
@@ -603,7 +603,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                   AND NULLIF(mc.claim_value, '') IS NOT NULL
                 ORDER BY mc.rowid;
                 """,
-                new { workId = workId.ToString("D") },
+                new { workId },
                 cancellationToken: ct))).ToList();
 
             foreach (var entry in BuildCastEntriesFromClaims(assetRows))
@@ -625,7 +625,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                   AND NULLIF(mc.claim_value, '') IS NOT NULL
                 ORDER BY mc.rowid;
                 """,
-                new { workId = workId.ToString("D") },
+                new { workId },
                 cancellationToken: ct))).ToList();
 
             foreach (var entry in BuildCastEntriesFromClaims(rows))
@@ -763,7 +763,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                   WHERE pgm.member_id = @personId
                   ORDER BY p.name;
                   """,
-            new { personId = personId.ToString() })).ToList();
+            new { personId })).ToList();
 
         return rows
             .Select(row => new PersonGroupMemberDto
@@ -824,7 +824,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             GROUP BY w.id, w.collection_id, w.media_type, w.wikidata_qid, c.display_name, pml.role
             ORDER BY MAX(CASE WHEN cv.key = 'year' THEN cv.value END) DESC, Title, pml.role;
             """,
-            new { personId = personId.ToString() })).ToList();
+            new { personId })).ToList();
 
         var workQids = baseRows
             .SelectMany(row => new[] { row.WorkQid, row.CollectionQid })
@@ -857,7 +857,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                   AND cpl.work_qid IN @workQids
                 ORDER BY cpl.work_qid, fe.label, cp.is_default DESC;
                 """,
-                new { personId = personId.ToString(), workQids })).ToList();
+                new { personId, workQids })).ToList();
 
             charactersByWorkQid = characterRows
                 .GroupBy(row => row.WorkQid ?? string.Empty, StringComparer.OrdinalIgnoreCase)
@@ -1070,7 +1070,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                      w.id, cpl.work_qid, w.collection_id, w.media_type, fe.fictional_universe_qid, fe.fictional_universe_label
             ORDER BY UniverseLabel, WorkTitle, CharacterName, cp.is_default DESC;
             """,
-            new { personId = personId.ToString() })).ToList();
+            new { personId })).ToList();
 
         return rows
             .GroupBy(row => new { row.WorkId, row.FictionalEntityId })

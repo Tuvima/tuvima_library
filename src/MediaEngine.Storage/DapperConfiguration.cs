@@ -4,15 +4,15 @@ using Dapper;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// Registers custom Dapper type handlers for types that SQLite stores as TEXT
-/// but .NET represents as structs (Guid, DateTimeOffset).  Call
+/// Registers custom Dapper type handlers for types that SQLite stores in
+/// storage-specific shapes but .NET represents as structs. Call
 /// <see cref="Configure"/> once at startup before any Dapper queries execute.
 /// </summary>
 public static class DapperConfiguration
 {
     private static bool _configured;
 
-    /// <summary>Register all custom type handlers.  Safe to call multiple times.</summary>
+    /// <summary>Register all custom type handlers. Safe to call multiple times.</summary>
     public static void Configure()
     {
         if (_configured) return;
@@ -22,40 +22,40 @@ public static class DapperConfiguration
         SqlMapper.AddTypeHandler(new NullableGuidTypeHandler());
         SqlMapper.AddTypeHandler(new NullableDateTimeOffsetTypeHandler());
 
-        // Tell Dapper that Guid columns come back as strings from SQLite.
+        // Force Guid values through the custom BLOB handler.
         SqlMapper.RemoveTypeMap(typeof(Guid));
         SqlMapper.RemoveTypeMap(typeof(Guid?));
 
         _configured = true;
     }
 
-    /// <summary>Guid ↔ TEXT (lowercase string representation).</summary>
+    /// <summary>Guid stored as BLOB (16-byte RFC4122/network byte order).</summary>
     private sealed class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
     {
         public override Guid Parse(object value) =>
-            Guid.Parse((string)value);
+            GuidSql.FromDb(value);
 
         public override void SetValue(IDbDataParameter parameter, Guid value)
         {
-            parameter.DbType = DbType.String;
-            parameter.Value  = value.ToString();
+            parameter.DbType = DbType.Binary;
+            parameter.Value  = GuidSql.ToBlob(value);
         }
     }
 
-    /// <summary>Guid? ↔ TEXT (nullable).</summary>
+    /// <summary>Guid? stored as BLOB (nullable).</summary>
     private sealed class NullableGuidTypeHandler : SqlMapper.TypeHandler<Guid?>
     {
         public override Guid? Parse(object value) =>
-            value is DBNull or null ? null : Guid.Parse((string)value);
+            GuidSql.FromDbNullable(value);
 
         public override void SetValue(IDbDataParameter parameter, Guid? value)
         {
-            parameter.DbType = DbType.String;
-            parameter.Value  = value.HasValue ? value.Value.ToString() : DBNull.Value;
+            parameter.DbType = DbType.Binary;
+            parameter.Value  = GuidSql.ToDb(value);
         }
     }
 
-    /// <summary>DateTimeOffset ↔ TEXT (ISO-8601 round-trip format).</summary>
+    /// <summary>DateTimeOffset stored as TEXT (ISO-8601 round-trip format).</summary>
     private sealed class DateTimeOffsetTypeHandler : SqlMapper.TypeHandler<DateTimeOffset>
     {
         public override DateTimeOffset Parse(object value) =>
@@ -68,7 +68,7 @@ public static class DapperConfiguration
         }
     }
 
-    /// <summary>DateTimeOffset? ↔ TEXT (nullable, ISO-8601 round-trip format).</summary>
+    /// <summary>DateTimeOffset? stored as TEXT (nullable, ISO-8601 round-trip format).</summary>
     private sealed class NullableDateTimeOffsetTypeHandler : SqlMapper.TypeHandler<DateTimeOffset?>
     {
         public override DateTimeOffset? Parse(object value) =>

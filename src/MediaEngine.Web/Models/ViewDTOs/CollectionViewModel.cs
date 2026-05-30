@@ -183,8 +183,6 @@ public sealed class CollectionViewModel
     private static string? GetTitle(WorkViewModel w)
     {
         var raw = w.CanonicalValues.FirstOrDefault(cv => cv.Key == "title")?.Value;
-        if (raw is not null && raw.Contains("|||", StringComparison.Ordinal))
-            return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         return raw;
     }
 }

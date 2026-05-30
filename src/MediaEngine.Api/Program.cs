@@ -721,6 +721,7 @@ builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailCandidateScor
 builder.Services.AddSingleton<RetailMatchWorker>();
 builder.Services.AddSingleton<WikidataBridgeWorker>();
 builder.Services.AddSingleton<QuickHydrationWorker>();
+builder.Services.AddSingleton<MediaEngine.Providers.Contracts.IIdentityPipelineSignal, MediaEngine.Providers.Services.IdentityPipelineSignal>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.PostPipelineService>();
 
 // -- Provider Health Monitor: active probes, recovery flush, SignalR events ----
@@ -770,6 +771,8 @@ builder.Services.AddSingleton<IUserStateStore, UserStateRepository>();
 // -- UI Settings (three-tier cascade: Global ? Device ? Profile) --------------
 builder.Services.AddSingleton<UISettingsCascadeResolver>();
 builder.Services.AddSingleton<UISettingsCacheRepository>();
+builder.Services.AddSingleton<IStorageMaintenanceService, StorageMaintenanceService>();
+builder.Services.AddHostedService<StorageMaintenanceHostedService>();
 
 // -- AI Services --------------------------------------------------------------
 // Load AI settings from config/ai.json (uses the generic loader to avoid circular refs).

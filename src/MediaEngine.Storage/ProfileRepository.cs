@@ -64,7 +64,7 @@ public sealed class ProfileRepository : IProfileRepository
             FROM   profiles
             WHERE  id = @id
             LIMIT  1;
-            """, new { id = id.ToString() });
+            """, new { id });
 
         return Task.FromResult(row is null ? null : MapRow(row));
     }
@@ -81,7 +81,7 @@ public sealed class ProfileRepository : IProfileRepository
             VALUES (@id, @name, @color, @avatarImagePath, @role, @pin, @created, @nav);
             """, new
         {
-            id      = profile.Id.ToString(),
+            id      = profile.Id,
             name    = profile.DisplayName,
             color   = profile.AvatarColor,
             avatarImagePath = profile.AvatarImagePath,
@@ -118,7 +118,7 @@ public sealed class ProfileRepository : IProfileRepository
             role  = profile.Role.ToString(),
             pin   = profile.PinHash,
             nav   = profile.NavigationConfig,
-            id    = profile.Id.ToString(),
+            id    = profile.Id,
         });
 
         return Task.FromResult(rows > 0);
@@ -136,19 +136,15 @@ public sealed class ProfileRepository : IProfileRepository
         using var conn = _db.CreateConnection();
         var rows = conn.Execute(
             "DELETE FROM profiles WHERE id = @id;",
-            new { id = id.ToString() });
+            new { id });
 
         return Task.FromResult(rows > 0);
     }
 
     // ── Private DTO + mapper ────────────────────────────────────────────────
-    // SQLite stores GUIDs as TEXT and DateTimeOffset as ISO-8601 strings.
-    // Dapper cannot convert these automatically, so we read into a flat string
-    // DTO and convert in code.
-
     private sealed class ProfileRow
     {
-        public string Id               { get; set; } = string.Empty;
+        public Guid Id                 { get; set; }
         public string DisplayName      { get; set; } = string.Empty;
         public string AvatarColor      { get; set; } = string.Empty;
         public string? AvatarImagePath { get; set; }
@@ -160,7 +156,7 @@ public sealed class ProfileRepository : IProfileRepository
 
     private static Profile MapRow(ProfileRow r) => new()
     {
-        Id               = Guid.Parse(r.Id),
+        Id               = r.Id,
         DisplayName      = r.DisplayName,
         AvatarColor      = r.AvatarColor,
         AvatarImagePath  = r.AvatarImagePath,

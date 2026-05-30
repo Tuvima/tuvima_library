@@ -102,8 +102,8 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
             "INSERT INTO editions (id, work_id) VALUES (@EditionId, @WorkId);",
             new
             {
-                EditionId = editionId.ToString(),
-                WorkId = workId.ToString(),
+                EditionId = editionId,
+                WorkId = workId,
             });
 
         var assetId = Guid.NewGuid();

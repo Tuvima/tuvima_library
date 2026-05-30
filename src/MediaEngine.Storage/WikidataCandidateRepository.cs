@@ -33,8 +33,8 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
                 """,
                 new
                 {
-                    Id           = c.Id.ToString(),
-                    JobId        = c.JobId.ToString(),
+                    c.Id,
+                    c.JobId,
                     c.Qid,
                     c.Label,
                     c.Description,
@@ -57,7 +57,7 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         var rows = conn.Query<WikidataCandidateRow>(SelectSql + " WHERE job_id = @jobId ORDER BY score_total DESC;",
-            new { jobId = jobId.ToString() });
+            new { jobId });
         IReadOnlyList<WikidataBridgeCandidate> result = rows.Select(MapRow).ToList();
         return Task.FromResult(result);
     }
@@ -68,7 +68,7 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<WikidataCandidateRow>(
             SelectSql + " WHERE job_id = @jobId AND outcome = 'AutoAccepted' ORDER BY score_total DESC LIMIT 1;",
-            new { jobId = jobId.ToString() });
+            new { jobId });
         return Task.FromResult(row is null ? null : MapRow(row));
     }
 
@@ -78,7 +78,7 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<WikidataCandidateRow>(
             SelectSql + " WHERE id = @candidateId LIMIT 1;",
-            new { candidateId = candidateId.ToString() });
+            new { candidateId });
         return Task.FromResult(row is null ? null : MapRow(row));
     }
 
@@ -104,8 +104,8 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
 
     private sealed class WikidataCandidateRow
     {
-        public string  Id                 { get; set; } = "";
-        public string  JobId              { get; set; } = "";
+        public Guid    Id                 { get; set; }
+        public Guid    JobId              { get; set; }
         public string  Qid                { get; set; } = "";
         public string  Label              { get; set; } = "";
         public string? Description        { get; set; }
@@ -120,8 +120,8 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
 
     private static WikidataBridgeCandidate MapRow(WikidataCandidateRow r) => new()
     {
-        Id                 = Guid.Parse(r.Id),
-        JobId              = Guid.Parse(r.JobId),
+        Id                 = r.Id,
+        JobId              = r.JobId,
         Qid                = r.Qid,
         Label              = r.Label,
         Description        = r.Description,

@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Workers;
 
 namespace MediaEngine.Api.Services;
@@ -10,6 +11,7 @@ namespace MediaEngine.Api.Services;
 public sealed class QuickHydrationHostedService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IIdentityPipelineSignal _signal;
     private readonly ILogger<QuickHydrationHostedService> _logger;
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
@@ -19,9 +21,11 @@ public sealed class QuickHydrationHostedService : BackgroundService
 
     public QuickHydrationHostedService(
         IServiceScopeFactory scopeFactory,
+        IIdentityPipelineSignal signal,
         ILogger<QuickHydrationHostedService> logger)
     {
         _scopeFactory = scopeFactory;
+        _signal = signal;
         _logger = logger;
     }
 
@@ -51,7 +55,7 @@ public sealed class QuickHydrationHostedService : BackgroundService
                 var processed = await worker.PollAsync(stoppingToken);
 
                 var delay = processed > 0 ? PollInterval : IdleInterval;
-                await Task.Delay(delay, stoppingToken);
+                await _signal.WaitAsync(IdentityPipelineSignalKind.Hydration, delay, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -60,7 +64,7 @@ public sealed class QuickHydrationHostedService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "QuickHydrationHostedService poll error");
-                await Task.Delay(IdleInterval, stoppingToken);
+                await _signal.WaitAsync(IdentityPipelineSignalKind.Hydration, IdleInterval, stoppingToken);
             }
         }
     }

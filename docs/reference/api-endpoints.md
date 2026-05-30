@@ -27,6 +27,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/system/status` | Service health, version, uptime | None |
 | GET | `/system/watcher-status` | File watcher diagnostic - shows monitored folders and last event | Required |
 | POST | `/maintenance/sweep-orphan-assets` | Scan `.data/assets/` for managed files with no database reference and remove them. | Administrator |
+| POST | `/maintenance/storage/run` | Run storage maintenance on demand. Supports `dryRun`, cache retention, image retention, and claim compaction batch query parameters. | Administrator |
 
 ---
 
@@ -369,6 +370,7 @@ Available in development environments only. These endpoints are removed in produ
 | POST | `/dev/seed-library` | Seed the library with 22 EPUB test cases covering edge cases (pen names, foreign languages, series grouping, multi-author) |
 | POST | `/dev/wipe` | Wipe the database and staging area. Irreversible. |
 | POST | `/dev/full-test` | Run full ingestion and enrichment pipeline on the seeded test library |
+| POST | `/dev/reingest-library` | Pause file watching, reset generated database/cache/artwork state, scan every configured library source path, and leave watching paused until restart or explicit resume. |
 | POST | `/dev/integration-test` | Run the integration test suite and return an HTML report |
 
 ## Related

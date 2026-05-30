@@ -182,7 +182,7 @@ public static class LibraryEndpoints
                         && authorArrays.TryGetValue(row.RootWorkId, out var authors)
                         && authors.Count > 0)
                     {
-                        canonicalValues["author"] = string.Join("|||", authors);
+                        canonicalValues["author"] = string.Join("; ", authors);
                     }
 
                     if (!canonicalValues.ContainsKey("cover")

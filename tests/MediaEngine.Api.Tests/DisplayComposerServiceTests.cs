@@ -11,11 +11,11 @@ public sealed class DisplayComposerServiceTests
         var tvId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var repository = new StubDisplayProjectionRepository(
             [
-                Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction|||Drama"),
+                Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction; Drama"),
                 Work(tvId, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1"),
             ],
             [
-                Journey(movieId, "Movie", "Arrival", progressPct: 42, year: "2016", genre: "Science Fiction|||Drama"),
+                Journey(movieId, "Movie", "Arrival", progressPct: 42, year: "2016", genre: "Science Fiction; Drama"),
             ]);
         var composer = CreateComposer(repository);
 

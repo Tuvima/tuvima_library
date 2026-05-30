@@ -5036,8 +5036,7 @@ public sealed class DetailComposerService
 
     private static IReadOnlyList<string> SplitCanonicalSegments(string value)
     {
-        var separator = value.Contains("|||", StringComparison.Ordinal) ? "|||" : ";";
-        return value.Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private static (string? Qid, string? Label) ParseQidLabel(string? value)
@@ -5129,11 +5128,6 @@ public sealed class DetailComposerService
         if (qid.Contains("::", StringComparison.Ordinal))
         {
             qid = qid.Split("::", 2, StringSplitOptions.TrimEntries)[0];
-        }
-
-        if (qid.Contains("|||", StringComparison.Ordinal))
-        {
-            qid = qid.Split("|||", 2, StringSplitOptions.TrimEntries)[0];
         }
 
         if (qid.Contains('/', StringComparison.Ordinal))

@@ -26,7 +26,7 @@ flowchart TD
 
 Inputs come from `config/libraries.json`. Each library entry declares source paths, media type hints, read-only/writeback policy, and the source folders watched by the Engine. The ingestion options no longer use the old single `WatchDirectory` as a runtime fallback; `WatchDirectory` is only a derived first-source compatibility value after library folders are loaded.
 
-The file watcher and polling safety net both feed the debounce queue. Polling is intentional, not legacy: it catches missed filesystem events and relies on hashing to avoid duplicate ingestion. The pipeline skips engine-owned hidden state such as `.data`.
+The file watcher and polling safety net both feed the debounce queue. Polling is intentional, not legacy: it catches missed filesystem events and now sweeps every configured source folder, not only the first compatibility `WatchDirectory`. The watcher buffers filesystem noise for the configured quiet period before creating a batch; unchanged same-path events are suppressed by file fingerprint, while changed or replaced files at the same path can be queued again. The pipeline skips engine-owned hidden state such as `.data`.
 
 Stage 0 creates or updates:
 
@@ -36,7 +36,8 @@ Stage 0 creates or updates:
 | `editions` | Format/release layer that owns one or more media assets. |
 | `works` | The underlying title/story/work identity. |
 | `metadata_claims` | Append-only facts extracted from processors and providers. |
-| `canonical_values` | Current best value per field after scoring. |
+| `canonical_values` | Current best scalar value per field after scoring. |
+| `canonical_value_arrays` | Current best multi-valued fields as ordered rows with optional QIDs. |
 | `review_queue` | Human review for blocked, ambiguous, low-confidence, or invalid items. |
 | `identity_jobs` / operation state | Durable handoff between retail, Wikidata, hydration, and universe work. |
 
@@ -69,7 +70,9 @@ Provider roles:
 | LRCLIB | Text-track enrichment | Music | Lyrics/timed lyrics where configured. |
 | OpenSubtitles | Text-track enrichment | Movies, TV | Subtitle candidates and local normalized text tracks. |
 
-Stage 1 writes provider claims, candidates, retail status, cover candidates, bridge identifiers, and durable job state. Retail cover files are stored as managed assets through `AssetPathService` and `entity_assets` when persisted centrally.
+Stage 1 writes provider claims, candidates, retail status, cover candidates, bridge identifiers, and durable job state. Retail cover files are stored as managed assets through `AssetPathService` and `entity_assets` when persisted centrally. Identity workers are still timer-backed for resilience, but they also wake immediately when retail, bridge, or hydration work is signalled. Retry behavior is controlled by `config/hydration.json` with defaults of 5 attempts, 10-second exponential base delay, 300-second maximum delay, and 250-1750 ms jitter.
+
+Canonical storage is split by shape. Scalar winners stay in `canonical_values`; multi-valued keys such as authors, genres, cast members, characters, and narrative locations live only in `canonical_value_arrays`. Readers join or format arrays for display, but storage no longer packs lists into delimited strings.
 
 ## Stage 2: Wikidata Bridge Resolution
 

@@ -92,7 +92,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             .GroupBy(r => r.Qid!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,
-                g => (IReadOnlyList<Guid>)g.Select(r => Guid.Parse(r.WorkId)).Distinct().ToList(),
+                g => (IReadOnlyList<Guid>)g.Select(r => r.WorkId).Distinct().ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<Guid>>>(result);
@@ -232,9 +232,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     """,
                     new
                     {
-                        id = Guid.NewGuid().ToString(),
-                        collectionId = collectionId.ToString(),
-                        workId = workId.ToString(),
+                        id = Guid.NewGuid(),
+                        collectionId,
+                        workId,
                         sortOrder,
                         addedAt = DateTimeOffset.UtcNow.ToString("O"),
                     },
@@ -264,7 +264,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             WHERE collection_id = @collectionId
             LIMIT 1;
             """,
-            new { collectionId = collectionId.ToString() });
+            new { collectionId });
 
         if (hydration is null)
             return Task.FromResult<SeriesManifestViewDto?>(null);
@@ -287,14 +287,14 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             WHERE collection_id = @collectionId
             ORDER BY COALESCE(sort_order, 999999), COALESCE(item_label, item_qid), item_qid;
             """,
-            new { collectionId = collectionId.ToString() }).AsList();
+            new { collectionId }).AsList();
 
         var items = rows.Select(r => r.ToDto()).ToList();
         var warnings = DeserializeWarnings(hydration.WarningsJson);
 
         return Task.FromResult<SeriesManifestViewDto?>(new SeriesManifestViewDto
         {
-            CollectionId = Guid.Parse(hydration.CollectionId),
+            CollectionId = hydration.CollectionId,
             SeriesQid = hydration.SeriesQid,
             SeriesLabel = hydration.SeriesLabel,
             LastHydratedAt = DateTimeOffset.Parse(hydration.LastHydratedAt),
@@ -312,7 +312,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         => new
         {
             hydration.SeriesQid,
-            CollectionId = hydration.CollectionId.ToString(),
+            hydration.CollectionId,
             hydration.SeriesLabel,
             hydration.ManifestSource,
             hydration.ManifestVersion,
@@ -328,8 +328,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
     private static object ToItemParams(SeriesManifestItemRecord item)
         => new
         {
-            Id = (item.Id == Guid.Empty ? Guid.NewGuid() : item.Id).ToString(),
-            CollectionId = item.CollectionId.ToString(),
+            Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+            item.CollectionId,
             item.SeriesQid,
             item.ItemQid,
             item.ItemLabel,
@@ -349,7 +349,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             item.RelationshipsJson,
             item.OrderSource,
             item.OwnershipState,
-            LinkedWorkId = item.LinkedWorkId?.ToString(),
+            item.LinkedWorkId,
             LastHydratedAt = item.LastHydratedAt.ToString("O"),
             CreatedAt = item.CreatedAt.ToString("O"),
             UpdatedAt = item.UpdatedAt.ToString("O"),
@@ -373,7 +373,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
     private sealed class HydrationRow
     {
         public required string SeriesQid { get; init; }
-        public required string CollectionId { get; init; }
+        public required Guid CollectionId { get; init; }
         public string? SeriesLabel { get; init; }
         public string ManifestSource { get; init; } = "Tuvima.Wikidata";
         public string? ManifestVersion { get; init; }
@@ -388,7 +388,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         public SeriesManifestHydration ToEntity() => new()
         {
             SeriesQid = SeriesQid,
-            CollectionId = Guid.Parse(CollectionId),
+            CollectionId = CollectionId,
             SeriesLabel = SeriesLabel,
             ManifestSource = ManifestSource,
             ManifestVersion = ManifestVersion,
@@ -404,8 +404,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
 
     private sealed class ItemRow
     {
-        public required string Id { get; init; }
-        public required string CollectionId { get; init; }
+        public required Guid Id { get; init; }
+        public required Guid CollectionId { get; init; }
         public required string SeriesQid { get; init; }
         public required string ItemQid { get; init; }
         public string? ItemLabel { get; init; }
@@ -425,15 +425,15 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         public string RelationshipsJson { get; init; } = "[]";
         public string OrderSource { get; init; } = "Unknown";
         public string OwnershipState { get; init; } = "Missing";
-        public string? LinkedWorkId { get; init; }
+        public Guid? LinkedWorkId { get; init; }
         public required string LastHydratedAt { get; init; }
         public required string CreatedAt { get; init; }
         public required string UpdatedAt { get; init; }
 
         public SeriesManifestItemRecord ToEntity() => new()
         {
-            Id = Guid.Parse(Id),
-            CollectionId = Guid.Parse(CollectionId),
+            Id = Id,
+            CollectionId = CollectionId,
             SeriesQid = SeriesQid,
             ItemQid = ItemQid,
             ItemLabel = ItemLabel,
@@ -453,7 +453,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             RelationshipsJson = RelationshipsJson,
             OrderSource = OrderSource,
             OwnershipState = OwnershipState,
-            LinkedWorkId = string.IsNullOrWhiteSpace(LinkedWorkId) ? null : Guid.Parse(LinkedWorkId),
+            LinkedWorkId = LinkedWorkId,
             LastHydratedAt = DateTimeOffset.Parse(LastHydratedAt),
             CreatedAt = DateTimeOffset.Parse(CreatedAt),
             UpdatedAt = DateTimeOffset.Parse(UpdatedAt),
@@ -461,7 +461,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
 
         public SeriesManifestItemDto ToDto() => new()
         {
-            Id = Guid.Parse(Id),
+            Id = Id,
             ItemQid = ItemQid,
             ItemLabel = ItemLabel,
             ItemDescription = ItemDescription,
@@ -476,9 +476,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             IsExpandedFromCollection = IsExpandedFromCollection == 1,
             OrderSource = OrderSource,
             OwnershipState = OwnershipState,
-            LinkedWorkId = string.IsNullOrWhiteSpace(LinkedWorkId) ? null : Guid.Parse(LinkedWorkId),
+            LinkedWorkId = LinkedWorkId,
         };
     }
 
-    private sealed record WorkQidRow(string WorkId, string? Qid);
+    private sealed record WorkQidRow(Guid WorkId, string? Qid);
 }

@@ -120,6 +120,27 @@ public static class MaintenanceEndpoints
         .WithSummary("Runs the SHA-256 initial sweep across every configured library source path.")
         .RequireAdmin();
 
+        app.MapPost("/maintenance/storage/run", async (
+            bool? dryRun,
+            int? searchCacheMaxAgeDays,
+            int? imageCacheRetentionDays,
+            int? claimCompactionBatchSize,
+            IStorageMaintenanceService maintenance,
+            CancellationToken ct) =>
+        {
+            var result = await maintenance.RunAsync(new StorageMaintenanceRequest(
+                DryRun: dryRun ?? false,
+                SearchCacheMaxAgeDays: searchCacheMaxAgeDays,
+                ImageCacheRetentionDays: imageCacheRetentionDays,
+                ClaimCompactionBatchSize: claimCompactionBatchSize), ct);
+
+            return Results.Ok(result);
+        })
+        .WithTags("Maintenance")
+        .WithName("RunStorageMaintenance")
+        .WithSummary("Runs storage/cache maintenance immediately. Supports ?dryRun=true for counts only.")
+        .RequireAdmin();
+
         return app;
     }
 }

@@ -178,7 +178,7 @@ public sealed class CollectionAssignmentService
 
     /// <summary>
     /// Extracts a clean QID and label from canonical values for a given claim key.
-    /// Handles URI prefixes, :: suffixes, and ||| legacy separators.
+    /// Handles URI prefixes and :: suffixes.
     /// </summary>
     private static bool TryGetQid(
         Dictionary<string, string> lookup,
@@ -196,10 +196,6 @@ public sealed class CollectionAssignmentService
         // Strip entity URI prefix
         qid = rawQid.Contains('/') ? rawQid.Split('/')[^1] : rawQid;
 
-        // Strip ||| legacy separator
-        if (qid.Contains("|||"))
-            qid = qid.Split("|||")[0].Trim();
-
         // Strip ::Label suffix
         if (qid.Contains("::"))
             qid = qid.Split("::", 2)[0];
@@ -210,8 +206,7 @@ public sealed class CollectionAssignmentService
         // Get the label
         if (lookup.TryGetValue(claimKey, out var rawLabel) && !string.IsNullOrWhiteSpace(rawLabel))
         {
-            var cleaned = rawLabel.Contains("|||") ? rawLabel.Split("|||")[0].Trim() : rawLabel;
-            label = cleaned.Contains("::") ? cleaned.Split("::", 2)[^1].Trim() : cleaned;
+            label = rawLabel.Contains("::") ? rawLabel.Split("::", 2)[^1].Trim() : rawLabel.Trim();
         }
         else
         {

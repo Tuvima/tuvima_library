@@ -312,6 +312,37 @@ public sealed class HydrationSettings
     [JsonPropertyName("wikidata_batch_size")]
     public int WikidataBatchSize { get; set; } = 50;
 
+    /// <summary>
+    /// Maximum processing attempts for a durable identity job before it is
+    /// moved to the failed/dead-letter state.
+    /// </summary>
+    [JsonPropertyName("identity_retry_max_attempts")]
+    public int IdentityRetryMaxAttempts { get; set; } = 5;
+
+    /// <summary>
+    /// Base delay, in seconds, for exponential identity job retry backoff.
+    /// </summary>
+    [JsonPropertyName("identity_retry_base_delay_seconds")]
+    public int IdentityRetryBaseDelaySeconds { get; set; } = 10;
+
+    /// <summary>
+    /// Maximum identity job retry delay, in seconds, before jitter is applied.
+    /// </summary>
+    [JsonPropertyName("identity_retry_max_delay_seconds")]
+    public int IdentityRetryMaxDelaySeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Minimum random retry jitter in milliseconds.
+    /// </summary>
+    [JsonPropertyName("identity_retry_jitter_min_ms")]
+    public int IdentityRetryJitterMinMilliseconds { get; set; } = 250;
+
+    /// <summary>
+    /// Maximum random retry jitter in milliseconds.
+    /// </summary>
+    [JsonPropertyName("identity_retry_jitter_max_ms")]
+    public int IdentityRetryJitterMaxMilliseconds { get; set; } = 1750;
+
 
     // ── Chronicle Engine ──────────────────────────────────────────────
 

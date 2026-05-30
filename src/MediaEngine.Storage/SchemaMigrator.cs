@@ -15,6 +15,18 @@ internal sealed class SchemaMigrator
         // -- Incremental schema migrations ----------------------------------------
         // Each migration is guarded by a column-presence or table-presence check
         // so it is safe to run on every startup (idempotent).
+        using (var epoch = conn.CreateCommand())
+        {
+            epoch.CommandText = """
+                CREATE TABLE IF NOT EXISTS storage_metadata (
+                    key   TEXT NOT NULL PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                INSERT OR REPLACE INTO storage_metadata (key, value)
+                VALUES ('storage_epoch', 'guid-blob-v1');
+                """;
+            epoch.ExecuteNonQuery();
+        }
 
         // Migration M-001: Phase 8 - add is_user_locked to metadata_claims.
         // Databases created before Phase 8 will not have this column; the ALTER
@@ -36,7 +48,7 @@ internal sealed class SchemaMigrator
             probeColumn: "id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS persons (
-                    id           TEXT NOT NULL PRIMARY KEY,
+                    id           BLOB NOT NULL PRIMARY KEY,
                     name         TEXT NOT NULL,
                     role         TEXT NOT NULL CHECK (role IN ('Author', 'Narrator', 'Director')),
                     wikidata_qid TEXT,
@@ -55,8 +67,8 @@ internal sealed class SchemaMigrator
             probeColumn: "person_id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS person_media_links (
-                    media_asset_id  TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
-                    person_id       TEXT NOT NULL REFERENCES persons(id)       ON DELETE CASCADE,
+                    media_asset_id  BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                    person_id       BLOB NOT NULL REFERENCES persons(id)       ON DELETE CASCADE,
                     role            TEXT NOT NULL,
                     PRIMARY KEY (media_asset_id, person_id, role)
                 );
@@ -80,7 +92,7 @@ internal sealed class SchemaMigrator
             probeColumn: "id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS profiles (
-                    id           TEXT NOT NULL PRIMARY KEY,
+                    id           BLOB NOT NULL PRIMARY KEY,
                     display_name TEXT NOT NULL,
                     avatar_color TEXT NOT NULL DEFAULT '#7C4DFF',
                     role         TEXT NOT NULL DEFAULT 'Consumer'
@@ -100,8 +112,8 @@ internal sealed class SchemaMigrator
             probeColumn: "id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS profile_external_logins (
-                    id            TEXT NOT NULL PRIMARY KEY,
-                    profile_id    TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    id            BLOB NOT NULL PRIMARY KEY,
+                    profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
                     provider      TEXT NOT NULL,
                     subject       TEXT NOT NULL,
                     email         TEXT,
@@ -243,13 +255,13 @@ internal sealed class SchemaMigrator
             probeColumn: "id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS review_queue (
-                    id               TEXT NOT NULL PRIMARY KEY,
-                    entity_id        TEXT NOT NULL,
+                    id               BLOB NOT NULL PRIMARY KEY,
+                    entity_id        BLOB NOT NULL,
                     entity_type      TEXT NOT NULL,
                     trigger          TEXT NOT NULL,
                     status           TEXT NOT NULL DEFAULT 'Pending'
                                          CHECK (status IN ('Pending', 'Resolved', 'Dismissed')),
-                    proposed_hub_id  TEXT,
+                    proposed_hub_id  BLOB,
                     confidence_score REAL,
                     candidates_json  TEXT,
                     detail           TEXT,
@@ -500,7 +512,7 @@ internal sealed class SchemaMigrator
             probeColumn: "id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS fictional_entities (
-                    id                       TEXT NOT NULL PRIMARY KEY,
+                    id                       BLOB NOT NULL PRIMARY KEY,
                     wikidata_qid             TEXT NOT NULL UNIQUE,
                     label                    TEXT NOT NULL,
                     description              TEXT,
@@ -526,7 +538,7 @@ internal sealed class SchemaMigrator
             probeColumn: "entity_id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS fictional_entity_work_links (
-                    entity_id   TEXT NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
+                    entity_id   BLOB NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
                     work_qid    TEXT NOT NULL,
                     work_label  TEXT,
                     link_type   TEXT NOT NULL DEFAULT 'appears_in',
@@ -589,8 +601,8 @@ internal sealed class SchemaMigrator
             probeColumn: "person_id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS character_performer_links (
-                    person_id           TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-                    fictional_entity_id TEXT NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
+                    person_id           BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    fictional_entity_id BLOB NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
                     work_qid            TEXT,
                     PRIMARY KEY (person_id, fictional_entity_id, work_qid)
                 );
@@ -631,7 +643,7 @@ internal sealed class SchemaMigrator
                 """);
 
         // Migration M-032: Multi-valued canonical field storage.
-        // Replaces |||-separated strings for fields like genre, characters,
+        // Replaces packed multi-value strings for fields like genre, characters,
         // actor (cast_member) with individual rows carrying ordinals and optional QIDs.
         MigrateCreateTableIfMissing(
             conn,
@@ -639,7 +651,7 @@ internal sealed class SchemaMigrator
             probeColumn: "entity_id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS canonical_value_arrays (
-                    entity_id TEXT    NOT NULL,
+                    entity_id BLOB    NOT NULL,
                     key       TEXT    NOT NULL,
                     ordinal   INTEGER NOT NULL DEFAULT 0,
                     value     TEXT    NOT NULL,
@@ -657,7 +669,7 @@ internal sealed class SchemaMigrator
             conn,
             table: "canonical_values",
             column: "winning_provider_id",
-            ddl: "ALTER TABLE canonical_values ADD COLUMN winning_provider_id TEXT;");
+            ddl: "ALTER TABLE canonical_values ADD COLUMN winning_provider_id BLOB;");
 
         // Migration M-034: Unit 5 — Per-Field NeedsReview.
         // Adds needs_review to canonical_values so conflicted fields, missing
@@ -684,8 +696,8 @@ internal sealed class SchemaMigrator
         // ingestion pipeline is idle, on a nightly schedule, or on demand.
         MigrateCreateTableIfMissing(conn, "deferred_enrichment_queue", "id", """
             CREATE TABLE IF NOT EXISTS deferred_enrichment_queue (
-                id           TEXT NOT NULL PRIMARY KEY,
-                entity_id    TEXT NOT NULL,
+                id           BLOB NOT NULL PRIMARY KEY,
+                entity_id    BLOB NOT NULL,
                 wikidata_qid TEXT,
                 media_type   TEXT NOT NULL,
                 hints_json   TEXT,
@@ -722,9 +734,9 @@ internal sealed class SchemaMigrator
         using var m038 = conn.CreateCommand();
         m038.CommandText = """
             CREATE TABLE IF NOT EXISTS ingestion_log (
-                id                TEXT NOT NULL PRIMARY KEY,
+                id                BLOB NOT NULL PRIMARY KEY,
                 file_path         TEXT NOT NULL,
-                media_asset_id    TEXT,
+                media_asset_id    BLOB,
                 content_hash      TEXT,
                 status            TEXT NOT NULL DEFAULT 'detected',
                 media_type        TEXT,
@@ -733,7 +745,7 @@ internal sealed class SchemaMigrator
                 normalized_title  TEXT,
                 wikidata_qid      TEXT,
                 error_detail      TEXT,
-                ingestion_run_id  TEXT,
+                ingestion_run_id  BLOB,
                 created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
             );
@@ -744,7 +756,7 @@ internal sealed class SchemaMigrator
             """;
         m038.ExecuteNonQuery();
         MigrateAddColumnIfMissing(conn, "ingestion_log", "media_asset_id",
-            "ALTER TABLE ingestion_log ADD COLUMN media_asset_id TEXT;");
+            "ALTER TABLE ingestion_log ADD COLUMN media_asset_id BLOB;");
         using (var m038Index = conn.CreateCommand())
         {
             m038Index.CommandText = "CREATE INDEX IF NOT EXISTS idx_ingestion_log_media_asset ON ingestion_log(media_asset_id);";
@@ -899,7 +911,7 @@ internal sealed class SchemaMigrator
             using var m048 = conn.CreateCommand();
             m048.CommandText = """
                 CREATE TABLE IF NOT EXISTS search_results_cache (
-                    entity_id    TEXT NOT NULL PRIMARY KEY,
+                    entity_id    BLOB NOT NULL PRIMARY KEY,
                     results_json TEXT NOT NULL,
                     searched_at  TEXT NOT NULL
                 );
@@ -912,8 +924,8 @@ internal sealed class SchemaMigrator
             using var m049 = conn.CreateCommand();
             m049.CommandText = """
                 CREATE TABLE IF NOT EXISTS item_history (
-                    id          TEXT NOT NULL PRIMARY KEY,
-                    entity_id   TEXT NOT NULL,
+                    id          BLOB NOT NULL PRIMARY KEY,
+                    entity_id   BLOB NOT NULL,
                     occurred_at TEXT NOT NULL,
                     event_type  TEXT NOT NULL,
                     label       TEXT NOT NULL,
@@ -1034,12 +1046,12 @@ internal sealed class SchemaMigrator
             using var m054 = conn.CreateCommand();
             m054.CommandText = """
                 CREATE TABLE IF NOT EXISTS bridge_ids (
-                    id                TEXT NOT NULL PRIMARY KEY,
-                    entity_id         TEXT NOT NULL,
+                    id                BLOB NOT NULL PRIMARY KEY,
+                    entity_id         BLOB NOT NULL,
                     id_type           TEXT NOT NULL,
                     id_value          TEXT NOT NULL,
                     wikidata_property TEXT,
-                    provider_id       TEXT,
+                    provider_id       BLOB,
                     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
                     UNIQUE(entity_id, id_type)
                 );
@@ -1447,23 +1459,23 @@ internal sealed class SchemaMigrator
     /// </summary>
     private static void SeedMetadataProviders(SqliteConnection conn)
     {
-        ReadOnlySpan<(string Id, string Name, string Version)> providers =
+        ReadOnlySpan<(Guid Id, string Name, string Version)> providers =
         [
-            (WellKnownProviders.LocalProcessor.ToString(),  "local_processor",      "1.0"),
-            (WellKnownProviders.LibraryScanner.ToString(),  "library_scanner",      "1.0"),
-            (WellKnownProviders.AppleApi.ToString(),        "apple_api",            "2.0"),
-            (WellKnownProviders.Wikidata.ToString(),        "wikidata",             "1.0"),
-            (WellKnownProviders.Wikipedia.ToString(),       "wikipedia",            "1.0"),
-            (WellKnownProviders.OpenLibrary.ToString(),     "open_library",         "1.0"),
-            (WellKnownProviders.MusicBrainz.ToString(),     "musicbrainz",          "1.0"),
-            (WellKnownProviders.Tmdb.ToString(),            "tmdb",                 "1.0"),
-            (WellKnownProviders.ComicVine.ToString(),       "comicvine",            "1.0"),
-            (WellKnownProviders.Lrclib.ToString(),          "lrclib",               "1.0"),
-            (WellKnownProviders.OpenSubtitles.ToString(),   "opensubtitles",        "1.0"),
+            (WellKnownProviders.LocalProcessor,  "local_processor",      "1.0"),
+            (WellKnownProviders.LibraryScanner,  "library_scanner",      "1.0"),
+            (WellKnownProviders.AppleApi,        "apple_api",            "2.0"),
+            (WellKnownProviders.Wikidata,        "wikidata",             "1.0"),
+            (WellKnownProviders.Wikipedia,       "wikipedia",            "1.0"),
+            (WellKnownProviders.OpenLibrary,     "open_library",         "1.0"),
+            (WellKnownProviders.MusicBrainz,     "musicbrainz",          "1.0"),
+            (WellKnownProviders.Tmdb,            "tmdb",                 "1.0"),
+            (WellKnownProviders.ComicVine,       "comicvine",            "1.0"),
+            (WellKnownProviders.Lrclib,          "lrclib",               "1.0"),
+            (WellKnownProviders.OpenSubtitles,   "opensubtitles",        "1.0"),
 
-            (WellKnownProviders.UserManual.ToString(),      "user_manual",          "1.0"),
-            (WellKnownProviders.FanartTv.ToString(),        "fanart_tv",            "1.0"),
-            (WellKnownProviders.AiProvider.ToString(),      "ai_provider",          "1.0"),
+            (WellKnownProviders.UserManual,      "user_manual",          "1.0"),
+            (WellKnownProviders.FanartTv,        "fanart_tv",            "1.0"),
+            (WellKnownProviders.AiProvider,      "ai_provider",          "1.0"),
         ];
 
         using var cmd = conn.CreateCommand();
@@ -1472,13 +1484,13 @@ internal sealed class SchemaMigrator
             VALUES (@id, @name, @version, 1);
             """;
 
-        var pId = cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Text);
+        var pId = cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob);
         var pName = cmd.Parameters.Add("@name", Microsoft.Data.Sqlite.SqliteType.Text);
         var pVersion = cmd.Parameters.Add("@version", Microsoft.Data.Sqlite.SqliteType.Text);
 
         foreach (var (id, name, version) in providers)
         {
-            pId.Value = id;
+            pId.Value = GuidSql.ToBlob(id);
             pName.Value = name;
             pVersion.Value = version;
             cmd.ExecuteNonQuery();
@@ -1518,12 +1530,12 @@ internal sealed class SchemaMigrator
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS media_operations (
-              id                  TEXT PRIMARY KEY,
+              id                  BLOB PRIMARY KEY,
               operation_type      TEXT NOT NULL,
               operation_kind      TEXT NOT NULL,
-              entity_id           TEXT,
+              entity_id           BLOB,
               entity_kind         TEXT,
-              batch_id            TEXT,
+              batch_id            BLOB,
               source_path         TEXT,
               content_hash        TEXT,
               capability_id       TEXT,
@@ -1571,10 +1583,10 @@ internal sealed class SchemaMigrator
             ON media_operations(status, lease_expires_at);
 
             CREATE TABLE IF NOT EXISTS media_operation_events (
-              id             TEXT PRIMARY KEY,
-              operation_id   TEXT NOT NULL,
-              entity_id      TEXT,
-              batch_id       TEXT,
+              id             BLOB PRIMARY KEY,
+              operation_id   BLOB NOT NULL,
+              entity_id      BLOB,
+              batch_id       BLOB,
               event_type     TEXT NOT NULL,
               old_status     TEXT,
               new_status     TEXT,
@@ -1593,8 +1605,8 @@ internal sealed class SchemaMigrator
             ON media_operation_events(batch_id, occurred_at);
 
             CREATE TABLE IF NOT EXISTS entity_capability_states (
-              id                  TEXT PRIMARY KEY,
-              entity_id           TEXT NOT NULL,
+              id                  BLOB PRIMARY KEY,
+              entity_id           BLOB NOT NULL,
               entity_kind         TEXT NOT NULL,
               media_type          TEXT,
               capability_id       TEXT NOT NULL,
@@ -1608,7 +1620,7 @@ internal sealed class SchemaMigrator
               artifact_count      INTEGER NOT NULL DEFAULT 0,
               artifact_summary    TEXT,
               result_summary      TEXT,
-              last_operation_id   TEXT,
+              last_operation_id   BLOB,
               first_attempted_at  TEXT,
               last_attempted_at   TEXT,
               succeeded_at        TEXT,
@@ -1652,7 +1664,8 @@ internal sealed class SchemaMigrator
             INSERT OR IGNORE INTO profiles (id, display_name, avatar_color, role, created_at)
             VALUES (@id, @name, @color, @role, @created);
             """;
-        cmd.Parameters.AddWithValue("@id", "00000000-0000-0000-0000-000000000001");
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value =
+            GuidSql.ToBlob(Guid.Parse("00000000-0000-0000-0000-000000000001"));
         cmd.Parameters.AddWithValue("@name", "Owner");
         cmd.Parameters.AddWithValue("@color", "#7C4DFF");
         cmd.Parameters.AddWithValue("@role", "Administrator");
@@ -2123,8 +2136,8 @@ internal sealed class SchemaMigrator
         cmd.CommandText = """
             -- -- entity_assets -----------------------------------------------
             CREATE TABLE IF NOT EXISTS entity_assets (
-                id               TEXT PRIMARY KEY,
-                entity_id        TEXT NOT NULL,
+                id               BLOB PRIMARY KEY,
+                entity_id        BLOB NOT NULL,
                 entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
                 asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','DiscArt','ClearArt','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
                 image_url        TEXT,
@@ -2157,9 +2170,9 @@ internal sealed class SchemaMigrator
 
             -- -- character_portraits -----------------------------------------
             CREATE TABLE IF NOT EXISTS character_portraits (
-                id                  TEXT PRIMARY KEY,
-                person_id           TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-                fictional_entity_id TEXT NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
+                id                  BLOB PRIMARY KEY,
+                person_id           BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                fictional_entity_id BLOB NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
                 image_url           TEXT,
                 local_image_path    TEXT,
                 source_provider     TEXT,
@@ -2720,17 +2733,17 @@ internal sealed class SchemaMigrator
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS identity_jobs (
-                id                     TEXT PRIMARY KEY,
-                entity_id              TEXT NOT NULL,
+                id                     BLOB PRIMARY KEY,
+                entity_id              BLOB NOT NULL,
                 entity_type            TEXT NOT NULL,
                 media_type             TEXT NOT NULL,
-                ingestion_run_id       TEXT,
+                ingestion_run_id       BLOB,
                 state                  TEXT NOT NULL DEFAULT 'Queued',
                 pass                   TEXT NOT NULL DEFAULT 'Quick',
                 attempt_count          INTEGER NOT NULL DEFAULT 0,
                 lease_owner            TEXT,
                 lease_expires_at       TEXT,
-                selected_candidate_id  TEXT,
+                selected_candidate_id  BLOB,
                 resolved_qid          TEXT,
                 last_error             TEXT,
                 next_retry_at          TEXT,
@@ -2764,9 +2777,9 @@ internal sealed class SchemaMigrator
                 WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview');
 
             CREATE TABLE IF NOT EXISTS retail_match_candidates (
-                id                    TEXT PRIMARY KEY,
-                job_id                TEXT NOT NULL REFERENCES identity_jobs(id) ON DELETE CASCADE,
-                provider_id           TEXT NOT NULL,
+                id                    BLOB PRIMARY KEY,
+                job_id                BLOB NOT NULL REFERENCES identity_jobs(id) ON DELETE CASCADE,
+                provider_id           BLOB NOT NULL,
                 provider_name         TEXT NOT NULL,
                 provider_item_id      TEXT,
                 rank                  INTEGER NOT NULL DEFAULT 0,
@@ -2786,8 +2799,8 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_retail_candidates_outcome ON retail_match_candidates (outcome);
 
             CREATE TABLE IF NOT EXISTS wikidata_bridge_candidates (
-                id                    TEXT PRIMARY KEY,
-                job_id                TEXT NOT NULL REFERENCES identity_jobs(id) ON DELETE CASCADE,
+                id                    BLOB PRIMARY KEY,
+                job_id                BLOB NOT NULL REFERENCES identity_jobs(id) ON DELETE CASCADE,
                 qid                   TEXT NOT NULL,
                 label                 TEXT NOT NULL,
                 description           TEXT,

@@ -86,8 +86,7 @@ public static class DisplayFactBuilder
             return [];
         }
 
-        var separator = genre.Contains("|||", StringComparison.Ordinal) ? "|||" : ";";
-        return genre.Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return genre.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private static string? FormatEpisode(string? season, string? episode) =>

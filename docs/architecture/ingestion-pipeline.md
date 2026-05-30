@@ -35,6 +35,28 @@ Durable ingestion status is the source of truth for:
 The legacy ingestion log can still exist as historical/support data, but product
 status should use `media_operations`.
 
+The retail, Wikidata bridge, and quick hydration workers remain durable pollers,
+but they also use an in-process signal to wake as soon as upstream work is
+created. Timed polling remains the fallback after restarts or missed signals.
+Identity retry settings live in `config/hydration.json`:
+`identity_retry_max_attempts`, `identity_retry_base_delay_seconds`,
+`identity_retry_max_delay_seconds`, `identity_retry_jitter_min_ms`, and
+`identity_retry_jitter_max_ms`.
+
+## Storage Reset And Reingest
+
+The current storage epoch is `guid-blob-v1`. Internal IDs are stored in SQLite as
+16-byte BLOB GUIDs, while API contracts still expose GUIDs as strings. Legacy
+TEXT-GUID databases are rejected at startup unless `TUVIMA_STORAGE_RESET=1` (or
+`destructive-reingest`) is set, in which case the old database files are renamed
+as backups and a clean database is initialized.
+
+For development rebuilds, `POST /dev/reingest-library` pauses file watching,
+resets generated database/cache/artwork state without deleting configured source
+media, scans every configured library source path, and leaves file watching
+paused. The reset path includes guards that refuse destructive cleanup when a
+library output path overlaps a source folder.
+
 This document describes how Tuvima Library discovers, processes, organises, and stages media files - from the moment a file appears in a watched folder to the moment it is promoted into the organised library.
 
 ---
@@ -55,6 +77,8 @@ The Engine is configured with one or more **Library Folders**, each declaring:
 | `include_subdirectories` | Whether to scan nested folders within the source path |
 
 Configuration lives in `config/libraries.json`. Normal runtime ingestion requires these library entries; the old single `WatchDirectory` value is no longer a fallback source for watched/imported folders. `WatchDirectory` may still be exposed as a derived first-source compatibility value after `config/libraries.json` has loaded.
+
+File watching is source-folder aware. A flush that contains files from one source records that source path on the ingestion batch; a flush that spans more than one source records `Multiple source folders`. Watcher noise is buffered for `Ingestion:FswQuietPeriodSeconds` seconds, defaulting to 30 seconds, before the batch is released to the debounce queue.
 
 ```json
 {

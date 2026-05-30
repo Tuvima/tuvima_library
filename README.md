@@ -74,7 +74,7 @@ Tuvima is Early Access, but it is not just a mockup. Current builds include:
 - Engine and Dashboard apps for local development.
 - Home, Read, Watch, Listen, Collections, Search, detail pages, Settings/Admin, and Review Queue surfaces.
 - Folder scanning, ingestion operations, file fingerprinting, duplicate handling, review creation, and live progress.
-- SQLite persistence with startup schema initialization and migrations.
+- SQLite persistence with startup schema initialization, `guid-blob-v1` internal GUID storage, and reset/reingest safety for legacy database epochs.
 - EPUB reading routes, video/audio streaming routes, playback/reader progress APIs, and personal playback preferences.
 - Inline media editing through the shared editor in normal, review, and batch modes.
 - Provider configuration, provider health/status, pipeline priority settings, and config-driven provider adapters.

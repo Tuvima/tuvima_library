@@ -63,9 +63,9 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                 // Build the batch parameter list — Dapper executes one INSERT per item.
                 var rows = claims.Select(c => new
                 {
-                    Id           = c.Id.ToString(),
-                    EntityId     = c.EntityId.ToString(),
-                    ProviderId   = c.ProviderId.ToString(),
+                    c.Id,
+                    c.EntityId,
+                    c.ProviderId,
                     c.ClaimKey,
                     c.ClaimValue,
                     c.Confidence,
@@ -100,7 +100,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
             INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
             VALUES (@Id, 'user_manual', '1.0', 1);
             """,
-            new { Id = WellKnownProviders.UserManual.ToString() },
+            new { Id = WellKnownProviders.UserManual },
             transaction: tx);
     }
 
@@ -124,7 +124,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
             FROM   metadata_claims
             WHERE  entity_id = @entityId
             ORDER  BY claimed_at ASC;
-            """, new { entityId = entityId.ToString() }).AsList();
+            """, new { entityId }).AsList();
 
         return Task.FromResult<IReadOnlyList<MetadataClaim>>(results);
     }
@@ -140,7 +140,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
             using var conn = _db.CreateConnection();
             conn.Execute(
                 "DELETE FROM metadata_claims WHERE entity_id = @entityId;",
-                new { entityId = entityId.ToString() });
+                new { entityId });
         }
         finally
         {

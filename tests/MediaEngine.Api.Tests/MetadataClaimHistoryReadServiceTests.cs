@@ -87,9 +87,9 @@ public sealed class MetadataClaimHistoryReadServiceTests : IDisposable
             INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
             VALUES ($assetId, $editionId, $hash, $path);
             """;
-        cmd.Parameters.AddWithValue("$workId", workId.ToString("D"));
-        cmd.Parameters.AddWithValue("$editionId", editionId.ToString("D"));
-        cmd.Parameters.AddWithValue("$assetId", assetId.ToString("D"));
+        AddGuid(cmd, "$workId", workId);
+        AddGuid(cmd, "$editionId", editionId);
+        AddGuid(cmd, "$assetId", assetId);
         cmd.Parameters.AddWithValue("$hash", Guid.NewGuid().ToString("N"));
         cmd.Parameters.AddWithValue("$path", $"C:/library/{assetId:N}.epub");
         cmd.ExecuteNonQuery();
@@ -107,15 +107,20 @@ public sealed class MetadataClaimHistoryReadServiceTests : IDisposable
             INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
             VALUES ($claimId, $entityId, $providerId, $key, $value, $confidence, $claimedAt);
             """;
-        cmd.Parameters.AddWithValue("$providerId", providerId.Value.ToString("D"));
+        AddGuid(cmd, "$providerId", providerId.Value);
         cmd.Parameters.AddWithValue("$providerName", $"test-{providerId.Value:N}");
-        cmd.Parameters.AddWithValue("$claimId", Guid.NewGuid().ToString("D"));
-        cmd.Parameters.AddWithValue("$entityId", entityId.ToString("D"));
+        AddGuid(cmd, "$claimId", Guid.NewGuid());
+        AddGuid(cmd, "$entityId", entityId);
         cmd.Parameters.AddWithValue("$key", key);
         cmd.Parameters.AddWithValue("$value", value);
         cmd.Parameters.AddWithValue("$confidence", confidence);
         cmd.Parameters.AddWithValue("$claimedAt", claimedAt.ToString("O"));
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    private static void AddGuid(Microsoft.Data.Sqlite.SqliteCommand command, string name, Guid value)
+    {
+        command.Parameters.AddWithValue(name, GuidSql.ToBlob(value));
     }
 }
 

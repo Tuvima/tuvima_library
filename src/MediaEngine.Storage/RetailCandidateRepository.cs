@@ -35,9 +35,9 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
                 """,
                 new
                 {
-                    Id         = c.Id.ToString(),
-                    JobId      = c.JobId.ToString(),
-                    ProviderId = c.ProviderId.ToString(),
+                    c.Id,
+                    c.JobId,
+                    c.ProviderId,
                     c.ProviderName,
                     c.ProviderItemId,
                     c.Rank,
@@ -63,7 +63,7 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         var rows = conn.Query<RetailCandidateRow>(SelectSql + " WHERE job_id = @jobId ORDER BY score_total DESC;",
-            new { jobId = jobId.ToString() });
+            new { jobId });
         IReadOnlyList<RetailMatchCandidate> result = rows.Select(MapRow).ToList();
         return Task.FromResult(result);
     }
@@ -74,7 +74,7 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<RetailCandidateRow>(
             SelectSql + " WHERE job_id = @jobId AND outcome IN ('AutoAccepted', 'Ambiguous') ORDER BY score_total DESC LIMIT 1;",
-            new { jobId = jobId.ToString() });
+            new { jobId });
         return Task.FromResult(row is null ? null : MapRow(row));
     }
 
@@ -84,7 +84,7 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<RetailCandidateRow>(
             SelectSql + " WHERE id = @candidateId LIMIT 1;",
-            new { candidateId = candidateId.ToString() });
+            new { candidateId });
         return Task.FromResult(row is null ? null : MapRow(row));
     }
 
@@ -114,9 +114,9 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
 
     private sealed class RetailCandidateRow
     {
-        public string  Id                 { get; set; } = "";
-        public string  JobId              { get; set; } = "";
-        public string  ProviderId         { get; set; } = "";
+        public Guid    Id                 { get; set; }
+        public Guid    JobId              { get; set; }
+        public Guid    ProviderId         { get; set; }
         public string  ProviderName       { get; set; } = "";
         public string? ProviderItemId     { get; set; }
         public int     Rank               { get; set; }
@@ -134,9 +134,9 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
 
     private static RetailMatchCandidate MapRow(RetailCandidateRow r) => new()
     {
-        Id                 = Guid.Parse(r.Id),
-        JobId              = Guid.Parse(r.JobId),
-        ProviderId         = Guid.Parse(r.ProviderId),
+        Id                 = r.Id,
+        JobId              = r.JobId,
+        ProviderId         = r.ProviderId,
         ProviderName       = r.ProviderName,
         ProviderItemId     = r.ProviderItemId,
         Rank               = r.Rank,

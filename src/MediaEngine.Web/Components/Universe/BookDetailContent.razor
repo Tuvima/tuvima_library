@@ -948,7 +948,7 @@ else
         if (!string.IsNullOrEmpty(authorQidCanonical))
         {
             var entries = authorQidCanonical
-                .Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(entry =>
                 {
                     var sep = entry.IndexOf("::", StringComparison.Ordinal);

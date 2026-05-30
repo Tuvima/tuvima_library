@@ -9,7 +9,7 @@ namespace MediaEngine.Storage;
 ///
 /// Multi-valued canonical fields (genre, characters, cast_member, etc.) are stored
 /// as individual rows in <c>canonical_value_arrays</c> rather than as
-/// <c>|||</c>-separated strings. Each row carries an ordinal for display ordering
+/// packed-delimiter strings. Each row carries an ordinal for display ordering
 /// and an optional QID for entity-valued items.
 /// </summary>
 public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayRepository
@@ -58,7 +58,7 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
                         """,
                         entries.Select(e => new
                         {
-                            EntityId = entityId.ToString(),
+                            EntityId = entityId,
                             Key      = key,
                             e.Ordinal,
                             e.Value,

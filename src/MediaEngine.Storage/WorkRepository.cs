@@ -63,10 +63,10 @@ public sealed class WorkRepository : IWorkRepository
             LIMIT  1;
             """;
 
-        var idStr = conn.QueryFirstOrDefault<string?>(
+        var id = conn.QueryFirstOrDefault<Guid?>(
             sql, new { mediaType = mediaType.ToString(), parentKey });
 
-        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
+        return Task.FromResult(id);
     }
 
     /// <inheritdoc/>
@@ -86,10 +86,10 @@ public sealed class WorkRepository : IWorkRepository
             LIMIT  1;
             """;
 
-        var idStr = conn.QueryFirstOrDefault<string?>(
-            sql, new { parentId = parentWorkId.ToString(), ordinal });
+        var id = conn.QueryFirstOrDefault<Guid?>(
+            sql, new { parentId = parentWorkId, ordinal });
 
-        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
+        return Task.FromResult(id);
     }
 
     /// <inheritdoc/>
@@ -123,10 +123,10 @@ public sealed class WorkRepository : IWorkRepository
             LIMIT  1;
             """;
 
-        var idStr = conn.QueryFirstOrDefault<string?>(
-            sql, new { parentId = parentWorkId.ToString(), title });
+        var id = conn.QueryFirstOrDefault<Guid?>(
+            sql, new { parentId = parentWorkId, title });
 
-        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
+        return Task.FromResult(id);
     }
 
     /// <inheritdoc/>
@@ -152,10 +152,10 @@ public sealed class WorkRepository : IWorkRepository
             LIMIT  1;
             """;
 
-        var idStr = conn.QueryFirstOrDefault<string?>(
+        var id = conn.QueryFirstOrDefault<Guid?>(
             sql, new { scheme, value });
 
-        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
+        return Task.FromResult(id);
     }
 
     // ── Inserts ────────────────────────────────────────────────────────────────
@@ -181,9 +181,9 @@ public sealed class WorkRepository : IWorkRepository
                 (@id, NULL, @mediaType, 'parent', @parentId,
                  @ordinal, 0, @parentKey, 'pending');
             """;
-        cmd.Parameters.AddWithValue("@id",         workId.ToString());
+        cmd.Parameters.AddWithValue("@id",         GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("@mediaType",  mediaType.ToString());
-        cmd.Parameters.AddWithValue("@parentId",   (object?)grandparentWorkId?.ToString() ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@parentId",   grandparentWorkId.HasValue ? GuidSql.ToBlob(grandparentWorkId.Value) : DBNull.Value);
         cmd.Parameters.AddWithValue("@ordinal",    (object?)ordinal ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@parentKey",  parentKey);
         cmd.ExecuteNonQuery();
@@ -215,9 +215,9 @@ public sealed class WorkRepository : IWorkRepository
                 (@id, NULL, @mediaType, 'child', @parentId,
                  @ordinal, 0, 'pending');
             """;
-        cmd.Parameters.AddWithValue("@id",        workId.ToString());
+        cmd.Parameters.AddWithValue("@id",        GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
-        cmd.Parameters.AddWithValue("@parentId",  parentWorkId.ToString());
+        cmd.Parameters.AddWithValue("@parentId",  GuidSql.ToBlob(parentWorkId));
         cmd.Parameters.AddWithValue("@ordinal",   (object?)ordinal ?? DBNull.Value);
         cmd.ExecuteNonQuery();
 
@@ -240,7 +240,7 @@ public sealed class WorkRepository : IWorkRepository
             VALUES
                 (@id, NULL, @mediaType, 'standalone', 0, 'pending');
             """;
-        cmd.Parameters.AddWithValue("@id",        workId.ToString());
+        cmd.Parameters.AddWithValue("@id",        GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
         cmd.ExecuteNonQuery();
 
@@ -274,9 +274,9 @@ public sealed class WorkRepository : IWorkRepository
                  @ordinal, 1, @ids, 'pending',
                  'Unowned');
             """;
-        cmd.Parameters.AddWithValue("@id",        workId.ToString());
+        cmd.Parameters.AddWithValue("@id",        GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
-        cmd.Parameters.AddWithValue("@parentId",  parentWorkId.ToString());
+        cmd.Parameters.AddWithValue("@parentId",  GuidSql.ToBlob(parentWorkId));
         cmd.Parameters.AddWithValue("@ordinal",   (object?)ordinal ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@ids",       (object?)idsJson ?? DBNull.Value);
         cmd.ExecuteNonQuery();
@@ -301,7 +301,7 @@ public sealed class WorkRepository : IWorkRepository
             WHERE  id              = @id
               AND  work_kind       = 'catalog';
             """;
-        cmd.Parameters.AddWithValue("@id", workId.ToString());
+        cmd.Parameters.AddWithValue("@id", GuidSql.ToBlob(workId));
         var rows = cmd.ExecuteNonQuery();
 
         if (rows > 0)
@@ -331,7 +331,7 @@ public sealed class WorkRepository : IWorkRepository
         {
             read.Transaction = tx;
             read.CommandText = "SELECT external_identifiers FROM works WHERE id = @id;";
-            read.Parameters.AddWithValue("@id", workId.ToString());
+            read.Parameters.AddWithValue("@id", GuidSql.ToBlob(workId));
             currentJson = read.ExecuteScalar() as string;
         }
 
@@ -372,7 +372,7 @@ public sealed class WorkRepository : IWorkRepository
                 SET    external_identifiers = @json
                 WHERE  id                   = @id;
                 """;
-            write.Parameters.AddWithValue("@id",   workId.ToString());
+            write.Parameters.AddWithValue("@id",   GuidSql.ToBlob(workId));
             write.Parameters.AddWithValue("@json", newJson);
             write.ExecuteNonQuery();
         }
@@ -411,7 +411,7 @@ public sealed class WorkRepository : IWorkRepository
             """;
 
         using var conn = _db.CreateConnection();
-        var row = conn.QueryFirstOrDefault<LineageRow>(sql, new { assetId = assetId.ToString() });
+        var row = conn.QueryFirstOrDefault<LineageRow>(sql, new { assetId });
         if (row is null)
             return Task.FromResult<WorkLineage?>(null);
 
@@ -425,11 +425,11 @@ public sealed class WorkRepository : IWorkRepository
             : MediaType.Unknown;
 
         var lineage = new WorkLineage(
-            AssetId:          Guid.Parse(row.AssetId),
-            EditionId:        Guid.Parse(row.EditionId),
-            WorkId:           Guid.Parse(row.WorkId),
-            ParentWorkId:     string.IsNullOrEmpty(row.ParentWorkId) ? null : Guid.Parse(row.ParentWorkId),
-            RootParentWorkId: Guid.Parse(row.RootParentWorkId),
+            AssetId:          row.AssetId,
+            EditionId:        row.EditionId,
+            WorkId:           row.WorkId,
+            ParentWorkId:     row.ParentWorkId,
+            RootParentWorkId: row.RootParentWorkId,
             WorkKind:         workKind,
             MediaType:        mediaType);
 
@@ -438,11 +438,11 @@ public sealed class WorkRepository : IWorkRepository
 
     private sealed class LineageRow
     {
-        public string AssetId          { get; set; } = string.Empty;
-        public string EditionId        { get; set; } = string.Empty;
-        public string WorkId           { get; set; } = string.Empty;
-        public string? ParentWorkId    { get; set; }
-        public string RootParentWorkId { get; set; } = string.Empty;
+        public Guid AssetId            { get; set; }
+        public Guid EditionId          { get; set; }
+        public Guid WorkId             { get; set; }
+        public Guid? ParentWorkId      { get; set; }
+        public Guid RootParentWorkId   { get; set; }
         public string WorkKind         { get; set; } = string.Empty;
         public string MediaType        { get; set; } = string.Empty;
     }

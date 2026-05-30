@@ -32,7 +32,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
             FROM profile_external_logins
             WHERE profile_id = @profileId
             ORDER BY linked_at ASC;
-            """, new { profileId = profileId.ToString() }).AsList();
+            """, new { profileId }).AsList();
 
         return Task.FromResult<IReadOnlyList<ProfileExternalLogin>>(rows.Select(MapRow).ToList());
     }
@@ -76,8 +76,8 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
                 (@id, @profileId, @provider, @subject, @email, @displayName, @linkedAt, @lastLoginAt);
             """, new
         {
-            id = login.Id.ToString(),
-            profileId = login.ProfileId.ToString(),
+            id = login.Id,
+            profileId = login.ProfileId,
             provider = login.Provider,
             subject = login.Subject,
             email = login.Email,
@@ -94,7 +94,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var rows = conn.Execute("DELETE FROM profile_external_logins WHERE id = @id;", new { id = id.ToString() });
+        var rows = conn.Execute("DELETE FROM profile_external_logins WHERE id = @id;", new { id });
         return Task.FromResult(rows > 0);
     }
 
@@ -107,15 +107,15 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
             UPDATE profile_external_logins
             SET last_login_at = @lastLoginAt
             WHERE id = @id;
-            """, new { id = id.ToString(), lastLoginAt = lastLoginAt.ToString("O") });
+            """, new { id, lastLoginAt = lastLoginAt.ToString("O") });
 
         return Task.FromResult(rows > 0);
     }
 
     private sealed class ProfileExternalLoginRow
     {
-        public string Id { get; set; } = string.Empty;
-        public string ProfileId { get; set; } = string.Empty;
+        public Guid Id { get; set; }
+        public Guid ProfileId { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
         public string? Email { get; set; }
@@ -126,8 +126,8 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
 
     private static ProfileExternalLogin MapRow(ProfileExternalLoginRow row) => new()
     {
-        Id = Guid.Parse(row.Id),
-        ProfileId = Guid.Parse(row.ProfileId),
+        Id = row.Id,
+        ProfileId = row.ProfileId,
         Provider = row.Provider,
         Subject = row.Subject,
         Email = row.Email,

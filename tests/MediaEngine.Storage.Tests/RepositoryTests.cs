@@ -187,7 +187,7 @@ public sealed class RepositoryTests : IDisposable
         {
             await conn.ExecuteAsync(
                 "DELETE FROM metadata_providers WHERE id = @id;",
-                new { id = WellKnownProviders.UserManual.ToString() });
+                new { id = WellKnownProviders.UserManual });
         }
 
         var repo = new MetadataClaimRepository(_db);
@@ -204,7 +204,7 @@ public sealed class RepositoryTests : IDisposable
         using var verifyConn = _db.CreateConnection();
         var providerCount = await verifyConn.ExecuteScalarAsync<long>(
             "SELECT COUNT(1) FROM metadata_providers WHERE id = @id;",
-            new { id = WellKnownProviders.UserManual.ToString() });
+            new { id = WellKnownProviders.UserManual });
         Assert.Equal(1, providerCount);
     }
 
@@ -263,15 +263,15 @@ public sealed class RepositoryTests : IDisposable
             new CanonicalValue
             {
                 EntityId = first,
-                Key = "genre",
-                Value = "Science Fiction",
+            Key = "title",
+            Value = "Dune",
                 LastScoredAt = DateTimeOffset.UtcNow,
             },
             new CanonicalValue
             {
                 EntityId = second,
-                Key = "genre",
-                Value = "Fantasy",
+            Key = "title",
+            Value = "Foundation",
                 LastScoredAt = DateTimeOffset.UtcNow,
             },
             new CanonicalValue
@@ -283,11 +283,11 @@ public sealed class RepositoryTests : IDisposable
             },
         ]);
 
-        var values = await repo.FindByKeyAndPrefixAsync("genre", "");
+        var values = await repo.FindByKeyAndPrefixAsync("title", "");
 
         Assert.Equal(2, values.Count);
-        Assert.Contains(values, item => item.EntityId == first && item.Value == "Science Fiction");
-        Assert.Contains(values, item => item.EntityId == second && item.Value == "Fantasy");
+        Assert.Contains(values, item => item.EntityId == first && item.Value == "Dune");
+        Assert.Contains(values, item => item.EntityId == second && item.Value == "Foundation");
         Assert.DoesNotContain(values, item => item.EntityId == otherKey);
     }
 
@@ -565,9 +565,9 @@ public sealed class RepositoryTests : IDisposable
                 SET attempt_count = 5,
                     updated_at = @updatedAt
                 WHERE id = @id;
-                """;
+            """;
             cmd.Parameters.AddWithValue("@updatedAt", DateTimeOffset.UtcNow.AddMinutes(-10).ToString("O"));
-            cmd.Parameters.AddWithValue("@id", job.Id.ToString());
+            cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(job.Id);
             cmd.ExecuteNonQuery();
         }
 
@@ -724,13 +724,13 @@ public sealed class RepositoryTests : IDisposable
         var workId    = Guid.NewGuid();
         var editionId = Guid.NewGuid();
 
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"""
-            INSERT INTO collections (id, created_at) VALUES ('{collectionId}', datetime('now'));
-            INSERT INTO works (id, collection_id, media_type) VALUES ('{workId}', '{collectionId}', 'Epub');
-            INSERT INTO editions (id, work_id) VALUES ('{editionId}', '{workId}');
-            """;
-        await cmd.ExecuteNonQueryAsync();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO collections (id, created_at) VALUES (@collectionId, datetime('now'));
+            INSERT INTO works (id, collection_id, media_type) VALUES (@workId, @collectionId, 'Epub');
+            INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
+            """,
+            new { collectionId, workId, editionId });
         return editionId;
     }
 
@@ -743,8 +743,9 @@ public sealed class RepositoryTests : IDisposable
         using var conn = _db.CreateConnection();
         var providerId = Guid.NewGuid();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"INSERT INTO metadata_providers (id, name, version) VALUES ('{providerId}', 'test-provider-{providerId:N}', '1.0')";
-        await cmd.ExecuteNonQueryAsync();
+        await conn.ExecuteAsync(
+            "INSERT INTO metadata_providers (id, name, version) VALUES (@id, @name, '1.0')",
+            new { id = providerId, name = $"test-provider-{providerId:N}" });
         return providerId;
     }
 }
