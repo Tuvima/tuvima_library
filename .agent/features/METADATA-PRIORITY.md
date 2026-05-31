@@ -55,7 +55,7 @@ On the **Curator's Drawer** (accessible from Server Settings), the user can:
 | MBR-04 | A field is "Conflicted" when the runner-up's score is within 5% of the winner's. | Intelligence (ConflictResolver, epsilon = 0.05) |
 | MBR-05 | User-locked Claims always win (confidence = 1.0, immune to re-scoring). | Intelligence (ScoringEngine) |
 | MBR-06 | The auto-link threshold is 0.85 — files scoring below this are not auto-organised. | Intelligence (ScoringConfiguration) |
-| MBR-07 | Provider enable/disable is a runtime toggle — no restart required. | Engine (SettingsEndpoints + ManifestParser) |
+| MBR-07 | Provider enable/disable is a runtime toggle — no restart required. | Engine (SettingsEndpoints + ConfigurationDirectoryLoader) |
 | MBR-08 | Adding a new provider requires only a manifest entry and a single new class — no existing code changes. | Architecture (IExternalMetadataProvider interface) |
 | MBR-09 | Providers are never in the critical path — a failed network call returns empty Claims. The file stays in the library with its local metadata. | Ingestion (harvest queue design) |
 | MBR-10 | Only titles, authors, and ASINs are sent to external services — no personal data or usage telemetry. | Architecture (provider adapter contracts) |

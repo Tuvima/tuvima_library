@@ -103,51 +103,6 @@ public sealed class DatabaseStartupSafetyTests
     }
 
     [Fact]
-    public void Open_RejectsLegacyTextGuidDatabaseWithoutResetFlag()
-    {
-        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"tuvima_legacy_{Guid.NewGuid():N}.db");
-        try
-        {
-            CreateLegacyTextGuidDatabase(path);
-
-            using var database = new DatabaseConnection(path);
-            var ex = Assert.Throws<InvalidOperationException>(() => database.Open());
-            Assert.Contains("guid-blob-v1", ex.Message);
-            Assert.Contains("TUVIMA_STORAGE_RESET", ex.Message);
-        }
-        finally
-        {
-            TryDelete(path);
-        }
-    }
-
-    [Fact]
-    public void Open_WithResetFlagRenamesLegacyTextGuidDatabase()
-    {
-        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"tuvima_legacy_reset_{Guid.NewGuid():N}.db");
-        var previous = Environment.GetEnvironmentVariable("TUVIMA_STORAGE_RESET");
-        try
-        {
-            CreateLegacyTextGuidDatabase(path);
-            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", "1");
-
-            using var database = new DatabaseConnection(path);
-            database.Open();
-            database.InitializeSchema();
-
-            Assert.True(File.Exists(path));
-            Assert.NotEmpty(Directory.GetFiles(System.IO.Path.GetDirectoryName(path)!, $"{System.IO.Path.GetFileName(path)}.legacy-text-guid.*.bak"));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", previous);
-            TryDelete(path);
-            foreach (var backup in Directory.GetFiles(System.IO.Path.GetTempPath(), $"{System.IO.Path.GetFileName(path)}.legacy-text-guid.*.bak"))
-                TryDelete(backup);
-        }
-    }
-
-    [Fact]
     public async Task CanonicalValueRepository_KeepsMultiValuedKeysOutOfScalarTable()
     {
         using var fixture = TempDatabase.Create();

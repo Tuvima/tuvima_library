@@ -29,26 +29,10 @@ namespace MediaEngine.Storage;
 /// </code>
 /// </para>
 ///
-/// <para>
-/// <b>Initialization order:</b>
-/// <list type="number">
-/// <item>If the config directory already exists, it is used as-is.</item>
-/// <item>If the config directory does not exist but a legacy
-///       manifest file is found, it is automatically split into the
-///       directory structure and renamed to <c>.migrated</c>.</item>
-/// <item>If neither exists (first run), a default directory is created
-///       with sensible defaults for all configuration files.</item>
-/// </list>
-/// </para>
-///
-/// <para>
-/// Implements both <see cref="IConfigurationLoader"/> (granular access)
-/// and <see cref="IStorageManifest"/> (backward compatibility). The
-/// <see cref="IStorageManifest.Load"/> method assembles all individual
-/// files into a composite <see cref="LegacyManifest"/>.
-/// </para>
+/// <para>If the config directory does not exist, a default directory is created
+/// with sensible defaults for all configuration files.</para>
 /// </summary>
-public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorageManifest, IDisposable
+public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -58,7 +42,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     };
 
     private readonly string  _configDir;
-    private readonly string? _legacyManifestPath;
     private readonly object _reloadLock = new();
     private readonly Dictionary<string, object> _lastKnownGood = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Timer> _reloadTimers = new(StringComparer.OrdinalIgnoreCase);
@@ -83,32 +66,15 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
-    /// <summary>
-    /// Maps legacy <c>provider_endpoints</c> keys to the provider names that
-    /// should receive them during migration from a legacy manifest file.
-    /// </summary>
-    private static readonly Dictionary<string, string[]> EndpointToProviders = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["apple_api"]       = ["apple_api"],
-        ["wikidata_api"]    = ["wikidata"],
-        ["wikidata_sparql"] = ["wikidata"],
-    };
-
     // ── Constructor ───────────────────────────────────────────────────────────
 
     /// <param name="configDirectoryPath">
     /// Root directory for all configuration files (e.g. <c>"config"</c>).
     /// </param>
-    /// <param name="legacyManifestPath">
-    /// Optional path to a legacy manifest file.
-    /// If the config directory does not exist and the legacy file is found,
-    /// an automatic migration is performed.
-    /// </param>
-    public ConfigurationDirectoryLoader(string configDirectoryPath, string? legacyManifestPath = null)
+    public ConfigurationDirectoryLoader(string configDirectoryPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configDirectoryPath);
-        _configDir          = configDirectoryPath;
-        _legacyManifestPath = legacyManifestPath;
+        _configDir = configDirectoryPath;
 
         EnsureInitialized();
     }
@@ -135,97 +101,8 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    //  IStorageManifest — Backward Compatibility
+    //  Current multi-file configuration loading
     // ═══════════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Assembles all individual configuration files into a composite
-    /// <see cref="LegacyManifest"/>. Existing consumers that depend
-    /// on the monolithic manifest shape continue to work unchanged.
-    /// </summary>
-    public LegacyManifest Load()
-    {
-        var core        = LoadCore();
-        var scoring     = LoadScoring();
-        var maintenance = LoadMaintenance();
-        var providers   = LoadAllProviders();
-
-        // Assemble provider bootstraps + composite endpoint map
-        var bootstraps = new List<ProviderBootstrap>(providers.Count);
-        var endpoints  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var p in providers)
-        {
-            bootstraps.Add(ToBootstrap(p));
-
-            // Merge all provider endpoints into the composite map.
-            // Keys are already in the composite format (e.g. "wikidata_sparql")
-            // because the individual files store them that way.
-            foreach (var (key, url) in p.Endpoints)
-            {
-                endpoints.TryAdd(key, url);
-            }
-        }
-
-        return new LegacyManifest
-        {
-            SchemaVersion          = core.SchemaVersion,
-            DatabasePath           = core.DatabasePath,
-            DataRoot               = core.DataRoot,
-            WatchDirectory         = core.EffectiveWatchDirectories.FirstOrDefault() ?? string.Empty,
-            LibraryRoot            = core.LibraryRoot,
-            OrganizationTemplate   = core.OrganizationTemplate,
-            Providers              = bootstraps,
-            Scoring                = scoring,
-            Maintenance            = maintenance,
-            ProviderEndpoints      = endpoints,
-            // WikidataPropertyMap overrides are no longer stored here;
-            // they live in the universe config. Return empty for compat.
-            WikidataPropertyMap    = [],
-        };
-    }
-
-    /// <summary>
-    /// Distributes a composite <see cref="LegacyManifest"/> back into
-    /// individual configuration files. Used by legacy consumers that still call
-    /// <see cref="IStorageManifest.Save"/>.
-    /// </summary>
-    public void Save(LegacyManifest manifest)
-    {
-        ArgumentNullException.ThrowIfNull(manifest);
-
-        SaveCore(new CoreConfiguration
-        {
-            SchemaVersion        = manifest.SchemaVersion,
-            DatabasePath         = manifest.DatabasePath,
-            DataRoot             = manifest.DataRoot,
-            WatchDirectories     = string.IsNullOrWhiteSpace(manifest.WatchDirectory)
-                ? []
-                : [manifest.WatchDirectory],
-            LibraryRoot          = manifest.LibraryRoot,
-            OrganizationTemplate = manifest.OrganizationTemplate,
-        });
-
-        SaveScoring(manifest.Scoring);
-        SaveMaintenance(manifest.Maintenance);
-
-        // Distribute endpoints to matching provider configs.
-        var endpointsByProvider = DistributeEndpoints(manifest.ProviderEndpoints);
-
-        foreach (var bootstrap in manifest.Providers)
-        {
-            var providerConfig = FromBootstrap(bootstrap);
-
-            // Merge distributed endpoints into this provider's config.
-            if (endpointsByProvider.TryGetValue(bootstrap.Name, out var provEndpoints))
-            {
-                foreach (var (key, url) in provEndpoints)
-                    providerConfig.Endpoints.TryAdd(key, url);
-            }
-
-            SaveProvider(providerConfig);
-        }
-    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     //  IConfigurationLoader — Granular Access
@@ -389,10 +266,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         if (!Directory.Exists(dir))
             return [];
 
-        // Auto-migrate: if old split Apple Books configs exist but merged one does not,
-        // create the merged config and rename old files.
-        MigrateAppleBooksIfNeeded(dir);
-
         var results = new List<ProviderConfiguration>();
         foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
         {
@@ -453,59 +326,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         {
             // Silently skip malformed secrets files
         }
-    }
-
-    /// <summary>
-    /// If old split Apple Books configs (apple_books_ebook.json, apple_books_audiobook.json) exist
-    /// but the merged apple_api.json does not, creates the merged config and renames old files.
-    /// </summary>
-    private static void MigrateAppleBooksIfNeeded(string providerDir)
-    {
-        var mergedPath   = Path.Combine(providerDir, "apple_api.json");
-        var ebookPath    = Path.Combine(providerDir, "apple_books_ebook.json");
-        var audiobookPath = Path.Combine(providerDir, "apple_books_audiobook.json");
-
-        if (File.Exists(mergedPath))
-            return; // Already migrated
-
-        if (!File.Exists(ebookPath) && !File.Exists(audiobookPath))
-            return; // Nothing to migrate
-
-        // Write the merged config with media-type-scoped strategies.
-        var merged = new ProviderConfiguration
-        {
-            Name           = "apple_api",
-            Version        = "2.0",
-            Enabled        = true,
-            Weight         = 0.7,
-            Domain         = ProviderDomain.Universal,
-            DisplayName    = "Apple API",
-            AdapterType    = "config_driven",
-            ProviderId     = WellKnownProviders.AppleApi.ToString(),
-            CapabilityTags = ["cover", "title", "author", "description", "genre"],
-            AvailableFields = ["title", "author", "cover", "description", "genre", "rating", "apple_books_id"],
-            FieldWeights   = new() { ["cover"] = 0.85, ["title"] = 0.7, ["author"] = 0.7, ["description"] = 0.85, ["genre"] = 0.7, ["rating"] = 0.7 },
-            Endpoints      = new() { ["api"] = "https://itunes.apple.com" },
-            ThrottleMs     = 300,
-            MaxConcurrency = 1,
-            HydrationStages = [1],
-            CanHandle      = new() { MediaTypes = ["Books", "Audiobooks"], EntityTypes = ["Work", "MediaAsset"] },
-            HttpClient     = new() { TimeoutSeconds = 10 },
-        };
-
-        var json = JsonSerializer.Serialize(merged, new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-        });
-        File.WriteAllText(mergedPath, json);
-
-        // Rename old files so they are no longer loaded.
-        if (File.Exists(ebookPath))
-            File.Move(ebookPath, ebookPath + ".migrated", overwrite: true);
-        if (File.Exists(audiobookPath))
-            File.Move(audiobookPath, audiobookPath + ".migrated", overwrite: true);
     }
 
     /// <inheritdoc/>
@@ -757,90 +577,8 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         if (Directory.Exists(_configDir))
             return; // Already initialized
 
-        // Try legacy migration
-        if (_legacyManifestPath is not null && File.Exists(_legacyManifestPath))
-        {
-            MigrateFromLegacy(_legacyManifestPath);
-            return;
-        }
-
         // First run — create defaults
         CreateDefaultDirectory();
-    }
-
-    /// <summary>
-    /// Splits a legacy manifest file into the multi-file
-    /// directory structure. Renames the legacy file to <c>.migrated</c>
-    /// after successful migration.
-    /// </summary>
-    private void MigrateFromLegacy(string legacyPath)
-    {
-        LegacyManifest? manifest = null;
-        try
-        {
-            var json = File.ReadAllText(legacyPath);
-            manifest = JsonSerializer.Deserialize<LegacyManifest>(json, JsonOptions);
-        }
-        catch { /* Fall through to create defaults */ }
-
-        if (manifest is null)
-        {
-            CreateDefaultDirectory();
-            return;
-        }
-
-        // Create the directory structure
-        Directory.CreateDirectory(_configDir);
-        Directory.CreateDirectory(Path.Combine(_configDir, ProvidersSubdir));
-
-        // Write core config
-        SaveCore(new CoreConfiguration
-        {
-            SchemaVersion        = manifest.SchemaVersion,
-            DatabasePath         = manifest.DatabasePath,
-            DataRoot             = manifest.DataRoot,
-            WatchDirectories     = string.IsNullOrWhiteSpace(manifest.WatchDirectory)
-                ? []
-                : [manifest.WatchDirectory],
-            LibraryRoot          = manifest.LibraryRoot,
-            OrganizationTemplate = manifest.OrganizationTemplate,
-        });
-
-        // Write scoring and maintenance as-is
-        SaveScoring(manifest.Scoring);
-        SaveMaintenance(manifest.Maintenance);
-
-        // Distribute endpoints to providers
-        var endpointsByProvider = DistributeEndpoints(manifest.ProviderEndpoints);
-
-        // Write individual provider configs
-        foreach (var bootstrap in manifest.Providers)
-        {
-            var providerConfig = FromBootstrap(bootstrap);
-
-            // Apply rate limit defaults based on known provider behaviour
-            providerConfig.ThrottleMs     = GetDefaultThrottleMs(bootstrap.Name);
-            providerConfig.MaxConcurrency = GetDefaultMaxConcurrency(bootstrap.Name);
-
-            // Merge distributed endpoints
-            if (endpointsByProvider.TryGetValue(bootstrap.Name, out var provEndpoints))
-            {
-                foreach (var (key, url) in provEndpoints)
-                    providerConfig.Endpoints.TryAdd(key, url);
-            }
-
-            SaveProvider(providerConfig);
-        }
-
-        // Rename legacy file to .migrated
-        try
-        {
-            var migratedPath = legacyPath + ".migrated";
-            if (File.Exists(migratedPath))
-                File.Delete(migratedPath);
-            File.Move(legacyPath, migratedPath);
-        }
-        catch { /* Best-effort rename */ }
     }
 
     /// <summary>
@@ -1070,86 +808,13 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     //  Conversion Helpers — ProviderBootstrap ↔ ProviderConfiguration
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// <summary>Convert a <see cref="ProviderConfiguration"/> to a legacy <see cref="ProviderBootstrap"/>.</summary>
-    private static ProviderBootstrap ToBootstrap(ProviderConfiguration config) => new()
-    {
-        Name           = config.Name,
-        Version        = config.Version,
-        Enabled        = config.Enabled,
-        Weight         = config.Weight,
-        Domain         = config.Domain,
-        CapabilityTags = [.. config.CapabilityTags],
-        FieldWeights   = new(config.FieldWeights),
-    };
-
-    /// <summary>Convert a legacy <see cref="ProviderBootstrap"/> to a <see cref="ProviderConfiguration"/>.</summary>
-    private static ProviderConfiguration FromBootstrap(ProviderBootstrap bootstrap) => new()
-    {
-        Name           = bootstrap.Name,
-        Version        = bootstrap.Version,
-        Enabled        = bootstrap.Enabled,
-        Weight         = bootstrap.Weight,
-        Domain         = bootstrap.Domain,
-        CapabilityTags = [.. bootstrap.CapabilityTags],
-        FieldWeights   = new(bootstrap.FieldWeights),
-    };
-
     // ═══════════════════════════════════════════════════════════════════════════
     //  Endpoint Distribution
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Distributes a composite <c>provider_endpoints</c> dictionary into
-    /// per-provider endpoint dictionaries using the known mapping.
-    /// </summary>
-    private static Dictionary<string, Dictionary<string, string>> DistributeEndpoints(
-        Dictionary<string, string> compositeEndpoints)
-    {
-        var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var (endpointKey, url) in compositeEndpoints)
-        {
-            if (EndpointToProviders.TryGetValue(endpointKey, out var providerNames))
-            {
-                foreach (var providerName in providerNames)
-                {
-                    if (!result.TryGetValue(providerName, out var dict))
-                    {
-                        dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        result[providerName] = dict;
-                    }
-                    dict.TryAdd(endpointKey, url);
-                }
-            }
-        }
-
-        return result;
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     //  Default Rate Limits — Known Provider Behaviour
     // ═══════════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Returns the default throttle delay for a known provider name.
-    /// Previously hard-coded in adapter classes; now a configuration default.
-    /// </summary>
-    private static int GetDefaultThrottleMs(string providerName) => providerName switch
-    {
-        "apple_api"             => 300,
-        "wikidata"              => 1100,  // Wikidata 1 req/sec policy
-        _                      => 0,     // No throttle by default
-    };
-
-    /// <summary>
-    /// Returns the default max concurrency for a known provider name.
-    /// Most providers default to serial (1); override for providers that
-    /// allow parallel calls.
-    /// </summary>
-    private static int GetDefaultMaxConcurrency(string providerName) => providerName switch
-    {
-        _ => 1, // All providers default to serial
-    };
 
     public void Dispose()
     {

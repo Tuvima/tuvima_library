@@ -69,14 +69,13 @@ The Engine is configured with one or more **Library Folders**, each declaring:
 |---|---|
 | `category` | The content category: Books, TV, Movies, Music, Comics |
 | `media_types` | The expected media types within this folder (e.g. `["Epub", "Audiobook"]`) |
-| `source_path` | The folder the Engine monitors or imports from |
-| `source_paths` | Optional multi-path form for multiple folders in one logical library |
+| `source_paths` | Required paths the Engine monitors or imports for one logical library |
 | `library_root` | The destination root where organised files are placed |
 | `intake_mode` | `watch` (ongoing monitoring) or `import` (one-time scan) |
 | `import_action` | For import mode only: `move` or `copy` |
 | `include_subdirectories` | Whether to scan nested folders within the source path |
 
-Configuration lives in `config/libraries.json`. Normal runtime ingestion requires these library entries; the old single `WatchDirectory` value is no longer a fallback source for watched/imported folders. `WatchDirectory` may still be exposed as a derived first-source compatibility value after `config/libraries.json` has loaded.
+Configuration lives in `config/libraries.json`. Normal runtime ingestion requires `source_paths`; the old single `WatchDirectory` and `source_path` config shapes are no longer accepted.
 
 File watching is source-folder aware. A flush that contains files from one source records that source path on the ingestion batch; a flush that spans more than one source records `Multiple source folders`. Watcher noise is buffered for `Ingestion:FswQuietPeriodSeconds` seconds, defaulting to 30 seconds, before the batch is released to the debounce queue.
 
@@ -86,14 +85,14 @@ File watching is source-folder aware. A flush that contains files from one sourc
     {
       "category": "Movies",
       "media_types": ["Movies"],
-      "source_path": "/media/downloads/movies",
+      "source_paths": ["/media/downloads/movies"],
       "library_root": "/media/library",
       "intake_mode": "watch"
     },
     {
       "category": "Books",
       "media_types": ["Epub", "Audiobook"],
-      "source_path": "/media/existing-books",
+      "source_paths": ["/media/existing-books"],
       "library_root": "/media/library",
       "intake_mode": "import",
       "import_action": "copy"

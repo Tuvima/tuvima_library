@@ -148,58 +148,6 @@ public static partial class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // -- PATCH /metadata/resolve (legacy) ---------------------------------
-        group.MapMethods("/resolve", ["PATCH"], (
-            ResolveRequest request,
-            IDatabaseConnection db,
-            ITransactionJournal journal,
-            CancellationToken ct) =>
-        {
-            ct.ThrowIfCancellationRequested();
-
-            if (string.IsNullOrWhiteSpace(request.ClaimKey))
-                return Results.BadRequest("claim_key must not be empty.");
-
-            if (string.IsNullOrWhiteSpace(request.ChosenValue))
-                return Results.BadRequest("chosen_value must not be empty.");
-
-            var resolvedAt = DateTimeOffset.UtcNow;
-
-            using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                INSERT INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted)
-                VALUES (@entity_id, @key, @value, @last_scored_at, 0)
-                ON CONFLICT(entity_id, key) DO UPDATE SET
-                    value          = excluded.value,
-                    last_scored_at = excluded.last_scored_at,
-                    is_conflicted  = 0;
-                """;
-            cmd.Parameters.AddWithValue("@entity_id",      request.EntityId.ToString());
-            cmd.Parameters.AddWithValue("@key",            request.ClaimKey);
-            cmd.Parameters.AddWithValue("@value",          request.ChosenValue);
-            cmd.Parameters.AddWithValue("@last_scored_at", resolvedAt.ToString("O"));
-            cmd.ExecuteNonQuery();
-
-            journal.Log(
-                "CANONICAL_VALUE_MANUAL_RESOLVE",
-                "CanonicalValue",
-                request.EntityId.ToString());
-
-            return Results.Ok(new ResolveResponse
-            {
-                EntityId    = request.EntityId,
-                ClaimKey    = request.ClaimKey,
-                ChosenValue = request.ChosenValue,
-                ResolvedAt  = resolvedAt,
-            });
-        })
-        .WithName("ResolveMetadataConflict")
-        .WithSummary("Manually override a metadata canonical value, locking in the chosen value.")
-        .Produces<ResolveResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
-
         // -- POST /metadata/hydrate/{entityId} -----------------------------
         group.MapPost("/hydrate/{entityId:guid}", async (
             Guid entityId,
@@ -1341,13 +1289,13 @@ public static partial class MetadataEndpoints
             string? title,
             string? isbn,
             IHttpClientFactory httpFactory,
-            IStorageManifest configLoader,
+            IConfigurationLoader configLoader,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(isbn))
                 return Results.BadRequest(new { error = "Provide ?title= or ?isbn= query parameter." });
 
-            var provConfigs = ((Storage.ConfigurationDirectoryLoader)configLoader).LoadAllProviders();
+            var provConfigs = configLoader.LoadAllProviders();
             var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var pc in provConfigs)
                 foreach (var (key, url) in pc.Endpoints)

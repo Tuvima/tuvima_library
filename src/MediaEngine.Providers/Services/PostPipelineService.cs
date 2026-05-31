@@ -141,8 +141,7 @@ public sealed class PostPipelineService
 
     /// <summary>
     /// Resolves review items that are no longer relevant because confidence has improved.
-    /// Handles RetailMatchFailed, AuthorityMatchFailed (legacy), ContentMatchFailed (legacy),
-    /// and LowConfidence triggers.
+    /// Handles current match failure, bridge failure, and LowConfidence triggers.
     /// </summary>
     private async Task TryAutoResolveStaleReviewItemsAsync(
         Guid entityId, double confidence, CancellationToken ct)
@@ -153,8 +152,6 @@ public sealed class PostPipelineService
         {
             nameof(ReviewTrigger.RetailMatchFailed),
             nameof(ReviewTrigger.RetailMatchAmbiguous),
-            nameof(ReviewTrigger.AuthorityMatchFailed),
-            nameof(ReviewTrigger.ContentMatchFailed),
             nameof(ReviewTrigger.LowConfidence),
             nameof(ReviewTrigger.WikidataBridgeFailed),
             nameof(ReviewTrigger.MissingQid),

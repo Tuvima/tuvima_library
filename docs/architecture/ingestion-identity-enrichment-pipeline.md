@@ -24,9 +24,9 @@ flowchart TD
 
 ## Stage 0: Local Ingestion
 
-Inputs come from `config/libraries.json`. Each library entry declares source paths, media type hints, read-only/writeback policy, and the source folders watched by the Engine. The ingestion options no longer use the old single `WatchDirectory` as a runtime fallback; `WatchDirectory` is only a derived first-source compatibility value after library folders are loaded.
+Inputs come from `config/libraries.json`. Each library entry declares `source_paths`, media type hints, read-only/writeback policy, and the source folders watched by the Engine. The ingestion options no longer use the old single `WatchDirectory` or `source_path` config shapes as runtime fallbacks.
 
-The file watcher and polling safety net both feed the debounce queue. Polling is intentional, not legacy: it catches missed filesystem events and now sweeps every configured source folder, not only the first compatibility `WatchDirectory`. The watcher buffers filesystem noise for the configured quiet period before creating a batch; unchanged same-path events are suppressed by file fingerprint, while changed or replaced files at the same path can be queued again. The pipeline skips engine-owned hidden state such as `.data`.
+The file watcher and polling safety net both feed the debounce queue. Polling is intentional, not legacy: it catches missed filesystem events and sweeps every configured source folder. The watcher buffers filesystem noise for the configured quiet period before creating a batch; unchanged same-path events are suppressed by file fingerprint, while changed or replaced files at the same path can be queued again. The pipeline skips engine-owned hidden state such as `.data`.
 
 Stage 0 creates or updates:
 

@@ -24,10 +24,10 @@ public sealed class WikidataBridgeCandidate
     /// <summary>Wikidata entity description.</summary>
     public string? Description { get; set; }
 
-    /// <summary>How this candidate was found: "bridge_id", "text_reconciliation", or "ai_disambiguation".</summary>
+    /// <summary>How this candidate was found: "bridge_id" or "ai_disambiguation".</summary>
     public string MatchedBy { get; set; } = "";
 
-    /// <summary>Which bridge ID type matched (e.g. "isbn_13", "tmdb_id"). Null for text reconciliation.</summary>
+    /// <summary>Which bridge ID type matched (e.g. "isbn_13", "tmdb_id").</summary>
     public string? BridgeIdType { get; set; }
 
     /// <summary>True if a strong bridge ID resolved directly to this entity.</summary>

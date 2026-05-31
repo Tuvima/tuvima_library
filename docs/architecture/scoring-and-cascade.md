@@ -230,7 +230,7 @@ Score blending: 85% composite (type-aware scoring) / 15% original Wikidata API s
 
 Stage 2 (Wikidata) requires bridge IDs from Stage 1 (retail). If Stage 1 produces no match:
 - The text-only Wikidata fallback is **removed** - no automatic text reconciliation bypass
-- The item routes directly to the review queue with `AuthorityMatchFailed`
+- The item routes directly to the review queue with `RetailMatchFailed`
 
 `ResolveBridgeAsync` sentinel guard: when only sentinel keys (`_title`, `_author`) are provided with no real bridge IDs, the text fallback is blocked and the item returns `NotFound`. Real bridge IDs that were attempted and failed still allow text reconciliation as a last resort.
 

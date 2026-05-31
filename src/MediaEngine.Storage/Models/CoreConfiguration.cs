@@ -93,11 +93,8 @@ public sealed class CoreConfiguration
 
     /// <summary>
     /// Structured language preferences for UI display, metadata, and content languages.
-    /// Backward compatible: deserialises from both <c>"language": "en"</c> (legacy)
-    /// and the structured object format.
     /// </summary>
     [JsonPropertyName("language")]
-    [JsonConverter(typeof(LanguagePreferencesConverter))]
     public LanguagePreferences Language { get; set; } = new();
 
     /// <summary>
@@ -175,8 +172,6 @@ public sealed class PluginCatalogSettings
 
 /// <summary>
 /// Structured language preferences supporting multi-language media libraries.
-/// Backward compatible: deserialises from both <c>"language": "en"</c> (legacy)
-/// and <c>"language": { "display": "en", ... }</c> (new format).
 /// </summary>
 public sealed class LanguagePreferences
 {
@@ -231,55 +226,3 @@ public sealed class LanguagePreferences
     }
 }
 
-/// <summary>
-/// Deserialises the <c>"language"</c> config key from either a plain string
-/// (<c>"en"</c>) or a structured object (<c>{ "display": "en", ... }</c>).
-/// Always serialises as the structured object.
-/// </summary>
-public sealed class LanguagePreferencesConverter : JsonConverter<LanguagePreferences>
-{
-    public override LanguagePreferences? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        if (reader.TokenType == JsonTokenType.String)
-        {
-            var lang = reader.GetString() ?? "en";
-            return new LanguagePreferences
-            {
-                Display = lang,
-                Metadata = lang,
-                Additional = [],
-                AcceptAny = true
-            };
-        }
-
-        if (reader.TokenType == JsonTokenType.StartObject)
-        {
-            // Manually deserialize to avoid re-entering this converter
-            var doc = JsonDocument.ParseValue(ref reader);
-            var root = doc.RootElement;
-            return new LanguagePreferences
-            {
-                Display    = root.TryGetProperty("display", out var d)    ? d.GetString() ?? "en" : "en",
-                Metadata   = root.TryGetProperty("metadata", out var m)   ? m.GetString() ?? "en" : "en",
-                Additional = root.TryGetProperty("additional", out var a) ? a.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToList() : [],
-                AcceptAny  = root.TryGetProperty("accept_any", out var aa) ? aa.GetBoolean() : true,
-            };
-        }
-
-        return new LanguagePreferences();
-    }
-
-    public override void Write(Utf8JsonWriter writer, LanguagePreferences value, JsonSerializerOptions options)
-    {
-        writer.WriteStartObject();
-        writer.WriteString("display", value.Display);
-        writer.WriteString("metadata", value.Metadata);
-        writer.WritePropertyName("additional");
-        writer.WriteStartArray();
-        foreach (var lang in value.Additional)
-            writer.WriteStringValue(lang);
-        writer.WriteEndArray();
-        writer.WriteBoolean("accept_any", value.AcceptAny);
-        writer.WriteEndObject();
-    }
-}

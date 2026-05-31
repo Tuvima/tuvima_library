@@ -52,7 +52,6 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
                 {
                     Category = "Movies",
                     MediaTypes = ["Movies"],
-                    SourcePath = @"C:\media\movies",
                     SourcePaths = [@"C:\media\movies", @"D:\media\movies"],
                     LibraryRoot = @"E:\Tuvima",
                     IntakeMode = "import",
@@ -68,7 +67,6 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
 
         Assert.Equal("Movies", roundTrip.Category);
         Assert.Equal(["Movies"], roundTrip.MediaTypes);
-        Assert.Equal(@"C:\media\movies", roundTrip.SourcePath);
         Assert.Equal([@"C:\media\movies", @"D:\media\movies"], roundTrip.SourcePaths);
         Assert.Equal(@"E:\Tuvima", roundTrip.LibraryRoot);
         Assert.Equal("import", roundTrip.IntakeMode);

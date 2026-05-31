@@ -1984,7 +1984,6 @@ public sealed class WorkerPipelineTests
             => Task.FromResult(_jobs.Count(j =>
                 j.State != IdentityJobState.Ready.ToString() &&
                 j.State != IdentityJobState.ReadyWithoutUniverse.ToString() &&
-                j.State != IdentityJobState.Completed.ToString() &&
                 j.State != IdentityJobState.Failed.ToString()));
     }
 

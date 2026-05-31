@@ -39,11 +39,11 @@ public static class IngestionEndpoints
             CancellationToken ct) =>
         {
             var rootPath = request?.RootPath
-                ?? opts.Value.WatchDirectory;
+                ?? opts.Value.EffectiveWatchDirectories.FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(rootPath))
                 return Results.BadRequest(
-                    "No root_path provided and Ingestion:WatchDirectory is not configured.");
+                    "No root_path provided and no library source path is configured.");
 
             if (!Directory.Exists(rootPath))
                 return Results.BadRequest($"Directory does not exist: {rootPath}");
@@ -114,7 +114,7 @@ public static class IngestionEndpoints
             CancellationToken ct) =>
         {
             var page = PagedRequest.From(offset, limit, defaultLimit: 100, maxLimit: 500);
-            var watchDir = opts.Value.WatchDirectory;
+            var watchDir = opts.Value.EffectiveWatchDirectories.FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(watchDir))
                 return Results.Ok(new { watch_directory = (string?)null, files = Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, has_more = false, next_cursor = (string?)null });
@@ -170,7 +170,7 @@ public static class IngestionEndpoints
             var watchDirs = opts.Value.EffectiveWatchDirectories;
             if (watchDirs.Count == 0)
                 return Results.BadRequest(
-                    "Watch directory is not configured. Set Ingestion:WatchDirectory first.");
+                    "No library source paths are configured.");
 
             var scanTargets = watchDirs
                 .Where(Directory.Exists)
@@ -347,14 +347,15 @@ public static class IngestionEndpoints
             var libraries = configLoader.LoadLibraries();
             var mediaTypes = configLoader.LoadMediaTypes();
             var watchFolder = libraries.Libraries
-                .FirstOrDefault(l => !string.IsNullOrWhiteSpace(l.SourcePath)
-                                     && Directory.Exists(l.SourcePath));
+                .SelectMany(l => l.SourcePaths)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .FirstOrDefault(Directory.Exists);
 
             if (watchFolder is null)
                 return Results.BadRequest("No watch folder configured.");
 
             var plan = UploadSafety.CreatePlan(
-                watchFolder.SourcePath,
+                watchFolder,
                 mediaType,
                 file.FileName,
                 file.Length,

@@ -356,7 +356,7 @@ public static class LibraryItemEndpoints
                 }
 
                 // Trigger Stage 2 (Wikidata bridge resolution) — retail is already done.
-                // The bridge worker will use any existing bridge IDs + text reconciliation.
+                // The bridge worker uses existing bridge IDs only for automatic resolution.
                 try
                 {
                     var pipelineResult = await pipeline.RunSynchronousAsync(new HarvestRequest
@@ -685,7 +685,7 @@ public static class LibraryItemEndpoints
             ISystemActivityRepository activityRepo,
             IReviewQueueRepository reviewRepo,
             IDatabaseConnection db,
-            IStorageManifest manifest,
+            IConfigurationLoader configLoader,
             IEventPublisher publisher,
             CancellationToken ct) =>
         {
@@ -746,7 +746,7 @@ public static class LibraryItemEndpoints
                 return Results.Problem("Invalid asset ID in database.");
 
             // Resolve the library root to build the .data/staging/rejected/ path.
-            var core = manifest.Load();
+            var core = configLoader.LoadCore();
             var libraryRoot = core.LibraryRoot;
             if (string.IsNullOrWhiteSpace(libraryRoot))
                 return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
@@ -1050,13 +1050,13 @@ public static class LibraryItemEndpoints
             BatchLibraryItemRequest request,
             IDatabaseConnection db,
             ISystemActivityRepository activityRepo,
-            IStorageManifest manifest,
+            IConfigurationLoader configLoader,
             CancellationToken ct) =>
         {
             if (request.EntityIds is null || request.EntityIds.Length == 0)
                 return Results.BadRequest("No entity IDs provided.");
 
-            var core = manifest.Load();
+            var core = configLoader.LoadCore();
             var libraryRoot = core.LibraryRoot;
             if (string.IsNullOrWhiteSpace(libraryRoot))
                 return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");

@@ -85,7 +85,7 @@ public sealed class IngestionLibraryRegistrationTests
                         {
                             Category = "Movies",
                             MediaTypes = ["Movies"],
-                            SourcePath = moviesPath,
+                            SourcePaths = [moviesPath],
                         },
                     ],
                 },

@@ -131,13 +131,7 @@ public enum HeroArtworkMode
     BackdropWithLogo = 0,
     BackdropWithRenderedTitle = 1,
     ArtworkFallback = 2,
-    Placeholder = 3,
-
-    [System.Obsolete("Use BackdropWithLogo or BackdropWithRenderedTitle.")]
-    Background = BackdropWithRenderedTitle,
-
-    [System.Obsolete("Use ArtworkFallback.")]
-    CoverFallback = ArtworkFallback
+    Placeholder = 3
 }
 
 public sealed class HeroBrandViewModel

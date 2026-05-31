@@ -18,9 +18,8 @@ namespace MediaEngine.Providers.Tests;
 /// (<c>WikidataBridgeWorker</c> → <c>ReconciliationAdapter.ReconcileBatchAsync</c>)
 /// produce identical top-K QIDs and scores for the same query inputs.
 ///
-/// Both paths must funnel through <see cref="ReconciliationAdapter"/>'s private
-/// <c>BuildTextReconciliationRequest</c> helper. If a future change introduces
-/// a divergent code path that bypasses the builder, these tests will fail.
+/// Manual search must stay separate from automatic bridge-ID resolution so
+/// title-only matches are never silently accepted by the pipeline.
 ///
 /// These tests require live network access and must never run in CI.
 /// Run locally with: dotnet test --filter "Category=Integration"

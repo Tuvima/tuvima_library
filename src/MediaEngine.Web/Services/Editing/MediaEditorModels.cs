@@ -101,7 +101,7 @@ public static class ReviewTargetResolver
         {
             return normalizedTrigger switch
             {
-                "RetailMatchFailed" or "RetailMatchAmbiguous" or "AuthorityMatchFailed" or "ContentMatchFailed" or "QidNoMatch" or "MissingQid" or "WikidataBridgeFailed" or "MultipleQidMatches"
+                "RetailMatchFailed" or "RetailMatchAmbiguous" or "QidNoMatch" or "MissingQid" or "WikidataBridgeFailed" or "MultipleQidMatches"
                     => new(initialTab, "album", "album", BuildSummary(intent, "album and artist"), intent, actionLabel),
                 _ => new(initialTab, "album", "album", BuildSummary(intent, "music"), intent, actionLabel),
             };
@@ -148,7 +148,7 @@ public static class ReviewTargetResolver
         trigger switch
         {
             "RetailMatchAmbiguous" => MediaEditorIdentityIntent.ConfirmRetailMatch,
-            "RetailMatchFailed" or "AuthorityMatchFailed" or "ContentMatchFailed" or "UserFixMatch"
+            "RetailMatchFailed" or "UserFixMatch"
                 => MediaEditorIdentityIntent.FixRetailMatch,
             "WikidataBridgeFailed" or "MultipleQidMatches" or "QidNoMatch"
                 => MediaEditorIdentityIntent.FixWikidataMatch,

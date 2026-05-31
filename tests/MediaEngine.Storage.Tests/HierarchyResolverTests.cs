@@ -70,111 +70,27 @@ public sealed class HierarchyResolverTests : IDisposable
     }
 
     [Fact]
-    public async Task Maintenance_RepairsLegacyTvEpisode_ToShowSeasonEpisodeHierarchy()
-    {
-        var episodeId = Guid.NewGuid();
-        var assetId = Guid.NewGuid();
-        InsertLegacyAssetBackedWork(
-            episodeId,
-            assetId,
-            "TV",
-            new Dictionary<string, string>
-            {
-                ["show_name"] = "Game of Thrones",
-                ["season_number"] = "1",
-                ["episode_number"] = "1",
-                ["episode_title"] = "Winter Is Coming",
-            });
-
-        var maintenance = new WorkHierarchyMaintenanceService(_db);
-        var result = await maintenance.RepairLegacyTvAndMusicAsync();
-
-        using var conn = _db.CreateConnection();
-        var row = conn.QuerySingle<(string WorkKind, string ParentWorkId, int Ordinal)>(
-            "SELECT work_kind AS WorkKind, parent_work_id AS ParentWorkId, ordinal AS Ordinal FROM works WHERE id = @id",
-            new { id = episodeId.ToString("D") });
-        var season = conn.QuerySingle<(string WorkKind, string ParentWorkId, int Ordinal)>(
-            "SELECT work_kind AS WorkKind, parent_work_id AS ParentWorkId, ordinal AS Ordinal FROM works WHERE id = @id",
-            new { id = row.ParentWorkId });
-        var show = conn.QuerySingle<(string WorkKind, string? ParentWorkId, string ParentKey)>(
-            "SELECT work_kind AS WorkKind, parent_work_id AS ParentWorkId, parent_key AS ParentKey FROM works WHERE id = @id",
-            new { id = season.ParentWorkId });
-
-        Assert.Equal(2, result.ParentsCreated);
-        Assert.Equal(1, result.ChildrenReparented);
-        Assert.Equal("child", row.WorkKind);
-        Assert.Equal(1, row.Ordinal);
-        Assert.Equal("parent", season.WorkKind);
-        Assert.Equal(1, season.Ordinal);
-        Assert.Equal("parent", show.WorkKind);
-        Assert.Null(show.ParentWorkId);
-        Assert.Equal("game of thrones", show.ParentKey);
-    }
-
-    [Fact]
-    public async Task Maintenance_RepairsLegacyMusicTrack_ToAlbumTrackHierarchy()
-    {
-        var trackId = Guid.NewGuid();
-        var assetId = Guid.NewGuid();
-        InsertLegacyAssetBackedWork(
-            trackId,
-            assetId,
-            "Music",
-            new Dictionary<string, string>
-            {
-                ["album"] = "OK Computer",
-                ["artist"] = "Radiohead",
-                ["track_number"] = "6",
-                ["title"] = "Karma Police",
-            });
-
-        var maintenance = new WorkHierarchyMaintenanceService(_db);
-        var result = await maintenance.RepairLegacyTvAndMusicAsync();
-
-        using var conn = _db.CreateConnection();
-        var row = conn.QuerySingle<(string WorkKind, string ParentWorkId, int Ordinal)>(
-            "SELECT work_kind AS WorkKind, parent_work_id AS ParentWorkId, ordinal AS Ordinal FROM works WHERE id = @id",
-            new { id = trackId.ToString("D") });
-        var album = conn.QuerySingle<(string WorkKind, string ParentKey)>(
-            "SELECT work_kind AS WorkKind, parent_key AS ParentKey FROM works WHERE id = @id",
-            new { id = row.ParentWorkId });
-
-        Assert.Equal(1, result.ParentsCreated);
-        Assert.Equal(1, result.ChildrenReparented);
-        Assert.Equal("child", row.WorkKind);
-        Assert.Equal(6, row.Ordinal);
-        Assert.Equal("parent", album.WorkKind);
-        Assert.Equal("radiohead|ok computer", album.ParentKey);
-    }
-
-    [Fact]
     public async Task Maintenance_RemovesEmptyAutoParentsAndDerivedArtwork_WhenLastChildDeleted()
     {
-        var episodeId = Guid.NewGuid();
-        var assetId = Guid.NewGuid();
-        InsertLegacyAssetBackedWork(
-            episodeId,
-            assetId,
-            "TV",
+        var resolved = await _resolver.ResolveAsync(
+            MediaType.TV,
             new Dictionary<string, string>
             {
                 ["show_name"] = "Game of Thrones",
                 ["season_number"] = "1",
                 ["episode_number"] = "1",
             });
-
         var maintenance = new WorkHierarchyMaintenanceService(_db);
-        await maintenance.RepairLegacyTvAndMusicAsync();
 
         using (var conn = _db.CreateConnection())
         {
-            var showId = conn.QuerySingle<string>("SELECT id FROM works WHERE parent_key = 'game of thrones'");
+            var showId = conn.QuerySingle<Guid>("SELECT id FROM works WHERE parent_key = 'game of thrones'");
             conn.Execute("""
                 INSERT INTO entity_assets (id, entity_id, entity_type, asset_type, aspect_class, asset_class, storage_location, owner_scope, is_preferred, is_user_override, created_at)
                 VALUES (@id, @entityId, 'Work', 'CoverArt', 'Poster', 'Artwork', 'Central', 'Generated', 1, 0, @now);
                 """,
-                new { id = Guid.NewGuid().ToString("D"), entityId = showId, now = DateTimeOffset.UtcNow.ToString("O") });
-            conn.Execute("DELETE FROM works WHERE id = @id;", new { id = episodeId.ToString("D") });
+                new { id = Guid.NewGuid(), entityId = showId, now = DateTimeOffset.UtcNow.ToString("O") });
+            conn.Execute("DELETE FROM works WHERE id = @id;", new { id = resolved.WorkId });
         }
 
         var removed = await maintenance.CleanupEmptyParentsAsync();
@@ -190,31 +106,25 @@ public sealed class HierarchyResolverTests : IDisposable
     [Fact]
     public async Task Maintenance_PreservesEmptyParent_WithUserOverrideArtwork()
     {
-        var trackId = Guid.NewGuid();
-        var assetId = Guid.NewGuid();
-        InsertLegacyAssetBackedWork(
-            trackId,
-            assetId,
-            "Music",
+        var resolved = await _resolver.ResolveAsync(
+            MediaType.Music,
             new Dictionary<string, string>
             {
                 ["album"] = "OK Computer",
                 ["artist"] = "Radiohead",
                 ["track_number"] = "6",
             });
-
         var maintenance = new WorkHierarchyMaintenanceService(_db);
-        await maintenance.RepairLegacyTvAndMusicAsync();
 
         using (var conn = _db.CreateConnection())
         {
-            var albumId = conn.QuerySingle<string>("SELECT id FROM works WHERE parent_key = 'radiohead|ok computer'");
+            var albumId = conn.QuerySingle<Guid>("SELECT id FROM works WHERE parent_key = 'radiohead|ok computer'");
             conn.Execute("""
                 INSERT INTO entity_assets (id, entity_id, entity_type, asset_type, aspect_class, asset_class, storage_location, owner_scope, is_preferred, is_user_override, created_at)
                 VALUES (@id, @entityId, 'Work', 'CoverArt', 'Square', 'Artwork', 'Central', 'User', 1, 1, @now);
                 """,
-                new { id = Guid.NewGuid().ToString("D"), entityId = albumId, now = DateTimeOffset.UtcNow.ToString("O") });
-            conn.Execute("DELETE FROM works WHERE id = @id;", new { id = trackId.ToString("D") });
+                new { id = Guid.NewGuid(), entityId = albumId, now = DateTimeOffset.UtcNow.ToString("O") });
+            conn.Execute("DELETE FROM works WHERE id = @id;", new { id = resolved.WorkId });
         }
 
         var removed = await maintenance.CleanupEmptyParentsAsync();

@@ -662,29 +662,6 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // -- PATCH /metadata/resolve -----------------------------------------------
-
-    public async Task<bool> ResolveMetadataAsync(
-        Guid entityId, string claimKey, string chosenValue, CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new { entity_id = entityId, claim_key = claimKey, chosen_value = chosenValue };
-            using var req = new HttpRequestMessage(new HttpMethod("PATCH"), "/metadata/resolve")
-            {
-                Content = JsonContent.Create(body),
-            };
-            var resp = await _http.SendAsync(req, ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PATCH /metadata/resolve failed");
-            return false;
-        }
-    }
-
     // -- GET /collections/search -----------------------------------------------------
 
     public async Task<List<SearchResultViewModel>> SearchWorksAsync(

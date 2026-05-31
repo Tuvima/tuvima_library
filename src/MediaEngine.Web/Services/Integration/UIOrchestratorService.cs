@@ -149,19 +149,6 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result;
     }
 
-    // -- Metadata --------------------------------------------------------------
-
-    /// <summary>Resolves a metadata conflict and invalidates the collection cache so the UI reflects it.</summary>
-    public async Task<bool> ResolveMetadataAsync(
-        Guid entityId, string claimKey, string chosenValue,
-        CancellationToken ct = default)
-    {
-        var ok = await _api.ResolveMetadataAsync(entityId, claimKey, chosenValue, ct);
-        if (ok)
-            _state.Invalidate();
-        return ok;
-    }
-
     // -- Search ----------------------------------------------------------------
 
     /// <summary>

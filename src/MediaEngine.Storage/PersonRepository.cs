@@ -46,13 +46,13 @@ public sealed class PersonRepository : IPersonRepository
         """;
 
     /// <summary>Helper record for reading character-performer link rows.</summary>
-    private sealed record CharacterLinkRow(string FictionalEntityId, string? WorkQid);
-    private sealed record CharacterLinkByWorkRow(string PersonId, string FictionalEntityId);
+    private sealed record CharacterLinkRow(Guid FictionalEntityId, string? WorkQid);
+    private sealed record CharacterLinkByWorkRow(Guid PersonId, Guid FictionalEntityId);
 
     /// <summary>Helper record for the ListAllAsync GROUP_CONCAT query.</summary>
     private sealed record PersonWithRolesCsv
     {
-        public string Id { get; init; } = "";
+        public Guid Id { get; init; }
         public string Name { get; init; } = "";
         public string? WikidataQid { get; init; }
         public string? HeadshotUrl { get; init; }
@@ -79,7 +79,7 @@ public sealed class PersonRepository : IPersonRepository
     /// <summary>Helper record for the presence batch query.</summary>
     private sealed record PresenceRow
     {
-        public string PersonId { get; init; } = "";
+        public Guid PersonId { get; init; }
         public string MediaType { get; init; } = "";
         public int Count { get; init; }
     }
@@ -127,7 +127,7 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("id",          person.Id.ToString());
+        p.Add("id",          person.Id);
         p.Add("name",        person.Name);
         p.Add("wikidataQid", person.WikidataQid);
         p.Add("headshotUrl", person.HeadshotUrl);
@@ -156,7 +156,7 @@ public sealed class PersonRepository : IPersonRepository
         {
             if (string.IsNullOrWhiteSpace(role)) continue;
             var rp = new DynamicParameters();
-            rp.Add("personId", person.Id.ToString());
+            rp.Add("personId", person.Id);
             rp.Add("role", role);
             conn.Execute("""
                 INSERT OR IGNORE INTO person_roles (person_id, role)
@@ -185,7 +185,7 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("headshotUrl", headshotUrl);
         p.Add("biography",   biography);
         p.Add("enrichedAt",  DateTimeOffset.UtcNow.ToString("o"));
-        p.Add("id",          personId.ToString());
+        p.Add("id",          personId);
         conn.Execute("""
             UPDATE persons
             SET    name         = COALESCE(@name, name),
@@ -222,7 +222,7 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("nationality",  nationality);
         p.Add("isPseudonym",  isPseudonym ? 1 : 0);
         p.Add("isGroup",      isGroup ? 1 : 0);
-        p.Add("id",           personId.ToString());
+        p.Add("id",           personId);
         conn.Execute("""
             UPDATE persons
             SET    date_of_birth  = @dateOfBirth,
@@ -259,7 +259,7 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("tiktok",     tiktok);
         p.Add("mastodon",   mastodon);
         p.Add("website",    website);
-        p.Add("id",         personId.ToString());
+        p.Add("id",         personId);
         conn.Execute("""
             UPDATE persons
             SET    occupation = COALESCE(@occupation, occupation),
@@ -288,8 +288,8 @@ public sealed class PersonRepository : IPersonRepository
         // INSERT OR IGNORE: composite PK (media_asset_id, person_id, role) prevents
         // duplicate links; repeated calls for the same triplet are safe no-ops.
         var p = new DynamicParameters();
-        p.Add("mediaAssetId", mediaAssetId.ToString());
-        p.Add("personId",     personId.ToString());
+        p.Add("mediaAssetId", mediaAssetId);
+        p.Add("personId",     personId);
         p.Add("role",         role);
         conn.Execute("""
             INSERT OR IGNORE INTO person_media_links
@@ -310,7 +310,7 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("mediaAssetId", mediaAssetId.ToString());
+        p.Add("mediaAssetId", mediaAssetId);
         var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
                    p.name                AS Name,
@@ -354,15 +354,14 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
 
         var ids = mediaAssetIds
-            .Select(id => id.ToString())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Distinct()
             .ToList();
         if (ids.Count == 0)
             return Task.FromResult<IReadOnlyList<Person>>([]);
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("MediaAssetIds", ids);
+        var mediaAssetIdClause = AddGuidBlobList(p, "mediaAssetId", ids);
         var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
                    p.name                AS Name,
@@ -389,7 +388,7 @@ public sealed class PersonRepository : IPersonRepository
             FROM   persons p
             JOIN   person_media_links l ON l.person_id = p.id
             LEFT JOIN person_roles pr ON pr.person_id = p.id
-            WHERE  l.media_asset_id IN @MediaAssetIds
+            WHERE  l.media_asset_id IN ({mediaAssetIdClause})
             GROUP  BY p.id
             ORDER  BY p.name ASC;
             """, p).AsList();
@@ -410,7 +409,7 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
         p.Add("path", path);
-        p.Add("id",   id.ToString());
+        p.Add("id",   id);
         conn.Execute("""
             UPDATE persons
             SET    local_headshot_path = @path
@@ -427,7 +426,7 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("id", id.ToString());
+        p.Add("id", id);
         var result = conn.QueryFirstOrDefault<Person>($"""
             SELECT {SelectColumns}
             FROM   persons
@@ -542,7 +541,7 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("id", personId.ToString());
+        p.Add("id", personId);
         var count = conn.ExecuteScalar<int>("""
             SELECT COUNT(*) FROM person_media_links WHERE person_id = @id;
             """, p);
@@ -577,12 +576,11 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var id = personId.ToString();
         using var conn = _db.CreateConnection();
 
         // Delete links first (FK-safe even without ON DELETE CASCADE).
         var p = new DynamicParameters();
-        p.Add("id", id);
+        p.Add("id", personId);
         conn.Execute(
             "DELETE FROM person_roles WHERE person_id = @id;",
             p);
@@ -609,7 +607,7 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("personId", personId.ToString());
+        p.Add("personId", personId);
         p.Add("role", role);
         conn.Execute("""
             INSERT OR IGNORE INTO person_roles (person_id, role)
@@ -626,7 +624,7 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("id", personId.ToString());
+        p.Add("id", personId);
         var roles = conn.Query<string>("""
             SELECT role FROM person_roles WHERE person_id = @id ORDER BY role;
             """, p).AsList();
@@ -660,16 +658,16 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var idList = personIds.Select(id => id.ToString()).ToList();
+        var idList = personIds.Distinct().ToList();
         if (idList.Count == 0)
             return Task.FromResult(new Dictionary<Guid, Dictionary<string, int>>());
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("PersonIds", idList);
+        var personIdClause = AddGuidBlobList(p, "personId", idList);
 
         // Primary path: persons linked via person_media_links (populated during Wikidata Stage 2).
-        var rows = conn.Query<PresenceRow>("""
+        var rows = conn.Query<PresenceRow>($"""
             SELECT p.id AS PersonId, cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
             FROM persons p
             JOIN person_media_links pml ON pml.person_id = p.id
@@ -677,20 +675,20 @@ public sealed class PersonRepository : IPersonRepository
             JOIN editions e ON e.id = ma.edition_id
             JOIN works w ON w.id = e.work_id
             JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'media_type'
-            WHERE p.id IN @PersonIds
+            WHERE p.id IN ({personIdClause})
             GROUP BY p.id, cv.value;
             """, p).AsList();
 
         // For persons with no media links, fall back to matching by name in canonical_values
         // (covers single-valued author/narrator/director fields stored during ingestion).
-        var linkedPersonIds = rows.Select(r => r.PersonId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var linkedPersonIds = rows.Select(r => r.PersonId).ToHashSet();
         var unlinkedIds = idList.Where(id => !linkedPersonIds.Contains(id)).ToList();
 
         if (unlinkedIds.Count > 0)
         {
             var fallbackParams = new DynamicParameters();
-            fallbackParams.Add("UnlinkedIds", unlinkedIds);
-            var fallbackRows = conn.Query<PresenceRow>("""
+            var unlinkedIdClause = AddGuidBlobList(fallbackParams, "unlinkedId", unlinkedIds);
+            var fallbackRows = conn.Query<PresenceRow>($"""
                 SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
                 FROM persons p
                 JOIN canonical_values cva ON cva.value = p.name
@@ -699,7 +697,7 @@ public sealed class PersonRepository : IPersonRepository
                 JOIN editions e ON e.id = ma.edition_id
                 JOIN works w ON w.id = e.work_id
                 JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
-                WHERE p.id IN @UnlinkedIds
+                WHERE p.id IN ({unlinkedIdClause})
                 GROUP BY p.id, cvmt.value
                 UNION ALL
                 SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
@@ -710,7 +708,7 @@ public sealed class PersonRepository : IPersonRepository
                 JOIN editions e ON e.id = ma.edition_id
                 JOIN works w ON w.id = e.work_id
                 JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
-                WHERE p.id IN @UnlinkedIds
+                WHERE p.id IN ({unlinkedIdClause})
                 GROUP BY p.id, cvmt.value;
                 """, fallbackParams).AsList();
             rows.AddRange(fallbackRows);
@@ -719,7 +717,7 @@ public sealed class PersonRepository : IPersonRepository
         var result = new Dictionary<Guid, Dictionary<string, int>>();
         foreach (var row in rows)
         {
-            var personId = Guid.Parse(row.PersonId);
+            var personId = row.PersonId;
             if (!result.TryGetValue(personId, out var mediaMap))
             {
                 mediaMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -746,8 +744,8 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("pseudonymId", pseudonymPersonId.ToString());
-        p.Add("realId",      realPersonId.ToString());
+        p.Add("pseudonymId", pseudonymPersonId);
+        p.Add("realId",      realPersonId);
         conn.Execute("""
             INSERT OR IGNORE INTO person_aliases
                 (pseudonym_person_id, real_person_id)
@@ -769,7 +767,7 @@ public sealed class PersonRepository : IPersonRepository
         // Returns both directions: real people behind a pseudonym,
         // and pseudonyms used by a real person.
         var p = new DynamicParameters();
-        p.Add("id", personId.ToString());
+        p.Add("id", personId);
         var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
                    p.name                AS Name,
@@ -823,8 +821,8 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("personId", personId.ToString());
-        p.Add("entityId", fictionalEntityId.ToString());
+        p.Add("personId", personId);
+        p.Add("entityId", fictionalEntityId);
         p.Add("workQid",  workQid);
         conn.Execute("""
             INSERT OR IGNORE INTO character_performer_links
@@ -845,7 +843,7 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("personId", personId.ToString());
+        p.Add("personId", personId);
         var rows = conn.Query<CharacterLinkRow>("""
             SELECT fictional_entity_id AS FictionalEntityId,
                    work_qid            AS WorkQid
@@ -854,7 +852,7 @@ public sealed class PersonRepository : IPersonRepository
             """, p).AsList();
 
         IReadOnlyList<(Guid, string?)> result = rows
-            .Select(r => (Guid.Parse(r.FictionalEntityId), r.WorkQid))
+            .Select(r => (r.FictionalEntityId, r.WorkQid))
             .ToList();
 
         return Task.FromResult(result);
@@ -879,7 +877,7 @@ public sealed class PersonRepository : IPersonRepository
             """, p).AsList();
 
         IReadOnlyList<(Guid, Guid)> result = rows
-            .Select(r => (Guid.Parse(r.PersonId), Guid.Parse(r.FictionalEntityId)))
+            .Select(r => (r.PersonId, r.FictionalEntityId))
             .ToList();
 
         return Task.FromResult(result);
@@ -897,19 +895,16 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var from = fromPersonId.ToString();
-        var to   = toPersonId.ToString();
-
         using var conn = _db.CreateConnection();
         using var tx   = conn.BeginTransaction();
 
         // 1. Reassign media links (OR IGNORE handles PK conflicts)
         var pToFrom = new DynamicParameters();
-        pToFrom.Add("to",   to);
-        pToFrom.Add("from", from);
+        pToFrom.Add("to",   toPersonId);
+        pToFrom.Add("from", fromPersonId);
 
         var pFrom = new DynamicParameters();
-        pFrom.Add("from", from);
+        pFrom.Add("from", fromPersonId);
 
         conn.Execute(
             "UPDATE OR IGNORE person_media_links SET person_id = @to WHERE person_id = @from;",
@@ -954,12 +949,11 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var id = personId.ToString();
         using var conn = _db.CreateConnection();
 
         // Check persons.is_pseudonym flag first - cheapest query.
         var pId = new DynamicParameters();
-        pId.Add("id", id);
+        pId.Add("id", personId);
 
         var isPseudo = conn.ExecuteScalar<int>(
             "SELECT COUNT(1) FROM persons WHERE id = @id AND is_pseudonym = 1;",
@@ -988,12 +982,28 @@ public sealed class PersonRepository : IPersonRepository
             INSERT OR IGNORE INTO person_group_members (group_id, member_id)
             VALUES (@GroupId, @MemberId)
             """,
-            new { GroupId = groupId.ToString(), MemberId = memberId.ToString() }).ConfigureAwait(false);
+            new { GroupId = groupId, MemberId = memberId }).ConfigureAwait(false);
     }
 
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    private static string AddGuidBlobList(
+        DynamicParameters parameters,
+        string prefix,
+        IReadOnlyList<Guid> ids)
+    {
+        var names = new string[ids.Count];
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var name = $"{prefix}{i}";
+            names[i] = $"@{name}";
+            parameters.Add(name, GuidSql.ToBlob(ids[i]));
+        }
+
+        return string.Join(", ", names);
+    }
 
     /// <summary>
     /// Populates the <see cref="Person.Roles"/> list from the <c>person_roles</c> table
@@ -1002,7 +1012,7 @@ public sealed class PersonRepository : IPersonRepository
     private static void PopulateRoles(Microsoft.Data.Sqlite.SqliteConnection conn, Person person)
     {
         var p = new DynamicParameters();
-        p.Add("id", person.Id.ToString());
+        p.Add("id", person.Id);
         person.Roles = conn.Query<string>("""
             SELECT role FROM person_roles WHERE person_id = @id ORDER BY role;
             """, p).AsList();
@@ -1022,7 +1032,7 @@ public sealed class PersonRepository : IPersonRepository
 
         return new Person
         {
-            Id               = Guid.Parse(row.Id),
+            Id               = row.Id,
             Name             = row.Name,
             Roles            = roles,
             WikidataQid      = row.WikidataQid,

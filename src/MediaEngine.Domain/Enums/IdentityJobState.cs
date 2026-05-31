@@ -57,12 +57,6 @@ public enum IdentityJobState
     /// <summary>Pipeline completed successfully, but no Stage 3 universe path applied.</summary>
     ReadyWithoutUniverse = 12,
 
-    /// <summary>
-    /// Legacy terminal success state kept for backward compatibility with older rows.
-    /// New code should prefer <see cref="Ready"/> or <see cref="ReadyWithoutUniverse"/>.
-    /// </summary>
-    Completed = 13,
-
     /// <summary>Terminal failure after max retries. Requires manual intervention.</summary>
-    Failed = 14,
+    Failed = 13,
 }

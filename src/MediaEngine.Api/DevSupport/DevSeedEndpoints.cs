@@ -1215,10 +1215,7 @@ public static class DevSeedEndpoints
         var scanTargets = libConfig.Libraries
             .SelectMany(lib =>
             {
-                var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
-                            ?? new List<string>();
-                if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                    paths.Add(lib.SourcePath);
+                var paths = lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
                 return paths.Select(path => new IngestionScanTarget(
                     NormalizeDirectoryPath(path),
@@ -1306,10 +1303,7 @@ public static class DevSeedEndpoints
                 || lib.MediaTypes.Any(mt => activeTypesForScan.Contains(NormalizeHarnessMediaTypeKey(mt))))
             .SelectMany(lib =>
             {
-                var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
-                            ?? new List<string>();
-                if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                    paths.Add(lib.SourcePath);
+                var paths = lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
                 return paths.Select(path => new IngestionScanTarget(
                     NormalizeDirectoryPath(path),
@@ -1331,19 +1325,6 @@ public static class DevSeedEndpoints
             .ToList();
 
         var scannedPaths = scanTargets.Select(target => target.Path).ToList();
-
-        // Legacy watch folder scan â€” only if no per-library source paths were scanned.
-        // When source_paths are configured, the legacy scan is redundant (the watch
-        // folder is typically the parent of all source paths) and doubles the event
-        // count, slowing down the pipeline.
-        string? watchDir = options.Value.WatchDirectory;
-        if (scanTargets.Count == 0 && !string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
-        {
-            var normalizedWatchDir = NormalizeDirectoryPath(watchDir);
-            scanTargets.Add(new IngestionScanTarget(normalizedWatchDir, true));
-            scannedPaths.Add(normalizedWatchDir);
-            logger.LogInformation("[FullTest] Legacy watch folder included for grouped scan: {Path}", normalizedWatchDir);
-        }
 
         if (scanTargets.Count > 0)
         {
@@ -1402,8 +1383,7 @@ public static class DevSeedEndpoints
     }
 
     /// <summary>
-    /// Resolves the correct watch directory for a media type by checking libraries.json.
-    /// Falls back to the legacy watch directory if no specific library is configured.
+    /// Resolves the correct source directory for a media type by checking libraries.json.
     /// </summary>
     private static string? ResolveWatchDirectory(
         Storage.Contracts.IConfigurationLoader configLoader,
@@ -1416,13 +1396,13 @@ public static class DevSeedEndpoints
         var lib = libConfig.Libraries.FirstOrDefault(l =>
             l.Category.Equals(mediaTypeCategory, StringComparison.OrdinalIgnoreCase));
 
-        if (lib is not null && !string.IsNullOrWhiteSpace(lib.SourcePath))
-            return lib.SourcePath;
+        var paths = lib?.SourcePaths;
+        if (paths is { Count: > 0 })
+            return paths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
 
-        // Fall back to first library source or legacy watch directory.
-        return libConfig.Libraries.Count > 0
-            ? libConfig.Libraries[0].SourcePath
-            : options.Value.WatchDirectory;
+        return libConfig.Libraries
+            .SelectMany(library => library.SourcePaths)
+            .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
     }
 
     private static void EnsureDirectory(string path, ILogger logger)
@@ -1775,8 +1755,8 @@ public static class DevSeedEndpoints
             var jobs = await jobRepo.GetByStateAsync(state, 500, ct);
             counts[state.ToString()] = jobs.Count;
 
-            // Show details for non-terminal states (not Completed)
-            if (state != IdentityJobState.Completed && jobs.Count > 0)
+            // Show details for states that still need worker or user action.
+            if (state is not (IdentityJobState.Ready or IdentityJobState.ReadyWithoutUniverse) && jobs.Count > 0)
             {
                 foreach (var job in jobs)
                 {

@@ -467,7 +467,7 @@ public sealed class LibraryItemViewModel
 
     private bool IsRetailReview() =>
         ReviewItemId.HasValue
-        && ReviewTrigger is "AuthorityMatchFailed" or "RetailMatchFailed" or "ContentMatchFailed";
+        && ReviewTrigger is "RetailMatchFailed";
 
     private bool IsWikidataReview() =>
         ReviewItemId.HasValue

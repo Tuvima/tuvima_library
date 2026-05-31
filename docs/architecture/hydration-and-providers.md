@@ -122,11 +122,11 @@ Stage 1: RetailIdentification
      |
      v
 Stage 2: WikidataBridge
-  |-- ReconciliationAdapter uses bridge IDs for edition-first QID resolution
-  |-- Gated fallback only after Stage 1 has provided a safe retail/provider match
+  |-- ReconciliationAdapter uses verified bridge IDs for edition-first QID resolution
+  |-- No automatic title-only fallback is accepted
   |-- Data Extension API fetches configured properties
   |-- Wikipedia descriptions via GetWikipediaSummariesAsync
-  `- On failure: AuthorityMatchFailed review item created
+  `- On failure: retail metadata is preserved; item remains eligible for recheck/review
      |
      v
 Quick Hydration
@@ -467,7 +467,7 @@ The review queue surfaces items that need human attention. Dashboard review acti
 
 | Trigger | Cause |
 |---|---|
-| `AuthorityMatchFailed` | Stage 2 (Wikidata) failed to resolve a QID - no match found |
+| `WikidataBridgeFailed` | Stage 2 (Wikidata) failed to resolve a QID from bridge IDs |
 | `LowConfidence` | Pipeline completed but overall confidence fell below `auto_review_confidence_threshold` (0.60) |
 | `MultipleQidMatches` | Stage 2 found multiple Wikidata candidates; user must pick one |
 | `UserFixMatch` | User manually flagged an item for re-review |

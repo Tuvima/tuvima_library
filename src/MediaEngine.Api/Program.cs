@@ -186,19 +186,17 @@ builder.Services.AddSingleton<IDatabaseConnection>(sp =>
 });
 
 // -- Configuration Directory Loader --------------------------------------------
-// Reads individual config files from config/ directory. Auto-migrates from
-// legacy manifest on first run. Registered as both IStorageManifest
-// (backward compat) and IConfigurationLoader (granular access).
+// Reads individual config files from config/ directory and exposes granular
+// load/save access through IConfigurationLoader.
 // TUVIMA_CONFIG_DIR overrides the config directory — used by Docker to point
 // to a mounted volume so configuration survives container image updates.
 string configDir     = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
                     ?? config["MediaEngine:ConfigDirectory"]
                     ?? "config";
-string manifestPath  = config["MediaEngine:ManifestPath"] ?? "legacy_manifest.json";
 ConfigurationDirectoryLoader configLoader;
 try
 {
-    configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
+    configLoader = new ConfigurationDirectoryLoader(configDir);
     configLoader.StartWatching();
     configLoader.ConfigurationChanged += (_, change) =>
     {
@@ -213,7 +211,6 @@ catch (ConfigValidationException ex)
     Log.Fatal(ex, "Invalid Tuvima Library configuration: {ConfigFile} failed {SchemaName}", ex.FilePath, ex.SchemaName);
     throw;
 }
-builder.Services.AddSingleton<IStorageManifest>(configLoader);
 builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 
 // -- Rate Limiting -------------------------------------------------------------
@@ -272,7 +269,6 @@ builder.Services.AddSingleton(sp =>
     return new AssetPathService(core.LibraryRoot, core.StoragePolicy);
 });
 builder.Services.AddSingleton<IAssetExportService, AssetExportService>();
-builder.Services.AddHostedService<AssetStorageStartupService>();
 builder.Services.AddSingleton<ICollectionRepository, CollectionRepository>();
 builder.Services.AddSingleton<ICollectionPlacementRepository, CollectionPlacementRepository>();
 builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.AudioFingerprintRepository>();
@@ -750,7 +746,6 @@ builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>
 builder.Services.AddSingleton<IIngestionOperationsStatusService, IngestionOperationsStatusService>();
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<MediaOperationRecoveryHostedService>();
-builder.Services.AddHostedService<HierarchyRepairStartupService>();
 builder.Services.AddHostedService<ArtworkRenditionRepairStartupService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();
 builder.Services.AddHostedService<RetagSweepWorker>();
@@ -950,7 +945,6 @@ app.MapDevelopmentEngineEndpoints();
 {
     var collectionRepo = app.Services.GetRequiredService<ICollectionRepository>();
     var db = app.Services.GetRequiredService<IDatabaseConnection>();
-    await MediaEngine.Api.Services.CollectionSeeder.SeedManagedCollectionsAsync(collectionRepo, db);
 }
 
 app.Run();

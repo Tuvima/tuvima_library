@@ -53,13 +53,13 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
         using var conn = _db.CreateConnection();
         for (var i = 0; i < count; i++)
         {
-            var personId = Guid.NewGuid().ToString();
+            var personId = Guid.NewGuid();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT INTO persons (id, name, created_at) VALUES ($id, $name, $createdAt);
                 INSERT INTO person_roles (person_id, role) VALUES ($id, 'Author');
                 """;
-            cmd.Parameters.AddWithValue("$id", personId);
+            cmd.Parameters.AddWithValue("$id", GuidSql.ToBlob(personId));
             cmd.Parameters.AddWithValue("$name", $"Person {i:000}");
             cmd.Parameters.AddWithValue("$createdAt", DateTimeOffset.UtcNow.ToString("O"));
             cmd.ExecuteNonQuery();
@@ -89,10 +89,10 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
                 INSERT INTO person_media_links (media_asset_id, person_id, role)
                     VALUES ($assetId, $personId, 'Author');
                 """;
-            cmd.Parameters.AddWithValue("$workId", workId.ToString());
-            cmd.Parameters.AddWithValue("$editionId", editionId.ToString());
-            cmd.Parameters.AddWithValue("$assetId", assetId.ToString());
-            cmd.Parameters.AddWithValue("$personId", personId.ToString());
+            cmd.Parameters.AddWithValue("$workId", GuidSql.ToBlob(workId));
+            cmd.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            cmd.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            cmd.Parameters.AddWithValue("$personId", GuidSql.ToBlob(personId));
             cmd.Parameters.AddWithValue("$hash", $"hash-{i:000}");
             cmd.Parameters.AddWithValue("$path", $"C:/library/file-{i:000}.epub");
             cmd.Parameters.AddWithValue("$name", $"Contributor {i:000}");

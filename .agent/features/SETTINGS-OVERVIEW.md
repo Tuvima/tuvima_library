@@ -8,14 +8,14 @@
 
 ## Architecture Summary
 
-Settings are split into two separate experiences:
+Settings are served from the current /settings shell:
 
 | Page | URL | Who it's for | What it controls |
 |------|-----|---------------|-----------------|
-| **Preferences** | `/preferences` | Every user | Personal look-and-feel (theme, accent colour, display name) |
-| **Server Settings** | `/server-settings` | Administrators & Curators | Library folders, metadata sources, API keys, user management |
+| **Settings** | /settings | Every user | Personal look-and-feel (theme, accent colour, display name) |
+| **Admin Settings** | /settings/{section} | Administrators & Curators | Library folders, metadata sources, API keys, user management |
 
-A backward-compatible redirect exists at `/settings` — old bookmarks land safely on Preferences.
+Legacy /preferences and /server-settings redirects are removed.
 
 ---
 

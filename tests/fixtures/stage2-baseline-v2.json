@@ -1,10 +1,10 @@
-{
+﻿{
   "audiobook-project-hail-mary-text": {
     "Found": true,
     "Qid": "Q106852836",
     "IsEdition": false,
     "WorkQid": "Q106852836",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 1,
     "CollectedBridgeIdKeys": [
       "P1085"
@@ -15,7 +15,7 @@
     "Qid": "Q277260",
     "IsEdition": false,
     "WorkQid": "Q277260",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 1,
     "CollectedBridgeIdKeys": [
       "P1085"
@@ -26,7 +26,7 @@
     "Qid": "Q190192",
     "IsEdition": false,
     "WorkQid": "Q190192",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 1,
     "CollectedBridgeIdKeys": [
       "P1085"
@@ -37,7 +37,7 @@
     "Qid": "Q753894",
     "IsEdition": false,
     "WorkQid": "Q753894",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 1,
     "CollectedBridgeIdKeys": [
       "P1085"
@@ -48,7 +48,7 @@
     "Qid": "Q1052459",
     "IsEdition": false,
     "WorkQid": "Q1052459",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 1,
     "CollectedBridgeIdKeys": [
       "P1085"
@@ -59,7 +59,7 @@
     "Qid": "Q6535598",
     "IsEdition": false,
     "WorkQid": "Q6535598",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 1,
     "CollectedBridgeIdKeys": [
       "P1085"
@@ -70,7 +70,7 @@
     "Qid": "Q662029",
     "IsEdition": false,
     "WorkQid": "Q662029",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 1,
     "CollectedBridgeIdKeys": [
       "P1085"
@@ -121,7 +121,7 @@
     "Qid": "Q1079",
     "IsEdition": false,
     "WorkQid": "Q1079",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 2,
     "CollectedBridgeIdKeys": [
       "P345"
@@ -132,10 +132,11 @@
     "Qid": "Q1778567",
     "IsEdition": false,
     "WorkQid": "Q1778567",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 2,
     "CollectedBridgeIdKeys": [
       "P345"
     ]
   }
 }
+

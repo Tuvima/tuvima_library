@@ -129,7 +129,7 @@ public sealed class BatchProgressService
                 FROM job_states js
                 LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
                 """,
-                new { batchId = batchId.ToString() }).ConfigureAwait(false) ?? new BatchRunSnapshot();
+                new { batchId }).ConfigureAwait(false) ?? new BatchRunSnapshot();
 
             var currentFileTitle = await conn.QueryFirstOrDefaultAsync<string?>(
                 """
@@ -160,7 +160,7 @@ public sealed class BatchProgressService
                 ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END
                 LIMIT 1;
                 """,
-                new { batchId = batchId.ToString(), activeStates = ActiveStates }).ConfigureAwait(false);
+                new { batchId, activeStates = ActiveStates }).ConfigureAwait(false);
 
             var work = await conn.QueryFirstOrDefaultAsync<BatchWorkSnapshot>(
                 """
@@ -241,7 +241,7 @@ public sealed class BatchProgressService
                     COALESCE(SUM(work_units_completed), 0) AS WorkUnitsCompleted
                 FROM item_progress;
                 """,
-                new { batchId = batchId.ToString() }).ConfigureAwait(false) ?? new BatchWorkSnapshot();
+                new { batchId }).ConfigureAwait(false) ?? new BatchWorkSnapshot();
 
             var total = batch.FilesTotal;
             var failed = batch.FilesFailed + snapshot.PipelineFailed;

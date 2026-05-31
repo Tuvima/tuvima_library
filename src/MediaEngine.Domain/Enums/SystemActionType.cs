@@ -120,18 +120,10 @@ public static class SystemActionType
     /// <summary>A file was moved to the staging directory (.staging/) for hydration and review.</summary>
     public const string MovedToStaging = "MovedToStaging";
 
-    /// <summary>Legacy alias for <see cref="MovedToStaging"/>.</summary>
-    [Obsolete("Use MovedToStaging instead.")]
-    public const string MovedToOrphanage = "MovedToOrphanage";
-
     // -- Staging & Reconciliation -------------------------------------------
 
     /// <summary>A staged asset was cleaned up (file missing, DB record deleted).</summary>
     public const string StagedFileCleaned = "StagedFileCleaned";
-
-    /// <summary>Legacy alias for <see cref="StagedFileCleaned"/>.</summary>
-    [Obsolete("Use StagedFileCleaned instead.")]
-    public const string OrphanCleaned = "OrphanCleaned";
 
     /// <summary>The reconciliation service found a missing file.</summary>
     public const string ReconciliationMissing = "ReconciliationMissing";

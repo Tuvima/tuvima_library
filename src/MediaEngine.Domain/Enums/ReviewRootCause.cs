@@ -21,7 +21,7 @@ public enum ReviewRootCause
 
     /// <summary>
     /// Retail matched but Wikidata couldn't confirm identity.
-    /// Maps from: WikidataBridgeFailed, MissingQid, AuthorityMatchFailed, ContentMatchFailed.
+    /// Maps from: WikidataBridgeFailed, MissingQid.
     /// </summary>
     NoCanonicalIdentity,
 
@@ -44,7 +44,7 @@ public static class ReviewRootCauseExtensions
             => ReviewRootCause.InsufficientEvidence,
         "RetailMatchAmbiguous" or "MultipleQidMatches" or "AmbiguousMediaType" or "LowConfidence"
             => ReviewRootCause.ConflictingEvidence,
-        "WikidataBridgeFailed" or "MissingQid" or "AuthorityMatchFailed" or "ContentMatchFailed"
+        "WikidataBridgeFailed" or "MissingQid"
             => ReviewRootCause.NoCanonicalIdentity,
         "ArtworkUnconfirmed" or "LanguageMismatch" or "WritebackFailed"
             => ReviewRootCause.EnrichmentIncomplete,

@@ -127,56 +127,6 @@ public static class BuiltInBrowseCollectionCatalog
             SortDirection: "asc"),
     ];
 
-    public static readonly IReadOnlySet<string> LegacySampleSmartNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "By Genre: Science Fiction",
-        "By Genre: Mystery",
-        "By Genre: Biography",
-        "By Vibe: Atmospheric",
-        "By Vibe: Cozy",
-        "By Vibe: Cerebral",
-        "By Author: Frank Herbert",
-        "By Director: Denis Villeneuve",
-        "By Narrator: Steven Pacey",
-        "By Decade: 1980s",
-        "By Decade: 2010s",
-        "Recently Added",
-        "Highest Rated",
-        "Unrated",
-    };
-
-    public static readonly IReadOnlySet<string> LegacySamplePlaylistNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "Workout Mix",
-        "Movie Marathon",
-        "Commute Rotation",
-    };
-
-    public static readonly IReadOnlySet<string> LegacyGeneratedBrowseNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "All Books",
-        "All Audiobooks",
-        "All Comics",
-        "All Movies",
-        "All TV",
-        "All TV Shows",
-        "All Music",
-        "All Songs",
-        "All Albums",
-        "All Artists",
-        "By Artist",
-        "By Album",
-        "By Show",
-        "By Series",
-    };
-
-    public static readonly IReadOnlySet<string> LegacyGeneratedNames = new HashSet<string>(
-        DynamicBrowseViews.Select(view => view.Name)
-            .Concat(LegacySampleSmartNames)
-            .Concat(LegacySamplePlaylistNames)
-            .Concat(LegacyGeneratedBrowseNames),
-        StringComparer.OrdinalIgnoreCase);
-
     public static IEnumerable<BuiltInBrowseCollectionDefinition> GetSystemViewDefinitions(string? mediaType, string? groupField)
     {
         var query = DynamicBrowseViews.Where(view => !string.IsNullOrWhiteSpace(view.GroupByField));

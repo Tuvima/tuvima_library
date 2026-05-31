@@ -97,15 +97,7 @@ public sealed class CoverArtWorker
 
         if (string.IsNullOrEmpty(coverUrl))
         {
-            await _canonicalRepo.UpsertBatchAsync(
-                ArtworkCanonicalHelper.CreateFlags(
-                    entityId,
-                    coverState: "missing",
-                    coverSource: "none",
-                    heroState: "missing",
-                    lastScoredAt: DateTimeOffset.UtcNow,
-                    settled: true),
-                ct);
+            await MarkCoverMissingAsync(entityId, "none", ct);
             _logger.LogDebug("No cover URL found for entity {EntityId}", entityId);
             return;
         }
@@ -185,10 +177,15 @@ public sealed class CoverArtWorker
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Failed to download cover from {Url} for entity {EntityId}", coverUrl, entityId);
+            await MarkCoverMissingAsync(ownerEntityId, "provider_unavailable", ct);
             return;
         }
 
-        if (bytes.Length == 0) return;
+        if (bytes.Length == 0)
+        {
+            await MarkCoverMissingAsync(ownerEntityId, "provider_empty", ct);
+            return;
+        }
 
         // Content-hash dedup
         var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
@@ -265,6 +262,17 @@ public sealed class CoverArtWorker
             .Select(c => c.Value)
             .FirstOrDefault(v => !string.IsNullOrEmpty(v) && v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
     }
+
+    private Task MarkCoverMissingAsync(Guid entityId, string coverSource, CancellationToken ct)
+        => _canonicalRepo.UpsertBatchAsync(
+            ArtworkCanonicalHelper.CreateFlags(
+                entityId,
+                coverState: "missing",
+                coverSource: coverSource,
+                heroState: "missing",
+                lastScoredAt: DateTimeOffset.UtcNow,
+                settled: true),
+            ct);
 
     private static string InferCoverSource(IReadOnlyList<CanonicalValue> canonicals, string? coverUrl)
     {

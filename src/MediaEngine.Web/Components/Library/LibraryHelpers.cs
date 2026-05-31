@@ -264,8 +264,6 @@ public static class LibraryHelpers
         "WikidataBridgeFailed"   => "This item couldn't be linked to a known entry on Wikidata.",
         "LowConfidence"          => "The match confidence is too low to confirm automatically. Please review the suggested matches.",
         "MultipleQidMatches"     => "Multiple possible matches were found. Please pick the correct one.",
-        "AuthorityMatchFailed"   => "The metadata authority couldn't verify this item's identity.",
-        "ContentMatchFailed"     => "No content provider recognized this file.",
         "RetailMatchAmbiguous"   => "A possible match was found but it's not certain. Please verify.",
         "AmbiguousMediaType"     => "The file type is ambiguous  -  it could be music or an audiobook.",
         "MissingQid"             => "A retail match was found but it hasn't been linked to Wikidata yet.",
@@ -283,8 +281,6 @@ public static class LibraryHelpers
     /// <summary>Returns a human-readable label for a review trigger code.</summary>
     public static string GetReviewTriggerLabel(string? trigger) => trigger switch
     {
-        "AuthorityMatchFailed" => "No provider could identify this item",
-        "ContentMatchFailed" => "No matching content found in any provider",
         "StagedUnidentifiable" => "This file could not be identified automatically",
         "PlaceholderTitle" => "The title looks like a placeholder or temporary name",
         "WikidataBridgeFailed" => "Wikidata lookup failed after retail match",

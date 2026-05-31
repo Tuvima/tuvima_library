@@ -50,7 +50,7 @@ public sealed class DetailHeroPresentation
 
     public static DetailHeroPresentation From(DetailPageViewModel model)
     {
-        var mode = NormalizeMode(model.Artwork.HeroArtwork.Mode);
+        var mode = model.Artwork.HeroArtwork.Mode;
         var isWatchHero = IsWatchEntity(model.EntityType);
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
@@ -108,15 +108,6 @@ public sealed class DetailHeroPresentation
 
         return $"{modeClass} {surfaceClass}{fallbackClass}";
     }
-
-    private static HeroArtworkMode NormalizeMode(HeroArtworkMode mode) => mode switch
-    {
-#pragma warning disable CS0618
-        HeroArtworkMode.Background => HeroArtworkMode.BackdropWithRenderedTitle,
-        HeroArtworkMode.CoverFallback => HeroArtworkMode.ArtworkFallback,
-#pragma warning restore CS0618
-        _ => mode,
-    };
 
     private static string? ResolveSubtitle(DetailPageViewModel model, bool isWatchHero)
     {

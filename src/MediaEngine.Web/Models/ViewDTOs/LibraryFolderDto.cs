@@ -16,9 +16,6 @@ public sealed class LibraryFolderDto
     [JsonPropertyName("media_types")]
     public List<string> MediaTypes { get; set; } = [];
 
-    [JsonPropertyName("source_path")]
-    public string? SourcePath { get; set; }
-
     [JsonPropertyName("source_paths")]
     public List<string> SourcePaths { get; set; } = [];
 
@@ -41,11 +38,9 @@ public sealed class LibraryFolderDto
     public string? Notes { get; set; }
 
     /// <summary>
-    /// All effective source paths (deduped union of source_paths + source_path).
+    /// All configured source paths.
     /// </summary>
     [JsonIgnore]
     public IReadOnlyList<string> EffectiveSourcePaths =>
-        SourcePaths.Count > 0
-            ? SourcePaths
-            : (string.IsNullOrWhiteSpace(SourcePath) ? [] : [SourcePath]);
+        SourcePaths;
 }

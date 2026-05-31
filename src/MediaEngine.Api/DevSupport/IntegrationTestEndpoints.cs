@@ -643,12 +643,7 @@ public static class IntegrationTestEndpoints
                     continue;
                 }
 
-                var sourcePaths = lib.SourcePaths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToList()
-                                  ?? [];
-                if (sourcePaths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                {
-                    sourcePaths.Add(lib.SourcePath);
-                }
+                var sourcePaths = lib.SourcePaths.Where(path => !string.IsNullOrWhiteSpace(path)).ToList();
 
                 foreach (var sourcePath in sourcePaths.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
@@ -4257,9 +4252,7 @@ public static class IntegrationTestEndpoints
     private static IReadOnlyList<string> ResolveLeafSourcePaths(IConfigurationLoader configLoader)
     {
         var allPaths = configLoader.LoadLibraries().Libraries
-            .SelectMany(lib =>
-                (lib.SourcePaths is { Count: > 0 } paths ? paths : [lib.SourcePath])
-                    .Where(p => !string.IsNullOrWhiteSpace(p)))
+            .SelectMany(lib => lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)))
             .Select(Path.GetFullPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(Directory.Exists)

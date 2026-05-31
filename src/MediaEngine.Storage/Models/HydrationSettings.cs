@@ -113,10 +113,8 @@ public sealed class HydrationSettings
     public int WikipediaDescriptionMaxChars { get; set; } = 1000;
 
     /// <summary>
-    /// Minimum confidence for a Wikidata title search match to be auto-accepted
-    /// during Stage 1 (Authority Match). Below this threshold, a
-    /// <see cref="Domain.Enums.ReviewTrigger.AuthorityMatchFailed"/> review item
-    /// is created for user verification.
+    /// Minimum confidence for manual or provider-driven universe title search
+    /// matches when a current flow explicitly requests title search.
     /// </summary>
     [JsonPropertyName("universe_title_search_auto_accept")]
     public double UniverseTitleSearchAutoAccept { get; set; } = 0.80;
@@ -434,23 +432,8 @@ public sealed class HydrationSettings
     /// Legacy alias for <see cref="Stage3WaterfallConfidenceThreshold"/>.
     /// Existing <c>hydration.json</c> files may use the old key name.
     /// </summary>
-    [JsonPropertyName("stage1_waterfall_confidence_threshold")]
-    [System.Obsolete("Use stage3_waterfall_confidence_threshold")]
-    public double? LegacyStage1WaterfallConfidenceThreshold
-    {
-        get => null;
-        set { if (value.HasValue) Stage3WaterfallConfidenceThreshold = value.Value; }
-    }
-
     /// <summary>
     /// Legacy alias for <see cref="SkipWikipediaWithoutQid"/>.
     /// Existing <c>hydration.json</c> files may use the old key name.
     /// </summary>
-    [JsonPropertyName("skip_stage2_without_bridge_ids")]
-    [System.Obsolete("Use skip_wikipedia_without_qid")]
-    public bool? LegacySkipStage2WithoutBridgeIds
-    {
-        get => null;
-        set { if (value.HasValue) SkipWikipediaWithoutQid = value.Value; }
-    }
 }

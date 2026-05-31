@@ -224,9 +224,9 @@ public static class SettingsEndpoints
                 if (string.IsNullOrWhiteSpace(category))
                     return Results.BadRequest(new { error = "Library name cannot be empty." });
 
-                var sourcePaths = CleanPaths(library.SourcePaths.Count > 0
-                    ? library.SourcePaths
-                    : (string.IsNullOrWhiteSpace(library.SourcePath) ? [] : [library.SourcePath]));
+                var sourcePaths = CleanPaths(library.SourcePaths);
+                if (sourcePaths.Count == 0)
+                    return Results.BadRequest(new { error = $"Library '{category}' must include at least one source path." });
 
                 foreach (var sourcePath in sourcePaths)
                 {
@@ -245,7 +245,6 @@ public static class SettingsEndpoints
                 {
                     Category = category,
                     MediaTypes = mediaTypes,
-                    SourcePath = sourcePaths.FirstOrDefault() ?? string.Empty,
                     SourcePaths = sourcePaths,
                     LibraryRoot = library.LibraryRoot ?? string.Empty,
                     IntakeMode = string.IsNullOrWhiteSpace(library.IntakeMode) ? "watch" : library.IntakeMode.Trim(),
@@ -258,7 +257,6 @@ public static class SettingsEndpoints
                 mappedLibraries.Add(config);
                 overlapEntries.Add(new LibraryFolderEntry
                 {
-                    SourcePath = config.SourcePath,
                     SourcePaths = sourcePaths,
                 });
             }
@@ -1385,9 +1383,7 @@ public static class SettingsEndpoints
             .ToList();
 
     private static IEnumerable<string> EffectiveSourcePaths(LibraryFolderConfig library) =>
-        library.SourcePaths is { Count: > 0 }
-            ? library.SourcePaths.Where(path => !string.IsNullOrWhiteSpace(path))
-            : (string.IsNullOrWhiteSpace(library.SourcePath) ? [] : [library.SourcePath]);
+        library.SourcePaths.Where(path => !string.IsNullOrWhiteSpace(path));
 
     private static string? FindPathOverlapError(
         string leftLabel,
@@ -1434,8 +1430,7 @@ public static class SettingsEndpoints
     {
         Name = library.Category,
         MediaTypes = library.MediaTypes,
-        SourcePath = library.SourcePath,
-        SourcePaths = library.SourcePaths ?? [],
+        SourcePaths = library.SourcePaths,
         LibraryRoot = library.LibraryRoot,
         IntakeMode = library.IntakeMode,
         IncludeSubdirectories = library.IncludeSubdirectories,

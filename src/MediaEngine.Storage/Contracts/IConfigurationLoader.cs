@@ -8,16 +8,8 @@ namespace MediaEngine.Storage.Contracts;
 /// Granular access to the multi-file configuration directory.
 ///
 /// <para>
-/// Replaces the monolithic <see cref="IStorageManifest"/> for new code.
 /// Each configuration concern has its own load/save pair; universe and
 /// provider configs are accessed by name.
-/// </para>
-///
-/// <para>
-/// For backward compatibility, implementations also implement
-/// <see cref="IStorageManifest"/> — the <see cref="IStorageManifest.Load"/>
-/// method assembles all individual files into a composite
-/// <see cref="LegacyManifest"/>.
 /// </para>
 /// </summary>
 public interface IConfigurationLoader

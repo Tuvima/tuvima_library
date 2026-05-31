@@ -34,20 +34,6 @@ public static class ReviewTrigger
     public const string ArbiterNeedsReview = "ArbiterNeedsReview";
 
     /// <summary>
-    /// Legacy trigger from the authority-first pipeline. Equivalent to
-    /// <see cref="RetailMatchFailed"/>. Kept for backward compatibility
-    /// with existing review rows.
-    /// </summary>
-    public const string AuthorityMatchFailed = "AuthorityMatchFailed";
-
-    /// <summary>
-    /// Legacy trigger from the authority-first pipeline. Equivalent to
-    /// <see cref="RetailMatchFailed"/>. Kept for backward compatibility
-    /// with existing review rows.
-    /// </summary>
-    public const string ContentMatchFailed = "ContentMatchFailed";
-
-    /// <summary>
     /// The scoring engine detected a metadata conflict: two or more claims for
     /// the same field have confidence values within the conflict epsilon. The file
     /// is still organised with the best guess, but the user should verify the

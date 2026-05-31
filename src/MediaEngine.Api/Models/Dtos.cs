@@ -390,8 +390,8 @@ public sealed class CanonicalValueDto
 public sealed class ScanRequest
 {
     /// <summary>
-    /// Optional root path to scan. When absent, the engine uses the configured
-    /// WatchDirectory from IngestionOptions.
+    /// Optional root path to scan. When absent, the engine uses the first configured
+    /// library source path.
     /// </summary>
     [JsonPropertyName("root_path")]
     public string? RootPath { get; init; }
@@ -475,38 +475,6 @@ public sealed class LibraryScanResponse
     public long ElapsedMs { get; init; }
 }
 
-// -- PATCH /metadata/resolve ----------------------------------------------------
-
-public sealed class ResolveRequest
-{
-    /// <summary>The Work or Edition entity whose canonical value is being overridden.</summary>
-    [JsonPropertyName("entity_id")]
-    public Guid EntityId { get; init; }
-
-    /// <summary>The metadata field key, e.g. "title", "release_year".</summary>
-    [JsonPropertyName("claim_key")]
-    public string ClaimKey { get; init; } = string.Empty;
-
-    /// <summary>The human-chosen winning value to persist.</summary>
-    [JsonPropertyName("chosen_value")]
-    public string ChosenValue { get; init; } = string.Empty;
-}
-
-public sealed class ResolveResponse
-{
-    [JsonPropertyName("entity_id")]
-    public Guid EntityId { get; init; }
-
-    [JsonPropertyName("claim_key")]
-    public string ClaimKey { get; init; } = string.Empty;
-
-    [JsonPropertyName("chosen_value")]
-    public string ChosenValue { get; init; } = string.Empty;
-
-    [JsonPropertyName("resolved_at")]
-    public DateTimeOffset ResolvedAt { get; init; }
-}
-
 // -- GET /settings/folders ------------------------------------------------------
 
 public sealed class FolderSettingsResponse
@@ -528,9 +496,6 @@ public sealed class LibraryFolderSettingsDto
 
     [JsonPropertyName("media_types")]
     public List<string> MediaTypes { get; init; } = [];
-
-    [JsonPropertyName("source_path")]
-    public string? SourcePath { get; init; }
 
     [JsonPropertyName("source_paths")]
     public List<string> SourcePaths { get; init; } = [];

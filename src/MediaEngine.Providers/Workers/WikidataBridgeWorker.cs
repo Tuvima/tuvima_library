@@ -23,7 +23,8 @@ namespace MediaEngine.Providers.Workers;
 /// Never processes <see cref="IdentityJobState.RetailNoMatch"/> — the strict retail gate.
 ///
 /// Uses bridge IDs from Stage 1 to find the canonical Wikidata entity (QID).
-/// Falls back to text reconciliation when bridge IDs don't resolve.
+/// If bridge IDs do not resolve, the item keeps retail metadata and remains
+/// eligible for review or later recheck.
 ///
 /// This is a plain service — the Api layer wraps it in a <c>BackgroundService</c>.
 /// </summary>
@@ -274,8 +275,6 @@ public sealed class WikidataBridgeWorker
 
                 var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint) = BuildLookupHints(mediaType, canonicals);
 
-                BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
-
                 var context = new JobContext(
                     Job: job,
                     MediaType: mediaType,
@@ -296,8 +295,8 @@ public sealed class WikidataBridgeWorker
             }
 
             // ── Phase 4: Resolve QIDs via the unified facade ──────────────────────
-            // ResolveBatchAsync internally groups by music album / bridge ID / text
-            // signature so N jobs produce far fewer than N Wikidata calls.
+            // ResolveBatchAsync internally groups by music album and bridge ID
+            // signatures so N jobs produce far fewer than N Wikidata calls.
 
             {
                 var bridgeCount = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count > 0);
@@ -351,7 +350,6 @@ public sealed class WikidataBridgeWorker
                 {
                     ResolveStrategy.MusicAlbum         => "music_album",
                     ResolveStrategy.BridgeId           => "bridge_id",
-                    ResolveStrategy.TextReconciliation => "text_reconciliation",
                     _                                  => null,
                 };
 
@@ -362,7 +360,6 @@ public sealed class WikidataBridgeWorker
                     var canonicalMethod = ctx.MatchedBy switch
                     {
                         "bridge_id"          => "bridge",
-                        "text_reconciliation"=> "text",
                         "music_album"        => "album",
                         _                    => ctx.MatchedBy,
                     };
@@ -554,7 +551,6 @@ public sealed class WikidataBridgeWorker
             {
                 "music_album"        => (0.95, true),
                 "bridge_id"          => (1.0,  true),
-                "text_reconciliation"=> (0.75, false),
                 _                    => (0.75, false)
             };
 
@@ -605,15 +601,8 @@ public sealed class WikidataBridgeWorker
             }
 
             // Record timeline event.
-            var timelineMethod = ctx.MatchedBy switch
-            {
-                "text_reconciliation" => "title_fallback",
-                _ => ctx.PrimaryBridgeIdType ?? ctx.MatchedBy ?? "bridge_id"
-            };
-            if (ctx.MatchedBy == "text_reconciliation")
-                await _timeline.RecordTitleFallbackResolvedAsync(job.EntityId, ctx.ResolvedQid, job.IngestionRunId, ct);
-            else
-                await _timeline.RecordBridgeResolvedAsync(job.EntityId, ctx.ResolvedQid, timelineMethod, job.IngestionRunId, ct);
+            var timelineMethod = ctx.PrimaryBridgeIdType ?? ctx.MatchedBy ?? "bridge_id";
+            await _timeline.RecordBridgeResolvedAsync(job.EntityId, ctx.ResolvedQid, timelineMethod, job.IngestionRunId, ct);
 
             _logger.LogInformation(
                 "Wikidata: '{Title}' identified as {Qid} via {Method} [entity {EntityId}]",
@@ -764,104 +753,6 @@ public sealed class WikidataBridgeWorker
         }
         else
         {
-            // Text reconciliation fallback for jobs where ReconcileBatchAsync did not fire
-            // (e.g. the batch call threw) or returned no match.  Run individually so we
-            // still attempt FetchAsync for any job that wasn't covered above.
-            if (ctx.MediaType != MediaType.Music
-                && !string.IsNullOrWhiteSpace(ctx.TitleHint)
-                && ctx.MediaType != MediaType.Unknown)
-            {
-                try
-                {
-                    await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.ProviderLookup, 70, "Searching Wikidata by title fallback.", ct, new
-                    {
-                        title = ctx.TitleHint,
-                        media_type = ctx.MediaType.ToString(),
-                    }).ConfigureAwait(false);
-
-                    var fallbackClaims = await reconAdapter.FetchAsync(
-                        new ProviderLookupRequest
-                        {
-                            EntityId   = job.EntityId,
-                            EntityType = EntityType.MediaAsset,
-                            MediaType  = ctx.MediaType,
-                            Title      = ctx.TitleHint,
-                            Author     = ctx.AuthorHint,
-                            Year       = ctx.YearHint,
-                            FileLanguage = ctx.LanguageHint,
-                        }, ct);
-
-                    if (fallbackClaims.Count > 0)
-                    {
-                        var fallbackQidClaim = fallbackClaims
-                            .FirstOrDefault(c => string.Equals(c.Key, BridgeIdKeys.WikidataQid,
-                                StringComparison.OrdinalIgnoreCase));
-
-                        if (fallbackQidClaim is not null && !string.IsNullOrWhiteSpace(fallbackQidClaim.Value))
-                        {
-                            ctx.ResolvedQid = fallbackQidClaim.Value;
-
-                            allCandidates.Add(new WikidataBridgeCandidate
-                            {
-                                JobId        = job.Id,
-                                Qid          = ctx.ResolvedQid,
-                                Label        = ctx.TitleHint,
-                                MatchedBy    = "text_reconciliation",
-                                IsExactMatch = false,
-                                ScoreTotal   = 0.75,
-                                Outcome      = "AutoAccepted",
-                            });
-
-                            // Include the resolution method alongside the fetched claims
-                            // so it is persisted in the same PersistAndScoreWithLineageAsync call.
-                            var fallbackClaimsWithMethod = new List<ProviderClaim>(fallbackClaims)
-                            {
-                                new ProviderClaim(MetadataFieldConstants.QidResolutionMethod, "text", 1.0),
-                            };
-
-                            await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.WritingArtifact, 85, "Persisting title-fallback Wikidata claims.", ct, new
-                            {
-                                qid = ctx.ResolvedQid,
-                                claim_count = fallbackClaims.Count,
-                            }).ConfigureAwait(false);
-
-                            // Phase 3c: lineage-aware persist for the
-                            // text-fallback path so parent-scope claims still
-                            // mirror onto the parent Work.
-                            await ScoringHelper.PersistAndScoreWithLineageAsync(
-                                job.EntityId, fallbackClaimsWithMethod, reconAdapter.ProviderId, lineage,
-                                _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                                arrayRepo: _arrayRepo, logger: _logger);
-
-                            await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
-                                fallbackClaims, ct);
-
-                            await TryHydrateSeriesManifestAsync(
-                                job, ctx, lineage, ctx.ResolvedQid, fallbackClaims, ct);
-
-                            await RunPostIdentityPersonPassAsync(job.EntityId, ctx.ResolvedQid, ct);
-
-                            await _timeline.RecordTitleFallbackResolvedAsync(
-                                job.EntityId, ctx.ResolvedQid, job.IngestionRunId, ct);
-
-                            _logger.LogInformation(
-                                "Wikidata: '{Title}' identified as {Qid} via text reconciliation (individual fallback) [entity {EntityId}]",
-                                ctx.TitleHint ?? "(unknown)", ctx.ResolvedQid, job.EntityId);
-
-                            await _jobRepo.SetResolvedQidAsync(job.Id, ctx.ResolvedQid, ct);
-                            await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidResolved, ct: ct);
-                            await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
-                            return;
-                        }
-                    }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex,
-                        "Individual text reconciliation failed for entity {EntityId}", job.EntityId);
-                }
-            }
-
             // No QID found at all.
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidNoMatch, ct: ct);
             await _timeline.RecordBridgeNoMatchAsync(
@@ -963,8 +854,6 @@ public sealed class WikidataBridgeWorker
 
         var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint) = BuildLookupHints(mediaType, canonicals);
 
-        BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
-
         var ctx = new JobContext(
             Job:           job,
             MediaType:     mediaType,
@@ -1010,7 +899,6 @@ public sealed class WikidataBridgeWorker
                 {
                     ResolveStrategy.MusicAlbum         => "music_album",
                     ResolveStrategy.BridgeId           => "bridge_id",
-                    ResolveStrategy.TextReconciliation => "text_reconciliation",
                     _                                  => null,
                 };
 
@@ -1020,7 +908,6 @@ public sealed class WikidataBridgeWorker
                     var canonicalMethod = ctx.MatchedBy switch
                     {
                         "bridge_id"          => "bridge",
-                        "text_reconciliation"=> "text",
                         "music_album"        => "album",
                         _                    => ctx.MatchedBy,
                     };

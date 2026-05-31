@@ -17,7 +17,7 @@ public sealed class MediaManifestEntry
 
     /// <summary>
     /// Absolute or root-relative path to this specific file on the local file system.
-    /// Must be within the <c>DataRoot</c> declared in <c>LegacyManifest</c>.
+    /// Must be within the configured data root.
     /// </summary>
     public string FilePath { get; set; } = string.Empty;
 

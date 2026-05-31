@@ -46,7 +46,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
             {SelectColumns}
             WHERE  id = @portraitId
             LIMIT  1;
-            """, new { portraitId = portraitId.ToString() });
+            """, new { portraitId });
 
         return Task.FromResult(result);
     }
@@ -62,7 +62,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
             {SelectColumns}
             WHERE  fictional_entity_id = @fictionalEntityId
             ORDER BY is_default DESC, created_at;
-            """, new { fictionalEntityId = fictionalEntityId.ToString() }).AsList();
+            """, new { fictionalEntityId }).AsList();
 
         return Task.FromResult<IReadOnlyList<CharacterPortrait>>(results);
     }
@@ -78,7 +78,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
             {SelectColumns}
             WHERE  person_id = @personId
             ORDER BY is_default DESC, created_at;
-            """, new { personId = personId.ToString() }).AsList();
+            """, new { personId }).AsList();
 
         return Task.FromResult<IReadOnlyList<CharacterPortrait>>(results);
     }
@@ -95,7 +95,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
             WHERE  fictional_entity_id = @fictionalEntityId
               AND  is_default = 1
             LIMIT  1;
-            """, new { fictionalEntityId = fictionalEntityId.ToString() });
+            """, new { fictionalEntityId });
 
         return Task.FromResult(result);
     }
@@ -123,9 +123,9 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
             """,
             new
             {
-                Id                = portrait.Id.ToString(),
-                PersonId          = portrait.PersonId.ToString(),
-                FictionalEntityId = portrait.FictionalEntityId.ToString(),
+                Id                = portrait.Id,
+                PersonId          = portrait.PersonId,
+                FictionalEntityId = portrait.FictionalEntityId,
                 portrait.ImageUrl,
                 portrait.LocalImagePath,
                 portrait.SourceProvider,
@@ -146,12 +146,12 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
         using var transaction = conn.BeginTransaction();
 
         // Look up the fictional_entity_id for this portrait.
-        var fictionalEntityId = conn.QueryFirstOrDefault<string>("""
+        var fictionalEntityId = conn.QueryFirstOrDefault<Guid?>("""
             SELECT fictional_entity_id
             FROM   character_portraits
             WHERE  id = @portraitId
             LIMIT  1;
-            """, new { portraitId = portraitId.ToString() }, transaction);
+            """, new { portraitId }, transaction);
 
         if (fictionalEntityId is null)
         {
@@ -174,7 +174,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
             SET    is_default = 1,
                    updated_at = @now
             WHERE  id = @portraitId;
-            """, new { portraitId = portraitId.ToString(), now = DateTimeOffset.UtcNow }, transaction);
+            """, new { portraitId, now = DateTimeOffset.UtcNow }, transaction);
 
         transaction.Commit();
         return Task.CompletedTask;
@@ -187,7 +187,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(fictionalEntityIds);
 
-        var ids = fictionalEntityIds.Select(id => id.ToString()).ToList();
+        var ids = fictionalEntityIds.Distinct().ToList();
         if (ids.Count == 0)
             return Task.FromResult<IReadOnlyList<CharacterPortrait>>(Array.Empty<CharacterPortrait>());
 

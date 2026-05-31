@@ -266,20 +266,6 @@ public sealed class DevHarnessResetService
             }
         }
 
-        string? watchDir = _options.Value.WatchDirectory;
-        if (!string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
-        {
-            try
-            {
-                int count = WipeDirectoryContents(watchDir);
-                details.Add($"Watch folder ({watchDir}): {count} items deleted");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[HarnessReset] Failed to wipe watch folder");
-                details.Add($"Watch folder ({watchDir}): FAILED - {ex.Message}");
-            }
-        }
     }
 
     private async Task ResetDatabaseAsync(List<string> details, CancellationToken ct)
@@ -464,18 +450,11 @@ public sealed class DevHarnessResetService
         var libConfig = _configLoader.LoadLibraries();
         foreach (var lib in libConfig.Libraries)
         {
-            var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
-                        ?? [];
-            if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                paths.Add(lib.SourcePath);
+            var paths = lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
             foreach (string path in paths)
                 yield return path;
         }
-
-        string? watchDir = _options.Value.WatchDirectory;
-        if (!string.IsNullOrWhiteSpace(watchDir))
-            yield return watchDir;
     }
 
     private static string? NormalizePathOrNull(string path)

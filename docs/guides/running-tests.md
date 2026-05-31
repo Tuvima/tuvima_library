@@ -200,7 +200,7 @@ curl -X POST http://localhost:61495/dev/full-test
 
 Development-only harness for rebuilding a clean `guid-blob-v1` database from the configured media folders without deleting source media.
 
-The harness pauses file watching, validates destructive path safety, removes generated database/cache/artwork state, scans every configured `source_path` / `source_paths` value through ingestion, and leaves file watching paused until the Engine restarts or an explicit resume is requested.
+The harness pauses file watching, validates destructive path safety, removes generated database/cache/artwork state, scans every configured `source_paths` value through ingestion, and leaves file watching paused until the Engine restarts or an explicit resume is requested.
 
 ```bash
 curl -X POST http://localhost:61495/dev/reingest-library

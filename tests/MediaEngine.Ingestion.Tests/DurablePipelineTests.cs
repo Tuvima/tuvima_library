@@ -261,7 +261,6 @@ public sealed class DurablePipelineTests : IDisposable
         });
         using var engine = CreateEngine(debounce, new IngestionOptions
         {
-            WatchDirectory = booksDir,
             WatchDirectories = [booksDir, comicsDir],
             LibraryRoot = _libraryDir,
             AutoOrganize = false,
@@ -695,7 +694,6 @@ public sealed class DurablePipelineTests : IDisposable
     {
         var options = new IngestionOptions
         {
-            WatchDirectory        = _watchDir,
             WatchDirectories      = [_watchDir],
             LibraryRoot           = _libraryDir,
             AutoOrganize          = true,
@@ -907,7 +905,6 @@ public sealed class DurablePipelineTests : IDisposable
             => Task.FromResult(_jobs.Count(j =>
                 j.State != IdentityJobState.Ready.ToString() &&
                 j.State != IdentityJobState.ReadyWithoutUniverse.ToString() &&
-                j.State != IdentityJobState.Completed.ToString() &&
                 j.State != IdentityJobState.Failed.ToString()));
     }
 

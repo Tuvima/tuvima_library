@@ -72,7 +72,7 @@ Each API key carries one of three roles that determines which endpoints it can a
 | `/collections/*` (library listing, search) | Full access | Full access | Full access |
 | `/stream/*` (file streaming) | Full access | Full access | Full access |
 | `/metadata/claims/*` (read history) | Full access | Full access | Full access |
-| `/metadata/lock-claim`, `/metadata/resolve` | Full access | Full access | Blocked (403) |
+| `/metadata/lock-claim` | Full access | Full access | Blocked (403) |
 | `/profiles/*` (list, create, update, delete) | Full access | Blocked (403) | Blocked (403) |
 | `/ingestion/*` (scan, library scan) | Full access | Blocked (403) | Blocked (403) |
 | `/intercom` (SignalR) | Full access | Full access | Full access |

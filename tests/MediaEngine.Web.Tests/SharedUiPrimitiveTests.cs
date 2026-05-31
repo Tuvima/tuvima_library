@@ -182,23 +182,4 @@ public sealed class SharedUiPrimitiveTests : TestContext
         Assert.Empty(cut.FindAll(".app-provider-logo__fallback"));
     }
 
-    [Fact]
-    public void LegacyProviderTesterRoute_RedirectsIntoSettings()
-    {
-        var navigation = Services.GetRequiredService<NavigationManager>();
-
-        RenderComponent<ProviderTester>();
-
-        Assert.EndsWith("/settings/provider-tester", navigation.Uri, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void LegacyEnrichmentTesterRoute_RedirectsIntoSettings()
-    {
-        var navigation = Services.GetRequiredService<NavigationManager>();
-
-        RenderComponent<EnrichmentTester>();
-
-        Assert.EndsWith("/settings/enrichment-tester", navigation.Uri, StringComparison.OrdinalIgnoreCase);
-    }
 }

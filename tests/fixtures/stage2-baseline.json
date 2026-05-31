@@ -1,10 +1,10 @@
-{
+﻿{
   "audiobook-project-hail-mary-text": {
     "Found": true,
     "Qid": "Q106852836",
     "IsEdition": false,
     "WorkQid": "Q106852836",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -13,7 +13,7 @@
     "Qid": "Q219790",
     "IsEdition": false,
     "WorkQid": "Q219790",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -22,7 +22,7 @@
     "Qid": "Q114819",
     "IsEdition": false,
     "WorkQid": "Q114819",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -31,7 +31,7 @@
     "Qid": "Q157031",
     "IsEdition": false,
     "WorkQid": "Q157031",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -40,7 +40,7 @@
     "Qid": "Q1052459",
     "IsEdition": false,
     "WorkQid": "Q1052459",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -49,7 +49,7 @@
     "Qid": "Q6535598",
     "IsEdition": false,
     "WorkQid": "Q6535598",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -58,7 +58,7 @@
     "Qid": "Q662029",
     "IsEdition": false,
     "WorkQid": "Q662029",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -98,7 +98,7 @@
     "Qid": "Q1079",
     "IsEdition": false,
     "WorkQid": "Q1079",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   },
@@ -107,8 +107,9 @@
     "Qid": "Q1778567",
     "IsEdition": false,
     "WorkQid": "Q1778567",
-    "MatchedBy": "TextReconciliation",
+    "MatchedBy": "NotResolved",
     "ClaimCount": 0,
     "CollectedBridgeIdKeys": []
   }
 }
+

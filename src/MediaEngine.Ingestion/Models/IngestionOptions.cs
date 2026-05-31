@@ -12,14 +12,6 @@ namespace MediaEngine.Ingestion.Models;
 public sealed class LibraryFolderEntry
 {
     /// <summary>
-    /// Legacy single source path monitored by this library folder.
-    /// New code should prefer <see cref="SourcePaths"/> (which includes this path
-    /// as its first element when set). Kept as an <c>init</c> property so existing
-    /// call sites that construct entries with a single path continue to compile.
-    /// </summary>
-    public string SourcePath { get; init; } = string.Empty;
-
-    /// <summary>
     /// All source paths belonging to this logical library. A single library can
     /// span multiple drives (e.g. <c>D:\Movies</c> and <c>E:\Movies</c> as one
     /// Movies library), the same way Plex and Jellyfin already allow. Files always
@@ -30,15 +22,13 @@ public sealed class LibraryFolderEntry
     public IReadOnlyList<string> SourcePaths { get; init; } = [];
 
     /// <summary>
-    /// The effective list of source paths. Prefers <see cref="SourcePaths"/>
-    /// when populated; otherwise returns a singleton list derived from the
-    /// legacy <see cref="SourcePath"/> field. Always use this when walking
-    /// a library's paths.
+    /// The effective list of source paths.
     /// </summary>
     public IReadOnlyList<string> EffectiveSourcePaths =>
-        SourcePaths.Count > 0
-            ? SourcePaths
-            : (string.IsNullOrWhiteSpace(SourcePath) ? [] : new[] { SourcePath });
+        SourcePaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     /// <summary>
     /// Media types configured for this library folder (e.g. Epub, Audiobook).
@@ -73,13 +63,6 @@ public sealed class LibraryFolderEntry
 public sealed class IngestionOptions
 {
     public const string SectionName = "Ingestion";
-
-    /// <summary>
-    /// First configured source folder derived from <c>config/libraries.json</c>.
-    /// Kept for older internal callers; new ingestion code should use
-    /// <see cref="WatchDirectories"/>.
-    /// </summary>
-    public string WatchDirectory { get; set; } = string.Empty;
 
     /// <summary>
     /// Directories monitored for new files, sourced from <c>config/libraries.json</c>.
@@ -158,12 +141,6 @@ public sealed class IngestionOptions
         : Path.Combine(LibraryRoot, ".data", "staging");
 
     /// <summary>
-    /// Backward-compatible alias for <see cref="StagingPath"/>.
-    /// </summary>
-    [Obsolete("Use StagingPath instead. This property will be removed in a future release.")]
-    public string OrphanagePath => StagingPath;
-
-    /// <summary>
     /// When <see langword="true"/> the engine automatically moves accepted files
     /// to <see cref="LibraryRoot"/> using <see cref="OrganizationTemplate"/>.
     /// Default: <see langword="false"/> (safe mode — monitor only).
@@ -178,7 +155,7 @@ public sealed class IngestionOptions
     public bool WriteBack { get; set; }
 
     /// <summary>
-    /// Whether to also watch sub-directories of <see cref="WatchDirectory"/>.
+    /// Whether to also watch sub-directories of configured source directories.
     /// Default: <see langword="true"/>.
     /// </summary>
     public bool IncludeSubdirectories { get; set; } = true;

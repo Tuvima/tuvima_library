@@ -186,7 +186,7 @@ Defines typed media library folders. Contains a `libraries` array; each entry is
 |---|---|---|
 | `category` | string | Human-readable label for this library (e.g., "Ebooks", "Movies"). |
 | `media_types` | string[] | Media types expected in this folder. Accepted values: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`. |
-| `source_path` | string | Absolute path to the folder to monitor. |
+| `source_paths` | string[] | Absolute paths to monitor or import for this logical library. Required. |
 | `library_root` | string | Destination root for promoted files from this library. Overrides the global `library_root` if set. |
 | `intake_mode` | string | `"watch"` - continuous file monitoring. `"import"` - one-time scan of existing collection. |
 | `import_action` | string | `"move"` - move files after ingestion. `"copy"` - copy and leave originals in place. |

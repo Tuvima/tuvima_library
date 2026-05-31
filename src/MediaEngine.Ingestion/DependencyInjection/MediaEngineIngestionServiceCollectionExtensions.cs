@@ -93,7 +93,6 @@ public static class MediaEngineIngestionServiceCollectionExtensions
 
         services.PostConfigure<IngestionOptions>(opts =>
         {
-            opts.WatchDirectory = string.Empty;
             opts.WatchDirectories = [];
 
             string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
@@ -134,15 +133,13 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                 opts.LibraryFolders = libraries.Libraries
                     .Select(l =>
                     {
-                        var paths = (l.SourcePaths is { Count: > 0 } ? l.SourcePaths : [])
-                            .Concat(string.IsNullOrWhiteSpace(l.SourcePath) ? [] : [l.SourcePath])
+                        var paths = l.SourcePaths
                             .Where(p => !string.IsNullOrWhiteSpace(p))
                             .Distinct(StringComparer.OrdinalIgnoreCase)
                             .ToList();
 
                         return new LibraryFolderEntry
                         {
-                            SourcePath = paths.FirstOrDefault() ?? string.Empty,
                             SourcePaths = paths,
                             MediaTypes = l.MediaTypes
                                 .Select(ParseMediaTypeFromConfig)
@@ -163,7 +160,6 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
                 opts.WatchDirectories = sourcePaths;
-                opts.WatchDirectory = sourcePaths.FirstOrDefault() ?? string.Empty;
             }
             catch (InvalidOperationException ex)
             {
@@ -184,8 +180,7 @@ public static class MediaEngineIngestionServiceCollectionExtensions
             var libraries = configLoader.LoadLibraries();
             foreach (var lib in libraries.Libraries)
             {
-                var allPaths = (lib.SourcePaths is { Count: > 0 } ? lib.SourcePaths : [])
-                    .Concat(string.IsNullOrWhiteSpace(lib.SourcePath) ? [] : [lib.SourcePath])
+                var allPaths = lib.SourcePaths
                     .Where(p => !string.IsNullOrWhiteSpace(p))
                     .Distinct(StringComparer.OrdinalIgnoreCase);
 

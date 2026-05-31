@@ -109,24 +109,6 @@ public sealed class IdentityPipelineTests
         Assert.Equal("bridge_id", candidate.MatchedBy);
     }
 
-    [Fact]
-    public void WikidataBridgeCandidate_TextFallback_NotExact()
-    {
-        var candidate = new WikidataBridgeCandidate
-        {
-            JobId = Guid.NewGuid(),
-            Qid = "Q190159",
-            Label = "Dune",
-            MatchedBy = "text_reconciliation",
-            IsExactMatch = false,
-            ScoreTotal = 0.75,
-            Outcome = "AutoAccepted",
-        };
-
-        Assert.False(candidate.IsExactMatch);
-        Assert.Equal("text_reconciliation", candidate.MatchedBy);
-    }
-
     // ── IdentityJobState enum ───────────────────────────────────────────────
 
     [Fact]
@@ -148,7 +130,6 @@ public sealed class IdentityPipelineTests
         Assert.Contains(IdentityJobState.UniverseEnriching, states);
         Assert.Contains(IdentityJobState.Ready, states);
         Assert.Contains(IdentityJobState.ReadyWithoutUniverse, states);
-        Assert.Contains(IdentityJobState.Completed, states);
         Assert.Contains(IdentityJobState.Failed, states);
     }
 

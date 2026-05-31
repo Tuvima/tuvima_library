@@ -139,7 +139,7 @@ public sealed class ProviderLookupRequest
 
     /// <summary>
     /// The resolved base URL for the adapter's API, read from
-    /// <c>LegacyManifest.ProviderEndpoints</c>.
+    /// provider endpoint configuration.
     /// Adapters must never hard-code URLs; this field is always populated by
     /// the harvesting service before the request is dispatched.
     /// </summary>
@@ -147,7 +147,7 @@ public sealed class ProviderLookupRequest
 
     /// <summary>
     /// The resolved SPARQL endpoint URL for Wikidata, read from
-    /// <c>LegacyManifest.ProviderEndpoints["wikidata_sparql"]</c>.
+    /// the configured Wikidata SPARQL endpoint.
     /// Used by the <c>WikidataAdapter</c> for deep-hydration SPARQL queries.
     /// Null for non-Wikidata providers.
     /// </summary>

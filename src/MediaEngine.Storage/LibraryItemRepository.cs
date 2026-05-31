@@ -528,9 +528,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             nameof(IdentityJobState.UniverseEnriching) => "UniverseEnriching",
             nameof(IdentityJobState.ReadyWithoutUniverse) => "ReadyWithoutUniverse",
             nameof(IdentityJobState.Failed) => "Failed",
-            nameof(IdentityJobState.Ready) or nameof(IdentityJobState.Completed)
+            nameof(IdentityJobState.Ready)
                 when !hasUniverseLink => "ReadyWithoutUniverse",
-            nameof(IdentityJobState.Ready) or nameof(IdentityJobState.Completed)
+            nameof(IdentityJobState.Ready)
                 when hasStage3GraphEvidence => "Ready",
             _ when stage3EnrichedAt.HasValue && hasStage3GraphEvidence => "Ready",
             _ when stage3EnrichedAt.HasValue && !hasUniverseLink => "ReadyWithoutUniverse",
@@ -1144,6 +1144,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     idd.first_claimed_at AS created_at,
                     COALESCE(NULLIF(wd.self_cover_state, ''), NULLIF(wd.parent_cover_state, ''), CASE
                         WHEN COALESCE(NULLIF(wd.self_cover_url, ''), NULLIF(wd.parent_cover_url, '')) IS NOT NULL THEN 'present'
+                        WHEN ij.job_state IN ('RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'Ready', 'ReadyWithoutUniverse', 'Failed')
+                             OR rd.review_id IS NOT NULL
+                            THEN 'missing'
                         ELSE 'pending'
                     END) AS artwork_state,
                     COALESCE(NULLIF(wd.self_cover_source, ''), NULLIF(wd.parent_cover_source, ''), CASE
@@ -1154,6 +1157,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     COALESCE(NULLIF(wd.self_artwork_settled_at, ''), NULLIF(wd.parent_artwork_settled_at, ''), CASE
                         WHEN COALESCE(NULLIF(wd.self_cover_url, ''), NULLIF(wd.parent_cover_url, '')) IS NOT NULL
                             THEN COALESCE(wd.self_cover_last_scored_at, wd.parent_cover_last_scored_at, ij.job_updated_at)
+                        WHEN ij.job_state IN ('RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'Ready', 'ReadyWithoutUniverse', 'Failed')
+                             OR rd.review_id IS NOT NULL
+                            THEN COALESCE(ij.job_updated_at, idd.first_claimed_at)
                         ELSE NULL
                     END) AS artwork_settled_at,
                     COALESCE(NULLIF(wd.self_hero_state, ''), NULLIF(wd.parent_hero_state, ''), CASE
@@ -1246,7 +1252,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                              AND rd.has_resolved_media_type = 1
                              AND (
                                  rd.artwork_state = 'present'
-                                 OR (rd.artwork_state = 'missing' AND rd.artwork_settled_at IS NOT NULL)
+                                 OR rd.artwork_settled_at IS NOT NULL
                              )
                             THEN 1 ELSE 0
                     END AS is_ready_for_library,
@@ -1275,7 +1281,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                              AND rd.has_resolved_media_type = 1
                              AND (
                                  rd.artwork_state = 'present'
-                                 OR (rd.artwork_state = 'missing' AND rd.artwork_settled_at IS NOT NULL)
+                                 OR rd.artwork_settled_at IS NOT NULL
                              )
                             THEN 'visible'
                         ELSE 'hidden'
@@ -1323,12 +1329,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                         WHEN rd.job_state IN ('RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved', 'QidNeedsReview', 'QidNoMatch', 'Hydrating', 'Ready', 'ReadyWithoutUniverse', 'Completed')
                             THEN 'matched'
                         WHEN rd.job_state = 'RetailNoMatch' THEN 'failed'
-                        WHEN rd.review_trigger IN ('AuthorityMatchFailed', 'RetailMatchFailed', 'ContentMatchFailed')
+                        WHEN rd.review_trigger IN ('RetailMatchFailed')
                             THEN 'warning'
                         ELSE 'none'
                     END AS retail_match,
                     CASE
-                        WHEN rd.review_trigger IN ('AuthorityMatchFailed', 'RetailMatchFailed', 'ContentMatchFailed')
+                        WHEN rd.review_trigger IN ('RetailMatchFailed')
                              OR rd.job_state IN ('Queued', 'RetailSearching', 'RetailMatchedNeedsReview', 'RetailNoMatch', 'Failed')
                             THEN 'Retail'
                         WHEN rd.job_state = 'QidNoMatch'

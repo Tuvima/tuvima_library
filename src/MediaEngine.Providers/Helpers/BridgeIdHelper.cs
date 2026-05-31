@@ -71,18 +71,6 @@ public sealed class BridgeIdHelper
         _ => false,
     };
 
-    /// <summary>
-    /// Adds <c>_title</c> and <c>_author</c> sentinel keys to the bridge dictionary
-    /// for text reconciliation fallback.
-    /// </summary>
-    public static void InjectSentinels(Dictionary<string, string> bridgeDict, string? title, string? author)
-    {
-        if (!string.IsNullOrWhiteSpace(title))
-            bridgeDict["_title"] = title;
-        if (!string.IsNullOrWhiteSpace(author))
-            bridgeDict["_author"] = author;
-    }
-
     private void EnsureMap()
     {
         if (_claimKeyToPCode is not null) return;

@@ -30,90 +30,6 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
-    public void BuildComicsParentFallbackRequest_UsesSeriesTitleWithoutAuthorConstraint()
-    {
-        var adapter = CreateAdapter();
-
-        var request = new WikidataResolveRequest
-        {
-            CorrelationKey = "batman",
-            MediaType = MediaType.Comics,
-            Title = "Batman: Year One Part 1",
-            Author = "Frank Miller",
-            SeriesTitle = "Batman",
-        };
-
-        var fallback = adapter.BuildComicsParentFallbackRequest(request);
-
-        Assert.NotNull(fallback);
-        Assert.Equal("batman", fallback!.CorrelationKey);
-        Assert.Equal("Batman", fallback.Title);
-        Assert.Null(fallback.Creator);
-        Assert.Equal(BridgeMediaKind.ComicSeries, fallback.MediaKind);
-        Assert.Equal(BridgeRollupTarget.ReturnWorkAndEdition, fallback.RollupTarget);
-    }
-
-    [Fact]
-    public void BuildComicsParentFallbackRequest_DisambiguatesShortSeriesTitles_WhenRequested()
-    {
-        var adapter = CreateAdapter();
-
-        var request = new WikidataResolveRequest
-        {
-            CorrelationKey = "batman",
-            MediaType = MediaType.Comics,
-            SeriesTitle = "Batman",
-        };
-
-        var fallback = adapter.BuildComicsParentFallbackRequest(request, disambiguate: true);
-
-        Assert.NotNull(fallback);
-        Assert.Equal("Batman comic book series", fallback!.Title);
-        Assert.Null(fallback.Creator);
-    }
-
-    [Fact]
-    public void BuildComicsParentFallbackRequest_ReturnsNull_WhenSeriesTitleMissing()
-    {
-        var adapter = CreateAdapter();
-
-        var request = new WikidataResolveRequest
-        {
-            CorrelationKey = "batman",
-            MediaType = MediaType.Comics,
-            Title = "Batman: Year One Part 1",
-            Author = "Frank Miller",
-        };
-
-        Assert.Null(adapter.BuildComicsParentFallbackRequest(request));
-    }
-
-    [Fact]
-    public void BuildMusicWorkFallbackRequest_UsesNonAlbumMusicClassesAndArtistHint()
-    {
-        var adapter = CreateAdapter();
-
-        var request = new WikidataResolveRequest
-        {
-            CorrelationKey = "clair",
-            MediaType = MediaType.Music,
-            Title = "Clair de Lune",
-            AlbumTitle = "Suite bergamasque",
-            Artist = "Claude Debussy",
-            Author = "Claude Debussy",
-        };
-
-        var fallback = adapter.BuildMusicWorkFallbackRequest(request);
-
-        Assert.NotNull(fallback);
-        Assert.Equal("clair", fallback!.CorrelationKey);
-        Assert.Equal("Clair de Lune", fallback.Title);
-        Assert.Equal("Claude Debussy", fallback.Creator);
-        Assert.Equal(BridgeMediaKind.MusicWork, fallback.MediaKind);
-        Assert.Equal(BridgeRollupTarget.ReturnWorkAndEdition, fallback.RollupTarget);
-    }
-
-    [Fact]
     public void BuildBridgeResolutionRequest_PreservesMusicBridgeIdsWithOfficialProperties()
     {
         var adapter = CreateAdapter();
@@ -157,7 +73,7 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
-    public void BuildBridgeResolutionRequest_UsesFileLanguageForForeignContentSearch()
+    public void BuildBridgeResolutionRequest_ReturnsNullWithoutBridgeIds()
     {
         var adapter = CreateAdapter();
 
@@ -176,9 +92,7 @@ public sealed class ReconciliationAdapterFallbackTests
 
         Assert.NotNull(method);
 
-        var bridgeRequest = Assert.IsType<BridgeResolutionRequest>(method!.Invoke(adapter, [request]));
-
-        Assert.Equal("ja", bridgeRequest.Language);
+        Assert.Null(method!.Invoke(adapter, [request]));
     }
 
     [Fact]

@@ -9,13 +9,13 @@ public enum ResolveStrategy
     /// <summary>
     /// No strategy specified — the adapter will auto-detect based on the request shape:
     /// music + album → <see cref="MusicAlbum"/>; non-music with bridge IDs → <see cref="BridgeId"/>;
-    /// otherwise → <see cref="TextReconciliation"/>.
+    /// otherwise no automatic match is produced.
     /// </summary>
     Auto = 0,
 
     /// <summary>
     /// Bridge ID lookup via Wikidata <c>haswbstatement</c> CirrusSearch.
-    /// Falls back to text reconciliation internally if no bridge ID resolves.
+    /// Does not fall back to title-only reconciliation when no bridge ID resolves.
     /// </summary>
     BridgeId = 1,
 
@@ -25,12 +25,6 @@ public enum ResolveStrategy
     /// </summary>
     MusicAlbum = 2,
 
-    /// <summary>
-    /// Free-text reconciliation against Wikidata using title (and optionally author),
-    /// type-constrained by media type via P31 / CirrusSearch type filters.
-    /// </summary>
-    TextReconciliation = 3,
-
     /// <summary>The request did not produce a match.</summary>
-    NotResolved = 4,
+    NotResolved = 3,
 }

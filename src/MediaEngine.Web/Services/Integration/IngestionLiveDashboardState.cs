@@ -288,6 +288,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private void OnRealtimeStateChanged()
     {
         LastUpdated = DateTimeOffset.Now;
+        Notify();
         DebounceSnapshotRefresh();
     }
 
@@ -306,7 +307,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(10), token);
+                await Task.Delay(TimeSpan.FromSeconds(1), token);
                 await LoadAsync(token);
             }
             catch (OperationCanceledException)

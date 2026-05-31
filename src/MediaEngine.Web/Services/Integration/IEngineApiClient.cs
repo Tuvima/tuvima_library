@@ -144,13 +144,6 @@ public interface IEngineApiClient
     /// <summary>POST /ingestion/reconcile — scan all assets and clean orphans.</summary>
     Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default);
 
-    /// <summary>PATCH /metadata/resolve — manually override a metadata canonical value.</summary>
-    Task<bool> ResolveMetadataAsync(
-        Guid   entityId,
-        string claimKey,
-        string chosenValue,
-        CancellationToken ct = default);
-
     /// <summary>GET /collections/search?q= — full-text search across all works (min 2 chars).</summary>
     Task<List<SearchResultViewModel>> SearchWorksAsync(
         string query,

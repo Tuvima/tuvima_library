@@ -63,7 +63,7 @@
         : null;
     private HeroArtworkMode EffectiveMode => string.IsNullOrWhiteSpace(HeroImageUrl)
         ? HeroArtworkMode.Placeholder
-        : NormalizeMode(HeroArtwork.Mode);
+        : HeroArtwork.Mode;
     private bool IsBackdropMode => EffectiveMode is HeroArtworkMode.BackdropWithLogo or HeroArtworkMode.BackdropWithRenderedTitle;
     private bool IsArtworkFallbackMode => EffectiveMode == HeroArtworkMode.ArtworkFallback;
     private HeroForegroundTreatment ForegroundTreatment => EntityType switch
@@ -126,15 +126,6 @@
     }
 
     private void HandleImageError() => _imageFailed = true;
-
-    private static HeroArtworkMode NormalizeMode(HeroArtworkMode mode) => mode switch
-    {
-#pragma warning disable CS0618
-        HeroArtworkMode.Background => HeroArtworkMode.BackdropWithRenderedTitle,
-        HeroArtworkMode.CoverFallback => HeroArtworkMode.ArtworkFallback,
-#pragma warning restore CS0618
-        _ => mode,
-    };
 
     private static string EscapeCssString(string value)
         => value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);

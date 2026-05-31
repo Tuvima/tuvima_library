@@ -17,7 +17,12 @@
     "Music":      "Music/{Artist}/{Album} ({Year})/{TrackNumber} - {Title}{Ext}"
   },
   "server_name": "Tuvima Library",
-  "language": "en",
+  "language": {
+    "display": "en",
+    "metadata": "en",
+    "additional": [],
+    "accept_any": true
+  },
   "country": "US",
   "date_format": "system",
   "time_format": "system",

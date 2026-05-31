@@ -25,7 +25,6 @@ public sealed class RejectedFileCleanupService : BackgroundService
     private readonly IDatabaseConnection          _db;
     private readonly ISystemActivityRepository    _activityRepo;
     private readonly IConfigurationLoader         _configLoader;
-    private readonly IStorageManifest             _manifest;
     private readonly ILogger<RejectedFileCleanupService> _logger;
 
     /// <summary>Cron expression for the cleanup schedule. Default: 4 AM daily.</summary>
@@ -35,19 +34,16 @@ public sealed class RejectedFileCleanupService : BackgroundService
         IDatabaseConnection          db,
         ISystemActivityRepository    activityRepo,
         IConfigurationLoader         configLoader,
-        IStorageManifest             manifest,
         ILogger<RejectedFileCleanupService> logger)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(configLoader);
-        ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(logger);
 
         _db           = db;
         _activityRepo = activityRepo;
         _configLoader = configLoader;
-        _manifest     = manifest;
         _logger       = logger;
     }
 
@@ -107,7 +103,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
         string libraryRoot;
         try
         {
-            var core = _manifest.Load();
+            var core = _configLoader.LoadCore();
             libraryRoot = core.LibraryRoot ?? string.Empty;
         }
         catch (Exception ex)

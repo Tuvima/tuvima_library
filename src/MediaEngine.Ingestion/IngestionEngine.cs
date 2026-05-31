@@ -2944,7 +2944,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         return roots.Count switch
         {
-            0 => string.IsNullOrWhiteSpace(_options.WatchDirectory) ? "Unknown source folder" : _options.WatchDirectory,
+            0 => _options.EffectiveWatchDirectories.FirstOrDefault() ?? "Unknown source folder",
             1 => roots[0]!,
             _ => "Multiple source folders",
         };

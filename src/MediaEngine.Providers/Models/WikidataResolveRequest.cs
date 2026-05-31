@@ -8,7 +8,7 @@ namespace MediaEngine.Providers.Models;
 ///
 /// <para>
 /// A single request shape covers all three resolution strategies:
-/// bridge ID lookup, music album resolution, and free-text reconciliation.
+/// bridge ID lookup and music album resolution.
 /// The adapter dispatches based on <see cref="Strategy"/> (or auto-detects when
 /// <see cref="ResolveStrategy.Auto"/> is set).
 /// </para>
@@ -71,10 +71,10 @@ public sealed class WikidataResolveRequest
 
     // ── Text reconciliation strategy ────────────────────────────────────────
 
-    /// <summary>The work title (used by <see cref="ResolveStrategy.TextReconciliation"/>).</summary>
+    /// <summary>The work title.</summary>
     public string? Title { get; init; }
 
-    /// <summary>The author (used by <see cref="ResolveStrategy.TextReconciliation"/>).</summary>
+    /// <summary>The author.</summary>
     public string? Author { get; init; }
 
     /// <summary>The release/publication year used to reject bad text-only drift.</summary>
