@@ -150,6 +150,8 @@ public sealed class PostPipelineService
 
         var autoResolveTriggers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            nameof(ReviewTrigger.AmbiguousMediaType),
+            nameof(ReviewTrigger.RootWatchFolder),
             nameof(ReviewTrigger.RetailMatchFailed),
             nameof(ReviewTrigger.RetailMatchAmbiguous),
             nameof(ReviewTrigger.LowConfidence),

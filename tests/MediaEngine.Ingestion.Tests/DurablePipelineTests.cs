@@ -633,7 +633,8 @@ public sealed class DurablePipelineTests : IDisposable
         var entityId = Guid.NewGuid();
         var jobId    = Guid.NewGuid();
 
-        // Seed two review items that should be auto-resolved.
+        // Seed review items that should be auto-resolved once the pipeline has
+        // high-confidence identity evidence.
         var lowConfidenceReview = new ReviewQueueEntry
         {
             Id         = Guid.NewGuid(),
@@ -650,10 +651,28 @@ public sealed class DurablePipelineTests : IDisposable
             Trigger    = ReviewTrigger.RetailMatchAmbiguous,
             Status     = ReviewStatus.Pending,
         };
+        var ambiguousMediaTypeReview = new ReviewQueueEntry
+        {
+            Id         = Guid.NewGuid(),
+            EntityId   = entityId,
+            EntityType = "Work",
+            Trigger    = ReviewTrigger.AmbiguousMediaType,
+            Status     = ReviewStatus.Pending,
+        };
+        var rootWatchFolderReview = new ReviewQueueEntry
+        {
+            Id         = Guid.NewGuid(),
+            EntityId   = entityId,
+            EntityType = "Work",
+            Trigger    = ReviewTrigger.RootWatchFolder,
+            Status     = ReviewStatus.Pending,
+        };
 
         var reviewRepo = new TrackingReviewQueueRepository();
         await reviewRepo.InsertAsync(lowConfidenceReview);
         await reviewRepo.InsertAsync(ambiguousReview);
+        await reviewRepo.InsertAsync(ambiguousMediaTypeReview);
+        await reviewRepo.InsertAsync(rootWatchFolderReview);
 
         var postPipeline = new PostPipelineService(
             new NoOpMetadataClaimRepository(),
@@ -669,7 +688,7 @@ public sealed class DurablePipelineTests : IDisposable
 
         await postPipeline.EvaluateAndOrganizeAsync(entityId, jobId, "Q185166", null, CancellationToken.None);
 
-        // Both review items should now be Resolved.
+        // All stale pre-identity review items should now be Resolved.
         var all = await reviewRepo.GetByEntityAsync(entityId);
         Assert.All(all, r => Assert.Equal(ReviewStatus.Resolved, r.Status));
     }
