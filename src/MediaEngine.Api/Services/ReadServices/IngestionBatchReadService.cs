@@ -1,6 +1,8 @@
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Services.ReadServices;
 
@@ -23,7 +25,7 @@ public sealed class IngestionBatchReadService : IIngestionBatchReadService
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = Query;
-        cmd.Parameters.AddWithValue("@batchId", batchId.ToString());
+        cmd.Parameters.Add("@batchId", SqliteType.Blob).Value = GuidSql.ToBlob(batchId);
         cmd.Parameters.AddWithValue("@offset", Math.Max(0, offset));
         cmd.Parameters.AddWithValue("@limit", Math.Clamp(limit, 1, 501));
 
@@ -42,10 +44,10 @@ public sealed class IngestionBatchReadService : IIngestionBatchReadService
 
             items.Add(new IngestionBatchItemResponse
             {
-                Id = Guid.Parse(reader.GetString(0)),
+                Id = GuidSql.FromDb(reader.GetValue(0)),
                 FilePath = filePath,
                 FileName = Path.GetFileName(filePath),
-                MediaAssetId = reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
+                MediaAssetId = reader.IsDBNull(2) ? null : GuidSql.FromDb(reader.GetValue(2)),
                 ContentHash = reader.IsDBNull(3) ? null : reader.GetString(3),
                 Status = status,
                 ErrorDetail = lastError ?? missingReason,

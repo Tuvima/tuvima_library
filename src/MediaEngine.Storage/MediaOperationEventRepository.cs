@@ -25,10 +25,10 @@ public sealed class MediaOperationEventRepository : IMediaOperationEventReposito
             """,
             new
             {
-                Id = evt.Id.ToString(),
-                OperationId = evt.OperationId.ToString(),
-                EntityId = evt.EntityId?.ToString(),
-                BatchId = evt.BatchId?.ToString(),
+                Id = evt.Id,
+                OperationId = evt.OperationId,
+                EntityId = evt.EntityId,
+                BatchId = evt.BatchId,
                 evt.EventType,
                 evt.OldStatus,
                 evt.NewStatus,
@@ -46,7 +46,7 @@ public sealed class MediaOperationEventRepository : IMediaOperationEventReposito
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<Row>(
             SelectSql + " WHERE operation_id = @operationId ORDER BY occurred_at ASC;",
-            new { operationId = operationId.ToString() });
+            new { operationId });
         return rows.Select(Map).ToList();
     }
 
@@ -56,7 +56,7 @@ public sealed class MediaOperationEventRepository : IMediaOperationEventReposito
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<Row>(
             SelectSql + " WHERE entity_id = @entityId ORDER BY occurred_at DESC LIMIT @limit;",
-            new { entityId = entityId.ToString(), limit = Math.Clamp(limit, 1, 1000) });
+            new { entityId, limit = Math.Clamp(limit, 1, 1000) });
         return rows.Select(Map).ToList();
     }
 
@@ -78,10 +78,10 @@ public sealed class MediaOperationEventRepository : IMediaOperationEventReposito
 
     private sealed class Row
     {
-        public string Id { get; set; } = "";
-        public string OperationId { get; set; } = "";
-        public string? EntityId { get; set; }
-        public string? BatchId { get; set; }
+        public Guid Id { get; set; }
+        public Guid OperationId { get; set; }
+        public Guid? EntityId { get; set; }
+        public Guid? BatchId { get; set; }
         public string EventType { get; set; } = "";
         public string? OldStatus { get; set; }
         public string? NewStatus { get; set; }
@@ -94,10 +94,10 @@ public sealed class MediaOperationEventRepository : IMediaOperationEventReposito
 
     private static MediaOperationEvent Map(Row row) => new()
     {
-        Id = Guid.Parse(row.Id),
-        OperationId = Guid.Parse(row.OperationId),
-        EntityId = Guid.TryParse(row.EntityId, out var entityId) ? entityId : null,
-        BatchId = Guid.TryParse(row.BatchId, out var batchId) ? batchId : null,
+        Id = row.Id,
+        OperationId = row.OperationId,
+        EntityId = row.EntityId,
+        BatchId = row.BatchId,
         EventType = row.EventType,
         OldStatus = row.OldStatus,
         NewStatus = row.NewStatus,

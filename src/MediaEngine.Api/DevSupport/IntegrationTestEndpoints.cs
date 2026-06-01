@@ -1241,7 +1241,7 @@ public static class IntegrationTestEndpoints
                 "Queued", "RetailSearching", "RetailMatched", "RetailMatchedNeedsReview",
                 "RetailNoMatch", "BridgeSearching", "QidResolved", "QidNeedsReview",
                 "QidNoMatch", "Hydrating", "UniverseEnriching", "Ready",
-                "ReadyWithoutUniverse", "Completed", "Failed",
+                "ReadyWithoutUniverse", "Failed",
             };
 
             bool creatorRequired =
@@ -3291,7 +3291,6 @@ public static class IntegrationTestEndpoints
                 WHERE j.state NOT IN (
                     'Ready',
                     'ReadyWithoutUniverse',
-                    'Completed',
                     'Failed',
                     'RetailNoMatch',
                     'QidNoMatch',
@@ -3312,7 +3311,6 @@ public static class IntegrationTestEndpoints
             WHERE state NOT IN (
                 'Ready',
                 'ReadyWithoutUniverse',
-                'Completed',
                 'Failed',
                 'RetailNoMatch',
                 'QidNoMatch',
@@ -3784,8 +3782,7 @@ public static class IntegrationTestEndpoints
             || value.Equals("Hydrating", StringComparison.OrdinalIgnoreCase)
             || value.Equals("UniverseEnriching", StringComparison.OrdinalIgnoreCase)
             || value.Equals("Ready", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("ReadyWithoutUniverse", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("Completed", StringComparison.OrdinalIgnoreCase);
+            || value.Equals("ReadyWithoutUniverse", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsOwnedValidationItem(LibraryCatalogItem item) =>

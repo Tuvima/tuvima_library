@@ -1133,8 +1133,8 @@ public sealed class MediaEditorNavigationReadService(
                 """,
                 new
                 {
-                    id = Guid.NewGuid().ToString(),
-                    entityId = workId.ToString(),
+                    id = Guid.NewGuid(),
+                    entityId = workId,
                     idType = suggestion.ExternalIdKey,
                     idValue = suggestion.ExternalIdValue,
                     providerId = ResolveProviderId(suggestion.ProviderName)?.ToString(),

@@ -25,6 +25,7 @@ public sealed class PersonEnrichmentWorker
 {
     private readonly IMetadataClaimRepository _claimRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ICanonicalValueArrayRepository? _canonicalArrayRepo;
     private readonly IRecursiveIdentityService _identity;
     private readonly IMetadataHarvestingService _harvesting;
     private readonly IPersonRepository _personRepo;
@@ -46,7 +47,8 @@ public sealed class PersonEnrichmentWorker
         ILogger<PersonEnrichmentWorker> logger,
         ReconciliationAdapter? reconciliationAdapter = null,
         IPersonReconciliationService? personReconciliation = null,
-        PersonImageEnrichmentWorker? personImages = null)
+        PersonImageEnrichmentWorker? personImages = null,
+        ICanonicalValueArrayRepository? canonicalArrayRepo = null)
     {
         _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
@@ -59,6 +61,7 @@ public sealed class PersonEnrichmentWorker
         _logger = logger;
         _personReconciliation = personReconciliation;
         _personImages = personImages;
+        _canonicalArrayRepo = canonicalArrayRepo;
     }
 
     /// <summary>
@@ -69,6 +72,8 @@ public sealed class PersonEnrichmentWorker
     {
         var claims = (await _claimRepo.GetByEntityAsync(entityId, ct)).ToList();
         var canonicals = (await _canonicalRepo.GetByEntityAsync(entityId, ct)).ToList();
+        var canonicalArrays = new Dictionary<string, List<CanonicalArrayEntry>>(StringComparer.OrdinalIgnoreCase);
+        await AddCanonicalArraysAsync(entityId, canonicalArrays, ct).ConfigureAwait(false);
 
         // Lineage-aware scoring stores TV/movie people on Work rows. TV cast is
         // commonly routed to the parent show row while enrichment is invoked
@@ -88,6 +93,7 @@ public sealed class PersonEnrichmentWorker
         {
             claims.AddRange(await _claimRepo.GetByEntityAsync(lineageWorkId, ct).ConfigureAwait(false));
             canonicals.AddRange(await _canonicalRepo.GetByEntityAsync(lineageWorkId, ct).ConfigureAwait(false));
+            await AddCanonicalArraysAsync(lineageWorkId, canonicalArrays, ct).ConfigureAwait(false);
         }
 
         // Determine media type from canonicals
@@ -101,10 +107,11 @@ public sealed class PersonEnrichmentWorker
             .Select(mc => new ProviderClaim(mc.ClaimKey, mc.ClaimValue, mc.Confidence))
             .ToList();
         var tmdbImageHints = BuildTmdbImageHints(providerClaims);
+        var readOnlyCanonicalArrays = ToReadOnlyCanonicalArrays(canonicalArrays);
 
         // Extract person refs — prefer raw claims (QID-first), fall back to canonicals
         var personRefs = PersonReferenceExtractor.FromRawClaims(providerClaims, mediaType)
-            .Concat(PersonReferenceExtractor.FromCanonicals(canonicals, mediaType))
+            .Concat(PersonReferenceExtractor.FromCanonicalArrays(readOnlyCanonicalArrays, mediaType))
             .Where(reference => !string.IsNullOrWhiteSpace(reference.WikidataQid))
             .GroupBy(reference => $"{reference.WikidataQid}::{reference.Role}", StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
@@ -178,9 +185,14 @@ public sealed class PersonEnrichmentWorker
         }
 
         // Standalone person reconciliation for unlinked names
-        if (_personReconciliation is not null && providerClaims.Count > 0)
+        if (_personReconciliation is not null)
         {
-            var unlinkedRefs = PersonReferenceExtractor.FromRawClaimsUnlinked(providerClaims, mediaType);
+            var unlinkedRefs = PersonReferenceExtractor.FromRawClaimsUnlinked(providerClaims, mediaType)
+                .Concat(PersonReferenceExtractor.FromCanonicalArrays(readOnlyCanonicalArrays, mediaType)
+                    .Where(reference => string.IsNullOrWhiteSpace(reference.WikidataQid)))
+                .GroupBy(reference => $"{reference.Role}::{reference.Name}", StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
             var titleHint = ResolvePersonWorkTitleHint(canonicals, mediaType) ?? "";
 
             foreach (var unlinked in unlinkedRefs)
@@ -242,6 +254,37 @@ public sealed class PersonEnrichmentWorker
                 }
             }
         }
+    }
+
+    private async Task AddCanonicalArraysAsync(
+        Guid entityId,
+        Dictionary<string, List<CanonicalArrayEntry>> target,
+        CancellationToken ct)
+    {
+        if (_canonicalArrayRepo is null)
+            return;
+
+        var arrays = await _canonicalArrayRepo.GetAllByEntityAsync(entityId, ct).ConfigureAwait(false);
+        foreach (var (key, values) in arrays)
+        {
+            if (!target.TryGetValue(key, out var list))
+            {
+                list = [];
+                target[key] = list;
+            }
+
+            list.AddRange(values);
+        }
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> ToReadOnlyCanonicalArrays(
+        IReadOnlyDictionary<string, List<CanonicalArrayEntry>> arrays)
+    {
+        var result = new Dictionary<string, IReadOnlyList<CanonicalArrayEntry>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, values) in arrays)
+            result[key] = values;
+
+        return result;
     }
 
     private async Task EnsurePersonHarvestCompletedAsync(Guid personId, CancellationToken ct)

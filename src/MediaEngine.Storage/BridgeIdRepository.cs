@@ -38,7 +38,7 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
             FROM   bridge_ids
             WHERE  entity_id = @entityId
             ORDER BY id_type;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
         IReadOnlyList<BridgeIdEntry> result = rows.Select(MapRow).ToList();
         return Task.FromResult(result);
@@ -55,9 +55,16 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
             return Task.FromResult(empty);
         }
 
-        var entityIdStrings = entityIds.Select(id => id.ToString()).ToList();
-
         using var conn = _db.CreateConnection();
+        var parameters = new DynamicParameters();
+        var placeholders = new string[entityIds.Count];
+        for (var i = 0; i < entityIds.Count; i++)
+        {
+            var name = $"entityId{i}";
+            placeholders[i] = "@" + name;
+            parameters.Add(name, entityIds[i]);
+        }
+
         var rows = conn.Query<BridgeIdRow>("""
             SELECT id                AS Id,
                    entity_id         AS EntityId,
@@ -67,12 +74,14 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
                    provider_id       AS ProviderId,
                    created_at        AS CreatedAt
             FROM   bridge_ids
-            WHERE  entity_id IN @entityIds
+            WHERE  entity_id IN (
+            """ + string.Join(", ", placeholders) + """
+            )
             ORDER BY entity_id, id_type;
-            """, new { entityIds = entityIdStrings });
+            """, parameters);
 
         var grouped = rows
-            .GroupBy(r => Guid.TryParse(r.EntityId, out var gid) ? gid : Guid.Empty)
+            .GroupBy(r => r.EntityId)
             .ToDictionary(
                 g => g.Key,
                 g => (IReadOnlyList<BridgeIdEntry>)g.Select(MapRow).ToList());
@@ -99,7 +108,7 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
             WHERE  entity_id = @entityId
             AND    id_type   = @idType
             LIMIT 1;
-            """, new { entityId = entityId.ToString(), idType });
+            """, new { entityId, idType });
 
         return Task.FromResult(row is null ? null : MapRow(row));
     }
@@ -146,8 +155,8 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
             """,
             new
             {
-                id               = entry.Id.ToString(),
-                entityId         = entry.EntityId.ToString(),
+                id               = entry.Id,
+                entityId         = entry.EntityId,
                 idType           = entry.IdType,
                 idValue          = entry.IdValue,
                 wikidataProperty = entry.WikidataProperty,
@@ -182,8 +191,8 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
                 """,
                 new
                 {
-                    id               = entry.Id.ToString(),
-                    entityId         = entry.EntityId.ToString(),
+                    id               = entry.Id,
+                    entityId         = entry.EntityId,
                     idType           = entry.IdType,
                     idValue          = entry.IdValue,
                     wikidataProperty = entry.WikidataProperty,
@@ -204,7 +213,7 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
         conn.Execute("""
             DELETE FROM bridge_ids
             WHERE entity_id = @entityId;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
         return Task.CompletedTask;
     }
@@ -215,8 +224,8 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
 
     private static BridgeIdEntry MapRow(BridgeIdRow row) => new()
     {
-        Id               = Guid.TryParse(row.Id,        out var id)       ? id       : Guid.NewGuid(),
-        EntityId         = Guid.TryParse(row.EntityId,  out var entityId)  ? entityId : Guid.Empty,
+        Id               = row.Id,
+        EntityId         = row.EntityId,
         IdType           = row.IdType,
         IdValue          = row.IdValue,
         WikidataProperty = row.WikidataProperty,
@@ -227,8 +236,8 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
     /// <summary>Internal DTO for raw Dapper mapping (all fields as strings for SQLite compatibility).</summary>
     private sealed class BridgeIdRow
     {
-        public string  Id               { get; set; } = "";
-        public string  EntityId         { get; set; } = "";
+        public Guid    Id               { get; set; }
+        public Guid    EntityId         { get; set; }
         public string  IdType           { get; set; } = "";
         public string  IdValue          { get; set; } = "";
         public string? WikidataProperty { get; set; }

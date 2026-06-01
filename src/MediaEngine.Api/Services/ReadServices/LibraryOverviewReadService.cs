@@ -48,10 +48,12 @@ public sealed class LibraryOverviewReadService(IDatabaseConnection db) : ILibrar
             cancellationToken: ct));
 
         var pipelineStates = pipelineRows.ToDictionary(row => row.State, row => row.Count);
-        pipelineStates.TryGetValue("Completed", out var completedCount);
+        pipelineStates.TryGetValue("Ready", out var readyCount);
+        pipelineStates.TryGetValue("ReadyWithoutUniverse", out var readyWithoutUniverseCount);
         pipelineStates.TryGetValue("Failed", out var failedCount);
-        var pipelineTotal = completedCount + failedCount;
-        var successRate = pipelineTotal > 0 ? (double)completedCount / pipelineTotal : 1.0;
+        var successfulCount = readyCount + readyWithoutUniverseCount;
+        var pipelineTotal = successfulCount + failedCount;
+        var successRate = pipelineTotal > 0 ? (double)successfulCount / pipelineTotal : 1.0;
 
         return new LibraryOverviewReadModel(
             added24h,

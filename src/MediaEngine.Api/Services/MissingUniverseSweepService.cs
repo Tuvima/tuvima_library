@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -191,8 +192,8 @@ public sealed class MissingUniverseSweepService : BackgroundService
         }
 
         // Resolve the asset ID from the work ID.
-        string? assetIdStr = LoadAssetIdForWork(workId);
-        if (assetIdStr is null || !Guid.TryParse(assetIdStr, out var assetId))
+        var assetId = LoadAssetIdForWork(workId);
+        if (!assetId.HasValue)
         {
             _logger.LogWarning(
                 "MissingUniverseSweepService: no media asset found for work {WorkId}", workId);
@@ -207,7 +208,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         var claim = new MetadataClaim
         {
             Id           = Guid.NewGuid(),
-            EntityId     = assetId,
+            EntityId     = assetId.Value,
             ProviderId   = UserProviderId,
             ClaimKey     = "wikidata_qid",
             ClaimValue   = top.Qid,
@@ -233,7 +234,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         {
             await _pipeline.RunSynchronousAsync(new HarvestRequest
             {
-                EntityId   = assetId,
+                EntityId   = assetId.Value,
                 EntityType = EntityType.MediaAsset,
                 MediaType  = MediaType.Unknown,
                 Hints      = hints,
@@ -294,7 +295,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            if (!Guid.TryParse(reader.GetString(0), out var workId)) continue;
+            var workId = GuidSql.FromDb(reader.GetValue(0));
             string? title     = reader.IsDBNull(1) ? null : reader.GetString(1);
             string  mediaType = reader.IsDBNull(2) ? "Unknown" : reader.GetString(2);
             results.Add((workId, title, mediaType));
@@ -307,7 +308,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
     /// Resolves the media asset ID for a given work ID.
     /// Returns <c>null</c> if no asset exists.
     /// </summary>
-    private string? LoadAssetIdForWork(Guid workId)
+    private Guid? LoadAssetIdForWork(Guid workId)
     {
         using var conn = _db.CreateConnection();
         using var cmd  = conn.CreateCommand();
@@ -318,7 +319,8 @@ public sealed class MissingUniverseSweepService : BackgroundService
             WHERE e.work_id = @workId
             LIMIT 1
             """;
-        cmd.Parameters.AddWithValue("@workId", workId.ToString());
-        return cmd.ExecuteScalar()?.ToString();
+        cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(workId);
+        var result = cmd.ExecuteScalar();
+        return result is null or DBNull ? null : GuidSql.FromDb(result);
     }
 }

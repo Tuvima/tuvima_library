@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Helpers;
@@ -230,15 +231,14 @@ public sealed class PersonReferenceExtractorTests
     // ── FromCanonicals ──────────────────────────────────────────────────────
 
     [Fact]
-    public void FromCanonicals_AuthorWithQid_Extracted()
+    public void FromCanonicalArrays_AuthorWithQid_Extracted()
     {
-        var canonicals = new List<CanonicalValue>
-        {
-            new() { EntityId = TestEntity, Key = MetadataFieldConstants.Author, Value = "Frank Herbert" },
-            new() { EntityId = TestEntity, Key = "author_qid", Value = "Q44413::Frank Herbert" },
-        };
+        var arrays = CanonicalArrays(MetadataFieldConstants.Author,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Frank Herbert", ValueQid = "Q44413" },
+        ]);
 
-        var refs = PersonReferenceExtractor.FromCanonicals(canonicals);
+        var refs = PersonReferenceExtractor.FromCanonicalArrays(arrays);
 
         Assert.Single(refs);
         Assert.Equal("Author", refs[0].Role);
@@ -246,7 +246,63 @@ public sealed class PersonReferenceExtractorTests
     }
 
     [Fact]
-    public void FromCanonicals_MultiValuedAuthors_SplitOnTriplePipe()
+    public void FromCanonicalArrays_MultiValuedAuthors_ExtractedFromRows()
+    {
+        var arrays = CanonicalArrays(MetadataFieldConstants.Author,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Neil Gaiman", ValueQid = "Q210112" },
+            new CanonicalArrayEntry { Ordinal = 1, Value = "Terry Pratchett", ValueQid = "Q46248" },
+        ]);
+
+        var refs = PersonReferenceExtractor.FromCanonicalArrays(arrays);
+
+        Assert.Equal(2, refs.Count);
+        Assert.Contains(refs, r => r.Name == "Neil Gaiman" && r.WikidataQid == "Q210112");
+        Assert.Contains(refs, r => r.Name == "Terry Pratchett" && r.WikidataQid == "Q46248");
+    }
+
+    [Fact]
+    public void FromCanonicalArrays_PerformerRole_MediaTypeAware()
+    {
+        var arrays = CanonicalArrays(MetadataFieldConstants.Artist,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Radiohead", ValueQid = "Q44190" },
+        ]);
+
+        var refs = PersonReferenceExtractor.FromCanonicalArrays(arrays, MediaType.Music);
+
+        Assert.Single(refs);
+        Assert.Equal("Performer", refs[0].Role);
+    }
+
+    [Fact]
+    public void FromCanonicalArrays_NoAuthorValue_NoResults()
+    {
+        var arrays = CanonicalArrays(MetadataFieldConstants.Author, []);
+
+        var refs = PersonReferenceExtractor.FromCanonicalArrays(arrays);
+
+        Assert.Empty(refs);
+    }
+
+    [Fact]
+    public void FromCanonicalArrays_CollectiveMembers_NotAddedAsDirectAuthors()
+    {
+        var arrays = CanonicalArrays(MetadataFieldConstants.Author,
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "James S.A. Corey", ValueQid = "Q6142591" },
+        ]);
+
+        var refs = PersonReferenceExtractor.FromCanonicalArrays(arrays);
+
+        Assert.Single(refs);
+        Assert.Contains(refs, r => r.WikidataQid == "Q6142591");
+        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q123456");
+        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q789012");
+    }
+
+    [Fact]
+    public void FromCanonicals_MultiValuedScalarCompatibilityReader_Removed()
     {
         var canonicals = new List<CanonicalValue>
         {
@@ -256,55 +312,7 @@ public sealed class PersonReferenceExtractorTests
 
         var refs = PersonReferenceExtractor.FromCanonicals(canonicals);
 
-        Assert.Equal(2, refs.Count);
-        Assert.Contains(refs, r => r.Name == "Neil Gaiman" && r.WikidataQid == "Q210112");
-        Assert.Contains(refs, r => r.Name == "Terry Pratchett" && r.WikidataQid == "Q46248");
-    }
-
-    [Fact]
-    public void FromCanonicals_PerformerRole_MediaTypeAware()
-    {
-        var canonicals = new List<CanonicalValue>
-        {
-            new() { EntityId = TestEntity, Key = MetadataFieldConstants.Artist, Value = "Radiohead" },
-            new() { EntityId = TestEntity, Key = "artist_qid", Value = "Q44190::Radiohead" },
-        };
-
-        var refs = PersonReferenceExtractor.FromCanonicals(canonicals, MediaType.Music);
-
-        Assert.Single(refs);
-        Assert.Equal("Performer", refs[0].Role);
-    }
-
-    [Fact]
-    public void FromCanonicals_NullAuthorValue_NoResults()
-    {
-        var canonicals = new List<CanonicalValue>
-        {
-            new() { EntityId = TestEntity, Key = MetadataFieldConstants.Author, Value = "" },
-        };
-
-        var refs = PersonReferenceExtractor.FromCanonicals(canonicals);
-
         Assert.Empty(refs);
-    }
-
-    [Fact]
-    public void FromCanonicals_CollectiveMembers_NotAddedAsDirectAuthors()
-    {
-        var canonicals = new List<CanonicalValue>
-        {
-            new() { EntityId = TestEntity, Key = MetadataFieldConstants.Author, Value = "James S.A. Corey" },
-            new() { EntityId = TestEntity, Key = "author_qid", Value = "Q6142591::James S.A. Corey" },
-            new() { EntityId = TestEntity, Key = "collective_members_qid", Value = "Q123456::Daniel Abraham; Q789012::Ty Franck" },
-        };
-
-        var refs = PersonReferenceExtractor.FromCanonicals(canonicals);
-
-        Assert.Single(refs);
-        Assert.Contains(refs, r => r.WikidataQid == "Q6142591");
-        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q123456");
-        Assert.DoesNotContain(refs, r => r.WikidataQid == "Q789012");
     }
 
     [Fact]
@@ -327,4 +335,12 @@ public sealed class PersonReferenceExtractorTests
         Assert.Contains(refs, r => r.WikidataQid == "Q18608460" && r.Name == "Ty Franck");
         Assert.DoesNotContain(refs, r => r.WikidataQid == "Q18608460" && r.Name == "James S. A. Corey");
     }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> CanonicalArrays(
+        string key,
+        IReadOnlyList<CanonicalArrayEntry> entries) =>
+        new Dictionary<string, IReadOnlyList<CanonicalArrayEntry>>(StringComparer.OrdinalIgnoreCase)
+        {
+            [key] = entries,
+        };
 }

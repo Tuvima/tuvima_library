@@ -36,7 +36,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 FROM   identity_jobs
                 WHERE  entity_id = @EntityId
                   AND  pass = @Pass
-                  AND  state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
+                  AND  state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
             );
             """,
             new
@@ -68,7 +68,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             SelectSql + """
              WHERE entity_id = @entityId
              ORDER BY CASE
-                          WHEN state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed') THEN 1
+                          WHEN state IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview') THEN 1
                           ELSE 0
                       END,
                       updated_at DESC,
@@ -255,7 +255,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<IdentityJobRow>(
             SelectSql + """
-                 WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
+                 WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
                    AND updated_at < @cutoff
                  ORDER BY updated_at ASC
                  LIMIT @limit;
@@ -403,7 +403,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         return await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')");
+            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')");
     }
 
     public async Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(

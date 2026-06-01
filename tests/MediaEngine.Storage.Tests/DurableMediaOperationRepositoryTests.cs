@@ -157,6 +157,68 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task EntityCapabilityState_StoresGuidColumnsAsBlobs()
+    {
+        var repo = new EntityCapabilityStateRepository(_db);
+        var entityId = Guid.NewGuid();
+        var operationId = Guid.NewGuid();
+        await repo.EnsureAsync(NewCapability(entityId));
+        await repo.MarkQueuedAsync(entityId, CapabilityId.IdentityWikidataBridge, null, operationId);
+
+        using var conn = _db.CreateConnection();
+        var storageTypes = conn.QuerySingle<(string IdType, string EntityIdType, string LastOperationIdType)>("""
+            SELECT typeof(id) AS IdType,
+                   typeof(entity_id) AS EntityIdType,
+                   typeof(last_operation_id) AS LastOperationIdType
+            FROM entity_capability_states
+            WHERE entity_id = @entityId;
+            """, new { entityId });
+        var state = await repo.GetAsync(entityId, CapabilityId.IdentityWikidataBridge);
+
+        Assert.Equal("blob", storageTypes.IdType);
+        Assert.Equal("blob", storageTypes.EntityIdType);
+        Assert.Equal("blob", storageTypes.LastOperationIdType);
+        Assert.Equal(operationId, state!.LastOperationId);
+    }
+
+    [Fact]
+    public async Task MediaOperationEvent_StoresGuidColumnsAsBlobs()
+    {
+        var repo = new MediaOperationEventRepository(_db);
+        var operationId = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        await repo.AddAsync(new MediaOperationEvent
+        {
+            OperationId = operationId,
+            EntityId = entityId,
+            BatchId = batchId,
+            EventType = "status_changed",
+            NewStatus = MediaOperationStatus.Running,
+        });
+
+        using var conn = _db.CreateConnection();
+        var storageTypes = conn.QuerySingle<(string IdType, string OperationIdType, string EntityIdType, string BatchIdType)>("""
+            SELECT typeof(id) AS IdType,
+                   typeof(operation_id) AS OperationIdType,
+                   typeof(entity_id) AS EntityIdType,
+                   typeof(batch_id) AS BatchIdType
+            FROM media_operation_events
+            WHERE operation_id = @operationId;
+            """, new { operationId });
+        var events = await repo.GetByOperationAsync(operationId);
+
+        Assert.Equal("blob", storageTypes.IdType);
+        Assert.Equal("blob", storageTypes.OperationIdType);
+        Assert.Equal("blob", storageTypes.EntityIdType);
+        Assert.Equal("blob", storageTypes.BatchIdType);
+        Assert.Single(events);
+        Assert.Equal(entityId, events[0].EntityId);
+        Assert.Equal(batchId, events[0].BatchId);
+    }
+
+    [Fact]
     public async Task InvalidateForCapabilityVersionAsync_MarksOlderVersionStale()
     {
         var repo = new EntityCapabilityStateRepository(_db);

@@ -203,7 +203,7 @@ public sealed class DurablePipelineTests : IDisposable
         // or another — either skipped entirely or quarantined).
         using var conn = _dbFactory.Connection.CreateConnection();
         var failedJobs = conn.ExecuteScalar<int>(
-            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Queued','Failed','RetailNoMatch','Completed');");
+            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Queued','Ready','ReadyWithoutUniverse','Failed','RetailNoMatch','QidNoMatch');");
         Assert.Equal(0, failedJobs);
     }
 
@@ -287,9 +287,9 @@ public sealed class DurablePipelineTests : IDisposable
             candidates.Add(await debounce.Reader.ReadAsync(timeout.Token));
         }
 
-        var batchIdText = conn.ExecuteScalar<string>("SELECT id FROM ingestion_batches LIMIT 1;");
-        Assert.NotNull(batchIdText);
-        var batchId = Guid.Parse(batchIdText);
+        var batchIdValue = conn.ExecuteScalar<object>("SELECT id FROM ingestion_batches LIMIT 1;");
+        Assert.NotNull(batchIdValue);
+        var batchId = GuidSql.FromDb(batchIdValue);
         Assert.All(candidates, candidate => Assert.Equal(batchId, candidate.BatchId));
     }
 

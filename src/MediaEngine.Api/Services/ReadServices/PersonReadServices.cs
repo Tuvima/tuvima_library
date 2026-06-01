@@ -3,6 +3,7 @@ using MediaEngine.Api.Endpoints;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
@@ -29,13 +30,13 @@ public sealed class PersonAliasReadService : IPersonAliasReadService
         cmd.CommandText = person.IsPseudonym
             ? "SELECT real_person_id FROM person_aliases WHERE pseudonym_person_id = @id"
             : "SELECT pseudonym_person_id FROM person_aliases WHERE real_person_id = @id";
-        cmd.Parameters.AddWithValue("@id", personId.ToString());
+        cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(personId);
 
         var aliases = new List<PersonAliasItemResponse>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            var aliasId = Guid.Parse(reader.GetString(0));
+            var aliasId = GuidSql.FromDb(reader.GetValue(0));
             var aliasPerson = await _personRepo.FindByIdAsync(aliasId, ct);
             if (aliasPerson is null)
                 continue;
@@ -110,13 +111,13 @@ public sealed class PersonWorksReadService : IPersonWorksReadService
             WHERE pml.person_id = @personId
               AND w.collection_id IS NOT NULL;
             """;
-        cmd.Parameters.AddWithValue("@personId", personId.ToString());
+        cmd.Parameters.Add("@personId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(personId);
 
         var collectionIds = new HashSet<Guid>();
         using (var reader = cmd.ExecuteReader())
         {
             while (reader.Read())
-                collectionIds.Add(Guid.Parse(reader.GetString(0)));
+                collectionIds.Add(GuidSql.FromDb(reader.GetValue(0)));
         }
 
         if (collectionIds.Count > 0)
@@ -137,7 +138,7 @@ public sealed class PersonWorksReadService : IPersonWorksReadService
 
         using var fallbackReader = fallbackCmd.ExecuteReader();
         while (fallbackReader.Read())
-            collectionIds.Add(Guid.Parse(fallbackReader.GetString(0)));
+            collectionIds.Add(GuidSql.FromDb(fallbackReader.GetValue(0)));
 
         return collectionIds;
     }
@@ -183,13 +184,13 @@ public sealed class PersonAssetScopeReadService : IPersonAssetScopeReadService
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = query;
-        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(id);
 
         var assetIds = new List<Guid>();
         using (var reader = cmd.ExecuteReader())
         {
             while (reader.Read())
-                assetIds.Add(Guid.Parse(reader.GetString(0)));
+                assetIds.Add(GuidSql.FromDb(reader.GetValue(0)));
         }
 
         var linked = await _personRepo.GetByMediaAssetsAsync(assetIds, ct);

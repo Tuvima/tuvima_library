@@ -1351,17 +1351,10 @@ public static class ItemCanonicalEndpoints
             foreach (var key in toClear)
             {
                 var targetId = ResolveScopedTarget(assetId, lineage, key);
-                using var claimCmd = conn.CreateCommand();
-                claimCmd.CommandText = "DELETE FROM metadata_claims WHERE entity_id = @entityId AND claim_key = @key";
-                claimCmd.Parameters.AddWithValue("@entityId", targetId.ToString());
-                claimCmd.Parameters.AddWithValue("@key", key);
-                claimCmd.ExecuteNonQuery();
-
-                using var bridgeCmd = conn.CreateCommand();
-                bridgeCmd.CommandText = "DELETE FROM bridge_ids WHERE entity_id = @entityId AND id_type = @key";
-                bridgeCmd.Parameters.AddWithValue("@entityId", targetId.ToString());
-                bridgeCmd.Parameters.AddWithValue("@key", key);
-                bridgeCmd.ExecuteNonQuery();
+                conn.Execute("DELETE FROM metadata_claims WHERE entity_id = @entityId AND claim_key = @key",
+                    new { entityId = targetId, key });
+                conn.Execute("DELETE FROM bridge_ids WHERE entity_id = @entityId AND id_type = @key",
+                    new { entityId = targetId, key });
             }
         }
 

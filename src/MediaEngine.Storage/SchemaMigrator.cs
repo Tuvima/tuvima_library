@@ -161,11 +161,12 @@ internal sealed class SchemaMigrator
                     occurred_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                     action_type  TEXT    NOT NULL,
                     collection_name     TEXT,
-                    entity_id    TEXT,
+                    entity_id    BLOB,
                     entity_type  TEXT,
-                    profile_id   TEXT,
+                    profile_id   BLOB,
                     changes_json TEXT,
-                    detail       TEXT
+                    detail       TEXT,
+                    ingestion_run_id BLOB
                 );
                 CREATE INDEX IF NOT EXISTS idx_system_activity_occurred_at
                     ON system_activity (occurred_at);
@@ -261,7 +262,7 @@ internal sealed class SchemaMigrator
                     trigger          TEXT NOT NULL,
                     status           TEXT NOT NULL DEFAULT 'Pending'
                                          CHECK (status IN ('Pending', 'Resolved', 'Dismissed')),
-                    proposed_hub_id  BLOB,
+                    proposed_hub_id  TEXT,
                     confidence_score REAL,
                     candidates_json  TEXT,
                     detail           TEXT,
@@ -381,7 +382,7 @@ internal sealed class SchemaMigrator
             conn,
             table: "system_activity",
             column: "ingestion_run_id",
-            ddl: "ALTER TABLE system_activity ADD COLUMN ingestion_run_id TEXT;");
+            ddl: "ALTER TABLE system_activity ADD COLUMN ingestion_run_id BLOB;");
 
         // Migration M-021: Provider response cache — stores raw JSON responses
         // from metadata provider API calls to avoid redundant HTTP requests.
@@ -615,8 +616,8 @@ internal sealed class SchemaMigrator
             probeColumn: "pseudonym_person_id",
             ddl: """
                 CREATE TABLE IF NOT EXISTS person_aliases (
-                    pseudonym_person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-                    real_person_id      TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    pseudonym_person_id BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    real_person_id      BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
                     PRIMARY KEY (pseudonym_person_id, real_person_id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_person_aliases_real ON person_aliases (real_person_id);
@@ -967,7 +968,7 @@ internal sealed class SchemaMigrator
             using var m051 = conn.CreateCommand();
             m051.CommandText = """
                 CREATE TABLE IF NOT EXISTS ingestion_batches (
-                    id                TEXT NOT NULL PRIMARY KEY,
+                    id                BLOB NOT NULL PRIMARY KEY,
                     status            TEXT NOT NULL DEFAULT 'running',
                     source_path       TEXT,
                     category          TEXT,
@@ -1051,7 +1052,7 @@ internal sealed class SchemaMigrator
                     id_type           TEXT NOT NULL,
                     id_value          TEXT NOT NULL,
                     wikidata_property TEXT,
-                    provider_id       BLOB,
+                    provider_id       TEXT,
                     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
                     UNIQUE(entity_id, id_type)
                 );
@@ -1068,10 +1069,7 @@ internal sealed class SchemaMigrator
             m054Fill.CommandText = """
                 INSERT OR IGNORE INTO bridge_ids (id, entity_id, id_type, id_value, created_at)
                 SELECT
-                    lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' ||
-                          substr(hex(randomblob(2)),2) || '-' ||
-                          substr('89ab', abs(random()) % 4 + 1, 1) ||
-                          substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))),
+                    randomblob(16),
                     cv.entity_id,
                     cv.key,
                     cv.value,
@@ -1112,8 +1110,8 @@ internal sealed class SchemaMigrator
             using var m057 = conn.CreateCommand();
             m057.CommandText = """
                 CREATE TABLE IF NOT EXISTS pending_person_signals (
-                    id          TEXT NOT NULL PRIMARY KEY,
-                    entity_id   TEXT NOT NULL,
+                    id          BLOB NOT NULL PRIMARY KEY,
+                    entity_id   BLOB NOT NULL,
                     name        TEXT NOT NULL,
                     role        TEXT NOT NULL,
                     source      TEXT NOT NULL,
@@ -1643,7 +1641,7 @@ internal sealed class SchemaMigrator
         cmd.ExecuteNonQuery();
 
         MigrateAddColumnIfMissing(conn, "review_queue", "source_operation_id",
-            "ALTER TABLE review_queue ADD COLUMN source_operation_id TEXT;");
+            "ALTER TABLE review_queue ADD COLUMN source_operation_id BLOB;");
         MigrateAddColumnIfMissing(conn, "review_queue", "source_capability_id",
             "ALTER TABLE review_queue ADD COLUMN source_capability_id TEXT;");
         MigrateAddColumnIfMissing(conn, "review_queue", "source_capability_sub_key",
@@ -2014,7 +2012,7 @@ internal sealed class SchemaMigrator
             using var createCmd = conn.CreateCommand();
             createCmd.CommandText = """
                 CREATE TABLE IF NOT EXISTS person_roles (
-                    person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    person_id BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
                     role      TEXT NOT NULL CHECK (role IN (
                                   'Author','Narrator','Director',
                                   'Actor','Voice Actor','Composer',
@@ -2474,8 +2472,8 @@ internal sealed class SchemaMigrator
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS entity_events (
-                id                TEXT NOT NULL PRIMARY KEY,
-                entity_id         TEXT NOT NULL,
+                id                BLOB NOT NULL PRIMARY KEY,
+                entity_id         BLOB NOT NULL,
                 entity_type       TEXT NOT NULL,
                 event_type        TEXT NOT NULL,
                 stage             INTEGER,
@@ -2494,7 +2492,7 @@ internal sealed class SchemaMigrator
                 score_cover_art   REAL,
                 score_composite   REAL,
                 occurred_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                ingestion_run_id  TEXT,
+                ingestion_run_id  BLOB,
                 detail            TEXT
             );
 
@@ -2506,9 +2504,9 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_events_provider ON entity_events(provider_id);
 
             CREATE TABLE IF NOT EXISTS entity_field_changes (
-                id              TEXT NOT NULL PRIMARY KEY,
-                event_id        TEXT NOT NULL REFERENCES entity_events(id) ON DELETE CASCADE,
-                entity_id       TEXT NOT NULL,
+                id              BLOB NOT NULL PRIMARY KEY,
+                event_id        BLOB NOT NULL REFERENCES entity_events(id) ON DELETE CASCADE,
+                entity_id       BLOB NOT NULL,
                 field           TEXT NOT NULL,
                 old_value       TEXT,
                 new_value       TEXT,
@@ -2568,8 +2566,8 @@ internal sealed class SchemaMigrator
         {
             cmd.CommandText = """
                 CREATE TABLE IF NOT EXISTS person_group_members (
-                    group_id    TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-                    member_id   TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    group_id    BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    member_id   BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
                     start_date  TEXT,   -- ISO-8601 date when member joined (from Wikidata P580 qualifier)
                     end_date    TEXT,   -- ISO-8601 date when member left (from Wikidata P582 qualifier)
                     PRIMARY KEY (group_id, member_id)
@@ -2602,7 +2600,7 @@ internal sealed class SchemaMigrator
                 PRAGMA foreign_keys=OFF;
 
                 CREATE TABLE person_roles_new (
-                    person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    person_id BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
                     role      TEXT NOT NULL CHECK (role IN (
                                   'Author','Narrator','Director',
                                   'Actor','Voice Actor','Composer',
@@ -2757,13 +2755,13 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_identity_jobs_lease ON identity_jobs (state, lease_expires_at);
 
             DELETE FROM identity_jobs AS older
-            WHERE older.state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
+            WHERE older.state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
               AND EXISTS (
                   SELECT 1
                   FROM   identity_jobs AS newer
                   WHERE  newer.entity_id = older.entity_id
                     AND  newer.pass = older.pass
-                    AND  newer.state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
+                    AND  newer.state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
                     AND (
                              newer.updated_at > older.updated_at
                           OR (newer.updated_at = older.updated_at AND newer.rowid > older.rowid)
@@ -2774,7 +2772,7 @@ internal sealed class SchemaMigrator
 
             CREATE UNIQUE INDEX IF NOT EXISTS ux_identity_jobs_entity_pass_active
                 ON identity_jobs (entity_id, pass)
-                WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview');
+                WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview');
 
             CREATE TABLE IF NOT EXISTS retail_match_candidates (
                 id                    BLOB PRIMARY KEY,
@@ -3249,8 +3247,8 @@ internal sealed class SchemaMigrator
                 PRAGMA foreign_keys=OFF;
 
                 CREATE TABLE entity_assets_new (
-                    id               TEXT PRIMARY KEY,
-                    entity_id        TEXT NOT NULL,
+                    id               BLOB PRIMARY KEY,
+                    entity_id        BLOB NOT NULL,
                     entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
                     asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','DiscArt','ClearArt','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
                     image_url        TEXT,

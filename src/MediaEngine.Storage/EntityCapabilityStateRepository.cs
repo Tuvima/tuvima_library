@@ -34,8 +34,8 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
             """,
             new
             {
-                Id = state.Id == Guid.Empty ? Guid.NewGuid().ToString() : state.Id.ToString(),
-                EntityId = state.EntityId.ToString(),
+                Id = state.Id == Guid.Empty ? Guid.NewGuid() : state.Id,
+                EntityId = state.EntityId,
                 state.EntityKind,
                 state.MediaType,
                 state.CapabilityId,
@@ -49,7 +49,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                 state.ArtifactCount,
                 state.ArtifactSummary,
                 state.ResultSummary,
-                LastOperationId = state.LastOperationId?.ToString(),
+                LastOperationId = state.LastOperationId,
                 FirstAttemptedAt = state.FirstAttemptedAt?.ToString("O"),
                 LastAttemptedAt = state.LastAttemptedAt?.ToString("O"),
                 SucceededAt = state.SucceededAt?.ToString("O"),
@@ -76,7 +76,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                AND COALESCE(sub_key, '') = COALESCE(@subKey, '')
              LIMIT 1;
             """,
-            new { entityId = entityId.ToString(), capabilityId, subKey });
+            new { entityId, capabilityId, subKey });
         return row is null ? null : Map(row);
     }
 
@@ -86,7 +86,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<Row>(
             SelectSql + " WHERE entity_id = @entityId ORDER BY capability_id ASC, COALESCE(sub_key, '') ASC;",
-            new { entityId = entityId.ToString() });
+            new { entityId });
         return rows.Select(Map).ToList();
     }
 
@@ -135,7 +135,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
             """,
             new
             {
-                entityId = entityId.ToString(),
+                entityId,
                 capabilityId,
                 subKey,
                 source = result.Source,
@@ -143,7 +143,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                 artifactCount = result.ArtifactCount,
                 artifactSummary = result.ArtifactSummary,
                 resultSummary = result.ResultSummary,
-                operationId = result.OperationId?.ToString(),
+                operationId = result.OperationId,
                 now = DateTimeOffset.UtcNow.ToString("O")
             });
     }
@@ -194,11 +194,11 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
             """,
             new
             {
-                entityId = entityId.ToString(),
+                entityId,
                 capabilityId,
                 subKey,
                 status,
-                operationId = operationId.ToString(),
+                operationId,
                 now = DateTimeOffset.UtcNow.ToString("O")
             });
     }
@@ -219,7 +219,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
               AND capability_id = @capabilityId
               AND COALESCE(sub_key, '') = COALESCE(@subKey, '');
             """,
-            new { entityId = entityId.ToString(), capabilityId, subKey, status, missingReason, lastError, now = DateTimeOffset.UtcNow.ToString("O") });
+            new { entityId, capabilityId, subKey, status, missingReason, lastError, now = DateTimeOffset.UtcNow.ToString("O") });
     }
 
     private const string SelectSql = """
@@ -254,8 +254,8 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
 
     private sealed class Row
     {
-        public string Id { get; set; } = "";
-        public string EntityId { get; set; } = "";
+        public Guid Id { get; set; }
+        public Guid EntityId { get; set; }
         public string EntityKind { get; set; } = "";
         public string? MediaType { get; set; }
         public string CapabilityId { get; set; } = "";
@@ -269,7 +269,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
         public int ArtifactCount { get; set; }
         public string? ArtifactSummary { get; set; }
         public string? ResultSummary { get; set; }
-        public string? LastOperationId { get; set; }
+        public Guid? LastOperationId { get; set; }
         public string? FirstAttemptedAt { get; set; }
         public string? LastAttemptedAt { get; set; }
         public string? SucceededAt { get; set; }
@@ -284,8 +284,8 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
 
     private static EntityCapabilityState Map(Row row) => new()
     {
-        Id = Guid.Parse(row.Id),
-        EntityId = Guid.Parse(row.EntityId),
+        Id = row.Id,
+        EntityId = row.EntityId,
         EntityKind = row.EntityKind,
         MediaType = row.MediaType,
         CapabilityId = row.CapabilityId,
@@ -299,7 +299,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
         ArtifactCount = row.ArtifactCount,
         ArtifactSummary = row.ArtifactSummary,
         ResultSummary = row.ResultSummary,
-        LastOperationId = Guid.TryParse(row.LastOperationId, out var opId) ? opId : null,
+        LastOperationId = row.LastOperationId,
         FirstAttemptedAt = ParseDate(row.FirstAttemptedAt),
         LastAttemptedAt = ParseDate(row.LastAttemptedAt),
         SucceededAt = ParseDate(row.SucceededAt),

@@ -664,6 +664,148 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ReviewQueue_PendingCountAndPurge_UseGuidBlobEntityIds()
+    {
+        var assetRepo = new MediaAssetRepository(_db);
+        var repo = new ReviewQueueRepository(_db);
+        var editionId = await CreateTestEditionAsync();
+        var assetId = Guid.NewGuid();
+        var operationId = Guid.NewGuid();
+
+        await assetRepo.InsertAsync(new MediaAsset
+        {
+            Id = assetId,
+            EditionId = editionId,
+            ContentHash = $"review_{Guid.NewGuid():N}",
+            FilePathRoot = "/library/review.epub",
+            Status = AssetStatus.Normal,
+        });
+
+        await repo.InsertAsync(new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = assetId,
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            SourceOperationId = operationId,
+        });
+
+        using var conn = _db.CreateConnection();
+        var storageTypes = conn.QuerySingle<(string IdType, string EntityIdType, string SourceOperationIdType)>("""
+            SELECT typeof(id) AS IdType,
+                   typeof(entity_id) AS EntityIdType,
+                   typeof(source_operation_id) AS SourceOperationIdType
+            FROM review_queue
+            WHERE entity_id = @assetId;
+            """, new { assetId });
+
+        Assert.Equal("blob", storageTypes.IdType);
+        Assert.Equal("blob", storageTypes.EntityIdType);
+        Assert.Equal("blob", storageTypes.SourceOperationIdType);
+        Assert.Equal(1, await repo.GetPendingCountAsync());
+        Assert.Equal(0, await repo.PurgeOrphanedAsync());
+        Assert.Single(await repo.GetPendingByEntityAsync(assetId));
+    }
+
+    [Fact]
+    public async Task IngestionBatchLogAndActivity_UseGuidBlobRunIds()
+    {
+        var batchRepo = new IngestionBatchRepository(_db);
+        var logRepo = new IngestionLogRepository(_db);
+        var activityRepo = new SystemActivityRepository(_db);
+        var batchId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        await batchRepo.CreateAsync(new IngestionBatch
+        {
+            Id = batchId,
+            Status = "running",
+            SourcePath = "/library/import",
+            FilesTotal = 1,
+        });
+
+        await logRepo.InsertAsync(new IngestionLogEntry
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/library/import/book.epub",
+            MediaAssetId = assetId,
+            Status = "queued_identity",
+            IngestionRunId = batchId,
+        });
+
+        await activityRepo.LogAsync(new SystemActivityEntry
+        {
+            ActionType = SystemActionType.FileIngested,
+            EntityId = assetId,
+            ProfileId = Profile.SeedProfileId,
+            IngestionRunId = batchId,
+        });
+
+        using var conn = _db.CreateConnection();
+        var batchType = conn.ExecuteScalar<string>("SELECT typeof(id) FROM ingestion_batches WHERE id = @batchId;", new { batchId });
+        var logTypes = conn.QuerySingle<(string IdType, string AssetType, string RunType)>("""
+            SELECT typeof(id) AS IdType,
+                   typeof(media_asset_id) AS AssetType,
+                   typeof(ingestion_run_id) AS RunType
+            FROM ingestion_log
+            WHERE ingestion_run_id = @batchId;
+            """, new { batchId });
+        var activityTypes = conn.QuerySingle<(string EntityType, string ProfileType, string RunType)>("""
+            SELECT typeof(entity_id) AS EntityType,
+                   typeof(profile_id) AS ProfileType,
+                   typeof(ingestion_run_id) AS RunType
+            FROM system_activity
+            WHERE ingestion_run_id = @batchId;
+            """, new { batchId });
+
+        Assert.Equal("blob", batchType);
+        Assert.Equal("blob", logTypes.IdType);
+        Assert.Equal("blob", logTypes.AssetType);
+        Assert.Equal("blob", logTypes.RunType);
+        Assert.Equal("blob", activityTypes.EntityType);
+        Assert.Equal("blob", activityTypes.ProfileType);
+        Assert.Equal("blob", activityTypes.RunType);
+        Assert.NotNull(await batchRepo.GetByIdAsync(batchId));
+        Assert.Single(await logRepo.GetByRunIdAsync(batchId));
+        Assert.Single(await activityRepo.GetByRunIdAsync(batchId));
+    }
+
+    [Fact]
+    public async Task BridgeId_UpsertAndBatchLookup_UseGuidBlobEntityIds()
+    {
+        var repo = new BridgeIdRepository(_db);
+        var entityId = Guid.NewGuid();
+
+        await repo.UpsertAsync(new BridgeIdEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            IdType = BridgeIdKeys.WikidataQid,
+            IdValue = "Q123",
+            ProviderId = "wikidata",
+        });
+
+        var byEntity = await repo.GetByEntityAsync(entityId);
+        var byEntities = await repo.GetByEntitiesAsync([entityId]);
+
+        using var conn = _db.CreateConnection();
+        var storageTypes = conn.QuerySingle<(string IdType, string EntityIdType, string ProviderType)>("""
+            SELECT typeof(id) AS IdType,
+                   typeof(entity_id) AS EntityIdType,
+                   typeof(provider_id) AS ProviderType
+            FROM bridge_ids
+            WHERE entity_id = @entityId;
+            """, new { entityId });
+
+        Assert.Single(byEntity);
+        Assert.True(byEntities.ContainsKey(entityId));
+        Assert.Equal("blob", storageTypes.IdType);
+        Assert.Equal("blob", storageTypes.EntityIdType);
+        Assert.Equal("text", storageTypes.ProviderType);
+    }
+
+    [Fact]
     public async Task ApiKey_InsertAndFindByHash()
     {
         var repo = new ApiKeyRepository(_db);

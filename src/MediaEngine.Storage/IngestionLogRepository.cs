@@ -56,9 +56,9 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
             """,
             new
             {
-                id         = entry.Id.ToString(),
+                id         = entry.Id,
                 path       = entry.FilePath,
-                mediaAssetId = entry.MediaAssetId?.ToString(),
+                mediaAssetId = entry.MediaAssetId,
                 hash       = entry.ContentHash,
                 status     = entry.Status,
                 mediaType  = entry.MediaType,
@@ -67,7 +67,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
                 normalized = entry.NormalizedTitle,
                 qid        = entry.WikidataQid,
                 error      = entry.ErrorDetail,
-                runId      = entry.IngestionRunId.HasValue ? entry.IngestionRunId.Value.ToString() : null,
+                runId      = entry.IngestionRunId,
                 created    = entry.CreatedAt.ToString("O"),
                 updated    = entry.UpdatedAt.ToString("O"),
             });
@@ -92,7 +92,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
         // Build SET clause dynamically for non-null optional fields.
         var setClauses = new List<string> { "status = @status", "updated_at = @updated" };
         var dp = new DynamicParameters();
-        dp.Add("id",      id.ToString());
+        dp.Add("id",      id);
         dp.Add("status",  status);
         dp.Add("updated", DateTimeOffset.UtcNow.ToString("O"));
 
@@ -129,7 +129,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
         if (mediaAssetId.HasValue)
         {
             setClauses.Add("media_asset_id = @mediaAssetId");
-            dp.Add("mediaAssetId", mediaAssetId.Value.ToString());
+            dp.Add("mediaAssetId", mediaAssetId.Value);
         }
         if (errorDetail is not null)
         {
@@ -172,7 +172,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
             FROM   ingestion_log
             WHERE  ingestion_run_id = @runId
             ORDER BY created_at;
-            """, new { runId = runId.ToString() }).AsList();
+            """, new { runId }).AsList();
 
         return Task.FromResult<IReadOnlyList<IngestionLogEntry>>(results);
     }
@@ -185,7 +185,7 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
             SELECT {SelectColumns}
             FROM   ingestion_log
             WHERE  id = @id;
-            """, new { id = id.ToString() });
+            """, new { id });
 
         return Task.FromResult(result);
     }

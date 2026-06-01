@@ -36,12 +36,12 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
                 OccurredAt     = entry.OccurredAt.ToString("O"),
                 entry.ActionType,
                 entry.CollectionName,
-                EntityId       = entry.EntityId?.ToString(),
+                EntityId       = entry.EntityId,
                 entry.EntityType,
-                ProfileId      = entry.ProfileId?.ToString(),
+                ProfileId      = entry.ProfileId,
                 entry.ChangesJson,
                 entry.Detail,
-                IngestionRunId = entry.IngestionRunId?.ToString(),
+                IngestionRunId = entry.IngestionRunId,
             });
 
         return Task.CompletedTask;
@@ -118,7 +118,7 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
             WHERE  ingestion_run_id = @runId
             ORDER BY id ASC;
             """,
-            new { runId = runId.ToString() })
+            new { runId })
             .AsList();
 
         return Task.FromResult<IReadOnlyList<SystemActivityEntry>>(results);
@@ -192,7 +192,7 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
             ORDER BY id DESC
             LIMIT  @limit;
             """,
-            new { profileId = profileId.ToString(), limit })
+            new { profileId, limit })
             .AsList();
 
         return Task.FromResult<IReadOnlyList<SystemActivityEntry>>(results);

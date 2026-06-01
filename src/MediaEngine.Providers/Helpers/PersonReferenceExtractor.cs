@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -91,21 +92,33 @@ public static class PersonReferenceExtractor
     public static IReadOnlyList<PersonReference> FromCanonicals(
         IReadOnlyList<CanonicalValue> canonicals,
         MediaType mediaType = MediaType.Unknown)
+        => [];
+
+    /// <summary>
+    /// Extracts person references from canonical array rows. Multi-valued person
+    /// metadata is stored here, not in scalar canonical values.
+    /// </summary>
+    public static IReadOnlyList<PersonReference> FromCanonicalArrays(
+        IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> arrays,
+        MediaType mediaType = MediaType.Unknown)
     {
         var performerRole = ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
-        AddPersonRefsFromCanonicals(refs, "Author",       canonicals, MetadataFieldConstants.Author,   "author_qid");
-        AddPersonRefsFromCanonicals(refs, "Narrator",     canonicals, MetadataFieldConstants.Narrator, "narrator_qid");
-        AddPersonRefsFromCanonicals(refs, performerRole,  canonicals, "performer",                     "performer_qid");
-        AddPersonRefsFromCanonicals(refs, performerRole,  canonicals, MetadataFieldConstants.Artist,   "artist_qid");
-        AddPersonRefsFromCanonicals(refs, "Director",     canonicals, "director",                      "director_qid");
-        AddPersonRefsFromCanonicals(refs, "Screenwriter", canonicals, "screenwriter",                  "screenwriter_qid");
-        AddPersonRefsFromCanonicals(refs, "Composer",     canonicals, "composer",                      "composer_qid");
-        AddPersonRefsFromCanonicals(refs, "Producer",     canonicals, "producer",                      "producer_qid");
-        AddPersonRefsFromCanonicals(refs, "Actor",        canonicals, "cast_member",                   "cast_member_qid");
+        AddPersonRefsFromArrays(refs, "Author",       arrays, MetadataFieldConstants.Author,   "author_qid");
+        AddPersonRefsFromArrays(refs, "Narrator",     arrays, MetadataFieldConstants.Narrator, "narrator_qid");
+        AddPersonRefsFromArrays(refs, performerRole,  arrays, "performer",                     "performer_qid");
+        AddPersonRefsFromArrays(refs, performerRole,  arrays, MetadataFieldConstants.Artist,   "artist_qid");
+        AddPersonRefsFromArrays(refs, "Director",     arrays, "director",                      "director_qid");
+        AddPersonRefsFromArrays(refs, "Screenwriter", arrays, "screenwriter",                  "screenwriter_qid");
+        AddPersonRefsFromArrays(refs, "Composer",     arrays, "composer",                      "composer_qid");
+        AddPersonRefsFromArrays(refs, "Producer",     arrays, "producer",                      "producer_qid");
+        AddPersonRefsFromArrays(refs, "Actor",        arrays, "cast_member",                   "cast_member_qid");
 
-        return refs;
+        return CollapseEquivalentRoles(refs
+            .GroupBy(r => $"{r.Role}::{r.WikidataQid ?? r.Name}", StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList());
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -171,44 +184,45 @@ public static class PersonReferenceExtractor
         }
     }
 
-    private static void AddPersonRefsFromCanonicals(
+    private static void AddPersonRefsFromArrays(
         List<PersonReference> refs,
         string role,
-        IReadOnlyList<CanonicalValue> canonicals,
+        IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> arrays,
         string nameKey,
         string qidKey)
     {
-        var nameCanonical = canonicals.FirstOrDefault(c =>
-            string.Equals(c.Key, nameKey, StringComparison.OrdinalIgnoreCase));
-        if (nameCanonical is null || string.IsNullOrWhiteSpace(nameCanonical.Value))
+        if (!arrays.TryGetValue(nameKey, out var names) || names.Count == 0)
             return;
 
-        var qidCanonical = canonicals.FirstOrDefault(c =>
-            string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase));
+        arrays.TryGetValue(qidKey, out var qidEntries);
 
-        var names = nameCanonical.Value.Split(';',
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var qidParts = qidCanonical?.Value?.Split(';',
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            ?? [];
-
-        var maxCount = Math.Max(names.Length, qidParts.Length);
+        var maxCount = Math.Max(names.Count, qidEntries?.Count ?? 0);
         for (int i = 0; i < maxCount; i++)
         {
-            var name = i < names.Length ? names[i] : null;
+            var nameEntry = i < names.Count ? names[i] : null;
+            var name = nameEntry?.Value;
             string? qid = null;
             string? qidLabel = null;
-            if (i < qidParts.Length)
+
+            if (!string.IsNullOrWhiteSpace(nameEntry?.ValueQid))
+                qid = nameEntry.ValueQid.Trim();
+
+            if (qidEntries is not null && i < qidEntries.Count)
             {
-                var segment = qidParts[i];
-                var colonIdx = segment.IndexOf("::", StringComparison.Ordinal);
-                if (colonIdx > 0)
+                var segment = FirstNonBlank(qidEntries[i].ValueQid, qidEntries[i].Value);
+                if (!string.IsNullOrWhiteSpace(segment))
                 {
-                    qid = segment[..colonIdx].Trim();
-                    qidLabel = segment[(colonIdx + 2)..].Trim();
+                    var colonIdx = segment.IndexOf("::", StringComparison.Ordinal);
+                    if (colonIdx > 0)
+                    {
+                        qid = segment[..colonIdx].Trim();
+                        qidLabel = segment[(colonIdx + 2)..].Trim();
+                    }
+                    else
+                    {
+                        qid = segment.Trim();
+                    }
                 }
-                else if (!string.IsNullOrWhiteSpace(segment))
-                    qid = segment.Trim();
             }
 
             var displayName = FirstNonBlank(qidLabel, name, qid);

@@ -54,8 +54,8 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", evt.Id.ToString());
-        cmd.Parameters.AddWithValue("@entity_id", evt.EntityId.ToString());
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(evt.Id);
+        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(evt.EntityId);
         cmd.Parameters.AddWithValue("@entity_type", evt.EntityType);
         cmd.Parameters.AddWithValue("@event_type", evt.EventType);
         cmd.Parameters.AddWithValue("@stage", evt.Stage.HasValue ? (object)evt.Stage.Value : DBNull.Value);
@@ -74,7 +74,9 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
         cmd.Parameters.AddWithValue("@score_cover_art", evt.ScoreCoverArt.HasValue ? (object)evt.ScoreCoverArt.Value : DBNull.Value);
         cmd.Parameters.AddWithValue("@score_composite", evt.ScoreComposite.HasValue ? (object)evt.ScoreComposite.Value : DBNull.Value);
         cmd.Parameters.AddWithValue("@occurred_at", evt.OccurredAt.ToString("o"));
-        cmd.Parameters.AddWithValue("@ingestion_run_id", evt.IngestionRunId.HasValue ? (object)evt.IngestionRunId.Value.ToString() : DBNull.Value);
+        cmd.Parameters.Add("@ingestion_run_id", SqliteType.Blob).Value = evt.IngestionRunId.HasValue
+            ? GuidSql.ToBlob(evt.IngestionRunId.Value)
+            : DBNull.Value;
         cmd.Parameters.AddWithValue("@detail", (object?)evt.Detail ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
@@ -96,7 +98,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         return await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
     }
 
@@ -117,7 +119,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         cmd.Parameters.AddWithValue("@stage", stage);
         var results = await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
         return results.Count > 0 ? results[0] : null;
@@ -145,7 +147,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         return await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
     }
 
@@ -164,7 +166,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", eventId.ToString());
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(eventId);
         var results = await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
         return results.Count > 0 ? results[0] : null;
     }
@@ -192,9 +194,9 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
         foreach (var change in changes)
         {
             await using var cmd = new SqliteCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@id", change.Id.ToString());
-            cmd.Parameters.AddWithValue("@event_id", change.EventId.ToString());
-            cmd.Parameters.AddWithValue("@entity_id", change.EntityId.ToString());
+            cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(change.Id);
+            cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EventId);
+            cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EntityId);
             cmd.Parameters.AddWithValue("@field", change.Field);
             cmd.Parameters.AddWithValue("@old_value", (object?)change.OldValue ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@new_value", (object?)change.NewValue ?? DBNull.Value);
@@ -221,7 +223,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@event_id", eventId.ToString());
+        cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(eventId);
         return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
     }
 
@@ -239,7 +241,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
     }
 
@@ -257,7 +259,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         cmd.Parameters.AddWithValue("@field", field);
         return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
     }
@@ -275,7 +277,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@event_id", eventId.ToString());
+        cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(eventId);
         return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
     }
 
@@ -290,7 +292,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
         // SQLite doesn't support array parameters; use a temp table for efficiency.
         await using var createCmd = new SqliteCommand(
-            "CREATE TEMP TABLE IF NOT EXISTS _tmp_entity_ids (id TEXT NOT NULL PRIMARY KEY)", conn);
+            "CREATE TEMP TABLE IF NOT EXISTS _tmp_entity_ids (id BLOB NOT NULL PRIMARY KEY)", conn);
         await createCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
 
         await using var clearCmd = new SqliteCommand("DELETE FROM _tmp_entity_ids", conn);
@@ -302,7 +304,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
         {
             await using var insertCmd = new SqliteCommand(
                 "INSERT OR IGNORE INTO _tmp_entity_ids (id) VALUES (@id)", conn);
-            insertCmd.Parameters.AddWithValue("@id", eid.ToString());
+            insertCmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(eid);
             await insertCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
         tx.Commit();
@@ -367,7 +369,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
         // Field changes cascade via FK ON DELETE CASCADE.
         const string sql = "DELETE FROM entity_events WHERE entity_id = @entity_id";
         await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@entity_id", entityId.ToString());
+        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
@@ -381,8 +383,8 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
         {
             results.Add(new EntityEvent
             {
-                Id             = Guid.Parse(reader.GetString(0)),
-                EntityId       = Guid.Parse(reader.GetString(1)),
+                Id             = GuidSql.FromDb(reader.GetValue(0)),
+                EntityId       = GuidSql.FromDb(reader.GetValue(1)),
                 EntityType     = reader.GetString(2),
                 EventType      = reader.GetString(3),
                 Stage          = reader.IsDBNull(4) ? null : reader.GetInt32(4),
@@ -401,7 +403,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
                 ScoreCoverArt  = reader.IsDBNull(17) ? null : reader.GetDouble(17),
                 ScoreComposite = reader.IsDBNull(18) ? null : reader.GetDouble(18),
                 OccurredAt     = DateTimeOffset.Parse(reader.GetString(19)),
-                IngestionRunId = reader.IsDBNull(20) ? null : Guid.Parse(reader.GetString(20)),
+                IngestionRunId = reader.IsDBNull(20) ? null : GuidSql.FromDb(reader.GetValue(20)),
                 Detail         = reader.IsDBNull(21) ? null : reader.GetString(21),
             });
         }
@@ -416,9 +418,9 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
         {
             results.Add(new EntityFieldChange
             {
-                Id             = Guid.Parse(reader.GetString(0)),
-                EventId        = Guid.Parse(reader.GetString(1)),
-                EntityId       = Guid.Parse(reader.GetString(2)),
+                Id             = GuidSql.FromDb(reader.GetValue(0)),
+                EventId        = GuidSql.FromDb(reader.GetValue(1)),
+                EntityId       = GuidSql.FromDb(reader.GetValue(2)),
                 Field          = reader.GetString(3),
                 OldValue       = reader.IsDBNull(4) ? null : reader.GetString(4),
                 NewValue       = reader.IsDBNull(5) ? null : reader.GetString(5),

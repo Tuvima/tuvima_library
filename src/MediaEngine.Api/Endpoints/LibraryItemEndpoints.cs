@@ -7,6 +7,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Services;
 
@@ -129,54 +130,38 @@ public static class LibraryItemEndpoints
         {
 
             // Resolve asset ID, work title, and media type from work ID
-            string? assetIdStr = null;
+            Guid? resolvedAssetId = null;
             string? workTitle = null;
             string? mediaTypeStr = null;
             using (var conn = db.CreateConnection())
             {
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = """
-                        SELECT ma.id
-                        FROM editions e
-                        INNER JOIN media_assets ma ON ma.edition_id = e.id
-                        WHERE e.work_id = @workId
-                        LIMIT 1
-                        """;
-                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
-                    assetIdStr = cmd.ExecuteScalar()?.ToString();
-                }
-                using (var cmd2 = conn.CreateCommand())
-                {
-                    cmd2.CommandText = @"
+                resolvedAssetId = conn.QueryFirstOrDefault<Guid?>("""
+                    SELECT ma.id
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE e.work_id = @workId
+                    LIMIT 1
+                    """, new { workId = entityId });
+                workTitle = conn.QueryFirstOrDefault<string?>(@"
                         SELECT cv.value FROM canonical_values cv
                         INNER JOIN media_assets ma ON ma.id = cv.entity_id
                         INNER JOIN editions e ON e.id = ma.edition_id
                         WHERE e.work_id = @workId AND cv.key = 'title'
-                        LIMIT 1";
-                    cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
-                    workTitle = cmd2.ExecuteScalar()?.ToString();
-                }
-                using (var cmd3 = conn.CreateCommand())
-                {
-                    cmd3.CommandText = @"
+                        LIMIT 1", new { workId = entityId });
+                mediaTypeStr = conn.QueryFirstOrDefault<string?>(@"
                         SELECT cv.value FROM canonical_values cv
                         INNER JOIN media_assets ma ON ma.id = cv.entity_id
                         INNER JOIN editions e ON e.id = ma.edition_id
                         WHERE e.work_id = @workId AND cv.key = 'media_type'
-                        LIMIT 1";
-                    cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
-                    mediaTypeStr = cmd3.ExecuteScalar()?.ToString();
-                }
+                        LIMIT 1", new { workId = entityId });
             }
 
             var resolvedMediaType = Enum.TryParse<MediaType>(mediaTypeStr, true, out var mt) ? mt : MediaType.Unknown;
 
-            if (assetIdStr is null)
+            if (!resolvedAssetId.HasValue)
                 return Results.NotFound($"No media asset found for work {entityId}.");
 
-            if (!Guid.TryParse(assetIdStr, out var assetId))
-                return Results.Problem("Invalid asset ID in database.");
+            var assetId = resolvedAssetId.Value;
 
             var now = DateTimeOffset.UtcNow;
             var claims = new List<MetadataClaim>();
@@ -240,7 +225,7 @@ public static class LibraryItemEndpoints
                                 is_conflicted  = 0,
                                 needs_review   = 0;
                             """;
-                        cvCmd.Parameters.AddWithValue("@entityId", assetIdStr);
+                        cvCmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
                         cvCmd.Parameters.AddWithValue("@key",      claim.ClaimKey);
                         cvCmd.Parameters.AddWithValue("@value",    claim.ClaimValue);
                         cvCmd.Parameters.AddWithValue("@scoredAt", now.ToString("o"));
@@ -290,7 +275,7 @@ public static class LibraryItemEndpoints
                         UPDATE works SET curator_state = 'registered', rejected_at = NULL
                         WHERE id = @workId
                         """;
-                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -322,7 +307,7 @@ public static class LibraryItemEndpoints
                         UPDATE works SET curator_state = 'registered', rejected_at = NULL
                         WHERE id = @workId
                         """;
-                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -347,7 +332,7 @@ public static class LibraryItemEndpoints
                                 is_conflicted  = 0,
                                 needs_review   = 0;
                             """;
-                        cmd.Parameters.AddWithValue("@entityId", assetIdStr);
+                        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
                         cmd.Parameters.AddWithValue("@key",      claim.ClaimKey);
                         cmd.Parameters.AddWithValue("@value",    claim.ClaimValue);
                         cmd.Parameters.AddWithValue("@scoredAt", now.ToString("o"));
@@ -405,7 +390,7 @@ public static class LibraryItemEndpoints
                     SET status = 'Resolved', resolved_at = @now, resolved_by = 'user:curator'
                     WHERE entity_id = @assetId AND status = 'Pending'
                     """;
-                cmd.Parameters.AddWithValue("@assetId", assetIdStr);
+                cmd.Parameters.Add("@assetId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
                 cmd.Parameters.AddWithValue("@now",     now.ToString("o"));
                 cmd.ExecuteNonQuery();
             }
@@ -441,7 +426,7 @@ public static class LibraryItemEndpoints
                 return Results.BadRequest("Title is required for manual entry.");
 
             // Resolve asset ID from work ID
-            string? assetIdStr = null;
+            Guid? assetId = null;
             using (var conn = db.CreateConnection())
             using (var cmd = conn.CreateCommand())
             {
@@ -452,15 +437,13 @@ public static class LibraryItemEndpoints
                     WHERE e.work_id = @workId
                     LIMIT 1
                     """;
-                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
-                assetIdStr = cmd.ExecuteScalar()?.ToString();
+                cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+                var result = cmd.ExecuteScalar();
+                assetId = result is null or DBNull ? null : GuidSql.FromDb(result);
             }
 
-            if (assetIdStr is null)
+            if (!assetId.HasValue)
                 return Results.NotFound($"No media asset found for work {entityId}.");
-
-            if (!Guid.TryParse(assetIdStr, out var assetId))
-                return Results.Problem("Invalid asset ID in database.");
 
             var now          = DateTimeOffset.UtcNow;
             var userProvider = WellKnownProviders.UserManual;
@@ -472,7 +455,7 @@ public static class LibraryItemEndpoints
                     claims.Add(new MetadataClaim
                     {
                         Id           = Guid.NewGuid(),
-                        EntityId     = assetId,
+                        EntityId     = assetId.Value,
                         ProviderId   = userProvider,
                         ClaimKey     = key,
                         ClaimValue   = value,
@@ -505,7 +488,7 @@ public static class LibraryItemEndpoints
                             is_conflicted  = 0,
                             needs_review   = 0;
                         """;
-                    cmd.Parameters.AddWithValue("@entityId", assetIdStr);
+                    cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
                     cmd.Parameters.AddWithValue("@key",      claim.ClaimKey);
                     cmd.Parameters.AddWithValue("@value",    claim.ClaimValue);
                     cmd.Parameters.AddWithValue("@scoredAt", now.ToString("o"));
@@ -540,7 +523,7 @@ public static class LibraryItemEndpoints
         {
             // 1. Resolve all media asset file paths + QID for this work
             var filePaths = new List<string>();
-            string? collectionId = null;
+            Guid? collectionId = null;
             string? workTitle = null;
             Guid? parentWorkId = null;
 
@@ -555,7 +538,7 @@ public static class LibraryItemEndpoints
                         INNER JOIN media_assets ma ON ma.edition_id = e.id
                         WHERE e.work_id = @workId
                         """;
-                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     using var reader = cmd.ExecuteReader();
                     while (reader.Read())
                     {
@@ -569,12 +552,12 @@ public static class LibraryItemEndpoints
                 using (var cmd2 = conn.CreateCommand())
                 {
                     cmd2.CommandText = "SELECT collection_id, parent_work_id FROM works WHERE id = @workId";
-                    cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd2.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
-                        collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
-                        parentWorkId = reader2.IsDBNull(1) ? null : Guid.Parse(reader2.GetString(1));
+                        collectionId = reader2.IsDBNull(0) ? null : GuidSql.FromDb(reader2.GetValue(0));
+                        parentWorkId = reader2.IsDBNull(1) ? null : GuidSql.FromDb(reader2.GetValue(1));
                     }
                 }
 
@@ -586,7 +569,7 @@ public static class LibraryItemEndpoints
                         INNER JOIN editions e ON e.id = ma.edition_id
                         WHERE e.work_id = @workId AND cv.key = 'title'
                         LIMIT 1";
-                    cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd3.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     workTitle = cmd3.ExecuteScalar()?.ToString();
                 }
             }
@@ -630,7 +613,7 @@ public static class LibraryItemEndpoints
                         WHERE e.work_id = @workId
                     )
                     """;
-                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                 cmd.ExecuteNonQuery();
             }
 
@@ -641,7 +624,7 @@ public static class LibraryItemEndpoints
                 conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId });
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "DELETE FROM works WHERE id = @workId";
-                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                 cmd.ExecuteNonQuery();
             }
 
@@ -656,7 +639,7 @@ public static class LibraryItemEndpoints
                     DELETE FROM collections WHERE id = @collectionId
                     AND NOT EXISTS (SELECT 1 FROM works WHERE collection_id = @collectionId)
                     """;
-                cmd.Parameters.AddWithValue("@collectionId", collectionId);
+                cmd.Parameters.Add("@collectionId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(collectionId.Value);
                 cmd.ExecuteNonQuery();
             }
 
@@ -690,9 +673,9 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             // Resolve the media asset's current file path and its ID.
-            string? assetIdStr = null;
+            Guid? assetId = null;
             string? currentFilePath = null;
-            string? collectionId = null;
+            Guid? collectionId = null;
             string? workTitle = null;
 
             using (var conn = db.CreateConnection())
@@ -706,11 +689,11 @@ public static class LibraryItemEndpoints
                         WHERE e.work_id = @workId
                         LIMIT 1
                         """;
-                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     using var reader = cmd.ExecuteReader();
                     if (reader.Read())
                     {
-                        assetIdStr      = reader.GetString(0);
+                        assetId         = GuidSql.FromDb(reader.GetValue(0));
                         currentFilePath = reader.IsDBNull(1) ? null : reader.GetString(1);
                     }
                 }
@@ -718,11 +701,11 @@ public static class LibraryItemEndpoints
                 using (var cmd2 = conn.CreateCommand())
                 {
                     cmd2.CommandText = "SELECT collection_id FROM works WHERE id = @workId";
-                    cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd2.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
-                        collectionId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        collectionId = reader2.IsDBNull(0) ? null : GuidSql.FromDb(reader2.GetValue(0));
                     }
                 }
 
@@ -734,16 +717,13 @@ public static class LibraryItemEndpoints
                         INNER JOIN editions e ON e.id = ma.edition_id
                         WHERE e.work_id = @workId AND cv.key = 'title'
                         LIMIT 1";
-                    cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd3.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     workTitle = cmd3.ExecuteScalar()?.ToString();
                 }
             }
 
-            if (assetIdStr is null || currentFilePath is null)
+            if (!assetId.HasValue || currentFilePath is null)
                 return Results.NotFound($"No media asset found for work {entityId}.");
-
-            if (!Guid.TryParse(assetIdStr, out var assetId))
-                return Results.Problem("Invalid asset ID in database.");
 
             // Resolve the library root to build the .data/staging/rejected/ path.
             var core = configLoader.LoadCore();
@@ -759,7 +739,7 @@ public static class LibraryItemEndpoints
 
             // Avoid collisions: append asset ID suffix when a same-named file already exists.
             if (File.Exists(newFilePath) && !string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
-                newFilePath = Path.Combine(rejectedDir, $"{Path.GetFileNameWithoutExtension(fileName)}__{assetId}{Path.GetExtension(fileName)}");
+                newFilePath = Path.Combine(rejectedDir, $"{Path.GetFileNameWithoutExtension(fileName)}__{assetId.Value}{Path.GetExtension(fileName)}");
 
             // Move the file if it is not already in the rejected folder.
             if (!string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
@@ -781,7 +761,7 @@ public static class LibraryItemEndpoints
             {
                 cmd.CommandText = "UPDATE media_assets SET file_path_root = @path WHERE id = @id";
                 cmd.Parameters.AddWithValue("@path", newFilePath);
-                cmd.Parameters.AddWithValue("@id",   assetIdStr);
+                cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
                 cmd.ExecuteNonQuery();
             }
 
@@ -794,7 +774,7 @@ public static class LibraryItemEndpoints
                     SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:reject'
                     WHERE entity_id = @assetId AND status = 'Pending'
                     """;
-                cmd.Parameters.AddWithValue("@assetId", assetIdStr);
+                cmd.Parameters.Add("@assetId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
                 cmd.Parameters.AddWithValue("@now",     DateTimeOffset.UtcNow.ToString("o"));
                 cmd.ExecuteNonQuery();
             }
@@ -807,7 +787,7 @@ public static class LibraryItemEndpoints
                     UPDATE works SET curator_state = 'rejected', rejected_at = @now
                     WHERE id = @workId
                     """;
-                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                 cmd.Parameters.AddWithValue("@now",    DateTimeOffset.UtcNow.ToString("o"));
                 cmd.ExecuteNonQuery();
             }
@@ -870,7 +850,7 @@ public static class LibraryItemEndpoints
                             WHERE e.work_id = @workId
                         )
                         """;
-                    cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                    cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                     cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("o"));
                     cmd.ExecuteNonQuery();
 
@@ -909,9 +889,9 @@ public static class LibraryItemEndpoints
             {
                 try
                 {
-                    var filePaths    = new List<string>();
-                    string? collectionId      = null;
-                    string? workTitle  = null;
+                    var filePaths = new List<string>();
+                    Guid? collectionId = null;
+                    string? workTitle = null;
                     Guid? parentWorkId = null;
 
                     using (var conn = db.CreateConnection())
@@ -924,7 +904,7 @@ public static class LibraryItemEndpoints
                                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                                 WHERE e.work_id = @workId
                                 """;
-                            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                            cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                             using var reader = cmd.ExecuteReader();
                             while (reader.Read())
                             {
@@ -937,12 +917,12 @@ public static class LibraryItemEndpoints
                         using (var cmd2 = conn.CreateCommand())
                         {
                             cmd2.CommandText = "SELECT collection_id, parent_work_id FROM works WHERE id = @workId";
-                            cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                            cmd2.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                             using var reader2 = cmd2.ExecuteReader();
                             if (reader2.Read())
                             {
-                                collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
-                                parentWorkId = reader2.IsDBNull(1) ? null : Guid.Parse(reader2.GetString(1));
+                                collectionId = reader2.IsDBNull(0) ? null : GuidSql.FromDb(reader2.GetValue(0));
+                                parentWorkId = reader2.IsDBNull(1) ? null : GuidSql.FromDb(reader2.GetValue(1));
                             }
                         }
 
@@ -954,7 +934,7 @@ public static class LibraryItemEndpoints
                                 INNER JOIN editions e ON e.id = ma.edition_id
                                 WHERE e.work_id = @workId AND cv.key = 'title'
                                 LIMIT 1";
-                            cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                            cmd3.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                             workTitle = cmd3.ExecuteScalar()?.ToString();
                         }
                     }
@@ -990,7 +970,7 @@ public static class LibraryItemEndpoints
                                 WHERE e.work_id = @workId
                             )
                             """;
-                        cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                        cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                         cmd.ExecuteNonQuery();
                     }
 
@@ -1000,7 +980,7 @@ public static class LibraryItemEndpoints
                         conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId });
                         using var cmd = conn.CreateCommand();
                         cmd.CommandText = "DELETE FROM works WHERE id = @workId";
-                        cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                        cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                         cmd.ExecuteNonQuery();
                     }
 
@@ -1014,7 +994,7 @@ public static class LibraryItemEndpoints
                             DELETE FROM collections WHERE id = @collectionId
                             AND NOT EXISTS (SELECT 1 FROM works WHERE collection_id = @collectionId)
                             """;
-                        cmd.Parameters.AddWithValue("@collectionId", collectionId);
+                        cmd.Parameters.Add("@collectionId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(collectionId.Value);
                         cmd.ExecuteNonQuery();
                     }
 
@@ -1070,7 +1050,7 @@ public static class LibraryItemEndpoints
             {
                 try
                 {
-                    string? assetIdStr      = null;
+                    Guid? assetId = null;
                     string? currentFilePath = null;
                     string? workTitle       = null;
 
@@ -1085,11 +1065,11 @@ public static class LibraryItemEndpoints
                                 WHERE e.work_id = @workId
                                 LIMIT 1
                                 """;
-                            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                            cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                             using var reader = cmd.ExecuteReader();
                             if (reader.Read())
                             {
-                                assetIdStr      = reader.GetString(0);
+                                assetId         = GuidSql.FromDb(reader.GetValue(0));
                                 currentFilePath = reader.IsDBNull(1) ? null : reader.GetString(1);
                             }
                         }
@@ -1102,19 +1082,18 @@ public static class LibraryItemEndpoints
                                 INNER JOIN editions e ON e.id = ma.edition_id
                                 WHERE e.work_id = @workId AND cv.key = 'title'
                                 LIMIT 1";
-                            cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
+                            cmd2.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                             workTitle = cmd2.ExecuteScalar()?.ToString();
                         }
                     }
 
-                    if (assetIdStr is null || currentFilePath is null) continue;
-                    if (!Guid.TryParse(assetIdStr, out var assetId)) continue;
+                    if (!assetId.HasValue || currentFilePath is null) continue;
 
                     var fileName    = Path.GetFileName(currentFilePath);
                     var newFilePath = Path.Combine(rejectedDir, fileName);
 
                     if (File.Exists(newFilePath) && !string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
-                        newFilePath = Path.Combine(rejectedDir, $"{Path.GetFileNameWithoutExtension(fileName)}__{assetId}{Path.GetExtension(fileName)}");
+                        newFilePath = Path.Combine(rejectedDir, $"{Path.GetFileNameWithoutExtension(fileName)}__{assetId.Value}{Path.GetExtension(fileName)}");
 
                     if (!string.Equals(currentFilePath, newFilePath, StringComparison.OrdinalIgnoreCase))
                     {
@@ -1131,7 +1110,7 @@ public static class LibraryItemEndpoints
                     {
                         cmd.CommandText = "UPDATE media_assets SET file_path_root = @path WHERE id = @id";
                         cmd.Parameters.AddWithValue("@path", newFilePath);
-                        cmd.Parameters.AddWithValue("@id",   assetIdStr);
+                        cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
                         cmd.ExecuteNonQuery();
                     }
 
@@ -1143,7 +1122,7 @@ public static class LibraryItemEndpoints
                             SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:reject'
                             WHERE entity_id = @assetId AND status = 'Pending'
                             """;
-                        cmd.Parameters.AddWithValue("@assetId", assetIdStr);
+                        cmd.Parameters.Add("@assetId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
                         cmd.Parameters.AddWithValue("@now",     DateTimeOffset.UtcNow.ToString("o"));
                         cmd.ExecuteNonQuery();
                     }
@@ -1155,7 +1134,7 @@ public static class LibraryItemEndpoints
                             UPDATE works SET curator_state = 'rejected', rejected_at = @now
                             WHERE id = @workId
                             """;
-                        cmd.Parameters.AddWithValue("@workId", entityId.ToString());
+                        cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
                         cmd.Parameters.AddWithValue("@now",    DateTimeOffset.UtcNow.ToString("o"));
                         cmd.ExecuteNonQuery();
                     }
@@ -1198,33 +1177,25 @@ public static class LibraryItemEndpoints
         {
             // Clear the rejected state on the work.
             using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
+            var affected = conn.Execute("""
                 UPDATE works SET curator_state = NULL, rejected_at = NULL
                 WHERE id = @workId AND curator_state = 'rejected'
-                """;
-            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
-            var affected = cmd.ExecuteNonQuery();
+                """, new { workId = entityId });
 
             if (affected == 0)
                 return Results.NotFound($"Work {entityId} is not in rejected state.");
 
             // Create a new review queue entry so the item goes back to InReview.
-            string? assetIdStr = null;
-            using (var cmd3 = conn.CreateCommand())
-            {
-                cmd3.CommandText = """
-                    SELECT ma.id FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE e.work_id = @workId LIMIT 1
-                    """;
-                cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
-                var result = cmd3.ExecuteScalar();
-                assetIdStr = result as string;
-            }
+            var assetId = conn.QueryFirstOrDefault<Guid?>("""
+                SELECT ma.id FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.work_id = @workId LIMIT 1
+                """, new { workId = entityId });
 
-            if (assetIdStr is not null)
+            var reviewId = Guid.Empty;
+            if (assetId.HasValue)
             {
+                reviewId = Guid.NewGuid();
                 using var cmd2 = conn.CreateCommand();
                 cmd2.CommandText = """
                     INSERT INTO review_queue
@@ -1232,8 +1203,8 @@ public static class LibraryItemEndpoints
                     VALUES
                         (@id, @entityId, 'MediaAsset', @trigger, 'Pending', 0, @detail, @createdAt)
                     """;
-                cmd2.Parameters.AddWithValue("@id",        Guid.NewGuid().ToString());
-                cmd2.Parameters.AddWithValue("@entityId",  assetIdStr);
+                cmd2.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(reviewId);
+                cmd2.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
                 cmd2.Parameters.AddWithValue("@trigger",   "UserFixMatch");
                 cmd2.Parameters.AddWithValue("@detail",    "Un-rejected by user — returned to review queue.");
                 cmd2.Parameters.AddWithValue("@createdAt", DateTimeOffset.UtcNow.ToString("o"));
@@ -1254,7 +1225,7 @@ public static class LibraryItemEndpoints
 
             await publisher.PublishAsync(SignalREvents.ReviewItemCreated, new
             {
-                review_item_id = Guid.Empty,
+                review_item_id = reviewId,
                 entity_id = entityId,
                 trigger = "UserFixMatch",
             }, ct);
@@ -1284,51 +1255,37 @@ public static class LibraryItemEndpoints
 
             // Set curator_state = 'provisional' on the works table.
             using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
+            var affected = conn.Execute("""
                 UPDATE works
                 SET curator_state = 'provisional',
                     provisional_metadata_json = @json
                 WHERE id = @workId
-                """;
-            cmd.Parameters.AddWithValue("@workId", entityId.ToString());
-            cmd.Parameters.AddWithValue("@json",   metadataJson);
-            var affected = cmd.ExecuteNonQuery();
+                """, new { workId = entityId, json = metadataJson });
 
             if (affected == 0)
                 return Results.NotFound($"Work {entityId} not found.");
 
             // Dismiss any pending review items — the curator has taken ownership.
-            string? assetIdStr = null;
-            using (var cmd2 = conn.CreateCommand())
-            {
-                cmd2.CommandText = """
-                    SELECT ma.id FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE e.work_id = @workId LIMIT 1
-                    """;
-                cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
-                assetIdStr = cmd2.ExecuteScalar() as string;
-            }
+            var assetId = conn.QueryFirstOrDefault<Guid?>("""
+                SELECT ma.id FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.work_id = @workId LIMIT 1
+                """, new { workId = entityId });
 
-            if (assetIdStr is not null)
+            if (assetId.HasValue)
             {
-                using var cmd3 = conn.CreateCommand();
-                cmd3.CommandText = """
+                conn.Execute("""
                     UPDATE review_queue
                     SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:provisional'
                     WHERE entity_id = @assetId AND status = 'Pending'
-                    """;
-                cmd3.Parameters.AddWithValue("@assetId", assetIdStr);
-                cmd3.Parameters.AddWithValue("@now",     DateTimeOffset.UtcNow.ToString("o"));
-                cmd3.ExecuteNonQuery();
+                    """, new { assetId = assetId.Value, now = DateTimeOffset.UtcNow.ToString("o") });
             }
 
             // Store provisional metadata as user-locked claims at confidence 1.0.
-            if (assetIdStr is not null && Guid.TryParse(assetIdStr, out var assetGuid))
+            if (assetId.HasValue)
             {
                 var now = DateTimeOffset.UtcNow.ToString("o");
-                var localProviderId = WellKnownProviders.LocalProcessor.ToString();
+                var localProviderId = WellKnownProviders.LocalProcessor;
 
                 var fields = new Dictionary<string, string?>
                 {
@@ -1349,24 +1306,23 @@ public static class LibraryItemEndpoints
                 {
                     if (string.IsNullOrWhiteSpace(value)) continue;
 
-                    using var claimCmd = conn.CreateCommand();
-                    claimCmd.CommandText = """
+                    conn.Execute("""
                         INSERT OR REPLACE INTO metadata_claims
                             (id, entity_id, claim_key, claim_value, provider_id, confidence, is_user_locked, claimed_at)
                         VALUES
                             (@id, @entityId, @key, @value, @providerId, 1.0, 1, @now)
-                        """;
-                    claimCmd.Parameters.AddWithValue("@id",         Guid.NewGuid().ToString());
-                    claimCmd.Parameters.AddWithValue("@entityId",   assetIdStr);
-                    claimCmd.Parameters.AddWithValue("@key",        key);
-                    claimCmd.Parameters.AddWithValue("@value",      value);
-                    claimCmd.Parameters.AddWithValue("@providerId", localProviderId);
-                    claimCmd.Parameters.AddWithValue("@now",        now);
-                    claimCmd.ExecuteNonQuery();
+                        """, new
+                        {
+                            id = Guid.NewGuid(),
+                            entityId = assetId.Value,
+                            key,
+                            value,
+                            providerId = localProviderId,
+                            now,
+                        });
 
                     // Also upsert canonical values so the UI sees them immediately.
-                    using var cvCmd = conn.CreateCommand();
-                    cvCmd.CommandText = """
+                    conn.Execute("""
                         INSERT INTO canonical_values (entity_id, key, value, winning_provider_id, is_conflicted, needs_review, last_scored_at)
                         VALUES (@entityId, @key, @value, @providerId, 0, 0, @now)
                         ON CONFLICT(entity_id, key) DO UPDATE SET
@@ -1375,13 +1331,14 @@ public static class LibraryItemEndpoints
                             is_conflicted = 0,
                             needs_review = 0,
                             last_scored_at = excluded.last_scored_at
-                        """;
-                    cvCmd.Parameters.AddWithValue("@entityId",   assetIdStr);
-                    cvCmd.Parameters.AddWithValue("@key",        key);
-                    cvCmd.Parameters.AddWithValue("@value",      value);
-                    cvCmd.Parameters.AddWithValue("@providerId", localProviderId);
-                    cvCmd.Parameters.AddWithValue("@now",        now);
-                    cvCmd.ExecuteNonQuery();
+                        """, new
+                        {
+                            entityId = assetId.Value,
+                            key,
+                            value,
+                            providerId = localProviderId,
+                            now,
+                        });
                 }
             }
 
@@ -1428,7 +1385,7 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             // Resolve asset ID from work ID so we can find events logged against either.
-            string? assetIdStr;
+            Guid? assetId;
             using (var conn = db.CreateConnection())
             using (var cmd = conn.CreateCommand())
             {
@@ -1439,13 +1396,13 @@ public static class LibraryItemEndpoints
                     WHERE e.work_id = @workId
                     LIMIT 1
                     """;
-                cmd.Parameters.AddWithValue("@workId", entityId.ToString());
-                assetIdStr = cmd.ExecuteScalar()?.ToString();
+                cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+                var result = cmd.ExecuteScalar();
+                assetId = result is null or DBNull ? null : GuidSql.FromDb(result);
             }
 
             // Query system_activity for both work ID and asset ID.
-            var workIdStr = entityId.ToString();
-            var assetId = assetIdStr ?? workIdStr;
+            var resolvedAssetId = assetId ?? entityId;
 
             using var conn2 = db.CreateConnection();
             using var cmd2 = conn2.CreateCommand();
@@ -1456,8 +1413,8 @@ public static class LibraryItemEndpoints
                 ORDER BY occurred_at DESC
                 LIMIT 200
                 """;
-            cmd2.Parameters.AddWithValue("@workId", workIdStr);
-            cmd2.Parameters.AddWithValue("@assetId", assetId);
+            cmd2.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+            cmd2.Parameters.Add("@assetId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(resolvedAssetId);
 
             var entries = new List<object>();
             using var reader = cmd2.ExecuteReader();
@@ -1466,7 +1423,7 @@ public static class LibraryItemEndpoints
                 entries.Add(new
                 {
                     id = reader.GetInt64(0).ToString(),
-                    entity_id = reader.IsDBNull(3) ? entityId : (Guid.TryParse(reader.GetString(3), out var eid) ? eid : entityId),
+                    entity_id = reader.IsDBNull(3) ? entityId : GuidSql.FromDb(reader.GetValue(3)),
                     occurred_at = reader.IsDBNull(1) ? DateTimeOffset.UtcNow : DateTimeOffset.Parse(reader.GetString(1)),
                     event_type = reader.IsDBNull(2) ? "" : reader.GetString(2),
                     label = reader.IsDBNull(2) ? "" : FormatActionTypeLabel(reader.GetString(2)),

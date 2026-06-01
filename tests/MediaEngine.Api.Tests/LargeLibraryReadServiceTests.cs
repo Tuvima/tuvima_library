@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Storage;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Tests;
 
@@ -64,7 +65,7 @@ public sealed class LargeLibraryReadServiceTests : IDisposable
             INSERT INTO ingestion_batches (id, status, files_total, files_processed, created_at, started_at)
             VALUES ($batchId, 'running', $count, 0, $now, $now);
             """;
-        cmd.Parameters.AddWithValue("$batchId", batchId.ToString());
+        AddGuid(cmd, "$batchId", batchId);
         cmd.Parameters.AddWithValue("$count", count);
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
         cmd.ExecuteNonQuery();
@@ -113,8 +114,8 @@ public sealed class LargeLibraryReadServiceTests : IDisposable
                 );
                 """;
             var createdAt = DateTimeOffset.UtcNow.AddMinutes(i).ToString("O");
-            row.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
-            row.Parameters.AddWithValue("$batchId", batchId.ToString());
+            AddGuid(row, "$id", Guid.NewGuid());
+            AddGuid(row, "$batchId", batchId);
             row.Parameters.AddWithValue("$filePath", $"C:/watch/file-{i:000}.epub");
             row.Parameters.AddWithValue("$positionKey", i);
             row.Parameters.AddWithValue("$idempotencyKey", $"ingestion:file:C:/watch/file-{i:000}.epub");
@@ -122,4 +123,7 @@ public sealed class LargeLibraryReadServiceTests : IDisposable
             row.ExecuteNonQuery();
         }
     }
+
+    private static void AddGuid(SqliteCommand cmd, string name, Guid value) =>
+        cmd.Parameters.Add(name, SqliteType.Blob).Value = GuidSql.ToBlob(value);
 }

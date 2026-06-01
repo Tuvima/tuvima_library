@@ -59,7 +59,7 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             """,
             new
             {
-                id               = batch.Id.ToString(),
+                id               = batch.Id,
                 status           = batch.Status,
                 sourcePath       = batch.SourcePath,
                 category         = batch.Category,
@@ -103,7 +103,7 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             """,
             new
             {
-                id               = id.ToString(),
+                id,
                 filesTotal       = filesTotal,
                 filesProcessed   = filesProcessed,
                 filesIdentified  = filesIdentified,
@@ -129,7 +129,7 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             """,
             new
             {
-                id          = id.ToString(),
+                id,
                 status      = status,
                 completedAt = DateTimeOffset.UtcNow.ToString("O"),
                 updatedAt   = DateTimeOffset.UtcNow.ToString("O"),
@@ -146,7 +146,7 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             SELECT {SelectColumns}
             FROM   ingestion_batches
             WHERE  id = @id;
-            """, new { id = id.ToString() });
+            """, new { id });
 
         return Task.FromResult(result);
     }
@@ -204,7 +204,7 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             """,
             new
             {
-                id        = id.ToString(),
+                id,
                 updatedAt = DateTimeOffset.UtcNow.ToString("O"),
             });
 

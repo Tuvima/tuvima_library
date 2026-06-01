@@ -42,8 +42,8 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
                  @reviewReadyAt, @automationCompletedAt)
             """, new
         {
-            id            = entry.Id.ToString(),
-            entityId      = entry.EntityId.ToString(),
+            id            = entry.Id,
+            entityId      = entry.EntityId,
             entityType    = entry.EntityType,
             trigger       = entry.Trigger,
             status        = entry.Status,
@@ -54,7 +54,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             createdAt     = entry.CreatedAt.ToString("O"),
             resolvedAt    = entry.ResolvedAt.HasValue ? (object)entry.ResolvedAt.Value.ToString("O") : null,
             resolvedBy    = entry.ResolvedBy,
-            sourceOperationId = entry.SourceOperationId?.ToString(),
+            sourceOperationId = entry.SourceOperationId,
             sourceCapabilityId = entry.SourceCapabilityId,
             sourceCapabilitySubKey = entry.SourceCapabilitySubKey,
             reviewReadyAt = entry.ReviewReadyAt?.ToString("O"),
@@ -95,7 +95,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
                    resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
             WHERE  id = @id
-            """, new { id = id.ToString() });
+            """, new { id });
 
         return Task.FromResult(row is null ? null : (ReviewQueueEntry?)MapRow(row));
     }
@@ -114,7 +114,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             FROM   review_queue
             WHERE  entity_id = @entityId
             ORDER BY created_at DESC
-            """, new { entityId = entityId.ToString() }).AsList();
+            """, new { entityId }).AsList();
 
         return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
     }
@@ -133,7 +133,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             FROM   review_queue
             WHERE  entity_id = @entityId AND status = @status
             ORDER BY created_at DESC
-            """, new { entityId = entityId.ToString(), status = ReviewStatus.Pending }).AsList();
+            """, new { entityId, status = ReviewStatus.Pending }).AsList();
 
         return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
     }
@@ -154,7 +154,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             WHERE  id = @id
             """, new
         {
-            id         = id.ToString(),
+            id,
             status,
             resolvedAt = DateTimeOffset.UtcNow.ToString("O"),
             resolvedBy,
@@ -196,7 +196,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         {
             dismissed = ReviewStatus.Dismissed,
             now       = DateTimeOffset.UtcNow.ToString("O"),
-            entityId  = entityId.ToString(),
+            entityId,
             pending   = ReviewStatus.Pending,
         });
 
@@ -219,7 +219,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             resolved   = ReviewStatus.Resolved,
             now        = DateTimeOffset.UtcNow.ToString("O"),
             resolvedBy,
-            entityId   = entityId.ToString(),
+            entityId,
             pending    = ReviewStatus.Pending,
         });
 
@@ -230,8 +230,14 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     public Task<int> PurgeOrphanedAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        var deleted = conn.Execute(
-            "DELETE FROM review_queue WHERE entity_id NOT IN (SELECT id FROM media_assets)");
+        var deleted = conn.Execute("""
+            DELETE FROM review_queue
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM media_assets ma
+                WHERE ma.id = review_queue.entity_id
+            );
+            """);
 
         return Task.FromResult(deleted);
     }
@@ -241,8 +247,8 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     /// <summary>Flat data-transfer struct that Dapper populates from a SELECT row.</summary>
     private sealed class ReviewQueueRow
     {
-        public string Id            { get; set; } = "";
-        public string EntityId      { get; set; } = "";
+        public Guid Id              { get; set; }
+        public Guid EntityId        { get; set; }
         public string EntityType    { get; set; } = "";
         public string Trigger       { get; set; } = "";
         public string Status        { get; set; } = "";
@@ -257,8 +263,8 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
 
     private static ReviewQueueEntry MapRow(ReviewQueueRow r) => new()
     {
-        Id              = Guid.Parse(r.Id),
-        EntityId        = Guid.Parse(r.EntityId),
+        Id              = r.Id,
+        EntityId        = r.EntityId,
         EntityType      = r.EntityType,
         Trigger         = r.Trigger,
         Status          = r.Status,

@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Storage;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Tests;
 
@@ -29,8 +30,8 @@ public sealed class LibraryOverviewReadServiceTests : IDisposable
         SeedWorkWithClaim(DateTimeOffset.UtcNow.AddHours(-2));
         SeedWorkWithClaim(DateTimeOffset.UtcNow.AddDays(-3));
         SeedWorkWithClaim(DateTimeOffset.UtcNow.AddDays(-20));
-        SeedIdentityJob("Completed");
-        SeedIdentityJob("Completed");
+        SeedIdentityJob("Ready");
+        SeedIdentityJob("ReadyWithoutUniverse");
         SeedIdentityJob("Failed");
 
         var service = new LibraryOverviewReadService(_db);
@@ -40,7 +41,8 @@ public sealed class LibraryOverviewReadServiceTests : IDisposable
         Assert.Equal(1, result.Added24h);
         Assert.Equal(2, result.Added7d);
         Assert.Equal(3, result.Added30d);
-        Assert.Equal(2, result.PipelineStates["Completed"]);
+        Assert.Equal(1, result.PipelineStates["Ready"]);
+        Assert.Equal(1, result.PipelineStates["ReadyWithoutUniverse"]);
         Assert.Equal(1, result.PipelineStates["Failed"]);
         Assert.Equal(0.6667, result.PipelineSuccessRate);
     }
@@ -76,14 +78,14 @@ public sealed class LibraryOverviewReadServiceTests : IDisposable
         var editionId = Guid.NewGuid();
         var assetId = Guid.NewGuid();
         var providerId = Guid.NewGuid();
-        cmd.Parameters.AddWithValue("$workId", workId.ToString("D"));
-        cmd.Parameters.AddWithValue("$editionId", editionId.ToString("D"));
-        cmd.Parameters.AddWithValue("$assetId", assetId.ToString("D"));
+        AddGuid(cmd, "$workId", workId);
+        AddGuid(cmd, "$editionId", editionId);
+        AddGuid(cmd, "$assetId", assetId);
         cmd.Parameters.AddWithValue("$providerName", $"test-{providerId:N}");
         cmd.Parameters.AddWithValue("$hash", Guid.NewGuid().ToString("N"));
         cmd.Parameters.AddWithValue("$path", $"C:/library/{assetId:N}.epub");
-        cmd.Parameters.AddWithValue("$claimId", Guid.NewGuid().ToString("D"));
-        cmd.Parameters.AddWithValue("$providerId", providerId.ToString("D"));
+        AddGuid(cmd, "$claimId", Guid.NewGuid());
+        AddGuid(cmd, "$providerId", providerId);
         cmd.Parameters.AddWithValue("$claimedAt", claimedAt.ToString("O"));
         cmd.ExecuteNonQuery();
     }
@@ -96,10 +98,13 @@ public sealed class LibraryOverviewReadServiceTests : IDisposable
             INSERT INTO identity_jobs (id, entity_id, entity_type, media_type, state, pass, created_at, updated_at)
             VALUES ($id, $entityId, 'MediaAsset', 'Books', $state, 'Quick', $now, $now);
             """;
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("D"));
-        cmd.Parameters.AddWithValue("$entityId", Guid.NewGuid().ToString("D"));
+        AddGuid(cmd, "$id", Guid.NewGuid());
+        AddGuid(cmd, "$entityId", Guid.NewGuid());
         cmd.Parameters.AddWithValue("$state", state);
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
         cmd.ExecuteNonQuery();
     }
+
+    private static void AddGuid(SqliteCommand cmd, string name, Guid value) =>
+        cmd.Parameters.Add(name, SqliteType.Blob).Value = GuidSql.ToBlob(value);
 }

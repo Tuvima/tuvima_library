@@ -8,7 +8,7 @@ public sealed class LibraryOverviewViewModel
     public int Added7d { get; init; }
     public int Added30d { get; init; }
 
-    /// <summary>Identity pipeline states (Queued, RetailMatched, QidResolved, Completed, Failed).</summary>
+    /// <summary>Identity pipeline states (Queued, RetailMatched, QidResolved, Ready, ReadyWithoutUniverse, Failed).</summary>
     public Dictionary<string, int> PipelineStates { get; init; } = new();
     public double PipelineSuccessRate { get; init; }
 

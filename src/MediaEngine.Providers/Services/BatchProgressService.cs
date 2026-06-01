@@ -107,12 +107,12 @@ public sealed class BatchProgressService
                     WHERE status = 'Pending'
                 )
                 SELECT
-                    COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'Completed', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
+                    COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
                     COALESCE(SUM(CASE WHEN js.state = 'ReadyWithoutUniverse' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReadyWithoutUniverse,
                     COALESCE(SUM(CASE
                         WHEN js.state IN ('QidNeedsReview', 'RetailMatchedNeedsReview') THEN 1
                         WHEN pr.entity_id IS NOT NULL
-                             AND js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'Failed')
+                             AND js.state IN ('Ready', 'ReadyWithoutUniverse', 'RetailNoMatch', 'QidNoMatch', 'Failed')
                             THEN 1
                         ELSE 0
                     END), 0) AS FilesReview,
@@ -203,7 +203,7 @@ public sealed class BatchProgressService
                     SELECT
                         js.entity_id,
                         CASE
-                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 100.0
+                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 100.0
                             WHEN js.state = 'Hydrating' THEN
                                 50.0
                                 + CASE
@@ -222,7 +222,7 @@ public sealed class BatchProgressService
                             ELSE 1
                         END AS work_units_total,
                         CASE
-                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 1
+                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 1
                             WHEN js.state = 'Hydrating' THEN
                                 CASE
                                     WHEN COALESCE(pc.total_people, 0) = 0 THEN 1
