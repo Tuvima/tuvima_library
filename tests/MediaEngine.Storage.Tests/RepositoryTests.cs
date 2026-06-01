@@ -302,9 +302,12 @@ public sealed class RepositoryTests : IDisposable
         var entityId = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
 
+        var discArtId = Guid.NewGuid();
+        var clearArtId = Guid.NewGuid();
+
         await repo.UpsertAsync(new EntityAsset
         {
-            Id = Guid.NewGuid(),
+            Id = discArtId,
             EntityId = entityId,
             EntityType = "Work",
             AssetTypeValue = "DiscArt",
@@ -319,7 +322,7 @@ public sealed class RepositoryTests : IDisposable
 
         await repo.UpsertAsync(new EntityAsset
         {
-            Id = Guid.NewGuid(),
+            Id = clearArtId,
             EntityId = entityId,
             EntityType = "Work",
             AssetTypeValue = "ClearArt",
@@ -336,6 +339,18 @@ public sealed class RepositoryTests : IDisposable
 
         Assert.Contains(assets, asset => asset.AssetTypeValue == "DiscArt");
         Assert.Contains(assets, asset => asset.AssetTypeValue == "ClearArt");
+
+        using var conn = _db.CreateConnection();
+        var storageTypes = conn.Query<string>(
+            """
+            SELECT typeof(entity_id)
+            FROM entity_assets
+            WHERE id = @discArtId OR id = @clearArtId
+            ORDER BY asset_type;
+            """,
+            new { discArtId, clearArtId }).ToList();
+        Assert.Equal(2, storageTypes.Count);
+        Assert.All(storageTypes, type => Assert.Equal("blob", type));
     }
 
     [Fact]
@@ -611,6 +626,41 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal(IdentityJobState.QidResolved.ToString(), recovered!.State);
         Assert.Equal(0, recovered.AttemptCount);
         Assert.Equal("Recovered for Stage 3 artwork/enhancer retry", recovered.LastError);
+    }
+
+    [Fact]
+    public async Task IdentityJob_RecoverInterruptedJobsAsync_ReleasesStartupLeasesImmediately()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Movies),
+            Pass = "Quick",
+            State = IdentityJobState.RetailMatched.ToString(),
+        };
+        await repo.CreateAsync(job);
+
+        var leased = await repo.LeaseNextAsync(
+            "previous-engine",
+            [IdentityJobState.RetailMatched],
+            1,
+            TimeSpan.FromMinutes(10));
+        Assert.Single(leased);
+
+        await repo.UpdateStateAsync(job.Id, IdentityJobState.BridgeSearching);
+
+        var recoveredCount = await repo.RecoverInterruptedJobsAsync();
+        var recovered = await repo.GetByIdAsync(job.Id);
+
+        Assert.Equal(1, recoveredCount);
+        Assert.NotNull(recovered);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), recovered!.State);
+        Assert.Null(recovered.LeaseOwner);
+        Assert.Null(recovered.LeaseExpiresAt);
+        Assert.Equal("Recovered after engine restart", recovered.LastError);
     }
 
     [Fact]

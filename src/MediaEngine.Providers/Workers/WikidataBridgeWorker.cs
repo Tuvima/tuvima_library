@@ -1025,6 +1025,21 @@ public sealed class WikidataBridgeWorker
     {
         try
         {
+            if (_personEnrichment is not null)
+            {
+                try
+                {
+                    await _personEnrichment.EnrichFromClaimsAsync(job.EntityId, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Retained retail identity person enrichment failed for {EntityId}; continuing with artwork and organization",
+                        job.EntityId);
+                }
+            }
+
             // Retained retail identity still deserves the same cover-art sidecars
             // as QID-resolved items. Run artwork against the current media path
             // before promotion so AutoOrganize can carry poster/thumb/hero into

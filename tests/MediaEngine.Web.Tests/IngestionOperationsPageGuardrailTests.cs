@@ -728,6 +728,75 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_ClampsOverlappingWorkerQueuesToRunSize()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 97,
+                ActiveJobs = 1,
+            },
+            PipelineStages =
+            [
+                new() { Key = "detected", Count = 97, TotalCount = 97 },
+                new() { Key = "parsed", Count = 97, TotalCount = 97 },
+                new() { Key = "matched", Count = 49, TotalCount = 97 },
+                new() { Key = "enriched", Count = 0, TotalCount = 97 },
+            ],
+            RecentBatches =
+            [
+                new()
+                {
+                    StartedAt = now.AddMinutes(-1),
+                    TotalFiles = 97,
+                    ProcessedFiles = 97,
+                    Status = "running",
+                },
+            ],
+        };
+        var activities = new List<IngestionCurrentActivityViewModel>
+        {
+            new()
+            {
+                StageKey = "artwork",
+                Message = "Fetching artwork",
+                ProcessedCount = 0,
+                TotalCount = 97,
+                QueuedCount = 97,
+            },
+            new()
+            {
+                StageKey = "wikidata",
+                Message = "Linking Wikidata QIDs",
+                ProcessedCount = 11,
+                TotalCount = 61,
+                ActiveCount = 49,
+                QueuedCount = 1,
+            },
+        };
+        var metrics = new IngestionDashboardMetrics(97, 0, 1, 0);
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            activities,
+            [],
+            [],
+            metrics,
+            null,
+            now,
+            now);
+
+        Assert.Equal(49, status.ActiveItems);
+        Assert.Equal(48, status.QueuedItems);
+        Assert.Contains("49 active", status.SecondaryLine, StringComparison.Ordinal);
+        Assert.Contains("48 still in pipeline", status.SecondaryLine, StringComparison.Ordinal);
+        Assert.DoesNotContain("98 still in pipeline", status.SecondaryLine, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LiveDashboardState_OverallProgressUsesPipelineStagesNotScannedFiles()
     {
         var snapshot = new IngestionOperationsSnapshotViewModel

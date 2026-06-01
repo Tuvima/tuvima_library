@@ -71,6 +71,13 @@ public interface IIdentityJobRepository
     /// </summary>
     Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default);
 
+    /// <summary>
+    /// Clears leases left behind by a previous Engine process and resets in-flight
+    /// jobs to the state their worker can lease again immediately after startup.
+    /// </summary>
+    Task<int> RecoverInterruptedJobsAsync(CancellationToken ct = default)
+        => Task.FromResult(0);
+
     /// <summary>Returns jobs in a specific state, ordered by creation time.</summary>
     Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default);
 

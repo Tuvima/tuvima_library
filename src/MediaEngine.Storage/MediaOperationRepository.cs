@@ -59,7 +59,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             """,
             new
             {
-                BatchId = operation.BatchId?.ToString(),
+                operation.BatchId,
                 UpdatedAt = updatedAt.ToString("O"),
                 operation.IdempotencyKey
             });
@@ -76,7 +76,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
             SelectSql + " WHERE id = @id LIMIT 1;",
-            new { id = id.ToString() });
+            new { id });
         return row is null ? null : Map(row);
     }
 
@@ -86,7 +86,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<MediaOperationRow>(
             SelectSql + " WHERE entity_id = @entityId ORDER BY created_at DESC;",
-            new { entityId = entityId.ToString() });
+            new { entityId });
         return rows.Select(Map).ToList();
     }
 
@@ -96,7 +96,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<MediaOperationRow>(
             SelectSql + " WHERE batch_id = @batchId ORDER BY priority ASC, position_key ASC;",
-            new { batchId = batchId.ToString() });
+            new { batchId });
         return rows.Select(Map).ToList();
     }
 
@@ -227,7 +227,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 updated_at = @now
             WHERE id = @id;
             """,
-            new { id = id.ToString(), error, nextRetryAt = nextRetryAt.ToString("O"), now = DateTimeOffset.UtcNow.ToString("O") });
+            new { id, error, nextRetryAt = nextRetryAt.ToString("O"), now = DateTimeOffset.UtcNow.ToString("O") });
     }
 
     public Task MarkFailedTerminalAsync(Guid id, string error, CancellationToken ct = default)
@@ -318,7 +318,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 completed_at = @now
             WHERE id = @id;
             """,
-            new { id = id.ToString(), status, stage, resultSummary, lastError, missingReason, now = DateTimeOffset.UtcNow.ToString("O") });
+            new { id, status, stage, resultSummary, lastError, missingReason, now = DateTimeOffset.UtcNow.ToString("O") });
     }
 
     private async Task ExecuteAsync(string sql, Guid id, CancellationToken ct, object? extra = null)
@@ -327,7 +327,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         var args = extra is null
             ? new DynamicParameters()
             : new DynamicParameters(extra);
-        args.Add("id", id.ToString());
+        args.Add("id", id);
         args.Add("now", DateTimeOffset.UtcNow.ToString("O"));
 
         using var conn = _db.CreateConnection();
@@ -336,12 +336,12 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
 
     private static object ToParams(MediaOperation operation, Guid id, DateTimeOffset createdAt, DateTimeOffset updatedAt, long positionKey) => new
     {
-        Id = id.ToString(),
+        Id = id,
         operation.OperationType,
         operation.OperationKind,
-        EntityId = operation.EntityId?.ToString(),
+        operation.EntityId,
         operation.EntityKind,
-        BatchId = operation.BatchId?.ToString(),
+        operation.BatchId,
         operation.SourcePath,
         operation.ContentHash,
         operation.CapabilityId,
@@ -422,12 +422,12 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
 
     private sealed class MediaOperationRow
     {
-        public string Id { get; set; } = "";
+        public Guid Id { get; set; }
         public string OperationType { get; set; } = "";
         public string OperationKind { get; set; } = "";
-        public string? EntityId { get; set; }
+        public Guid? EntityId { get; set; }
         public string? EntityKind { get; set; }
-        public string? BatchId { get; set; }
+        public Guid? BatchId { get; set; }
         public string? SourcePath { get; set; }
         public string? ContentHash { get; set; }
         public string? CapabilityId { get; set; }
@@ -463,12 +463,12 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
 
     private static MediaOperation Map(MediaOperationRow row) => new()
     {
-        Id = Guid.Parse(row.Id),
+        Id = row.Id,
         OperationType = row.OperationType,
         OperationKind = row.OperationKind,
-        EntityId = ParseGuid(row.EntityId),
+        EntityId = row.EntityId,
         EntityKind = row.EntityKind,
-        BatchId = ParseGuid(row.BatchId),
+        BatchId = row.BatchId,
         SourcePath = row.SourcePath,
         ContentHash = row.ContentHash,
         CapabilityId = row.CapabilityId,
@@ -501,9 +501,6 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         CompletedAt = ParseDate(row.CompletedAt),
         IdempotencyKey = row.IdempotencyKey
     };
-
-    private static Guid? ParseGuid(string? value)
-        => Guid.TryParse(value, out var parsed) ? parsed : null;
 
     private static DateTimeOffset? ParseDate(string? value)
         => DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;

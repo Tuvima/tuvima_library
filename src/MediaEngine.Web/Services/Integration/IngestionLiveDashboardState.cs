@@ -972,6 +972,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var activeItems = currentActivities.Sum(activity => Math.Max(0, activity.ActiveCount));
         if (activeItems == 0)
             activeItems = activeJobs.Count(job => IsActiveJob(job));
+        if (totalFiles > 0)
+            activeItems = Math.Clamp(activeItems, 0, totalFiles);
         var queuedItems = ResolveQueuedPipelineCount(currentActivities, activeJobs, metrics, totalFiles, activeItems);
 
         var addedOrUpdatedCount = latestBatch is not null
@@ -1257,7 +1259,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Where(activity => activity.TotalCount <= 0 || activity.ProcessedCount < activity.TotalCount)
             .Sum(activity => Math.Max(0, activity.QueuedCount));
         if (queuedFromActivities > 0)
-            return queuedFromActivities;
+            return ClampQueuedCount(queuedFromActivities, totalFiles, activeItems);
         if (currentActivities.Any(IsActiveActivity))
             return 0;
 
@@ -1265,15 +1267,31 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Where(IsActiveJob)
             .Sum(job => Math.Max(0, job.TotalCount - job.ProcessedCount));
         if (queuedFromJobs > 0)
-            return queuedFromJobs;
+            return ClampQueuedCount(queuedFromJobs, totalFiles, activeItems);
 
-        return Math.Max(0, totalFiles - Math.Max(0, metrics.ProcessedFiles) - activeItems);
+        return ClampQueuedCount(
+            Math.Max(0, totalFiles - Math.Max(0, metrics.ProcessedFiles) - activeItems),
+            totalFiles,
+            activeItems);
     }
 
     private static int ClampFileCount(int count, int totalFiles) =>
         totalFiles > 0
             ? Math.Clamp(Math.Max(0, count), 0, totalFiles)
             : Math.Max(0, count);
+
+    private static int ClampQueuedCount(
+        int count,
+        int totalFiles,
+        int activeItems)
+    {
+        var normalized = Math.Max(0, count);
+        if (totalFiles <= 0)
+            return normalized;
+
+        var remainingCapacity = Math.Max(0, totalFiles - Math.Max(0, activeItems));
+        return Math.Min(normalized, remainingCapacity);
+    }
 
     private static bool IsUsefulActivity(ActivityEntryViewModel activity) =>
         activity.ActionType.Contains("Ingest", StringComparison.OrdinalIgnoreCase)

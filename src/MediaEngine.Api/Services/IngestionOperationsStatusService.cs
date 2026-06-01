@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 using Microsoft.Data.Sqlite;
@@ -298,7 +299,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             FROM latest_jobs
             WHERE rn = 1
             GROUP BY state
-            """, new { batchIds = batchIds.ToArray() });
+            """, new { batchIds = ToBatchIdBlobs(batchIds) });
 
         return rows.ToDictionary(r => r.Key, r => ToInt(r.Count), StringComparer.OrdinalIgnoreCase);
     }
@@ -321,10 +322,15 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             WHERE batch_id IN @batchIds
               AND operation_type = 'ingestion.file'
             GROUP BY status
-            """, new { batchIds = batchIds.Select(id => id.ToString()).ToArray() });
+            """, new { batchIds = batchIds.ToArray() });
 
         return rows.ToDictionary(r => r.Key, r => ToInt(r.Count), StringComparer.OrdinalIgnoreCase);
     }
+
+    private static byte[][] ToBatchIdBlobs(IReadOnlyCollection<Guid> batchIds) =>
+        batchIds.Count > 0
+            ? batchIds.Select(GuidSql.ToBlob).ToArray()
+            : [GuidSql.ToBlob(Guid.Empty)];
 
     private static IReadOnlyList<IngestionBatch> SelectDisplayBatches(IReadOnlyList<IngestionBatch> recentBatches)
     {
@@ -620,7 +626,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 WHERE ingestion_run_id = @batchId
             )
             SELECT
-                lj.entity_id AS EntityId,
+                '' AS EntityId,
                 lj.state AS State,
                 lj.media_type AS MediaType,
                 lj.lease_owner AS LeaseOwner,
@@ -680,9 +686,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         ct.ThrowIfCancellationRequested();
 
         var hasBatchScope = batchIds.Count > 0 ? 1 : 0;
-        var identityBatchIdValues = batchIds.Count > 0
-            ? batchIds.ToArray()
-            : [Guid.Empty];
+        var identityBatchIdValues = ToBatchIdBlobs(batchIds);
         var textBatchIdValues = batchIds.Count > 0
             ? batchIds.Select(id => id.ToString()).ToArray()
             : ["__all_batches__"];
@@ -704,7 +708,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
             )
             SELECT
-                lj.entity_id AS EntityId,
+                '' AS EntityId,
                 lj.state AS State,
                 lj.media_type AS MediaType,
                 lj.lease_owner AS LeaseOwner,
@@ -755,7 +759,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (SELECT COUNT(*) FROM persons) AS PersonCount,
                 (SELECT COUNT(*) FROM review_queue WHERE status = 'Pending') AS IssueCount;
             """) ?? new ActivityMetricCounts();
-        var operationProgress = await ReadOperationProgressAsync(conn, textBatchIdValues, hasBatchScope);
+        var operationProgress = await ReadOperationProgressAsync(conn, identityBatchIdValues, hasBatchScope);
         var artworkOperation = operationProgress.GetValueOrDefault("artwork");
         var wikidataOperation = operationProgress.GetValueOrDefault("wikidata");
         var relationshipsOperation = operationProgress.GetValueOrDefault("relationships");
@@ -879,7 +883,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static async Task<IReadOnlyDictionary<string, TaskOperationProgress>> ReadOperationProgressAsync(
         SqliteConnection conn,
-        IReadOnlyCollection<string> batchIds,
+        IReadOnlyCollection<byte[]> batchIds,
         int hasBatchScope)
     {
         var rows = (await conn.QueryAsync<TaskOperationRow>("""
@@ -955,7 +959,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static async Task<TaskProgressOverride?> ReadArtworkProgressAsync(
         SqliteConnection conn,
-        IReadOnlyCollection<Guid> identityBatchIds,
+        IReadOnlyCollection<byte[]> identityBatchIds,
         IReadOnlyCollection<string> textBatchIds,
         int hasBatchScope,
         TaskOperationProgress? operationProgress)
@@ -1054,7 +1058,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static async Task<TaskProgressOverride?> ReadPeopleProgressAsync(
         SqliteConnection conn,
-        IReadOnlyCollection<Guid> identityBatchIds,
+        IReadOnlyCollection<byte[]> identityBatchIds,
         IReadOnlyCollection<string> textBatchIds,
         int hasBatchScope,
         TaskOperationProgress? operationProgress)
@@ -1125,7 +1129,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static async Task<TaskProgressOverride?> ReadRelationshipsProgressAsync(
         SqliteConnection conn,
-        IReadOnlyCollection<Guid> identityBatchIds,
+        IReadOnlyCollection<byte[]> identityBatchIds,
         IReadOnlyCollection<string> textBatchIds,
         int hasBatchScope,
         TaskOperationProgress? operationProgress)
@@ -1404,7 +1408,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static async Task<IReadOnlyList<CurrentActivityRow>> ReadArtworkWorkerRowsAsync(
         SqliteConnection conn,
-        IReadOnlyCollection<Guid> batchIds,
+        IReadOnlyCollection<byte[]> batchIds,
         int hasBatchScope)
     {
         var rows = (await conn.QueryAsync<CurrentActivityRow>("""
@@ -1424,7 +1428,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
             )
             SELECT
-                lj.entity_id AS EntityId,
+                '' AS EntityId,
                 lj.state AS State,
                 lj.media_type AS MediaType,
                 lj.lease_owner AS LeaseOwner,
@@ -1475,7 +1479,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static async Task<IReadOnlyList<CurrentActivityRow>> ReadSeriesWorkerRowsAsync(
         SqliteConnection conn,
-        IReadOnlyCollection<Guid> identityBatchIds,
+        IReadOnlyCollection<byte[]> identityBatchIds,
         IReadOnlyCollection<string> textBatchIds,
         int hasBatchScope)
     {
@@ -1551,7 +1555,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static async Task<IReadOnlyList<CurrentActivityRow>> ReadPeopleWorkerRowsAsync(
         SqliteConnection conn,
-        IReadOnlyCollection<Guid> identityBatchIds,
+        IReadOnlyCollection<byte[]> identityBatchIds,
         IReadOnlyCollection<string> textBatchIds,
         int hasBatchScope)
     {

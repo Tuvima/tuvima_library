@@ -26,6 +26,27 @@ public sealed class EngineSmokeGuardrailTests
         Assert.DoesNotContain("DownloadModel", program, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void IdentityStartupRecovery_RunsBeforeIdentityWorkersCanLeaseJobs()
+    {
+        var repoRoot = FindRepoRoot();
+        var program = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Api", "Program.cs"));
+        var recoverySource = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Api", "Services", "HydrationStartupSweepService.cs"));
+
+        var recoveryRegistration = program.IndexOf("AddHostedService<HydrationStartupSweepService>", StringComparison.Ordinal);
+        var retailRegistration = program.IndexOf("AddHostedService<MediaEngine.Api.Services.RetailMatchHostedService>", StringComparison.Ordinal);
+        var bridgeRegistration = program.IndexOf("AddHostedService<MediaEngine.Api.Services.WikidataBridgeHostedService>", StringComparison.Ordinal);
+        var hydrationRegistration = program.IndexOf("AddHostedService<MediaEngine.Api.Services.QuickHydrationHostedService>", StringComparison.Ordinal);
+
+        Assert.True(recoveryRegistration >= 0);
+        Assert.True(recoveryRegistration < retailRegistration);
+        Assert.True(recoveryRegistration < bridgeRegistration);
+        Assert.True(recoveryRegistration < hydrationRegistration);
+        Assert.Contains("public override async Task StartAsync", recoverySource, StringComparison.Ordinal);
+        Assert.Contains("RecoverInterruptedJobsAsync(cancellationToken)", recoverySource, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.Delay", recoverySource, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

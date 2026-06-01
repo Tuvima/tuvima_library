@@ -16,10 +16,23 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
 {
     private readonly IDatabaseConnection _db;
 
+    private const string EntityIdProjection = """
+        CASE
+            WHEN typeof(entity_id) = 'blob' THEN lower(
+                substr(hex(entity_id), 1, 8) || '-' ||
+                substr(hex(entity_id), 9, 4) || '-' ||
+                substr(hex(entity_id), 13, 4) || '-' ||
+                substr(hex(entity_id), 17, 4) || '-' ||
+                substr(hex(entity_id), 21, 12))
+            ELSE CAST(entity_id AS TEXT)
+        END
+        """;
+
     // Reusable SELECT list with aliases matching EntityAsset property names.
     private const string SelectColumns = """
         id               AS Id,
-        entity_id        AS EntityId,
+        """ + EntityIdProjection + """
+                         AS EntityId,
         entity_type      AS EntityType,
         asset_type       AS AssetTypeValue,
         image_url        AS ImageUrl,
@@ -69,7 +82,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 FROM   entity_assets
                 WHERE  entity_id = @entityId
                 ORDER BY asset_type, is_preferred DESC, created_at;
-                """, new { entityId });
+                """, new { entityId = ToEntityIdParameter(entityId) });
         }
         else
         {
@@ -79,7 +92,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 WHERE  entity_id = @entityId
                 AND    asset_type = @assetType
                 ORDER BY is_preferred DESC, created_at;
-                """, new { entityId, assetType });
+                """, new { entityId = ToEntityIdParameter(entityId), assetType });
         }
 
         return Task.FromResult<IReadOnlyList<EntityAsset>>(rows.ToList());
@@ -96,7 +109,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             FROM   entity_assets
             WHERE  id = @assetId
             LIMIT  1;
-            """, new { assetId = assetId.ToString() });
+            """, new { assetId });
 
         return Task.FromResult(result);
     }
@@ -144,8 +157,8 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             """,
             new
             {
-                Id = asset.Id.ToString(),
-                asset.EntityId,
+                asset.Id,
+                EntityId = ToEntityIdParameter(asset.EntityId),
                 asset.EntityType,
                 asset.AssetTypeValue,
                 asset.ImageUrl,
@@ -182,13 +195,13 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         using var tx = conn.BeginTransaction();
 
         // Find the target asset's entity_id and asset_type.
-        var target = conn.QuerySingleOrDefault<(string EntityId, string AssetType)>("""
-            SELECT entity_id AS EntityId, asset_type AS AssetType
+        var target = conn.QuerySingleOrDefault<EntityAssetTargetRow>($"""
+            SELECT {EntityIdProjection} AS EntityId, asset_type AS AssetType
             FROM   entity_assets
             WHERE  id = @assetId;
-            """, new { assetId = assetId.ToString() }, tx);
+            """, new { assetId }, tx);
 
-        if (target == default)
+        if (target is null)
         {
             tx.Commit();
             return Task.CompletedTask;
@@ -202,7 +215,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             WHERE  entity_id  = @entityId
             AND    asset_type = @assetType
             AND    is_preferred = 1;
-            """, new { entityId = target.EntityId, assetType = target.AssetType }, tx);
+            """, new { entityId = ToEntityIdParameter(target.EntityId), assetType = target.AssetType }, tx);
 
         // Set the target as preferred.
         conn.Execute("""
@@ -210,7 +223,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             SET    is_preferred = 1,
                    updated_at  = datetime('now')
             WHERE  id = @assetId;
-            """, new { assetId = assetId.ToString() }, tx);
+            """, new { assetId }, tx);
 
         tx.Commit();
         return Task.CompletedTask;
@@ -226,7 +239,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         conn.Execute("""
             DELETE FROM entity_assets
             WHERE  entity_id = @entityId;
-            """, new { entityId });
+            """, new { entityId = ToEntityIdParameter(entityId) });
 
         return Task.CompletedTask;
     }
@@ -240,7 +253,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         conn.Execute("""
             DELETE FROM entity_assets
             WHERE  id = @assetId;
-            """, new { assetId = assetId.ToString() });
+            """, new { assetId });
 
         return Task.CompletedTask;
     }
@@ -261,7 +274,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             AND    asset_type  = @assetType
             AND    is_preferred = 1
             LIMIT  1;
-            """, new { entityId, assetType });
+            """, new { entityId = ToEntityIdParameter(entityId), assetType });
 
         return Task.FromResult(result);
     }
@@ -279,12 +292,15 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         }
 
         using var conn = _db.CreateConnection();
+        var entityIdValues = entityIds
+            .Select(ToEntityIdParameter)
+            .ToArray();
         var results = conn.Query<EntityAsset>($"""
             SELECT {SelectColumns}
             FROM   entity_assets
             WHERE  is_preferred = 1
             AND    entity_id IN @entityIds;
-            """, new { entityIds }).ToList();
+            """, new { entityIds = entityIdValues }).ToList();
 
         return Task.FromResult<IReadOnlyList<EntityAsset>>(results);
     }
@@ -304,5 +320,16 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             """).ToList();
 
         return Task.FromResult<IReadOnlyList<EntityAsset>>(results);
+    }
+
+    private static object ToEntityIdParameter(string entityId) =>
+        Guid.TryParse(entityId, out var guid)
+            ? GuidSql.ToBlob(guid)
+            : entityId;
+
+    private sealed class EntityAssetTargetRow
+    {
+        public string EntityId { get; set; } = "";
+        public string AssetType { get; set; } = "";
     }
 }

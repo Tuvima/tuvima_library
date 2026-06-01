@@ -81,7 +81,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         var rows = conn.Query<WorkQidRow>(
             """
             SELECT id AS WorkId,
-                   COALESCE(NULLIF(wikidata_qid, ''), json_extract(external_identifiers, '$.wikidata_qid')) AS Qid
+                   CAST(COALESCE(NULLIF(wikidata_qid, ''), json_extract(external_identifiers, '$.wikidata_qid')) AS TEXT) AS Qid
             FROM works
             WHERE COALESCE(NULLIF(wikidata_qid, ''), json_extract(external_identifiers, '$.wikidata_qid')) IN @qids;
             """,
@@ -480,5 +480,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         };
     }
 
-    private sealed record WorkQidRow(Guid WorkId, string? Qid);
+    private sealed class WorkQidRow
+    {
+        public Guid WorkId { get; init; }
+        public string? Qid { get; init; }
+    }
 }

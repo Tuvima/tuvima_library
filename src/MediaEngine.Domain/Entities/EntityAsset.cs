@@ -17,7 +17,7 @@ public sealed class EntityAsset
 
     /// <summary>
     /// The entity this asset belongs to (work ID, person ID, universe QID, or entity ID).
-    /// Stored as TEXT to support both GUIDs and Wikidata QIDs.
+    /// Internal entity IDs are persisted as GUID/BLOB values; external identifiers stay as text.
     /// </summary>
     public string EntityId { get; set; } = string.Empty;
 

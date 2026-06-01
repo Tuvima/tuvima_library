@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Storage.Tests;
@@ -58,6 +59,35 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
         Assert.Equal(MediaOperationStatus.Leased, leased[0].Status);
         Assert.Equal("worker-1", leased[0].LeaseOwner);
         Assert.Empty(secondLease);
+    }
+
+    [Fact]
+    public async Task EnsureAsync_StoresOperationIdsAsGuidBlobs()
+    {
+        var repo = new MediaOperationRepository(_db);
+        var entityId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        var operation = await repo.EnsureAsync(NewOperation(
+            $"ingestion:file:{Guid.NewGuid():N}",
+            entityId: entityId,
+            batchId: batchId));
+
+        using var conn = _db.CreateConnection();
+        var storageTypes = conn.QuerySingle<(string IdType, string EntityIdType, string BatchIdType)>("""
+            SELECT typeof(id) AS IdType,
+                   typeof(entity_id) AS EntityIdType,
+                   typeof(batch_id) AS BatchIdType
+            FROM media_operations
+            WHERE idempotency_key = @key;
+            """, new { key = operation.IdempotencyKey });
+        var byBatch = await repo.GetByBatchAsync(batchId);
+
+        Assert.Equal("blob", storageTypes.IdType);
+        Assert.Equal("blob", storageTypes.EntityIdType);
+        Assert.Equal("blob", storageTypes.BatchIdType);
+        Assert.Single(byBatch);
+        Assert.Equal(entityId, byBatch[0].EntityId);
+        Assert.Equal(batchId, byBatch[0].BatchId);
     }
 
     [Fact]
@@ -146,10 +176,14 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
         string idempotencyKey,
         string? sourcePath = null,
         string status = MediaOperationStatus.Queued,
-        DateTimeOffset? heartbeatAt = null) => new()
+        DateTimeOffset? heartbeatAt = null,
+        Guid? entityId = null,
+        Guid? batchId = null) => new()
     {
         OperationType = MediaOperationType.IngestionFile,
         OperationKind = MediaOperationKind.Ingestion,
+        EntityId = entityId,
+        BatchId = batchId,
         SourcePath = sourcePath,
         Status = status,
         Stage = MediaOperationStage.Queued,

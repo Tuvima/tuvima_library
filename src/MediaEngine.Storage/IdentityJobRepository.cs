@@ -348,6 +348,30 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             new { cutoff, now });
     }
 
+    public async Task<int> RecoverInterruptedJobsAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        using var conn = _db.CreateConnection();
+        return await conn.ExecuteAsync("""
+            UPDATE identity_jobs
+            SET    state = CASE state
+                       WHEN 'RetailSearching' THEN 'Queued'
+                       WHEN 'BridgeSearching' THEN 'RetailMatched'
+                       WHEN 'Hydrating' THEN 'QidResolved'
+                       WHEN 'UniverseEnriching' THEN 'QidResolved'
+                   END,
+                   lease_owner      = NULL,
+                   lease_expires_at = NULL,
+                   next_retry_at    = NULL,
+                   last_error       = 'Recovered after engine restart',
+                   updated_at       = @now
+            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
+              AND  lease_owner IS NOT NULL;
+            """,
+            new { now });
+    }
+
     public async Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

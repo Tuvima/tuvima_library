@@ -638,7 +638,7 @@ public static class LibraryItemEndpoints
             using (var conn = db.CreateConnection())
             {
                 CleanupEntityAssetFiles(conn, entityId);
-                conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId.ToString("D") });
+                conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId });
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "DELETE FROM works WHERE id = @workId";
                 cmd.Parameters.AddWithValue("@workId", entityId.ToString());
@@ -997,7 +997,7 @@ public static class LibraryItemEndpoints
                     using (var conn = db.CreateConnection())
                     {
                         CleanupEntityAssetFiles(conn, entityId);
-                        conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId.ToString("D") });
+                        conn.Execute("DELETE FROM entity_assets WHERE entity_id = @workId;", new { workId = entityId });
                         using var cmd = conn.CreateCommand();
                         cmd.CommandText = "DELETE FROM works WHERE id = @workId";
                         cmd.Parameters.AddWithValue("@workId", entityId.ToString());
@@ -1495,7 +1495,7 @@ public static class LibraryItemEndpoints
             FROM entity_assets
             WHERE entity_id = @entityId
             """,
-            new { entityId = entityId.ToString("D") });
+            new { entityId });
 
         foreach (var path in rows
                      .SelectMany(row => new[] { row.LocalImagePath, row.LocalImagePathSmall, row.LocalImagePathMedium, row.LocalImagePathLarge })

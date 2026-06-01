@@ -14,6 +14,18 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed class AssetExportService : IAssetExportService
 {
+    private const string EntityIdProjection = """
+        CASE
+            WHEN typeof(entity_id) = 'blob' THEN lower(
+                substr(hex(entity_id), 1, 8) || '-' ||
+                substr(hex(entity_id), 9, 4) || '-' ||
+                substr(hex(entity_id), 13, 4) || '-' ||
+                substr(hex(entity_id), 17, 4) || '-' ||
+                substr(hex(entity_id), 21, 12))
+            ELSE CAST(entity_id AS TEXT)
+        END
+        """;
+
     private readonly IDatabaseConnection _db;
     private readonly IEntityAssetRepository _entityAssetRepo;
     private readonly AssetPathService _assetPaths;
@@ -36,8 +48,8 @@ public sealed class AssetExportService : IAssetExportService
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var rows = conn.Query<(string EntityId, string EntityType, string AssetType)>("""
-            SELECT DISTINCT entity_id AS EntityId,
+        var rows = conn.Query<(string EntityId, string EntityType, string AssetType)>($"""
+            SELECT DISTINCT {EntityIdProjection} AS EntityId,
                             entity_type AS EntityType,
                             asset_type AS AssetType
             FROM entity_assets

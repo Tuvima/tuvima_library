@@ -122,6 +122,7 @@ public sealed class IngestionOperationsContractTests
             "IngestionOperationsStatusService.cs"));
 
         Assert.Contains("ReadOperationProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ReadOperationProgressAsync(conn, identityBatchIdValues, hasBatchScope)", serviceSource, StringComparison.Ordinal);
         Assert.Contains("MediaOperationType.IdentityWikidataBridge", serviceSource, StringComparison.Ordinal);
         Assert.Contains("MediaOperationType.EnrichmentCoverArt", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ReadPeopleProgressAsync", serviceSource, StringComparison.Ordinal);
@@ -137,6 +138,7 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("FROM persons", serviceSource, StringComparison.Ordinal);
         Assert.Contains("FROM series_manifest_items", serviceSource, StringComparison.Ordinal);
         Assert.Contains("TaskProgressOverride", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadOperationProgressAsync(conn, textBatchIdValues, hasBatchScope)", serviceSource, StringComparison.Ordinal);
     }
 
     [Theory]
