@@ -7,6 +7,7 @@ namespace MediaEngine.Web.Services.Integration;
 public sealed class IngestionLiveDashboardState : IDisposable
 {
     private static readonly TimeSpan LiveUniverseProgressFreshness = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan LiveItemProgressFreshness = TimeSpan.FromMinutes(5);
 
     private readonly IEngineApiClient _api;
     private readonly UIOrchestratorService _orchestrator;
@@ -289,7 +290,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         LastUpdated = DateTimeOffset.Now;
         Notify();
-        DebounceSnapshotRefresh();
+        if (_stateContainer.LastStateChangeRequiresSnapshotRefresh)
+            DebounceSnapshotRefresh();
     }
 
     private void OnConnectionStateChanged(EngineConnectionState _)
@@ -373,10 +375,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
                     : null,
             };
 
-            if (existing is null)
-                jobs.Insert(0, liveJob);
-            else
-                jobs[jobs.IndexOf(existing)] = liveJob;
+            UpsertLiveJob(jobs, liveJob);
+        }
+
+        var liveItemJob = BuildLiveItemJob(snapshot, stateContainer);
+        if (liveItemJob is not null)
+        {
+            UpsertLiveJob(jobs, liveItemJob);
         }
 
         var progress = stateContainer.IngestionProgress;
@@ -404,6 +409,63 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .ToList();
     }
 
+    private static void UpsertLiveJob(
+        List<IngestionOperationsJobViewModel> jobs,
+        IngestionOperationsJobViewModel liveJob)
+    {
+        var index = jobs.FindIndex(job => job.JobId == liveJob.JobId);
+        if (index >= 0)
+            jobs[index] = liveJob;
+        else
+            jobs.Insert(0, liveJob);
+    }
+
+    private static IngestionOperationsJobViewModel? BuildLiveItemJob(
+        IngestionOperationsSnapshotViewModel? snapshot,
+        UniverseStateContainer stateContainer)
+    {
+        var items = FreshIngestionItemProgress(stateContainer).ToList();
+        if (items.Count == 0)
+            return null;
+
+        var activeItems = items
+            .Where(item => !IsFileIngestionTerminal(item.Event))
+            .ToList();
+        if (activeItems.Count == 0)
+            return null;
+
+        var latest = activeItems
+            .OrderByDescending(item => item.ReceivedAt)
+            .First();
+        var batch = stateContainer.BatchProgress is { IsComplete: false } liveBatch
+            && liveBatch.BatchId == latest.Event.BatchId
+                ? liveBatch
+                : null;
+        var batchId = latest.Event.BatchId;
+        var batchItems = items
+            .Where(item => item.Event.BatchId == batchId)
+            .ToList();
+        var total = ResolveLiveItemTotal(snapshot, batch, batchItems);
+        var completed = batchItems.Count(item => IsFileIngestionTerminal(item.Event));
+        var percent = ResolveLiveItemPercent(batchItems, total);
+        var stage = FriendlyStageName(latest.Event.Stage);
+
+        return new IngestionOperationsJobViewModel
+        {
+            JobId = batchId,
+            JobType = "Reading files",
+            MediaType = FirstNonBlank(latest.Event.MediaType, "Mixed"),
+            SourceFolder = "Watch folders",
+            CurrentStage = stage,
+            CurrentItem = CleanDisplayTitle(ResolveItemTitle(latest.Event)),
+            ProcessedCount = completed,
+            TotalCount = total,
+            PercentComplete = percent,
+            Status = "running",
+            LastUpdatedTime = latest.ReceivedAt,
+        };
+    }
+
     public static IngestionDashboardMetrics BuildMetrics(
         IngestionOperationsSnapshotViewModel? snapshot,
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs)
@@ -428,12 +490,18 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var activities = snapshot?.CurrentActivities
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList() ?? [];
+        var liveItemActivity = BuildLiveItemActivity(stateContainer);
         var liveBatchActivity = BuildLiveBatchActivity(stateContainer, activeJobs, stages);
         var liveUniverseActivity = BuildLiveUniverseActivity(stateContainer);
 
         if (liveBatchActivity is not null)
         {
             UpsertCurrentActivity(activities, liveBatchActivity);
+        }
+
+        if (liveItemActivity is not null)
+        {
+            UpsertCurrentActivity(activities, liveItemActivity);
         }
 
         if (liveUniverseActivity is not null)
@@ -453,6 +521,97 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Select(job => ToCurrentActivity(job, stages))
             .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
             .ToList();
+    }
+
+    private static IngestionCurrentActivityViewModel? BuildLiveItemActivity(UniverseStateContainer? stateContainer)
+    {
+        if (stateContainer is null)
+            return null;
+
+        var items = FreshIngestionItemProgress(stateContainer).ToList();
+        if (items.Count == 0)
+            return null;
+
+        var activeItems = items
+            .Where(item => !IsFileIngestionTerminal(item.Event))
+            .OrderByDescending(item => item.ReceivedAt)
+            .ToList();
+        if (activeItems.Count == 0)
+            return null;
+
+        var latest = activeItems[0];
+        var batch = stateContainer.BatchProgress is { IsComplete: false } liveBatch
+            && liveBatch.BatchId == latest.Event.BatchId
+                ? liveBatch
+                : null;
+        var batchId = latest.Event.BatchId;
+        var batchItems = items
+            .Where(item => item.Event.BatchId == batchId)
+            .ToList();
+        var completedItems = batchItems
+            .Where(item => IsFileIngestionTerminal(item.Event))
+            .OrderByDescending(item => item.ReceivedAt)
+            .ToList();
+        var total = ResolveLiveItemTotal(null, batch, batchItems);
+        var completed = completedItems.Count;
+        var active = activeItems.Count(item => item.Event.BatchId == batchId);
+        var queued = total > 0 ? Math.Max(0, total - completed - active) : 0;
+        var percent = ResolveLiveItemPercent(batchItems, total);
+        var stageKey = ResolveItemStageKey(latest.Event.Stage);
+        var stageLabel = FriendlyStageName(latest.Event.Stage);
+        var activeLabels = activeItems
+            .Where(item => item.Event.BatchId == batchId)
+            .Select(item => CleanDisplayTitle(ResolveItemTitle(item.Event)))
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(10)
+            .ToList();
+        var completedLabels = completedItems
+            .Select(item => CleanDisplayTitle(ResolveItemTitle(item.Event)))
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(10)
+            .ToList();
+
+        return new IngestionCurrentActivityViewModel
+        {
+            StageKey = stageKey,
+            Message = ResolveItemActivityMessage(stageKey),
+            Detail = stageLabel,
+            CurrentItem = CleanDisplayTitle(ResolveItemTitle(latest.Event)),
+            Source = "Watch folders",
+            ProcessedCount = completed,
+            TotalCount = total,
+            CountUnit = "files",
+            PercentComplete = percent,
+            LastUpdatedTime = latest.ReceivedAt,
+            QueuedCount = queued,
+            ActiveCount = Math.Max(1, active),
+            SampleItems = activeLabels.Count > 0 ? activeLabels : [CleanDisplayTitle(ResolveItemTitle(latest.Event))],
+            MetricLabel = "Current stage",
+            MetricValue = stageLabel,
+            MetricTone = "info",
+            CurrentBatch = new IngestionActivityBatchViewModel
+            {
+                BatchNumber = 1,
+                BatchSize = total,
+                TotalBatches = 1,
+                CompletedCount = completed,
+                ActiveCount = Math.Max(1, active),
+                PendingCount = queued,
+                ReviewCount = completedItems.Count(item => IsReviewTerminalStage(item.Event.Stage)),
+                ActiveItems = activeLabels,
+                CompletedPreview = completedLabels,
+                PendingPreview = [],
+                ReviewPreview = completedItems
+                    .Where(item => IsReviewTerminalStage(item.Event.Stage))
+                    .Select(item => CleanDisplayTitle(ResolveItemTitle(item.Event)))
+                    .Where(title => !string.IsNullOrWhiteSpace(title))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(10)
+                    .ToList(),
+            },
+        };
     }
 
     private static IngestionCurrentActivityViewModel? BuildLiveBatchActivity(
@@ -493,6 +652,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
         activity.ActiveCount = Math.Max(activity.ActiveCount, Math.Max(0, batch.FilesActive));
         activity.QueuedCount = Math.Max(activity.QueuedCount, Math.Max(0, batch.FilesQueued));
+        if (batch.WorkUnitsTotal > 0)
+        {
+            activity.ProcessedCount = Math.Clamp(Math.Max(0, batch.WorkUnitsCompleted), 0, batch.WorkUnitsTotal);
+            activity.TotalCount = batch.WorkUnitsTotal;
+            activity.CountUnit = "work units";
+            activity.PercentComplete = Math.Clamp(activity.ProcessedCount * 100d / batch.WorkUnitsTotal, 0, 100);
+        }
         activity.LastUpdatedTime = DateTimeOffset.UtcNow;
         return activity;
     }
@@ -707,15 +873,22 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
         return stage.Trim().ToLowerInvariant() switch
         {
+            "detected" => "Detected",
             "discovered" => "Discovered",
             "settling" => "Settling",
             "waiting_for_lock" => "Waiting for lock",
             "queued" => "Queued",
             "hashing" => "Hashing",
+            "processed" => "Read media details",
+            "scored" => "Scored metadata",
             "parsing" => "Reading media details",
             "scoring" => "Scoring identity",
             "registered" => "Registered",
             "queued_identity" => "Identity queued",
+            "needs_review" => "Needs review",
+            "duplicate" => "Duplicate",
+            "same_path_redetected" => "Already tracked",
+            "skipped_non_media" => "Skipped",
             "provider_lookup" => "Provider lookup",
             "downloading" => "Downloading",
             "analyzing" => "Analyzing",
@@ -999,8 +1172,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var attentionReasons = BuildAttentionReasons(snapshot?.ReviewReasons ?? [], reviewItems);
         var steps = BuildLibraryUpdateSteps(pageState, activeStep, reviewItems);
         var enrichmentStats = BuildEnrichmentStats(currentActivities, snapshot);
-        var enrichmentCompleted = enrichmentStats.Sum(stat => Math.Max(0, stat.CompletedCount));
-        var enrichmentTotal = enrichmentStats.Sum(stat => Math.Max(0, stat.TotalCount));
+        var enrichmentTotal = totalFiles;
+        var enrichmentCompleted = enrichmentTotal > 0
+            ? ResolveEnrichmentCompletedCount(snapshot, enrichmentTotal)
+            : ResolveEnrichmentCompletedCount(snapshot, 0);
         var enrichmentPercent = enrichmentTotal > 0
             ? Math.Clamp(enrichmentCompleted * 100d / enrichmentTotal, 0, 100)
             : 0;
@@ -1113,6 +1288,102 @@ public sealed class IngestionLiveDashboardState : IDisposable
         "wikidata" => "items",
         _ => "files",
     };
+
+    private static int ResolveEnrichmentCompletedCount(
+        IngestionOperationsSnapshotViewModel? snapshot,
+        int totalFiles)
+    {
+        var enriched = Count(snapshot, "enriched");
+        if (enriched > 0)
+            return ClampFileCount(enriched, totalFiles);
+
+        var hasCurrentPipelineStages = snapshot?.PipelineStages.Any(stage =>
+            stage.Key.Equals("matched", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("retail_review", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("canonicalized", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("wikidata_review", StringComparison.OrdinalIgnoreCase)
+            || stage.Key.Equals("enriched", StringComparison.OrdinalIgnoreCase)) == true;
+
+        if (hasCurrentPipelineStages)
+            return 0;
+
+        return ClampFileCount(snapshot?.Summary.RegisteredItems ?? 0, totalFiles);
+    }
+
+    private static IEnumerable<LiveIngestionItemProgress> FreshIngestionItemProgress(UniverseStateContainer stateContainer)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return stateContainer.IngestionItemProgress
+            .Where(item => IsFileIngestionTerminal(item.Event)
+                || now - item.ReceivedAt.ToUniversalTime() <= LiveItemProgressFreshness);
+    }
+
+    private static int ResolveLiveItemTotal(
+        IngestionOperationsSnapshotViewModel? snapshot,
+        BatchProgressEvent? batch,
+        IReadOnlyList<LiveIngestionItemProgress> items)
+    {
+        if (batch?.FilesTotal > 0)
+            return batch.FilesTotal;
+
+        var batchId = items.FirstOrDefault()?.Event.BatchId;
+        var snapshotTotal = batchId is { } id
+            ? snapshot?.ActiveJobs.FirstOrDefault(job => job.JobId == id)?.TotalCount ?? 0
+            : 0;
+        var trackedTotal = items.Select(item => item.Event.LogEntryId).Distinct().Count();
+
+        return Math.Max(1, Math.Max(snapshotTotal, trackedTotal));
+    }
+
+    private static double ResolveLiveItemPercent(
+        IReadOnlyList<LiveIngestionItemProgress> items,
+        int total)
+    {
+        if (items.Count == 0)
+            return 0;
+
+        var normalizedTotal = Math.Max(1, total);
+        var progressUnits = items
+            .GroupBy(item => item.Event.LogEntryId)
+            .Select(group => group.OrderByDescending(item => item.ReceivedAt).First().Event)
+            .Sum(ev => IsFileIngestionTerminal(ev) ? 100 : Math.Clamp(ev.ProgressPercent, 0, 99));
+
+        return Math.Clamp(progressUnits / (normalizedTotal * 100d) * 100d, 0, 100);
+    }
+
+    private static string ResolveItemTitle(IngestionItemProgressEvent ev) =>
+        FirstNonBlank(ev.Title, ev.FileName, Path.GetFileName(ev.FilePath), "Library item");
+
+    private static string ResolveItemStageKey(string? stage) =>
+        (stage ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "registered" => "saving",
+            "scored" or "queued_identity" => "retail",
+            "needs_review" => "retail",
+            var value when value.Contains("hash") || value.Contains("process") || value.Contains("detect") => "scanning",
+            _ => "scanning",
+        };
+
+    private static string ResolveItemActivityMessage(string stageKey) => stageKey switch
+    {
+        "saving" => "Saving library records",
+        "retail" => "Preparing identity match",
+        _ => "Reading media files",
+    };
+
+    private static bool IsFileIngestionTerminal(IngestionItemProgressEvent ev) =>
+        ev.IsTerminal
+        || ev.Stage.Equals("queued_identity", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("complete", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("needs_review", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("duplicate", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("same_path_redetected", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("missing", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("skipped_non_media", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("failed", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsReviewTerminalStage(string? stage) =>
+        stage?.Equals("needs_review", StringComparison.OrdinalIgnoreCase) == true;
 
     private void PruneOperationCaches()
     {
@@ -1358,7 +1629,15 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var calculatedPercent = totalFiles > 0
             ? Math.Clamp(processedFiles * 100d / totalFiles, 0, 100)
             : 0;
-        var percent = calculatedPercent;
+        var livePercent = activeJobs
+            .Where(IsActiveJob)
+            .Where(job => job.TotalCount > 0 || job.PercentComplete > 0)
+            .Select(job => Math.Clamp(job.PercentComplete, 0, 100))
+            .DefaultIfEmpty(calculatedPercent)
+            .Max();
+        var percent = pageState == LibraryUpdatePageState.Running
+            ? Math.Max(calculatedPercent, livePercent)
+            : calculatedPercent;
 
         return pageState == LibraryUpdatePageState.Running
             ? Math.Clamp(percent, 0, 100)
@@ -1777,15 +2056,19 @@ public sealed class IngestionLiveDashboardState : IDisposable
             return [];
 
         var uncertain = SumReasonCounts(reasons, "low_confidence");
-        var missingIdentity = SumReasonCounts(reasons, "missing_wikidata", "unmatched");
+        var unmatched = SumReasonCounts(reasons, "unmatched");
+        var missingIdentity = SumReasonCounts(reasons, "missing_wikidata");
         var duplicates = SumReasonCounts(reasons, "duplicates");
         var missingArtwork = SumReasonCounts(reasons, "missing_artwork");
+        var providerFailures = SumReasonCounts(reasons, "provider_failures");
         var rows = new List<LibraryUpdateAttentionReasonViewModel>();
 
         AddReason(rows, uncertain, "uncertain matches");
+        AddReason(rows, unmatched, "unmatched items");
         AddReason(rows, missingIdentity, "missing identity");
         AddReason(rows, duplicates, "possible duplicates");
         AddReason(rows, missingArtwork, "missing artwork");
+        AddReason(rows, providerFailures, "provider failures");
 
         if (rows.Count == 0)
             AddReason(rows, reviewItems, "items awaiting review");
@@ -1814,8 +2097,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Select(group =>
             {
                 var activities = group.ToList();
-                var completed = activities.Sum(activity => Math.Max(0, activity.ProcessedCount));
-                var total = activities.Sum(activity => Math.Max(0, activity.TotalCount));
+                var found = activities.Sum(activity => Math.Max(0, activity.ProcessedCount));
                 var active = activities.Sum(activity => Math.Max(0, activity.ActiveCount));
                 var queued = activities.Sum(activity => Math.Max(0, activity.QueuedCount));
                 var key = group.Key;
@@ -1824,8 +2106,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
                     EnrichmentLabel(key),
                     EnrichmentIcon(key),
                     EnrichmentTone(key),
-                    completed,
-                    total,
+                    found,
+                    0,
                     active,
                     queued,
                     activities.Select(activity => CleanDisplayTitle(FirstNonBlank(activity.CurrentItem, activity.SampleItems.FirstOrDefault())))
@@ -1834,7 +2116,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
                         .Take(3)
                         .ToList());
             })
-            .Where(stat => stat.TotalCount > 0 || stat.CompletedCount > 0 || stat.ActiveCount > 0)
+            .Where(stat => stat.CompletedCount > 0 || stat.ActiveCount > 0)
             .OrderBy(stat => EnrichmentSort(stat.Key))
             .ToList();
 
@@ -1854,9 +2136,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
                     Icons.Material.Outlined.AutoAwesome,
                     "purple",
                     enriched,
-                    Math.Max(enriched, enrichmentTotal),
                     0,
-                    Math.Max(0, enrichmentTotal - enriched),
+                    0,
+                    0,
                     [])
             ]
             : [];

@@ -176,6 +176,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             WHERE status = 'Pending'
             GROUP BY trigger, detail
             """)).AsList();
+        var pendingReviewCount = reviewRows.Sum(row => ToInt(row.Count));
 
         var folderStats = (await conn.QueryAsync<FolderStatsRow>("""
             SELECT
@@ -216,8 +217,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var failedJobs = recentBatches.Count(batch =>
             FailedBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase))
             + Count(pipelineRows, nameof(IdentityJobState.Failed));
-        var summaryTotals = BuildSummaryTotals(displayBatch, lifecycle, projection);
-        var pipelineStages = BuildPipelineStages(scopedPipelineRows, scopedIngestionRows, lifecycle, projection, displayBatch);
+        var summaryTotals = BuildSummaryTotals(displayBatch, lifecycle, projection, pendingReviewCount);
+        var pipelineStages = BuildPipelineStages(scopedPipelineRows, scopedIngestionRows, lifecycle, projection, displayBatch, pendingReviewCount);
         var batchStats = await ReadBatchStatsAsync(recentBatches, ct);
         var recentBatchGroups = BuildRecentBatchGroups(recentBatches);
         var currentActivities = await ReadTaskActivitiesAsync(displayBatches.Select(batch => batch.Id).ToArray(), pipelineStages, ct);
@@ -258,7 +259,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ActiveJobs = activeJobs,
             CurrentActivities = currentActivities,
             PipelineStages = pipelineStages,
-            ReviewReasons = BuildReviewReasons(reviewRows, lifecycle.TriggerCounts),
+            ReviewReasons = BuildReviewReasons(reviewRows),
             SourceGroups = BuildSourceGroups(folderStats),
             ProviderHealth = providerDtos,
             RecentBatches = recentBatchGroups
@@ -339,8 +340,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             return [];
 
         var anchorStart = anchor.StartedAt.ToUniversalTime();
+        var anchorHasOutcomes = HasOutcomeCounters(anchor);
         return recentBatches
             .Where(batch => DurationBetween(batch.StartedAt.ToUniversalTime(), anchorStart) <= TimeSpan.FromMinutes(3))
+            .Where(batch => ShouldIncludeInDisplayBatchGroup(batch, anchorHasOutcomes))
             .ToList();
     }
 
@@ -404,8 +407,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         {
             var anchor = remaining[0];
             var anchorStart = anchor.StartedAt.ToUniversalTime();
+            var anchorHasOutcomes = HasOutcomeCounters(anchor);
             var grouped = remaining
                 .Where(batch => DurationBetween(batch.StartedAt.ToUniversalTime(), anchorStart) <= TimeSpan.FromMinutes(3))
+                .Where(batch => ShouldIncludeInRecentBatchGroup(batch, anchorHasOutcomes))
                 .ToList();
 
             foreach (var batch in grouped)
@@ -427,20 +432,30 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return delta < TimeSpan.Zero ? -delta : delta;
     }
 
+    private static bool ShouldIncludeInRecentBatchGroup(IngestionBatch batch, bool anchorHasOutcomes)
+    {
+        var batchHasOutcomes = HasOutcomeCounters(batch);
+        return anchorHasOutcomes
+            ? batchHasOutcomes
+            : !batchHasOutcomes;
+    }
+
     private static BatchSummaryTotals BuildSummaryTotals(
         IngestionBatch? displayBatch,
         LibraryItemLifecycleCounts lifecycle,
-        LibraryItemProjectionSummary projection)
+        LibraryItemProjectionSummary projection,
+        int pendingReviewCount)
     {
+        var reviewCount = Math.Max(0, pendingReviewCount);
         if (displayBatch is null)
         {
-            return new(projection.TotalItems, lifecycle.Identified, lifecycle.InReview);
+            return new(projection.TotalItems, lifecycle.Identified, reviewCount);
         }
 
         return new(
             Math.Max(0, displayBatch.FilesTotal),
             Math.Max(0, displayBatch.FilesIdentified),
-            Math.Max(0, displayBatch.FilesReview + displayBatch.FilesNoMatch + displayBatch.FilesFailed));
+            reviewCount);
     }
 
     private static bool ShouldShowActiveBatch(IngestionBatch batch)
@@ -451,6 +466,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         }
 
         return DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime() <= NoWorkBatchGrace;
+    }
+
+    private static bool ShouldIncludeInDisplayBatchGroup(IngestionBatch batch, bool anchorHasOutcomes)
+    {
+        if (!anchorHasOutcomes)
+            return true;
+
+        return HasOutcomeCounters(batch);
     }
 
     private static bool HasOutcomeCounters(IngestionBatch batch) =>
@@ -555,7 +578,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IReadOnlyDictionary<string, int> ingestionRows,
         LibraryItemLifecycleCounts lifecycle,
         LibraryItemProjectionSummary projection,
-        IngestionBatch? displayBatch)
+        IngestionBatch? displayBatch,
+        int? pendingReviewCount = null)
     {
         var batchTotal = Math.Max(0, displayBatch?.FilesTotal ?? projection.TotalItems);
         var batchProcessed = Math.Max(0, displayBatch?.FilesProcessed ?? lifecycle.Identified + lifecycle.InReview + lifecycle.Provisional + lifecycle.Rejected);
@@ -565,9 +589,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var skippedOrDuplicate = duplicates + skipped;
         var terminalOther = skippedOrDuplicate + failed;
         var registered = Math.Max(0, displayBatch?.FilesIdentified ?? lifecycle.Identified);
-        var review = Math.Max(0, displayBatch is null
+        var review = Math.Max(0, pendingReviewCount ?? (displayBatch is null
             ? lifecycle.InReview
-            : displayBatch.FilesReview + displayBatch.FilesNoMatch + displayBatch.FilesFailed);
+            : displayBatch.FilesReview));
 
         var identityTotal = pipelineRows.Values.Sum();
         var retailMatched = SumStates(pipelineRows, RetailMatchedStates);
@@ -1888,8 +1912,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             : title;
 
     private static List<IngestionReviewReasonDto> BuildReviewReasons(
-        IReadOnlyList<ReviewCountRow> reviewRows,
-        IReadOnlyDictionary<string, int> triggerCounts)
+        IReadOnlyList<ReviewCountRow> reviewRows)
     {
         var allCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in reviewRows)
@@ -1899,11 +1922,6 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             {
                 allCounts[row.Detail] = allCounts.GetValueOrDefault(row.Detail) + ToInt(row.Count);
             }
-        }
-
-        foreach (var kv in triggerCounts)
-        {
-            allCounts[kv.Key] = Math.Max(allCounts.GetValueOrDefault(kv.Key), kv.Value);
         }
 
         return
@@ -2310,6 +2328,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 """, new { batchId = batch.Id })).AsList();
             var mediaCounts = mediaRows.ToDictionary(row => row.Key, row => ToInt(row.Count), StringComparer.OrdinalIgnoreCase);
             ApplyBatchCategoryFallback(batch, mediaCounts);
+            var pendingReviewCount = await conn.ExecuteScalarAsync<int>("""
+                SELECT COUNT(DISTINCT rq.id)
+                FROM review_queue rq
+                INNER JOIN identity_jobs ij ON ij.entity_id = rq.entity_id
+                WHERE rq.status = 'Pending'
+                  AND ij.ingestion_run_id = @batchId
+                """, new { batchId = GuidSql.ToBlob(batch.Id) });
 
             result[batch.Id] = new BatchActivityStats(
                 MoviesCount: CountMediaTypes(mediaCounts, "Movies", "Movie"),
@@ -2326,7 +2351,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     + Count(byType, SystemActionType.RelationshipDiscovered)
                     + Count(byType, SystemActionType.CharacterEnriched)
                     + Count(byType, SystemActionType.LocationEnriched)
-                    + Count(byType, SystemActionType.OrganizationEnriched));
+                    + Count(byType, SystemActionType.OrganizationEnriched),
+                PendingReviewCount: pendingReviewCount);
         }
 
         return result;
@@ -2336,6 +2362,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         var source = FirstNonBlank(batch.Category, ShortPath(batch.SourcePath), "Library scan");
         var duration = (batch.CompletedAt ?? DateTimeOffset.UtcNow) - batch.StartedAt;
+        var reviewCount = Math.Max(0, stats?.PendingReviewCount ?? batch.FilesReview);
         return new IngestionOperationsBatchDto
         {
             BatchId = batch.Id,
@@ -2352,14 +2379,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             MusicCount = stats?.MusicCount ?? 0,
             ComicsCount = stats?.ComicsCount ?? 0,
             RegisteredCount = batch.FilesIdentified,
-            ReviewCount = batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed,
+            ReviewCount = reviewCount,
             FailedCount = batch.FilesFailed,
             PeopleGeneratedCount = stats?.PeopleGeneratedCount ?? 0,
             ArtworkDownloadedCount = stats?.ArtworkDownloadedCount ?? 0,
             MetadataUpdatedCount = stats?.MetadataUpdatedCount ?? 0,
             DurationSeconds = duration.TotalSeconds > 0 ? (int)Math.Round(duration.TotalSeconds) : null,
             Status = batch.Status,
-            Summary = $"{batch.FilesIdentified:N0} registered, {batch.FilesReview + batch.FilesNoMatch + batch.FilesFailed:N0} review",
+            Summary = $"{batch.FilesIdentified:N0} registered, {reviewCount:N0} review",
         };
     }
 
@@ -2388,7 +2415,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ComicsCount: stats.Sum(item => item.ComicsCount),
             PeopleGeneratedCount: stats.Sum(item => item.PeopleGeneratedCount),
             ArtworkDownloadedCount: stats.Sum(item => item.ArtworkDownloadedCount),
-            MetadataUpdatedCount: stats.Sum(item => item.MetadataUpdatedCount));
+            MetadataUpdatedCount: stats.Sum(item => item.MetadataUpdatedCount),
+            PendingReviewCount: stats.Sum(item => item.PendingReviewCount));
     }
 
     private sealed record DisplayBatchGroup(
@@ -2404,7 +2432,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         int ComicsCount = 0,
         int PeopleGeneratedCount = 0,
         int ArtworkDownloadedCount = 0,
-        int MetadataUpdatedCount = 0);
+        int MetadataUpdatedCount = 0,
+        int PendingReviewCount = 0);
 
     private static IngestionProviderHealthDto ToProviderDto(ProviderConfig provider, ProviderHealthRecord? health)
     {
@@ -2560,12 +2589,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             return "Enrichment";
         }
 
-        if (batch.FilesFailed > 0)
+        if (batch.FilesFailed > 0 || batch.FilesNoMatch > 0)
         {
             return "Attention needed";
         }
 
-        if (batch.FilesReview + batch.FilesNoMatch > 0)
+        if (batch.FilesReview > 0)
         {
             return "Review decisions";
         }

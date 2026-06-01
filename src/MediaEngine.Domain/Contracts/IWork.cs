@@ -13,8 +13,8 @@ public interface IWork
     Guid Id { get; }
 
     /// <summary>
-    /// Optional legacy Collection. Phase 4 collapses this onto
-    /// <see cref="ParentWorkId"/>; the column is expected to disappear.
+    /// Optional lane-level collection or broader rollup. Parent/child structure
+    /// is represented separately by <see cref="ParentWorkId"/>.
     /// </summary>
     Guid? CollectionId { get; }
 

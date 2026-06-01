@@ -121,7 +121,7 @@
                                 <div class="library-update-progress-block__top">
                                     <div>
                                         <strong>Enrichment</strong>
-                                        <span>@FormatCount(Model.EnrichmentCompleted) of @FormatCount(Model.EnrichmentTotal) enrichment tasks complete</span>
+                                        <span>@FormatCount(Model.EnrichmentCompleted) of @FormatCount(Model.EnrichmentTotal) files fully complete</span>
                                     </div>
                                     <em>@FormatPercent(Model.EnrichmentPercent)</em>
                                 </div>
@@ -136,7 +136,7 @@
                                             <span class="@EnrichmentChipClass(stat)">
                                                 <MudIcon Icon="@stat.Icon" />
                                                 <strong>@stat.Label</strong>
-                                                <em>@FormatCount(stat.CompletedCount) / @FormatCount(stat.TotalCount)</em>
+                                                <em>@FormatCount(stat.CompletedCount) found</em>
                                             </span>
                                         }
                                     </div>
@@ -406,7 +406,12 @@
     private IReadOnlyList<IngestionCurrentActivityViewModel> EffectiveCurrentActivities =>
         CurrentActivities.Count > 0 ? CurrentActivities : Snapshot?.CurrentActivities ?? [];
     private double FileProcessingPercent => Model.TotalFiles > 0
-        ? Math.Clamp(Model.ProcessedFiles * 100d / Model.TotalFiles, 0, 100)
+        ? Math.Clamp(
+            Model.PageState == LibraryUpdatePageState.Running && Model.ProgressPercent > 0
+                ? Model.ProgressPercent
+                : Model.ProcessedFiles * 100d / Model.TotalFiles,
+            0,
+            100)
         : Math.Clamp(Model.ProgressPercent, 0, 100);
     private IReadOnlyList<IngestionCurrentActivityViewModel> ActivityRows => EffectiveCurrentActivities
         .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
@@ -449,9 +454,11 @@
         var currentActivities = string.Join(';', activityRows.Select(activity => string.Join(':',
             activity.StageKey,
             activity.Message,
+            activity.Detail,
             activity.CurrentItem,
             activity.ProcessedCount,
             activity.TotalCount,
+            Math.Round(activity.PercentComplete, 1),
             activity.ActiveCount,
             activity.QueuedCount)));
         var recent = string.Join(';', recentBatches.Select(batch => string.Join(':',
@@ -553,9 +560,7 @@
     private static string FormatEnrichmentValue(LibraryUpdateStatusViewModel model) =>
         model.EnrichmentTotal <= 0
             ? FormatCount(model.EnrichmentCompleted)
-            : model.EnrichmentCompleted >= model.EnrichmentTotal
-                ? FormatCount(model.EnrichmentTotal)
-                : $"{FormatCount(model.EnrichmentCompleted)}/{FormatCount(model.EnrichmentTotal)}";
+            : $"{FormatCount(model.EnrichmentCompleted)}/{FormatCount(model.EnrichmentTotal)}";
 
     private static string FormatPercent(double percent) =>
         $"{Math.Clamp(percent, 0, 100).ToString("0", CultureInfo.CurrentCulture)}%";

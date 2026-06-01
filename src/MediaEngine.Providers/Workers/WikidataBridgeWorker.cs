@@ -300,11 +300,11 @@ public sealed class WikidataBridgeWorker
 
             {
                 var bridgeCount = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count > 0);
-                var textCount   = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count == 0 && !string.IsNullOrWhiteSpace(ctx.TitleHint));
+                var titleOnlyCount = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count == 0 && !string.IsNullOrWhiteSpace(ctx.TitleHint));
                 var musicCount  = contexts.Count(ctx => ctx.MediaType == MediaType.Music);
                 _logger.LogInformation(
-                    "Wikidata: dispatching {TotalJobs} job(s) to ResolveBatchAsync — {MusicCount} music, {BridgeCount} with bridge IDs, {TextCount} text-only fallback",
-                    contexts.Count, musicCount, bridgeCount, textCount);
+                    "Wikidata: dispatching {TotalJobs} job(s) to ResolveBatchAsync - {MusicCount} music, {BridgeCount} with bridge IDs, {TitleOnlyCount} non-music title-only request(s) expected to be skipped",
+                    contexts.Count, musicCount, bridgeCount, titleOnlyCount);
             }
 
             var resolveRequests = contexts

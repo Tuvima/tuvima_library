@@ -7,6 +7,7 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
@@ -219,22 +220,10 @@ public static class IngestionEndpoints
             int? limit) =>
         {
             var batches = await batchRepo.GetRecentAsync(limit ?? 20);
-            return Results.Ok(batches.Select(b => new IngestionBatchResponse
-            {
-                Id              = b.Id,
-                Status          = b.Status,
-                SourcePath      = b.SourcePath,
-                Category        = b.Category,
-                FilesTotal      = b.FilesTotal,
-                FilesProcessed  = b.FilesProcessed,
-                FilesIdentified = b.FilesIdentified,
-                FilesReview     = b.FilesReview,
-                FilesNoMatch    = b.FilesNoMatch,
-                FilesFailed     = b.FilesFailed,
-                StartedAt       = b.StartedAt,
-                CompletedAt     = b.CompletedAt,
-                CreatedAt       = b.CreatedAt,
-            }).ToList());
+            return Results.Ok(batches
+                .Where(IngestionBatchEndpointMapper.ShouldShowInRecentBatches)
+                .Select(IngestionBatchEndpointMapper.ToResponse)
+                .ToList());
         })
         .WithName("GetRecentBatches")
         .WithSummary("List recent ingestion batches, newest first.")
@@ -303,22 +292,7 @@ public static class IngestionEndpoints
         {
             var batch = await batchRepo.GetByIdAsync(id);
             if (batch is null) return Results.NotFound();
-            return Results.Ok(new IngestionBatchResponse
-            {
-                Id              = batch.Id,
-                Status          = batch.Status,
-                SourcePath      = batch.SourcePath,
-                Category        = batch.Category,
-                FilesTotal      = batch.FilesTotal,
-                FilesProcessed  = batch.FilesProcessed,
-                FilesIdentified = batch.FilesIdentified,
-                FilesReview     = batch.FilesReview,
-                FilesNoMatch    = batch.FilesNoMatch,
-                FilesFailed     = batch.FilesFailed,
-                StartedAt       = batch.StartedAt,
-                CompletedAt     = batch.CompletedAt,
-                CreatedAt       = batch.CreatedAt,
-            });
+            return Results.Ok(IngestionBatchEndpointMapper.ToResponse(batch));
         })
         .WithName("GetBatchById")
         .WithSummary("Get details of a specific ingestion batch.")
@@ -558,6 +532,37 @@ public static class UploadSafety
 
         return targetPath;
     }
+
+}
+
+internal static class IngestionBatchEndpointMapper
+{
+    internal static bool ShouldShowInRecentBatches(IngestionBatch batch)
+    {
+        var hasOutcome = batch.FilesIdentified > 0
+            || batch.FilesReview > 0
+            || batch.FilesNoMatch > 0
+            || batch.FilesFailed > 0;
+
+        return hasOutcome || !string.Equals(batch.Status, "completed", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static IngestionBatchResponse ToResponse(IngestionBatch batch) => new()
+    {
+        Id              = batch.Id,
+        Status          = batch.Status,
+        SourcePath      = batch.SourcePath,
+        Category        = batch.Category,
+        FilesTotal      = batch.FilesTotal,
+        FilesProcessed  = batch.FilesProcessed,
+        FilesIdentified = batch.FilesIdentified,
+        FilesReview     = batch.FilesReview,
+        FilesNoMatch    = batch.FilesNoMatch,
+        FilesFailed     = batch.FilesFailed,
+        StartedAt       = batch.StartedAt,
+        CompletedAt     = batch.CompletedAt,
+        CreatedAt       = batch.CreatedAt,
+    };
 }
 
 public sealed record UploadPlan(

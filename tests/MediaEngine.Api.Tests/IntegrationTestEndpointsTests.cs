@@ -56,11 +56,14 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
-    public void RunFullIntegration_RequestsGeneratedStateWipe()
+    public void RunFullIntegration_DefaultsToGeneratedStateAndSupportsExplicitFullWipe()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"tools\Run-FullIntegration.ps1"));
 
-        Assert.Contains("wipeScope=generated-state", source, StringComparison.Ordinal);
+        Assert.Contains("[ValidateSet(\"generated-state\", \"full\")]", source, StringComparison.Ordinal);
+        Assert.Contains("[string]$WipeScope = \"generated-state\"", source, StringComparison.Ordinal);
+        Assert.Contains("wipeScope=$([uri]::EscapeDataString($WipeScope))", source, StringComparison.Ordinal);
+        Assert.Contains("$WipeScope -eq \"full\"", source, StringComparison.Ordinal);
         Assert.Contains("stages=$Stages", source, StringComparison.Ordinal);
     }
 

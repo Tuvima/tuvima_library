@@ -98,7 +98,7 @@ public sealed class DurablePipelineTests : IDisposable
         _workRepo        = new WorkRepository(db);
         _entityAssetRepo = new EntityAssetRepository(db);
         _assetPaths      = new AssetPathService(_libraryDir);
-        _chainFactory    = new MediaEntityChainFactory(db, _workRepo, new CollectionRepository(db), new HierarchyResolver(_workRepo));
+        _chainFactory    = new MediaEntityChainFactory(db, new HierarchyResolver(_workRepo));
         _batchRepo       = new IngestionBatchRepository(db);
         _identityJobRepo = new IdentityJobRepository(db);
 

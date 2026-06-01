@@ -43,8 +43,7 @@ public sealed class WikidataResolveRequest
 
     /// <summary>
     /// Bridge IDs collected during Stage 1 (e.g. <c>tmdb_id</c>, <c>isbn</c>, <c>asin</c>).
-    /// Sentinel keys (<c>_title</c>, <c>_author</c>) may also be present to power
-    /// the internal text fallback inside <c>ResolveBridgeAsync</c>.
+    /// Non-music Stage 2 resolution requires at least one real bridge ID.
     /// </summary>
     public IReadOnlyDictionary<string, string>? BridgeIds { get; init; }
 

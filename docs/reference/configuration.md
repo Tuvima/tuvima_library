@@ -263,10 +263,9 @@ This file is the authoritative configuration for all Wikidata-related behaviour.
 
 | Section | Description |
 |---|---|
-| `instance_of_classes` | Per-media-type P31 type allow-lists for CirrusSearch text fallback filtering. Previously stored separately in `cirrus-type-filters.json` (now removed). |
+| `instance_of_classes` | Per-media-type P31 type allow-lists for Wikidata candidate filtering. Previously stored separately in `cirrus-type-filters.json` (now removed). |
 | `edition_pivot` | Per-media-type rules for walking from Wikidata edition items to work items. Previously stored in `edition-pivot.json` (now removed). Keys: `audiobooks`, `books`, `music`. Each has `work_classes`, `edition_classes`, and `prefer_edition`. |
 | `exclude_classes` | P31 classes to exclude from reconciliation results. |
-| `child_entity_discovery` | Configuration for TV season/episode, music track, and comic issue discovery. |
 | `data_extension` | Properties fetched during the Data Extension API call after QID resolution. |
 
 **Removed config files (consolidated here):**

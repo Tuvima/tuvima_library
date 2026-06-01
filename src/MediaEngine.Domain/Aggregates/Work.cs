@@ -41,9 +41,8 @@ public sealed class Work
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Optional Collection for legacy ContentGroup grouping. Phase 4 collapses this
-    /// onto the new <see cref="ParentWorkId"/> hierarchy and the column is
-    /// expected to disappear in a later migration.
+    /// Optional lane-level collection or broader rollup that this Work belongs to.
+    /// Parent/child structure is represented separately by <see cref="ParentWorkId"/>.
     /// </summary>
     public Guid? CollectionId { get; set; }
 

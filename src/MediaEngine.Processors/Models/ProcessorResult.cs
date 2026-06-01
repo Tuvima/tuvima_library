@@ -66,7 +66,8 @@ public sealed class ProcessorResult
     ///
     /// The ingestion engine uses these candidates instead of <see cref="DetectedType"/>
     /// alone to resolve the correct media type via the Weighted Voter system.
-    /// <see cref="DetectedType"/> is set to the top candidate for backward compatibility.
+    /// <see cref="DetectedType"/> is set to the top candidate for callers that
+    /// need a single summary value.
     ///
     /// Empty for unambiguous formats (EPUB, CBZ, M4B, FLAC, etc.).
     /// </summary>

@@ -5,8 +5,8 @@ using MediaEngine.Storage.Models;
 namespace MediaEngine.Providers.Helpers;
 
 /// <summary>
-/// Bridge ID ↔ Wikidata P-code mapping, bridge hint extraction, and sentinel handling.
-/// Thread-safe singleton — the P-code map is built lazily from provider config.
+/// Bridge ID to Wikidata P-code mapping and bridge hint extraction.
+/// Thread-safe singleton; the P-code map is built lazily from provider config.
 /// </summary>
 public sealed class BridgeIdHelper
 {

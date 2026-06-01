@@ -45,6 +45,24 @@ public sealed record IngestionProgressEvent(
     string Stage);
 
 /// <summary>
+/// Payload broadcast whenever one file advances to a new ingestion stage.
+///
+/// SignalR method name: <c>"IngestionItemProgress"</c>
+/// </summary>
+public sealed record IngestionItemProgressEvent(
+    Guid   BatchId,
+    Guid   LogEntryId,
+    Guid?  MediaAssetId,
+    string FilePath,
+    string FileName,
+    string Stage,
+    int    StageOrder,
+    int    ProgressPercent,
+    bool   IsTerminal,
+    string? Title = null,
+    string? MediaType = null);
+
+/// <summary>
 /// Payload broadcast when an external provider successfully updates metadata
 /// for a library entity (cover art, narrator, series, etc.).
 ///
@@ -179,7 +197,9 @@ public sealed record BatchProgressEvent(
     int    FilesReady = 0,
     int    FilesReadyWithoutUniverse = 0,
     string? CurrentFileTitle = null,
-    string? LifecycleStage = null);
+    string? LifecycleStage = null,
+    int    WorkUnitsTotal = 0,
+    int    WorkUnitsCompleted = 0);
 
 // ── Hydration Pipeline Events ────────────────────────────────────────────────
 

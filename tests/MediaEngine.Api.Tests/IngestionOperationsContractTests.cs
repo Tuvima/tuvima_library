@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Reflection;
+using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Services;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Api.Tests;
@@ -78,6 +80,76 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("ma.status = 'Normal'", source, StringComparison.Ordinal);
         Assert.Contains("hasSnapshotRows ? snapshot.Review : batch.FilesReview", source, StringComparison.Ordinal);
         Assert.Contains("activity.QueuedCount > 0", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OperationsService_UserFacingReviewCountsExcludeNoMatchAndFailures()
+    {
+        var batch = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            CompletedAt = DateTimeOffset.UtcNow,
+            Status = "completed",
+            FilesTotal = 12,
+            FilesProcessed = 12,
+            FilesIdentified = 6,
+            FilesReview = 2,
+            FilesNoMatch = 3,
+            FilesFailed = 1,
+        };
+        var lifecycle = new LibraryItemLifecycleCounts(6, 99, 0, 0, 0, 0, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        var projection = new LibraryItemProjectionSummary(12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        var summaryMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "BuildSummaryTotals",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var stagesMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "BuildPipelineStages",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var recentBatchMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "ToRecentBatch",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(summaryMethod);
+        Assert.NotNull(stagesMethod);
+        Assert.NotNull(recentBatchMethod);
+
+        var summary = summaryMethod.Invoke(null, [batch, lifecycle, projection, 4])
+            ?? throw new InvalidOperationException("BuildSummaryTotals returned null.");
+        var stages = Assert.IsAssignableFrom<IEnumerable<IngestionPipelineStageDto>>(stagesMethod.Invoke(
+            null,
+            [
+                new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                lifecycle,
+                projection,
+                batch,
+                4,
+            ]));
+        var recentBatch = Assert.IsType<IngestionOperationsBatchDto>(recentBatchMethod.Invoke(null, [batch, null]));
+
+        Assert.Equal(4, GetIntProperty(summary, "Review"));
+        Assert.Equal(4, stages.Single(stage => stage.Key == "needs_review").Count);
+        Assert.Equal(2, recentBatch.ReviewCount);
+        Assert.Contains("2 review", recentBatch.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OperationsService_ReviewReasonsComeOnlyFromPendingReviewQueueRows()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("ReviewReasons = BuildReviewReasons(reviewRows)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildReviewReasons(reviewRows, lifecycle.TriggerCounts)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (var kv in triggerCounts)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -272,6 +344,111 @@ public sealed class IngestionOperationsContractTests
         Assert.Equal(3, firstSourceBatchIds.Cast<object>().Count());
     }
 
+    [Fact]
+    public void OperationsService_ExcludesCompletedNoOutcomeRescansFromCurrentDisplayBatch()
+    {
+        var started = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var currentRun = Batch(started, total: 131, processed: 131, identified: 52, review: 27);
+        currentRun.Status = "running";
+        currentRun.CompletedAt = null;
+        var noOutcomeRescan = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = started.AddMinutes(2),
+            CreatedAt = started.AddMinutes(2),
+            UpdatedAt = started.AddMinutes(3),
+            CompletedAt = started.AddMinutes(3),
+            Status = "completed",
+            SourcePath = "Multiple source folders",
+            FilesTotal = 152,
+            FilesProcessed = 152,
+            FilesIdentified = 0,
+            FilesReview = 0,
+            FilesNoMatch = 0,
+            FilesFailed = 0,
+        };
+        var activeNoOutcomeRescan = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = started.AddMinutes(1),
+            CreatedAt = started.AddMinutes(1),
+            UpdatedAt = DateTimeOffset.UtcNow,
+            Status = "running",
+            SourcePath = "Multiple source folders",
+            FilesTotal = 149,
+            FilesProcessed = 149,
+            FilesIdentified = 0,
+            FilesReview = 0,
+            FilesNoMatch = 0,
+            FilesFailed = 0,
+        };
+
+        var selectMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "SelectDisplayBatches",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var aggregateMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "AggregateDisplayBatch",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var recentGroupMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "BuildRecentBatchGroups",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(selectMethod);
+        Assert.NotNull(aggregateMethod);
+        Assert.NotNull(recentGroupMethod);
+
+        var selected = Assert.IsAssignableFrom<IReadOnlyList<IngestionBatch>>(
+            selectMethod.Invoke(null, [new List<IngestionBatch> { noOutcomeRescan, activeNoOutcomeRescan, currentRun }]));
+        var aggregate = Assert.IsType<IngestionBatch>(
+            aggregateMethod.Invoke(null, [selected]));
+        var recentGroups = Assert.IsAssignableFrom<IEnumerable>(
+            recentGroupMethod.Invoke(null, [new List<IngestionBatch> { noOutcomeRescan, activeNoOutcomeRescan, currentRun }]));
+        var recentGroupBatches = recentGroups
+            .Cast<object>()
+            .Select(group => Assert.IsType<IngestionBatch>(group.GetType().GetProperty("Batch")!.GetValue(group)))
+            .ToList();
+
+        Assert.Single(selected);
+        Assert.Equal(131, aggregate.FilesTotal);
+        Assert.Equal(131, aggregate.FilesProcessed);
+        Assert.Equal(52, aggregate.FilesIdentified);
+        Assert.Equal(27, aggregate.FilesReview);
+        Assert.Contains(recentGroupBatches, batch => batch.FilesTotal == 131);
+        Assert.DoesNotContain(recentGroupBatches, batch => batch.FilesTotal == 283);
+        Assert.DoesNotContain(recentGroupBatches, batch => batch.FilesTotal == 280);
+    }
+
+    [Fact]
+    public void IngestionEndpoints_RecentBatchesHideCompletedNoOutcomeScans()
+    {
+        var completedNoOutcomeScan = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            Status = "completed",
+            FilesTotal = 149,
+            FilesProcessed = 149,
+        };
+        var activeNoOutcomeScan = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            Status = "running",
+            FilesTotal = 149,
+            FilesProcessed = 40,
+        };
+        var completedOutcomeRun = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            Status = "completed",
+            FilesTotal = 131,
+            FilesProcessed = 131,
+            FilesIdentified = 89,
+        };
+
+        Assert.False(IngestionBatchEndpointMapper.ShouldShowInRecentBatches(completedNoOutcomeScan));
+        Assert.True(IngestionBatchEndpointMapper.ShouldShowInRecentBatches(activeNoOutcomeScan));
+        Assert.True(IngestionBatchEndpointMapper.ShouldShowInRecentBatches(completedOutcomeRun));
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -318,5 +495,12 @@ public sealed class IngestionOperationsContractTests
         Assert.NotNull(method);
         var actual = Assert.IsType<ValueTuple<int, int>>(method.Invoke(null, [stageKey, stages]));
         return actual;
+    }
+
+    private static int GetIntProperty(object source, string propertyName)
+    {
+        var value = source.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?.GetValue(source);
+        return Assert.IsType<int>(value);
     }
 }

@@ -1238,9 +1238,39 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         ClaimConfidence.WikidataProperty));
                 }
             }
+
+            if (resolved.RealAuthors is { Count: > 0 })
+            {
+                var penName = FirstNonBlank(resolved.CanonicalName, resolved.OriginalName, resolved.Qid);
+                claims.Add(new ProviderClaim("author_qid", $"{resolved.Qid}::{penName}", ClaimConfidence.PenName));
+                claims.Add(new ProviderClaim("author_is_collective_pseudonym", "true", ClaimConfidence.CollectivePseudonym));
+
+                foreach (var realAuthor in resolved.RealAuthors)
+                {
+                    if (string.IsNullOrWhiteSpace(realAuthor.Qid))
+                        continue;
+
+                    var realName = FirstNonBlank(realAuthor.CanonicalName, realAuthor.Qid);
+                    claims.Add(new ProviderClaim(
+                        "collective_members_qid",
+                        $"{realAuthor.Qid}::{realName}",
+                        ClaimConfidence.WikidataProperty));
+                }
+            }
         }
 
         return claims;
+    }
+
+    private static string FirstNonBlank(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return string.Empty;
     }
 
     /// <summary>
@@ -2329,109 +2359,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
-        // ── Pen name detection via GetAuthorPseudonymsAsync ──────────────────
-        // When Wikidata P50 lists 2+ authors (e.g. Daniel Abraham + Ty Franck for
-        // "The Expanse"), use the library's GetAuthorPseudonymsAsync to check if
-        // all co-authors share a common pen name, and emit it as the canonical author.
-        if (extProps is not null
-            && extProps.TryGetValue("P50", out var authorRefs)
-            && authorRefs.Count >= 2
-            && _reconciler is not null)
-        {
-            try
-            {
-                var pseudonyms = await GetAuthorPseudonymsLegacyAsync(masterWorkQid, language, ct)
-                    .ConfigureAwait(false);
-
-                // Find a shared pseudonym (all co-authors have the same pen name)
-                if (pseudonyms.Count >= 2)
-                {
-                    var allPenNames = pseudonyms.Select(p => p.Pseudonyms).ToList();
-                    if (allPenNames.All(p => p.Count > 0))
-                    {
-                        var sharedPenNames = new HashSet<string>(allPenNames[0], StringComparer.OrdinalIgnoreCase);
-                        foreach (var penNames in allPenNames.Skip(1))
-                            sharedPenNames.IntersectWith(penNames);
-
-                        if (sharedPenNames.Count > 0)
-                        {
-                            var penName = sharedPenNames.First();
-
-                            // Re-key existing P50-derived author and author_qid claims
-                            for (int i = 0; i < claims.Count; i++)
-                            {
-                                if (string.Equals(claims[i].Key, "author_qid", StringComparison.OrdinalIgnoreCase))
-                                    claims[i] = new ProviderClaim("author_real_name_qid", claims[i].Value, claims[i].Confidence);
-                                else if (string.Equals(claims[i].Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
-                                    claims[i] = new ProviderClaim("author_real_name", claims[i].Value, claims[i].Confidence);
-                            }
-
-                            claims.Add(new ProviderClaim(MetadataFieldConstants.Author, penName, ClaimConfidence.PenName));
-                            claims.Add(new ProviderClaim("author_is_collective_pseudonym", "true", ClaimConfidence.CollectivePseudonym));
-
-                            // Resolve pen name QID
-                            string? penNameQid = null;
-                            try
-                            {
-                                var penNameCandidates = await ReconcileAsync(penName, null, ct).ConfigureAwait(false);
-                                var authorQids = new HashSet<string>(pseudonyms.Select(p => p.AuthorEntityId), StringComparer.OrdinalIgnoreCase);
-                                var bestMatch = penNameCandidates
-                                    .Where(c => (c.Match || c.Score >= 80) && !authorQids.Contains(c.Id))
-                                    .OrderByDescending(c => c.Score)
-                                    .FirstOrDefault();
-                                if (bestMatch is not null)
-                                    penNameQid = bestMatch.Id;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogDebug("{Provider}: pen name QID lookup failed for \"{PenName}\": {Message}",
-                                    Name, penName, ex.Message);
-                            }
-
-                            if (penNameQid is not null)
-                                claims.Add(new ProviderClaim("author_qid", $"{penNameQid}::{penName}", ClaimConfidence.PenName));
-
-                            var memberClaims = claims
-                                .Where(c => string.Equals(c.Key, "author_real_name_qid", StringComparison.OrdinalIgnoreCase)
-                                             && !string.IsNullOrWhiteSpace(c.Value))
-                                .Select(c => new ProviderClaim("collective_members_qid", c.Value, ClaimConfidence.WikidataProperty))
-                                .ToList();
-                            claims.AddRange(memberClaims);
-
-                            _logger.LogInformation(
-                                "{Provider}: pen name detected for QID {QID} — {AuthorCount} co-authors share pen name \"{PenName}\" (QID: {PenNameQid})",
-                                Name, masterWorkQid, pseudonyms.Count, penName, penNameQid ?? "none");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug("{Provider}: pen name detection failed for QID {QID}: {Message}",
-                    Name, masterWorkQid, ex.Message);
-            }
-        }
-
-        // ── Pattern 1 + Pattern 2 detection via Authors.ResolveAsync ──────────
-        // Phase 5 of the slimdown remediation. The legacy block above handles
-        // Pattern 3 (collective pseudonyms — "James S.A. Corey" → real authors)
-        // by walking the work's P50 author QIDs. The library's current
-        // Authors.ResolveAsync also handles:
-        //   • Pattern 1 — "Richard Bachman" → Stephen King via reverse P742
-        //                 CirrusSearch lookup. The legacy adapter never knew
-        //                 about this pattern at all.
-        //   • Pattern 2 — Stephen King → ["Richard Bachman", "John Swithen"]
-        //                 enumerated via P742 string claims. The legacy
-        //                 GetAuthorPseudonymsLegacyAsync helper computes the
-        //                 same data on demand for the Pattern 3 path; here we
-        //                 just emit the raw pen names so downstream consumers
-        //                 (search aliasing, "also known as" displays) can use
-        //                 them without an extra API call.
-        //
-        // This block is purely additive — it does not re-key existing claims,
-        // it does not duplicate the canonical author claim, and it skips
-        // entirely when request.Author is empty. Failure is silent — pen name
-        // detection is best-effort and must never break the main pipeline.
+        // Author pseudonym detection. The Tuvima.Wikidata author resolver handles
+        // solo pen names, enumerated pseudonyms, and collective pseudonyms.
         if (!string.IsNullOrWhiteSpace(request.Author) && _reconciler is not null)
         {
             try
@@ -2841,74 +2770,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private const int MaxTvSeasons     = 20;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Legacy shims — bridge current Tuvima.Wikidata sub-services back to the v1 shapes used by
-    // the still-present hand-rolled blocks. Both this region and the call sites
-    // are deleted in Phase 5 (pseudonym block) and Phase 3 (child entities) of
-    // the adapter slimdown remediation.
-    // See: .claude/plans/adapter-slimdown-remediation.md
+    // Tuvima.Wikidata child discovery facade.
     // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>Lightweight DTO matching the v1 PseudonymInfo shape.</summary>
-    private sealed record LegacyPseudonymInfo(string AuthorEntityId, IReadOnlyList<string> Pseudonyms);
-
-    /// <summary>
-    /// Phase 1 shim for the removed v1 <c>WikidataReconciler.GetAuthorPseudonymsAsync</c>.
-    /// Fetches the work's P50 author QIDs, then walks each author's P742 (pseudonym) string
-    /// claims via <c>Entities.GetPropertiesAsync</c>. Returns the same shape the original
-    /// hand-rolled Pattern 3 detection block expects. Deleted in Phase 5 along with the call site.
-    /// </summary>
-    private async Task<IReadOnlyList<LegacyPseudonymInfo>> GetAuthorPseudonymsLegacyAsync(
-        string workQid,
-        string? language,
-        CancellationToken ct)
-    {
-        if (_reconciler is null) return [];
-
-        // Step 1 — fetch the work's P50 (author) claims to get co-author QIDs.
-        var workProps = await _reconciler.Entities
-            .GetPropertiesAsync([workQid], ["P50"], language, ct)
-            .ConfigureAwait(false);
-
-        if (!workProps.TryGetValue(workQid, out var props)
-            || !props.TryGetValue("P50", out var authorClaims)
-            || authorClaims.Count == 0)
-        {
-            return [];
-        }
-
-        var authorQids = authorClaims
-            .Select(c => c.Value?.EntityId)
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Cast<string>()
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-
-        if (authorQids.Count == 0) return [];
-
-        // Step 2 — fetch P742 (pseudonym) string claims for every co-author in one batch.
-        var authorProps = await _reconciler.Entities
-            .GetPropertiesAsync(authorQids, ["P742"], language, ct)
-            .ConfigureAwait(false);
-
-        var result = new List<LegacyPseudonymInfo>(authorQids.Count);
-        foreach (var authorQid in authorQids)
-        {
-            var pseudonyms = new List<string>();
-            if (authorProps.TryGetValue(authorQid, out var ap)
-                && ap.TryGetValue("P742", out var penNameClaims))
-            {
-                foreach (var claim in penNameClaims)
-                {
-                    var penName = claim.Value?.RawValue;
-                    if (!string.IsNullOrWhiteSpace(penName))
-                        pseudonyms.Add(penName);
-                }
-            }
-            result.Add(new LegacyPseudonymInfo(authorQid, pseudonyms));
-        }
-
-        return result;
-    }
 
     /// <summary>
     /// Discovers child entities (TV episodes, music tracks, comic issues) for a parent QID
@@ -2916,16 +2779,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// serialized JSON blob are stored using the existing metadata_claims system.
     /// Wrapped in try/catch by the caller — exceptions here never fail the main pipeline.
     /// <para>
-    /// Phase 3 of the slimdown remediation: this method now delegates the entire
-    /// traversal to <c>_reconciler.Children.GetChildEntitiesAsync(ChildEntityRequest)</c>,
-    /// which handles the season → episode walk for TV (one library call instead of
-    /// N+1), the track ordering for Music, and the reverse traversal for Comics
-    /// internally. The JSON blob shape is unchanged so existing parsers
-    /// (<c>CollectionEndpoints.MergeUnownedChildEntities</c>) keeps working without
-    /// modification. Per-media-type cap parameters and the legacy
-    /// <c>config.ChildEntityDiscovery</c> P-code overrides are no longer consulted —
-    /// the library owns the property selection.
-    /// </para>
+    /// Delegates traversal to <c>_reconciler.Children.GetChildEntitiesAsync(ChildEntityRequest)</c>,
+    /// which handles the season-to-episode walk for TV, track ordering for Music,
+    /// and reverse traversal for Comics. The library owns property selection.
     /// </summary>
     private async Task<IReadOnlyList<ProviderClaim>> DiscoverChildEntitiesAsync(
         string parentQid,

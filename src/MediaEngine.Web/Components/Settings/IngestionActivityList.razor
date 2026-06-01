@@ -167,6 +167,7 @@
     [Parameter] public int ReviewTotal { get; set; }
 
     private string? _selectedRowKey;
+    private string? _lastRenderSignature;
 
     private string RunningWorkerSummary
     {
@@ -205,6 +206,16 @@
                 .FirstOrDefault(row => row.IsRunning)?.Key
                 ?? rows[0].Key;
         }
+    }
+
+    protected override bool ShouldRender()
+    {
+        var signature = BuildRenderSignature(CurrentRows, SelectedRow, Activities, _selectedRowKey);
+        if (string.Equals(_lastRenderSignature, signature, StringComparison.Ordinal))
+            return false;
+
+        _lastRenderSignature = signature;
+        return true;
     }
 
     private IReadOnlyList<CurrentRow> CurrentRows
@@ -471,7 +482,7 @@
                 FirstNonBlank(activity.Message, "Processing files"),
                 FirstNonBlank(activity.Detail, activity.CurrentItem, "Working on the current item"),
                 ShortPath(activity.Source),
-                FormatCounts(activity.ProcessedCount, activity.TotalCount, activity.CountUnit),
+                FormatCounts(activity.StageKey, activity.ProcessedCount, activity.TotalCount, activity.CountUnit),
                 FormatUpdated(activity.LastUpdatedTime),
                 activity.LastUpdatedTime,
                 StageIcon(activity.StageKey),
@@ -507,7 +518,7 @@
                 StageMessage(stageKey),
                 FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running"),
                 ShortPath(job.SourceFolder),
-                FormatCounts(count, total, "files"),
+                FormatCounts(stageKey, count, total, "files"),
                 FormatUpdated(job.LastUpdatedTime),
                 job.LastUpdatedTime,
                 StageIcon(stageKey),
@@ -603,10 +614,36 @@
         return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(spaced.ToLowerInvariant());
     }
 
-    private static string FormatCounts(int count, int total, string? unit) =>
-        total > 0
-            ? $"{count.ToString("N0", CultureInfo.CurrentCulture)} / {total.ToString("N0", CultureInfo.CurrentCulture)} {NormalizeUnit(unit)}"
+    private static string FormatCounts(string? stageKey, int count, int total, string? unit)
+    {
+        var normalizedUnit = NormalizeUnit(unit);
+        if (UsesOpenEndedDiscoveryCount(stageKey, normalizedUnit))
+        {
+            return count > 0
+                ? $"{count.ToString("N0", CultureInfo.CurrentCulture)} found"
+                : "Looking";
+        }
+
+        return total > 0
+            ? $"{count.ToString("N0", CultureInfo.CurrentCulture)} / {total.ToString("N0", CultureInfo.CurrentCulture)} {normalizedUnit}"
             : "Working";
+    }
+
+    private static bool UsesOpenEndedDiscoveryCount(string? stageKey, string normalizedUnit)
+    {
+        if (stageKey is not null
+            && (stageKey.Equals("artwork", StringComparison.OrdinalIgnoreCase)
+                || stageKey.Equals("people", StringComparison.OrdinalIgnoreCase)
+                || stageKey.Equals("relationships", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return normalizedUnit.Equals("artwork assets", StringComparison.OrdinalIgnoreCase)
+            || normalizedUnit.Equals("people", StringComparison.OrdinalIgnoreCase)
+            || normalizedUnit.Equals("links", StringComparison.OrdinalIgnoreCase)
+            || normalizedUnit.Equals("relationships", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string NormalizeUnit(string? unit) =>
         string.IsNullOrWhiteSpace(unit) ? "items" : unit.Trim();
@@ -655,4 +692,41 @@
     private bool IsSelected(string key) => key.Equals(_selectedRowKey, StringComparison.OrdinalIgnoreCase);
 
     private void SelectRow(string key) => _selectedRowKey = key;
+
+    private static string BuildRenderSignature(
+        IReadOnlyList<CurrentRow> currentRows,
+        CurrentRow? selectedRow,
+        IReadOnlyList<ActivityEntryViewModel> activities,
+        string? selectedRowKey)
+    {
+        var rows = string.Join(';', currentRows.Select(row => string.Join(':',
+            row.Key,
+            row.Message,
+            row.Detail,
+            row.Counts,
+            row.Updated,
+            Math.Round(row.Percent, 1),
+            row.ActiveCount,
+            row.QueuedCount,
+            row.StatusLabel,
+            row.SampleItems.Count,
+            row.Batch?.CompletedCount,
+            row.Batch?.ActiveCount,
+            row.Batch?.PendingCount,
+            row.Batch?.ReviewCount)));
+        var activity = string.Join(';', activities
+            .Take(12)
+            .Select(value => string.Join(':',
+                value.Id,
+                value.ActionType,
+                value.Detail,
+                value.RelativeTime)));
+
+        return string.Join('|',
+            selectedRowKey,
+            selectedRow?.Key,
+            selectedRow?.StatusLabel,
+            rows,
+            activity);
+    }
 }

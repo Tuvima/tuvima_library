@@ -137,7 +137,7 @@ Some containers (MP3, M4A, MP4) can hold different media types (music vs audiobo
 movie vs TV episode). When the processor cannot determine the media type from the
 container alone:
 
-1. Set `DetectedType` to the most likely type for backward compatibility.
+1. Set `DetectedType` to the most likely type for callers that need one summary value.
 2. Populate `MediaTypeCandidates` with all plausible types and heuristic confidences.
 3. The ingestion engine passes the candidates to the AI `MediaTypeAdvisor`, which
    classifies the file using metadata signals (album field, track number, episode

@@ -22,13 +22,16 @@ public sealed class UniverseStateContainer
     private bool                       _loaded;
     private IngestionProgressEvent?    _ingestionProgress;
     private BatchProgressEvent?        _batchProgress;
+    private readonly Dictionary<Guid, LiveIngestionItemProgress> _ingestionItemProgress = new();
     private UniverseEnrichmentProgressEvent? _universeEnrichmentProgress;
     private DateTimeOffset?            _universeEnrichmentProgressReceivedAt;
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
     private string[]?                  _activeLaneMediaTypes;
+    private bool                       _lastStateChangeRequiresSnapshotRefresh = true;
     private readonly List<PersonEnrichedEvent> _personUpdates = [];
     private readonly List<ActivityEntry>       _activityLog   = [];
     private const int MaxActivityEntries = 100;
+    private const int MaxTrackedIngestionItems = 200;
 
     // ── Read-only surface ─────────────────────────────────────────────────────
 
@@ -63,8 +66,13 @@ public sealed class UniverseStateContainer
     /// Null when no batch is active.
     /// </summary>
     public BatchProgressEvent?              BatchProgress               => _batchProgress;
+    public IReadOnlyList<LiveIngestionItemProgress> IngestionItemProgress =>
+        _ingestionItemProgress.Values
+            .OrderByDescending(item => item.ReceivedAt)
+            .ToList();
     public UniverseEnrichmentProgressEvent? UniverseEnrichmentProgress  => _universeEnrichmentProgress;
     public DateTimeOffset?                  UniverseEnrichmentProgressReceivedAt => _universeEnrichmentProgressReceivedAt;
+    public bool                             LastStateChangeRequiresSnapshotRefresh => _lastStateChangeRequiresSnapshotRefresh;
 
     public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates        => _personUpdates;
 
@@ -115,7 +123,7 @@ public sealed class UniverseStateContainer
     public void SetLaneFilter(string[]? mediaTypes)
     {
         _activeLaneMediaTypes = mediaTypes;
-        OnStateChanged?.Invoke();
+        NotifyStateChanged();
     }
 
     // ── Events ────────────────────────────────────────────────────────────────
@@ -138,20 +146,20 @@ public sealed class UniverseStateContainer
         _collections     = collections.ToList();
         _universe = UniverseMapper.MapFromCollections(_collections);
         _loaded   = true;
-        OnStateChanged?.Invoke();
+        NotifyStateChanged();
     }
 
     public void SelectCollection(CollectionViewModel? collection)
     {
         _selected = collection;
-        OnStateChanged?.Invoke();
+        NotifyStateChanged();
     }
 
     /// <summary>
     /// Clears all cached data.  The next call to
     /// <c>UIOrchestratorService.GetCollectionsAsync()</c> will trigger a fresh API fetch.
     /// </summary>
-    public void Invalidate()
+    public void Invalidate(bool requiresSnapshotRefresh = true)
     {
         _collections                = [];
         _selected            = null;
@@ -160,7 +168,7 @@ public sealed class UniverseStateContainer
         _ingestionProgress   = null;
         // Note: _activeLaneMediaTypes is NOT cleared on invalidate
         // so the user's lane selection persists across data refreshes.
-        OnStateChanged?.Invoke();
+        NotifyStateChanged(requiresSnapshotRefresh);
     }
 
     // ── Real-time event sinks (called by UIOrchestratorService) ───────────────
@@ -186,7 +194,18 @@ public sealed class UniverseStateContainer
                 "sync", summary));
         }
 
-        OnStateChanged?.Invoke();
+        NotifyStateChanged(requiresSnapshotRefresh: string.Equals(ev.Stage, "Complete", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Called when a <c>"IngestionItemProgress"</c> event arrives on the Intercom collection.
+    /// Keeps item-level stage progress for live ingestion dashboards.
+    /// </summary>
+    public void PushIngestionItemProgress(IngestionItemProgressEvent ev)
+    {
+        _ingestionItemProgress[ev.LogEntryId] = new LiveIngestionItemProgress(ev, DateTimeOffset.UtcNow);
+        PruneIngestionItemProgress();
+        NotifyStateChanged(requiresSnapshotRefresh: false);
     }
 
     /// <summary>
@@ -207,7 +226,7 @@ public sealed class UniverseStateContainer
                 $"{ev.FilesProcessed} of {ev.FilesTotal} files processed"));
         }
 
-        OnStateChanged?.Invoke();
+        NotifyStateChanged(requiresSnapshotRefresh: ev.IsComplete);
     }
 
     /// <summary>
@@ -226,7 +245,7 @@ public sealed class UniverseStateContainer
             $"{ev.CurrentStep}: {ev.WorkTitle}",
             $"{ev.ProcessedCount} of {ev.TotalCount} in Stage 3"));
 
-        OnStateChanged?.Invoke();
+        NotifyStateChanged(requiresSnapshotRefresh: false);
     }
 
     /// <summary>
@@ -241,7 +260,7 @@ public sealed class UniverseStateContainer
             "library_add",
             $"New {ev.MediaType.ToLowerInvariant()} added: \"{ev.Title}\"",
             ev.CollectionId is { } collectionId ? $"Assigned to Collection {collectionId:N}" : "Standalone (no Collection)"));
-        Invalidate();
+        Invalidate(requiresSnapshotRefresh: false);
     }
 
     /// <summary>
@@ -256,7 +275,7 @@ public sealed class UniverseStateContainer
             DateTimeOffset.UtcNow, ActivityKind.MediaAdded,
             "library_add",
             $"Ingested {ev.MediaType.ToLowerInvariant()}: \"{fileName}\""));
-        Invalidate();
+        Invalidate(requiresSnapshotRefresh: false);
     }
 
     /// <summary>
@@ -275,7 +294,7 @@ public sealed class UniverseStateContainer
             $"Enriched person: {ev.Name}",
             ev.HeadshotUrl is not null ? "Portrait found on Wikimedia Commons" : null));
 
-        OnStateChanged?.Invoke();
+        NotifyStateChanged();
     }
 
     /// <summary>
@@ -290,7 +309,7 @@ public sealed class UniverseStateContainer
             "auto_awesome",
             $"Metadata updated by {ev.ProviderName}",
             $"Fields enriched: {fields}"));
-        Invalidate();
+        Invalidate(requiresSnapshotRefresh: false);
     }
 
     /// <summary>
@@ -307,7 +326,7 @@ public sealed class UniverseStateContainer
             "folder_open",
             $"Watch folder updated: {ev.WatchDirectory}"));
 
-        OnStateChanged?.Invoke();
+        NotifyStateChanged();
     }
 
     // ── Activity log helpers ────────────────────────────────────────────────
@@ -327,6 +346,43 @@ public sealed class UniverseStateContainer
             DateTimeOffset.UtcNow, ActivityKind.ServerStatus,
             "power_settings_new",
             "Dashboard connected to the Engine."));
+        NotifyStateChanged();
+    }
+
+    private void NotifyStateChanged(bool requiresSnapshotRefresh = true)
+    {
+        _lastStateChangeRequiresSnapshotRefresh = requiresSnapshotRefresh;
         OnStateChanged?.Invoke();
     }
+
+    private void PruneIngestionItemProgress()
+    {
+        if (_ingestionItemProgress.Count <= MaxTrackedIngestionItems)
+            return;
+
+        foreach (var stale in _ingestionItemProgress
+            .OrderBy(pair => IsFileIngestionTerminal(pair.Value.Event) ? 0 : 1)
+            .ThenBy(pair => pair.Value.ReceivedAt)
+            .Take(_ingestionItemProgress.Count - MaxTrackedIngestionItems)
+            .Select(pair => pair.Key)
+            .ToList())
+        {
+            _ingestionItemProgress.Remove(stale);
+        }
+    }
+
+    private static bool IsFileIngestionTerminal(IngestionItemProgressEvent ev) =>
+        ev.IsTerminal
+        || ev.Stage.Equals("queued_identity", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("complete", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("needs_review", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("duplicate", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("same_path_redetected", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("missing", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("skipped_non_media", StringComparison.OrdinalIgnoreCase)
+        || ev.Stage.Equals("failed", StringComparison.OrdinalIgnoreCase);
 }
+
+public sealed record LiveIngestionItemProgress(
+    IngestionItemProgressEvent Event,
+    DateTimeOffset ReceivedAt);

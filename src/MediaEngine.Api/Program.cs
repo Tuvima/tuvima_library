@@ -941,12 +941,6 @@ if (app.Environment.IsDevelopment())
 app.MapEngineEndpoints();
 app.MapDevelopmentEngineEndpoints();
 
-// Remove legacy generated collections so authored collection screens stay user-driven.
-{
-    var collectionRepo = app.Services.GetRequiredService<ICollectionRepository>();
-    var db = app.Services.GetRequiredService<IDatabaseConnection>();
-}
-
 app.Run();
 
 

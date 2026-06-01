@@ -82,7 +82,7 @@ public sealed class Collection
 
     /// <summary>
     /// The type of collection container: Universe, Smart, System, Mix, Playlist, Genre, Author, Collection, or Custom.
-    /// Defaults to "Universe" for backward compatibility.
+    /// Defaults to "Universe" for broad story-world rollups.
     /// </summary>
     public string CollectionType { get; set; } = "Universe";
 

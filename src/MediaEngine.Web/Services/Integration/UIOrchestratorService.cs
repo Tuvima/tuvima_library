@@ -33,6 +33,7 @@ public enum EngineConnectionState
 /// <list type="bullet">
 ///   <item><c>"MediaAdded"</c>  -  invalidates the collection cache; next navigation triggers a fresh load.</item>
 ///   <item><c>"IngestionProgress"</c>  -  updates progress state in the container for live UI feedback.</item>
+///   <item><c>"IngestionItemProgress"</c>  -  updates per-file stage progress for the ingestion dashboard.</item>
 /// </list>
 /// </para>
 ///
@@ -1077,6 +1078,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
                 "Intercom ? IngestionProgress: [{Stage}] {Done}/{Total}  -  {File}",
                 ev.Stage, ev.ProcessedCount, ev.TotalCount, ev.CurrentFile);
             _state.PushIngestionProgress(ev);
+        });
+
+        // -- "IngestionItemProgress" ------------------------------------------
+        // Per-file lifecycle tick, emitted for stages such as detected, hashing,
+        // processed, scored, registered, and queued_identity.
+        _hubConnection.On<IngestionItemProgressEvent>(SignalREvents.IngestionItemProgress, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ? IngestionItemProgress: [{Stage}] {Percent}% - {File}",
+                ev.Stage, ev.ProgressPercent, ev.FileName);
+            _state.PushIngestionItemProgress(ev);
         });
 
         // -- "BatchProgress" -------------------------------------------------

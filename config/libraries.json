@@ -70,7 +70,7 @@
     {
       "category": "General",
       "media_types": [],
-      "source_paths": ["C:\\temp\\tuvima-general"],
+      "source_paths": ["C:\\temp\\tuvima-watch\\general"],
       "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": false,

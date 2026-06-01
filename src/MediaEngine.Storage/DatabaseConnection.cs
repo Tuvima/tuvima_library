@@ -4,9 +4,9 @@ using Microsoft.Data.Sqlite;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// Compatibility facade for the SQLite database lifecycle.
+/// Facade for the SQLite database lifecycle.
 /// Owns the shared startup connection and delegates focused lifecycle work to
-/// connection, schema, migration, integrity, and maintenance collaborators.
+/// connection, schema, current-startup-task, integrity, and maintenance collaborators.
 /// </summary>
 public sealed class DatabaseConnection : IDatabaseConnection
 {
@@ -43,6 +43,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         SqliteMaintenanceService maintenanceService)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        DapperConfiguration.Configure();
         _databasePath = databasePath;
         _connectionFactory = connectionFactory;
         _schemaInitializer = schemaInitializer;
@@ -70,8 +71,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
     /// <inheritdoc/>
     public void InitializeSchema()
     {
+        StorageEpochGuard.EnsureCurrentOrReset(_databasePath);
         var conn = Open();
-        _schemaMigrator.RunPreSchemaCompatibilityMigrations(conn);
         _schemaInitializer.Initialize(conn);
     }
 
@@ -83,7 +84,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     {
         var conn = Open();
         _integrityChecker.RunStartupChecks(conn, _databasePath);
-        _schemaMigrator.RunMigrations(conn);
+        _schemaMigrator.RunStartupTasks(conn);
     }
 
     /// <summary>

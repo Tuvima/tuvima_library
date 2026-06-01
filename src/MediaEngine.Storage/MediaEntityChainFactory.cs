@@ -7,20 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// Creates the Work → Edition chain required before a MediaAsset can be
-/// inserted. Idempotent and safe to call concurrently.
-///
-/// As of Phase 3 (M-082) the chain factory delegates Work resolution to
-/// <see cref="HierarchyResolver"/>. The legacy title+author dedup path
-/// has been removed entirely — hierarchical media (music, TV, comics,
-/// series-bound books) flows through parent/child resolution, and
-/// standalone media (movies, single books) gets a fresh Work each time
-/// the upstream ingestion logic decides to call us.
-///
-/// Collection assignment no longer happens at ingestion time. The legacy
-/// <c>EnsureContentGroupAsync</c> stub remains as a no-op for DI
-/// compatibility and is scheduled for deletion in Phase 4 along with the
-/// CollectionAssignmentService.
+/// Creates the Work-to-Edition chain required before a MediaAsset can be inserted.
+/// Work resolution is delegated to <see cref="HierarchyResolver"/>.
 /// </summary>
 public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
 {
@@ -30,18 +18,14 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
 
     public MediaEntityChainFactory(
         IDatabaseConnection db,
-        IWorkRepository works,
-        ICollectionRepository collections,
         HierarchyResolver resolver,
         ILogger<MediaEntityChainFactory>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(db);
-        ArgumentNullException.ThrowIfNull(works);    // kept for DI compatibility
-        ArgumentNullException.ThrowIfNull(collections);     // kept for DI compatibility
         ArgumentNullException.ThrowIfNull(resolver);
-        _db        = db;
-        _resolver  = resolver;
-        _logger    = logger;
+        _db = db;
+        _resolver = resolver;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -52,14 +36,12 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
     {
         ct.ThrowIfCancellationRequested();
 
-        // ── 1. Resolve Work via the hierarchy resolver ───────────────────────
         var resolved = await _resolver.ResolveAsync(mediaType, metadata, ct).ConfigureAwait(false);
 
         _logger?.LogDebug(
-            "Chain factory: resolved {MediaType} → Work {WorkId} ({Kind}, parent={Parent}, ordinal={Ordinal}, new={New})",
+            "Chain factory: resolved {MediaType} to Work {WorkId} ({Kind}, parent={Parent}, ordinal={Ordinal}, new={New})",
             mediaType, resolved.WorkId, resolved.WorkKind, resolved.ParentWorkId, resolved.Ordinal, resolved.NewlyCreated);
 
-        // ── 2. Create Edition under the resolved Work ────────────────────────
         string? formatLabel = null;
         metadata?.TryGetValue("format", out formatLabel);
 
@@ -71,10 +53,9 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
             INSERT INTO editions (id, work_id, format_label)
             VALUES (@id, @work_id, @format_label);
             """;
-        insertEdition.Parameters.AddWithValue("@id",           GuidSql.ToBlob(editionId));
-        insertEdition.Parameters.AddWithValue("@work_id",      GuidSql.ToBlob(resolved.WorkId));
-        insertEdition.Parameters.AddWithValue("@format_label",
-            formatLabel ?? (object)DBNull.Value);
+        insertEdition.Parameters.AddWithValue("@id", GuidSql.ToBlob(editionId));
+        insertEdition.Parameters.AddWithValue("@work_id", GuidSql.ToBlob(resolved.WorkId));
+        insertEdition.Parameters.AddWithValue("@format_label", formatLabel ?? (object)DBNull.Value);
         insertEdition.ExecuteNonQuery();
 
         return editionId;

@@ -194,25 +194,73 @@ public sealed class DatabaseStartupSafetyTests
     }
 
     [Fact]
-    public void StartupMigrations_RecreateReviewQueueFromPreviousSchemaFixture()
+    public void OpenedEmptyDatabase_InitializesAsCurrentSchema()
     {
         using var fixture = TempDatabase.Create();
 
-        fixture.Database.InitializeSchema();
-        using (var conn = fixture.Database.CreateConnection())
-        using (var cmd = conn.CreateCommand())
-        {
-            // First compatibility fixture: a previous schema state before the review queue table existed.
-            cmd.CommandText = "DROP TABLE IF EXISTS review_queue;";
-            cmd.ExecuteNonQuery();
-        }
+        var startup = fixture.Database.Open();
+        Assert.Equal(ConnectionState.Open, startup.State);
 
+        fixture.Database.InitializeSchema();
         fixture.Database.RunStartupChecks();
 
-        using var upgraded = fixture.Database.CreateConnection();
-        Assert.True(TableExists(upgraded, "review_queue"));
-        Assert.True(IndexExists(upgraded, "idx_review_queue_status"));
-        Assert.True(IndexExists(upgraded, "idx_review_queue_entity_id"));
+        using var conn = fixture.Database.CreateConnection();
+        Assert.Equal("guid-blob-v1", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.True(TableExists(conn, "review_queue"));
+    }
+
+    [Fact]
+    public void LegacyDatabaseWithoutStorageEpoch_FailsStartupByDefault()
+    {
+        using var fixture = TempDatabase.Create();
+        CreateLegacyTextGuidDatabase(fixture.Path);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
+
+        Assert.Contains("Legacy databases are not migrated in place", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TUVIMA_STORAGE_RESET", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LegacyDatabaseWithoutStorageEpoch_IsBackedUpAndRecreatedWhenResetIsExplicit()
+    {
+        using var fixture = TempDatabase.Create();
+        CreateLegacyTextGuidDatabase(fixture.Path);
+
+        var previous = Environment.GetEnvironmentVariable("TUVIMA_STORAGE_RESET");
+        try
+        {
+            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", "1");
+
+            fixture.Database.InitializeSchema();
+            fixture.Database.RunStartupChecks();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", previous);
+        }
+
+        using var conn = fixture.Database.CreateConnection();
+        Assert.Equal("guid-blob-v1", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
+        Assert.True(TableExists(conn, "review_queue"));
+
+        var backupPattern = $"{Path.GetFileName(fixture.Path)}.legacy-text-guid.*.bak";
+        var backupDir = Path.GetDirectoryName(fixture.Path)!;
+        Assert.NotEmpty(Directory.GetFiles(backupDir, backupPattern));
+    }
+
+    [Fact]
+    public void SchemaResource_DoesNotContainRetiredLegacyStorageTokens()
+    {
+        var root = FindRepoRoot();
+        var schema = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Storage/Schema/schema.sql"));
+
+        Assert.DoesNotContain("provider_" + "reg" + "istry", schema, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("hub_" + "items", schema, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CREATE TABLE IF NOT EXISTS " + "hubs", schema, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("idx_" + "hubs", schema, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("packed delimiter", schema, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -334,6 +382,17 @@ public sealed class DatabaseStartupSafetyTests
         throw new InvalidOperationException($"Column {table}.{column} was not found.");
     }
 
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+    }
+
     private static void CreateLegacyTextGuidDatabase(string path)
     {
         using var conn = new SqliteConnection($"Data Source={path}");
@@ -372,6 +431,12 @@ public sealed class DatabaseStartupSafetyTests
             DatabaseStartupSafetyTests.TryDelete(Path);
             DatabaseStartupSafetyTests.TryDelete($"{Path}-wal");
             DatabaseStartupSafetyTests.TryDelete($"{Path}-shm");
+            foreach (var backup in Directory.GetFiles(
+                         System.IO.Path.GetDirectoryName(Path)!,
+                         $"{System.IO.Path.GetFileName(Path)}.legacy-text-guid.*.bak"))
+            {
+                DatabaseStartupSafetyTests.TryDelete(backup);
+            }
         }
     }
 

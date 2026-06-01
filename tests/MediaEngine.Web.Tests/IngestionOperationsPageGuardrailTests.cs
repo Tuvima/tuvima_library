@@ -17,7 +17,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor"));
         var dashboardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor"));
+        var activityListSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionActivityList.razor"));
         var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
+        var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionLiveDashboard", source, StringComparison.Ordinal);
@@ -25,7 +27,11 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildRenderSignature", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("ShouldRender", activityListSource, StringComparison.Ordinal);
+        Assert.Contains("BuildRenderSignature", activityListSource, StringComparison.Ordinal);
         Assert.Contains("BuildSnapshotSignature", stateSource, StringComparison.Ordinal);
+        Assert.Contains("SignalREvents.IngestionItemProgress", orchestratorSource, StringComparison.Ordinal);
+        Assert.Contains("PushIngestionItemProgress", orchestratorSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<IngestionDiagnosticsPanels", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetIngestionOperationsSnapshotAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("StateContainer.BatchProgress", source, StringComparison.Ordinal);
@@ -558,6 +564,125 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_MergesItemProgressIntoActiveJobs()
+    {
+        var state = new UniverseStateContainer();
+        var batchId = Guid.NewGuid();
+        state.PushBatchProgress(new BatchProgressEvent(
+            batchId,
+            FilesTotal: 20,
+            FilesProcessed: 0,
+            FilesIdentified: 0,
+            FilesReview: 0,
+            FilesNoMatch: 0,
+            FilesFailed: 0,
+            ProgressPercent: 0,
+            EstimatedSecondsRemaining: null,
+            IsComplete: false,
+            CurrentStage: "Queued",
+            FilesQueued: 20));
+        state.PushIngestionItemProgress(new IngestionItemProgressEvent(
+            batchId,
+            Guid.NewGuid(),
+            MediaAssetId: null,
+            FilePath: @"C:\drop\Dune.epub",
+            FileName: "Dune.epub",
+            Stage: "hashing",
+            StageOrder: 1,
+            ProgressPercent: 10,
+            IsTerminal: false,
+            Title: "Dune",
+            MediaType: "Book"));
+
+        var jobs = IngestionLiveDashboardState.BuildActiveJobs(new IngestionOperationsSnapshotViewModel(), state);
+
+        var job = Assert.Single(jobs, job => job.JobId == batchId);
+        Assert.Equal("Reading files", job.JobType);
+        Assert.Equal("Hashing", job.CurrentStage);
+        Assert.Equal("Dune", job.CurrentItem);
+        Assert.True(job.PercentComplete > 0);
+        Assert.False(state.LastStateChangeRequiresSnapshotRefresh);
+    }
+
+    [Fact]
+    public void LiveDashboardState_MergesItemProgressIntoCurrentActivities()
+    {
+        var state = new UniverseStateContainer();
+        var batchId = Guid.NewGuid();
+        state.PushBatchProgress(new BatchProgressEvent(
+            batchId,
+            FilesTotal: 8,
+            FilesProcessed: 0,
+            FilesIdentified: 0,
+            FilesReview: 0,
+            FilesNoMatch: 0,
+            FilesFailed: 0,
+            ProgressPercent: 0,
+            EstimatedSecondsRemaining: null,
+            IsComplete: false,
+            CurrentStage: "Queued",
+            FilesQueued: 8));
+        state.PushIngestionItemProgress(new IngestionItemProgressEvent(
+            batchId,
+            Guid.NewGuid(),
+            MediaAssetId: null,
+            FilePath: @"C:\drop\Foundation.epub",
+            FileName: "Foundation.epub",
+            Stage: "processed",
+            StageOrder: 2,
+            ProgressPercent: 35,
+            IsTerminal: false,
+            Title: "Foundation",
+            MediaType: "Book"));
+        var snapshot = new IngestionOperationsSnapshotViewModel();
+        var jobs = IngestionLiveDashboardState.BuildActiveJobs(snapshot, state);
+        var stages = IngestionLiveDashboardState.BuildStages(snapshot, jobs, 8);
+
+        var activities = IngestionLiveDashboardState.BuildCurrentActivities(snapshot, jobs, stages, state);
+
+        var activity = Assert.Single(activities, activity => activity.StageKey == "scanning");
+        Assert.Equal("Reading media files", activity.Message);
+        Assert.Equal("Read media details", activity.Detail);
+        Assert.Equal("Foundation", activity.CurrentItem);
+        Assert.Contains("Foundation", activity.CurrentBatch!.ActiveItems);
+        Assert.True(activity.PercentComplete > 0);
+    }
+
+    [Fact]
+    public void UniverseStateContainer_ItemProgressDoesNotRequestSnapshotRefresh()
+    {
+        var state = new UniverseStateContainer();
+        var batchId = Guid.NewGuid();
+
+        state.PushIngestionItemProgress(new IngestionItemProgressEvent(
+            batchId,
+            Guid.NewGuid(),
+            MediaAssetId: null,
+            FilePath: @"C:\drop\Neuromancer.epub",
+            FileName: "Neuromancer.epub",
+            Stage: "hashing",
+            StageOrder: 1,
+            ProgressPercent: 10,
+            IsTerminal: false));
+
+        Assert.False(state.LastStateChangeRequiresSnapshotRefresh);
+
+        state.PushBatchProgress(new BatchProgressEvent(
+            batchId,
+            FilesTotal: 1,
+            FilesProcessed: 1,
+            FilesIdentified: 1,
+            FilesReview: 0,
+            FilesNoMatch: 0,
+            FilesFailed: 0,
+            ProgressPercent: 100,
+            EstimatedSecondsRemaining: null,
+            IsComplete: true));
+
+        Assert.True(state.LastStateChangeRequiresSnapshotRefresh);
+    }
+
+    [Fact]
     public void LiveDashboardState_MergesLiveUniverseProgressIntoCurrentActivities()
     {
         var state = new UniverseStateContainer();
@@ -725,6 +850,110 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.DoesNotContain(stages, stage => stage.LabelKey == "Matching");
         Assert.DoesNotContain(stages, stage => stage.Key == "summary");
         Assert.DoesNotContain(stages, stage => stage.LabelKey == "Ingestion_StageSummary");
+    }
+
+    [Fact]
+    public void LiveDashboardState_EnrichmentCompletionUsesDurableEnrichedStageOnly()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 131,
+                RegisteredItems = 52,
+                ItemsNeedingReview = 27,
+            },
+            PipelineStages =
+            [
+                new() { Key = "detected", Count = 131, TotalCount = 131 },
+                new() { Key = "parsed", Count = 131, TotalCount = 131 },
+                new() { Key = "matched", Count = 104, TotalCount = 131 },
+                new() { Key = "retail_review", Count = 26, TotalCount = 131 },
+                new() { Key = "canonicalized", Count = 1, TotalCount = 109 },
+                new() { Key = "wikidata_review", Count = 27, TotalCount = 109 },
+                new() { Key = "enriched", Count = 4, TotalCount = 109 },
+                new() { Key = "registered", Count = 52, TotalCount = 131 },
+                new() { Key = "needs_review", Count = 27, TotalCount = 131 },
+            ],
+        };
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "artwork",
+                Message = "Fetching artwork",
+                ProcessedCount = 62,
+                TotalCount = 131,
+                ActiveCount = 82,
+                QueuedCount = 49,
+            },
+        };
+
+        var before = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            activities,
+            [],
+            [],
+            new IngestionDashboardMetrics(131, 62, 1, 27),
+            null,
+            now,
+            now);
+        activities[0].ProcessedCount = 40;
+        var after = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            activities,
+            [],
+            [],
+            new IngestionDashboardMetrics(131, 40, 1, 27),
+            null,
+            now,
+            now.AddSeconds(8));
+
+        Assert.Equal(4, before.EnrichmentCompleted);
+        Assert.Equal(4, after.EnrichmentCompleted);
+        Assert.Equal(131, before.EnrichmentTotal);
+        Assert.Equal(131, after.EnrichmentTotal);
+    }
+
+    [Fact]
+    public void LiveDashboardState_SeparatesUnmatchedFromMissingIdentityReasons()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 131,
+                RegisteredItems = 52,
+                ItemsNeedingReview = 32,
+            },
+            ReviewReasons =
+            [
+                new() { Key = "unmatched", Count = 20 },
+                new() { Key = "missing_wikidata", Count = 7 },
+                new() { Key = "low_confidence", Count = 2 },
+                new() { Key = "provider_failures", Count = 3 },
+            ],
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(131, 52, 0, 32),
+            null,
+            now,
+            now);
+
+        Assert.Contains(status.AttentionReasons, reason => reason.Label == "unmatched items" && reason.Count == 20);
+        Assert.Contains(status.AttentionReasons, reason => reason.Label == "missing identity" && reason.Count == 7);
+        Assert.Contains(status.AttentionReasons, reason => reason.Label == "provider failures" && reason.Count == 3);
+        Assert.DoesNotContain(status.AttentionReasons, reason => reason.Label == "missing identity" && reason.Count == 27);
     }
 
     [Fact]
@@ -1152,7 +1381,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.Contains("Queued", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("2 / 3 items", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("2 found", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("2 / 3 items", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("1 queued", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("A New Hope", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("The Empire Strikes Back", cut.Markup, StringComparison.Ordinal);
@@ -1218,7 +1448,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.Contains("Shawshank Redemption - 7", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("1 / 1 artwork assets", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("1 found", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("1 / 1 artwork assets", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1405,8 +1636,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 50))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("31 / 50", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("31 of 50 enrichment tasks complete", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("31/50", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("31 of 50 files fully complete", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("31 found", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Artwork lookup", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Neuromancer", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("library-update-batch-grid__row", cut.Markup, StringComparison.Ordinal);

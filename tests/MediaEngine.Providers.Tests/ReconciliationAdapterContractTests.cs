@@ -150,7 +150,7 @@ public sealed class ReconciliationAdapterContractTests
     }
 
     [Fact]
-    public void BuildResolvedAuthorPseudonymClaims_IgnoresPattern3RealAuthors()
+    public void BuildResolvedAuthorPseudonymClaims_MapsPattern3CollectivePseudonymClaims()
     {
         var resolution = new AuthorResolutionResult
         {
@@ -171,6 +171,10 @@ public sealed class ReconciliationAdapterContractTests
 
         var claims = ReconciliationAdapter.BuildResolvedAuthorPseudonymClaims(resolution);
 
-        Assert.Empty(claims);
+        Assert.Equal(4, claims.Count);
+        Assert.Contains(claims, c => c.Key == "author_qid" && c.Value == "Q6142591::James S.A. Corey");
+        Assert.Contains(claims, c => c.Key == "author_is_collective_pseudonym" && c.Value == "true");
+        Assert.Contains(claims, c => c.Key == "collective_members_qid" && c.Value == "Q3122844::Daniel Abraham");
+        Assert.Contains(claims, c => c.Key == "collective_members_qid" && c.Value == "Q3052772::Ty Franck");
     }
 }
