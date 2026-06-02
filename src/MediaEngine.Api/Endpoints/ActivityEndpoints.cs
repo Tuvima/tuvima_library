@@ -1,7 +1,9 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -16,11 +18,14 @@ public static class ActivityEndpoints
         // GET /activity/recent?limit=50 — returns the most recent activity entries.
         group.MapGet("/recent", async (
             ISystemActivityRepository repo,
-            int? limit) =>
+            IPersonRepository personRepo,
+            IQidLabelRepository qidLabelRepo,
+            int? limit,
+            CancellationToken ct) =>
         {
             var entries = await repo.GetRecentAsync(limit ?? 50);
 
-            var response = entries.Select(MapEntry).ToList();
+            var response = await MapEntriesAsync(entries, personRepo, qidLabelRepo, ct);
 
             return Results.Ok(response);
         })
@@ -96,15 +101,18 @@ public static class ActivityEndpoints
         // Returns recent entries filtered by action types — used by Timeline view.
         group.MapGet("/by-types", async (
             ISystemActivityRepository repo,
+            IPersonRepository personRepo,
+            IQidLabelRepository qidLabelRepo,
             string? types,
-            int? limit) =>
+            int? limit,
+            CancellationToken ct) =>
         {
             var typeList = string.IsNullOrWhiteSpace(types)
                 ? Array.Empty<string>()
                 : types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             var entries = await repo.GetRecentByTypesAsync(typeList, limit ?? 50);
-            var response = entries.Select(MapEntry).ToList();
+            var response = await MapEntriesAsync(entries, personRepo, qidLabelRepo, ct);
             return Results.Ok(response);
         })
         .WithName("GetActivityByTypes")
@@ -115,10 +123,13 @@ public static class ActivityEndpoints
         // GET /activity/run/{runId} — returns all entries for a specific ingestion run.
         group.MapGet("/run/{runId:guid}", async (
             ISystemActivityRepository repo,
-            Guid runId) =>
+            IPersonRepository personRepo,
+            IQidLabelRepository qidLabelRepo,
+            Guid runId,
+            CancellationToken ct) =>
         {
             var entries = await repo.GetByRunIdAsync(runId);
-            var response = entries.Select(MapEntry).ToList();
+            var response = await MapEntriesAsync(entries, personRepo, qidLabelRepo, ct);
             return Results.Ok(response);
         })
         .WithName("GetActivityByRunId")
@@ -129,19 +140,175 @@ public static class ActivityEndpoints
         return app;
     }
 
-    private static ActivityEntryResponse MapEntry(SystemActivityEntry e) => new()
+    private static async Task<List<ActivityEntryResponse>> MapEntriesAsync(
+        IReadOnlyList<SystemActivityEntry> entries,
+        IPersonRepository personRepo,
+        IQidLabelRepository qidLabelRepo,
+        CancellationToken ct)
     {
-        Id              = e.Id,
-        OccurredAt      = e.OccurredAt.ToString("O"),
-        ActionType      = e.ActionType,
-        CollectionName         = e.CollectionName,
-        EntityId        = e.EntityId?.ToString(),
-        EntityType      = e.EntityType,
-        ProfileId       = e.ProfileId?.ToString(),
-        ChangesJson     = e.ChangesJson,
-        Detail          = e.Detail,
-        IngestionRunId  = e.IngestionRunId?.ToString(),
-    };
+        var response = new List<ActivityEntryResponse>(entries.Count);
+        foreach (var entry in entries)
+        {
+            response.Add(await MapEntryAsync(entry, personRepo, qidLabelRepo, ct));
+        }
+
+        return response;
+    }
+
+    private static async Task<ActivityEntryResponse> MapEntryAsync(
+        SystemActivityEntry e,
+        IPersonRepository personRepo,
+        IQidLabelRepository qidLabelRepo,
+        CancellationToken ct)
+    {
+        var collectionName = e.CollectionName;
+        var detail = e.Detail;
+
+        if (string.Equals(e.ActionType, SystemActionType.PersonHydrated, StringComparison.OrdinalIgnoreCase)
+            && NeedsPersonNameResolution(collectionName, detail))
+        {
+            var qid = ExtractPersonQid(e.ChangesJson) ?? ExtractFirstQid(detail);
+            var resolvedName = await ResolveActivityPersonNameAsync(e.EntityId, qid, personRepo, qidLabelRepo, ct);
+            if (!string.IsNullOrWhiteSpace(resolvedName))
+            {
+                collectionName = resolvedName;
+                detail = $"Person \"{resolvedName}\" enriched from Wikidata";
+            }
+            else if (!string.IsNullOrWhiteSpace(qid))
+            {
+                collectionName = $"Name pending ({qid})";
+                detail = $"Person \"Name pending ({qid})\" enriched from Wikidata";
+            }
+        }
+
+        return new ActivityEntryResponse
+        {
+            Id              = e.Id,
+            OccurredAt      = e.OccurredAt.ToString("O"),
+            ActionType      = e.ActionType,
+            CollectionName  = collectionName,
+            EntityId        = e.EntityId?.ToString(),
+            EntityType      = e.EntityType,
+            ProfileId       = e.ProfileId?.ToString(),
+            ChangesJson     = e.ChangesJson,
+            Detail          = detail,
+            IngestionRunId  = e.IngestionRunId?.ToString(),
+        };
+    }
+
+    private static async Task<string?> ResolveActivityPersonNameAsync(
+        Guid? personId,
+        string? qid,
+        IPersonRepository personRepo,
+        IQidLabelRepository qidLabelRepo,
+        CancellationToken ct)
+    {
+        if (personId.HasValue)
+        {
+            var person = await personRepo.FindByIdAsync(personId.Value, ct);
+            var personName = ResolveBestPersonName(person?.Name);
+            if (!string.IsNullOrWhiteSpace(personName))
+                return personName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(qid))
+        {
+            var label = await qidLabelRepo.GetLabelAsync(qid, ct);
+            var labelName = ResolveBestPersonName(label);
+            if (!string.IsNullOrWhiteSpace(labelName))
+                return labelName;
+        }
+
+        return null;
+    }
+
+    private static bool NeedsPersonNameResolution(string? collectionName, string? detail) =>
+        IsPlaceholderPersonName(collectionName)
+        || (!string.IsNullOrWhiteSpace(detail)
+            && detail.Contains("Unknown Person (", StringComparison.OrdinalIgnoreCase));
+
+    private static string? ResolveBestPersonName(params string?[] candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            var trimmed = candidate.Trim();
+            if (!IsPlaceholderPersonName(trimmed))
+                return trimmed;
+        }
+
+        return null;
+    }
+
+    private static bool IsPlaceholderPersonName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+
+        var trimmed = value.Trim();
+        if (trimmed.StartsWith("Unknown Person (", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return trimmed.Length > 1
+            && trimmed[0] is 'Q'
+            && trimmed.Skip(1).All(char.IsDigit);
+    }
+
+    private static string? ExtractPersonQid(string? changesJson)
+    {
+        if (string.IsNullOrWhiteSpace(changesJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(changesJson);
+            return doc.RootElement.TryGetProperty("qid", out var qidElement)
+                ? NormalizeQid(qidElement.GetString())
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractFirstQid(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var index = value.IndexOf('Q');
+        while (index >= 0 && index < value.Length - 1)
+        {
+            var end = index + 1;
+            while (end < value.Length && char.IsDigit(value[end]))
+                end++;
+
+            if (end > index + 1)
+                return value[index..end];
+
+            index = value.IndexOf('Q', index + 1);
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeQid(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var qid = value.Trim();
+        var slash = qid.LastIndexOf('/');
+        if (slash >= 0)
+            qid = qid[(slash + 1)..];
+
+        return qid.Length > 1 && qid[0] is 'Q' && qid.Skip(1).All(char.IsDigit)
+            ? qid
+            : null;
+    }
 }
 
 // ── Response DTOs ────────────────────────────────────────────────────────────

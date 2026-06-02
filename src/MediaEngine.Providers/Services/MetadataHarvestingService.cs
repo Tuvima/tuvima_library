@@ -474,6 +474,12 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         if (qid is null && headshotUrl is null && biography is null && shortDescription is null && name is null)
             return;
 
+        name = await ResolvePersonDisplayNameAsync(
+            qid,
+            name,
+            request.Hints.GetValueOrDefault("name"),
+            ct).ConfigureAwait(false);
+
         // ── Pseudonym detection from current claims ───────────────────────────
         // Compute isPseudonym HERE — before the dedup block — so the merge guard
         // can use the in-memory value even before UpdateBiographicalFieldsAsync
@@ -669,7 +675,12 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         // Look up the person for event payload and people storage.
         var person = await _personRepo.FindByIdAsync(request.EntityId, ct)
             .ConfigureAwait(false);
-        var personName = person?.Name ?? string.Empty;
+        var personName = ResolveBestPersonName(
+            person?.Name,
+            name,
+            request.Hints.GetValueOrDefault("name"),
+            string.IsNullOrWhiteSpace(qid) ? null : $"Name pending ({qid})")
+            ?? "Person";
 
         // Cache person QID → label for offline resolution.
         if (!string.IsNullOrWhiteSpace(qid) && !string.IsNullOrWhiteSpace(personName))
@@ -852,17 +863,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         // (populated by prior enrichment runs via _qidLabelRepo.UpsertAsync).
         // If the cache misses, fall back to a placeholder name; the next
         // enrichment pass will overwrite it once Wikidata is queried.
-        string stubName = $"Unknown Person ({missingQid})";
-        try
-        {
-            var cachedLabel = await _qidLabelRepo.GetLabelAsync(missingQid, ct).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(cachedLabel))
-                stubName = cachedLabel;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogDebug(ex, "QID label cache lookup failed for {Qid}; using placeholder name", missingQid);
-        }
+        var stubName = await ResolvePersonDisplayNameAsync(missingQid, null, null, ct)
+            .ConfigureAwait(false)
+            ?? $"Name pending ({missingQid})";
 
         var stubId = Guid.NewGuid();
         var stub = new Person
@@ -1006,6 +1009,56 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private static string? NormalizeMultiValue(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? value : value.Trim();
+    }
+
+    private async Task<string?> ResolvePersonDisplayNameAsync(
+        string? qid,
+        string? claimName,
+        string? hintName,
+        CancellationToken ct)
+    {
+        var resolved = ResolveBestPersonName(claimName, hintName);
+        if (!string.IsNullOrWhiteSpace(resolved))
+            return resolved;
+
+        if (string.IsNullOrWhiteSpace(qid))
+            return null;
+
+        try
+        {
+            var cachedLabel = await _qidLabelRepo.GetLabelAsync(qid, ct).ConfigureAwait(false);
+            return ResolveBestPersonName(cachedLabel);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "QID label cache lookup failed for {Qid}; using pending person name", qid);
+            return null;
+        }
+    }
+
+    private static string? ResolveBestPersonName(params string?[] candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            var trimmed = candidate.Trim();
+            if (!IsPlaceholderPersonName(trimmed))
+                return trimmed;
+        }
+
+        return null;
+    }
+
+    private static bool IsPlaceholderPersonName(string value)
+    {
+        if (value.StartsWith("Unknown Person (", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return value.Length > 1
+            && value[0] is 'Q'
+            && value.Skip(1).All(char.IsDigit);
     }
 
     /// <summary>

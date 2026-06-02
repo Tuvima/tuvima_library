@@ -103,6 +103,8 @@ Quick Hydration updates:
 | Artwork | Preferred cover if available; managed central storage plus renditions through `entity_assets`. |
 | Readiness | Whether the item is ready for library browsing, needs review, lacks universe data, or needs retry. |
 
+People enrichment links QID-backed people to the owned media asset before fetching optional profile detail such as biography and headshots. Profile-detail failures are logged as partial enrichment and must not abort quick hydration, because the link evidence is already useful and can be refreshed by later enrichment work.
+
 ## Stage 3: Universe And Deep Enrichment
 
 Stage 3 runs after the item is visible. It enriches the broader graph: universe roots, series/franchise relationships, fictional entities, person details, text tracks, and rich artwork.
@@ -175,6 +177,8 @@ Readiness states are built from:
 | Ready | Required identity, metadata, artwork policy, and hierarchy signals are good enough for normal browsing. |
 | Needs review | Human confirmation is required before the item should be trusted. |
 
+The Library Update page reports two Wikidata counts with different meanings: media-item QID progress counts media assets that resolved to a canonical identity, while the "Linking Wikidata QIDs" activity metric counts distinct resolved entity QIDs across works, people, collections, fictional entities, and manifest items. The Needs Review badge and review page both use the same ready-pending review query, so their counts should match.
+
 ## Implementation Plan
 
 1. Watch folders are loaded from `config/libraries.json`; no normal runtime fallback reads a legacy single watch folder.
@@ -184,4 +188,5 @@ Readiness states are built from:
 5. Quick Hydration makes the item visible and assigns shelves/collections.
 6. Stage 3 expands people, artwork, fictional entities, relationships, universes, lyrics, and subtitles.
 7. Managed files are stored through `AssetPathService` and database rows. Cleanup reads database paths and `.data/assets`, never `.data/images`.
-8. Legacy storage paths may be handled only by explicit migration code. They are not runtime fallback reads.
+8. Bad current-library rows are not repaired in place as part of ingestion fixes. Validate ingestion changes by running the development wipe/reingest harness against clean generated state, then inspect the rebuilt database and Dashboard counts.
+9. Unsupported legacy storage paths and bad historical ingestion rows are not runtime fallback reads. Reset generated state and reingest instead of supporting dual paths.

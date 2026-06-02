@@ -178,9 +178,10 @@ public sealed class PersonEnrichmentWorker
 
             if (failures.Count > 0)
             {
-                throw new InvalidOperationException(
-                    $"Person enrichment failed for {failures.Count} linked person(s) on entity {entityId}.",
-                    failures[0]);
+                _logger.LogWarning(
+                    "Person enrichment completed with {FailureCount} linked profile/detail failure(s) for entity {EntityId}; persisted person links remain usable and ingestion will continue",
+                    failures.Count,
+                    entityId);
             }
         }
 

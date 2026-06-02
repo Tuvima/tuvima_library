@@ -21,6 +21,7 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<ICollectionBrowseReadService, CollectionBrowseReadService>();
         services.AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>();
         services.AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>();
+        services.AddSingleton<IReviewQueueReadService, ReviewQueueReadService>();
         services.AddSingleton<MediaEditorNavigationReadService>();
         services.AddSingleton<IMediaEditorNavigationReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());
         services.AddSingleton<IMediaEditorMembershipReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());

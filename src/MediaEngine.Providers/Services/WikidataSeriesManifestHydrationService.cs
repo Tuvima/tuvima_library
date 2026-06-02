@@ -132,8 +132,8 @@ public sealed class WikidataSeriesManifestHydrationService
 
             var now = DateTimeOffset.UtcNow;
             var scopedItems = FilterManifestItems(manifest.Items, context, manifest.SeriesQid).ToList();
-            var itemRecords = scopedItems
-                .Select((item, index) => ToRecord(collection.Id, manifest.SeriesQid, context.MediaType, item, index, now))
+            var itemRecords = NormalizeManifestItems(scopedItems)
+                .Select(item => ToRecord(collection.Id, manifest.SeriesQid, context.MediaType, item.Item, item.SortOrder, now))
                 .ToList();
 
             itemRecords = await RelinkItemsAsync(collection.Id, itemRecords, context, createReviews: true, ct)
@@ -379,6 +379,26 @@ public sealed class WikidataSeriesManifestHydrationService
         return languageMarkers.Any(marker => haystack.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
+    internal static IReadOnlyList<OrderedSeriesManifestItem> NormalizeManifestItems(
+        IEnumerable<SeriesManifestItem> items)
+    {
+        var deduped = items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Qid))
+            .GroupBy(item => item.Qid, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderBy(item => item.ParsedSeriesOrdinal ?? decimal.MaxValue)
+                .ThenBy(item => item.PublicationDate ?? DateOnly.MaxValue)
+                .ThenBy(item => item.Label ?? item.Qid, StringComparer.OrdinalIgnoreCase)
+                .First());
+
+        return deduped
+            .OrderBy(item => item.ParsedSeriesOrdinal ?? decimal.MaxValue)
+            .ThenBy(item => item.PublicationDate ?? DateOnly.MaxValue)
+            .ThenBy(item => item.Label ?? item.Qid, StringComparer.OrdinalIgnoreCase)
+            .Select((item, index) => new OrderedSeriesManifestItem(item, index + 1))
+            .ToList();
+    }
+
     private static bool IsCachedHydrationCurrent(SeriesManifestHydration hydration)
     {
         if (string.IsNullOrWhiteSpace(hydration.ApiMetadataJson))
@@ -495,13 +515,9 @@ public sealed class WikidataSeriesManifestHydrationService
         string seriesQid,
         MediaType contextMediaType,
         SeriesManifestItem item,
-        int index,
+        int sortOrder,
         DateTimeOffset now)
     {
-        var sortOrder = item.ParsedSeriesOrdinal.HasValue
-            ? (double)item.ParsedSeriesOrdinal.Value
-            : index + 1;
-
         return new SeriesManifestItemRecord
         {
             Id = Guid.NewGuid(),
@@ -563,6 +579,8 @@ public sealed class WikidataSeriesManifestHydrationService
 
     private static string Hash(string value)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+
+    internal sealed record OrderedSeriesManifestItem(SeriesManifestItem Item, int SortOrder);
 }
 
 internal static class SeriesManifestRecordExtensions

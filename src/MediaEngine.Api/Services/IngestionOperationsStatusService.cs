@@ -1,5 +1,6 @@
 using Dapper;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -120,6 +121,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private readonly IIngestionBatchRepository _batchRepository;
     private readonly ILibraryItemRepository _libraryItems;
     private readonly IOptions<IngestionOptions> _ingestionOptions;
+    private readonly IReviewQueueReadService _reviewQueueReadService;
 
     public IngestionOperationsStatusService(
         IDatabaseConnection db,
@@ -127,6 +129,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IProviderHealthRepository providerHealth,
         IIngestionBatchRepository batchRepository,
         ILibraryItemRepository libraryItems,
+        IReviewQueueReadService reviewQueueReadService,
         IOptions<IngestionOptions> ingestionOptions)
     {
         _db = db;
@@ -134,6 +137,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         _providerHealth = providerHealth;
         _batchRepository = batchRepository;
         _libraryItems = libraryItems;
+        _reviewQueueReadService = reviewQueueReadService;
         _ingestionOptions = ingestionOptions;
     }
 
@@ -172,14 +176,15 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ? ingestionRows
             : await ReadIngestionStatusCountsAsync(displayBatches.Select(batch => batch.Id).ToArray(), ct);
 
-        var reviewRows = (await conn.QueryAsync<ReviewCountRow>("""
-            SELECT trigger AS Trigger, detail AS Detail, COUNT(*) AS Count
-            FROM review_queue
-            WHERE status = 'Pending'
-              AND review_ready_at IS NOT NULL
-            GROUP BY trigger, detail
-            """)).AsList();
-        var pendingReviewCount = reviewRows.Sum(row => ToInt(row.Count));
+        var reviewRows = (await _reviewQueueReadService.GetPendingReasonCountsAsync(ct))
+            .Select(row => new ReviewCountRow
+            {
+                Trigger = row.Trigger ?? string.Empty,
+                Detail = row.Detail,
+                Count = row.Count,
+            })
+            .ToList();
+        var pendingReviewCount = await _reviewQueueReadService.GetPendingCountAsync(ct);
 
         var folderStats = (await conn.QueryAsync<FolderStatsRow>("""
             SELECT
@@ -841,7 +846,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Stage("identified", "Identified", identified, batchTotal, "Recognized as media and routed into identity matching"),
             Stage("matched", "Matched", matched, batchTotal, "Matched with retail metadata providers"),
             Stage("retail_review", "Retail Review", retailReviewTotal, batchTotal, "Retail matches needing review or files with no retail match"),
-            Stage("canonicalized", "Canonicalized", canonicalized, batchTotal, "Linked to canonical identity when available"),
+            Stage("canonicalized", "Media QIDs", canonicalized, batchTotal, "Media items linked to a Wikidata identity when available"),
             Stage("wikidata_review", "Wikidata Review", wikidataReviewTotal, batchTotal, "Wikidata matches needing review or files with no QID"),
             Stage("enriched", "Enriched", registered, batchTotal, "Artwork, people, series, genres, universes added"),
             Stage("organized", "Organized", registered, batchTotal, "Rename and folder operations completed"),
@@ -1020,7 +1025,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var seriesDisplayRows = MergeActivityRows(seriesRows, relationshipsOperation?.Rows);
         var peopleDisplayRows = MergeActivityRows(peopleRows, peopleOperation?.Rows);
         var artworkProgress = await ReadArtworkProgressAsync(conn, identityBatchIdValues, hasBatchScope, artworkOperation);
-        var linkedQids = CountStage(stages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase), "canonicalized");
+        var linkedQids = await ReadDistinctWikidataQidCountAsync(conn, identityBatchIdValues, hasBatchScope);
         var wikidataProgress = BuildOpenEndedOperationProgressOverride(wikidataOperation, linkedQids, "QIDs");
         var relationshipsProgress = await ReadRelationshipsProgressAsync(conn, identityBatchIdValues, hasBatchScope, relationshipsOperation);
         var peopleProgress = await ReadPeopleProgressAsync(conn, identityBatchIdValues, hasBatchScope, peopleOperation);
@@ -1070,7 +1075,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 ],
                 completedStates: WikidataResolvedStates,
                 reviewStates: WikidataReviewStates,
-                metricLabel: "QIDs linked",
+                metricLabel: "Entity QIDs resolved",
                 metricValue: linkedQids.ToString("N0"),
                 metricTone: "success",
                 countUnit: "QIDs",
@@ -1128,6 +1133,129 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return result
             .Where(activity => activity.TotalCount > 0 || activity.ActiveCount > 0 || activity.ProcessedCount > 0)
             .ToList();
+    }
+
+    private static async Task<int> ReadDistinctWikidataQidCountAsync(
+        SqliteConnection conn,
+        IReadOnlyCollection<byte[]> identityBatchIds,
+        int hasBatchScope)
+    {
+        return await conn.ExecuteScalarAsync<int>("""
+            WITH batch_assets AS (
+                SELECT DISTINCT entity_id AS asset_id
+                FROM identity_jobs
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
+                  AND entity_id IS NOT NULL
+            ),
+            batch_works AS (
+                SELECT DISTINCT e.work_id
+                FROM batch_assets ba
+                JOIN media_assets ma ON ma.id = ba.asset_id
+                JOIN editions e ON e.id = ma.edition_id
+                WHERE e.work_id IS NOT NULL
+            ),
+            batch_collections AS (
+                SELECT DISTINCT w.collection_id
+                FROM batch_works bw
+                JOIN works w ON w.id = bw.work_id
+                WHERE w.collection_id IS NOT NULL
+            ),
+            batch_work_qids AS (
+                SELECT DISTINCT w.wikidata_qid AS qid
+                FROM batch_works bw
+                JOIN works w ON w.id = bw.work_id
+                WHERE w.wikidata_qid IS NOT NULL AND w.wikidata_qid <> ''
+                UNION
+                SELECT DISTINCT cv.value AS qid
+                FROM batch_works bw
+                JOIN canonical_values cv ON cv.entity_id = bw.work_id
+                WHERE cv.key = 'wikidata_qid'
+                  AND cv.value IS NOT NULL
+                  AND cv.value <> ''
+            ),
+            batch_targets AS (
+                SELECT asset_id AS entity_id FROM batch_assets
+                UNION
+                SELECT work_id AS entity_id FROM batch_works
+                UNION
+                SELECT collection_id AS entity_id FROM batch_collections
+            ),
+            entity_qids AS (
+                SELECT resolved_qid AS qid
+                FROM identity_jobs
+                WHERE (@hasBatchScope = 0 OR ingestion_run_id IN @batchIds)
+                  AND resolved_qid IS NOT NULL
+                  AND resolved_qid <> ''
+                  AND resolved_qid <> 'NF'
+                UNION
+                SELECT w.wikidata_qid AS qid
+                FROM works w
+                WHERE w.wikidata_qid IS NOT NULL
+                  AND w.wikidata_qid <> ''
+                  AND (@hasBatchScope = 0 OR w.id IN (SELECT work_id FROM batch_works))
+                UNION
+                SELECT e.wikidata_qid AS qid
+                FROM editions e
+                JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.wikidata_qid IS NOT NULL
+                  AND e.wikidata_qid <> ''
+                  AND (@hasBatchScope = 0 OR ma.id IN (SELECT asset_id FROM batch_assets))
+                UNION
+                SELECT c.wikidata_qid AS qid
+                FROM collections c
+                WHERE c.wikidata_qid IS NOT NULL
+                  AND c.wikidata_qid <> ''
+                  AND (@hasBatchScope = 0 OR c.id IN (SELECT collection_id FROM batch_collections))
+                UNION
+                SELECT cv.value AS qid
+                FROM canonical_values cv
+                WHERE cv.key = 'wikidata_qid'
+                  AND cv.value IS NOT NULL
+                  AND cv.value <> ''
+                  AND (@hasBatchScope = 0 OR cv.entity_id IN (SELECT entity_id FROM batch_targets))
+                UNION
+                SELECT p.wikidata_qid AS qid
+                FROM persons p
+                WHERE p.wikidata_qid IS NOT NULL
+                  AND p.wikidata_qid <> ''
+                  AND (
+                        @hasBatchScope = 0
+                        OR EXISTS (
+                            SELECT 1
+                            FROM person_media_links pml
+                            JOIN batch_assets ba ON ba.asset_id = pml.media_asset_id
+                            WHERE pml.person_id = p.id
+                        )
+                  )
+                UNION
+                SELECT fe.wikidata_qid AS qid
+                FROM fictional_entities fe
+                WHERE fe.wikidata_qid IS NOT NULL
+                  AND fe.wikidata_qid <> ''
+                  AND (
+                        @hasBatchScope = 0
+                        OR EXISTS (
+                            SELECT 1
+                            FROM fictional_entity_work_links fewl
+                            JOIN batch_work_qids bwq ON bwq.qid = fewl.work_qid
+                            WHERE fewl.entity_id = fe.id
+                        )
+                  )
+                UNION
+                SELECT smi.item_qid AS qid
+                FROM series_manifest_items smi
+                WHERE smi.item_qid IS NOT NULL
+                  AND smi.item_qid <> ''
+                  AND (
+                        @hasBatchScope = 0
+                        OR smi.collection_id IN (SELECT collection_id FROM batch_collections)
+                        OR smi.linked_work_id IN (SELECT work_id FROM batch_works)
+                  )
+            )
+            SELECT COUNT(DISTINCT qid)
+            FROM entity_qids
+            WHERE qid LIKE 'Q%';
+            """, new { batchIds = identityBatchIds, hasBatchScope });
     }
 
     private static async Task<IReadOnlyDictionary<string, TaskOperationProgress>> ReadOperationProgressAsync(

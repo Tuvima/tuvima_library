@@ -1,3 +1,6 @@
+using MediaEngine.Providers.Services;
+using Tuvima.Wikidata;
+
 namespace MediaEngine.Providers.Tests;
 
 public sealed class CollectionAssignmentServiceTests
@@ -36,6 +39,46 @@ public sealed class CollectionAssignmentServiceTests
         Assert.DoesNotContain("\"franchise_qid\"", resolveSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"fictional_universe_qid\"", resolveSource, StringComparison.Ordinal);
         Assert.Contains("RelType, \"series\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SeriesManifestHydration_NormalizesDuplicateItemsAndDenseDisplayOrder()
+    {
+        var normalized = WikidataSeriesManifestHydrationService.NormalizeManifestItems(
+        [
+            new SeriesManifestItem
+            {
+                Qid = "Q1",
+                Label = "The Matrix",
+                ParsedSeriesOrdinal = 1,
+                PublicationDate = new DateOnly(1999, 3, 31),
+            },
+            new SeriesManifestItem
+            {
+                Qid = "Q1",
+                Label = "The Matrix duplicate from expanded collection",
+                ParsedSeriesOrdinal = 1,
+                PublicationDate = new DateOnly(1999, 3, 31),
+                IsExpandedFromCollection = true,
+            },
+            new SeriesManifestItem
+            {
+                Qid = "Q2",
+                Label = "The Animatrix",
+                ParsedSeriesOrdinal = 1,
+                PublicationDate = new DateOnly(2003, 6, 3),
+            },
+            new SeriesManifestItem
+            {
+                Qid = "Q3",
+                Label = "The Matrix Reloaded",
+                ParsedSeriesOrdinal = 2,
+                PublicationDate = new DateOnly(2003, 5, 15),
+            },
+        ]);
+
+        Assert.Equal(["Q1", "Q2", "Q3"], normalized.Select(item => item.Item.Qid));
+        Assert.Equal([1, 2, 3], normalized.Select(item => item.SortOrder));
     }
 
     private static string GetRepoFilePath(string relativePath) =>

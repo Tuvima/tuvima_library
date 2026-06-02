@@ -21,9 +21,9 @@ public sealed class CollectionRepository : ICollectionRepository
 
     private sealed class WorkLineageIdsRow
     {
-        public string? LeafWorkId { get; init; }
-        public string? ParentWorkId { get; init; }
-        public string? RootWorkId { get; init; }
+        public Guid? LeafWorkId { get; init; }
+        public Guid? ParentWorkId { get; init; }
+        public Guid? RootWorkId { get; init; }
     }
 
     // Reusable SELECT list for single-collection queries (no table prefix needed).
@@ -92,10 +92,10 @@ public sealed class CollectionRepository : ICollectionRepository
         return h;
     }
 
-    private static void AddIfPresent(List<Guid> ids, string? value)
+    private static void AddIfPresent(List<Guid> ids, Guid? value)
     {
-        if (Guid.TryParse(value, out var id))
-            ids.Add(id);
+        if (value.HasValue)
+            ids.Add(value.Value);
     }
 
     // -------------------------------------------------------------------------
@@ -272,21 +272,19 @@ public sealed class CollectionRepository : ICollectionRepository
         using var conn = _db.CreateConnection();
 
         // Find the collection that owns a relationship matching (rel_type, rel_qid).
-        var collectionIdStr = conn.ExecuteScalar<string>("""
+        var collectionId = conn.ExecuteScalar<Guid?>("""
             SELECT collection_id FROM collection_relationships
             WHERE  rel_type = @relType AND rel_qid = @qid
             LIMIT  1;
             """, new { relType, qid });
 
-        if (collectionIdStr is null)
+        if (collectionId is null)
             return Task.FromResult<Collection?>(null);
-
-        var collectionId = Guid.Parse(collectionIdStr);
 
         var collection = conn.QueryFirstOrDefault<Collection>($"""
             SELECT {CollectionSelectColumns}
             FROM   collections WHERE id = @id;
-            """, new { id = collectionId.ToString() });
+            """, new { id = collectionId.Value });
 
         if (collection is null)
             return Task.FromResult<Collection?>(null);
@@ -297,7 +295,7 @@ public sealed class CollectionRepository : ICollectionRepository
         var rels = conn.Query<CollectionRelationship>($"""
             SELECT {RelSelectColumns}
             FROM   collection_relationships WHERE collection_id = @hid;
-            """, new { hid = collectionId.ToString() }).AsList();
+            """, new { hid = collectionId.Value }).AsList();
 
         collection.AddRelationships(rels);
 
@@ -345,15 +343,15 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var result = conn.ExecuteScalar<string>("""
+        var result = conn.ExecuteScalar<Guid?>("""
             SELECT e.work_id
             FROM   media_assets ma
             JOIN   editions e ON e.id = ma.edition_id
             WHERE  ma.id = @assetId
             LIMIT  1;
-            """, new { assetId = mediaAssetId.ToString() });
+            """, new { assetId = mediaAssetId });
 
-        return Task.FromResult(result is null ? null : (Guid?)Guid.Parse(result));
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>
@@ -373,7 +371,7 @@ public sealed class CollectionRepository : ICollectionRepository
             LEFT JOIN works root ON root.id = parent.parent_work_id
             WHERE  ma.id = @assetId
             LIMIT  1;
-            """, new { assetId = mediaAssetId.ToString() });
+            """, new { assetId = mediaAssetId });
 
         if (row is null)
             return Task.FromResult<IReadOnlyList<Guid>>([]);
@@ -400,7 +398,7 @@ public sealed class CollectionRepository : ICollectionRepository
             JOIN   collections h ON h.id = w.collection_id
             WHERE  w.id = @workId
             LIMIT  1;
-            """, new { workId = workId.ToString() });
+            """, new { workId });
 
         return Task.FromResult(result);
     }
@@ -416,7 +414,7 @@ public sealed class CollectionRepository : ICollectionRepository
             using var conn = _db.CreateConnection();
             conn.Execute(
                 "UPDATE works SET collection_id = @collectionId WHERE id = @workId;",
-                new { collectionId = collectionId.ToString(), workId = workId.ToString() });
+                new { collectionId, workId });
         }
         finally
         {

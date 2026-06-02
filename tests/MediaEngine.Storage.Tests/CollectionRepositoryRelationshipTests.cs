@@ -158,6 +158,31 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         Assert.Contains(counts, pair => pair.Value == 0);
     }
 
+    [Fact]
+    public async Task WorkLineageLookups_RoundTripGuidBlobAssetRelationships()
+    {
+        var repo = new CollectionRepository(_db);
+        var collection = CreateCollection("The Matrix", "ContentGroup");
+        await repo.UpsertAsync(collection);
+
+        var rootWork = Guid.NewGuid();
+        var parentWork = Guid.NewGuid();
+        var leafWork = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        InsertWork(rootWork, collection.Id);
+        InsertWork(parentWork, collection.Id, rootWork);
+        InsertWork(leafWork, collection.Id, parentWork);
+        InsertEditionAndAsset(editionId, leafWork, assetId);
+
+        var resolvedWorkId = await repo.GetWorkIdByMediaAssetAsync(assetId);
+        var lineage = await repo.GetWorkLineageIdsByMediaAssetAsync(assetId);
+
+        Assert.Equal(leafWork, resolvedWorkId);
+        Assert.Equal([leafWork, parentWork, rootWork], lineage);
+    }
+
     private static Collection CreateCollection(string name, string type = "Universe") => new()
     {
         Id = Guid.NewGuid(),
@@ -192,13 +217,32 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         AddedAt = DateTimeOffset.UtcNow,
     };
 
-    private void InsertWork(Guid workId, Guid collectionId)
+    private void InsertWork(Guid workId, Guid collectionId, Guid? parentWorkId = null)
     {
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO works (id, collection_id, media_type) VALUES ($id, $collectionId, 'Music')";
+        cmd.CommandText = "INSERT INTO works (id, collection_id, parent_work_id, media_type) VALUES ($id, $collectionId, $parentWorkId, 'Music')";
         cmd.Parameters.Add("$id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(workId);
         cmd.Parameters.Add("$collectionId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(collectionId);
+        cmd.Parameters.Add("$parentWorkId", Microsoft.Data.Sqlite.SqliteType.Blob).Value =
+            parentWorkId.HasValue ? GuidSql.ToBlob(parentWorkId.Value) : DBNull.Value;
+        cmd.ExecuteNonQuery();
+    }
+
+    private void InsertEditionAndAsset(Guid editionId, Guid workId, Guid assetId)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO editions (id, work_id) VALUES ($editionId, $workId);
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+            VALUES ($assetId, $editionId, $hash, $path);
+            """;
+        cmd.Parameters.Add("$editionId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(editionId);
+        cmd.Parameters.Add("$workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(workId);
+        cmd.Parameters.Add("$assetId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
+        cmd.Parameters.AddWithValue("$hash", $"asset-{assetId:N}");
+        cmd.Parameters.AddWithValue("$path", $"C:/library/{assetId:N}.mkv");
         cmd.ExecuteNonQuery();
     }
 }

@@ -164,7 +164,7 @@ public sealed class LineageReaderTests : IDisposable
     [Fact]
     public async Task CollectionRepository_ReturnsAssetWorkLineage()
     {
-        var (showId, seasonId, episodeWorkId, assetId) = await BuildTvHierarchyAsync();
+        var (showId, seasonId, episodeWorkId, assetId) = await BuildTvHierarchyBlobAsync();
 
         var repo = new CollectionRepository(_db);
         var lineage = await repo.GetWorkLineageIdsByMediaAssetAsync(assetId);
@@ -225,6 +225,41 @@ public sealed class LineageReaderTests : IDisposable
         return (showId, seasonId, epId, assetId);
     }
 
+    private async Task<(Guid ShowId, Guid SeasonId, Guid EpisodeId, Guid AssetId)>
+        BuildTvHierarchyBlobAsync()
+    {
+        using var conn = _db.CreateConnection();
+        var collectionId = Guid.NewGuid();
+        var showId = Guid.NewGuid();
+        var seasonId = Guid.NewGuid();
+        var epId = Guid.NewGuid();
+        var edId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO collections (id, created_at) VALUES (@collectionId, datetime('now'));
+            INSERT INTO works (id, collection_id, media_type)
+                VALUES (@showId, @collectionId, 'TV');
+            INSERT INTO works (id, collection_id, media_type, parent_work_id)
+                VALUES (@seasonId, @collectionId, 'TV', @showId);
+            INSERT INTO works (id, collection_id, media_type, parent_work_id)
+                VALUES (@episodeId, @collectionId, 'TV', @seasonId);
+            INSERT INTO editions (id, work_id) VALUES (@editionId, @episodeId);
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@assetId, @editionId, @hash, '/lib/test-blob.mkv', 'Normal');
+            """;
+        AddGuid(cmd, "@collectionId", collectionId);
+        AddGuid(cmd, "@showId", showId);
+        AddGuid(cmd, "@seasonId", seasonId);
+        AddGuid(cmd, "@episodeId", epId);
+        AddGuid(cmd, "@editionId", edId);
+        AddGuid(cmd, "@assetId", assetId);
+        cmd.Parameters.AddWithValue("@hash", $"hash_{epId:N}");
+        await cmd.ExecuteNonQueryAsync();
+        return (showId, seasonId, epId, assetId);
+    }
+
     /// <summary>
     /// Builds a flat hierarchy: collection → Work (no parent) → edition → asset.
     /// Returns (workId, editionId, assetId).
@@ -265,6 +300,9 @@ public sealed class LineageReaderTests : IDisposable
         cmd.Parameters.AddWithValue("@value", value);
         await cmd.ExecuteNonQueryAsync();
     }
+
+    private static void AddGuid(Microsoft.Data.Sqlite.SqliteCommand command, string name, Guid value) =>
+        command.Parameters.Add(name, Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(value);
 
     /// <summary>
     /// Reads the FTS5 search_index row for the leaf work belonging to the

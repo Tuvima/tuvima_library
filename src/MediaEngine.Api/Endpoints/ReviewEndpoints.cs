@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -27,26 +28,10 @@ public static class ReviewEndpoints
         // ── GET /review/pending ──────────────────────────────────────────────
         group.MapGet("/pending", async (
             int? limit,
-            IReviewQueueRepository reviewRepo,
-            ILibraryItemRepository libraryItemRepo,
+            IReviewQueueReadService reviewReadService,
             CancellationToken ct) =>
         {
-            var pending = await reviewRepo.GetPendingAsync(limit ?? 50, ct);
-
-            var dtos = new List<ReviewItemDto>(pending.Count);
-            foreach (var reviewEntry in pending)
-            {
-                var detail = await libraryItemRepo.GetDetailAsync(reviewEntry.EntityId, ct);
-                if (detail is not { } itemDetail || itemDetail.ReviewItemId != reviewEntry.Id)
-                    continue;
-
-                var bridgeIds = itemDetail.BridgeIds is { Count: > 0 }
-                    ? itemDetail.BridgeIds.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
-                    : null;
-
-                dtos.Add(ReviewItemDto.FromDomain(reviewEntry, itemDetail.MediaType, itemDetail.Title, itemDetail.CoverUrl, bridgeIds));
-            }
-
+            var dtos = await reviewReadService.GetPendingAsync(limit ?? 50, ct);
             return Results.Ok(dtos);
         })
         .WithName("GetPendingReviews")
@@ -56,10 +41,10 @@ public static class ReviewEndpoints
 
         // ── GET /review/count ────────────────────────────────────────────────
         group.MapGet("/count", async (
-            IReviewQueueRepository reviewRepo,
+            IReviewQueueReadService reviewReadService,
             CancellationToken ct) =>
         {
-            var count = await reviewRepo.GetPendingCountAsync(ct);
+            var count = await reviewReadService.GetPendingCountAsync(ct);
             return Results.Ok(new ReviewCountResponse { PendingCount = count });
         })
         .WithName("GetReviewCount")
@@ -70,27 +55,11 @@ public static class ReviewEndpoints
         // ── GET /review/{id} ─────────────────────────────────────────────────
         group.MapGet("/{id:guid}", async (
             Guid id,
-            IReviewQueueRepository reviewRepo,
-            ILibraryItemRepository libraryItemRepo,
+            IReviewQueueReadService reviewReadService,
             CancellationToken ct) =>
         {
-            var item = await reviewRepo.GetByIdAsync(id, ct);
-            if (item is null)
-                return Results.NotFound();
-
-            var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
-            if (detail is null
-                || !string.Equals(detail.Status, "InReview", StringComparison.OrdinalIgnoreCase)
-                || detail.ReviewItemId != item.Id)
-            {
-                return Results.NotFound();
-            }
-
-            var bridgeIds = detail.BridgeIds.Count > 0
-                ? detail.BridgeIds.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
-                : null;
-
-            return Results.Ok(ReviewItemDto.FromDomain(item, detail.MediaType, detail.Title, detail.CoverUrl, bridgeIds));
+            var item = await reviewReadService.GetByIdAsync(id, ct);
+            return item is null ? Results.NotFound() : Results.Ok(item);
         })
         .WithName("GetReviewItem")
         .WithSummary("Get a single review queue item with full details.")
@@ -378,31 +347,4 @@ public static class ReviewEndpoints
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Extracts bridge identifiers (ISBN-13, ISBN-10, ISBN, ASIN, Apple Books ID,
-    /// Wikidata QID, etc.) from a canonical value lookup dictionary.
-    /// ISBN variants are included so the review queue always shows ISBNs
-    /// regardless of whether they were deposited by Wikidata (isbn_13/isbn_10)
-    /// or by retail providers (isbn).
-    /// </summary>
-    private static Dictionary<string, string> ExtractBridgeIdentifiers(
-        Dictionary<string, string> lookup)
-    {
-        var bridgeKeys = new[]
-        {
-            "isbn_13", "isbn_10", "isbn", "asin",
-            "apple_books_id", "audible_id",
-            "tmdb_id", "imdb_id",
-            "goodreads_id", "musicbrainz_id", "comic_vine_id",
-            "wikidata_qid",
-        };
-
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in bridgeKeys)
-        {
-            if (lookup.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
-                result[key] = val;
-        }
-        return result;
-    }
 }

@@ -58,10 +58,25 @@ public sealed class EnrichmentService : IEnrichmentService
     {
         _logger.LogInformation("Quick pass starting for entity {Id} (QID {Qid})", entityId, qid);
         await _coverArt.DownloadAndPersistAsync(entityId, qid, ct);
-        await _concurrency.RunAsync(
-            EnrichmentWorkKind.Wikidata,
-            token => _persons.EnrichFromClaimsAsync(entityId, token),
-            ct);
+        try
+        {
+            await _concurrency.RunAsync(
+                EnrichmentWorkKind.Wikidata,
+                token => _persons.EnrichFromClaimsAsync(entityId, token),
+                ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Quick pass people enrichment was partial for entity {Id}; continuing with quick hydration",
+                entityId);
+        }
+
         await _writeBack.WriteMetadataAsync(entityId, "quick_hydration", ct);
         _logger.LogInformation("Quick pass completed for entity {Id}", entityId);
     }

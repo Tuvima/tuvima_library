@@ -193,7 +193,7 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
-    public void ReviewEndpoints_UseReadyOnlyReviewQueueRepository()
+    public void ReviewEndpoints_UseReadyOnlyReviewQueueReadService()
     {
         var source = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
@@ -202,8 +202,10 @@ public sealed class IngestionOperationsContractTests
             "Endpoints",
             "ReviewEndpoints.cs"));
 
-        Assert.Contains("reviewRepo.GetPendingAsync(limit ?? 50, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("reviewRepo.GetPendingCountAsync(ct)", source, StringComparison.Ordinal);
+        Assert.Contains("IReviewQueueReadService reviewReadService", source, StringComparison.Ordinal);
+        Assert.Contains("reviewReadService.GetPendingAsync(limit ?? 50, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("reviewReadService.GetPendingCountAsync(ct)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("libraryItemRepo.GetDetailAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Status: \"InReview\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetFourStateCountsAsync", source, StringComparison.Ordinal);
     }
