@@ -1549,6 +1549,133 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
+    public void LiveDashboard_ShowsExpectedAndUnexpectedReviewCountsFromHarnessManifest()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 10,
+                RegisteredItems = 6,
+                ItemsNeedingReview = 4,
+                ExpectedOutcomes = new IngestionExpectedOutcomesViewModel
+                {
+                    TotalFiles = 10,
+                    ExpectedResolved = 8,
+                    ExpectedReview = 1,
+                },
+            },
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(10, 10, 0, 4),
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(1, status.ExpectedReviewItems);
+        Assert.Equal(3, status.UnexpectedReviewItems);
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Status, status)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 10, 0, 4))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("3 unexpected", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("3 unexpected items need review", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("1 were expected by the harness", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveDashboard_ShowsUnexpectedReviewWhenManifestExpectedNone()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 10,
+                RegisteredItems = 8,
+                ItemsNeedingReview = 2,
+                ExpectedOutcomes = new IngestionExpectedOutcomesViewModel
+                {
+                    TotalFiles = 10,
+                    ExpectedResolved = 9,
+                    ExpectedReview = 0,
+                },
+            },
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(10, 8, 0, 2),
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(0, status.ExpectedReviewItems);
+        Assert.Equal(2, status.UnexpectedReviewItems);
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Status, status)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("2 unexpected", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("2 unexpected items need review", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("0 were expected by the harness", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveDashboard_DoesNotShowUnexpectedReviewWithoutExpectationContract()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 10,
+                RegisteredItems = 8,
+                ItemsNeedingReview = 2,
+            },
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(10, 8, 0, 2),
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(0, status.ExpectedReviewItems);
+        Assert.Equal(0, status.UnexpectedReviewItems);
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Status, status)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.DoesNotContain("unexpected", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void LiveDashboard_RendersLibraryUpdateDefaultView()
     {
         var snapshot = new IngestionOperationsSnapshotViewModel

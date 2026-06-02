@@ -1312,7 +1312,29 @@ var manifestJson = JsonSerializer.Serialize(new
     comics_directory = comicsDir,
     general_directory = generalDir,
     total_files = total,
-    files = manifest.Select(m => new { scenario = m.Scenario, path = m.Path, type = m.Type, note = m.Note }),
+    files = manifest.Select(m =>
+    {
+        var expected = m.ExpectedIdentity ?? InferExpectedIdentity(m);
+        return new
+        {
+            scenario = m.Scenario,
+            path = m.Path,
+            type = m.Type,
+            note = m.Note,
+            expected_identity = new
+            {
+                title = expected.Title,
+                media_type = expected.MediaType,
+                expected_status = expected.ExpectedStatus,
+                expected_work_qid = expected.ExpectedWorkQid,
+                expected_bridge_ids = expected.ExpectedBridgeIds,
+                expected_retail_provider = expected.ExpectedRetailProvider,
+                expected_review_trigger = expected.ExpectedReviewTrigger,
+                reason = expected.Reason,
+                known_no_wikidata_entity = expected.KnownNoWikidataEntity
+            }
+        };
+    }),
     expected_person_enrichment = expectedPeopleForManifest.Select(p => new
     {
         name = p.Name,
@@ -1823,6 +1845,133 @@ static string Esc(string? s) =>
     (s ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;")
              .Replace("\"", "&quot;").Replace("'", "&apos;");
 
+static ExpectedIdentityEntry InferExpectedIdentity(ManifestEntry entry)
+{
+    if (entry.Scenario == 9)
+    {
+        return new(
+            Title: InferTitleFromPath(entry.Path),
+            MediaType: ResolveManifestMediaType(entry),
+            ExpectedStatus: "Corrupt",
+            ExpectedWorkQid: null,
+            ExpectedBridgeIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            ExpectedRetailProvider: null,
+            ExpectedReviewTrigger: null,
+            Reason: "Corrupt EPUB fixture should fail file processing before identity resolution.",
+            KnownNoWikidataEntity: false);
+    }
+
+    if (entry.Scenario == 10)
+    {
+        return new(
+            Title: InferTitleFromPath(entry.Path),
+            MediaType: ResolveManifestMediaType(entry),
+            ExpectedStatus: "Duplicate",
+            ExpectedWorkQid: null,
+            ExpectedBridgeIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            ExpectedRetailProvider: null,
+            ExpectedReviewTrigger: null,
+            Reason: "Byte-identical duplicate fixture should be skipped as an already tracked file.",
+            KnownNoWikidataEntity: false);
+    }
+
+    if (string.Equals(entry.Type, "txt", StringComparison.OrdinalIgnoreCase))
+    {
+        return new(
+            Title: InferTitleFromPath(entry.Path),
+            MediaType: "General",
+            ExpectedStatus: "Skipped",
+            ExpectedWorkQid: null,
+            ExpectedBridgeIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            ExpectedRetailProvider: null,
+            ExpectedReviewTrigger: null,
+            Reason: "General drop-zone note is not a supported media identity fixture.",
+            KnownNoWikidataEntity: false);
+    }
+
+    var bridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    if (ExtractImdbId(entry.Path) is { Length: > 0 } imdbId)
+    {
+        bridgeIds["imdb"] = imdbId;
+    }
+
+    return new(
+        Title: InferTitleFromPath(entry.Path),
+        MediaType: ResolveManifestMediaType(entry),
+        ExpectedStatus: "ResolvedQid",
+        ExpectedWorkQid: null,
+        ExpectedBridgeIds: bridgeIds,
+        ExpectedRetailProvider: ResolveExpectedRetailProvider(entry),
+        ExpectedReviewTrigger: null,
+        Reason: "Known real-world fixture should resolve to a non-placeholder Wikidata QID.",
+        KnownNoWikidataEntity: false);
+}
+
+static string ResolveManifestMediaType(ManifestEntry entry)
+{
+    return entry.Type.ToLowerInvariant() switch
+    {
+        "epub" => "Books",
+        "m4b" => "Audiobooks",
+        "mp4" when entry.Path.StartsWith("tv/", StringComparison.OrdinalIgnoreCase)
+            || entry.Path.StartsWith("large/", StringComparison.OrdinalIgnoreCase)
+                && entry.Note.Contains("TV", StringComparison.OrdinalIgnoreCase) => "TV",
+        "mp4" => "Movies",
+        "mp3" => "Music",
+        "cbz" => "Comics",
+        _ => "General",
+    };
+}
+
+static string? ResolveExpectedRetailProvider(ManifestEntry entry)
+{
+    return ResolveManifestMediaType(entry) switch
+    {
+        "Books" or "Audiobooks" => "apple_books",
+        "Movies" or "TV" => "tmdb",
+        "Music" => "apple_music",
+        "Comics" => "comicvine",
+        _ => null,
+    };
+}
+
+static string InferTitleFromPath(string path)
+{
+    var title = Path.GetFileNameWithoutExtension(path)
+        .Replace('-', ' ')
+        .Replace('_', ' ')
+        .Replace("  ", " ")
+        .Trim();
+
+    var bridgeStart = title.IndexOf(" {imdb-", StringComparison.OrdinalIgnoreCase);
+    if (bridgeStart >= 0)
+    {
+        title = title[..bridgeStart].Trim();
+    }
+
+    var yearStart = title.LastIndexOf(" (", StringComparison.OrdinalIgnoreCase);
+    if (yearStart > 0 && title.EndsWith(')'))
+    {
+        title = title[..yearStart].Trim();
+    }
+
+    return title;
+}
+
+static string? ExtractImdbId(string path)
+{
+    const string marker = "{imdb-";
+    var start = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+    if (start < 0)
+    {
+        return null;
+    }
+
+    start += marker.Length;
+    var end = path.IndexOf('}', start);
+    return end > start ? path[start..end] : null;
+}
+
 // â”€â”€ Record types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 record EpubSpec(
@@ -1887,7 +2036,23 @@ record ComicSpec(
     string Year,
     string? IssueTitle = null);
 
-record ManifestEntry(int Scenario, string Path, string Type, string Note);
+record ManifestEntry(
+    int Scenario,
+    string Path,
+    string Type,
+    string Note,
+    ExpectedIdentityEntry? ExpectedIdentity = null);
+
+record ExpectedIdentityEntry(
+    string Title,
+    string MediaType,
+    string ExpectedStatus,
+    string? ExpectedWorkQid,
+    IReadOnlyDictionary<string, string> ExpectedBridgeIds,
+    string? ExpectedRetailProvider,
+    string? ExpectedReviewTrigger,
+    string Reason,
+    bool KnownNoWikidataEntity);
 
 record ExpectedPersonEntry(
     string Name,

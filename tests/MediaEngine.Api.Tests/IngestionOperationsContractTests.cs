@@ -67,6 +67,21 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void OperationsService_IgnoresStaleHarnessManifestForDifferentActiveRun()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("LoadManifestExpectedOutcomes(summaryTotals.Total)", source, StringComparison.Ordinal);
+        Assert.Contains("counts.ExpectedResolved > activeFileTotal", source, StringComparison.Ordinal);
+        Assert.Contains("return null;", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OperationsService_ReconcilesCompletedCountersAgainstTerminalLifecycleStates()
     {
         var source = File.ReadAllText(Path.Combine(

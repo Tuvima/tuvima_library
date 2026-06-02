@@ -71,6 +71,10 @@
                 <div>
                     <span>Need Review</span>
                     <strong>@FormatCount(Model.ReviewItems)</strong>
+                    @if (Model.ExpectedReviewItems > 0 || Model.UnexpectedReviewItems > 0)
+                    {
+                        <em class="library-update-metric__sub">@FormatExpectedReview(Model)</em>
+                    }
                 </div>
             </div>
         </section>
@@ -266,7 +270,7 @@
                     <span class="library-update-panel__icon is-amber"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span>
                     <div class="library-update-panel__body">
                         <h3>Needs attention</h3>
-                        <p>@FormatCount(Model.ReviewItems) items need review before they can be fully added.</p>
+                        <p>@FormatReviewAttentionText(Model)</p>
                         <ul class="library-update-attention__reasons">
                             @foreach (var reason in Model.AttentionReasons)
                             {
@@ -487,6 +491,8 @@
             model.EnrichmentTotal,
             Math.Round(model.EnrichmentPercent, 1),
             model.ReviewItems,
+            model.ExpectedReviewItems,
+            model.UnexpectedReviewItems,
             model.ActiveItems,
             model.QueuedItems,
             Math.Round(model.ProgressPercent, 1),
@@ -559,6 +565,18 @@
 
     private static string FormatEnrichmentValue(LibraryUpdateStatusViewModel model) =>
         FormatCount(model.EnrichmentCompleted);
+
+    private static string FormatExpectedReview(LibraryUpdateStatusViewModel model) =>
+        model.UnexpectedReviewItems > 0
+            ? $"{FormatCount(model.UnexpectedReviewItems)} unexpected"
+            : $"{FormatCount(model.ExpectedReviewItems)} expected";
+
+    private static string FormatReviewAttentionText(LibraryUpdateStatusViewModel model) =>
+        model.UnexpectedReviewItems > 0
+            ? $"{FormatCount(model.UnexpectedReviewItems)} unexpected items need review; {FormatCount(model.ExpectedReviewItems)} were expected by the harness."
+            : model.ExpectedReviewItems > 0
+                ? $"{FormatCount(model.ReviewItems)} expected items need review before they can be fully added."
+                : $"{FormatCount(model.ReviewItems)} items need review before they can be fully added.";
 
     private static string FormatPercent(double percent) =>
         $"{Math.Clamp(percent, 0, 100).ToString("0", CultureInfo.CurrentCulture)}%";

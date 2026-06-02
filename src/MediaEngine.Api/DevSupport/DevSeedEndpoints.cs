@@ -23,8 +23,10 @@ public static class DevSeedEndpoints
     /// <summary>A seed EPUB definition.</summary>
     /// <remarks>
     /// <para><c>ExpectedQid</c> â€” when set, the reconciliation pass asserts the
-    /// resolved Wikidata QID exactly matches this value. Leave null for fixtures
-    /// where any QID (or no QID) is acceptable.</para>
+    /// resolved Wikidata QID exactly matches this value. Leave null for real
+    /// fixtures where any non-placeholder QID is acceptable; no-QID outcomes
+    /// are only acceptable when <c>ExpectIdentified</c> is false and the fixture
+    /// declares a review trigger or known no-entity reason.</para>
     /// <para><c>ExpectedCoverArt</c> â€” when true (default), the library display
     /// validation asserts that cover art was successfully downloaded for this
     /// item. Set to false for fixtures where no cover art is expected (e.g.
@@ -1444,7 +1446,14 @@ public static class DevSeedEndpoints
         string? ExpectedProvider = null,
         string? ExpectedQid = null,
         bool ExpectedCoverArt = true,
-        string? ReconciliationTitle = null);
+        string? ReconciliationTitle = null,
+        bool KnownNoWikidataEntity = false)
+    {
+        public string ExpectedIdentityStatus =>
+            ExpectIdentified
+                ? (string.IsNullOrWhiteSpace(ExpectedQid) ? "ResolvedQid" : "ExactQid")
+                : KnownNoWikidataEntity ? "KnownNoWikidataEntity" : "NeedsReview";
+    }
 
     /// <summary>
     /// Seeds every canonical test fixture (Books, Audiobooks, Movies, TV, Music, Comics)

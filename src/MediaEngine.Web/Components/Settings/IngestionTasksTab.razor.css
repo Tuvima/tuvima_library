@@ -159,6 +159,16 @@
     white-space: nowrap;
 }
 
+::deep .library-update-metric__sub {
+    display: block;
+    margin-top: 4px;
+    color: rgba(226, 232, 255, 0.62);
+    font-size: 0.76rem;
+    font-style: normal;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
 ::deep .is-purple .library-update-metric__icon,
 ::deep .library-update-panel__icon.is-purple {
     color: #b794ff;

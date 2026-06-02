@@ -89,6 +89,32 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void IntegrationHarness_PreflightsManifestDrivenIdentityExpectations()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+        var seedSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevSeedEndpoints.cs"));
+
+        Assert.Contains("BuildExpectationPreflight", source, StringComparison.Ordinal);
+        Assert.Contains("ExpectedIdentityStatus", seedSource, StringComparison.Ordinal);
+        Assert.Contains("ExpectedResolved", source, StringComparison.Ordinal);
+        Assert.Contains("ExpectedExactQid", source, StringComparison.Ordinal);
+        Assert.Contains("ExpectedAnyQid", source, StringComparison.Ordinal);
+        Assert.Contains("Preflight Expected Outcomes", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IntegrationHarness_DoesNotAcceptQidNoMatchForExpectedFixtures()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("expectsIdentification", source, StringComparison.Ordinal);
+        Assert.Contains("Pass = hasQid && exactQidMatches", source, StringComparison.Ordinal);
+        Assert.Contains("expected a Wikidata QID", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("accepted re-check state", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("hasQid || retainedRetailWithoutQid", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OverallPass_FailsWhenReconciliationHasMismatches()
     {
         var report = CreateTestReport();

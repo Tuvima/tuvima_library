@@ -66,6 +66,39 @@ public sealed class IngestionOperationsSummaryDto
 
     [JsonPropertyName("health_label")]
     public string HealthLabel { get; init; } = "Healthy";
+
+    [JsonPropertyName("expected_outcomes")]
+    public IngestionExpectedOutcomesDto? ExpectedOutcomes { get; init; }
+}
+
+public sealed class IngestionExpectedOutcomesDto
+{
+    [JsonPropertyName("total_files")]
+    public int TotalFiles { get; init; }
+
+    [JsonPropertyName("expected_resolved")]
+    public int ExpectedResolved { get; init; }
+
+    [JsonPropertyName("expected_exact_qid")]
+    public int ExpectedExactQid { get; init; }
+
+    [JsonPropertyName("expected_any_qid")]
+    public int ExpectedAnyQid { get; init; }
+
+    [JsonPropertyName("expected_review")]
+    public int ExpectedReview { get; init; }
+
+    [JsonPropertyName("expected_known_no_qid")]
+    public int ExpectedKnownNoQid { get; init; }
+
+    [JsonPropertyName("expected_duplicate")]
+    public int ExpectedDuplicate { get; init; }
+
+    [JsonPropertyName("expected_skipped")]
+    public int ExpectedSkipped { get; init; }
+
+    [JsonPropertyName("expected_corrupt")]
+    public int ExpectedCorrupt { get; init; }
 }
 
 public sealed class IngestionOperationsJobDto

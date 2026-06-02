@@ -1135,6 +1135,11 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var reviewItems = pendingReviews.Count > 0
             ? pendingReviews.Count
             : Math.Max(0, snapshot?.Summary.ItemsNeedingReview ?? 0);
+        var expectedOutcomes = snapshot?.Summary.ExpectedOutcomes;
+        var expectedReviewItems = Math.Max(0, expectedOutcomes?.ExpectedReview ?? 0);
+        var unexpectedReviewItems = expectedOutcomes is null
+            ? 0
+            : Math.Max(0, reviewItems - expectedReviewItems);
         var activeItems = currentActivities.Sum(activity => Math.Max(0, activity.ActiveCount));
         if (activeItems == 0)
             activeItems = activeJobs.Count(job => IsActiveJob(job));
@@ -1183,6 +1188,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
             enrichmentPercent,
             enrichmentStats,
             reviewItems,
+            expectedReviewItems,
+            unexpectedReviewItems,
             activeItems,
             queuedItems,
             addedOrUpdatedCount,
@@ -2570,6 +2577,8 @@ public sealed record LibraryUpdateStatusViewModel(
     double EnrichmentPercent,
     IReadOnlyList<LibraryUpdateEnrichmentStatViewModel> EnrichmentStats,
     int ReviewItems,
+    int ExpectedReviewItems,
+    int UnexpectedReviewItems,
     int ActiveItems,
     int QueuedItems,
     int AddedOrUpdatedCount,

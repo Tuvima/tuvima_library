@@ -9,6 +9,7 @@ using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 using ProviderConfig = MediaEngine.Storage.Models.ProviderConfiguration;
 
 namespace MediaEngine.Api.Services;
@@ -220,6 +221,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             FailedBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase))
             + Count(pipelineRows, nameof(IdentityJobState.Failed));
         var summaryTotals = BuildSummaryTotals(displayBatch, lifecycle, projection, pendingReviewCount);
+        var expectedOutcomes = LoadManifestExpectedOutcomes(summaryTotals.Total);
         var pipelineStages = BuildPipelineStages(scopedPipelineRows, scopedIngestionRows, lifecycle, projection, displayBatch, pendingReviewCount);
         var batchStats = await ReadBatchStatsAsync(recentBatches, ct);
         var recentBatchGroups = BuildRecentBatchGroups(recentBatches);
@@ -253,6 +255,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 .FirstOrDefault(),
             EngineStatus = providerWarnings > 0 || failedJobs > 0 ? "Degraded" : "Online",
             HealthLabel = ResolveHealthLabel(summaryTotals.Review, providerWarnings, failedJobs, activeWorkCount),
+            ExpectedOutcomes = expectedOutcomes,
         };
 
         return new IngestionOperationsSnapshotDto
@@ -272,6 +275,165 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Organization = BuildOrganizationRules(),
             GeneratedAt = DateTimeOffset.UtcNow,
         };
+    }
+
+    private IngestionExpectedOutcomesDto? LoadManifestExpectedOutcomes(int activeFileTotal)
+    {
+        var manifestPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sourcePath in _configLoader.LoadLibraries().Libraries
+            .SelectMany(library => library.SourcePaths)
+            .Where(path => !string.IsNullOrWhiteSpace(path)))
+        {
+            AddManifestCandidate(manifestPaths, sourcePath);
+            var parent = Directory.GetParent(sourcePath);
+            if (parent is not null)
+            {
+                AddManifestCandidate(manifestPaths, parent.FullName);
+            }
+        }
+
+        if (manifestPaths.Count == 0)
+        {
+            return null;
+        }
+
+        var counts = new ExpectedOutcomeCounts();
+        foreach (var manifestPath in manifestPaths)
+        {
+            if (!File.Exists(manifestPath))
+            {
+                continue;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(manifestPath));
+                if (document.RootElement.TryGetProperty("files", out var files)
+                    && files.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var file in files.EnumerateArray())
+                    {
+                        if (file.TryGetProperty("expected_identity", out var expectedIdentity))
+                        {
+                            AccumulateExpectedOutcome(expectedIdentity, counts);
+                        }
+                    }
+                }
+
+                if (document.RootElement.TryGetProperty("expected_identity", out var expectedItems)
+                    && expectedItems.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var expectedIdentity in expectedItems.EnumerateArray())
+                    {
+                        AccumulateExpectedOutcome(expectedIdentity, counts);
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Harness manifests are optional status hints for the dashboard; malformed
+                // dev manifests should not break the production ingestion status endpoint.
+                continue;
+            }
+            catch (IOException)
+            {
+                // A manifest can be regenerated while the dashboard polls. The next snapshot
+                // will pick it up once the file is readable.
+                continue;
+            }
+        }
+
+        if (activeFileTotal > 0 && counts.ExpectedResolved > activeFileTotal)
+        {
+            return null;
+        }
+
+        return counts.TotalFiles == 0
+            ? null
+            : new IngestionExpectedOutcomesDto
+            {
+                TotalFiles = counts.TotalFiles,
+                ExpectedResolved = counts.ExpectedResolved,
+                ExpectedExactQid = counts.ExpectedExactQid,
+                ExpectedAnyQid = counts.ExpectedAnyQid,
+                ExpectedReview = counts.ExpectedReview,
+                ExpectedKnownNoQid = counts.ExpectedKnownNoQid,
+                ExpectedDuplicate = counts.ExpectedDuplicate,
+                ExpectedSkipped = counts.ExpectedSkipped,
+                ExpectedCorrupt = counts.ExpectedCorrupt,
+            };
+    }
+
+    private sealed class ExpectedOutcomeCounts
+    {
+        public int TotalFiles { get; set; }
+        public int ExpectedResolved { get; set; }
+        public int ExpectedExactQid { get; set; }
+        public int ExpectedAnyQid { get; set; }
+        public int ExpectedReview { get; set; }
+        public int ExpectedKnownNoQid { get; set; }
+        public int ExpectedDuplicate { get; set; }
+        public int ExpectedSkipped { get; set; }
+        public int ExpectedCorrupt { get; set; }
+    }
+
+    private static void AddManifestCandidate(HashSet<string> manifestPaths, string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        manifestPaths.Add(Path.Combine(directory, "MANIFEST.json"));
+    }
+
+    private static void AccumulateExpectedOutcome(JsonElement expectedIdentity, ExpectedOutcomeCounts counts)
+    {
+        if (expectedIdentity.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        var status = ReadJsonString(expectedIdentity, "expected_status");
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return;
+        }
+
+        counts.TotalFiles++;
+        switch (status.Trim())
+        {
+            case "ExactQid":
+                counts.ExpectedResolved++;
+                counts.ExpectedExactQid++;
+                break;
+            case "ResolvedQid":
+                counts.ExpectedResolved++;
+                counts.ExpectedAnyQid++;
+                break;
+            case "NeedsReview":
+                counts.ExpectedReview++;
+                break;
+            case "KnownNoWikidataEntity":
+                counts.ExpectedKnownNoQid++;
+                break;
+            case "Duplicate":
+                counts.ExpectedDuplicate++;
+                break;
+            case "Skipped":
+                counts.ExpectedSkipped++;
+                break;
+            case "Corrupt":
+                counts.ExpectedCorrupt++;
+                break;
+        }
+    }
+
+    private static string? ReadJsonString(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
     }
 
     private async Task<IReadOnlyDictionary<string, int>> ReadIdentityStateCountsAsync(Guid batchId, CancellationToken ct)

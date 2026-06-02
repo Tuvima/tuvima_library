@@ -44,6 +44,24 @@ public sealed class TestHarnessGuardrailTests
     }
 
     [Fact]
+    public void Generator_WritesPerFileIdentityExpectationsToManifest()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "tools", "GenerateTestEpubs", "Program.cs"));
+
+        Assert.Contains("expected_identity = new", source);
+        Assert.Contains("expected_status = expected.ExpectedStatus", source);
+        Assert.Contains("expected_work_qid = expected.ExpectedWorkQid", source);
+        Assert.Contains("expected_bridge_ids = expected.ExpectedBridgeIds", source);
+        Assert.Contains("expected_retail_provider = expected.ExpectedRetailProvider", source);
+        Assert.Contains("expected_review_trigger = expected.ExpectedReviewTrigger", source);
+        Assert.Contains("Known real-world fixture should resolve to a non-placeholder Wikidata QID.", source);
+        Assert.Contains("ExpectedStatus: \"ResolvedQid\"", source);
+        Assert.Contains("ExpectedStatus: \"Duplicate\"", source);
+        Assert.Contains("ExpectedStatus: \"Corrupt\"", source);
+        Assert.Contains("ExpectedStatus: \"Skipped\"", source);
+    }
+
+    [Fact]
     public void Generator_HasLargeStressCorpusAcrossAllPrimaryMediaTypes()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "tools", "GenerateTestEpubs", "Program.cs"));

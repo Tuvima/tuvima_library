@@ -48,6 +48,7 @@ public static class IntegrationTestEndpoints
         public TimeSpan IngestionDuration { get; set; }
         /// <summary>Stage level tested: 1, 12, or 123.</summary>
         public int StagesLevel { get; set; } = 12;
+        public ExpectationPreflightSummary ExpectationPreflight { get; set; } = new();
         public List<MediaTypeResult> MediaTypeResults { get; set; } = [];
         public List<ManualSearchResult> ManualSearchResults { get; set; } = [];
         public List<UniverseResult> UniverseResults { get; set; } = [];
@@ -190,6 +191,31 @@ public static class IntegrationTestEndpoints
         public string Check { get; set; } = "";
         public bool Pass { get; set; }
         public string? Detail { get; set; }
+    }
+
+    private sealed class ExpectationPreflightSummary
+    {
+        public int TotalFiles { get; set; }
+        public int ExpectedResolved { get; set; }
+        public int ExpectedExactQid { get; set; }
+        public int ExpectedAnyQid { get; set; }
+        public int ExpectedReview { get; set; }
+        public int ExpectedKnownNoQid { get; set; }
+        public int ExpectedDuplicate { get; set; }
+        public int ExpectedSkipped { get; set; }
+        public int ExpectedCorrupt { get; set; }
+        public List<ExpectationPreflightItem> Items { get; set; } = [];
+    }
+
+    private sealed class ExpectationPreflightItem
+    {
+        public string Title { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        public string ExpectedStatus { get; set; } = "";
+        public string? ExpectedQid { get; set; }
+        public string? ExpectedProvider { get; set; }
+        public string? ExpectedReviewTrigger { get; set; }
+        public string? Reason { get; set; }
     }
 
     /// <summary>Point-in-time ingestion count sample used to catch impossible progress math.</summary>
@@ -579,6 +605,7 @@ public static class IntegrationTestEndpoints
         report.ActiveTypes = activeTypes;
         report.SkippedTypes = skipReasons;
         report.ProviderHealth = health.ToDictionary(h => h.Key, h => h.Value.Healthy);
+        report.ExpectationPreflight = BuildExpectationPreflight(activeTypes, skipReasons);
 
         string typesLabel = string.Join(", ", activeTypes.OrderBy(t => t));
 
@@ -597,6 +624,7 @@ public static class IntegrationTestEndpoints
         try
         {
             // â”€â”€ Phase 1: Wipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            LogExpectationPreflight(report.ExpectationPreflight, logger);
             logger.LogInformation("[Phase 1] Wiping harness state ({Scope})...", wipeScope);
             try
             {
@@ -807,6 +835,72 @@ public static class IntegrationTestEndpoints
         HashSet<string> activeTypes,
         ILogger logger)
         => DevSeedEndpoints.SeedAllAsync(options, configLoader, activeTypes, logger);
+
+    private static ExpectationPreflightSummary BuildExpectationPreflight(
+        IReadOnlyCollection<string> activeTypes,
+        IReadOnlyDictionary<string, string> skippedTypes)
+    {
+        var activeSet = new HashSet<string>(activeTypes, StringComparer.OrdinalIgnoreCase);
+        var summary = new ExpectationPreflightSummary();
+        foreach (var expectation in DevSeedEndpoints.GetAllExpectations()
+            .Where(e => activeSet.Contains(NormalizeHarnessMediaTypeKey(e.MediaType))))
+        {
+            var typeKey = NormalizeHarnessMediaTypeKey(expectation.MediaType);
+            if (skippedTypes.ContainsKey(typeKey))
+            {
+                continue;
+            }
+
+            var status = expectation.ExpectedIdentityStatus;
+            var item = new ExpectationPreflightItem
+            {
+                Title = expectation.Title,
+                MediaType = expectation.MediaType,
+                ExpectedStatus = status,
+                ExpectedQid = expectation.ExpectedQid,
+                ExpectedProvider = GetExpectedRetailProvider(expectation, expectation.MediaType),
+                ExpectedReviewTrigger = expectation.ExpectedReviewTrigger,
+                Reason = expectation.ExpectedReason,
+            };
+            summary.Items.Add(item);
+            summary.TotalFiles++;
+
+            if (expectation.ExpectIdentified)
+            {
+                summary.ExpectedResolved++;
+                if (string.IsNullOrWhiteSpace(expectation.ExpectedQid))
+                {
+                    summary.ExpectedAnyQid++;
+                }
+                else
+                {
+                    summary.ExpectedExactQid++;
+                }
+            }
+            else if (expectation.KnownNoWikidataEntity)
+            {
+                summary.ExpectedKnownNoQid++;
+            }
+            else
+            {
+                summary.ExpectedReview++;
+            }
+        }
+
+        return summary;
+    }
+
+    private static void LogExpectationPreflight(ExpectationPreflightSummary summary, ILogger logger)
+    {
+        logger.LogInformation(
+            "[Preflight] Expected outcomes: {Total} files; {Resolved} should resolve ({Exact} exact QID, {Any} any QID); {Review} expected review; {KnownNoQid} known no-QID",
+            summary.TotalFiles,
+            summary.ExpectedResolved,
+            summary.ExpectedExactQid,
+            summary.ExpectedAnyQid,
+            summary.ExpectedReview,
+            summary.ExpectedKnownNoQid);
+    }
 
     private static string NormalizeHarnessMediaTypeKey(string? value)
     {
@@ -1316,6 +1410,19 @@ public static class IntegrationTestEndpoints
             if (stages >= 12 && !check.HasWikidataQid)
             {
                 logger.LogWarning("  Library: '{Title}' missing Wikidata QID (Stage 2 expected)", item.Title);
+                if (expected?.ExpectIdentified == true)
+                {
+                    report.IssuesFound.Add($"Library: '{item.Title}' expected a Wikidata QID but has none");
+                }
+            }
+
+            if (stages >= 12
+                && expected?.ExpectIdentified == true
+                && !string.IsNullOrWhiteSpace(expected.ExpectedQid)
+                && !string.IsNullOrWhiteSpace(check.WikidataQid)
+                && !string.Equals(expected.ExpectedQid, check.WikidataQid, StringComparison.OrdinalIgnoreCase))
+            {
+                report.IssuesFound.Add($"Library: '{item.Title}' resolved QID '{check.WikidataQid}' but expected '{expected.ExpectedQid}'");
             }
         }
 
@@ -1586,6 +1693,9 @@ public static class IntegrationTestEndpoints
     {
         var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         var validationItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
+        var expectations = DevSeedEndpoints.GetAllExpectations()
+            .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         if (stages == 1)
         {
@@ -1611,33 +1721,35 @@ public static class IntegrationTestEndpoints
         }
         else if (stages >= 12)
         {
-            // Stage 1+2: items WITH a retail match SHOULD have a QID;
-            // items WITHOUT a retail match should NOT have a QID.
+            // Stage 1+2: known fixtures should resolve to Wikidata before the
+            // run is accepted. Retail-only/no-QID is a report failure unless
+            // the expectation explicitly marks the fixture as non-identifiable.
             foreach (var item in validationItems)
             {
-                // Only "matched" counts as a successful retail match. "failed" means
-                // the provider ran but returned nothing; "none" means no provider ran
-                // at all. Both should suppress the "QID expected" gating assertion.
+                expectations.TryGetValue(NormalizeExpectationKey(item.Title, item.MediaType), out var expected);
                 bool hasRetail = string.Equals(item.RetailMatch, "matched", StringComparison.OrdinalIgnoreCase);
-                bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid);
-                bool retainedRetailWithoutQid = string.Equals(item.Status, "QidNoMatch", StringComparison.OrdinalIgnoreCase);
-
-                if (hasRetail)
+                bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid)
+                    && !item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+                bool expectsIdentification = expected?.ExpectIdentified ?? hasRetail;
+                bool exactQidMatches = string.IsNullOrWhiteSpace(expected?.ExpectedQid)
+                    || string.Equals(expected.ExpectedQid, item.WikidataQid, StringComparison.OrdinalIgnoreCase);
+                if (hasRetail || expectsIdentification)
                 {
                     var result = new StageGatingResult
                     {
                         Title = item.Title,
                         Check = "Stage 2: retail match â†’ QID expected",
-                        Pass = hasQid || retainedRetailWithoutQid,
+                        Pass = hasQid && exactQidMatches,
                         Detail = hasQid
-                            ? $"QID: {item.WikidataQid}"
-                            : retainedRetailWithoutQid
-                                ? "Retail match retained without QID (accepted re-check state)"
-                                : "Missing QID despite retail match",
+                            ? exactQidMatches
+                                ? $"QID: {item.WikidataQid}"
+                                : $"Wrong QID: {item.WikidataQid}; expected {expected?.ExpectedQid}"
+                            : "Missing QID despite retail match",
                     };
                     report.StageGatingResults.Add(result);
-                    if (!hasQid && !retainedRetailWithoutQid)
+                    if (!result.Pass)
                     {
+                        report.IssuesFound.Add($"Stage gating: '{item.Title}' expected a Wikidata QID but ended as status '{item.Status ?? "unknown"}' with retail '{item.RetailMatch ?? "none"}'");
                         logger.LogWarning("  Stage gating: '{Title}' has retail match but no QID", item.Title);
                     }
                 }
@@ -1646,9 +1758,9 @@ public static class IntegrationTestEndpoints
                     var result = new StageGatingResult
                     {
                         Title = item.Title,
-                        Check = "Stage 2: no retail match â†’ QID not expected",
-                        Pass = true, // No retail match â€” QID absence is acceptable
-                        Detail = hasQid ? $"Bonus QID: {item.WikidataQid}" : "No retail, no QID â€” expected",
+                        Check = "Stage 2: no QID expected by manifest",
+                        Pass = true,
+                        Detail = hasQid ? $"Unexpected-but-allowed QID: {item.WikidataQid}" : "Manifest allows no QID",
                     };
                     report.StageGatingResults.Add(result);
                 }
@@ -2779,6 +2891,7 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.TotalItems.ToString(), "Items Detected", "#8B9DC3");
         SummaryCard(sb, report.TotalIdentified.ToString(), "Identified", "#5DCAA5");
         SummaryCard(sb, report.TotalNeedsReview.ToString(), "Needs Review", "#EF9F27");
+        SummaryCard(sb, report.ExpectationPreflight.ExpectedResolved.ToString(), "Expected QID", "#F472B6");
         SummaryCard(sb, report.TotalFailed.ToString(), "Failed", "#E24B4A");
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
         SummaryCard(sb, report.LibraryChecks.Count(v => v.Pass).ToString() + "/" + report.LibraryChecks.Count, "Library Checks", "#22D3EE");
@@ -2821,6 +2934,24 @@ public static class IntegrationTestEndpoints
         }
 
         sb.AppendLine("</div>");
+
+        if (report.ExpectationPreflight.TotalFiles > 0)
+        {
+            var expectation = report.ExpectationPreflight;
+            sb.AppendLine("<h2>Preflight Expected Outcomes</h2>");
+            sb.AppendLine($"<p class=\"subtitle\">{expectation.TotalFiles} fixture(s): {expectation.ExpectedResolved} expected to resolve to QIDs ({expectation.ExpectedExactQid} exact, {expectation.ExpectedAnyQid} any real QID), {expectation.ExpectedReview} expected review, {expectation.ExpectedKnownNoQid} known no-QID.</p>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Media Type</th><th>Expected QID</th><th>Any QID</th><th>Expected Review</th><th>Known No-QID</th></tr>");
+            foreach (var group in expectation.Items.GroupBy(i => i.MediaType).OrderBy(g => g.Key))
+            {
+                int exact = group.Count(i => i.ExpectedStatus.Equals("ExactQid", StringComparison.OrdinalIgnoreCase));
+                int any = group.Count(i => i.ExpectedStatus.Equals("ResolvedQid", StringComparison.OrdinalIgnoreCase));
+                int review = group.Count(i => i.ExpectedStatus.Equals("NeedsReview", StringComparison.OrdinalIgnoreCase));
+                int noQid = group.Count(i => i.ExpectedStatus.Equals("KnownNoWikidataEntity", StringComparison.OrdinalIgnoreCase));
+                sb.AppendLine($"<tr><td>{Esc(group.Key)}</td><td>{exact}</td><td>{any}</td><td>{review}</td><td>{noQid}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
 
         // Provider health section
         if (report.ProviderHealth.Count > 0)

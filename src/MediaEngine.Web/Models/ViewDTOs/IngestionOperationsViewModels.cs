@@ -47,6 +47,20 @@ public sealed class IngestionOperationsSummaryViewModel
     [JsonPropertyName("last_successful_scan_time")] public DateTimeOffset? LastSuccessfulScanTime { get; set; }
     [JsonPropertyName("engine_status")] public string EngineStatus { get; set; } = "Unknown";
     [JsonPropertyName("health_label")] public string HealthLabel { get; set; } = "Unknown";
+    [JsonPropertyName("expected_outcomes")] public IngestionExpectedOutcomesViewModel? ExpectedOutcomes { get; set; }
+}
+
+public sealed class IngestionExpectedOutcomesViewModel
+{
+    [JsonPropertyName("total_files")] public int TotalFiles { get; set; }
+    [JsonPropertyName("expected_resolved")] public int ExpectedResolved { get; set; }
+    [JsonPropertyName("expected_exact_qid")] public int ExpectedExactQid { get; set; }
+    [JsonPropertyName("expected_any_qid")] public int ExpectedAnyQid { get; set; }
+    [JsonPropertyName("expected_review")] public int ExpectedReview { get; set; }
+    [JsonPropertyName("expected_known_no_qid")] public int ExpectedKnownNoQid { get; set; }
+    [JsonPropertyName("expected_duplicate")] public int ExpectedDuplicate { get; set; }
+    [JsonPropertyName("expected_skipped")] public int ExpectedSkipped { get; set; }
+    [JsonPropertyName("expected_corrupt")] public int ExpectedCorrupt { get; set; }
 }
 
 public sealed class IngestionOperationsJobViewModel
