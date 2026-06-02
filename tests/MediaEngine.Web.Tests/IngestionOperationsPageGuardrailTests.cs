@@ -531,7 +531,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             EstimatedSecondsRemaining: 30,
             IsComplete: false,
             RecentTitles: ["Something"],
-            CurrentStage: "Hydrating metadata",
+            CurrentStage: "Quick metadata and artwork",
             FilesQueued: 3,
             FilesActive: 1,
             CurrentFileTitle: "Moonage Daydream",
@@ -556,9 +556,10 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         var activities = IngestionLiveDashboardState.BuildCurrentActivities(snapshot, activeJobs, stages, state);
 
-        var activity = Assert.Single(activities, item => item.StageKey == "relationships");
+        var activity = Assert.Single(activities, item => item.StageKey == "metadata");
+        Assert.Equal("Quick metadata and artwork", activity.Message);
         Assert.Equal("Moonage Daydream", activity.CurrentItem);
-        Assert.Equal("Hydrating metadata", activity.Detail);
+        Assert.Equal("Adding quick metadata and artwork", activity.Detail);
         Assert.Equal(1, activity.ActiveCount);
         Assert.Equal(3, activity.QueuedCount);
     }
@@ -701,13 +702,13 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         var activity = Assert.Single(activities);
         Assert.Equal("relationships", activity.StageKey);
-        Assert.Equal("Series & relationships", activity.Message);
+        Assert.Equal("Artwork, people, and relationship enhancers", activity.Message);
         Assert.Equal("Star Wars: Episode IV - A New Hope", activity.CurrentItem);
         Assert.Equal(70, activity.ProcessedCount);
         Assert.Equal(77, activity.TotalCount);
         Assert.Equal(1, activity.ActiveCount);
         Assert.Equal(6, activity.QueuedCount);
-        Assert.Equal("Enhancers", activity.MetricValue);
+        Assert.Equal("Enriching artwork, people, and relationships", activity.MetricValue);
     }
 
     [Fact]
@@ -746,7 +747,7 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Equal(LibraryUpdatePageState.Running, status.PageState);
         Assert.Equal("Star Wars: Episode IV - A New Hope", status.CurrentItemTitle);
-        Assert.Equal("Enriching metadata and relationships", status.CurrentStep);
+        Assert.Equal("Building series and relationships", status.CurrentStep);
         Assert.Contains(status.Steps, step => step.Label == "Enriched metadata" && step.Status == LibraryUpdateStepStatus.InProgress);
     }
 
@@ -799,7 +800,7 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Contains("EmitBatchProgressAsync(job.IngestionRunId", workerSource, StringComparison.Ordinal);
         Assert.Contains("\"UniverseEnriching\"", progressSource, StringComparison.Ordinal);
-        Assert.Contains("\"Hydrating\" => \"Hydrating metadata\"", progressSource, StringComparison.Ordinal);
+        Assert.Contains("\"Hydrating\" => \"Quick metadata and artwork\"", progressSource, StringComparison.Ordinal);
         Assert.Contains("BuildLiveBatchActivity", stateSource, StringComparison.Ordinal);
         Assert.Contains("nameof(IdentityJobState.Hydrating)", operationsSource, StringComparison.Ordinal);
         Assert.Contains("ActiveBatchFreshness", operationsSource, StringComparison.Ordinal);

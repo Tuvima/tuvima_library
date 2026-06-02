@@ -272,7 +272,7 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        return (await conn.QueryAsync<ReviewReasonCount>("""
+        var rows = await conn.QueryAsync<ReviewReasonCountRow>("""
             SELECT rq.trigger AS Trigger, rq.detail AS Detail, COUNT(DISTINCT rq.id) AS Count
             FROM review_queue rq
             WHERE rq.status = @status
@@ -287,7 +287,11 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
                  OR (rq.entity_type NOT IN ('MediaAsset', 'Work'))
               )
             GROUP BY rq.trigger, rq.detail;
-            """, new { status = ReviewStatus.Pending })).AsList();
+            """, new { status = ReviewStatus.Pending });
+
+        return rows
+            .Select(row => new ReviewReasonCount(row.Trigger, row.Detail, ToInt(row.Count)))
+            .ToList();
     }
 
     private static ReviewQueueEntry ToEntry(ReviewDisplayRow row) => new()
@@ -350,6 +354,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
     private static DateTimeOffset? ParseDate(string? value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
 
+    private static int ToInt(long value) =>
+        value > int.MaxValue ? int.MaxValue : (int)Math.Max(0, value);
+
     private sealed class ReviewDisplayRow
     {
         public Guid Id { get; init; }
@@ -374,4 +381,11 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
     }
 
     private sealed record KeyValueRow(string Key, string Value);
+
+    private sealed class ReviewReasonCountRow
+    {
+        public string? Trigger { get; init; }
+        public string? Detail { get; init; }
+        public long Count { get; init; }
+    }
 }

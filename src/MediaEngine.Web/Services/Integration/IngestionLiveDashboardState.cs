@@ -644,9 +644,21 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var activity = ToCurrentActivity(job, stages);
         if (activity.StageKey.Equals("enrichment", StringComparison.OrdinalIgnoreCase))
         {
-            activity.StageKey = "relationships";
-            activity.Message = "Series & relationships";
-            activity.Detail = FirstNonBlank(batch.CurrentStage, activity.Detail, "Stage 3 enrichment");
+            var batchStage = FirstNonBlank(batch.CurrentStage, batch.LifecycleStage);
+            var friendlyStage = ToFriendlyStepLabel(batchStage);
+            if (IsQuickMetadataStage(batchStage))
+            {
+                activity.StageKey = "metadata";
+                activity.Message = "Quick metadata and artwork";
+                activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Adding quick metadata and artwork");
+            }
+            else
+            {
+                activity.StageKey = "relationships";
+                activity.Message = "Series & relationships";
+                activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Stage 3 enrichment");
+            }
+
             activity.CountUnit = "items";
         }
 
@@ -682,11 +694,14 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var queued = total > 0 ? Math.Max(0, total - completed - active) : 0;
         var percent = total > 0 ? Math.Clamp(completed * 100d / total, 0, 99) : 0;
 
+        var stepLabel = ToFriendlyStepLabel(progress.CurrentStep);
         return new IngestionCurrentActivityViewModel
         {
             StageKey = "relationships",
-            Message = "Series & relationships",
-            Detail = FirstNonBlank(progress.CurrentStep, "Stage 3 enrichment"),
+            Message = progress.CurrentStep.Contains("enhancer", StringComparison.OrdinalIgnoreCase)
+                ? "Artwork, people, and relationship enhancers"
+                : "Series & relationships",
+            Detail = FirstNonBlank(stepLabel, "Stage 3 enrichment"),
             CurrentItem = progress.WorkTitle,
             Source = "Wikidata",
             ProcessedCount = completed,
@@ -698,7 +713,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             ActiveCount = active,
             SampleItems = [progress.WorkTitle],
             MetricLabel = "Current step",
-            MetricValue = FirstNonBlank(progress.CurrentStep, "Stage 3"),
+            MetricValue = FirstNonBlank(stepLabel, "Stage 3"),
             MetricTone = "success",
             CurrentBatch = total > 0
                 ? new IngestionActivityBatchViewModel
@@ -1810,7 +1825,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         int activeStep)
     {
         var explicitStep = FirstNonBlank(
-            primaryActivity?.Message,
+            ResolveSpecificActivityStep(primaryActivity),
             activeJobs.Select(job => job.CurrentStage).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)));
         if (!string.IsNullOrWhiteSpace(explicitStep))
             return ToFriendlyStepLabel(explicitStep);
@@ -1824,6 +1839,24 @@ public sealed class IngestionLiveDashboardState : IDisposable
             4 => "Saving library records",
             _ => "Checking library update",
         };
+    }
+
+    private static string ResolveSpecificActivityStep(IngestionCurrentActivityViewModel? activity)
+    {
+        if (activity is null)
+            return string.Empty;
+
+        var detail = activity.Detail ?? string.Empty;
+        if (detail.Contains("enhancer", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("core universe", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("artwork", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("people", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("relationship", StringComparison.OrdinalIgnoreCase))
+        {
+            return detail;
+        }
+
+        return FirstNonBlank(activity.Message, detail);
     }
 
     private static string ResolveCurrentSource(IngestionCurrentActivityViewModel? primaryActivity)
@@ -2373,15 +2406,37 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private static string ToFriendlyStepLabel(string value)
     {
         var normalized = value.Replace('_', ' ').Trim();
+        if (normalized.Contains("quick metadata", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("hydrat", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Adding quick metadata and artwork";
+        }
+
+        if (normalized.Contains("enhancer", StringComparison.OrdinalIgnoreCase))
+            return "Enriching artwork, people, and relationships";
+
+        if (normalized.Contains("people", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("cast", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Enriching people and cast";
+        }
+
         if (normalized.Contains("artwork", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains("cover", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains("metadata", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains("hydrat", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains("enrich", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("cover", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Fetching artwork";
+        }
+
+        if (normalized.Contains("core universe", StringComparison.OrdinalIgnoreCase)
             || normalized.Contains("series", StringComparison.OrdinalIgnoreCase)
             || normalized.Contains("relationship", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains("people", StringComparison.OrdinalIgnoreCase)
-            || normalized.Contains("cast", StringComparison.OrdinalIgnoreCase))
+            || normalized.Contains("universe", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Building series and relationships";
+        }
+
+        if (normalized.Contains("metadata", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("enrich", StringComparison.OrdinalIgnoreCase))
         {
             return "Enriching metadata and relationships";
         }
@@ -2414,6 +2469,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
         return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(normalized);
     }
+
+    private static bool IsQuickMetadataStage(string value) =>
+        value.Contains("quick metadata", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("hydrat", StringComparison.OrdinalIgnoreCase);
 
     private static string CleanDisplayTitle(string value)
     {

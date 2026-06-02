@@ -62,6 +62,27 @@ public sealed class ReviewQueueReadServiceTests : IDisposable
         Assert.Equal("Q83495", assetReview.BridgeIdentifiers["wikidata_qid"]);
     }
 
+    [Fact]
+    public async Task PendingReasonCounts_MaterializeSqliteCountValues()
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        SeedMediaAsset(workId, editionId, assetId);
+
+        var repository = new ReviewQueueRepository(_db);
+        await repository.InsertAsync(Review(Guid.NewGuid(), assetId, "MediaAsset", "Asset needs confirmation"));
+
+        var service = new ReviewQueueReadService(_db);
+
+        var reasons = await service.GetPendingReasonCountsAsync(CancellationToken.None);
+
+        var reason = Assert.Single(reasons);
+        Assert.Equal(ReviewTrigger.MetadataConflict, reason.Trigger);
+        Assert.Equal("Asset needs confirmation", reason.Detail);
+        Assert.Equal(1, reason.Count);
+    }
+
     private static ReviewQueueEntry Review(Guid id, Guid entityId, string entityType, string detail) => new()
     {
         Id = id,

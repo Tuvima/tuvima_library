@@ -590,6 +590,8 @@
     private static string ActivityIcon(IngestionCurrentActivityViewModel activity)
     {
         var value = ActivityKey(activity);
+        if (value.Contains("enhancer"))
+            return Icons.Material.Outlined.AutoAwesome;
         if (value.Contains("art") || value.Contains("cover"))
             return Icons.Material.Outlined.ImageSearch;
         if (value.Contains("people") || value.Contains("cast"))
@@ -609,6 +611,8 @@
     private static string ActivityLabel(IngestionCurrentActivityViewModel activity)
     {
         var value = ActivityKey(activity);
+        if (value.Contains("enhancer"))
+            return "Artwork, people & relationships";
         if (value.Contains("art") || value.Contains("cover"))
             return "Artwork lookup";
         if (value.Contains("people") || value.Contains("cast"))
@@ -635,6 +639,8 @@
     private static string ActivityTone(IngestionCurrentActivityViewModel activity)
     {
         var value = ActivityKey(activity);
+        if (value.Contains("enhancer"))
+            return "purple";
         if (value.Contains("art") || value.Contains("cover"))
             return "pink";
         if (value.Contains("people") || value.Contains("cast"))
@@ -649,6 +655,8 @@
     private static int ActivitySort(IngestionCurrentActivityViewModel activity)
     {
         var value = ActivityKey(activity);
+        if (value.Contains("enhancer"))
+            return 25;
         if (value.Contains("art") || value.Contains("cover"))
             return 10;
         if (value.Contains("people") || value.Contains("cast"))
@@ -663,7 +671,8 @@
     }
 
     private static string ActivityKey(IngestionCurrentActivityViewModel activity) =>
-        FirstNonBlank(activity.StageKey, activity.Message, activity.Detail).ToLowerInvariant();
+        string.Join(' ', activity.StageKey, activity.Message, activity.Detail, activity.MetricValue)
+            .ToLowerInvariant();
 
     private static RenderFragment BatchHeader(string label, string icon, string tone) => builder =>
     {
