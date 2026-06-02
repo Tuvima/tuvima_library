@@ -51,6 +51,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Privacy, "/settings/privacy")]
     [InlineData(SettingsSection.Libraries, "/settings/libraries")]
     [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData(SettingsSection.DevHarness, "/settings/dev-harness")]
     [InlineData(SettingsSection.Providers, "/settings/providers")]
     [InlineData(SettingsSection.LocalAi, "/settings/ai")]
     [InlineData(SettingsSection.Plugins, "/settings/plugins")]
@@ -128,6 +129,8 @@ public sealed class SettingsNavTests
     [InlineData("folders", SettingsSection.Libraries, "/settings/libraries")]
     [InlineData("tasks", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("maintenance", SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData("harness", SettingsSection.DevHarness, "/settings/dev-harness")]
+    [InlineData("ingestion-harness", SettingsSection.DevHarness, "/settings/dev-harness")]
     [InlineData("models", SettingsSection.LocalAi, "/settings/ai")]
     [InlineData("features", SettingsSection.LocalAi, "/settings/ai")]
     [InlineData("vocabulary", SettingsSection.LocalAi, "/settings/ai")]
@@ -205,6 +208,7 @@ public sealed class SettingsNavTests
             "Admin Overview",
             "Libraries",
             "Ingestion",
+            "Test Harness",
             "Providers",
             "Activity",
             "Local AI",

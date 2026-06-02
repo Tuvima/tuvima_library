@@ -72,6 +72,7 @@ The Engine owns business rules and persistence. Managed artwork and headshots ar
 - `/settings` and `/settings/{section}` - user/admin settings
 - `/settings/review` - Review Queue
 - `/settings/ingestion` - ingestion operations dashboard
+- `/settings/dev-harness` - temporary development wipe, reingest, and validation harness
 
 Normal media corrections launch `MediaEditorLauncherService` and `SharedMediaEditorShell` from the surface where the issue appears. Review Queue uses the same editor in review mode.
 

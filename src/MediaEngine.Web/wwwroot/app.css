@@ -4685,4 +4685,185 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .tl-u-word-break-break-all { word-break: break-all !important; }
 .tl-u-word-break-break-word { word-break: break-word !important; }
 .tl-u-z-index-app-z-modal { z-index: var(--app-z-modal) !important; }
+
+.dev-harness-page {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.dev-harness-options {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.85fr) minmax(260px, 1fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.dev-harness-option-block {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.dev-harness-option-heading {
+    margin-bottom: 10px;
+    color: var(--tl-text-primary);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.dev-harness-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dev-harness-chip {
+    min-height: 32px;
+}
+
+.dev-harness-stage-control {
+    width: 100%;
+}
+
+.dev-harness-option-block--danger {
+    border-color: rgba(245, 158, 11, 0.42);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.dev-harness-option-block--danger p {
+    margin: 4px 0 0;
+    color: var(--tl-text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.dev-harness-table-wrap {
+    overflow-x: auto;
+}
+
+.dev-harness-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+}
+
+.dev-harness-table th,
+.dev-harness-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--tl-divider);
+    text-align: left;
+    vertical-align: top;
+}
+
+.dev-harness-table th {
+    color: var(--tl-text-muted);
+    font-size: 0.76rem;
+    font-weight: 750;
+    text-transform: uppercase;
+}
+
+.dev-harness-table td {
+    color: var(--tl-text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.dev-harness-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.dev-harness-table tbody tr.is-danger td {
+    background: rgba(239, 68, 68, 0.055);
+}
+
+.dev-harness-command {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    min-width: 260px;
+}
+
+.dev-harness-command__icon {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 8px;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.13);
+}
+
+.dev-harness-table tr:nth-child(2n) .dev-harness-command__icon {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.13);
+}
+
+.dev-harness-table tr.is-danger .dev-harness-command__icon {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.13);
+}
+
+.dev-harness-command__copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.dev-harness-command__copy strong {
+    color: var(--tl-text-primary);
+    font-size: 0.96rem;
+}
+
+.dev-harness-command__copy span {
+    color: var(--tl-text-secondary);
+}
+
+.dev-harness-step-list {
+    margin: 0;
+    padding-left: 17px;
+}
+
+.dev-harness-table__action {
+    width: 96px;
+    text-align: right;
+}
+
+.dev-harness-result-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.dev-harness-result-body {
+    max-height: 520px;
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: 8px;
+    background: rgba(4, 8, 14, 0.78);
+    color: #d1fae5;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+@media (max-width: 1100px) {
+    .dev-harness-options {
+        grid-template-columns: 1fr;
+    }
+
+    .dev-harness-table {
+        min-width: 860px;
+    }
+}
+
 /* -- End inline-style utility classes ---------------------------------- */

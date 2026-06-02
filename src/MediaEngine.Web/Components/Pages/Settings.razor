@@ -131,6 +131,9 @@
                         case SettingsSection.Ingestion:
                             <IngestionTasksTab />
                             break;
+                        case SettingsSection.DevHarness:
+                            <DevHarnessTab />
+                            break;
                         case SettingsSection.Providers:
                             <ProviderPriorityTab />
                             break;
@@ -404,6 +407,7 @@
         SettingsSection.AdminOverview => "overview",
         SettingsSection.Libraries => "libraries",
         SettingsSection.Ingestion => "ingestion",
+        SettingsSection.DevHarness => "ingestion",
         SettingsSection.Providers => "providers",
         SettingsSection.ActivityLogs => "activity",
         SettingsSection.LocalAi => "ai",
@@ -443,6 +447,7 @@
         SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, ingestion progress, and review work.",
         SettingsSection.Libraries => "Manage watched folders, library destinations, source health, organization rules, and write access.",
         SettingsSection.Ingestion => "Track current library updates, recent batches, matching progress, and items that need review.",
+        SettingsSection.DevHarness => "Run temporary development wipe, seed, reingest, and validation harnesses from Settings.",
         SettingsSection.Providers => "Manage metadata providers, priority order, credentials, reachability, and sample lookups.",
         SettingsSection.ActivityLogs => "Review the persistent activity stream for ingestion, provider, metadata, and system events.",
         SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",

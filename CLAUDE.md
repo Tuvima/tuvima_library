@@ -301,7 +301,7 @@ Settings at `/settings/{Section}` is the Dashboard's operational hub. It is a tw
 
 | Group | Sections |
 |---|---|
-| **Overview** | `OverviewTab`, `SettingsReviewQueueTab`, `IngestionTasksTab`, `StatusDashboardTab` |
+| **Overview** | `OverviewTab`, `SettingsReviewQueueTab`, `IngestionTasksTab`, `DevHarnessTab`, `StatusDashboardTab` |
 | **Preferences** | `ProfileTab`, `PlaybackTab`, `PrivacyHistoryTab`, `OfflineDownloadsTab` |
 | **Library** | `LibrariesTab`, `EncodeSettingsTab`, `PlaybackDeliverySettingsTab` |
 | **Providers** | `ProviderPriorityTab`, `WikidataConfigTab`, `UniverseSettingsTab` |
@@ -312,7 +312,7 @@ Settings at `/settings/{Section}` is the Dashboard's operational hub. It is a tw
 
 Supporting components used inside tabs: `ProviderCard`, `WikidataConnectionPanel`, `CuratorsDrawer`, `MetadataEditDialog`, `MediaItemEditor`, `CollectionEditCoverCompare`, `FolderBrowserDialog`, `SettingsPlaceholder`, `SettingsSectionPanel`, `SettingsStatusBadge`, `MediaRail`, `MediaRailCard`, `DictionaryRows`, `IngestionLiveDashboard`, `IngestionStageRail`, `IngestionMetricStrip`, `IngestionActivityList`, `IngestionOverallProgressBand`, `IngestionDiagnosticsPanels`, `SearchResultCard`.
 
-Navigation is URL-driven: `/settings/review` deep-links straight into the review queue, `/settings/ingestion` opens the ingestion admin view.
+Navigation is URL-driven: `/settings/review` deep-links straight into the review queue, `/settings/ingestion` opens the ingestion admin view, and `/settings/dev-harness` opens the temporary development wipe/reingest harness.
 
 ### 3.12 — Review Queue (inside Settings)
 
@@ -642,7 +642,7 @@ Reusable visual components, organised by feature slice.
 | `/detail/{Type}/{Id}` (and similar) | `UnifiedDetailPage.razor` | Unified detail surface (work / edition / collection / person) — uses `Components/Details/` slice |
 | `/universe/{Qid}/explore` | `ChronicleExplorer.razor` | Universe graph explorer |
 | `/search` | `SearchPage.razor` | Global search |
-| `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`, ingestion at `/settings/ingestion`) |
+| `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`, ingestion at `/settings/ingestion`, temporary harness at `/settings/dev-harness`) |
 | `/not-found`, `/Error` | `NotFound.razor`, `Error.razor` | Error pages |
 
 > **Note.** Earlier drafts referenced `PersonDetail.razor`, `Home.razor`, and `ReviewRedirect.razor`. Those files no longer exist on disk; person detail is served by `UnifiedDetailPage` via `Components/Details/`, and the `/review` redirect has been replaced by direct `/settings/review` navigation.

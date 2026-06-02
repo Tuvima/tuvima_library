@@ -12,7 +12,7 @@ tags:
 
 # Library Admin Pages
 
-Libraries, Ingestion, Providers, and Activity are first-class Settings pages for the part of Tuvima Library that turns messy folders into registered media. They are available directly in the Settings left navigation under **Admin Settings**, without a secondary tab bar. The Ingestion page remains available at `/settings/ingestion`.
+Libraries, Ingestion, Providers, Activity, and the temporary Test Harness are first-class Settings pages for the part of Tuvima Library that turns messy folders into registered media. They are available directly in the Settings left navigation under **Admin Settings**, without a secondary tab bar. The Ingestion page remains available at `/settings/ingestion`; the temporary development harness is available at `/settings/dev-harness`.
 
 Together, these pages answer six operational questions:
 
@@ -50,6 +50,15 @@ The Dashboard subscribes to the existing SignalR Intercom connection and merges 
 - about every 45 seconds while idle
 
 The component disposes its polling cancellation token and SignalR state subscription when the page is left, so it does not keep duplicate refresh loops running.
+
+## Temporary Test Harness
+
+The Test Harness page is a development-only admin shortcut for repeatable wipe and ingestion validation. It calls the Engine's `/dev/*` endpoints directly and does not edit existing library records in place.
+
+- **Clean synthetic ingestion** runs `/dev/full-test` with the generated-state wipe scope, media-type filters, and direct fixture scans.
+- **Configured-source reingest** runs `/dev/reingest-library`, which resets generated database/cache state and scans configured source folders without deleting source files.
+- **Validation report** runs `/dev/integration-test` with selectable stage depth and media-type filters.
+- **Full source wipe** is exposed only as an explicitly unlocked dangerous option for disposable test source folders.
 
 ## Source Folders
 

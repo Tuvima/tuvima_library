@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -2633,6 +2634,64 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<DevHarnessRunResult?> RunDevHarnessAsync(
+        string path,
+        IReadOnlyDictionary<string, string?>? query = null,
+        CancellationToken ct = default)
+    {
+        var endpointPath = BuildEndpointPath(path, query);
+        var endpoint = $"POST {endpointPath}";
+        var started = DateTimeOffset.UtcNow;
+        var sw = Stopwatch.StartNew();
+
+        try
+        {
+            using var response = await _http.PostAsync(endpointPath, null, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            sw.Stop();
+
+            var result = new DevHarnessRunResult(
+                response.IsSuccessStatusCode,
+                (int)response.StatusCode,
+                endpoint,
+                response.Content.Headers.ContentType?.MediaType,
+                body,
+                started,
+                DateTimeOffset.UtcNow,
+                sw.ElapsedMilliseconds);
+
+            if (response.IsSuccessStatusCode)
+            {
+                ClearFailure(endpoint);
+            }
+            else
+            {
+                _failureState.RecordRawFailure(endpoint, (int)response.StatusCode, SummarizeResponseBody(body));
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            RecordExceptionFailure(endpoint, ex);
+
+            return new DevHarnessRunResult(
+                false,
+                0,
+                endpoint,
+                null,
+                ex.Message,
+                started,
+                DateTimeOffset.UtcNow,
+                sw.ElapsedMilliseconds);
+        }
+    }
+
     // -- GET /persons (libraryItem list) ------------------------------------
 
     public async Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
@@ -4225,6 +4284,60 @@ public sealed class EngineApiClient : IEngineApiClient
 
     private void RecordExceptionFailure(string endpoint, Exception ex, bool logAsWarning = true)
         => _failureState.RecordExceptionFailure(endpoint, ex, _logger, logAsWarning);
+
+    private static string BuildEndpointPath(string path, IReadOnlyDictionary<string, string?>? query)
+    {
+        var normalizedPath = string.IsNullOrWhiteSpace(path)
+            ? "/"
+            : path.StartsWith("/", StringComparison.Ordinal) ? path : $"/{path}";
+
+        if (query is null || query.Count == 0)
+        {
+            return normalizedPath;
+        }
+
+        var parts = query
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))
+            .Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value!)}")
+            .ToArray();
+
+        return parts.Length == 0
+            ? normalizedPath
+            : $"{normalizedPath}?{string.Join("&", parts)}";
+    }
+
+    private static string SummarizeResponseBody(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return "Request failed";
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                var error = TryGetString(doc.RootElement, "error");
+                var title = TryGetString(doc.RootElement, "title");
+                var detail = TryGetString(doc.RootElement, "detail");
+                var summary = string.Join(" ", new[] { error, title, detail }
+                    .Where(static part => !string.IsNullOrWhiteSpace(part)));
+
+                if (!string.IsNullOrWhiteSpace(summary))
+                {
+                    return summary;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Non-JSON harness responses are expected for the HTML integration report.
+        }
+
+        var compact = body.ReplaceLineEndings(" ").Trim();
+        return compact.Length <= 500 ? compact : $"{compact[..500]}...";
+    }
 
     private static async Task<string> ReadProblemSummaryAsync(HttpResponseMessage response, CancellationToken ct)
     {

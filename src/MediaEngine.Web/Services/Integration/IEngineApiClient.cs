@@ -518,6 +518,12 @@ public interface IEngineApiClient
     /// <summary>POST /dev/seed-library — create test EPUBs in the Watch Folder (dev only).</summary>
     Task<bool> SeedLibraryAsync(CancellationToken ct = default);
 
+    /// <summary>POST a development ingestion harness endpoint and return its raw response for admin diagnostics.</summary>
+    Task<DevHarnessRunResult?> RunDevHarnessAsync(
+        string path,
+        IReadOnlyDictionary<string, string?>? query = null,
+        CancellationToken ct = default);
+
     // ── Progress & Journey (/progress) ─────────────────────────────────
 
     /// <summary>GET /progress/journey?userId={id}&amp;limit= — incomplete items with Work+Collection context.
