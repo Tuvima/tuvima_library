@@ -74,9 +74,15 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
                    proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
-                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy,
+                   source_operation_id AS SourceOperationId,
+                   source_capability_id AS SourceCapabilityId,
+                   source_capability_sub_key AS SourceCapabilitySubKey,
+                   review_ready_at AS ReviewReadyAt,
+                   automation_completed_at AS AutomationCompletedAt
             FROM   review_queue
             WHERE  status = @status
+              AND  review_ready_at IS NOT NULL
             ORDER BY created_at DESC
             LIMIT  @limit
             """, new { status = ReviewStatus.Pending, limit }).AsList();
@@ -92,7 +98,12 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
                    proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
-                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy,
+                   source_operation_id AS SourceOperationId,
+                   source_capability_id AS SourceCapabilityId,
+                   source_capability_sub_key AS SourceCapabilitySubKey,
+                   review_ready_at AS ReviewReadyAt,
+                   automation_completed_at AS AutomationCompletedAt
             FROM   review_queue
             WHERE  id = @id
             """, new { id });
@@ -110,7 +121,12 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
                    proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
-                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy,
+                   source_operation_id AS SourceOperationId,
+                   source_capability_id AS SourceCapabilityId,
+                   source_capability_sub_key AS SourceCapabilitySubKey,
+                   review_ready_at AS ReviewReadyAt,
+                   automation_completed_at AS AutomationCompletedAt
             FROM   review_queue
             WHERE  entity_id = @entityId
             ORDER BY created_at DESC
@@ -129,7 +145,12 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
                    proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
-                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
+                   resolved_at AS ResolvedAt, resolved_by AS ResolvedBy,
+                   source_operation_id AS SourceOperationId,
+                   source_capability_id AS SourceCapabilityId,
+                   source_capability_sub_key AS SourceCapabilitySubKey,
+                   review_ready_at AS ReviewReadyAt,
+                   automation_completed_at AS AutomationCompletedAt
             FROM   review_queue
             WHERE  entity_id = @entityId AND status = @status
             ORDER BY created_at DESC
@@ -164,17 +185,45 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     }
 
     /// <inheritdoc/>
+    public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var rows = conn.Execute("""
+            UPDATE review_queue
+            SET    review_ready_at = COALESCE(review_ready_at, @now),
+                   automation_completed_at = COALESCE(automation_completed_at, @now)
+            WHERE  entity_id = @entityId
+              AND  status = @status
+              AND  review_ready_at IS NULL
+            """, new
+        {
+            entityId,
+            status = ReviewStatus.Pending,
+            now,
+        });
+
+        return Task.FromResult(rows);
+    }
+
+    /// <inheritdoc/>
     public Task<int> GetPendingCountAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        // Count distinct works (not media assets) to match the LibraryItem "Needs Review" count.
-        // Falls back to entity_id count if the join chain is broken (orphan review entries).
         var count = conn.ExecuteScalar<int>("""
-            SELECT COUNT(DISTINCT e.work_id)
+            SELECT COUNT(DISTINCT rq.id)
             FROM review_queue rq
-            INNER JOIN media_assets ma ON ma.id = rq.entity_id
-            INNER JOIN editions e ON e.id = ma.edition_id
             WHERE rq.status = @status
+              AND rq.review_ready_at IS NOT NULL
+              AND (
+                    (rq.entity_type = 'MediaAsset' AND EXISTS (
+                        SELECT 1 FROM media_assets ma WHERE ma.id = rq.entity_id
+                    ))
+                 OR (rq.entity_type = 'Work' AND EXISTS (
+                        SELECT 1 FROM works w WHERE w.id = rq.entity_id
+                    ))
+                 OR (rq.entity_type NOT IN ('MediaAsset', 'Work'))
+              )
             """,
             new { status = ReviewStatus.Pending });
 
@@ -232,11 +281,20 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         using var conn = _db.CreateConnection();
         var deleted = conn.Execute("""
             DELETE FROM review_queue
-            WHERE NOT EXISTS (
+            WHERE entity_type = 'MediaAsset'
+              AND NOT EXISTS (
                 SELECT 1
                 FROM media_assets ma
                 WHERE ma.id = review_queue.entity_id
-            );
+              );
+
+            DELETE FROM review_queue
+            WHERE entity_type = 'Work'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM works w
+                WHERE w.id = review_queue.entity_id
+              );
             """);
 
         return Task.FromResult(deleted);
@@ -259,6 +317,11 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         public string CreatedAt   { get; set; } = "";
         public string? ResolvedAt { get; set; }
         public string? ResolvedBy { get; set; }
+        public Guid? SourceOperationId { get; set; }
+        public string? SourceCapabilityId { get; set; }
+        public string? SourceCapabilitySubKey { get; set; }
+        public string? ReviewReadyAt { get; set; }
+        public string? AutomationCompletedAt { get; set; }
     }
 
     private static ReviewQueueEntry MapRow(ReviewQueueRow r) => new()
@@ -276,5 +339,12 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         ResolvedAt      = r.ResolvedAt is not null && DateTimeOffset.TryParse(r.ResolvedAt, out var resolved)
                               ? resolved : null,
         ResolvedBy      = r.ResolvedBy,
+        SourceOperationId = r.SourceOperationId,
+        SourceCapabilityId = r.SourceCapabilityId,
+        SourceCapabilitySubKey = r.SourceCapabilitySubKey,
+        ReviewReadyAt = r.ReviewReadyAt is not null && DateTimeOffset.TryParse(r.ReviewReadyAt, out var ready)
+            ? ready : null,
+        AutomationCompletedAt = r.AutomationCompletedAt is not null && DateTimeOffset.TryParse(r.AutomationCompletedAt, out var completed)
+            ? completed : null,
     };
 }

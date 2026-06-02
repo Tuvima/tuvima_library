@@ -9,7 +9,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "../..")
-$DbPath = Join-Path $RepoRoot "src/MediaEngine.Api/library.db"
+$DbPaths = @(
+    (Join-Path $RepoRoot "src/MediaEngine.Api/library.db"),
+    (Join-Path $RepoRoot ".tmp/dev-runtime/library/.data/database/library.db")
+)
 $WatchDir = "C:\temp\tuvima-watch"
 $LibraryDir = "C:\temp\tuvima-library"
 $GeneratorProject = Join-Path $RepoRoot "tools/GenerateTestEpubs"
@@ -69,11 +72,13 @@ if (-not $SkipApiStop) {
     Write-Warn "If the Engine is running, library.db may be locked."
 }
 
-Write-Step "Deleting database: $DbPath"
-foreach ($path in @($DbPath, "$DbPath-wal", "$DbPath-shm")) {
-    if (Test-Path $path) {
-        if ($DryRun) { Write-Dry "Delete $path" }
-        else { Remove-Item -LiteralPath $path -Force; Write-Ok "Deleted $(Split-Path $path -Leaf)" }
+foreach ($dbPath in $DbPaths) {
+    Write-Step "Deleting database: $dbPath"
+    foreach ($path in @($dbPath, "$dbPath-wal", "$dbPath-shm")) {
+        if (Test-Path $path) {
+            if ($DryRun) { Write-Dry "Delete $path" }
+            else { Remove-Item -LiteralPath $path -Force; Write-Ok "Deleted $path" }
+        }
     }
 }
 

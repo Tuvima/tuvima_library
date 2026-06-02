@@ -169,6 +169,11 @@ public sealed class IdentityPipelineTests
 
         Assert.Contains("providerConfigByName", source, StringComparison.Ordinal);
         Assert.Contains("!providerConfig.Enabled", source, StringComparison.Ordinal);
+        Assert.Contains("enabledProviders.Count == 0", source, StringComparison.Ordinal);
+        Assert.Contains("ScheduleRetryAsync", source, StringComparison.Ordinal);
+        Assert.Contains("instead of becoming no-match", source, StringComparison.Ordinal);
+        Assert.Contains("providerFailures > 0", source, StringComparison.Ordinal);
+        Assert.Contains("retrying before no-match classification", source, StringComparison.Ordinal);
         Assert.Contains("IsProviderEnabled(\"apple_api\")", source, StringComparison.Ordinal);
         Assert.Contains("tmdbConfig is { Enabled: false }", source, StringComparison.Ordinal);
     }

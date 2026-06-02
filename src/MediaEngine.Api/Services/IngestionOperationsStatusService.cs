@@ -142,6 +142,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         var recentBatches = await _batchRepository.GetRecentAsync(12, ct);
         recentBatches = await ReconcileCompletedBatchesAsync(recentBatches, ct);
+        recentBatches = await ProjectRecentBatchesForDisplayAsync(recentBatches, ct);
         var displayBatches = SelectDisplayBatches(recentBatches);
         var displayBatch = AggregateDisplayBatch(displayBatches);
         var lifecycle = await _libraryItems.GetFourStateCountsAsync(ct: ct);
@@ -174,6 +175,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             SELECT trigger AS Trigger, detail AS Detail, COUNT(*) AS Count
             FROM review_queue
             WHERE status = 'Pending'
+              AND review_ready_at IS NOT NULL
             GROUP BY trigger, detail
             """)).AsList();
         var pendingReviewCount = reviewRows.Sum(row => ToInt(row.Count));
@@ -485,6 +487,61 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return DateTimeOffset.UtcNow - updatedAt.ToUniversalTime() <= ActiveBatchFreshness;
     }
 
+    private async Task<IReadOnlyList<IngestionBatch>> ProjectRecentBatchesForDisplayAsync(
+        IReadOnlyList<IngestionBatch> recentBatches,
+        CancellationToken ct)
+    {
+        if (recentBatches.Count == 0)
+            return recentBatches;
+
+        var projected = new List<IngestionBatch>(recentBatches.Count);
+        foreach (var batch in recentBatches)
+        {
+            var snapshot = await ReadBatchTerminalSnapshotAsync(batch.Id, ct);
+            projected.Add(ProjectBatchForDisplay(batch, snapshot));
+        }
+
+        return projected;
+    }
+
+    private static IngestionBatch ProjectBatchForDisplay(IngestionBatch batch, BatchTerminalSnapshot snapshot)
+    {
+        if (!snapshot.HasRows)
+            return batch;
+
+        var identified = Math.Max(0, snapshot.Identified);
+        var review = Math.Max(0, snapshot.Review);
+        var noMatch = Math.Max(0, snapshot.NoMatch + snapshot.OperationNoMatch);
+        var failed = Math.Max(0, snapshot.Failed + snapshot.OperationFailed);
+        var skipped = Math.Max(0, snapshot.OperationSkipped + snapshot.OperationOnlyTerminal);
+        var terminal = identified + review + noMatch + failed + skipped;
+        var total = batch.FilesTotal > 0
+            ? batch.FilesTotal
+            : Math.Max(batch.FilesProcessed, snapshot.TotalJobs + snapshot.OperationTerminal);
+        if (total > 0)
+        {
+            terminal = Math.Clamp(terminal, 0, total);
+        }
+
+        return new IngestionBatch
+        {
+            Id              = batch.Id,
+            Status          = batch.Status,
+            SourcePath      = batch.SourcePath,
+            Category        = batch.Category,
+            FilesTotal      = total,
+            FilesProcessed  = terminal,
+            FilesIdentified = identified,
+            FilesReview     = review,
+            FilesNoMatch    = noMatch,
+            FilesFailed     = failed,
+            StartedAt       = batch.StartedAt,
+            CompletedAt     = batch.CompletedAt,
+            CreatedAt       = batch.CreatedAt,
+            UpdatedAt       = batch.UpdatedAt,
+        };
+    }
+
     private List<IngestionSourceGroupDto> BuildSourceGroups(IReadOnlyDictionary<string, FolderStatsRow> folderStats)
     {
         var groups = new Dictionary<string, Dictionary<string, List<IngestionSourceFolderDto>>>(StringComparer.OrdinalIgnoreCase)
@@ -581,42 +638,50 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IngestionBatch? displayBatch,
         int? pendingReviewCount = null)
     {
-        var batchTotal = Math.Max(0, displayBatch?.FilesTotal ?? projection.TotalItems);
-        var batchProcessed = Math.Max(0, displayBatch?.FilesProcessed ?? lifecycle.Identified + lifecycle.InReview + lifecycle.Provisional + lifecycle.Rejected);
+        var identityTotal = pipelineRows.Values.Sum();
         var duplicates = Count(ingestionRows, "duplicate") + Count(ingestionRows, "same_path_redetected");
         var skipped = Count(ingestionRows, "skipped_non_media");
         var failed = Count(pipelineRows, nameof(IdentityJobState.Failed)) + Count(ingestionRows, "failed") + Count(ingestionRows, "missing");
         var skippedOrDuplicate = duplicates + skipped;
-        var terminalOther = skippedOrDuplicate + failed;
-        var registered = Math.Max(0, displayBatch?.FilesIdentified ?? lifecycle.Identified);
+        var batchTotal = Math.Max(0, displayBatch?.FilesTotal ?? projection.TotalItems);
+        if (batchTotal == 0)
+        {
+            batchTotal = Math.Max(0, identityTotal + skippedOrDuplicate);
+        }
+
         var review = Math.Max(0, pendingReviewCount ?? (displayBatch is null
             ? lifecycle.InReview
             : displayBatch.FilesReview));
 
-        var identityTotal = pipelineRows.Values.Sum();
         var retailMatched = SumStates(pipelineRows, RetailMatchedStates);
         var retailReview = SumStates(pipelineRows, RetailReviewStates);
         var retailNoMatch = SumStates(pipelineRows, RetailNoMatchStates);
-        var retailFinished = retailMatched + retailReview + retailNoMatch;
-        var retailEligible = Math.Max(batchTotal, Math.Max(identityTotal + skippedOrDuplicate, retailFinished + terminalOther));
+        var qidNoMatch = Count(pipelineRows, nameof(IdentityJobState.QidNoMatch));
+        var noMatch = retailNoMatch + qidNoMatch;
 
         var wikidataResolved = SumStates(pipelineRows, WikidataResolvedStates);
         var wikidataReview = SumStates(pipelineRows, WikidataReviewStates);
-        var wikidataEligible = Math.Max(retailMatched + retailReview, wikidataResolved + wikidataReview);
-        var enriched = Math.Min(wikidataEligible, SumStates(pipelineRows, EnrichmentCompleteStates));
-        var enrichmentTotal = Math.Max(wikidataEligible, enriched);
-        var identified = Math.Min(retailEligible, Math.Max(batchProcessed, retailFinished + terminalOther));
+        var enriched = SumStates(pipelineRows, EnrichmentCompleteStates);
+        var terminal = ClampStageCount(enriched + review + noMatch + failed + skippedOrDuplicate, batchTotal);
+        var detected = batchTotal;
+        var parsed = ClampStageCount(Math.Max(identityTotal + skippedOrDuplicate, terminal), batchTotal);
+        var identified = ClampStageCount(retailMatched + review + noMatch + failed + skippedOrDuplicate, batchTotal);
+        var matched = ClampStageCount(retailMatched, batchTotal);
+        var retailReviewTotal = ClampStageCount(retailReview + retailNoMatch, batchTotal);
+        var canonicalized = ClampStageCount(wikidataResolved, batchTotal);
+        var wikidataReviewTotal = ClampStageCount(wikidataReview, batchTotal);
+        var registered = ClampStageCount(enriched, batchTotal);
 
         return
         [
-            Stage("detected", "Detected", batchProcessed, batchTotal, "Files found and handed to ingestion"),
-            Stage("parsed", "Parsed", batchProcessed, batchTotal, "Names and embedded metadata interpreted"),
-            Stage("identified", "Identified", identified, retailEligible, "Recognized as media and routed into identity matching"),
-            Stage("matched", "Matched", retailMatched, retailEligible, "Matched with retail metadata providers"),
-            Stage("retail_review", "Retail Review", retailReview + retailNoMatch, retailEligible, "Retail matches needing review or files with no retail match"),
-            Stage("canonicalized", "Canonicalized", wikidataResolved, wikidataEligible, "Linked to canonical identity when available"),
-            Stage("wikidata_review", "Wikidata Review", wikidataReview, wikidataEligible, "Wikidata matches needing review or files with no QID"),
-            Stage("enriched", "Enriched", enriched, enrichmentTotal, "Artwork, people, series, genres, universes added"),
+            Stage("detected", "Detected", detected, batchTotal, "Files found and handed to ingestion"),
+            Stage("parsed", "Parsed", parsed, batchTotal, "Names and embedded metadata interpreted"),
+            Stage("identified", "Identified", identified, batchTotal, "Recognized as media and routed into identity matching"),
+            Stage("matched", "Matched", matched, batchTotal, "Matched with retail metadata providers"),
+            Stage("retail_review", "Retail Review", retailReviewTotal, batchTotal, "Retail matches needing review or files with no retail match"),
+            Stage("canonicalized", "Canonicalized", canonicalized, batchTotal, "Linked to canonical identity when available"),
+            Stage("wikidata_review", "Wikidata Review", wikidataReviewTotal, batchTotal, "Wikidata matches needing review or files with no QID"),
+            Stage("enriched", "Enriched", registered, batchTotal, "Artwork, people, series, genres, universes added"),
             Stage("organized", "Organized", registered, batchTotal, "Rename and folder operations completed"),
             Stage("registered", "Registered", registered, batchTotal, "Ready in the library"),
             Stage("needs_review", "Needs Review", review, batchTotal, "Waiting for a curator decision"),
@@ -778,7 +843,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                   + (SELECT COUNT(*) FROM series_manifest_items)
                 ) AS RelationshipCount,
                 (SELECT COUNT(*) FROM persons) AS PersonCount,
-                (SELECT COUNT(*) FROM review_queue WHERE status = 'Pending') AS IssueCount;
+                (SELECT COUNT(*) FROM review_queue WHERE status = 'Pending' AND review_ready_at IS NOT NULL) AS IssueCount;
             """) ?? new ActivityMetricCounts();
         var operationProgress = await ReadOperationProgressAsync(conn, identityBatchIdValues, hasBatchScope);
         var artworkOperation = operationProgress.GetValueOrDefault("artwork");
@@ -793,7 +858,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var seriesDisplayRows = MergeActivityRows(seriesRows, relationshipsOperation?.Rows);
         var peopleDisplayRows = MergeActivityRows(peopleRows, peopleOperation?.Rows);
         var artworkProgress = await ReadArtworkProgressAsync(conn, identityBatchIdValues, hasBatchScope, artworkOperation);
-        var wikidataProgress = BuildOperationProgressOverride(wikidataOperation);
+        var linkedQids = CountStage(stages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase), "canonicalized");
+        var wikidataProgress = BuildOpenEndedOperationProgressOverride(wikidataOperation, linkedQids, "QIDs");
         var relationshipsProgress = await ReadRelationshipsProgressAsync(conn, identityBatchIdValues, hasBatchScope, relationshipsOperation);
         var peopleProgress = await ReadPeopleProgressAsync(conn, identityBatchIdValues, hasBatchScope, peopleOperation);
 
@@ -843,9 +909,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 completedStates: WikidataResolvedStates,
                 reviewStates: WikidataReviewStates,
                 metricLabel: "QIDs linked",
-                metricValue: CountStage(stages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase), "canonicalized").ToString("N0"),
+                metricValue: linkedQids.ToString("N0"),
                 metricTone: "success",
-                countUnit: "items",
+                countUnit: "QIDs",
                 displayRows: wikidataDisplayRows,
                 progressOverride: wikidataProgress),
             BuildTaskActivity(
@@ -1023,20 +1089,20 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             [SystemActionType.CoverArtSaved, SystemActionType.HeroBannerGenerated]);
         var operation = BuildOperationProgressOverride(operationProgress);
         var hasArtifactCounts = counts.Total > 0 || counts.Processed > 0;
-        var total = hasArtifactCounts ? counts.Total : operation?.Total ?? 0;
         var processed = hasArtifactCounts ? counts.Processed : operation?.Processed ?? 0;
         var active = Math.Max(operation?.Active ?? 0, recent.Active);
         var queued = operation?.Queued ?? 0;
-        if (total <= 0 && processed <= 0 && active <= 0 && queued <= 0)
+        if (processed <= 0 && active <= 0 && queued <= 0)
             return null;
 
         return new TaskProgressOverride(
             processed,
-            total,
+            0,
             active,
             queued,
             ParseDate(counts.UpdatedAt) ?? operation?.LastUpdated ?? recent.LastUpdated,
-            PreferExact: true);
+            PreferExact: true,
+            CountUnit: "artwork assets");
     }
 
     private static TaskProgressOverride? BuildOperationProgressOverride(TaskOperationProgress? operationProgress) =>
@@ -1049,6 +1115,26 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 operationProgress.Queued,
                 operationProgress.LastUpdated,
                 PreferExact: true);
+
+    private static TaskProgressOverride? BuildOpenEndedOperationProgressOverride(
+        TaskOperationProgress? operationProgress,
+        int processed,
+        string countUnit)
+    {
+        var active = operationProgress?.Active ?? 0;
+        var queued = operationProgress?.Queued ?? 0;
+        if (processed <= 0 && active <= 0 && queued <= 0)
+            return null;
+
+        return new TaskProgressOverride(
+            Math.Max(0, processed),
+            0,
+            active,
+            queued,
+            operationProgress?.LastUpdated,
+            PreferExact: true,
+            CountUnit: countUnit);
+    }
 
     private static IReadOnlyList<CurrentActivityRow> MergeActivityRows(
         IReadOnlyList<CurrentActivityRow> primary,
@@ -1132,18 +1218,18 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var active = Math.Max(operation?.Active ?? 0, recent.Active);
         var queued = operation?.Queued ?? 0;
         var hasPeopleCounts = counts.Total > 0 || counts.Processed > 0;
-        var total = hasPeopleCounts ? counts.Total : operation?.Total ?? 0;
-        var processed = hasPeopleCounts ? counts.Processed : operation?.Processed ?? 0;
-        if (total <= 0 && processed <= 0 && active <= 0 && queued <= 0)
+        var processed = hasPeopleCounts ? counts.Total : operation?.Processed ?? 0;
+        if (processed <= 0 && active <= 0 && queued <= 0)
             return null;
 
         return new TaskProgressOverride(
             processed,
-            total,
+            0,
             active,
             queued,
             ParseDate(counts.UpdatedAt) ?? operation?.LastUpdated ?? recent.LastUpdated,
-            PreferExact: true);
+            PreferExact: true,
+            CountUnit: "people");
     }
 
     private static async Task<TaskProgressOverride?> ReadRelationshipsProgressAsync(
@@ -1321,27 +1407,20 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var operation = BuildOperationProgressOverride(operationProgress);
         var active = Math.Max(Math.Max(jobCounts.Active, operation?.Active ?? 0), recent.Active);
         var queued = Math.Max(jobCounts.Queued, operation?.Queued ?? 0);
-        var hasWorkCounts = jobCounts.Total > 0
-            || jobCounts.Active > 0
-            || jobCounts.Queued > 0
-            || operation is not null;
-        var total = hasWorkCounts
-            ? Math.Max(jobCounts.Total, operation?.Total ?? 0)
-            : artifactCounts.Total;
-        var processed = hasWorkCounts
-            ? Math.Max(jobCounts.Processed, operation?.Processed ?? 0)
-            : artifactCounts.Processed;
-        if (total <= 0 && processed <= 0 && active <= 0 && queued <= 0)
+        var processed = artifactCounts.Processed > 0
+            ? artifactCounts.Processed
+            : operation?.Processed ?? 0;
+        if (processed <= 0 && active <= 0 && queued <= 0)
             return null;
 
         return new TaskProgressOverride(
             processed,
-            total,
+            0,
             active,
             queued,
             ParseDate(artifactCounts.UpdatedAt) ?? ParseDate(jobCounts.UpdatedAt) ?? operation?.LastUpdated ?? recent.LastUpdated,
             PreferExact: true,
-            CountUnit: hasWorkCounts ? "items" : "links");
+            CountUnit: "links");
     }
 
     private static async Task<RecentActivityProgress> ReadRecentActivityProgressAsync(
@@ -1742,20 +1821,29 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             : relevant;
         var displayActive = displayRelevant.Where(row => IsFreshActive(row, activeStates)).ToList();
         var progress = ResolveActivityProgress(progressStageKey, stages);
-        var total = progressOverride?.PreferExact == true
+        var openEndedDiscovery = IsOpenEndedDiscoveryTask(taskKey, progressOverride?.CountUnit ?? countUnit);
+        var total = openEndedDiscovery
+            ? 0
+            : progressOverride?.PreferExact == true
             ? Math.Max(0, progressOverride.Total)
             : Math.Max(Math.Max(progress.Total, relevant.Count), progressOverride?.Total ?? 0);
-        var processed = progressOverride?.PreferExact == true
+        var processed = openEndedDiscovery
+            ? Math.Max(progressOverride?.Processed ?? 0, ParseMetricCount(metricValue))
+            : progressOverride?.PreferExact == true
             ? Math.Max(0, progressOverride.Processed)
             : Math.Max(Math.Max(progress.Count, completed.Count + review.Count), progressOverride?.Processed ?? 0);
-        processed = Math.Clamp(processed, 0, Math.Max(0, total));
+        processed = total > 0
+            ? Math.Clamp(processed, 0, total)
+            : Math.Max(0, processed);
         var rawActiveCount = Math.Max(active.Count, progressOverride?.Active ?? 0);
-        var remainingAfterProcessed = Math.Max(0, total - processed);
+        var remainingAfterProcessed = total > 0 ? Math.Max(0, total - processed) : int.MaxValue;
         var activeCount = progressOverride?.PreferExact == true
-            ? Math.Min(rawActiveCount, remainingAfterProcessed)
+            ? total > 0 ? Math.Min(rawActiveCount, remainingAfterProcessed) : rawActiveCount
             : rawActiveCount;
         var queued = progressOverride?.PreferExact == true
-            ? Math.Min(Math.Max(0, progressOverride.Queued), Math.Max(0, remainingAfterProcessed - activeCount))
+            ? total > 0
+                ? Math.Min(Math.Max(0, progressOverride.Queued), Math.Max(0, remainingAfterProcessed - activeCount))
+                : Math.Max(0, progressOverride.Queued)
             : Math.Max(0, total - processed - activeCount);
         var samples = active.Count > 0
             ? (displayActive.Count > 0 ? displayActive : displayRelevant.Take(10).ToList())
@@ -1835,6 +1923,25 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             PendingPreview = pending.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(10).ToList(),
             ReviewPreview = review.Select(DisplayActivityItem).Where(value => !string.IsNullOrWhiteSpace(value)).Take(10).ToList(),
         };
+    }
+
+    private static bool IsOpenEndedDiscoveryTask(string taskKey, string? countUnit) =>
+        taskKey.Equals("artwork", StringComparison.OrdinalIgnoreCase)
+        || taskKey.Equals("wikidata", StringComparison.OrdinalIgnoreCase)
+        || taskKey.Equals("relationships", StringComparison.OrdinalIgnoreCase)
+        || taskKey.Equals("people", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(countUnit, "artwork assets", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(countUnit, "QIDs", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(countUnit, "links", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(countUnit, "people", StringComparison.OrdinalIgnoreCase);
+
+    private static int ParseMetricCount(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return 0;
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var parsed) ? parsed : 0;
     }
 
     private static int TaskSort(
@@ -1955,12 +2062,17 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             }
 
             var snapshot = await ReadBatchTerminalSnapshotAsync(batch.Id, ct);
-            var hasSnapshotRows = snapshot.TotalJobs > 0 || snapshot.LogRows > 0;
+            var hasSnapshotRows = snapshot.HasRows;
             var identified = hasSnapshotRows ? snapshot.Identified : batch.FilesIdentified;
             var review = hasSnapshotRows ? snapshot.Review : batch.FilesReview;
-            var noMatch = hasSnapshotRows ? snapshot.NoMatch : batch.FilesNoMatch;
-            var failed = hasSnapshotRows ? snapshot.Failed : batch.FilesFailed;
-            var terminal = identified + review + noMatch + failed;
+            var noMatch = hasSnapshotRows ? snapshot.NoMatch + snapshot.OperationNoMatch : batch.FilesNoMatch;
+            var failed = hasSnapshotRows ? snapshot.Failed + snapshot.OperationFailed : batch.FilesFailed;
+            var skipped = hasSnapshotRows ? snapshot.OperationSkipped + snapshot.OperationOnlyTerminal : 0;
+            var terminal = identified + review + noMatch + failed + skipped;
+            if (batch.FilesTotal > 0)
+            {
+                terminal = Math.Clamp(terminal, 0, batch.FilesTotal);
+            }
             var noActivePipelineWork = snapshot.Queued == 0 && snapshot.Active == 0;
             var age = DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime();
             var isNoWorkBatch = batch.FilesTotal > 0
@@ -1978,7 +2090,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 && DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime() > TimeSpan.FromMinutes(30);
             var allFilesTerminal = batch.FilesTotal <= 0
                 ? noActivePipelineWork
-                : terminal >= batch.FilesTotal || (batch.FilesProcessed >= batch.FilesTotal && noActivePipelineWork);
+                : terminal >= batch.FilesTotal;
 
             if ((!allFilesTerminal && !isStaleUntrackedBatch && !isNoWorkBatch) || !noActivePipelineWork)
             {
@@ -1987,7 +2099,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
             var processed = isStaleUntrackedBatch || isNoWorkBatch
                 ? batch.FilesTotal
-                : Math.Max(batch.FilesProcessed, terminal);
+                : terminal;
             if (batch.FilesTotal > 0)
             {
                 processed = Math.Clamp(processed, 0, batch.FilesTotal);
@@ -2054,11 +2166,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 SELECT DISTINCT entity_id
                 FROM review_queue
                 WHERE status = 'Pending'
+                  AND review_ready_at IS NOT NULL
             )
             SELECT
                 COALESCE(SUM(CASE
-                    WHEN ma.status = 'Normal' AND pr.entity_id IS NULL THEN 1
-                    WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1
+                    WHEN js.state IN ('Ready', 'ReadyWithoutUniverse') AND pr.entity_id IS NULL THEN 1
                     ELSE 0
                 END), 0) AS Identified,
                 COALESCE(SUM(CASE
@@ -2075,18 +2187,45 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                          AND js.lease_expires_at IS NOT NULL
                          AND js.lease_expires_at > @now
                         THEN 1 ELSE 0
-                    END), 0) AS Active,
+                END), 0) AS Active,
                 COUNT(js.entity_id) AS TotalJobs,
                 (
                     SELECT COUNT(*)
                     FROM ingestion_log il
                     WHERE il.ingestion_run_id = @batchId
-                ) AS LogRows
+                ) AS LogRows,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_type = 'ingestion.file'
+                      AND mo.status IN ('succeeded', 'no_result', 'missing_confirmed', 'not_applicable', 'skipped', 'blocked', 'failed_terminal', 'dead_lettered', 'cancelled')
+                ) AS FileOperationsTerminal,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_type = 'ingestion.file'
+                      AND mo.status IN ('no_result', 'missing_confirmed')
+                ) AS OperationNoMatch,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_type = 'ingestion.file'
+                      AND mo.status IN ('not_applicable', 'skipped')
+                ) AS OperationSkipped,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_type = 'ingestion.file'
+                      AND mo.status IN ('blocked', 'failed_terminal', 'dead_lettered', 'cancelled')
+                ) AS OperationFailed
             FROM job_states js
-            LEFT JOIN media_assets ma ON ma.id = js.entity_id
             LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
             """,
-            new { batchId, now = DateTimeOffset.UtcNow.ToString("O") }) ?? new BatchTerminalSnapshot();
+            new { batchId = GuidSql.ToBlob(batchId), now = DateTimeOffset.UtcNow.ToString("O") }) ?? new BatchTerminalSnapshot();
     }
 
     private static IngestionOperationsJobDto ToActiveJob(
@@ -2097,8 +2236,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var currentStage = ResolveBatchStage(batch, pipelineRows, stages);
         var stageKey = ResolveActivityStageKey(currentStage);
         var progress = ResolveActivityProgress(stageKey, stages);
-        var total = Math.Max(0, progress.Total > 0 ? progress.Total : batch.FilesTotal);
-        var processed = Math.Clamp(Math.Max(0, progress.Total > 0 ? progress.Count : batch.FilesProcessed), 0, total);
+        var total = Math.Max(0, batch.FilesTotal > 0 ? batch.FilesTotal : progress.Total);
+        var processed = Math.Clamp(Math.Max(0, batch.FilesProcessed), 0, total);
         var percent = total > 0
             ? Math.Clamp(processed * 100d / total, 0, 100)
             : 0;
@@ -2333,6 +2472,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 FROM review_queue rq
                 INNER JOIN identity_jobs ij ON ij.entity_id = rq.entity_id
                 WHERE rq.status = 'Pending'
+                  AND rq.review_ready_at IS NOT NULL
                   AND ij.ingestion_run_id = @batchId
                 """, new { batchId = GuidSql.ToBlob(batch.Id) });
 
@@ -2678,6 +2818,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static int Count(IReadOnlyDictionary<string, int> counts, string key) =>
         counts.TryGetValue(key, out var count) ? count : 0;
 
+    private static int ClampStageCount(int count, int total) =>
+        total > 0 ? Math.Clamp(Math.Max(0, count), 0, total) : Math.Max(0, count);
+
     private static int CountMediaTypes(IReadOnlyDictionary<string, int> counts, params string[] keys) =>
         keys.Sum(key => Count(counts, key));
 
@@ -2805,6 +2948,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public int Active { get; init; }
         public int TotalJobs { get; init; }
         public int LogRows { get; init; }
+        public int OperationNoMatch { get; init; }
+        public int OperationSkipped { get; init; }
+        public int OperationFailed { get; init; }
+        public int FileOperationsTerminal { get; init; }
+        public int OperationOnlyTerminal => Math.Max(0, FileOperationsTerminal - TotalJobs);
+        public int OperationTerminal => OperationNoMatch + OperationSkipped + OperationFailed + OperationOnlyTerminal;
+        public bool HasRows => TotalJobs > 0 || LogRows > 0 || FileOperationsTerminal > 0;
     }
 
     private sealed record BatchSummaryTotals(int Total, int Registered, int Review);

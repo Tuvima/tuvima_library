@@ -1,5 +1,6 @@
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
@@ -116,6 +117,37 @@ public sealed class PostPipelineService
             _logger.LogInformation(
                 "Entity {EntityId} below confidence threshold ({Confidence:F2} < {Threshold:F2})",
                 entityId, effectiveConfidence, hydration.AutoReviewConfidenceThreshold);
+
+            var promoted = await _reviewRepo.MarkPendingReadyByEntityAsync(entityId, ct);
+            var hasReadyPendingReview = promoted > 0;
+            if (!hasReadyPendingReview)
+            {
+                var pendingReviews = await _reviewRepo.GetByEntityAsync(entityId, ct);
+                hasReadyPendingReview = pendingReviews.Any(review =>
+                    string.Equals(review.Status, ReviewStatus.Pending, StringComparison.OrdinalIgnoreCase)
+                    && review.ReviewReadyAt is not null);
+            }
+
+            if (!hasReadyPendingReview)
+            {
+                await _reviewRepo.InsertAsync(new ReviewQueueEntry
+                {
+                    Id              = Guid.NewGuid(),
+                    EntityId        = entityId,
+                    EntityType      = "MediaAsset",
+                    Trigger         = ReviewTrigger.LowConfidence,
+                    ConfidenceScore = effectiveConfidence,
+                    Detail          = $"Post-pipeline confidence {effectiveConfidence:P0} below auto-review threshold",
+                    ReviewReadyAt   = DateTimeOffset.UtcNow,
+                    AutomationCompletedAt = DateTimeOffset.UtcNow,
+                }, ct);
+            }
+
+            if (ingestionRunId.HasValue)
+            {
+                await _batchProgress.EmitProgressAsync(ingestionRunId.Value, isFinal: false, ct);
+            }
+
             return;
         }
 

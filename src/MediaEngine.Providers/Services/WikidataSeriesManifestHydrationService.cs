@@ -542,6 +542,8 @@ public sealed class WikidataSeriesManifestHydrationService
             Status = ReviewStatus.Pending,
             Detail = detail,
             CreatedAt = DateTimeOffset.UtcNow,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
         }, ct).ConfigureAwait(false);
     }
 

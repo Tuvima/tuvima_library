@@ -697,6 +697,45 @@ public sealed class DurablePipelineTests : IDisposable
     // Helpers — IngestionEngine factory
     // ══════════════════════════════════════════════════════════════════════
 
+    [Fact]
+    public async Task PostPipelineService_LowConfidenceEntity_MarksQueuedReviewsReady()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var hiddenReview = new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            ReviewReadyAt = null,
+            AutomationCompletedAt = null,
+        };
+
+        var reviewRepo = new TrackingReviewQueueRepository();
+        await reviewRepo.InsertAsync(hiddenReview);
+
+        var postPipeline = new PostPipelineService(
+            new NoOpMetadataClaimRepository(),
+            new NoOpCanonicalValueRepository(),
+            new NoOpScoringEngine(overallConfidence: 0.40),
+            new MinimalConfigurationLoader(),
+            Array.Empty<IExternalMetadataProvider>(),
+            reviewRepo,
+            new NoOpAutoOrganizeService(),
+            CreateBatchProgressService(),
+            NullLogger<PostPipelineService>.Instance);
+
+        await postPipeline.EvaluateAndOrganizeAsync(entityId, jobId, wikidataQid: null, ingestionRunId: null, CancellationToken.None);
+
+        var all = await reviewRepo.GetByEntityAsync(entityId);
+        var review = Assert.Single(all);
+        Assert.Equal(ReviewStatus.Pending, review.Status);
+        Assert.NotNull(review.ReviewReadyAt);
+        Assert.NotNull(review.AutomationCompletedAt);
+    }
+
     private string CreateWatchFile(string name, string content = "dummy content for testing")
     {
         var path = Path.Combine(_watchDir, name);
@@ -1002,6 +1041,23 @@ public sealed class DurablePipelineTests : IDisposable
             return Task.CompletedTask;
         }
 
+        public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var count = 0;
+            foreach (var entry in _entries.Where(e =>
+                e.EntityId == entityId
+                && e.Status == ReviewStatus.Pending
+                && e.ReviewReadyAt is null))
+            {
+                entry.ReviewReadyAt = now;
+                entry.AutomationCompletedAt ??= now;
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+
         public Task<IReadOnlyList<ReviewQueueEntry>> GetPendingAsync(int limit = 50, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(
                 _entries.Where(e => e.Status == ReviewStatus.Pending).Take(limit).ToList());
@@ -1268,6 +1324,7 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<IReadOnlyList<ReviewQueueEntry>> GetByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task<IReadOnlyList<ReviewQueueEntry>> GetPendingByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task UpdateStatusAsync(Guid id, string status, string? resolvedBy = null, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> GetPendingCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default) => Task.FromResult(0);

@@ -70,7 +70,6 @@ public sealed class FileWatcher : IFileWatcher
             // Capture the changes that matter for ingestion.
             // Omitting CreationTime / Attributes reduces noise from metadata-only writes.
             NotifyFilter = System.IO.NotifyFilters.FileName
-                         | System.IO.NotifyFilters.DirectoryName
                          | System.IO.NotifyFilters.LastWrite
                          | System.IO.NotifyFilters.Size,
 

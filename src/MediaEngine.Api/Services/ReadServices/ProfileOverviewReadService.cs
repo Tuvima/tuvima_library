@@ -2,7 +2,9 @@ using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Identity.Contracts;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Services.ReadServices;
 
@@ -118,15 +120,15 @@ public sealed class ProfileOverviewReadService(
             ORDER BY us.last_accessed DESC
             LIMIT @limit;
             """;
-        cmd.Parameters.AddWithValue("@profileId", profileId.ToString());
+        cmd.Parameters.Add("@profileId", SqliteType.Blob).Value = GuidSql.ToBlob(profileId);
         cmd.Parameters.AddWithValue("@limit", limit);
 
         using var reader = cmd.ExecuteReader();
         var items = new List<ProfileOverviewItemDto>();
         while (reader.Read())
         {
-            var assetId = Guid.Parse(reader.GetString(0));
-            var workId = Guid.Parse(reader.GetString(1));
+            var assetId = GuidSql.FromDb(reader.GetValue(0));
+            var workId = GuidSql.FromDb(reader.GetValue(1));
             var mediaType = ReadString(reader, 9) ?? ReadString(reader, 2) ?? "Media";
             var ext = ReadExtendedProperties(ReadString(reader, 5));
             var positionSeconds = ReadDouble(ext, "position_seconds");
@@ -199,8 +201,8 @@ public sealed class ProfileOverviewReadService(
         var items = new List<ProfileOverviewItemDto>();
         while (reader.Read())
         {
-            var assetId = Guid.Parse(reader.GetString(0));
-            var workId = Guid.Parse(reader.GetString(1));
+            var assetId = GuidSql.FromDb(reader.GetValue(0));
+            var workId = GuidSql.FromDb(reader.GetValue(1));
             var mediaType = ReadString(reader, 2) ?? "Media";
             items.Add(new ProfileOverviewItemDto
             {

@@ -38,6 +38,80 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetByIdempotencyKeyAsync_ReturnsTrackedOperation()
+    {
+        var repo = new MediaOperationRepository(_db);
+        var key = $"ingestion:file:C:/watch/restart.epub:{Guid.NewGuid():N}";
+        var created = await repo.EnsureAsync(NewOperation(
+            key,
+            sourcePath: "C:/watch/restart.epub",
+            batchId: Guid.NewGuid()));
+
+        var found = await repo.GetByIdempotencyKeyAsync(key);
+        var missing = await repo.GetByIdempotencyKeyAsync($"missing:{Guid.NewGuid():N}");
+
+        Assert.NotNull(found);
+        Assert.Equal(created.Id, found.Id);
+        Assert.Equal(created.BatchId, found.BatchId);
+        Assert.Null(missing);
+    }
+
+    [Fact]
+    public async Task GetActiveBySourcePathAsync_ReturnsInFlightOperationAcrossFingerprintChanges()
+    {
+        var repo = new MediaOperationRepository(_db);
+        var sourcePath = Path.GetFullPath("C:/watch/restart.epub");
+        var batchId = Guid.NewGuid();
+        var active = await repo.EnsureAsync(NewOperation(
+            $"ingestion:file:{sourcePath}:100:1",
+            sourcePath: sourcePath,
+            batchId: batchId,
+            status: MediaOperationStatus.Running));
+        await repo.EnsureAsync(NewOperation(
+            $"ingestion:file:{sourcePath}:100:0",
+            sourcePath: sourcePath,
+            status: MediaOperationStatus.Succeeded));
+
+        var found = await repo.GetActiveBySourcePathAsync(sourcePath);
+
+        Assert.NotNull(found);
+        Assert.Equal(active.Id, found.Id);
+        Assert.Equal(batchId, found.BatchId);
+    }
+
+    [Fact]
+    public async Task GetActiveBySourcePathAsync_IgnoresOnlyTerminalOperations()
+    {
+        var repo = new MediaOperationRepository(_db);
+        var sourcePath = Path.GetFullPath("C:/watch/completed.epub");
+        await repo.EnsureAsync(NewOperation(
+            $"ingestion:file:{sourcePath}:100:1",
+            sourcePath: sourcePath,
+            status: MediaOperationStatus.Succeeded));
+
+        var found = await repo.GetActiveBySourcePathAsync(sourcePath);
+
+        Assert.Null(found);
+    }
+
+    [Fact]
+    public async Task GetLatestBySourcePathAsync_ReturnsTerminalOperationForTrackedPath()
+    {
+        var repo = new MediaOperationRepository(_db);
+        var sourcePath = Path.GetFullPath("C:/watch/completed.epub");
+        var terminal = await repo.EnsureAsync(NewOperation(
+            $"ingestion:file:{sourcePath}:100:1",
+            sourcePath: sourcePath,
+            status: MediaOperationStatus.Succeeded));
+
+        var found = await repo.GetLatestBySourcePathAsync(sourcePath);
+
+        Assert.NotNull(found);
+        Assert.Equal(terminal.Id, found.Id);
+        Assert.Equal(MediaOperationStatus.Succeeded, found.Status);
+    }
+
+    [Fact]
     public async Task LeaseNextAsync_LeasesQueuedRowsAndIgnoresActiveLease()
     {
         var repo = new MediaOperationRepository(_db);

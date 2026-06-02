@@ -96,6 +96,22 @@ public sealed class ItemEndpointRouteTests
     }
 
     [Fact]
+    public void ItemEditorEndpoints_ResolveCurrentMediaAssetOrWorkTargets()
+    {
+        var canonical = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+        var libraryItems = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryItemEndpoints.cs"));
+
+        Assert.Contains("TryResolveWorkAssetContext", canonical, StringComparison.Ordinal);
+        Assert.Contains("No current media asset or work target found", canonical, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.ToBlob(entityId)", canonical, StringComparison.Ordinal);
+        Assert.Contains("TryResolveLibraryItemTarget", libraryItems, StringComparison.Ordinal);
+        Assert.Contains("WHERE ma.id = @entityId", libraryItems, StringComparison.Ordinal);
+        Assert.Contains("OR e.work_id = @entityId", libraryItems, StringComparison.Ordinal);
+        Assert.DoesNotContain("No media asset found for work", canonical, StringComparison.Ordinal);
+        Assert.DoesNotContain("No media asset found for work", libraryItems, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ItemCanonicalEndpoints_RouteManualWritesByLineageScope()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));

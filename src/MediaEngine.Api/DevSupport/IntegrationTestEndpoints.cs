@@ -15,6 +15,7 @@ using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Options;
 
@@ -1720,18 +1721,26 @@ public static class IntegrationTestEndpoints
             using (var conn = db.CreateConnection())
             {
                 // Check for parent collections (universes)
-                var parentCollections = (await conn.QueryAsync<(string Id, string DisplayName, string? WikidataQid)>(
+                var parentCollections = (await conn.QueryAsync<ParentCollectionRow>(
                     """
-                    SELECT h.id, h.display_name, h.wikidata_qid
+                    SELECT h.id            AS Id,
+                           h.display_name  AS DisplayName,
+                           h.wikidata_qid  AS WikidataQid
                     FROM collections h
                     WHERE EXISTS (SELECT 1 FROM collections child WHERE child.parent_collection_id = h.id)
                     """)).ToList();
 
                 foreach (var ph in parentCollections)
                 {
+                    if (!TryReadCurrentGuid(ph.Id, out var collectionId))
+                    {
+                        continue;
+                    }
+
+                    var collectionIdParam = GuidSql.ToBlob(collectionId);
                     int childCount = await conn.ExecuteScalarAsync<int>(
                         "SELECT COUNT(*) FROM collections WHERE parent_collection_id = @id;",
-                        new { id = ph.Id });
+                        new { id = collectionIdParam });
 
                     var universeResult = new UniverseResult
                     {
@@ -1747,7 +1756,7 @@ public static class IntegrationTestEndpoints
                         INNER JOIN collections child ON w.collection_id = child.id
                         WHERE child.parent_collection_id = @id
                         """,
-                        new { id = ph.Id });
+                        new { id = collectionIdParam });
                     universeResult.WorkCount = workCount;
 
                     report.UniverseResults.Add(universeResult);
@@ -1989,7 +1998,7 @@ public static class IntegrationTestEndpoints
         };
 
         using var conn = db.CreateConnection();
-        var workIdText = await conn.ExecuteScalarAsync<string?>(
+        var workIdValue = await conn.ExecuteScalarAsync<object?>(
             """
             WITH work_assets AS (
                 SELECT w.id AS work_id,
@@ -2031,7 +2040,7 @@ public static class IntegrationTestEndpoints
             """,
             new { workQid = expected.WorkQid });
 
-        check.WorkFound = Guid.TryParse(workIdText, out var workId);
+        check.WorkFound = TryReadCurrentGuid(workIdValue, out var workId);
         if (!check.WorkFound)
         {
             check.Detail = $"{expected.Title} work row was not found by Wikidata QID.";
@@ -2073,7 +2082,7 @@ public static class IntegrationTestEndpoints
 
         check.HasMovieScopedActorCharacterLink = row is not null
             && string.Equals(row.WorkQid, expected.WorkQid, StringComparison.OrdinalIgnoreCase);
-        check.HasPortraitRow = !string.IsNullOrWhiteSpace(row?.PortraitId);
+        check.HasPortraitRow = TryReadCurrentGuid(row?.PortraitId, out _);
         check.PortraitSourceProvider = row?.PortraitSourceProvider;
         check.HasUnverifiedPortrait = string.Equals(row?.PortraitSourceProvider, "tmdb_tagged_images", StringComparison.OrdinalIgnoreCase);
         check.PortraitImageUrl = row?.PortraitImageUrl;
@@ -2143,7 +2152,7 @@ public static class IntegrationTestEndpoints
         public string? ActorName { get; init; }
         public string? CharacterName { get; init; }
         public string? CharacterQid { get; init; }
-        public string? PortraitId { get; init; }
+        public object? PortraitId { get; init; }
         public string? PortraitImageUrl { get; init; }
         public string? PortraitLocalImagePath { get; init; }
         public string? PortraitSourceProvider { get; init; }
@@ -3323,7 +3332,7 @@ public static class IntegrationTestEndpoints
     private static async Task<Dictionary<Guid, Guid>> LoadWorkAssetIdsAsync(IDatabaseConnection db)
     {
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string WorkId, string AssetId)>("""
+        var rows = await conn.QueryAsync<WorkAssetIdRow>("""
             SELECT w.id AS WorkId, MIN(ma.id) AS AssetId
             FROM works w
             INNER JOIN editions e ON e.work_id = w.id
@@ -3331,15 +3340,23 @@ public static class IntegrationTestEndpoints
             GROUP BY w.id
             """);
 
-        return rows
-            .Where(r => Guid.TryParse(r.WorkId, out _) && Guid.TryParse(r.AssetId, out _))
-            .ToDictionary(r => Guid.Parse(r.WorkId), r => Guid.Parse(r.AssetId));
+        var result = new Dictionary<Guid, Guid>();
+        foreach (var row in rows)
+        {
+            if (TryReadCurrentGuid(row.WorkId, out var workId)
+                && TryReadCurrentGuid(row.AssetId, out var assetId))
+            {
+                result[workId] = assetId;
+            }
+        }
+
+        return result;
     }
 
     private static async Task<Dictionary<string, Guid>> LoadAssetIdsByPathAsync(IDatabaseConnection db)
     {
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string AssetId, string FilePath)>("""
+        var rows = await conn.QueryAsync<AssetPathRow>("""
             SELECT id             AS AssetId,
                    file_path_root AS FilePath
             FROM media_assets
@@ -3348,19 +3365,19 @@ public static class IntegrationTestEndpoints
             """);
 
         return rows
-            .Where(r => Guid.TryParse(r.AssetId, out _)
+            .Where(r => TryReadCurrentGuid(r.AssetId, out _)
                 && !string.IsNullOrWhiteSpace(r.FilePath))
             .GroupBy(r => NormalizeComparablePath(r.FilePath), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 g => g.Key,
-                g => Guid.Parse(g.OrderBy(r => r.AssetId, StringComparer.OrdinalIgnoreCase).First().AssetId),
+                g => GuidSql.FromDb(g.OrderBy(r => r.FilePath, StringComparer.OrdinalIgnoreCase).First().AssetId),
                 StringComparer.OrdinalIgnoreCase);
     }
 
     private static async Task<Dictionary<Guid, OptionalArtworkState>> LoadOptionalArtworkStatesAsync(IDatabaseConnection db)
     {
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string EntityId, string AssetType, string LocalImagePath)>("""
+        var rows = await conn.QueryAsync<OptionalArtworkRow>("""
             SELECT entity_id        AS EntityId,
                    asset_type       AS AssetType,
                    local_image_path AS LocalImagePath
@@ -3374,7 +3391,7 @@ public static class IntegrationTestEndpoints
         var result = new Dictionary<Guid, OptionalArtworkState>();
         foreach (var row in rows)
         {
-            if (!Guid.TryParse(row.EntityId, out var workId))
+            if (!TryReadCurrentGuid(row.EntityId, out var workId))
             {
                 continue;
             }
@@ -3425,19 +3442,26 @@ public static class IntegrationTestEndpoints
     private static async Task<Dictionary<Guid, WorkHierarchyNode>> LoadWorkHierarchyAsync(IDatabaseConnection db)
     {
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string Id, string? ParentWorkId)>("""
+        var rows = await conn.QueryAsync<WorkHierarchyRow>("""
             SELECT id             AS Id,
                    parent_work_id AS ParentWorkId
             FROM works;
             """);
 
-        return rows
-            .Where(row => Guid.TryParse(row.Id, out _))
-            .ToDictionary(
-                row => Guid.Parse(row.Id),
-                row => new WorkHierarchyNode(
-                    Guid.Parse(row.Id),
-                    Guid.TryParse(row.ParentWorkId, out var parentWorkId) ? parentWorkId : null));
+        var result = new Dictionary<Guid, WorkHierarchyNode>();
+        foreach (var row in rows)
+        {
+            if (!TryReadCurrentGuid(row.Id, out var id))
+            {
+                continue;
+            }
+
+            result[id] = new WorkHierarchyNode(
+                id,
+                TryReadCurrentGuid(row.ParentWorkId, out var parentWorkId) ? parentWorkId : null);
+        }
+
+        return result;
     }
 
     private static OptionalArtworkState ResolveOptionalArtworkState(
@@ -3475,7 +3499,7 @@ public static class IntegrationTestEndpoints
         }
 
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string EntityId, string Key, string Value)>("""
+        var rows = await conn.QueryAsync<CanonicalValueRow>("""
             SELECT entity_id AS EntityId,
                    key       AS Key,
                    value     AS Value
@@ -3485,13 +3509,13 @@ public static class IntegrationTestEndpoints
               AND TRIM(value) <> '';
             """, new
         {
-            entityIds = ids.Select(id => id.ToString()).ToArray(),
+            entityIds = ids.Select(GuidSql.ToBlob).ToArray(),
         });
 
         var maps = new Dictionary<Guid, Dictionary<string, string>>();
         foreach (var row in rows)
         {
-            if (!Guid.TryParse(row.EntityId, out var entityId))
+            if (!TryReadCurrentGuid(row.EntityId, out var entityId))
             {
                 continue;
             }
@@ -3521,7 +3545,7 @@ public static class IntegrationTestEndpoints
             return [];
         }
 
-        var rows = await conn.QueryAsync<(string EntityId, string LocalImagePath, string? LocalImagePathSmall, string? LocalImagePathMedium, string? LocalImagePathLarge, string? PrimaryHex, string? SecondaryHex, string? AccentHex)>($"""
+        var rows = await conn.QueryAsync<PreferredArtworkRow>($"""
             SELECT entity_id        AS EntityId,
                    local_image_path AS LocalImagePath,
                    {ResolveEntityAssetColumnSql(columns, "LocalImagePathSmall", "local_image_path_s", "local_image_path_small")},
@@ -3537,19 +3561,25 @@ public static class IntegrationTestEndpoints
               AND TRIM(local_image_path) <> '';
             """, new { assetType });
 
-        return rows
-            .Where(row => Guid.TryParse(row.EntityId, out _))
-            .ToDictionary(
-                row => Guid.Parse(row.EntityId),
-                row => new PreferredArtworkRecord(
-                    row.LocalImagePath,
-                    row.LocalImagePathSmall,
-                    row.LocalImagePathMedium,
-                    row.LocalImagePathLarge,
-                    row.PrimaryHex,
-                    row.SecondaryHex,
-                    row.AccentHex),
-                EqualityComparer<Guid>.Default);
+        var result = new Dictionary<Guid, PreferredArtworkRecord>();
+        foreach (var row in rows)
+        {
+            if (!TryReadCurrentGuid(row.EntityId, out var entityId))
+            {
+                continue;
+            }
+
+            result[entityId] = new PreferredArtworkRecord(
+                row.LocalImagePath,
+                row.LocalImagePathSmall,
+                row.LocalImagePathMedium,
+                row.LocalImagePathLarge,
+                row.PrimaryHex,
+                row.SecondaryHex,
+                row.AccentHex);
+        }
+
+        return result;
     }
 
     private static string ResolveEntityAssetColumnSql(
@@ -3873,9 +3903,83 @@ public static class IntegrationTestEndpoints
         return !string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool TryReadCurrentGuid(object? value, out Guid guid)
+    {
+        guid = default;
+        if (value is null or DBNull)
+        {
+            return false;
+        }
+
+        try
+        {
+            guid = GuidSql.FromDb(value);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidCastException)
+        {
+            return false;
+        }
+    }
+
+    private sealed class ParentCollectionRow
+    {
+        public object Id { get; set; } = Array.Empty<byte>();
+        public string DisplayName { get; set; } = "";
+        public string? WikidataQid { get; set; }
+    }
+
+    private sealed class WorkAssetIdRow
+    {
+        public object WorkId { get; set; } = Array.Empty<byte>();
+        public object AssetId { get; set; } = Array.Empty<byte>();
+    }
+
+    private sealed class AssetPathRow
+    {
+        public object AssetId { get; set; } = Array.Empty<byte>();
+        public string FilePath { get; set; } = "";
+    }
+
+    private sealed class OptionalArtworkRow
+    {
+        public object EntityId { get; set; } = Array.Empty<byte>();
+        public string AssetType { get; set; } = "";
+        public string LocalImagePath { get; set; } = "";
+    }
+
+    private sealed class WorkHierarchyRow
+    {
+        public object Id { get; set; } = Array.Empty<byte>();
+        public object? ParentWorkId { get; set; }
+    }
+
+    private sealed class CanonicalValueRow
+    {
+        public object EntityId { get; set; } = Array.Empty<byte>();
+        public string Key { get; set; } = "";
+        public string Value { get; set; } = "";
+    }
+
+    private sealed class PreferredArtworkRow
+    {
+        public object EntityId { get; set; } = Array.Empty<byte>();
+        public string LocalImagePath { get; set; } = "";
+        public string? LocalImagePathSmall { get; set; }
+        public string? LocalImagePathMedium { get; set; }
+        public string? LocalImagePathLarge { get; set; }
+        public string? PrimaryHex { get; set; }
+        public string? SecondaryHex { get; set; }
+        public string? AccentHex { get; set; }
+    }
+
     private sealed class ProviderNameRow
     {
-        public string Id { get; set; } = "";
+        public Guid Id { get; set; }
         public string Name { get; set; } = "";
     }
 
@@ -3888,18 +3992,13 @@ public static class IntegrationTestEndpoints
         var providerNames = new Dictionary<Guid, string>();
         foreach (var row in rows)
         {
-            if (!Guid.TryParse(row.Id, out var providerId))
-            {
-                continue;
-            }
-
             var normalized = NormalizeProviderName(row.Name);
             if (string.IsNullOrWhiteSpace(normalized))
             {
                 continue;
             }
 
-            providerNames[providerId] = normalized;
+            providerNames[row.Id] = normalized;
         }
 
         return providerNames;

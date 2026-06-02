@@ -125,6 +125,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // retail-first identity pipeline (RetailMatchWorker ? WikidataBridgeWorker ? QuickHydrationWorker).
     private readonly IIdentityJobRepository _identityJobRepo;
     private readonly IMediaOperationTracker? _operationTracker;
+    private readonly IMediaOperationRepository? _operationRepository;
     private readonly CapabilityPlanner? _capabilityPlanner;
     private readonly IMediaTypeResolver _mediaTypeResolver;
     private readonly IDuplicateResolver _duplicateResolver;
@@ -182,6 +183,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IWorkRepository?           workRepo = null,
         IAssetExportService?       assetExportService = null,
         IMediaOperationTracker?    operationTracker = null,
+        IMediaOperationRepository? operationRepository = null,
         CapabilityPlanner?         capabilityPlanner = null)
     {
         _watcher          = watcher;
@@ -216,6 +218,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _assetExportService = assetExportService;
         _identityJobRepo  = identityJobRepo;
         _operationTracker = operationTracker;
+        _operationRepository = operationRepository;
         _capabilityPlanner = capabilityPlanner;
         _mediaTypeResolver = mediaTypeResolver;
         _duplicateResolver = duplicateResolver;
@@ -1932,9 +1935,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             knownPaths = [];
         }
 
-        var acceptedEvents = new List<FileEvent>();
+        var newEvents = new List<FileEvent>();
+        var resumedEvents = new List<FileEvent>();
         var acceptedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var skipped = 0;
+        var resumed = 0;
 
         foreach (var target in scanTargets)
         {
@@ -1973,7 +1978,37 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         continue;
                     }
 
-                    acceptedEvents.Add(new FileEvent
+                    var trackedOperation = await GetTrackedIngestionOperationAsync(normalizedPath, ct).ConfigureAwait(false);
+                    if (trackedOperation is not null)
+                    {
+                        if (IsTerminalMediaOperation(trackedOperation))
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        var trackedEvent = new FileEvent
+                        {
+                            Path = normalizedPath,
+                            EventType = FileEventType.Created,
+                            OccurredAt = DateTimeOffset.UtcNow,
+                            BatchId = trackedOperation.BatchId,
+                        };
+
+                        if (trackedOperation.BatchId.HasValue)
+                        {
+                            await RequeueTrackedIngestionOperationAsync(trackedOperation, ct).ConfigureAwait(false);
+                            resumedEvents.Add(trackedEvent);
+                            resumed++;
+                            continue;
+                        }
+
+                        newEvents.Add(trackedEvent);
+                        resumed++;
+                        continue;
+                    }
+
+                    newEvents.Add(new FileEvent
                     {
                         Path       = normalizedPath,
                         EventType  = FileEventType.Created,
@@ -1985,7 +2020,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             {
                 _logger.LogWarning(ex,
                     "Initial scan of watch directory failed after {Count} accepted file(s): {Dir}",
-                    acceptedEvents.Count, target.Path);
+                    newEvents.Count + resumedEvents.Count, target.Path);
             }
         }
 
@@ -1994,39 +2029,53 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Initial scan: skipped {Skipped} already-known or duplicate file(s) across {TargetCount} scan target(s)",
                 skipped, scanTargets.Count);
 
-        if (acceptedEvents.Count == 0)
+        if (newEvents.Count == 0 && resumedEvents.Count == 0)
             return;
 
-        var batchId = Guid.NewGuid();
-        foreach (var evt in acceptedEvents)
+        if (newEvents.Count > 0)
         {
-            evt.BatchId = batchId;
+            var batchId = Guid.NewGuid();
+            foreach (var evt in newEvents)
+            {
+                evt.BatchId = batchId;
+            }
+
+            try
+            {
+                await _batchRepo.CreateAsync(new IngestionBatch
+                {
+                    Id          = batchId,
+                    Status      = "running",
+                    SourcePath  = ResolveScanBatchSourcePath(scanTargets),
+                    FilesTotal  = newEvents.Count,
+                    StartedAt   = DateTimeOffset.UtcNow,
+                }, ct).ConfigureAwait(false);
+                await PublishInitialBatchProgressAsync(batchId, newEvents.Count).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Batch record creation failed for scan batchId {BatchId} - pipeline continues", batchId);
+            }
         }
 
         _logger.LogInformation(
-            "Initial scan: enqueued {Count} existing file(s) across {TargetCount} scan target(s)",
-            acceptedEvents.Count, scanTargets.Count);
+            "Initial scan: enqueued {NewCount} new file(s) and resumed {ResumedCount} tracked file(s) across {TargetCount} scan target(s)",
+            newEvents.Count,
+            resumed,
+            scanTargets.Count);
 
-        // Persist one batch record for the whole scan before any file is processed.
-        try
+        foreach (var resumedBatchId in resumedEvents
+            .Select(evt => evt.BatchId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct())
         {
-            await _batchRepo.CreateAsync(new IngestionBatch
-            {
-                Id          = batchId,
-                Status      = "running",
-                SourcePath  = ResolveScanBatchSourcePath(scanTargets),
-                FilesTotal  = acceptedEvents.Count,
-                StartedAt   = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
-            await PublishInitialBatchProgressAsync(batchId, acceptedEvents.Count).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Batch record creation failed for scan batchId {BatchId} - pipeline continues", batchId);
+            await PublishQueuedBatchSnapshotAsync(resumedBatchId, ct).ConfigureAwait(false);
         }
 
-        foreach (var evt in acceptedEvents)
+        foreach (var evt in newEvents.Concat(resumedEvents))
         {
+            await EnsureIngestionOperationAsync(evt, MediaOperationStage.Discovered, ct).ConfigureAwait(false);
             _debounce.Enqueue(evt);
         }
     }
@@ -2774,10 +2823,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// </summary>
     private bool BufferFswEvent(FileEvent evt)
     {
-        if (NonMediaExtensions.Contains(Path.GetExtension(evt.Path)))
+        var extension = Path.GetExtension(evt.Path);
+        if (string.IsNullOrWhiteSpace(extension) || NonMediaExtensions.Contains(extension))
             return false;
 
         var normalizedPath = Path.GetFullPath(evt.Path);
+        if (Directory.Exists(normalizedPath))
+            return false;
+
+        if (evt.EventType != FileEventType.Deleted
+            && !File.Exists(normalizedPath))
+        {
+            return false;
+        }
+
         var normalizedEvent = new FileEvent
         {
             Path       = normalizedPath,
@@ -2790,11 +2849,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (!TryTrackQueuedPath(normalizedPath))
             return false;
 
-        _ = EnsureIngestionOperationAsync(normalizedEvent, MediaOperationStage.Discovered, CancellationToken.None);
-
         // Events from ScanExistingFiles already have a batch - pass through.
         if (normalizedEvent.BatchId is not null)
         {
+            _ = EnsureIngestionOperationAsync(normalizedEvent, MediaOperationStage.Discovered, CancellationToken.None);
             _debounce.Enqueue(normalizedEvent);
             return true;
         }
@@ -2906,29 +2964,91 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _fswFlushTimer = null;
         }
 
-        var batchId = Guid.NewGuid();
-
-        try
-        {
-            await _batchRepo.CreateAsync(new IngestionBatch
-            {
-                Id          = batchId,
-                Status      = "running",
-                SourcePath  = ResolveBufferedBatchSourcePath(snapshot),
-                FilesTotal  = snapshot.Count,
-                StartedAt   = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
-
-            await PublishInitialBatchProgressAsync(batchId, snapshot.Count).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogDebug(ex, "Batch record creation failed for FSW flush batchId {BatchId} - pipeline continues", batchId);
-        }
-
+        var newEvents = new List<FileEvent>();
+        var resumedEvents = new List<FileEvent>();
         foreach (var evt in snapshot)
         {
-            evt.BatchId = batchId;
+            var normalizedPath = Path.GetFullPath(evt.Path);
+            var extension = Path.GetExtension(normalizedPath);
+            if (string.IsNullOrWhiteSpace(extension) || NonMediaExtensions.Contains(extension))
+            {
+                ReleaseActivePath(evt.Path);
+                continue;
+            }
+
+            if (evt.EventType != FileEventType.Deleted
+                && !File.Exists(normalizedPath))
+            {
+                ReleaseActivePath(evt.Path);
+                continue;
+            }
+
+            var trackedOperation = await GetTrackedIngestionOperationAsync(evt.Path, ct).ConfigureAwait(false);
+            if (trackedOperation is null)
+            {
+                newEvents.Add(evt);
+                continue;
+            }
+
+            if (IsTerminalMediaOperation(trackedOperation))
+            {
+                ReleaseActivePath(evt.Path);
+                continue;
+            }
+
+            if (trackedOperation.BatchId.HasValue)
+            {
+                evt.BatchId = trackedOperation.BatchId;
+                await RequeueTrackedIngestionOperationAsync(trackedOperation, ct).ConfigureAwait(false);
+                resumedEvents.Add(evt);
+                continue;
+            }
+
+            newEvents.Add(evt);
+        }
+
+        if (newEvents.Count == 0 && resumedEvents.Count == 0)
+            return;
+
+        if (newEvents.Count > 0)
+        {
+            var batchId = Guid.NewGuid();
+
+            try
+            {
+                await _batchRepo.CreateAsync(new IngestionBatch
+                {
+                    Id          = batchId,
+                    Status      = "running",
+                    SourcePath  = ResolveBufferedBatchSourcePath(newEvents),
+                    FilesTotal  = newEvents.Count,
+                    StartedAt   = DateTimeOffset.UtcNow,
+                }, ct).ConfigureAwait(false);
+
+                await PublishInitialBatchProgressAsync(batchId, newEvents.Count).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Batch record creation failed for FSW flush batchId {BatchId} - pipeline continues", batchId);
+            }
+
+            foreach (var evt in newEvents)
+            {
+                evt.BatchId = batchId;
+            }
+        }
+
+        foreach (var resumedBatchId in resumedEvents
+            .Select(evt => evt.BatchId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct())
+        {
+            await PublishQueuedBatchSnapshotAsync(resumedBatchId, ct).ConfigureAwait(false);
+        }
+
+        foreach (var evt in newEvents.Concat(resumedEvents))
+        {
             _ = EnsureIngestionOperationAsync(evt, MediaOperationStage.Discovered, CancellationToken.None);
             _debounce.Enqueue(evt);
         }
@@ -2964,6 +3084,66 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     || normalizedFile.StartsWith(normalizedRoot + "/", StringComparison.OrdinalIgnoreCase);
             });
     }
+
+    private async Task<MediaOperation?> GetTrackedIngestionOperationAsync(string path, CancellationToken ct)
+    {
+        if (_operationRepository is null)
+            return null;
+
+        try
+        {
+            var keyMatch = await _operationRepository
+                .GetByIdempotencyKeyAsync(BuildIngestionOperationKey(path), ct)
+                .ConfigureAwait(false);
+
+            if (keyMatch is not null && !IsTerminalMediaOperation(keyMatch))
+                return keyMatch;
+
+            var activePathMatch = await _operationRepository
+                .GetActiveBySourcePathAsync(Path.GetFullPath(path), ct)
+                .ConfigureAwait(false);
+
+            if (activePathMatch is not null)
+                return activePathMatch;
+
+            var latestPathMatch = await _operationRepository
+                .GetLatestBySourcePathAsync(Path.GetFullPath(path), ct)
+                .ConfigureAwait(false);
+
+            return latestPathMatch ?? keyMatch;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable ingestion operation lookup failed for {Path}", path);
+            return null;
+        }
+    }
+
+    private async Task RequeueTrackedIngestionOperationAsync(MediaOperation operation, CancellationToken ct)
+    {
+        if (_operationRepository is null || IsTerminalMediaOperation(operation))
+            return;
+
+        try
+        {
+            await _operationRepository.RequeueAsync(operation.Id, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable ingestion operation requeue failed for {OperationId}", operation.Id);
+        }
+    }
+
+    private static bool IsTerminalMediaOperation(MediaOperation operation) =>
+        operation.Status is MediaOperationStatus.Succeeded
+            or MediaOperationStatus.NoResult
+            or MediaOperationStatus.MissingConfirmed
+            or MediaOperationStatus.NotApplicable
+            or MediaOperationStatus.Blocked
+            or MediaOperationStatus.FailedTerminal
+            or MediaOperationStatus.DeadLettered
+            or MediaOperationStatus.Cancelled
+            or MediaOperationStatus.Skipped;
 
     private async Task<MediaOperation?> EnsureIngestionOperationAsync(
         FileEvent evt,

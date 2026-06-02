@@ -216,14 +216,12 @@ public static class IngestionEndpoints
 
         // ── GET /ingestion/batches ────────────────────────────────────────────
         group.MapGet("/batches", async (
-            IIngestionBatchRepository batchRepo,
-            int? limit) =>
+            IIngestionBatchResponseService batchResponses,
+            int? limit,
+            CancellationToken ct) =>
         {
-            var batches = await batchRepo.GetRecentAsync(limit ?? 20);
-            return Results.Ok(batches
-                .Where(IngestionBatchEndpointMapper.ShouldShowInRecentBatches)
-                .Select(IngestionBatchEndpointMapper.ToResponse)
-                .ToList());
+            var responses = await batchResponses.GetRecentAsync(limit ?? 20, ct);
+            return Results.Ok(responses);
         })
         .WithName("GetRecentBatches")
         .WithSummary("List recent ingestion batches, newest first.")
@@ -288,11 +286,11 @@ public static class IngestionEndpoints
         .RequireAdminOrCurator();
         group.MapGet("/batches/{id:guid}", async (
             Guid id,
-            IIngestionBatchRepository batchRepo) =>
+            IIngestionBatchResponseService batchResponses,
+            CancellationToken ct) =>
         {
-            var batch = await batchRepo.GetByIdAsync(id);
-            if (batch is null) return Results.NotFound();
-            return Results.Ok(IngestionBatchEndpointMapper.ToResponse(batch));
+            var response = await batchResponses.GetByIdAsync(id, ct);
+            return response is null ? Results.NotFound() : Results.Ok(response);
         })
         .WithName("GetBatchById")
         .WithSummary("Get details of a specific ingestion batch.")
@@ -547,22 +545,6 @@ internal static class IngestionBatchEndpointMapper
         return hasOutcome || !string.Equals(batch.Status, "completed", StringComparison.OrdinalIgnoreCase);
     }
 
-    internal static IngestionBatchResponse ToResponse(IngestionBatch batch) => new()
-    {
-        Id              = batch.Id,
-        Status          = batch.Status,
-        SourcePath      = batch.SourcePath,
-        Category        = batch.Category,
-        FilesTotal      = batch.FilesTotal,
-        FilesProcessed  = batch.FilesProcessed,
-        FilesIdentified = batch.FilesIdentified,
-        FilesReview     = batch.FilesReview,
-        FilesNoMatch    = batch.FilesNoMatch,
-        FilesFailed     = batch.FilesFailed,
-        StartedAt       = batch.StartedAt,
-        CompletedAt     = batch.CompletedAt,
-        CreatedAt       = batch.CreatedAt,
-    };
 }
 
 public sealed record UploadPlan(

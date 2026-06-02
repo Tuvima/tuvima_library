@@ -103,17 +103,17 @@ public sealed class ProfileOverviewReadServiceTests : IDisposable
             INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
             VALUES ($claimId, $assetId, $providerId, 'title', $title, 1.0, $claimedAt);
             """;
-        cmd.Parameters.AddWithValue("$providerId", providerId.ToString("D"));
+        cmd.Parameters.AddWithValue("$providerId", GuidSql.ToBlob(providerId));
         cmd.Parameters.AddWithValue("$providerName", $"test-{providerId:N}");
-        cmd.Parameters.AddWithValue("$workId", workId.ToString("D"));
+        cmd.Parameters.AddWithValue("$workId", GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("$mediaType", mediaType);
-        cmd.Parameters.AddWithValue("$editionId", editionId.ToString("D"));
-        cmd.Parameters.AddWithValue("$assetId", assetId.ToString("D"));
+        cmd.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+        cmd.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
         cmd.Parameters.AddWithValue("$hash", Guid.NewGuid().ToString("N"));
         cmd.Parameters.AddWithValue("$title", title);
         cmd.Parameters.AddWithValue("$genre", genre);
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
-        cmd.Parameters.AddWithValue("$claimId", Guid.NewGuid().ToString("D"));
+        cmd.Parameters.AddWithValue("$claimId", GuidSql.ToBlob(Guid.NewGuid()));
         cmd.Parameters.AddWithValue("$claimedAt", claimedAt.ToString("O"));
         cmd.ExecuteNonQuery();
         return assetId;
@@ -127,8 +127,8 @@ public sealed class ProfileOverviewReadServiceTests : IDisposable
             INSERT INTO user_states (user_id, asset_id, progress_pct, last_accessed, extended_properties)
             VALUES ($profileId, $assetId, $progress, $lastAccessed, $extendedProperties);
             """;
-        cmd.Parameters.AddWithValue("$profileId", _profileId.ToString("D"));
-        cmd.Parameters.AddWithValue("$assetId", assetId.ToString("D"));
+        cmd.Parameters.AddWithValue("$profileId", GuidSql.ToBlob(_profileId));
+        cmd.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
         cmd.Parameters.AddWithValue("$progress", progress);
         cmd.Parameters.AddWithValue("$lastAccessed", lastAccessed.ToString("O"));
         cmd.Parameters.AddWithValue("$extendedProperties", extendedProperties);

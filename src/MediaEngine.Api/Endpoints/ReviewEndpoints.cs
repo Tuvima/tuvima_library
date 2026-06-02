@@ -31,27 +31,20 @@ public static class ReviewEndpoints
             ILibraryItemRepository libraryItemRepo,
             CancellationToken ct) =>
         {
-            var visibleReviewItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(
-                Offset: 0,
-                Limit: limit ?? 50,
-                Status: "InReview"), ct);
+            var pending = await reviewRepo.GetPendingAsync(limit ?? 50, ct);
 
-            var dtos = new List<ReviewItemDto>(visibleReviewItems.Items.Count);
-            foreach (var item in visibleReviewItems.Items)
+            var dtos = new List<ReviewItemDto>(pending.Count);
+            foreach (var reviewEntry in pending)
             {
-                if (item.ReviewItemId is not Guid reviewItemId)
+                var detail = await libraryItemRepo.GetDetailAsync(reviewEntry.EntityId, ct);
+                if (detail is not { } itemDetail || itemDetail.ReviewItemId != reviewEntry.Id)
                     continue;
 
-                var reviewEntry = await reviewRepo.GetByIdAsync(reviewItemId, ct);
-                if (reviewEntry is null || !string.Equals(reviewEntry.Status, ReviewStatus.Pending, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var detail = await libraryItemRepo.GetDetailAsync(item.EntityId, ct);
-                var bridgeIds = detail?.BridgeIds is { Count: > 0 }
-                    ? detail.BridgeIds.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+                var bridgeIds = itemDetail.BridgeIds is { Count: > 0 }
+                    ? itemDetail.BridgeIds.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
                     : null;
 
-                dtos.Add(ReviewItemDto.FromDomain(reviewEntry, item.MediaType, item.Title, item.CoverUrl, bridgeIds));
+                dtos.Add(ReviewItemDto.FromDomain(reviewEntry, itemDetail.MediaType, itemDetail.Title, itemDetail.CoverUrl, bridgeIds));
             }
 
             return Results.Ok(dtos);
@@ -63,11 +56,11 @@ public static class ReviewEndpoints
 
         // ── GET /review/count ────────────────────────────────────────────────
         group.MapGet("/count", async (
-            ILibraryItemRepository libraryItemRepo,
+            IReviewQueueRepository reviewRepo,
             CancellationToken ct) =>
         {
-            var counts = await libraryItemRepo.GetFourStateCountsAsync(ct: ct);
-            return Results.Ok(new ReviewCountResponse { PendingCount = counts.InReview });
+            var count = await reviewRepo.GetPendingCountAsync(ct);
+            return Results.Ok(new ReviewCountResponse { PendingCount = count });
         })
         .WithName("GetReviewCount")
         .WithSummary("Get the number of pending review queue items (for sidebar badge).")

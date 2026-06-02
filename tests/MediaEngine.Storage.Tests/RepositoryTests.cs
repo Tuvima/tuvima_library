@@ -363,6 +363,8 @@ public sealed class RepositoryTests : IDisposable
             EntityType = nameof(EntityType.MediaAsset), Trigger = ReviewTrigger.LowConfidence,
             Status = ReviewStatus.Pending, ConfidenceScore = 0.45,
             Detail = "Low confidence file", CreatedAt = DateTimeOffset.UtcNow,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
 
         await repo.InsertAsync(entry);
@@ -382,6 +384,8 @@ public sealed class RepositoryTests : IDisposable
             EntityType = nameof(EntityType.MediaAsset), Trigger = ReviewTrigger.LowConfidence,
             Status = ReviewStatus.Pending, ConfidenceScore = 0.45,
             Detail = "Test", CreatedAt = DateTimeOffset.UtcNow,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
 
         await repo.InsertAsync(entry);
@@ -391,9 +395,107 @@ public sealed class RepositoryTests : IDisposable
         Assert.Empty(pending);
     }
 
+    [Fact]
+    public async Task ReviewQueue_GetPendingAndCount_ExcludeRowsNotReadyForReview()
+    {
+        var repo = new ReviewQueueRepository(_db);
+        var assetRepo = new MediaAssetRepository(_db);
+        var editionId = await CreateTestEditionAsync();
+        var readyAssetId = Guid.NewGuid();
+        var queuedAssetId = Guid.NewGuid();
+
+        await assetRepo.InsertAsync(new MediaAsset
+        {
+            Id = readyAssetId,
+            EditionId = editionId,
+            ContentHash = $"ready_{Guid.NewGuid():N}",
+            FilePathRoot = "/library/ready.epub",
+            Status = AssetStatus.Normal,
+        });
+        await assetRepo.InsertAsync(new MediaAsset
+        {
+            Id = queuedAssetId,
+            EditionId = editionId,
+            ContentHash = $"queued_{Guid.NewGuid():N}",
+            FilePathRoot = "/library/queued.epub",
+            Status = AssetStatus.Normal,
+        });
+
+        await repo.InsertAsync(new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = readyAssetId,
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            Detail = "Automation complete",
+            CreatedAt = DateTimeOffset.UtcNow,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
+        });
+        await repo.InsertAsync(new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = queuedAssetId,
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            Detail = "Still queued",
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        var pending = await repo.GetPendingAsync();
+
+        Assert.Single(pending);
+        Assert.Equal(readyAssetId, pending[0].EntityId);
+        Assert.Single(await repo.GetPendingByEntityAsync(queuedAssetId));
+        Assert.Equal(1, await repo.GetPendingCountAsync());
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  ApiKeyRepository
     // ════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task ReviewQueue_MarkPendingReadyByEntity_PromotesHiddenPendingRows()
+    {
+        var repo = new ReviewQueueRepository(_db);
+        var assetRepo = new MediaAssetRepository(_db);
+        var editionId = await CreateTestEditionAsync();
+        var assetId = Guid.NewGuid();
+
+        await assetRepo.InsertAsync(new MediaAsset
+        {
+            Id = assetId,
+            EditionId = editionId,
+            ContentHash = $"mark_ready_{Guid.NewGuid():N}",
+            FilePathRoot = "/library/mark-ready.epub",
+            Status = AssetStatus.Normal,
+        });
+
+        await repo.InsertAsync(new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = assetId,
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            Detail = "Still in automation",
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        Assert.Empty(await repo.GetPendingAsync());
+
+        var promoted = await repo.MarkPendingReadyByEntityAsync(assetId);
+
+        Assert.Equal(1, promoted);
+        var pendingAfterPromotion = await repo.GetPendingAsync();
+        Assert.Single(pendingAfterPromotion);
+        Assert.Equal(assetId, pendingAfterPromotion[0].EntityId);
+        Assert.NotNull(pendingAfterPromotion[0].ReviewReadyAt);
+        Assert.NotNull(pendingAfterPromotion[0].AutomationCompletedAt);
+        Assert.Equal(0, await repo.MarkPendingReadyByEntityAsync(assetId));
+    }
 
     [Fact]
     public async Task IdentityJob_CreateAsync_IgnoresDuplicateActiveJobForSameEntityAndPass()
@@ -689,6 +791,8 @@ public sealed class RepositoryTests : IDisposable
             Trigger = ReviewTrigger.LowConfidence,
             Status = ReviewStatus.Pending,
             SourceOperationId = operationId,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
         });
 
         using var conn = _db.CreateConnection();

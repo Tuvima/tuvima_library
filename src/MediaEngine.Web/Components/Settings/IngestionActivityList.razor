@@ -633,6 +633,7 @@
     {
         if (stageKey is not null
             && (stageKey.Equals("artwork", StringComparison.OrdinalIgnoreCase)
+                || stageKey.Equals("wikidata", StringComparison.OrdinalIgnoreCase)
                 || stageKey.Equals("people", StringComparison.OrdinalIgnoreCase)
                 || stageKey.Equals("relationships", StringComparison.OrdinalIgnoreCase)))
         {
@@ -641,6 +642,7 @@
 
         return normalizedUnit.Equals("artwork assets", StringComparison.OrdinalIgnoreCase)
             || normalizedUnit.Equals("people", StringComparison.OrdinalIgnoreCase)
+            || normalizedUnit.Equals("QIDs", StringComparison.OrdinalIgnoreCase)
             || normalizedUnit.Equals("links", StringComparison.OrdinalIgnoreCase)
             || normalizedUnit.Equals("relationships", StringComparison.OrdinalIgnoreCase);
     }

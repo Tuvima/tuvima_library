@@ -661,6 +661,7 @@ public sealed class BatchGateTests
         public Task<IReadOnlyList<ReviewQueueEntry>> GetByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task<IReadOnlyList<ReviewQueueEntry>> GetPendingByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task UpdateStatusAsync(Guid id, string status, string? resolvedBy = null, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> GetPendingCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default) => Task.FromResult(0);

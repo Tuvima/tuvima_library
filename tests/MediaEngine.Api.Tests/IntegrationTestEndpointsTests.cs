@@ -68,6 +68,27 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void IntegrationHarness_ReadsCurrentSchemaGuidBlobs()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("TryReadCurrentGuid", source, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.FromDb(value)", source, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.ToBlob(collectionId)", source, StringComparison.Ordinal);
+        Assert.Contains("entityIds = ids.Select(GuidSql.ToBlob).ToArray()", source, StringComparison.Ordinal);
+        Assert.Contains("QueryAsync<WorkAssetIdRow>", source, StringComparison.Ordinal);
+        Assert.Contains("QueryAsync<AssetPathRow>", source, StringComparison.Ordinal);
+        Assert.Contains("QueryAsync<OptionalArtworkRow>", source, StringComparison.Ordinal);
+        Assert.Contains("QueryAsync<WorkHierarchyRow>", source, StringComparison.Ordinal);
+        Assert.Contains("QueryAsync<CanonicalValueRow>", source, StringComparison.Ordinal);
+        Assert.Contains("QueryAsync<PreferredArtworkRow>", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueryAsync<(string WorkId, string AssetId)>", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueryAsync<(string EntityId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Guid.Parse(row.EntityId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Guid.TryParse(row.EntityId", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OverallPass_FailsWhenReconciliationHasMismatches()
     {
         var report = CreateTestReport();

@@ -91,6 +91,9 @@ internal sealed class SchemaMigrator
 
             CREATE INDEX IF NOT EXISTS idx_identity_jobs_run_entity_updated
                 ON identity_jobs(ingestion_run_id, entity_id, updated_at);
+
+            CREATE INDEX IF NOT EXISTS idx_media_operations_source_path
+                ON media_operations(operation_type, source_path, status);
             """;
         cmd.ExecuteNonQuery();
     }

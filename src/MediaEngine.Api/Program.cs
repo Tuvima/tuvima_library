@@ -744,6 +744,7 @@ builder.Services.AddSingleton<ISystemActivityRepository, SystemActivityRepositor
 builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddSingleton<IIngestionOperationsStatusService, IngestionOperationsStatusService>();
+builder.Services.AddSingleton<IIngestionBatchResponseService, IngestionBatchResponseService>();
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<MediaOperationRecoveryHostedService>();
 builder.Services.AddHostedService<ArtworkRenditionRepairStartupService>();

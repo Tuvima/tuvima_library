@@ -1,0 +1,53 @@
+namespace MediaEngine.Ingestion.Tests;
+
+public sealed class IngestionLifecycleGuardrailTests
+{
+    [Fact]
+    public void IngestionEngine_ReusesTrackedOperationsBeforeCreatingBatches()
+    {
+        var source = ReadRepoSource(@"src\MediaEngine.Ingestion\IngestionEngine.cs");
+        var contract = ReadRepoSource(@"src\MediaEngine.Domain\Contracts\IMediaOperationRepository.cs");
+        var watcher = ReadRepoSource(@"src\MediaEngine.Ingestion\FileWatcher.cs");
+
+        Assert.Contains("GetByIdempotencyKeyAsync", contract, StringComparison.Ordinal);
+        Assert.Contains("GetActiveBySourcePathAsync", contract, StringComparison.Ordinal);
+        Assert.Contains("GetLatestBySourcePathAsync", contract, StringComparison.Ordinal);
+        Assert.Contains("GetTrackedIngestionOperationAsync", source, StringComparison.Ordinal);
+        Assert.Contains("BuildIngestionOperationKey(path)", source, StringComparison.Ordinal);
+        Assert.Contains("GetActiveBySourcePathAsync(Path.GetFullPath(path), ct)", source, StringComparison.Ordinal);
+        Assert.Contains("GetLatestBySourcePathAsync(Path.GetFullPath(path), ct)", source, StringComparison.Ordinal);
+        Assert.Contains("RequeueTrackedIngestionOperationAsync", source, StringComparison.Ordinal);
+        Assert.Contains("if (Directory.Exists(normalizedPath))", source, StringComparison.Ordinal);
+        Assert.Contains("string.IsNullOrWhiteSpace(extension)", source, StringComparison.Ordinal);
+        Assert.Contains("!File.Exists(normalizedPath)", source, StringComparison.Ordinal);
+        Assert.Contains("var newEvents = new List<FileEvent>();", source, StringComparison.Ordinal);
+        Assert.Contains("var resumedEvents = new List<FileEvent>();", source, StringComparison.Ordinal);
+        Assert.Contains("FilesTotal  = newEvents.Count", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveBufferedBatchSourcePath(newEvents)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FilesTotal  = snapshot.Count", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_ = EnsureIngestionOperationAsync(normalizedEvent, MediaOperationStage.Discovered, CancellationToken.None);\r\n\r\n        // Events from ScanExistingFiles already have a batch", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("NotifyFilters.DirectoryName", watcher, StringComparison.Ordinal);
+    }
+
+    private static string ReadRepoSource(
+        string relativePath,
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")
+    {
+        var directory = !string.IsNullOrWhiteSpace(sourceFile)
+            ? new DirectoryInfo(Path.GetDirectoryName(sourceFile)!)
+            : new DirectoryInfo(Directory.GetCurrentDirectory());
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+
+        if (directory is null)
+        {
+            directory = new DirectoryInfo(AppContext.BaseDirectory);
+            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+                directory = directory.Parent;
+        }
+
+        var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+        return File.ReadAllText(Path.Combine(root, relativePath));
+    }
+}

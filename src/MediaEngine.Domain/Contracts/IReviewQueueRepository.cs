@@ -68,6 +68,12 @@ public interface IReviewQueueRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Marks pending review rows for an entity as ready after automation reaches
+    /// a terminal point where human input is required.
+    /// </summary>
+    Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>
     /// Returns the number of pending review items.
     /// Used for sidebar badge count and global notification badge.
     /// </summary>

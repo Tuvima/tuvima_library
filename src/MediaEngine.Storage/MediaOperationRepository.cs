@@ -14,6 +14,19 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         MediaOperationStatus.Interrupted
     ];
 
+    private static readonly string[] TerminalStatuses =
+    [
+        MediaOperationStatus.Succeeded,
+        MediaOperationStatus.NoResult,
+        MediaOperationStatus.MissingConfirmed,
+        MediaOperationStatus.NotApplicable,
+        MediaOperationStatus.Blocked,
+        MediaOperationStatus.FailedTerminal,
+        MediaOperationStatus.DeadLettered,
+        MediaOperationStatus.Cancelled,
+        MediaOperationStatus.Skipped
+    ];
+
     private readonly IDatabaseConnection _db;
 
     public MediaOperationRepository(IDatabaseConnection db) => _db = db;
@@ -77,6 +90,65 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
             SelectSql + " WHERE id = @id LIMIT 1;",
             new { id });
+        return row is null ? null : Map(row);
+    }
+
+    public async Task<MediaOperation?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            return null;
+
+        using var conn = _db.CreateConnection();
+        var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
+            SelectSql + " WHERE idempotency_key = @idempotencyKey LIMIT 1;",
+            new { idempotencyKey });
+        return row is null ? null : Map(row);
+    }
+
+    public async Task<MediaOperation?> GetActiveBySourcePathAsync(string sourcePath, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(sourcePath))
+            return null;
+
+        using var conn = _db.CreateConnection();
+        var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
+            SelectSql + """
+             WHERE operation_type = @operationType
+               AND source_path = @sourcePath
+               AND status NOT IN @terminalStatuses
+             ORDER BY updated_at DESC, created_at DESC
+             LIMIT 1;
+            """,
+            new
+            {
+                operationType = MediaOperationType.IngestionFile,
+                sourcePath,
+                terminalStatuses = TerminalStatuses
+            });
+        return row is null ? null : Map(row);
+    }
+
+    public async Task<MediaOperation?> GetLatestBySourcePathAsync(string sourcePath, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(sourcePath))
+            return null;
+
+        using var conn = _db.CreateConnection();
+        var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
+            SelectSql + """
+             WHERE operation_type = @operationType
+               AND source_path = @sourcePath
+             ORDER BY updated_at DESC, created_at DESC
+             LIMIT 1;
+            """,
+            new
+            {
+                operationType = MediaOperationType.IngestionFile,
+                sourcePath
+            });
         return row is null ? null : Map(row);
     }
 

@@ -105,9 +105,11 @@ public sealed class BatchProgressService
                     SELECT DISTINCT entity_id
                     FROM review_queue
                     WHERE status = 'Pending'
+                      AND review_ready_at IS NOT NULL
                 )
                 SELECT
-                    COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'UniverseEnriching') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
+                    COUNT(js.entity_id) AS TotalJobs,
+                    COALESCE(SUM(CASE WHEN js.state = 'Ready' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
                     COALESCE(SUM(CASE WHEN js.state = 'ReadyWithoutUniverse' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReadyWithoutUniverse,
                     COALESCE(SUM(CASE
                         WHEN js.state IN ('QidNeedsReview', 'RetailMatchedNeedsReview') THEN 1
@@ -162,105 +164,31 @@ public sealed class BatchProgressService
                 """,
                 new { batchId, activeStates = ActiveStates }).ConfigureAwait(false);
 
-            var work = await conn.QueryFirstOrDefaultAsync<BatchWorkSnapshot>(
-                """
-                WITH latest_jobs AS (
-                    SELECT
-                        entity_id,
-                        state,
-                        updated_at,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY entity_id
-                            ORDER BY updated_at DESC, created_at DESC
-                        ) AS rn
-                    FROM identity_jobs
-                    WHERE ingestion_run_id = @batchId
-                ),
-                job_states AS (
-                    SELECT entity_id, state, updated_at
-                    FROM latest_jobs
-                    WHERE rn = 1
-                ),
-                person_counts AS (
-                    SELECT
-                        pml.media_asset_id AS entity_id,
-                        COUNT(DISTINCT p.id) AS total_people,
-                        COUNT(DISTINCT CASE WHEN p.enriched_at IS NOT NULL THEN p.id END) AS enriched_people
-                    FROM person_media_links pml
-                    INNER JOIN persons p ON p.id = pml.person_id
-                    GROUP BY pml.media_asset_id
-                ),
-                canonical_flags AS (
-                    SELECT
-                        entity_id,
-                        MAX(CASE WHEN key = 'stage3_enriched_at' THEN 1 ELSE 0 END) AS stage3_core_done,
-                        MAX(CASE WHEN key = 'stage3_enhanced_at' THEN 1 ELSE 0 END) AS stage3_enhancers_done
-                    FROM canonical_values
-                    WHERE key IN ('stage3_enriched_at', 'stage3_enhanced_at')
-                    GROUP BY entity_id
-                ),
-                item_progress AS (
-                    SELECT
-                        js.entity_id,
-                        CASE
-                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 100.0
-                            WHEN js.state = 'Hydrating' THEN
-                                50.0
-                                + CASE
-                                    WHEN COALESCE(pc.total_people, 0) = 0 THEN 20.0
-                                    ELSE 20.0 * COALESCE(pc.enriched_people, 0) / pc.total_people
-                                  END
-                            WHEN js.state = 'QidResolved' THEN 45.0
-                            WHEN js.state = 'BridgeSearching' THEN 35.0
-                            WHEN js.state IN ('RetailMatched', 'RetailMatchedNeedsReview') THEN 30.0
-                            WHEN js.state = 'RetailSearching' THEN 20.0
-                            WHEN js.state = 'Queued' THEN 10.0
-                            ELSE 0.0
-                        END AS progress_percent,
-                        CASE
-                            WHEN js.state = 'Hydrating' THEN MAX(COALESCE(pc.total_people, 0), 1)
-                            ELSE 1
-                        END AS work_units_total,
-                        CASE
-                            WHEN js.state IN ('Ready', 'ReadyWithoutUniverse', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview', 'RetailMatchedNeedsReview', 'UniverseEnriching', 'Failed') THEN 1
-                            WHEN js.state = 'Hydrating' THEN
-                                CASE
-                                    WHEN COALESCE(pc.total_people, 0) = 0 THEN 1
-                                    ELSE COALESCE(pc.enriched_people, 0)
-                                END
-                            WHEN js.state IN ('RetailSearching', 'RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved') THEN 0
-                            ELSE 0
-                        END AS work_units_completed
-                    FROM job_states js
-                    LEFT JOIN person_counts pc ON pc.entity_id = js.entity_id
-                    LEFT JOIN canonical_flags cf ON cf.entity_id = js.entity_id
-                )
-                SELECT
-                    COALESCE(AVG(progress_percent), 0) AS AverageProgressPercent,
-                    COALESCE(SUM(work_units_total), 0) AS WorkUnitsTotal,
-                    COALESCE(SUM(work_units_completed), 0) AS WorkUnitsCompleted
-                FROM item_progress;
-                """,
-                new { batchId }).ConfigureAwait(false) ?? new BatchWorkSnapshot();
-
-            var total = batch.FilesTotal;
-            var failed = batch.FilesFailed + snapshot.PipelineFailed;
+            var total = Math.Max(batch.FilesTotal, snapshot.TotalJobs);
+            var failed = Math.Max(batch.FilesFailed, snapshot.PipelineFailed);
             var ready = snapshot.FilesReady;
             var readyWithoutUniverse = snapshot.FilesReadyWithoutUniverse;
             var identified = ready + readyWithoutUniverse;
             var review = snapshot.FilesReview;
             var noMatch = snapshot.FilesNoMatch;
-            var queued = snapshot.QueuedJobs
-                + snapshot.RetailMatched
-                + snapshot.QidResolved;
             var active = snapshot.RetailSearching
                 + snapshot.BridgeSearching
                 + snapshot.Hydrating
                 + snapshot.UniverseEnriching;
+            var terminal = identified + review + noMatch + failed;
+            if (total > 0)
+            {
+                terminal = Math.Clamp(terminal, 0, total);
+                active = Math.Clamp(active, 0, Math.Max(0, total - terminal));
+            }
 
-            var progressed = Math.Max(0, total - queued);
-            var pct = total > 0 ? (int)Math.Round(Math.Clamp(work.AverageProgressPercent, 0, 100)) : 0;
-            var completed = total > 0 && queued == 0 && active == 0;
+            var queued = total > 0
+                ? Math.Max(0, total - terminal - active)
+                : snapshot.QueuedJobs + snapshot.RetailMatched + snapshot.QidResolved;
+
+            var progressed = terminal;
+            var pct = total > 0 ? (int)Math.Round(Math.Clamp(progressed * 100d / total, 0, 100)) : 0;
+            var completed = total > 0 && terminal >= total && active == 0;
 
             int? etaSecs = null;
             if (progressed > 0 && queued > 0)
@@ -298,8 +226,8 @@ public sealed class BatchProgressService
                     FilesReadyWithoutUniverse: readyWithoutUniverse,
                     CurrentFileTitle: currentFileTitle,
                     LifecycleStage: lifecycleStage,
-                    WorkUnitsTotal: work.WorkUnitsTotal,
-                    WorkUnitsCompleted: work.WorkUnitsCompleted),
+                    WorkUnitsTotal: total,
+                    WorkUnitsCompleted: progressed),
                 ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -349,6 +277,7 @@ public sealed class BatchProgressService
 
     private sealed class BatchRunSnapshot
     {
+        public int TotalJobs { get; init; }
         public int FilesReady { get; init; }
         public int FilesReadyWithoutUniverse { get; init; }
         public int FilesReview { get; init; }
@@ -364,10 +293,4 @@ public sealed class BatchProgressService
         public int UniverseEnriching { get; init; }
     }
 
-    private sealed class BatchWorkSnapshot
-    {
-        public double AverageProgressPercent { get; init; }
-        public int WorkUnitsTotal { get; init; }
-        public int WorkUnitsCompleted { get; init; }
-    }
 }

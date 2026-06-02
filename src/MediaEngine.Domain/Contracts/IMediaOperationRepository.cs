@@ -6,6 +6,9 @@ public interface IMediaOperationRepository
 {
     Task<MediaOperation> EnsureAsync(MediaOperation operation, CancellationToken ct = default);
     Task<MediaOperation?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<MediaOperation?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default);
+    Task<MediaOperation?> GetActiveBySourcePathAsync(string sourcePath, CancellationToken ct = default);
+    Task<MediaOperation?> GetLatestBySourcePathAsync(string sourcePath, CancellationToken ct = default);
     Task<IReadOnlyList<MediaOperation>> GetByEntityAsync(Guid entityId, CancellationToken ct = default);
     Task<IReadOnlyList<MediaOperation>> GetByBatchAsync(Guid batchId, CancellationToken ct = default);
     Task<IReadOnlyList<MediaOperation>> GetByPluginAsync(string pluginId, int limit, CancellationToken ct = default);

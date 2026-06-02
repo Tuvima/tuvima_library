@@ -10,6 +10,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -39,7 +40,7 @@ public static class ItemCanonicalEndpoints
 
             var context = TryResolveWorkAssetContext(entityId, db);
             if (context is null)
-                return Results.NotFound($"No media asset found for work {entityId}.");
+                return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
             var now = DateTimeOffset.UtcNow;
             var claims = new List<MetadataClaim>();
@@ -141,7 +142,7 @@ public static class ItemCanonicalEndpoints
             using var conn = db.CreateConnection();
             var exists = conn.ExecuteScalar<long>(
                 "SELECT COUNT(1) FROM works WHERE id = @entityId;",
-                new { entityId = entityId.ToString() }) > 0;
+                new { entityId }) > 0;
 
             if (!exists)
                 return Results.NotFound($"No work found for {entityId}.");
@@ -174,7 +175,7 @@ public static class ItemCanonicalEndpoints
                 new
                 {
                     json = current.Count == 0 ? null : JsonSerializer.Serialize(current),
-                    entityId = entityId.ToString(),
+                    entityId,
                 });
 
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -211,7 +212,7 @@ public static class ItemCanonicalEndpoints
         {
             var context = TryResolveWorkAssetContext(entityId, db);
             if (context is null)
-                return Results.NotFound($"No media asset found for work {entityId}.");
+                return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
             var mediaType = ResolveMediaType(request.MediaType, context.MediaType);
             var policy = ResolveTargetPolicy(mediaType, request.TargetKind, request.TargetFieldGroup);
@@ -331,7 +332,7 @@ public static class ItemCanonicalEndpoints
         {
             var context = TryResolveWorkAssetContext(entityId, db);
             if (context is null)
-                return Results.NotFound($"No media asset found for work {entityId}.");
+                return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
             var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
@@ -443,7 +444,7 @@ public static class ItemCanonicalEndpoints
                     """;
                 cmd.Parameters.AddWithValue("@qid", globalQid);
                 var qidTargetId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
-                cmd.Parameters.AddWithValue("@workId", qidTargetId.ToString());
+                cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(qidTargetId);
                 cmd.ExecuteNonQuery();
                 await collectionRepo.UpdateWorkWikidataMatchStateAsync(qidTargetId, "user_confirmed", "user", true, globalQid, ct: ct);
 
@@ -554,7 +555,7 @@ public static class ItemCanonicalEndpoints
         {
             var context = TryResolveWorkAssetContext(entityId, db);
             if (context is null)
-                return Results.NotFound($"No media asset found for work {entityId}.");
+                return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
             if (string.IsNullOrWhiteSpace(request.ProviderName) || string.IsNullOrWhiteSpace(request.ProviderItemId))
                 return Results.BadRequest("Provider name and provider item ID are required.");
@@ -717,7 +718,7 @@ public static class ItemCanonicalEndpoints
         {
             var context = TryResolveWorkAssetContext(entityId, db);
             if (context is null)
-                return Results.NotFound($"No media asset found for work {entityId}.");
+                return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
             var action = (request.Action ?? "replace").Trim().ToLowerInvariant();
             var workId = ResolveWorkIdForAsset(context.AssetId, db) ?? entityId;
@@ -839,7 +840,6 @@ public static class ItemCanonicalEndpoints
 
     private sealed record WorkAssetContext(
         Guid AssetId,
-        string AssetIdText,
         string MediaType,
         string? WorkTitle,
         string? PrimaryCreator,
@@ -860,45 +860,61 @@ public static class ItemCanonicalEndpoints
         bool SearchUniverse,
         bool AllowsTextOnly);
 
-    private static WorkAssetContext? TryResolveWorkAssetContext(Guid workId, IDatabaseConnection db)
+    private static WorkAssetContext? TryResolveWorkAssetContext(Guid entityId, IDatabaseConnection db)
     {
         using var conn = db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
+            WITH target AS (
+                SELECT
+                    ma.id AS asset_id,
+                    w.id AS work_id,
+                    COALESCE(NULLIF(w.media_type, ''), '') AS work_media_type
+                FROM media_assets ma
+                JOIN editions e ON e.id = ma.edition_id
+                JOIN works w ON w.id = e.work_id
+                WHERE ma.id = @entityId
+
+                UNION ALL
+
+                SELECT
+                    COALESCE(ma.id, child_ma.id, grandchild_ma.id) AS asset_id,
+                    w.id AS work_id,
+                    COALESCE(NULLIF(w.media_type, ''), '') AS work_media_type
+                FROM works w
+                LEFT JOIN editions e ON e.work_id = w.id
+                LEFT JOIN media_assets ma ON ma.edition_id = e.id
+                LEFT JOIN works child ON child.parent_work_id = w.id
+                LEFT JOIN editions child_e ON child_e.work_id = child.id
+                LEFT JOIN media_assets child_ma ON child_ma.edition_id = child_e.id
+                LEFT JOIN works grandchild ON grandchild.parent_work_id = child.id
+                LEFT JOIN editions grandchild_e ON grandchild_e.work_id = grandchild.id
+                LEFT JOIN media_assets grandchild_ma ON grandchild_ma.edition_id = grandchild_e.id
+                WHERE w.id = @entityId
+            )
             SELECT
-                COALESCE(ma.id, child_ma.id, grandchild_ma.id),
-                COALESCE(NULLIF(w.media_type, ''), MAX(CASE WHEN cv.key = 'media_type' THEN cv.value END), ''),
+                t.asset_id,
+                COALESCE(NULLIF(t.work_media_type, ''), MAX(CASE WHEN cv.key = 'media_type' THEN cv.value END), ''),
                 COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), ''),
                 COALESCE(MAX(CASE WHEN cv.key IN ('author', 'artist', 'director') THEN cv.value END), ''),
                 COALESCE(MAX(CASE WHEN cv.key = 'year' THEN cv.value END), '')
-            FROM works w
-            LEFT JOIN editions e ON e.work_id = w.id
-            LEFT JOIN media_assets ma ON ma.edition_id = e.id
-            LEFT JOIN works child ON child.parent_work_id = w.id
-            LEFT JOIN editions child_e ON child_e.work_id = child.id
-            LEFT JOIN media_assets child_ma ON child_ma.edition_id = child_e.id
-            LEFT JOIN works grandchild ON grandchild.parent_work_id = child.id
-            LEFT JOIN editions grandchild_e ON grandchild_e.work_id = grandchild.id
-            LEFT JOIN media_assets grandchild_ma ON grandchild_ma.edition_id = grandchild_e.id
-            LEFT JOIN canonical_values cv ON cv.entity_id = COALESCE(ma.id, child_ma.id, grandchild_ma.id)
-            WHERE w.id = @workId OR ma.id = @workId
-            GROUP BY COALESCE(ma.id, child_ma.id, grandchild_ma.id), w.media_type
-            ORDER BY COALESCE(ma.id, child_ma.id, grandchild_ma.id)
+            FROM target t
+            LEFT JOIN canonical_values cv ON cv.entity_id = t.asset_id
+            WHERE t.asset_id IS NOT NULL
+            GROUP BY t.asset_id, t.work_media_type
+            ORDER BY CASE WHEN t.asset_id = @entityId THEN 0 ELSE 1 END, t.asset_id
             LIMIT 1
             """;
-        cmd.Parameters.AddWithValue("@workId", workId.ToString());
+        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
 
         using var reader = cmd.ExecuteReader();
         if (!reader.Read())
             return null;
 
-        var assetIdText = reader.GetString(0);
-        if (!Guid.TryParse(assetIdText, out var assetId))
-            return null;
+        var assetId = GuidSql.FromDb(reader.GetValue(0));
 
         return new WorkAssetContext(
             AssetId: assetId,
-            AssetIdText: assetIdText,
             MediaType: reader.IsDBNull(1) ? MediaType.Unknown.ToString() : reader.GetString(1),
             WorkTitle: reader.IsDBNull(2) ? null : reader.GetString(2),
             PrimaryCreator: reader.IsDBNull(3) ? null : reader.GetString(3),
@@ -908,7 +924,7 @@ public static class ItemCanonicalEndpoints
     private static Guid? ResolveWorkIdForAsset(Guid assetId, IDatabaseConnection db)
     {
         using var conn = db.CreateConnection();
-        var value = conn.QueryFirstOrDefault<string?>(
+        var value = conn.QueryFirstOrDefault<Guid?>(
             """
             SELECT e.work_id
             FROM media_assets ma
@@ -916,9 +932,9 @@ public static class ItemCanonicalEndpoints
             WHERE ma.id = @assetId
             LIMIT 1;
             """,
-            new { assetId = assetId.ToString() });
+            new { assetId });
 
-        return Guid.TryParse(value, out var workId) ? workId : null;
+        return value;
     }
 
     private static WorkWikidataState LoadWorkWikidataState(IDatabaseConnection db, Guid workId)
@@ -935,7 +951,7 @@ public static class ItemCanonicalEndpoints
             WHERE id = @workId
             LIMIT 1;
             """,
-            new { workId = workId.ToString() });
+            new { workId });
 
         return new WorkWikidataState(row.Qid, row.Status, row.Source, row.Locked == 1, row.RejectedQidsJson);
     }
@@ -1397,7 +1413,7 @@ public static class ItemCanonicalEndpoints
     {
         var json = conn.QueryFirstOrDefault<string?>(
             "SELECT display_overrides_json FROM works WHERE id = @entityId LIMIT 1;",
-            new { entityId = entityId.ToString() });
+            new { entityId });
 
         if (string.IsNullOrWhiteSpace(json))
             return new(StringComparer.OrdinalIgnoreCase);

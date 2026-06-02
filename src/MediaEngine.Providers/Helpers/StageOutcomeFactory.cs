@@ -147,11 +147,13 @@ public sealed class StageOutcomeFactory
         {
             Id              = Guid.NewGuid(),
             EntityId        = entityId,
-            EntityType      = "Work",
+            EntityType      = "MediaAsset",
             Trigger         = ReviewTrigger.MultipleQidMatches,
             ConfidenceScore = 0.0,
             Detail          = $"Multiple Wikidata QID candidates found \u2014 manual disambiguation required",
             CandidatesJson  = candidatesJson,
+            ReviewReadyAt   = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
 
         await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
@@ -240,7 +242,7 @@ public sealed class StageOutcomeFactory
             return null;
         }
 
-        // Supersession: a work-level pipeline trigger (RetailMatchFailed,
+        // Supersession: a pipeline trigger (RetailMatchFailed,
         // WikidataBridgeFailed, etc.) is the authoritative explanation for why
         // an entity is in review. Resolve any older asset-level LowConfidence
         // review for the same entity so the user only sees one row instead of
@@ -264,10 +266,12 @@ public sealed class StageOutcomeFactory
         {
             Id              = Guid.NewGuid(),
             EntityId        = entityId,
-            EntityType      = "Work",
+            EntityType      = "MediaAsset",
             Trigger         = trigger,
             ConfidenceScore = confidence,
             Detail          = detail,
+            ReviewReadyAt   = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
 
         await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);

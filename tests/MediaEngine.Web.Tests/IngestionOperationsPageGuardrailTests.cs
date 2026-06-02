@@ -806,7 +806,9 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("js.lease_expires_at > @now", operationsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("+ snapshot.RetailMatched\n                + snapshot.RetailMatchedNeedsReview", normalizedProgressSource, StringComparison.Ordinal);
         Assert.DoesNotContain("+ snapshot.QidResolved\n                + snapshot.Hydrating", normalizedProgressSource, StringComparison.Ordinal);
-        Assert.Contains("var queued = snapshot.QueuedJobs\n                + snapshot.RetailMatched\n                + snapshot.QidResolved;", normalizedProgressSource, StringComparison.Ordinal);
+        Assert.Contains("var terminal = identified + review + noMatch + failed;", normalizedProgressSource, StringComparison.Ordinal);
+        Assert.Contains("var progressed = terminal;", normalizedProgressSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AverageProgressPercent", normalizedProgressSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1295,7 +1297,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.Contains("Wikidata matching", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("19 / 31 files", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("19 found", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("19 / 31 files", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("61%", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("100%</span>", cut.Markup, StringComparison.Ordinal);
     }
@@ -1450,6 +1453,36 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("Shawshank Redemption - 7", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("1 found", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("1 / 1 artwork assets", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ActivityList_ShowsWikidataQidsAsFoundSoFar()
+    {
+        var activities = new[]
+        {
+            new IngestionCurrentActivityViewModel
+            {
+                StageKey = "wikidata",
+                Message = "Linking Wikidata QIDs",
+                Detail = "Matching works to canonical entities.",
+                ProcessedCount = 7,
+                TotalCount = 29,
+                CountUnit = "QIDs",
+                PercentComplete = 24,
+                ActiveCount = 2,
+                QueuedCount = 10,
+                LastUpdatedTime = DateTimeOffset.UtcNow.AddMinutes(-1),
+                SampleItems = ["The Martian"],
+            },
+        };
+
+        var cut = RenderComponent<IngestionActivityList>(parameters => parameters
+            .Add(component => component.CurrentActivities, activities)
+            .Add(component => component.Jobs, Array.Empty<IngestionOperationsJobViewModel>())
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("7 found", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("7 / 29 QIDs", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1636,7 +1669,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 50))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("31/50", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("31/50", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("31 of 50 files fully complete", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("31 found", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Artwork lookup", cut.Markup, StringComparison.Ordinal);
@@ -1708,7 +1741,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             "artwork" => "artwork assets",
             "relationships" => "items",
             "people" => "people",
-            "wikidata" => "items",
+            "wikidata" => "QIDs",
             _ => "files",
         },
         PercentComplete = 62,

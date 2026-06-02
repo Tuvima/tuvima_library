@@ -67,7 +67,7 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
-    public void OperationsService_ReconcilesCompletedReviewCountersAgainstVisibleLibraryAssets()
+    public void OperationsService_ReconcilesCompletedCountersAgainstTerminalLifecycleStates()
     {
         var source = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
@@ -77,7 +77,9 @@ public sealed class IngestionOperationsContractTests
             "IngestionOperationsStatusService.cs"));
 
         Assert.Contains("isCompletedWithReviewCounters", source, StringComparison.Ordinal);
-        Assert.Contains("ma.status = 'Normal'", source, StringComparison.Ordinal);
+        Assert.Contains("js.state IN ('Ready', 'ReadyWithoutUniverse')", source, StringComparison.Ordinal);
+        Assert.Contains("review_ready_at IS NOT NULL", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ma.status = 'Normal'", source, StringComparison.Ordinal);
         Assert.Contains("hasSnapshotRows ? snapshot.Review : batch.FilesReview", source, StringComparison.Ordinal);
         Assert.Contains("activity.QueuedCount > 0", source, StringComparison.Ordinal);
     }
@@ -153,6 +155,45 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void OperationsService_CountsOnlyReviewReadyPendingRows()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+        var progressSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Providers",
+            "Services",
+            "BatchProgressService.cs"));
+
+        Assert.Contains("review_ready_at IS NOT NULL", source, StringComparison.Ordinal);
+        Assert.Contains("review_ready_at IS NOT NULL", progressSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("WHEN ma.status = 'Normal'", source, StringComparison.Ordinal);
+        Assert.Contains("var processed = isStaleUntrackedBatch || isNoWorkBatch\n                ? batch.FilesTotal\n                : terminal;", source.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("var processed = Math.Clamp(Math.Max(0, batch.FilesProcessed), 0, total);", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReviewEndpoints_UseReadyOnlyReviewQueueRepository()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Endpoints",
+            "ReviewEndpoints.cs"));
+
+        Assert.Contains("reviewRepo.GetPendingAsync(limit ?? 50, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("reviewRepo.GetPendingCountAsync(ct)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Status: \"InReview\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetFourStateCountsAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OperationsSnapshot_ExposesBatchAwareCurrentActivityContract()
     {
         var dtoSource = File.ReadAllText(Path.Combine(
@@ -200,10 +241,13 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("ReadPeopleProgressAsync", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ReadRelationshipsProgressAsync", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ReadArtworkProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("IsOpenEndedDiscoveryTask(taskKey", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("taskKey.Equals(\"relationships\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("countUnit: \"artwork assets\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("BuildOpenEndedOperationProgressOverride(wikidataOperation, linkedQids, \"QIDs\")", serviceSource, StringComparison.Ordinal);
         Assert.Contains("countUnit: \"people\"", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("countUnit: \"items\"", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("CountUnit: hasWorkCounts ? \"items\" : \"links\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("CountUnit: \"links\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("processed,\n            0,", serviceSource.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("stage3_enriched_at", serviceSource, StringComparison.Ordinal);
         Assert.Contains("p.enriched_at", serviceSource, StringComparison.Ordinal);
         Assert.Contains("FROM entity_assets", serviceSource, StringComparison.Ordinal);
@@ -447,6 +491,46 @@ public sealed class IngestionOperationsContractTests
         Assert.False(IngestionBatchEndpointMapper.ShouldShowInRecentBatches(completedNoOutcomeScan));
         Assert.True(IngestionBatchEndpointMapper.ShouldShowInRecentBatches(activeNoOutcomeScan));
         Assert.True(IngestionBatchEndpointMapper.ShouldShowInRecentBatches(completedOutcomeRun));
+    }
+
+    [Fact]
+    public void IngestionEndpoints_RecentBatchesProjectTerminalLifecycleCounters()
+    {
+        var endpointSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Endpoints",
+            "IngestionEndpoints.cs"));
+        var serviceSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionBatchResponseService.cs"));
+        var operationsSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("IIngestionBatchResponseService batchResponses", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("ToResponseAsync(batch, ct)", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ReadTerminalSnapshotAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("review_ready_at IS NOT NULL", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("FilesProcessed  = terminal", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.ToBlob(batchId)", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ProjectRecentBatchesForDisplayAsync", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("ProjectBatchForDisplay(batch, snapshot)", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("OperationSkipped", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("OperationOnlyTerminal", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("OperationOnlyTerminal", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("FileOperationsTerminal - TotalJobs", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("OperationTerminal", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("batchId = GuidSql.ToBlob(batchId)", operationsSource, StringComparison.Ordinal);
+        Assert.Contains("FilesProcessed  = terminal", operationsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Select(IngestionBatchEndpointMapper.ToResponse)", endpointSource, StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()

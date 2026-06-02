@@ -652,13 +652,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
         activity.ActiveCount = Math.Max(activity.ActiveCount, Math.Max(0, batch.FilesActive));
         activity.QueuedCount = Math.Max(activity.QueuedCount, Math.Max(0, batch.FilesQueued));
-        if (batch.WorkUnitsTotal > 0)
-        {
-            activity.ProcessedCount = Math.Clamp(Math.Max(0, batch.WorkUnitsCompleted), 0, batch.WorkUnitsTotal);
-            activity.TotalCount = batch.WorkUnitsTotal;
-            activity.CountUnit = "work units";
-            activity.PercentComplete = Math.Clamp(activity.ProcessedCount * 100d / batch.WorkUnitsTotal, 0, 100);
-        }
         activity.LastUpdatedTime = DateTimeOffset.UtcNow;
         return activity;
     }

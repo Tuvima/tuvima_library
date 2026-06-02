@@ -2356,6 +2356,9 @@ public sealed class WorkerPipelineTests
         public Task UpdateStatusAsync(Guid id, string status, string? resolvedBy = null, CancellationToken ct = default)
             => Task.CompletedTask;
 
+        public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default)
+            => Task.FromResult(0);
+
         public Task<int> GetPendingCountAsync(CancellationToken ct = default)
             => Task.FromResult(0);
 

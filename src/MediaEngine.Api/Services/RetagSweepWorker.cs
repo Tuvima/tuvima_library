@@ -265,6 +265,8 @@ public sealed class RetagSweepWorker : BackgroundService
             Status     = ReviewStatus.Pending,
             Detail     = $"Re-tag failed ({outcome}): {error}",
             CreatedAt  = DateTimeOffset.UtcNow,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
 
         try

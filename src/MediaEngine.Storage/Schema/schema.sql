@@ -1115,6 +1115,9 @@ ON media_operations(status, lease_expires_at);
 CREATE INDEX IF NOT EXISTS idx_media_operations_queue
 ON media_operations(queue_name, status, priority, position_key);
 
+CREATE INDEX IF NOT EXISTS idx_media_operations_source_path
+ON media_operations(operation_type, source_path, status);
+
 CREATE INDEX IF NOT EXISTS idx_metadata_claims_claimed_at
     ON metadata_claims (claimed_at);
 

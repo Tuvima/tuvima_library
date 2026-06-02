@@ -1927,6 +1927,34 @@ public sealed class RetailMatchWorker
         var rankedProviders = pipeline.Providers.Count > 0
             ? pipeline.Providers.OrderBy(p => p.Rank).Select(p => p.Name).ToList()
             : providerConfigs.Select(p => p.Name).ToList();
+        var enabledProviders = rankedProviders
+            .Where(providerName =>
+            {
+                var provider = _providers.FirstOrDefault(p =>
+                    string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
+                if (provider is null)
+                    return false;
+
+                return !providerConfigByName.TryGetValue(providerName, out var providerConfig)
+                    || providerConfig.Enabled;
+            })
+            .ToList();
+        if (enabledProviders.Count == 0)
+        {
+            var message = $"No enabled retail provider is configured for media type '{job.MediaType}'.";
+            await _jobRepo.ScheduleRetryAsync(
+                job.Id,
+                IdentityJobState.Queued,
+                DateTimeOffset.UtcNow.AddMinutes(30),
+                message,
+                ct).ConfigureAwait(false);
+
+            _logger.LogWarning(
+                "RetailMatchWorker: {Message} Entity {EntityId} will stay queued instead of becoming no-match.",
+                message,
+                job.EntityId);
+            return;
+        }
 
         // Build hints from existing claims/canonicals
         var canonicals = await _canonicalRepo.GetByEntityAsync(job.EntityId, ct);
@@ -1940,6 +1968,7 @@ public sealed class RetailMatchWorker
         RetailMatchCandidate? bestCandidate = null;
         var bestScore = 0.0;
         var providerRank = 0;
+        var providerFailures = 0;
         var sequentialBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // Iterate providers per strategy
@@ -2137,6 +2166,7 @@ public sealed class RetailMatchWorker
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                providerFailures++;
                 _logger.LogWarning(ex,
                     "Provider {Provider} failed for entity {EntityId}",
                     providerName, job.EntityId);
@@ -2188,6 +2218,23 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "Retail match ambiguous for entity {EntityId}: '{Title}' (score: {Score:F2})",
                 job.EntityId, bestCandidate.Title, bestScore);
+        }
+        else if (providerFailures > 0)
+        {
+            var message = $"Retail provider lookup failed for {providerFailures} provider(s); retrying before no-match classification.";
+            await _jobRepo.ScheduleRetryAsync(
+                job.Id,
+                IdentityJobState.Queued,
+                DateTimeOffset.UtcNow.AddMinutes(10),
+                message,
+                ct).ConfigureAwait(false);
+
+            _logger.LogWarning(
+                "RetailMatchWorker: {Message} Entity {EntityId}; candidates evaluated: {CandidateCount}, best score: {Score:F2}",
+                message,
+                job.EntityId,
+                allCandidates.Count,
+                bestScore);
         }
         else
         {
