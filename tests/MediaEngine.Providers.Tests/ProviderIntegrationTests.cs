@@ -96,7 +96,7 @@ public sealed class ProviderIntegrationTests
 
     // ── Open Library ─────────────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live OpenLibrary API network access. OpenLibrary is not part of the default Tuvima Library provider path; run locally with: dotnet test --filter Category=Integration")]
     public async Task OpenLibrary_Returns_Claims_For_FellowshipOfTheRing()
     {
         var adapter = BuildConfigDrivenAdapter("open_library");
@@ -127,7 +127,7 @@ public sealed class ProviderIntegrationTests
 
     // ── Open Library (ISBN-first search) ─────────────────────────────────────
 
-    [Fact]
+    [Fact(Skip = "Requires live OpenLibrary API network access. OpenLibrary is not part of the default Tuvima Library provider path; run locally with: dotnet test --filter Category=Integration")]
     public async Task OpenLibrary_ISBN_Search_Returns_Claims()
     {
         var adapter = BuildConfigDrivenAdapter("open_library");
@@ -175,7 +175,7 @@ public sealed class ProviderIntegrationTests
         Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
     }
 
-    [Fact]
+    [Fact(Skip = "Requires live OpenLibrary API network access. OpenLibrary is not part of the default Tuvima Library provider path; run locally with: dotnet test --filter Category=Integration")]
     public async Task OpenLibrary_Search_Returns_Results()
     {
         var adapter = BuildConfigDrivenAdapter("open_library");

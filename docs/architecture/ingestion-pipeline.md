@@ -112,12 +112,46 @@ The Dashboard's Ingestion page uses `GET /ingestion/operations`, backed by `IIng
 - `ILibraryItemRepository` for total, registered, provisional, and review lifecycle counts
 - `IIngestionBatchRepository` for active and recent batches
 - `identity_jobs` and `ingestion_log` for pipeline stage counts
+- `stage_progress` rows in the snapshot for the numbered user-facing stage bars
+- `ingestion_batch_artifacts` for batch-scoped media, metadata, artwork, people, relationship, QID, and review artifacts used by later Activity rollups
 - `review_queue` for actionable review reason groups
 - `config/libraries.json` for Watch, Listen, and Read source folders, including multi-path libraries
 - `provider_health` and provider config files for provider status
 - runtime `IngestionOptions` and `core.json` for organization rule summaries
 
-Live Dashboard updates come from existing SignalR Intercom events (`BatchProgress` and `IngestionProgress`) plus bounded polling of the snapshot endpoint. Polling is faster while jobs are active and slower while idle.
+Live Dashboard updates come from the snapshot endpoint. Existing SignalR Intercom events (`BatchProgress` and `IngestionProgress`) trigger a refresh of that same snapshot model instead of maintaining separate UI progress state. Polling is faster while jobs are active and slower while idle.
+
+`GET /ingestion/operations` includes a `stage_progress` collection. Each row has:
+
+| Field | Meaning |
+| --- | --- |
+| `stage_number` | User-facing order, 1 through 9. |
+| `stage_key` | Stable key such as `scan`, `retail`, `wikidata`, `people`, or `deep_artwork`. |
+| `label` | Display label for the stage. |
+| `completed_files` / `total_files` / `percent_complete` | File progress against the active batch total. |
+| `active_count` / `queued_count` | Current in-flight and queued work where the backend can measure it. |
+| `status_label` | Human-readable state: pending, active, complete, stale, or needs review. |
+| `active_item_label` | Exact item label only when per-file state is known. |
+| `active_group_label` / `active_group_count` | Group label for batched calls such as Wikidata reconciliation. |
+| `label_accuracy` | `ExactItem`, `GroupedLookup`, `BatchOnly`, `Stale`, or `None`. |
+| `artifact_label` / `artifact_count` | Running artifact count for the stage. |
+| `last_updated_time` / `is_stale` | Freshness signal for active worker data. |
+
+The numbered stage model is:
+
+| # | Stage | Progress Rule | Artifact Count |
+| ---: | --- | --- | --- |
+| 1 | Scan folders | Files discovered / scan estimate or final discovered total | Files found |
+| 2 | Read media details | Files parsed or terminal / total files | Files read |
+| 3 | Retail metadata & primary artwork | Files retail matched, review-ready, no-result, skipped, or failed / total files | Provider matches, metadata fields, cover/poster URLs, stored primary covers |
+| 4 | Wikidata lookup | Files with QID, no QID, not applicable, review-ready, skipped, or failed / total files | QIDs resolved |
+| 5 | File ready | Files organized, writeback-ready, visible, or terminal / total files | Files added |
+| 6 | People & cast | Files person-enriched, skipped, or not applicable / total files | People linked/resolved |
+| 7 | Series & relationships | Files relationship-enriched, skipped, or not applicable / total files | Relationships, series, child items |
+| 8 | Deep artwork | Files deep-artwork completed, skipped, or not applicable / total files | Backgrounds, banners, logos, disc art, stills |
+| 9 | Review / attention | Review state resolved or acknowledged / total files | Items needing review |
+
+Stage 3 is the collapsed retail metadata, quick metadata, and primary cover/poster bar. Stage 8 is later deep artwork enrichment. Stages 6, 7, and 8 may run concurrently after their retail/Wikidata prerequisites exist. For grouped `Tuvima.Wikidata` or provider work, the backend must show a group label instead of an exact file label unless it has a correlation key for a specific file.
 
 Music remains a conservative organization lane. The status surface emphasizes tag/fingerprint-first handling and preserving album folders instead of implying aggressive rename/move behavior.
 
@@ -354,7 +388,7 @@ All disambiguation thresholds and heuristic parameters - duration bands, bitrate
 
 When a file lands in the review queue with an `AmbiguousMediaType` trigger, the user selects the correct media type from candidate cards in the Needs Review tab. The selected type is saved as a user-locked claim at confidence 1.0, the review item is resolved, and the hydration pipeline re-runs for that entity.
 
-After Stage 1 hydration (retail providers), if 3 or more claims are returned, the pipeline can auto-resolve pending `AmbiguousMediaType` review items - the provider results provide enough signal to confirm the media type without user input.
+After Stage 3 retail metadata returns 3 or more claims, the pipeline can auto-resolve pending `AmbiguousMediaType` review items - the provider results provide enough signal to confirm the media type without user input.
 
 ---
 
@@ -430,6 +464,6 @@ Review Queue surfaces `WritebackFailed` review items alongside other review trig
 
 ## Series Manifest Hydration
 
-After Stage 2 resolves a Wikidata QID and full property claims have been persisted, `WikidataBridgeWorker` asks `WikidataSeriesManifestHydrationService` whether the item belongs to a canonical series. The service only uses QID-backed relationship facts such as P179/`series_qid`, never fuzzy title matching.
+After Stage 4 resolves a Wikidata QID and full property claims have been persisted, `WikidataBridgeWorker` asks `WikidataSeriesManifestHydrationService` whether the item belongs to a canonical series. The service only uses QID-backed relationship facts such as P179/`series_qid`, never fuzzy title matching.
 
 For books, audiobooks, comics, and TV, a canonical series QID triggers a Tuvima.Wikidata manifest fetch. Tuvima stores every named item in `series_manifest_items`, including missing works the user does not own. Later imports from the same series first link against the cached named manifest, so adding another Dune ebook or audiobook usually does not require downloading the whole series again while the cache is fresh.

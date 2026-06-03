@@ -22,16 +22,16 @@ enrichment pipeline. For standard providers that return JSON from a public HTTP 
 
 - Familiarity with the hydration pipeline (`docs/architecture/hydration-and-providers.md`)
 - The target API's base URL, search endpoint, and response schema
-- An API key if the provider requires one (stored in the config file; never committed to git)
+- An API key if the provider requires one (stored under `config/secrets/{provider}.json`; never committed to git)
 
 ---
 
 ## Step 1 - Understand where providers fit
 
-Identity providers run during **Stage 1 (RetailIdentification)** of the hydration pipeline.
+Identity providers run during the retail phase of the hydration pipeline, shown as **Stage 3: Retail metadata & primary artwork** on the Ingestion page. Provider config still uses the older internal value `hydration_stages: [1]` for this retail phase.
 They gather cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID, etc.)
-that Stage 2 (WikidataBridge) later uses for precise QID resolution. Artwork-only,
-lyrics, subtitle, and other follow-up providers should run as Stage 3 or text-track
+that Stage 4 (Wikidata lookup) later uses for precise QID resolution. Artwork-only,
+lyrics, subtitle, and other follow-up providers should run as Stage 8/deep enrichment or text-track
 enrichment instead; they must not unlock Wikidata identity by themselves.
 
 The `ConfigDrivenAdapter` is the single implementation that reads every `config_driven`
@@ -47,10 +47,10 @@ config/providers/
   tmdb.json
   musicbrainz.json
   comicvine.json
-  fanart_tv.json               <- Stage 3 artwork, not Stage 1 identity
+  fanart_tv.json               <- Stage 8 artwork, not retail identity
   lrclib.json                  <- text-track enrichment
   opensubtitles.json           <- text-track enrichment
-  wikidata_reconciliation.json    <- Stage 2, not Stage 1
+  wikidata_reconciliation.json    <- Stage 4 user-facing lookup
 ```
 
 ---

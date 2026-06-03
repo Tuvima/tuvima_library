@@ -55,13 +55,13 @@ When a file is discovered, the Engine moves through these broad stages:
 3. **Scan** - read embedded metadata and artwork where possible.
 4. **Classify** - resolve ambiguous formats such as MP3, M4A, MP4, MKV, AVI, or WEBM.
 5. **Identify** - compare file data with known works and provider candidates.
-6. **Stage 1 retail** - gather cover art, descriptions, ratings, people, and bridge IDs from configured providers.
-7. **Stage 2 Wikidata** - use bridge IDs to resolve canonical identity when possible.
-8. **Quick Hydration** - store core canonical values and managed artwork.
-9. **Stage 3 enrichment** - expand people, universe relationships, lyrics/subtitles, and additional artwork.
+6. **Stage 3 retail metadata & primary artwork** - gather primary cover/poster evidence, descriptions, ratings, people seeds, and bridge IDs from configured providers.
+7. **Stage 4 Wikidata lookup** - use bridge IDs to resolve canonical identity when possible.
+8. **Stage 5 file ready** - store core canonical values and managed artwork.
+9. **Stages 6-8 enrichment** - expand people, universe relationships, lyrics/subtitles, and deeper artwork.
 10. **Readiness** - decide whether the item is ready for Home, Read, Watch, Listen, Search, or Collections.
 
-SignalR updates the Dashboard while ingestion is running, so you should not need to refresh the page.
+SignalR tells the Dashboard when to refresh the ingestion snapshot while ingestion is running, so you should not need to refresh the page.
 
 ## Step 5 - Understand Where Items Appear
 

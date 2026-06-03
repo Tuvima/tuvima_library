@@ -28,6 +28,7 @@ public sealed class DatabaseStartupSafetyTests
             "user_states",
             "profiles",
             "ingestion_batches",
+            "ingestion_batch_artifacts",
             "search_index",
         ];
 
@@ -42,6 +43,7 @@ public sealed class DatabaseStartupSafetyTests
             "idx_review_queue_entity_id",
             "idx_media_assets_content_hash",
             "idx_ingestion_batches_status",
+            "idx_ingestion_batch_artifacts_batch",
         ];
 
         foreach (var index in requiredIndexes)
@@ -92,6 +94,10 @@ public sealed class DatabaseStartupSafetyTests
             ("review_queue", "entity_id"),
             ("review_queue", "source_operation_id"),
             ("ingestion_batches", "id"),
+            ("ingestion_batch_artifacts", "id"),
+            ("ingestion_batch_artifacts", "batch_id"),
+            ("ingestion_batch_artifacts", "artifact_id"),
+            ("ingestion_batch_artifacts", "parent_entity_id"),
             ("ingestion_log", "id"),
             ("ingestion_log", "media_asset_id"),
             ("ingestion_log", "ingestion_run_id"),

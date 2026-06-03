@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -11,10 +12,14 @@ namespace MediaEngine.Providers.Helpers;
 public sealed class TimelineRecorder
 {
     private readonly IEntityTimelineRepository _timelineRepo;
+    private readonly IIngestionBatchArtifactRepository? _artifactRepo;
 
-    public TimelineRecorder(IEntityTimelineRepository timelineRepo)
+    public TimelineRecorder(
+        IEntityTimelineRepository timelineRepo,
+        IIngestionBatchArtifactRepository? artifactRepo = null)
     {
         _timelineRepo = timelineRepo;
+        _artifactRepo = artifactRepo;
     }
 
     /// <summary>
@@ -25,14 +30,14 @@ public sealed class TimelineRecorder
     /// <param name="claimCount">Number of claims added by the provider.</param>
     /// <param name="runId">Optional ingestion run ID for correlation.</param>
     /// <param name="ct">Cancellation token.</param>
-    public Task RecordRetailMatchedAsync(
+    public async Task RecordRetailMatchedAsync(
         Guid entityId,
         string providerName,
         int claimCount,
         Guid? runId = null,
         CancellationToken ct = default)
     {
-        return _timelineRepo.InsertEventAsync(new EntityEvent
+        await _timelineRepo.InsertEventAsync(new EntityEvent
         {
             EntityId       = entityId,
             EntityType     = "Work",
@@ -42,7 +47,23 @@ public sealed class TimelineRecorder
             ProviderName   = providerName,
             Detail         = $"Retail match: {providerName} contributed {claimCount} claim(s)",
             IngestionRunId = runId,
-        }, ct);
+        }, ct).ConfigureAwait(false);
+
+        if (_artifactRepo is not null)
+        {
+            await _artifactRepo.RecordAsync(
+                runId,
+                "provider_match",
+                artifactId: null,
+                parentEntityId: entityId,
+                parentEntityType: "Work",
+                action: "matched",
+                displayName: providerName,
+                providerId: providerName,
+                source: "retail_match",
+                detailJson: JsonSerializer.Serialize(new { claim_count = claimCount }),
+                ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -52,13 +73,13 @@ public sealed class TimelineRecorder
     /// <param name="titleHint">The file title used in the search attempt.</param>
     /// <param name="runId">Optional ingestion run ID for correlation.</param>
     /// <param name="ct">Cancellation token.</param>
-    public Task RecordRetailNoMatchAsync(
+    public async Task RecordRetailNoMatchAsync(
         Guid entityId,
         string? titleHint,
         Guid? runId = null,
         CancellationToken ct = default)
     {
-        return _timelineRepo.InsertEventAsync(new EntityEvent
+        await _timelineRepo.InsertEventAsync(new EntityEvent
         {
             EntityId       = entityId,
             EntityType     = "Work",
@@ -69,7 +90,23 @@ public sealed class TimelineRecorder
                 ? "No retail match found"
                 : $"No retail match found for \"{titleHint}\"",
             IngestionRunId = runId,
-        }, ct);
+        }, ct).ConfigureAwait(false);
+
+        if (_artifactRepo is not null)
+        {
+            await _artifactRepo.RecordAsync(
+                runId,
+                "provider_match",
+                artifactId: null,
+                parentEntityId: entityId,
+                parentEntityType: "Work",
+                action: "no_match",
+                displayName: titleHint,
+                providerId: null,
+                source: "retail_match",
+                detailJson: JsonSerializer.Serialize(new { title = titleHint }),
+                ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -80,14 +117,14 @@ public sealed class TimelineRecorder
     /// <param name="bridgeType">The bridge ID type used (e.g. "isbn_13", "tmdb_id").</param>
     /// <param name="runId">Optional ingestion run ID for correlation.</param>
     /// <param name="ct">Cancellation token.</param>
-    public Task RecordBridgeResolvedAsync(
+    public async Task RecordBridgeResolvedAsync(
         Guid entityId,
         string qid,
         string bridgeType,
         Guid? runId = null,
         CancellationToken ct = default)
     {
-        return _timelineRepo.InsertEventAsync(new EntityEvent
+        await _timelineRepo.InsertEventAsync(new EntityEvent
         {
             EntityId       = entityId,
             EntityType     = "Work",
@@ -98,7 +135,23 @@ public sealed class TimelineRecorder
             BridgeIdType   = bridgeType,
             Detail         = $"{bridgeType} \u2192 {qid}",
             IngestionRunId = runId,
-        }, ct);
+        }, ct).ConfigureAwait(false);
+
+        if (_artifactRepo is not null)
+        {
+            await _artifactRepo.RecordAsync(
+                runId,
+                "qid",
+                artifactId: null,
+                parentEntityId: entityId,
+                parentEntityType: "Work",
+                action: "resolved",
+                displayName: qid,
+                providerId: "wikidata",
+                source: "wikidata_bridge",
+                detailJson: JsonSerializer.Serialize(new { qid, bridge_type = bridgeType }),
+                ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -107,12 +160,12 @@ public sealed class TimelineRecorder
     /// <param name="entityId">The entity that could not be resolved.</param>
     /// <param name="runId">Optional ingestion run ID for correlation.</param>
     /// <param name="ct">Cancellation token.</param>
-    public Task RecordBridgeNoMatchAsync(
+    public async Task RecordBridgeNoMatchAsync(
         Guid entityId,
         Guid? runId = null,
         CancellationToken ct = default)
     {
-        return _timelineRepo.InsertEventAsync(new EntityEvent
+        await _timelineRepo.InsertEventAsync(new EntityEvent
         {
             EntityId       = entityId,
             EntityType     = "Work",
@@ -121,7 +174,23 @@ public sealed class TimelineRecorder
             Trigger        = "ingestion",
             Detail         = "No Wikidata entity found via bridge IDs or title search",
             IngestionRunId = runId,
-        }, ct);
+        }, ct).ConfigureAwait(false);
+
+        if (_artifactRepo is not null)
+        {
+            await _artifactRepo.RecordAsync(
+                runId,
+                "qid",
+                artifactId: null,
+                parentEntityId: entityId,
+                parentEntityType: "Work",
+                action: "no_match",
+                displayName: null,
+                providerId: "wikidata",
+                source: "wikidata_bridge",
+                detailJson: null,
+                ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -131,13 +200,13 @@ public sealed class TimelineRecorder
     /// <param name="qid">The resolved Wikidata QID.</param>
     /// <param name="runId">Optional ingestion run ID for correlation.</param>
     /// <param name="ct">Cancellation token.</param>
-    public Task RecordTitleFallbackResolvedAsync(
+    public async Task RecordTitleFallbackResolvedAsync(
         Guid entityId,
         string qid,
         Guid? runId = null,
         CancellationToken ct = default)
     {
-        return _timelineRepo.InsertEventAsync(new EntityEvent
+        await _timelineRepo.InsertEventAsync(new EntityEvent
         {
             EntityId       = entityId,
             EntityType     = "Work",
@@ -147,7 +216,23 @@ public sealed class TimelineRecorder
             ResolvedQid    = qid,
             Detail         = $"Title search \u2192 {qid}",
             IngestionRunId = runId,
-        }, ct);
+        }, ct).ConfigureAwait(false);
+
+        if (_artifactRepo is not null)
+        {
+            await _artifactRepo.RecordAsync(
+                runId,
+                "qid",
+                artifactId: null,
+                parentEntityId: entityId,
+                parentEntityType: "Work",
+                action: "resolved",
+                displayName: qid,
+                providerId: "wikidata",
+                source: "wikidata_title",
+                detailJson: JsonSerializer.Serialize(new { qid, method = "title" }),
+                ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -159,7 +244,7 @@ public sealed class TimelineRecorder
     /// <param name="reasoning">The AI's reasoning text for the selection.</param>
     /// <param name="runId">Optional ingestion run ID for correlation.</param>
     /// <param name="ct">Cancellation token.</param>
-    public Task RecordAiDisambiguatedAsync(
+    public async Task RecordAiDisambiguatedAsync(
         Guid entityId,
         string qid,
         double confidence,
@@ -167,7 +252,7 @@ public sealed class TimelineRecorder
         Guid? runId = null,
         CancellationToken ct = default)
     {
-        return _timelineRepo.InsertEventAsync(new EntityEvent
+        await _timelineRepo.InsertEventAsync(new EntityEvent
         {
             EntityId       = entityId,
             EntityType     = "Work",
@@ -180,6 +265,22 @@ public sealed class TimelineRecorder
                 ? $"AI selected {qid} at {confidence:P0}"
                 : $"AI selected {qid} at {confidence:P0}: {reasoning}",
             IngestionRunId = runId,
-        }, ct);
+        }, ct).ConfigureAwait(false);
+
+        if (_artifactRepo is not null)
+        {
+            await _artifactRepo.RecordAsync(
+                runId,
+                "qid",
+                artifactId: null,
+                parentEntityId: entityId,
+                parentEntityType: "Work",
+                action: "resolved",
+                displayName: qid,
+                providerId: "wikidata",
+                source: "wikidata_ai_disambiguation",
+                detailJson: JsonSerializer.Serialize(new { qid, confidence }),
+                ct).ConfigureAwait(false);
+        }
     }
 }

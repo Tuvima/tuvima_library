@@ -12,7 +12,9 @@ tags:
 
 # Hydration Pipeline, Provider Architecture & Enrichment Strategy
 
-This document describes how Tuvima Library discovers metadata for ingested media files: the provider architecture, the Stage 1 retail gate, Stage 2 Wikidata bridge resolution, Quick Hydration, Stage 3 enrichment, provider response caching, and the review queue data model.
+This document describes how Tuvima Library discovers metadata for ingested media files: the provider architecture, retail gate, Wikidata bridge resolution, file readiness, enrichment, provider response caching, and the review queue data model.
+
+Terminology note: implementation code and provider config still use the older provider-phase names `Stage 1` for retail, `Stage 2` for Wikidata, and `Stage 3` for post-identity enrichment because those values appear in `hydration_stages`. The user-facing Ingestion page maps those phases to numbered operational stages: retail is Stage 3, Wikidata is Stage 4, file readiness is Stage 5, and post-identity enrichment spans Stages 6-8.
 
 ---
 
@@ -27,7 +29,7 @@ All providers divide cleanly into two categories:
 **Retail providers** - exist solely to supply matching data that aids identity resolution, plus media assets that Wikidata cannot host. Their output is never treated as canonical structured data. Retail providers contribute:
 - Cover art and promotional imagery (copyright-safe sources that Wikimedia cannot host)
 - Descriptions and ratings (for display and candidate ranking)
-- Bridge identifiers: ISBN, ASIN, TMDB ID, Apple Books ID, Comic Vine ID, and any enabled provider-specific IDs - these are used by Stage 2 to resolve the QID precisely
+- Bridge identifiers: ISBN, ASIN, TMDB ID, Apple Books ID, Comic Vine ID, and any enabled provider-specific IDs - these are used by the Wikidata lookup stage to resolve the QID precisely
 
 The distinction matters for trust: a title or author name from Apple API is a hint used to rank candidates, not a fact stored as canonical data. Only Wikidata-sourced claims become canonical values.
 

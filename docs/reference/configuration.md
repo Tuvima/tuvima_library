@@ -129,9 +129,9 @@ Current shipped default note: `two_pass_enabled` is `false`, so the optional two
 | Field | Type | Description |
 |---|---|---|
 | `stage_concurrency` | int | Maximum concurrent provider calls within each stage. |
-| `stage1_timeout_seconds` | int | Per-provider HTTP timeout for Stage 1 (Retail). |
-| `stage2_timeout_seconds` | int | Per-request timeout for Stage 2 (Wikidata). |
-| `stage3_timeout_seconds` | int | Timeout for scheduled Stage 3 enrichment work. |
+| `stage1_timeout_seconds` | int | Per-provider HTTP timeout for the retail worker, shown as Stage 3 in the Ingestion page. |
+| `stage2_timeout_seconds` | int | Per-request timeout for the Wikidata worker, shown as Stage 4 in the Ingestion page. |
+| `stage3_timeout_seconds` | int | Timeout for scheduled enrichment work, shown across Stages 6-8 in the Ingestion page. |
 | `retail_auto_accept_threshold` | float | Composite Retail score required for automatic acceptance. Current config: `0.90`. |
 | `retail_ambiguous_threshold` | float | Composite Retail score below which a candidate is treated as no match. Scores from this threshold up to the auto-accept threshold go to review. Current config: `0.65`. |
 | `auto_review_confidence_threshold` | float | Post-hydration confidence gate for creating review work. |
@@ -225,7 +225,7 @@ Controls how resolved metadata is written back into file tags.
 | `enabled` | bool | `true` | Master switch. When false, no file tags are ever modified. |
 | `write_on_auto_match` | bool | `true` | Write tags when the Engine automatically matches and promotes a file. |
 | `write_on_manual_override` | bool | `true` | Write tags when a user manually resolves a conflict or selects a QID. |
-| `write_on_universe_enrichment` | bool | `true` | Write tags after Stage 2 / universe enrichment completes. |
+| `write_on_universe_enrichment` | bool | `true` | Write tags after Wikidata/universe enrichment completes. |
 | `backup_before_write` | bool | `true` | Create a `.bak` sidecar before modifying any file tags. |
 | `fields_to_write` | string | `"all"` | Which fields to include in writeback. `"all"` writes every resolved canonical value. Can be set to a comma-separated list of field keys to restrict scope. |
 | `exclude_fields` | string[] | `[]` | Fields excluded from writeback even when `fields_to_write` is `"all"`. |
@@ -238,14 +238,14 @@ One JSON file per metadata provider. All provider files are self-contained - add
 
 | File | Provider | Stage | Language Strategy |
 |---|---|---|---|
-| `apple_api.json` | Apple API (books, audiobooks) | Stage 1 | `localized` |
-| `open_library.json` | Open Library | Stage 1 | `source` |
-| `comicvine.json` | Comic Vine (comics) | Stage 1 | `source` |
-| `musicbrainz.json` | MusicBrainz | Stage 1 | `source` |
-| `tmdb.json` | TMDB (movies, TV) | Stage 1 | `localized` |
-| `wikidata_reconciliation.json` | Wikidata | Stage 2 | `both` |
-| `local_filesystem.json` | Local file metadata (processors) | Stage 0 | `source` |
-| `fanart_tv.json` | Fanart.tv (artwork) | Stage 2 | `source` |
+| `apple_api.json` | Apple API (books, audiobooks) | Stage 3 retail metadata & primary artwork | `localized` |
+| `open_library.json` | Open Library | Disabled by default | `source` |
+| `comicvine.json` | Comic Vine (comics) | Stage 3 retail metadata & primary artwork | `source` |
+| `musicbrainz.json` | MusicBrainz | Disabled by default | `source` |
+| `tmdb.json` | TMDB (movies, TV) | Stage 3 retail metadata & primary artwork | `localized` |
+| `wikidata_reconciliation.json` | Wikidata | Stage 4 Wikidata lookup | `both` |
+| `local_filesystem.json` | Local file metadata (processors) | Stage 2 read media details | `source` |
+| `fanart_tv.json` | Fanart.tv (artwork) | Stage 8 deep artwork | `source` |
 
 ### fanart_tv.json - Artwork field map
 

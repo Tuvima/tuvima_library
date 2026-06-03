@@ -384,6 +384,21 @@ CREATE TABLE IF NOT EXISTS ingestion_log (
     updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
+CREATE TABLE IF NOT EXISTS ingestion_batch_artifacts (
+    id                BLOB NOT NULL PRIMARY KEY,
+    batch_id          BLOB NOT NULL,
+    artifact_type     TEXT NOT NULL,
+    artifact_id       BLOB,
+    parent_entity_id  BLOB,
+    parent_entity_type TEXT,
+    action            TEXT NOT NULL,
+    display_name      TEXT,
+    provider_id       TEXT,
+    source            TEXT,
+    detail_json       TEXT,
+    occurred_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 CREATE TABLE IF NOT EXISTS media_assets (
     id             BLOB NOT NULL PRIMARY KEY,  -- UUID
     edition_id     BLOB NOT NULL REFERENCES editions(id) ON DELETE CASCADE,
@@ -1067,6 +1082,18 @@ CREATE INDEX IF NOT EXISTS idx_image_cache_phash
 CREATE INDEX IF NOT EXISTS idx_ingestion_batches_created ON ingestion_batches(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_ingestion_batches_status ON ingestion_batches(status);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_batch_artifacts_batch
+    ON ingestion_batch_artifacts(batch_id, occurred_at);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_batch_artifacts_type
+    ON ingestion_batch_artifacts(batch_id, artifact_type);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_batch_artifacts_artifact
+    ON ingestion_batch_artifacts(artifact_type, artifact_id);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_batch_artifacts_parent
+    ON ingestion_batch_artifacts(parent_entity_id);
 
 CREATE INDEX IF NOT EXISTS idx_ingestion_log_media_asset ON ingestion_log(media_asset_id);
 

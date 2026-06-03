@@ -642,15 +642,21 @@ public sealed class IngestionLiveDashboardState : IDisposable
             };
 
         var activity = ToCurrentActivity(job, stages);
-        if (activity.StageKey.Equals("enrichment", StringComparison.OrdinalIgnoreCase))
+        if (activity.StageKey.Equals("retail", StringComparison.OrdinalIgnoreCase)
+            && IsQuickMetadataStage(FirstNonBlank(batch.CurrentStage, batch.LifecycleStage)))
+        {
+            activity.Message = "Retail metadata & primary artwork";
+            activity.Detail = "Adding retail metadata and primary artwork";
+        }
+        else if (activity.StageKey.Equals("enrichment", StringComparison.OrdinalIgnoreCase))
         {
             var batchStage = FirstNonBlank(batch.CurrentStage, batch.LifecycleStage);
             var friendlyStage = ToFriendlyStepLabel(batchStage);
             if (IsQuickMetadataStage(batchStage))
             {
-                activity.StageKey = "metadata";
-                activity.Message = "Quick metadata and artwork";
-                activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Adding quick metadata and artwork");
+                activity.StageKey = "retail";
+                activity.Message = "Retail metadata & primary artwork";
+                activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Adding retail metadata and primary artwork");
             }
             else
             {
@@ -662,8 +668,11 @@ public sealed class IngestionLiveDashboardState : IDisposable
             activity.CountUnit = "items";
         }
 
-        activity.ActiveCount = Math.Max(activity.ActiveCount, Math.Max(0, batch.FilesActive));
-        activity.QueuedCount = Math.Max(activity.QueuedCount, Math.Max(0, batch.FilesQueued));
+        var batchActive = Math.Max(0, batch.FilesActive);
+        var batchQueued = Math.Max(0, batch.FilesQueued);
+        activity.ActiveCount = Math.Max(activity.ActiveCount, batchActive);
+        if (batchQueued > 0 || batchActive > 0)
+            activity.QueuedCount = batchQueued;
         activity.LastUpdatedTime = DateTimeOffset.UtcNow;
         return activity;
     }
@@ -950,6 +959,42 @@ public sealed class IngestionLiveDashboardState : IDisposable
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
         int totalFiles)
     {
+        if (snapshot?.StageProgress.Count > 0)
+        {
+            return snapshot.StageProgress
+                .OrderBy(stage => stage.StageNumber)
+                .Select(stage => new IngestionDashboardStage(
+                    stage.StageKey,
+                    stage.Label,
+                    stage.StatusLabel ?? stage.Label,
+                    ResolveNumberedStageIcon(stage.StageKey),
+                    stage.CompletedFiles,
+                    stage.TotalFiles,
+                    Math.Clamp(stage.PercentComplete, 0, 100),
+                    ResolveNumberedStageStatusKey(stage),
+                    Math.Clamp(stage.PercentComplete, 0, 100),
+                    false,
+                    0,
+                    string.Equals(stage.StageKey, "review", StringComparison.OrdinalIgnoreCase)
+                        ? Math.Max(0, stage.ArtifactCount ?? 0)
+                        : 0,
+                    0,
+                    false,
+                    stage.StageNumber,
+                    stage.ArtifactLabel,
+                    stage.ArtifactCount,
+                    stage.ActiveItemLabel,
+                    stage.ActiveGroupLabel,
+                    stage.ActiveGroupCount,
+                    stage.LabelAccuracy,
+                    stage.LastUpdatedTime,
+                    stage.IsStale,
+                    stage.StatusLabel,
+                    stage.ActiveCount,
+                    stage.QueuedCount))
+                .ToList();
+        }
+
         var activeKey = ResolveActiveStage(activeJobs);
         var duplicateCount = Count(snapshot, "duplicate");
         var skippedCount = Count(snapshot, "skipped");
@@ -1071,12 +1116,43 @@ public sealed class IngestionLiveDashboardState : IDisposable
         }
     }
 
+    private static string ResolveNumberedStageIcon(string stageKey)
+    {
+        var key = stageKey.ToLowerInvariant();
+        return key switch
+        {
+            "scan" => Icons.Material.Outlined.Radar,
+            "read" => Icons.Material.Outlined.Description,
+            "retail" => Icons.Material.Outlined.Search,
+            "wikidata" => Icons.Material.Outlined.TravelExplore,
+            "ready" => Icons.Material.Outlined.CheckCircle,
+            "people" => Icons.Material.Outlined.Groups,
+            "relationships" => Icons.Material.Outlined.Hub,
+            "deep_artwork" => Icons.Material.Outlined.Image,
+            "review" => Icons.Material.Outlined.WarningAmber,
+            _ => Icons.Material.Outlined.AutoAwesome,
+        };
+    }
+
+    private static string ResolveNumberedStageStatusKey(IngestionStageProgressViewModel stage)
+    {
+        if (stage.ActiveCount > 0)
+            return "Ingestion_StatusActive";
+        if (stage.IsStale)
+            return "Ingestion_StatusPending";
+        if (stage.PercentComplete >= 100)
+            return "Ingestion_StatusComplete";
+        if (stage.QueuedCount > 0 || stage.CompletedFiles > 0)
+            return "Ingestion_StatusPending";
+        return "Ingestion_StatusIdle";
+    }
+
     public static IngestionOverallProgress BuildOverallProgress(
         IngestionDashboardMetrics metrics,
         IReadOnlyList<IngestionDashboardStage> stages,
         BatchProgressEvent? batch)
     {
-        var pipelineStages = stages.Where(stage => !stage.HideCount).ToList();
+        var pipelineStages = stages.Where(stage => !stage.HideCount && !IsReviewStage(stage)).ToList();
         var hasPipelineWork = metrics.TotalFiles > 0 || pipelineStages.Any(stage => stage.Total > 0 || stage.Count > 0);
         var percent = hasPipelineWork && pipelineStages.Count > 0
             ? Math.Clamp(pipelineStages.Average(stage => Math.Clamp(stage.Percent, 0, 100)), 0, 100)
@@ -1101,6 +1177,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
             batch?.EstimatedSecondsRemaining);
     }
 
+    private static bool IsReviewStage(IngestionDashboardStage stage) =>
+        stage.StageNumber == 9 || stage.Key.Equals("review", StringComparison.OrdinalIgnoreCase);
+
     public static LibraryUpdateStatusViewModel BuildLibraryUpdateStatus(
         IngestionOperationsSnapshotViewModel? snapshot,
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
@@ -1116,10 +1195,12 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .OrderByDescending(batch => batch.StartedAt)
             .FirstOrDefault();
         var lastCompletedAt = ResolveLastCompletedAt(snapshot);
+        var hasReviewWork = (snapshot?.Summary.ItemsNeedingReview ?? 0) > 0 || pendingReviews.Count > 0;
         var hasPriorRun = snapshot is not null
             && (snapshot.RecentBatches.Count > 0
                 || lastCompletedAt.HasValue
                 || snapshot.Summary.TotalItems > 0
+                || hasReviewWork
                 || metrics.TotalFiles > 0);
         var hasDetailedWork = activeJobs.Count > 0 || currentActivities.Count > 0;
         var hasActiveDetailedWork = activeJobs.Any(IsActiveJob) || currentActivities.Any(IsActiveActivity);
@@ -1212,7 +1293,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             showProgress,
             isIndeterminate,
             ResolveHeading(pageState),
-            ResolveMainLine(pageState, processedFiles, totalFiles, lastCompletedAt, now),
+            ResolveMainLine(pageState, processedFiles, totalFiles, reviewItems, lastCompletedAt, now),
             activityLine,
             secondaryLine,
             ResolveTimestampLine(pageState, lastCompletedAt, lastUpdated, now),
@@ -1308,6 +1389,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
         IngestionOperationsSnapshotViewModel? snapshot,
         int totalFiles)
     {
+        var terminal = ResolveTerminalPipelineCount(snapshot, totalFiles);
+        if (terminal > 0)
+            return terminal;
+
         var enriched = Count(snapshot, "enriched");
         if (enriched > 0)
             return ClampFileCount(enriched, totalFiles);
@@ -1489,11 +1574,12 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (readyForLibrary == 0 && enrichedTotal == 0 && !hasIdentityPipelineStages)
             readyForLibrary = Count(snapshot, "registered", snapshot.Summary.RegisteredItems);
 
+        var wikidataTerminal = Count(snapshot, "wikidata_review");
         var needsReview = Math.Max(Count(snapshot, "needs_review"), snapshot.Summary.ItemsNeedingReview);
         var duplicate = Count(snapshot, "duplicate");
         var skipped = Count(snapshot, "skipped");
         var failed = Count(snapshot, "failed");
-        var terminalCount = readyForLibrary + needsReview + duplicate + skipped + failed;
+        var terminalCount = readyForLibrary + wikidataTerminal + needsReview + duplicate + skipped + failed;
 
         return totalFiles > 0
             ? Math.Clamp(terminalCount, 0, totalFiles)
@@ -1969,6 +2055,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         LibraryUpdatePageState pageState,
         int processedFiles,
         int totalFiles,
+        int reviewItems,
         DateTimeOffset? lastCompletedAt,
         DateTimeOffset now)
     {
@@ -1980,6 +2067,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             LibraryUpdatePageState.Running when totalFiles == 0 => "Looking for new media",
             LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete => $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} of {totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files processed",
             LibraryUpdatePageState.Idle when lastCompletedAt.HasValue => $"Last scan completed {FormatRelativeLong(lastCompletedAt.Value, now)}",
+            LibraryUpdatePageState.Idle when reviewItems > 0 => $"{reviewItems.ToString("N0", CultureInfo.CurrentCulture)} items need review before they can be fully added.",
             LibraryUpdatePageState.Failed => "Tuvima stopped before the update was complete.",
             LibraryUpdatePageState.StatusUnavailable => "Tuvima could not refresh the latest status.",
             _ => "Start a scan to find new or changed media.",
@@ -2409,7 +2497,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (normalized.Contains("quick metadata", StringComparison.OrdinalIgnoreCase)
             || normalized.Contains("hydrat", StringComparison.OrdinalIgnoreCase))
         {
-            return "Adding quick metadata and artwork";
+            return "Adding retail metadata and primary artwork";
         }
 
         if (normalized.Contains("enhancer", StringComparison.OrdinalIgnoreCase))
@@ -2472,6 +2560,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     private static bool IsQuickMetadataStage(string value) =>
         value.Contains("quick metadata", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("retail metadata", StringComparison.OrdinalIgnoreCase)
         || value.Contains("hydrat", StringComparison.OrdinalIgnoreCase);
 
     private static string CleanDisplayTitle(string value)
@@ -2600,7 +2689,19 @@ public sealed record IngestionDashboardStage(
     int MatchedCount,
     int ReviewCount,
     int OtherCount,
-    bool IsSummary);
+    bool IsSummary,
+    int StageNumber = 0,
+    string? ArtifactLabel = null,
+    int? ArtifactCount = null,
+    string? ActiveItemLabel = null,
+    string? ActiveGroupLabel = null,
+    int ActiveGroupCount = 0,
+    string LabelAccuracy = "None",
+    DateTimeOffset? LastUpdatedTime = null,
+    bool IsStale = false,
+    string? StatusLabel = null,
+    int ActiveCount = 0,
+    int QueuedCount = 0);
 
 public sealed record IngestionQueueHealthItem(
     string Key,

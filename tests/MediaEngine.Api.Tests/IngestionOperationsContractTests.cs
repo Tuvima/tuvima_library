@@ -165,8 +165,11 @@ public sealed class IngestionOperationsContractTests
             "IngestionOperationsStatusService.cs"));
 
         Assert.Contains("ReviewReasons = BuildReviewReasons(reviewRows)", source, StringComparison.Ordinal);
+        Assert.Contains("triggerCounts[row.Trigger]", source, StringComparison.Ordinal);
         Assert.DoesNotContain("BuildReviewReasons(reviewRows, lifecycle.TriggerCounts)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (var kv in triggerCounts)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("allCounts[row.Detail]", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SumContains(triggerCounts", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -239,6 +242,61 @@ public sealed class IngestionOperationsContractTests
         Assert.DoesNotContain("Metadata validation", serviceSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"validation\"", serviceSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"summary\" =>", serviceSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OperationsSnapshot_ExposesNumberedStageProgressContract()
+    {
+        var dtoSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Models",
+            "IngestionOperationsDtos.cs"));
+        var serviceSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("stage_progress", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("stage_number", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("active_group_label", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("label_accuracy", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("artifact_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("BuildNumberedStageProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Retail metadata & primary artwork\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Deep artwork\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Resolving Wikidata batch:", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"GroupedLookup\"", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("activeGroup is null ? \"", serviceSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CurrentSchema_IncludesIngestionBatchArtifactLedger()
+    {
+        var schema = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Storage",
+            "Schema",
+            "schema.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS ingestion_batch_artifacts", schema, StringComparison.Ordinal);
+        Assert.Contains("artifact_type", schema, StringComparison.Ordinal);
+        Assert.Contains("parent_entity_id", schema, StringComparison.Ordinal);
+        Assert.Contains("provider_id", schema, StringComparison.Ordinal);
+        Assert.Contains("detail_json", schema, StringComparison.Ordinal);
+        Assert.Contains("idx_ingestion_batch_artifacts_batch", schema, StringComparison.Ordinal);
+        Assert.DoesNotContain("ALTER TABLE ingestion_batch_artifacts", schema, StringComparison.OrdinalIgnoreCase);
+
+        var program = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Program.cs"));
+        Assert.Contains("IIngestionBatchArtifactRepository", program, StringComparison.Ordinal);
     }
 
     [Fact]

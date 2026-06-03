@@ -75,6 +75,8 @@ The active Stage 1 provider matrix is:
 | Fanart.tv | Stage 3 artwork only, not Stage 1 identity |
 | LRCLIB / OpenSubtitles | Lyrics/subtitles/text tracks, not identity |
 
+For the exact lookup fields and scoring metrics used by each media type, see [How to Configure Metadata Providers](../guides/configuring-providers.md#retail-lookup-inputs-by-media-type).
+
 ### The stricter confidence gate
 
 Retail matching is now precision-first:
@@ -115,6 +117,8 @@ Typical bridge IDs include:
 - MusicBrainz IDs for music
 
 When a bridge ID resolves successfully, the Engine fetches canonical properties such as title, creator, year, genre, series, and relationship data.
+
+For the exact bridge IDs and hints sent to Wikidata for each media type, see [How to Configure Metadata Providers](../guides/configuring-providers.md#wikidata-lookup-inputs-by-media-type).
 
 ### What if no QID is found?
 
@@ -193,4 +197,3 @@ That is why an item that was review-only last month can become a clean match lat
 - [Ingestion, Identity, and Enrichment Pipeline](../architecture/ingestion-identity-enrichment-pipeline.md)
 - [Hydration Pipeline, Provider Architecture and Enrichment Strategy](../architecture/hydration-and-providers.md)
 - [Providers Reference](../reference/providers.md)
-

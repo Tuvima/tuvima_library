@@ -665,6 +665,7 @@ builder.Services.AddSingleton<IBridgeIdRepository,           BridgeIdRepository>
 builder.Services.AddSingleton<IEntityTimelineRepository,     EntityTimelineRepository>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IIngestionBatchRepository,     IngestionBatchRepository>();
+builder.Services.AddSingleton<IIngestionBatchArtifactRepository, IngestionBatchArtifactRepository>();
 builder.Services.AddSingleton<IMediaOperationRepository,      MediaOperationRepository>();
 builder.Services.AddSingleton<IMediaOperationEventRepository, MediaOperationEventRepository>();
 builder.Services.AddSingleton<IEntityCapabilityStateRepository, EntityCapabilityStateRepository>();

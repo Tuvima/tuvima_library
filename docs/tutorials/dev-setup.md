@@ -79,10 +79,11 @@ Other config files of interest during development:
 | `config/ai.json` | AI model paths, hardware tier overrides, feature flags |
 | `config/libraries.json` | Watch folders (add entries here to seed a dev library) |
 | `config/scoring.json` | Priority Cascade weights and tier configuration |
-| `config/providers/*.json` | Per-provider settings (endpoints, API keys, language strategy) |
+| `config/providers/*.json` | Per-provider settings (endpoints, language strategy, non-secret defaults) |
+| `config/secrets/*.json` | Provider API keys and secret overlays; gitignored |
 | `config/hydration.json` | Hydration pipeline slot configuration |
 
-Sensitive values (API keys for external providers) go in `config/providers/*.json`. These files are gitignored - never commit them.
+Sensitive values, including provider API keys, go in `config/secrets/{provider}.json`. Base provider files can leave `http_client.api_key` blank; the Engine applies the matching secret overlay at runtime.
 
 ---
 

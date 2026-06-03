@@ -267,7 +267,7 @@ public sealed class BatchProgressService
         lifecycleStage switch
         {
             "ResolvingUniverse" => "Resolving universe",
-            "Hydrating" => "Quick metadata and artwork",
+            "Hydrating" => "Retail metadata & primary artwork",
             "Enriching" => "Universe enrichment",
             "Identifying" => "Identifying",
             "Review" => "Review",

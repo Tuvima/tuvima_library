@@ -21,6 +21,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 
 // Disambiguate ProviderConfiguration — the IConfigurationLoader uses the Storage.Models one
 using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
@@ -206,6 +207,104 @@ public sealed class WorkerPipelineTests
         Assert.Equal("Ambiguous", candidate.Outcome);
         Assert.Contains("creator_similarity_weak", candidate.ScoreBreakdownJson);
         Assert.Contains("accept_capped_to_review", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_UsesMetadataClaimAuthor_WhenCanonicalAuthorMissing()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+        var localProviderId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Books",
+            State = "Queued",
+        });
+
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Dune", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = "date", Value = "2005-08-02", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = BridgeIdKeys.Isbn, Value = "9780441013593", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var claimRepo = new StubMetadataClaimRepository();
+        await claimRepo.InsertBatchAsync(
+        [
+            new MetadataClaim
+            {
+                Id = Guid.NewGuid(),
+                EntityId = entityId,
+                ProviderId = localProviderId,
+                ClaimKey = MetadataFieldConstants.Author,
+                ClaimValue = "Frank Herbert",
+                Confidence = 0.95,
+                ClaimedAt = DateTimeOffset.UtcNow,
+            },
+        ]);
+
+        var provider = new StubExternalMetadataProvider
+        {
+            Name = "apple_api",
+            ProviderId = providerId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Dune", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Author, "Frank Herbert", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Year, "2011", 0.95),
+                new ProviderClaim("provider_item_id", "597944491", 0.95),
+                new ProviderClaim(BridgeIdKeys.AppleBooksId, "597944491", 0.95),
+            ],
+        };
+
+        var configLoader = new StubConfigurationLoader();
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            new[] { provider },
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                configLoader,
+                coverArtHash: null,
+                logger: null),
+            claimRepo,
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.True(candidate.ScoreTotal >= 0.90);
+        Assert.NotNull(candidate.ScoreBreakdownJson);
+
+        using var breakdown = JsonDocument.Parse(candidate.ScoreBreakdownJson!);
+        Assert.Equal(1.0, breakdown.RootElement.GetProperty("author").GetDouble());
     }
 
     [Fact]

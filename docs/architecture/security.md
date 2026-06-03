@@ -14,7 +14,7 @@ tags:
 
 ## Secret Store
 
-Private API keys (for external metadata providers such as TMDB or MusicBrainz) are encrypted at rest using the operating system's built-in protection layer. They are never stored as plain text in any configuration file.
+Private API keys for external metadata providers such as TMDB, Comic Vine, Fanart.tv, and OpenSubtitles are config-file secrets. Base provider definitions live under `config/providers/*.json`; long-lived local credentials belong in matching gitignored overlays under `config/secrets/{provider}.json`. A blank API key in a base provider file does not mean the effective runtime key is missing if the matching secrets file exists.
 
 ## Guest Key System
 
@@ -72,5 +72,4 @@ Unauthenticated connection attempts from non-localhost origins are rejected befo
 - [Engine API Reference](../reference/api-endpoints.md)
 - [How to Build, Test, and Verify Changes](../guides/running-tests.md)
 - [Settings Architecture and Review Queue](dashboard-ui.md)
-
 

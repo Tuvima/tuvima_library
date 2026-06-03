@@ -289,7 +289,7 @@ Key files for development:
 | `config/core.json` | Library root, display name, language |
 | `config/libraries.json` | Watch Folder paths and media type assignments |
 | `config/server.json` | Port, auth bypass, rate limits |
-| `config/hydration.json` | Stage 1/2 pipeline config |
+| `config/hydration.json` | Retail, Wikidata, and enrichment worker config |
 | `config/providers/*.json` | One file per metadata provider |
 | `config/ai.json` | AI model roles and feature toggles |
 | `config/scoring.json` | Priority Cascade weights |

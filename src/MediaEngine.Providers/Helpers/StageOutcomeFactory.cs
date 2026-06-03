@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -16,6 +17,7 @@ public sealed class StageOutcomeFactory
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IEventPublisher _eventPublisher;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly IIngestionBatchArtifactRepository? _artifactRepo;
     private readonly ILogger<StageOutcomeFactory> _logger;
 
     public StageOutcomeFactory(
@@ -23,12 +25,14 @@ public sealed class StageOutcomeFactory
         ISystemActivityRepository activityRepo,
         IEventPublisher eventPublisher,
         ICanonicalValueRepository canonicalRepo,
-        ILogger<StageOutcomeFactory> logger)
+        ILogger<StageOutcomeFactory> logger,
+        IIngestionBatchArtifactRepository? artifactRepo = null)
     {
         _reviewRepo    = reviewRepo;
         _activityRepo  = activityRepo;
         _eventPublisher = eventPublisher;
         _canonicalRepo = canonicalRepo;
+        _artifactRepo = artifactRepo;
         _logger        = logger;
     }
 
@@ -165,6 +169,7 @@ public sealed class StageOutcomeFactory
         onBatchAdjust?.Invoke(ingestionRunId);
 
         await LogActivityAndPublishAsync(entry, ingestionRunId, ct).ConfigureAwait(false);
+        await RecordReviewArtifactAsync(entry, ingestionRunId, ct).ConfigureAwait(false);
 
         return entry.Id;
     }
@@ -283,6 +288,7 @@ public sealed class StageOutcomeFactory
         onBatchAdjust?.Invoke(ingestionRunId);
 
         await LogActivityAndPublishAsync(entry, ingestionRunId, ct).ConfigureAwait(false);
+        await RecordReviewArtifactAsync(entry, ingestionRunId, ct).ConfigureAwait(false);
 
         return entry.Id;
     }
@@ -321,6 +327,33 @@ public sealed class StageOutcomeFactory
         await _eventPublisher.PublishAsync(
             SignalREvents.ReviewItemCreated,
             new ReviewItemCreatedEvent(entry.Id, entry.EntityId, entry.Trigger, titleText),
+            ct).ConfigureAwait(false);
+    }
+
+    private async Task RecordReviewArtifactAsync(
+        ReviewQueueEntry entry,
+        Guid? ingestionRunId,
+        CancellationToken ct)
+    {
+        if (_artifactRepo is null)
+            return;
+
+        await _artifactRepo.RecordAsync(
+            ingestionRunId,
+            "review_item",
+            entry.Id,
+            entry.EntityId,
+            entry.EntityType,
+            "created",
+            entry.Trigger,
+            providerId: null,
+            source: "review_queue",
+            detailJson: JsonSerializer.Serialize(new
+            {
+                trigger = entry.Trigger,
+                confidence = entry.ConfidenceScore,
+                detail = entry.Detail,
+            }),
             ct).ConfigureAwait(false);
     }
 }

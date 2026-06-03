@@ -109,11 +109,13 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 |---|---|---|---|
 | POST | `/ingestion/scan` | Dry-run scan of configured library folders. Reports what would be ingested without making changes. | Administrator |
 | POST | `/ingestion/library-scan` | Scan library folders and update known file paths. Triggers ingestion for new files. | Administrator |
-| GET | `/ingestion/operations` | Dashboard snapshot backed by durable ingestion operation counts and identity progress. | Curator |
+| GET | `/ingestion/operations` | Dashboard snapshot backed by durable ingestion operation counts, numbered `stage_progress` rows, current activity, review state, provider health, and recent batch summaries. | Curator |
 | GET | `/ingestion/batches` | Recent ingestion batches. | Curator |
 | GET | `/ingestion/batches/{batchId}` | Single ingestion batch summary. | Curator |
 | GET | `/ingestion/batches/{batchId}/items` | Durable per-file item ledger for a batch, sourced from `media_operations`. | Curator |
 | GET | `/ingestion/watch-folder` | Returns the derived current watch folder view from configured library source folders. | Required |
+
+`/ingestion/operations.stage_progress` contains one row per numbered ingestion stage: `stage_number`, `stage_key`, `label`, `completed_files`, `total_files`, `percent_complete`, `active_count`, `queued_count`, `status_label`, `active_item_label`, `active_group_label`, `active_group_count`, `label_accuracy`, `artifact_label`, `artifact_count`, `last_updated_time`, and `is_stale`. Grouped provider work, such as batched Wikidata resolution, uses group labels instead of fake exact file labels unless per-file correlation is available.
 
 ---
 

@@ -240,6 +240,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 .ToList();
         }
 
+        var stageProgress = await BuildNumberedStageProgressAsync(
+            displayBatches,
+            pipelineStages,
+            currentActivities,
+            pendingReviewCount,
+            summaryTotals.Total,
+            ct).ConfigureAwait(false);
+
         var activeWorkCount = activeJobs.Count > 0
             ? activeJobs.Count
             : currentActivities.Any(IsActiveActivity) ? 1 : 0;
@@ -269,6 +277,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ActiveJobs = activeJobs,
             CurrentActivities = currentActivities,
             PipelineStages = pipelineStages,
+            StageProgress = stageProgress,
             ReviewReasons = BuildReviewReasons(reviewRows),
             SourceGroups = BuildSourceGroups(folderStats),
             ProviderHealth = providerDtos,
@@ -856,6 +865,366 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Stage("skipped", "Skipped", skipped, batchTotal, "Non-media sidecars ignored"),
             Stage("failed", "Failed", failed, batchTotal, "Could not finish automatically"),
         ];
+    }
+
+    private async Task<List<IngestionStageProgressDto>> BuildNumberedStageProgressAsync(
+        IReadOnlyList<IngestionBatch> displayBatches,
+        IReadOnlyList<IngestionPipelineStageDto> pipelineStages,
+        IReadOnlyList<IngestionCurrentActivityDto> currentActivities,
+        int pendingReviewCount,
+        int summaryTotal,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var byKey = pipelineStages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase);
+        var totalFiles = pipelineStages.Select(stage => stage.TotalCount).DefaultIfEmpty(0).Max();
+        if (totalFiles <= 0)
+            totalFiles = Math.Max(0, summaryTotal);
+
+        var duplicateOrSkipped = CountStage(byKey, "duplicate") + CountStage(byKey, "skipped");
+        var failed = CountStage(byKey, "failed");
+        var terminalOther = duplicateOrSkipped + failed;
+        var review = Math.Max(0, pendingReviewCount);
+        var identified = CountStage(byKey, "identified");
+        var retailDone = ClampStageCount(identified, totalFiles);
+        var wikidataDone = ClampStageCount(
+            CountStage(byKey, "canonicalized") + CountStage(byKey, "wikidata_review") + review + terminalOther,
+            totalFiles);
+        var fileReady = ClampStageCount(
+            CountStage(byKey, "registered") + CountStage(byKey, "needs_review") + CountStage(byKey, "wikidata_review") + terminalOther,
+            totalFiles);
+        var optionalEnrichmentDone = fileReady;
+        var reviewResolved = totalFiles > 0
+            ? Math.Clamp(totalFiles - review, 0, totalFiles)
+            : 0;
+
+        var batchIds = displayBatches.Select(batch => batch.Id).Distinct().ToArray();
+        var artifactCounts = await ReadNumberedStageArtifactCountsAsync(batchIds, ct).ConfigureAwait(false);
+
+        return
+        [
+            CreateNumberedStage(
+                1,
+                "scan",
+                "Scan folders",
+                CountStage(byKey, "detected"),
+                totalFiles,
+                "files found",
+                CountStage(byKey, "detected"),
+                ActivityFor(currentActivities, "scanning", "scan")),
+            CreateNumberedStage(
+                2,
+                "read",
+                "Read media details",
+                CountStage(byKey, "parsed"),
+                totalFiles,
+                "files read",
+                CountStage(byKey, "parsed"),
+                ActivityFor(currentActivities, "reading", "read", "scanning")),
+            CreateNumberedStage(
+                3,
+                "retail",
+                "Retail metadata & primary artwork",
+                retailDone,
+                totalFiles,
+                "metadata/artwork updates",
+                artifactCounts.RetailArtifactCount,
+                ActivityFor(currentActivities, "artwork", "retail", "metadata")),
+            CreateNumberedStage(
+                4,
+                "wikidata",
+                "Wikidata lookup",
+                wikidataDone,
+                totalFiles,
+                "QIDs resolved",
+                Math.Max(artifactCounts.QidCount, ParseMetricValue(ActivityFor(currentActivities, "wikidata")?.MetricValue)),
+                ActivityFor(currentActivities, "wikidata")),
+            CreateNumberedStage(
+                5,
+                "ready",
+                "File ready",
+                fileReady,
+                totalFiles,
+                "files added",
+                CountStage(byKey, "registered"),
+                ActivityFor(currentActivities, "organized", "registered", "ready")),
+            CreateNumberedStage(
+                6,
+                "people",
+                "People & cast",
+                optionalEnrichmentDone,
+                totalFiles,
+                "people linked/resolved",
+                Math.Max(artifactCounts.PeopleCount, ParseMetricValue(ActivityFor(currentActivities, "people")?.MetricValue)),
+                ActivityFor(currentActivities, "people")),
+            CreateNumberedStage(
+                7,
+                "relationships",
+                "Series & relationships",
+                optionalEnrichmentDone,
+                totalFiles,
+                "relationships/series links",
+                Math.Max(artifactCounts.RelationshipCount, ParseMetricValue(ActivityFor(currentActivities, "relationships")?.MetricValue)),
+                ActivityFor(currentActivities, "relationships")),
+            CreateNumberedStage(
+                8,
+                "deep_artwork",
+                "Deep artwork",
+                optionalEnrichmentDone,
+                totalFiles,
+                "deep artwork assets",
+                artifactCounts.DeepArtworkCount,
+                ActivityFor(currentActivities, "deep_artwork", "images")),
+            CreateNumberedStage(
+                9,
+                "review",
+                "Review / attention",
+                reviewResolved,
+                totalFiles,
+                "items needing review",
+                review,
+                ActivityFor(currentActivities, "review", "needs_review")),
+        ];
+    }
+
+    private async Task<NumberedStageArtifactCounts> ReadNumberedStageArtifactCountsAsync(
+        IReadOnlyCollection<Guid> batchIds,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var scopedBatchIds = ToBatchIdBlobs(batchIds);
+        var hasBatchScope = batchIds.Count > 0 ? 1 : 0;
+
+        var counts = await conn.QueryFirstOrDefaultAsync<NumberedStageArtifactCounts>("""
+            WITH scoped_jobs AS (
+                SELECT id, entity_id, state
+                FROM identity_jobs
+                WHERE @hasBatchScope = 0 OR ingestion_run_id IN @batchIds
+            ),
+            batch_assets AS (
+                SELECT DISTINCT entity_id
+                FROM scoped_jobs
+                WHERE entity_id IS NOT NULL
+            ),
+            lineage AS (
+                SELECT DISTINCT
+                    ba.entity_id AS asset_id,
+                    w.id AS work_id,
+                    p.id AS parent_work_id,
+                    gp.id AS root_work_id
+                FROM batch_assets ba
+                LEFT JOIN media_assets ma ON ma.id = ba.entity_id
+                LEFT JOIN editions e ON e.id = ma.edition_id
+                LEFT JOIN works w ON w.id = e.work_id
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+            ),
+            entity_scope AS (
+                SELECT asset_id AS id FROM lineage WHERE asset_id IS NOT NULL
+                UNION
+                SELECT work_id AS id FROM lineage WHERE work_id IS NOT NULL
+                UNION
+                SELECT parent_work_id AS id FROM lineage WHERE parent_work_id IS NOT NULL
+                UNION
+                SELECT root_work_id AS id FROM lineage WHERE root_work_id IS NOT NULL
+            )
+            SELECT
+                (
+                    SELECT COUNT(*)
+                    FROM retail_match_candidates r
+                    JOIN scoped_jobs sj ON sj.id = r.job_id
+                    WHERE r.outcome IN ('AutoAccepted', 'Ambiguous')
+                ) AS ProviderMatches,
+                (
+                    SELECT COUNT(*)
+                    FROM metadata_claims mc
+                    WHERE @hasBatchScope = 0 OR mc.entity_id IN (SELECT id FROM entity_scope)
+                ) AS MetadataFields,
+                (
+                    SELECT COUNT(DISTINCT cv.entity_id)
+                    FROM canonical_values cv
+                    WHERE cv.key IN ('cover', 'cover_url')
+                      AND cv.value LIKE 'http%'
+                      AND (@hasBatchScope = 0 OR cv.entity_id IN (SELECT id FROM entity_scope))
+                ) AS CoverUrls,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type IN ('CoverArt', 'SquareArt')
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS PrimaryArtworkCount,
+                (
+                    SELECT COUNT(DISTINCT cv.value)
+                    FROM canonical_values cv
+                    WHERE cv.key = 'wikidata_qid'
+                      AND cv.value IS NOT NULL
+                      AND cv.value <> ''
+                      AND (@hasBatchScope = 0 OR cv.entity_id IN (SELECT id FROM entity_scope))
+                ) AS QidCount,
+                (
+                    SELECT COUNT(*)
+                    FROM person_media_links pml
+                    WHERE @hasBatchScope = 0 OR pml.media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL)
+                ) AS PeopleCount,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo', 'DiscArt', 'ClearArt', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS DeepArtworkCount,
+                (
+                    SELECT COUNT(DISTINCT cv.entity_id)
+                    FROM canonical_values cv
+                    WHERE cv.key = 'stage3_enhanced_at'
+                      AND (@hasBatchScope = 0 OR cv.entity_id IN (SELECT id FROM entity_scope))
+                ) AS DeepArtworkFiles;
+            """, new { batchIds = scopedBatchIds, hasBatchScope }).ConfigureAwait(false);
+
+        return counts ?? new NumberedStageArtifactCounts();
+    }
+
+    private static IngestionStageProgressDto CreateNumberedStage(
+        int stageNumber,
+        string stageKey,
+        string label,
+        int completedFiles,
+        int totalFiles,
+        string artifactLabel,
+        int artifactCount,
+        IngestionCurrentActivityDto? activity)
+    {
+        completedFiles = Math.Max(0, completedFiles);
+        totalFiles = Math.Max(0, totalFiles);
+        if (totalFiles > 0)
+            completedFiles = Math.Clamp(completedFiles, 0, totalFiles);
+
+        var percent = totalFiles > 0
+            ? Math.Clamp(completedFiles * 100d / totalFiles, 0, 100)
+            : 0;
+        var active = Math.Max(0, activity?.ActiveCount ?? 0);
+        var queued = Math.Max(0, activity?.QueuedCount ?? 0);
+        var lastUpdated = activity?.LastUpdatedTime;
+        var isStale = active > 0
+            && lastUpdated.HasValue
+            && DateTimeOffset.UtcNow - lastUpdated.Value.ToUniversalTime() > ActiveBatchFreshness;
+        var activeItem = ResolveActiveItemLabel(activity, active);
+        var activeGroup = ResolveActiveGroupLabel(stageKey, activity, active, queued);
+        var activeGroupCount = activeGroup is null ? 0 : Math.Max(active + queued, activity?.CurrentBatch?.BatchSize ?? 0);
+        var labelAccuracy = isStale
+            ? "Stale"
+            : activeGroup is not null
+                ? "GroupedLookup"
+                : !string.IsNullOrWhiteSpace(activeItem)
+                    ? "ExactItem"
+                    : active > 0
+                        ? "BatchOnly"
+                        : "None";
+
+        return new IngestionStageProgressDto
+        {
+            StageNumber = stageNumber,
+            StageKey = stageKey,
+            Label = label,
+            CompletedFiles = completedFiles,
+            TotalFiles = totalFiles,
+            PercentComplete = percent,
+            ActiveCount = active,
+            QueuedCount = queued,
+            StatusLabel = ResolveNumberedStageStatus(percent, active, queued, artifactCount, stageKey),
+            ActiveItemLabel = string.IsNullOrWhiteSpace(activeItem) ? null : activeItem,
+            ActiveGroupLabel = activeGroup,
+            ActiveGroupCount = activeGroupCount,
+            LabelAccuracy = labelAccuracy,
+            ArtifactLabel = artifactLabel,
+            ArtifactCount = Math.Max(0, artifactCount),
+            LastUpdatedTime = lastUpdated,
+            IsStale = isStale,
+        };
+    }
+
+    private static IngestionCurrentActivityDto? ActivityFor(
+        IReadOnlyList<IngestionCurrentActivityDto> activities,
+        params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var match = activities.FirstOrDefault(activity =>
+                activity.StageKey.Equals(key, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+                return match;
+        }
+
+        return null;
+    }
+
+    private static string? ResolveActiveItemLabel(IngestionCurrentActivityDto? activity, int activeCount)
+    {
+        if (activity is null || activeCount != 1)
+            return null;
+
+        return FirstNonBlank(
+            activity.CurrentItem,
+            activity.CurrentBatch?.ActiveItems.FirstOrDefault(),
+            activity.SampleItems.FirstOrDefault());
+    }
+
+    private static string? ResolveActiveGroupLabel(
+        string stageKey,
+        IngestionCurrentActivityDto? activity,
+        int activeCount,
+        int queuedCount)
+    {
+        if (activity is null)
+            return null;
+
+        if (activeCount + queuedCount <= 0)
+            return null;
+
+        var groupCount = Math.Max(activeCount + queuedCount, activity.CurrentBatch?.BatchSize ?? 0);
+        if (groupCount <= 1)
+            return null;
+
+        return stageKey switch
+        {
+            "wikidata" => $"Resolving Wikidata batch: {groupCount:N0} files",
+            "retail" => $"Matching retail batch: {groupCount:N0} files",
+            "deep_artwork" => $"Fetching deep artwork for {groupCount:N0} files",
+            "relationships" => $"Building relationships for {groupCount:N0} files",
+            "people" => $"Resolving people for {groupCount:N0} files",
+            _ => $"Working on {groupCount:N0} files",
+        };
+    }
+
+    private static string ResolveNumberedStageStatus(
+        double percent,
+        int active,
+        int queued,
+        int artifactCount,
+        string stageKey)
+    {
+        if (stageKey.Equals("review", StringComparison.OrdinalIgnoreCase) && artifactCount > 0)
+            return "Needs review";
+        if (active > 0)
+            return "Active";
+        if (queued > 0)
+            return "Queued";
+        if (percent >= 100)
+            return "Complete";
+        if (percent > 0)
+            return "In progress";
+        return "Pending";
+    }
+
+    private static int ParseMetricValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return 0;
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var parsed) ? parsed : 0;
     }
 
     private async Task<List<IngestionCurrentActivityDto>> ReadCurrentActivitiesAsync(
@@ -2311,26 +2680,22 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static List<IngestionReviewReasonDto> BuildReviewReasons(
         IReadOnlyList<ReviewCountRow> reviewRows)
     {
-        var allCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var triggerCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in reviewRows)
         {
-            allCounts[row.Trigger] = allCounts.GetValueOrDefault(row.Trigger) + ToInt(row.Count);
-            if (!string.IsNullOrWhiteSpace(row.Detail))
-            {
-                allCounts[row.Detail] = allCounts.GetValueOrDefault(row.Detail) + ToInt(row.Count);
-            }
+            triggerCounts[row.Trigger] = triggerCounts.GetValueOrDefault(row.Trigger) + ToInt(row.Count);
         }
 
         return
         [
-            Review("unmatched", "Unmatched", SumMatching(allCounts, "RetailMatchFailed", "StagedUnidentifiable"), "Items could not be matched to a known catalogue record."),
-            Review("low_confidence", "Low Confidence", SumMatching(allCounts, "LowConfidence", "RetailMatchAmbiguous", "ArbiterNeedsReview"), "Items matched below the confidence threshold."),
-            Review("duplicates", "Duplicates", SumContains(allCounts, "duplicate"), "Possible duplicate files or editions need confirmation."),
-            Review("missing_artwork", "Missing Artwork", SumMatching(allCounts, "ArtworkUnconfirmed") + SumContains(allCounts, "artwork", "cover"), "Artwork is missing or needs confirmation."),
-            Review("missing_wikidata", "Missing Wikidata Identity", SumMatching(allCounts, "MissingQid", "WikidataBridgeFailed", "MultipleQidMatches"), "Items need canonical identity or Wikidata confirmation."),
-            Review("naming", "Naming Issues", SumMatching(allCounts, "RootWatchFolder", "PlaceholderTitle", "AmbiguousMediaType") + SumContains(allCounts, "naming", "folder"), "File or folder names do not provide enough context."),
-            Review("provider_failures", "Provider Failures", SumMatching(allCounts, "WritebackFailed") + SumContains(allCounts, "provider", "timeout", "failure"), "A provider or writeback step could not complete."),
-            Review("metadata_conflicts", "Metadata Conflicts", SumMatching(allCounts, "MetadataConflict", "UserFixMatch", "LanguageMismatch", "UserReport"), "Conflicting metadata requires a human decision."),
+            Review("unmatched", "Unmatched", SumMatching(triggerCounts, "RetailMatchFailed", "StagedUnidentifiable"), "Items could not be matched to a known catalogue record."),
+            Review("low_confidence", "Low Confidence", SumMatching(triggerCounts, "LowConfidence", "RetailMatchAmbiguous", "ArbiterNeedsReview"), "Items matched below the confidence threshold."),
+            Review("duplicates", "Duplicates", 0, "Possible duplicate files or editions need confirmation."),
+            Review("missing_artwork", "Missing Artwork", SumMatching(triggerCounts, "ArtworkUnconfirmed"), "Artwork is missing or needs confirmation."),
+            Review("missing_wikidata", "Missing Wikidata Identity", SumMatching(triggerCounts, "MissingQid", "WikidataBridgeFailed", "MultipleQidMatches"), "Items need canonical identity or Wikidata confirmation."),
+            Review("naming", "Naming Issues", SumMatching(triggerCounts, "RootWatchFolder", "PlaceholderTitle", "AmbiguousMediaType"), "File or folder names do not provide enough context."),
+            Review("provider_failures", "Provider Failures", SumMatching(triggerCounts, "WritebackFailed"), "A provider or writeback step could not complete."),
+            Review("metadata_conflicts", "Metadata Conflicts", SumMatching(triggerCounts, "MetadataConflict", "UserFixMatch", "LanguageMismatch", "UserReport"), "Conflicting metadata requires a human decision."),
         ];
     }
 
@@ -3133,11 +3498,6 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static int SumMatching(IReadOnlyDictionary<string, int> counts, params string[] keys) =>
         keys.Sum(key => Count(counts, key));
 
-    private static int SumContains(IReadOnlyDictionary<string, int> counts, params string[] needles) =>
-        counts
-            .Where(kv => needles.Any(needle => kv.Key.Contains(needle, StringComparison.OrdinalIgnoreCase)))
-            .Sum(kv => kv.Value);
-
     private static DateTimeOffset? ParseDate(string? value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
 
@@ -3226,6 +3586,22 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public int RelationshipCount { get; init; }
         public int PersonCount { get; init; }
         public int IssueCount { get; init; }
+    }
+
+    private sealed class NumberedStageArtifactCounts
+    {
+        public int ProviderMatches { get; init; }
+        public int MetadataFields { get; init; }
+        public int CoverUrls { get; init; }
+        public int PrimaryArtworkCount { get; init; }
+        public int QidCount { get; init; }
+        public int PeopleCount { get; init; }
+        public int RelationshipCount { get; init; }
+        public int DeepArtworkCount { get; init; }
+        public int DeepArtworkFiles { get; init; }
+
+        public int RetailArtifactCount =>
+            ProviderMatches + MetadataFields + CoverUrls + PrimaryArtworkCount;
     }
 
     private sealed class BatchTerminalSnapshot

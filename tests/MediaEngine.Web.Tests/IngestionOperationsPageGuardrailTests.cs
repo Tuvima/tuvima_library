@@ -17,18 +17,17 @@ public sealed class IngestionOperationsPageGuardrailTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor"));
         var dashboardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor"));
-        var activityListSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionActivityList.razor"));
         var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
         var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionLiveDashboard", source, StringComparison.Ordinal);
-        Assert.Contains("<IngestionActivityList", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<IngestionActivityList", source, StringComparison.Ordinal);
         Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildRenderSignature", dashboardSource, StringComparison.Ordinal);
-        Assert.Contains("ShouldRender", activityListSource, StringComparison.Ordinal);
-        Assert.Contains("BuildRenderSignature", activityListSource, StringComparison.Ordinal);
+        Assert.Contains("StageRows", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("library-update-stage-list", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildSnapshotSignature", stateSource, StringComparison.Ordinal);
         Assert.Contains("SignalREvents.IngestionItemProgress", orchestratorSource, StringComparison.Ordinal);
         Assert.Contains("PushIngestionItemProgress", orchestratorSource, StringComparison.Ordinal);
@@ -531,7 +530,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             EstimatedSecondsRemaining: 30,
             IsComplete: false,
             RecentTitles: ["Something"],
-            CurrentStage: "Quick metadata and artwork",
+            CurrentStage: "Retail metadata & primary artwork",
             FilesQueued: 3,
             FilesActive: 1,
             CurrentFileTitle: "Moonage Daydream",
@@ -556,10 +555,10 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         var activities = IngestionLiveDashboardState.BuildCurrentActivities(snapshot, activeJobs, stages, state);
 
-        var activity = Assert.Single(activities, item => item.StageKey == "metadata");
-        Assert.Equal("Quick metadata and artwork", activity.Message);
+        var activity = Assert.Single(activities, item => item.StageKey == "retail");
+        Assert.Equal("Retail metadata & primary artwork", activity.Message);
         Assert.Equal("Moonage Daydream", activity.CurrentItem);
-        Assert.Equal("Adding quick metadata and artwork", activity.Detail);
+        Assert.Equal("Adding retail metadata and primary artwork", activity.Detail);
         Assert.Equal(1, activity.ActiveCount);
         Assert.Equal(3, activity.QueuedCount);
     }
@@ -800,7 +799,7 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Contains("EmitBatchProgressAsync(job.IngestionRunId", workerSource, StringComparison.Ordinal);
         Assert.Contains("\"UniverseEnriching\"", progressSource, StringComparison.Ordinal);
-        Assert.Contains("\"Hydrating\" => \"Quick metadata and artwork\"", progressSource, StringComparison.Ordinal);
+        Assert.Contains("\"Hydrating\" => \"Retail metadata & primary artwork\"", progressSource, StringComparison.Ordinal);
         Assert.Contains("BuildLiveBatchActivity", stateSource, StringComparison.Ordinal);
         Assert.Contains("nameof(IdentityJobState.Hydrating)", operationsSource, StringComparison.Ordinal);
         Assert.Contains("ActiveBatchFreshness", operationsSource, StringComparison.Ordinal);
@@ -856,28 +855,193 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
-    public void LiveDashboardState_EnrichmentCompletionUsesDurableEnrichedStageOnly()
+    public void LiveDashboardState_UsesNumberedStageProgressAsSourceOfTruth()
     {
         var now = DateTimeOffset.UtcNow;
         var snapshot = new IngestionOperationsSnapshotViewModel
         {
             Summary = new IngestionOperationsSummaryViewModel
             {
-                TotalItems = 131,
-                RegisteredItems = 52,
+                TotalItems = 97,
+                RegisteredItems = 35,
                 ItemsNeedingReview = 27,
             },
             PipelineStages =
             [
-                new() { Key = "detected", Count = 131, TotalCount = 131 },
-                new() { Key = "parsed", Count = 131, TotalCount = 131 },
-                new() { Key = "matched", Count = 104, TotalCount = 131 },
-                new() { Key = "retail_review", Count = 26, TotalCount = 131 },
-                new() { Key = "canonicalized", Count = 1, TotalCount = 109 },
-                new() { Key = "wikidata_review", Count = 27, TotalCount = 109 },
-                new() { Key = "enriched", Count = 4, TotalCount = 109 },
-                new() { Key = "registered", Count = 52, TotalCount = 131 },
-                new() { Key = "needs_review", Count = 27, TotalCount = 131 },
+                new() { Key = "enriched", Count = 20, TotalCount = 97 },
+            ],
+            StageProgress =
+            [
+                new()
+                {
+                    StageNumber = 3,
+                    StageKey = "retail",
+                    Label = "Retail metadata & primary artwork",
+                    CompletedFiles = 97,
+                    TotalFiles = 97,
+                    PercentComplete = 100,
+                    StatusLabel = "Complete",
+                    ArtifactLabel = "metadata/artwork updates",
+                    ArtifactCount = 224,
+                },
+                new()
+                {
+                    StageNumber = 4,
+                    StageKey = "wikidata",
+                    Label = "Wikidata lookup",
+                    CompletedFiles = 35,
+                    TotalFiles = 97,
+                    PercentComplete = 36.1,
+                    ActiveCount = 12,
+                    QueuedCount = 4,
+                    StatusLabel = "Active",
+                    ActiveGroupLabel = "Resolving Wikidata batch: 16 files",
+                    ActiveGroupCount = 16,
+                    LabelAccuracy = "GroupedLookup",
+                    ArtifactLabel = "QIDs resolved",
+                    ArtifactCount = 35,
+                    LastUpdatedTime = now,
+                },
+            ],
+        };
+
+        var stages = IngestionLiveDashboardState.BuildStages(snapshot, [], 97);
+
+        Assert.Equal(2, stages.Count);
+        Assert.DoesNotContain(stages, stage => stage.Key == "enrichment");
+
+        var retail = Assert.Single(stages, stage => stage.Key == "retail");
+        Assert.Equal(3, retail.StageNumber);
+        Assert.Equal("Retail metadata & primary artwork", retail.LabelKey);
+        Assert.Equal("metadata/artwork updates", retail.ArtifactLabel);
+        Assert.Equal(224, retail.ArtifactCount);
+
+        var wikidata = Assert.Single(stages, stage => stage.Key == "wikidata");
+        Assert.Equal("Ingestion_StatusActive", wikidata.StatusKey);
+        Assert.Equal("Resolving Wikidata batch: 16 files", wikidata.ActiveGroupLabel);
+        Assert.Equal("GroupedLookup", wikidata.LabelAccuracy);
+    }
+
+    [Fact]
+    public void LiveDashboardState_OverallProgressExcludesReviewExceptionStage()
+    {
+        var stages = new[]
+        {
+            new IngestionDashboardStage(
+                "scan",
+                "Scan folders",
+                "Complete",
+                Icons.Material.Outlined.Radar,
+                27,
+                27,
+                100,
+                "Ingestion_StatusComplete",
+                100,
+                false,
+                0,
+                0,
+                0,
+                false,
+                StageNumber: 1),
+            new IngestionDashboardStage(
+                "read",
+                "Read media details",
+                "Complete",
+                Icons.Material.Outlined.Description,
+                27,
+                27,
+                100,
+                "Ingestion_StatusComplete",
+                100,
+                false,
+                0,
+                0,
+                0,
+                false,
+                StageNumber: 2),
+            new IngestionDashboardStage(
+                "retail",
+                "Retail metadata & primary artwork",
+                "Complete",
+                Icons.Material.Outlined.Search,
+                27,
+                27,
+                100,
+                "Ingestion_StatusComplete",
+                100,
+                false,
+                0,
+                0,
+                0,
+                false,
+                StageNumber: 3),
+            new IngestionDashboardStage(
+                "wikidata",
+                "Wikidata lookup",
+                "Complete",
+                Icons.Material.Outlined.TravelExplore,
+                27,
+                27,
+                100,
+                "Ingestion_StatusComplete",
+                100,
+                false,
+                0,
+                0,
+                0,
+                false,
+                StageNumber: 4),
+            new IngestionDashboardStage(
+                "review",
+                "Review / attention",
+                "Needs review",
+                Icons.Material.Outlined.WarningAmber,
+                12,
+                27,
+                44.4,
+                "Ingestion_StatusPending",
+                44.4,
+                false,
+                0,
+                15,
+                0,
+                false,
+                StageNumber: 9),
+        };
+
+        var progress = IngestionLiveDashboardState.BuildOverallProgress(
+            new IngestionDashboardMetrics(27, 27, 0, 15),
+            stages,
+            null);
+
+        Assert.Equal(100, progress.Percent);
+        Assert.Equal(27, progress.ProcessedFiles);
+        Assert.Equal(27, progress.TotalFiles);
+    }
+
+    [Fact]
+    public void LiveDashboardState_EnrichmentCompletionUsesTerminalPipelineOutcomes()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 97,
+                RegisteredItems = 20,
+                ItemsNeedingReview = 27,
+            },
+            PipelineStages =
+            [
+                new() { Key = "detected", Count = 97, TotalCount = 97 },
+                new() { Key = "parsed", Count = 97, TotalCount = 97 },
+                new() { Key = "matched", Count = 70, TotalCount = 97 },
+                new() { Key = "retail_review", Count = 27, TotalCount = 97 },
+                new() { Key = "canonicalized", Count = 20, TotalCount = 97 },
+                new() { Key = "wikidata_review", Count = 50, TotalCount = 97 },
+                new() { Key = "enriched", Count = 20, TotalCount = 97 },
+                new() { Key = "registered", Count = 20, TotalCount = 97 },
+                new() { Key = "needs_review", Count = 27, TotalCount = 97 },
             ],
         };
         var activities = new[]
@@ -887,9 +1051,9 @@ public sealed class IngestionOperationsPageGuardrailTests
                 StageKey = "artwork",
                 Message = "Fetching artwork",
                 ProcessedCount = 62,
-                TotalCount = 131,
-                ActiveCount = 82,
-                QueuedCount = 49,
+                TotalCount = 97,
+                ActiveCount = 0,
+                QueuedCount = 0,
             },
         };
 
@@ -899,7 +1063,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             activities,
             [],
             [],
-            new IngestionDashboardMetrics(131, 62, 1, 27),
+            new IngestionDashboardMetrics(97, 62, 1, 27),
             null,
             now,
             now);
@@ -910,15 +1074,15 @@ public sealed class IngestionOperationsPageGuardrailTests
             activities,
             [],
             [],
-            new IngestionDashboardMetrics(131, 40, 1, 27),
+            new IngestionDashboardMetrics(97, 40, 1, 27),
             null,
             now,
             now.AddSeconds(8));
 
-        Assert.Equal(4, before.EnrichmentCompleted);
-        Assert.Equal(4, after.EnrichmentCompleted);
-        Assert.Equal(131, before.EnrichmentTotal);
-        Assert.Equal(131, after.EnrichmentTotal);
+        Assert.Equal(97, before.EnrichmentCompleted);
+        Assert.Equal(97, after.EnrichmentCompleted);
+        Assert.Equal(97, before.EnrichmentTotal);
+        Assert.Equal(97, after.EnrichmentTotal);
     }
 
     [Fact]
@@ -1590,8 +1754,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.Contains("3 unexpected", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("3 unexpected items need review", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("1 were expected by the harness", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("3 unexpected items need review", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("1 were expected by the harness", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1635,8 +1799,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.Contains("2 unexpected", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("2 unexpected items need review", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("0 were expected by the harness", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("2 unexpected items need review", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("0 were expected by the harness", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1677,6 +1841,73 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
+    public void LiveDashboard_ReviewOnlySnapshotDoesNotUseNoPriorRunState()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                ItemsNeedingReview = 27,
+            },
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(0, 0, 0, 27),
+            null,
+            now,
+            now);
+
+        Assert.Equal(LibraryUpdatePageState.Idle, status.PageState);
+        Assert.True(status.HasPriorRun);
+        Assert.Equal(27, status.ReviewItems);
+        Assert.Contains("27 items need review", status.MainLine, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Start a scan", status.ActivityLine, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Start a scan", status.MainLine, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void LiveDashboard_DoesNotRenderDuplicateNeedsAttentionPanel()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 10,
+                RegisteredItems = 8,
+                ItemsNeedingReview = 2,
+            },
+        };
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(10, 8, 0, 2),
+            null,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow);
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Status, status)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Need Review", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Needs attention", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Review Items", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("library-update-attention", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LiveDashboard_RendersLibraryUpdateDefaultView()
     {
         var snapshot = new IngestionOperationsSnapshotViewModel
@@ -1708,17 +1939,132 @@ public sealed class IngestionDashboardRenderTests : TestContext
 
         Assert.Contains("Library Update", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Files Found", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Enrichment", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("File processing", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Scan folders", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Retail metadata &amp; primary artwork", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Updating your library", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("What's happening now", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Update steps", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Update steps", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("File processing", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("ingestion-stage-rail", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void LiveDashboard_RendersBatchRunsWithMediaCountsAndReviewLinks()
+    public void LiveDashboard_RendersNumberedStageArtifactBars()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 97,
+                RegisteredItems = 35,
+                ItemsNeedingReview = 27,
+            },
+            StageProgress =
+            [
+                new()
+                {
+                    StageNumber = 3,
+                    StageKey = "retail",
+                    Label = "Retail metadata & primary artwork",
+                    CompletedFiles = 97,
+                    TotalFiles = 97,
+                    PercentComplete = 100,
+                    StatusLabel = "Complete",
+                    ArtifactLabel = "metadata/artwork updates",
+                    ArtifactCount = 224,
+                },
+                new()
+                {
+                    StageNumber = 8,
+                    StageKey = "deep_artwork",
+                    Label = "Deep artwork",
+                    CompletedFiles = 35,
+                    TotalFiles = 97,
+                    PercentComplete = 36.1,
+                    StatusLabel = "In progress",
+                    ArtifactLabel = "deep artwork assets",
+                    ArtifactCount = 12,
+                },
+            ],
+        };
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(97, 35, 1, 27))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 97))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Retail metadata &amp; primary artwork", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Deep artwork", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("224 metadata/artwork updates", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("12 deep artwork assets", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Update steps", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Needs attention", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveDashboard_HidesStaleActiveLabelsForCompletedNumberedStages()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 27,
+                RegisteredItems = 12,
+                ItemsNeedingReview = 15,
+            },
+            StageProgress =
+            [
+                new()
+                {
+                    StageNumber = 3,
+                    StageKey = "retail",
+                    Label = "Retail metadata & primary artwork",
+                    CompletedFiles = 27,
+                    TotalFiles = 27,
+                    PercentComplete = 100,
+                    ActiveCount = 0,
+                    QueuedCount = 0,
+                    StatusLabel = "Complete",
+                    ActiveGroupLabel = "Matching retail batch: 27 files",
+                    ActiveItemLabel = "Department of Clockwork Rain",
+                    ArtifactLabel = "metadata/artwork updates",
+                    ArtifactCount = 354,
+                },
+                new()
+                {
+                    StageNumber = 4,
+                    StageKey = "wikidata",
+                    Label = "Wikidata lookup",
+                    CompletedFiles = 27,
+                    TotalFiles = 27,
+                    PercentComplete = 100,
+                    ActiveCount = 0,
+                    QueuedCount = 0,
+                    StatusLabel = "Complete",
+                    ActiveGroupLabel = "Resolving Wikidata batch: 12 files",
+                    ArtifactLabel = "QIDs resolved",
+                    ArtifactCount = 10,
+                },
+            ],
+        };
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(27, 27, 0, 15))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 27))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("354 metadata/artwork updates", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("10 QIDs resolved", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Matching retail batch: 27 files", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Resolving Wikidata batch: 12 files", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Department of Clockwork Rain", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveDashboard_DoesNotRenderRecentBatchHistoryList()
     {
         var batchId = Guid.Parse("83000000-0000-0000-0000-000000000001");
         var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
@@ -1757,18 +2103,16 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("Recent library updates", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Update 830000", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Overall progress", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recent library updates", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Update 830000", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Last batch runs", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Movies", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("TV Shows", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Books", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Audiobooks", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Music", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Comics", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("People", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Review", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("href=\"/settings/activity?batchId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Movies", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("TV Shows", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Audiobooks", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Comics", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("href=\"/settings/activity?batchId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("library-update-batch-grid__row", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Queue &amp; Details", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Source", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Failed", cut.Markup, StringComparison.Ordinal);
@@ -1781,25 +2125,42 @@ public sealed class IngestionDashboardRenderTests : TestContext
         {
             Activity("artwork", "Fetching artwork"),
         };
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
-            .Add(component => component.Snapshot, new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
             {
-                Summary = new IngestionOperationsSummaryViewModel
+                TotalItems = 50,
+                RegisteredItems = 31,
+                ActiveJobs = 1,
+            },
+            CurrentActivities = activities.ToList(),
+            StageProgress =
+            [
+                new()
                 {
-                    TotalItems = 50,
-                    RegisteredItems = 31,
-                    ActiveJobs = 1,
+                    StageNumber = 8,
+                    StageKey = "deep_artwork",
+                    Label = "Deep artwork",
+                    CompletedFiles = 31,
+                    TotalFiles = 50,
+                    PercentComplete = 62,
+                    StatusLabel = "In progress",
+                    ArtifactLabel = "deep artwork assets",
+                    ArtifactCount = 31,
                 },
-                CurrentActivities = activities.ToList(),
-            })
+            ],
+        };
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(50, 31, 1, 0))
             .Add(component => component.CurrentActivities, activities)
-            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 50))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 50))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.DoesNotContain("31/50", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("31 of 50 files fully complete", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("31 found", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("31 of 50 files", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("31 deep artwork assets", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Deep artwork", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Artwork lookup", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Neuromancer", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("library-update-batch-grid__row", cut.Markup, StringComparison.Ordinal);

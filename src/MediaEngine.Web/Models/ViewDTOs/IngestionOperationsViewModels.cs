@@ -16,6 +16,9 @@ public sealed class IngestionOperationsSnapshotViewModel
     [JsonPropertyName("pipeline_stages")]
     public List<IngestionPipelineStageViewModel> PipelineStages { get; set; } = [];
 
+    [JsonPropertyName("stage_progress")]
+    public List<IngestionStageProgressViewModel> StageProgress { get; set; } = [];
+
     [JsonPropertyName("review_reasons")]
     public List<IngestionReviewReasonViewModel> ReviewReasons { get; set; } = [];
 
@@ -123,6 +126,27 @@ public sealed class IngestionPipelineStageViewModel
     [JsonPropertyName("count")] public int Count { get; set; }
     [JsonPropertyName("total_count")] public int TotalCount { get; set; }
     [JsonPropertyName("helper")] public string Helper { get; set; } = "";
+}
+
+public sealed class IngestionStageProgressViewModel
+{
+    [JsonPropertyName("stage_number")] public int StageNumber { get; set; }
+    [JsonPropertyName("stage_key")] public string StageKey { get; set; } = "";
+    [JsonPropertyName("label")] public string Label { get; set; } = "";
+    [JsonPropertyName("completed_files")] public int CompletedFiles { get; set; }
+    [JsonPropertyName("total_files")] public int TotalFiles { get; set; }
+    [JsonPropertyName("percent_complete")] public double PercentComplete { get; set; }
+    [JsonPropertyName("active_count")] public int ActiveCount { get; set; }
+    [JsonPropertyName("queued_count")] public int QueuedCount { get; set; }
+    [JsonPropertyName("status_label")] public string? StatusLabel { get; set; }
+    [JsonPropertyName("active_item_label")] public string? ActiveItemLabel { get; set; }
+    [JsonPropertyName("active_group_label")] public string? ActiveGroupLabel { get; set; }
+    [JsonPropertyName("active_group_count")] public int ActiveGroupCount { get; set; }
+    [JsonPropertyName("label_accuracy")] public string LabelAccuracy { get; set; } = "None";
+    [JsonPropertyName("artifact_label")] public string? ArtifactLabel { get; set; }
+    [JsonPropertyName("artifact_count")] public int? ArtifactCount { get; set; }
+    [JsonPropertyName("last_updated_time")] public DateTimeOffset? LastUpdatedTime { get; set; }
+    [JsonPropertyName("is_stale")] public bool IsStale { get; set; }
 }
 
 public sealed class IngestionReviewReasonViewModel

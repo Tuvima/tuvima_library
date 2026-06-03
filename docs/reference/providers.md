@@ -13,17 +13,19 @@ tags:
 # Retail Provider Reference
 
 > **What is this document?**
-> A complete reference of every retail provider in the Tuvima Library pipeline - what they accept as search parameters, what they return, and how their output feeds into Stage 2 (Wikidata) resolution. This is the authoritative source for provider capabilities.
+> A complete reference of every retail provider in the Tuvima Library pipeline - what they accept as search parameters, what they return, and how their output feeds into Stage 4 (Wikidata) resolution. This is the authoritative source for provider capabilities.
 
 ---
 
 ## How Providers Fit Into the Pipeline
 
-The hydration pipeline runs in two stages:
+The provider portion of ingestion maps to the numbered stages shown on the Ingestion page:
 
-1. **Stage 1 (Retail Identification):** Retail providers search for the media item using file metadata. They return cover art, descriptions, ratings, and - critically - **bridge IDs** (ISBN, TMDB ID, etc.) that uniquely identify the item on external platforms.
+1. **Stage 3 (Retail metadata & primary artwork):** Retail providers search for the media item using file metadata. They return primary cover/poster evidence, descriptions, ratings, and - critically - **bridge IDs** (ISBN, TMDB ID, etc.) that uniquely identify the item on external platforms.
 
-2. **Stage 2 (Wikidata Bridge):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (e.g. ISBN-13 maps to P212). Stage 2 is strict-gated behind Stage 1: no safe Retail match means no automatic Wikidata attempt. When real bridge IDs were tried and still failed, controlled text search can still be used as a last resort.
+2. **Stage 4 (Wikidata lookup):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (for example, ISBN-13 maps to P212). Stage 4 is strict-gated behind Stage 3: no safe retail match means no automatic Wikidata attempt. A Stage 4 request also needs at least one real bridge ID; title and creator hints are sent as ranking context, not as a broad title-only fallback.
+
+3. **Stage 8 (Deep artwork):** Rich artwork providers such as Fanart.tv run later, after bridge IDs or QIDs are available. They do not provide the first cover/poster pass.
 
 Retail providers are a **rich data source for matching** - descriptions, narrator data, ratings, and cover art similarity are all used to rank candidates against file metadata. **Wikidata is the authority** for final canonical values (title, author, year, genre, series).
 
@@ -34,11 +36,11 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 | Provider | Media Types | Auth Required | Rate Limit | Language Strategy | Status |
 |---|---|---|---|---|---|
 | Apple API | Books, Audiobooks, Music | None | 500ms throttle | Localized (user language) | Active |
-| TMDB | Movies, TV | Bearer token | 250ms, max 2 concurrent | Localized (user language) | Active (requires key) |
+| TMDB | Movies, TV | API key query parameter | 500ms throttle, max 1 concurrent | Localized (user language) | Active (requires key) |
 | MusicBrainz | Music | None | 1100ms, max 1 concurrent | Source (English only) | Disabled (config kept) |
 | Comic Vine | Comics | API key | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
 | Open Library | Books | None | 500ms | Source (English only) | Disabled (config kept) |
-| Fanart.tv | Movies, TV, Music | API key | Configured provider throttle | ID lookup | Stage 3 artwork only |
+| Fanart.tv | Movies, TV, Music | API key | Configured provider throttle | ID lookup | Stage 8 deep artwork only |
 | LRCLIB | Music | None | Configured provider throttle | Source | Text-track provider |
 | OpenSubtitles | Movies, TV | API key | Configured provider throttle | Source | Text-track provider, disabled by default |
 
@@ -46,7 +48,20 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 
 ## Query Parameters - What We Send
 
-Most providers only accept **Title** as a free-text search parameter. Author, Director, Narrator, and Artist are **not** sent to the provider API - they are used by the `RetailMatchScoringService` to rank results *after* they come back.
+Provider search is defined in `config/providers/*.json`, with special grouped worker paths for Music and TV. Most providers accept one primary search term, but Apple and Open Library title searches include creator text through `query_template` when available. The returned candidates are still validated afterward by `RetailMatchScoringService`.
+
+API credentials are config-file data. Base provider definitions live in `config/providers/*.json`; optional secret overlays live in `config/secrets/{provider}.json` and are applied by `ConfigurationDirectoryLoader` on `LoadProvider` and `LoadAllProviders`. A blank `http_client.api_key` in the base provider file does not mean the effective runtime key is missing if a matching secrets file exists.
+
+### Active Retail Lookup Matrix
+
+| Media type | Provider | Search or lookup strategy | Lookup inputs | Scoring inputs |
+|---|---|---|---|---|
+| Books | Apple API | ISBN lookup, Apple Books ID lookup, ebook search | `isbn`, `apple_books_id`, then `title` plus `author` in the Apple search term. | Title, author, year/date, format, description/publisher/page-count cross-checks, cover similarity. |
+| Audiobooks | Apple API | Apple Books ID lookup, audiobook search | `apple_books_id`, then `title` plus `author` in the Apple search term. | Title, author, narrator-in-description, year/date, duration, format, cover similarity. |
+| Music | Apple API | Grouped track-first search, album search, collection lookup | `title` plus `artist` for track search; `artist` plus `album` for album search; `apple_music_collection_id` for collection lookup. | Track title, artist/composer/author, album, year/date, track number, duration, format, cover similarity. |
+| Movies | TMDB | Movie search | `title`; `year` when available; `api_key`; locale. | Title, year, local director/writer/author evidence, format, genre/description cross-checks, poster similarity. |
+| TV | TMDB | Grouped show search, season episode lookup | `show_name` or `series`; year from any episode in the group; `season_number`; `api_key`; locale. | Episode title, show/series, season number, episode number, year, format, poster/still similarity. |
+| Comics | Comic Vine | Issue search, volume search | `title` for issue search; `series` for volume search; `api_key`. | Title, series, issue number or series position, writer/author/illustrator, year, format, cover similarity. |
 
 ### Per-Provider Search Strategies
 
@@ -56,10 +71,13 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 |---|---|---|---|---|
 | ISBN Lookup | 0 (highest) | `isbn` | `/lookup?isbn={isbn}` | Books |
 | Apple ID Lookup | 1 | `apple_books_id` | `/lookup?id={apple_books_id}&country={country}&lang={lang}_{country}` | Books, Audiobooks |
-| Ebook Search | 2 | `title` | `/search?term={title}&entity=ebook&limit={limit}&country={country}&lang={lang}_{country}` | Books |
-| Audiobook Search | 2 | `title` | `/search?term={title}&entity=audiobook&limit={limit}&country={country}&lang={lang}_{country}` | Audiobooks |
+| Ebook Search | 2 | `title` | `/search?term={title} {author}&entity=ebook&limit={limit}&country={country}&lang={lang}_{country}` | Books |
+| Audiobook Search | 2 | `title` | `/search?term={title} {author}&entity=audiobook&limit={limit}&country={country}&lang={lang}_{country}` | Audiobooks |
+| Music Track Search | 2 | `title` | `/search?term={title} {artist}&entity=musicTrack&limit={limit}&country={country}&lang={lang}_{country}` | Music |
+| Music Album Search | 3 | `title` | `/search?term={artist} {title}&entity=album&limit={limit}&country={country}&lang={lang}_{country}` | Music |
+| Music Album Lookup | 4 | `apple_music_collection_id` | `/lookup?id={apple_music_collection_id}&entity=song&country={country}&lang={lang}_{country}` | Music |
 
-**Notes:** ISBN lookup is exact match (1 result). Title search returns up to 25 results, fetches top 5. Author is not a query parameter - used for post-search ranking only. Cover art URL requires regex transform to remove Apple's size constraints for full resolution.
+**Notes:** ISBN lookup is exact match (1 result). Book and audiobook search returns up to 25 results and fetches the top 5. Music has a grouped worker path that first searches by track to discover the Apple collection ID, then fetches the album so sibling tracks can share one provider lookup where possible. Cover art URL transforms remove Apple's size constraints for higher resolution.
 
 #### TMDB
 
@@ -67,8 +85,9 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 |---|---|---|---|---|
 | Movie Search | 1 | `title` | `/search/movie?query={title}&year={year}&include_adult=false&language={lang}-{country}&page=1` | Movies |
 | TV Search | 1 | `title` | `/search/tv?query={title}&first_air_date_year={year}&include_adult=false&language={lang}-{country}&page=1` | TV |
+| TV Season Episodes | 2 | `tmdb_id`, `season_number` | `/tv/{tmdb_id}/season/{season_number}?language={lang}-{country}` | TV |
 
-**Notes:** Year is optional but included when available from file metadata. Director is not a query parameter - used for post-search ranking only. Returns poster and backdrop image paths (prepend `https://image.tmdb.org/t/p/w500` or `w1280`).
+**Notes:** Year is optional but included when available from file metadata. TV jobs are grouped by show and season: the worker searches the show, fetches show details, then fetches the season episode list and distributes episode-level claims to queued files. Returns poster paths that are expanded to `https://image.tmdb.org/t/p/w500{path}`.
 
 #### MusicBrainz (Disabled)
 
@@ -77,14 +96,14 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 | Release Search | 1 | `title` | `/release?query={title}&fmt=json&limit={limit}` | Music |
 | Recording Search | 2 | `title` | `/recording?query={title}&fmt=json&limit={limit}` | Music |
 
-**Notes:** The config is retained but disabled by default, so MusicBrainz is not an active Stage 1 provider in the normal runtime path. If re-enabled, title-only search is used and Artist, Album, and Year are post-search ranking signals. Embedded MusicBrainz tags from local files can still exist as local metadata/bridge evidence.
+**Notes:** The config is retained but disabled by default, so MusicBrainz is not an active Stage 3 provider in the normal runtime path. If re-enabled, its configured searches combine title and artist where artist is available, while album and year remain post-search ranking signals. Embedded MusicBrainz tags from local files can still exist as local metadata/bridge evidence.
 
 #### Comic Vine
 
 | Strategy | Priority | Required Fields | URL Pattern | Media Types |
 |---|---|---|---|---|
-| Volume Search | 1 | `series` | `/search/?query={series}&resources=volume&limit={limit}` | Comics |
-| Issue Search | 2 | `title` | `/search/?query={title}&resources=issue&limit={limit}` | Comics |
+| Issue Search | 1 | `title` | `/search/?query={title}&resources=issue&limit={limit}` | Comics |
+| Volume Search | 2 | `series` | `/search/?query={series}&resources=volume&limit={limit}` | Comics |
 
 **Notes:** Comic Vine supplies comic issue and volume metadata, including cover art and Comic Vine bridge identifiers. Series and issue hints are used for search and post-search ranking.
 
@@ -95,9 +114,9 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 | ISBN Search | 1 | `isbn` | `/search.json?isbn={isbn}&limit=3&fields=...` | Books |
 | Title Search | 2 | `title` | `/search.json?q={title} {author}&limit={limit}&fields=...` | Books |
 
-**Notes:** The only provider whose title search also sends `{author}` in the query (combined as `{title} {author}`). ISBN search returns up to 3 results. Returns first_sentence as description (lower quality than dedicated description APIs). 14-day cache TTL. Currently disabled but config preserved for future use.
+**Notes:** Title search combines `{title} {author}` when author is available. ISBN search returns up to 3 results. Returns first_sentence as description (lower quality than dedicated description APIs). Currently disabled but config preserved for future use.
 
-#### Fanart.tv (Stage 3 Only)
+#### Fanart.tv (Stage 8 Only)
 
 Fanart.tv is not an identity provider. It runs after identity is established and uses bridge IDs to fetch additional artwork such as backgrounds, logos, banners, thumbnails, clear art, disc art, and square art.
 
@@ -113,15 +132,15 @@ Each provider's config defines a `field_mappings` array that maps JSON response 
 
 ### Extraction Summary
 
-| Provider | Title | Author | Year | Cover Art | Description | Rating | Publisher | Series | Genre | Language |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **Apple API** | -- | -- | -- | 0.85 | 0.85 | 0.70 (Books) | -- | -- | -- | -- |
-| **TMDB** | 0.85 | -- | 0.90 | 0.90 (poster+backdrop) | 0.85 | 0.80 | -- | -- | 0.85 | 0.85 |
-| **MusicBrainz** | 0.80 | 0.80 (artist-credit) | 0.85 | 0.70 | -- | -- | -- | -- | -- | -- |
-| **Comic Vine** | 0.85 | -- | 0.85 | 0.85 | 0.80 | -- | 0.85 | 0.90 | -- | -- |
-| **Open Library** | 0.75 | 0.80 | 0.85 | 0.70 | 0.60 | -- | 0.70 | -- | 0.65 | 0.70 |
+| Provider | Active media | Main claims extracted | Bridge claims extracted |
+|---|---|---|---|
+| **Apple API** | Books, Audiobooks, Music | Title, author/artist, year, cover, description, genre, rating for books, album, track/disc counts, track number, duration. Claim confidence is usually 0.70 to 0.90 depending on field and media type. | `apple_books_id`, `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`. |
+| **TMDB** | Movies, TV | Title, year, cover, description, short description, rating, original language, genre, network. Claim confidence is usually 0.80 to 0.90. | `tmdb_id`. |
+| **Comic Vine** | Comics | Title, series, issue number, description, cover, year, series position. Claim confidence is usually 0.70 to 0.95. | `comic_vine_id`. |
+| **MusicBrainz** | Disabled by default | Title, artist/author, album, year, track count, MusicBrainz IDs, cover URL if re-enabled. | MusicBrainz artist/work/release/recording/release-group IDs when present. |
+| **Open Library** | Disabled by default | Title, author, year, cover, description, publisher, language, ISBN if re-enabled. | `isbn` / Open Library identifiers when present. |
 
-Numbers represent confidence values assigned to extracted claims when the provider is enabled. `--` means the provider does not return that field.
+Numbers in provider JSON represent confidence values assigned to extracted claims when the provider is enabled.
 
 ### Value Transforms
 
@@ -131,30 +150,32 @@ The `ValueTransformCatalog` applies transformations during extraction:
 |---|---|---|
 | `regex_replace` | Strip image size suffixes from cover URLs | Apple API |
 | `strip_html` | Clean HTML tags from descriptions | Apple API, Comic Vine, Open Library |
-| `to_string` | Convert numeric values (IDs, ratings) to strings | Apple API, TMDB, Comic Vine |
+| `to_string` | Convert numeric values such as IDs and ratings to strings | Apple API, TMDB, Comic Vine |
 | `url_template` | Construct full image URLs from partial paths | TMDB, MusicBrainz, Open Library |
-| `first_n_chars(4)` | Extract 4-digit year from date strings | TMDB, MusicBrainz, Comic Vine |
+| `first_n_chars(4)` | Extract 4-digit year from date strings | Apple API, TMDB, MusicBrainz, Comic Vine |
 | `prefer_isbn13` | Select ISBN-13 from array of ISBN formats | Open Library |
-| `array_join` | Join array elements into comma-separated string | TMDB (genres), MusicBrainz (artists), Comic Vine (credits), Open Library (genres) |
+| `array_join` | Join array elements into comma-separated strings | Apple API, TMDB, MusicBrainz |
 
 ---
 
-## Bridge IDs - What Feeds Stage 2
+## Bridge IDs - What Feeds Stage 4
 
-Bridge IDs are external platform identifiers that the Wikidata Reconciliation adapter uses to resolve the item's Wikidata QID after Stage 1 has produced a safe retail match. Each bridge ID maps to a Wikidata property code.
+Bridge IDs are external platform identifiers that the Wikidata Reconciliation adapter uses to resolve the item's Wikidata QID after Stage 3 has produced a safe retail match. Each bridge ID maps to a Wikidata property code.
 
 ### Bridge IDs by Provider
 
 | Provider | Bridge ID | Claim Key | Confidence | Wikidata Property |
 |---|---|---|---|---|
 | **Apple API** | Apple Books ID | `apple_books_id` | 0.95 | P6395 |
+| **Apple API** | Apple Music Track ID | `apple_music_id` | 0.95 | P10110 |
+| **Apple API** | Apple Music Collection ID | `apple_music_collection_id` | 0.95 | P2281 |
+| **Apple API** | Apple Artist ID | `apple_artist_id` | 0.90 | P2850 |
 | **TMDB** | TMDB ID | `tmdb_id` | 1.0 | P4947 (movies) / P4983 (TV) |
-| **MusicBrainz** | MusicBrainz Release ID | `musicbrainz_id` | 1.0 | P436 |
-| **MusicBrainz** | ISRC | `isrc` | 0.9 | P1243 |
 | **Comic Vine** | Comic Vine ID | `comic_vine_id` | 0.95 | P5905 |
-| **Open Library** | ISBN | `isbn` | 0.90 | P212 (ISBN-13) / P957 (ISBN-10) |
+| **MusicBrainz** | MusicBrainz IDs | `musicbrainz_id`, `musicbrainz_recording_id`, `musicbrainz_release_group_id` | provider-dependent | P434/P435/P436/P5813/P4404 depending on ID type |
+| **Open Library / file evidence** | ISBN and Open Library ID | `isbn`, `isbn_13`, `isbn_10`, `open_library_id` | provider-dependent | P212/P957/P648 |
 
-### Stage 2 Resolution Flow Per Bridge ID
+### Stage 4 Resolution Flow Per Bridge ID
 
 The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.0's `BridgeResolutionService`.
 
@@ -162,23 +183,23 @@ The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.
 2. **Direct lookup:** The package groups `(propertyId, normalizedValue)` lookups so duplicate ISBN/TMDB/Apple/MusicBrainz/ComicVine IDs share one Wikidata query.
 3. **Edition awareness:** The package walks P629 for edition/release-to-work rollups and can return both the resolved entity QID and canonical work QID plus the relationship path.
 4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, OpenLibrary, and ComicVine keys are mapped to official Wikidata properties inside the package; app config only overrides or supplies custom mappings.
-5. **Fallback:** When bridge lookup does not produce a usable candidate and title hints are present, the bridge resolver performs typed text fallback internally. The adapter keeps a small application-level fallback pass for historical parity.
+5. **Strict bridge gate:** If a request has no real bridge IDs, the adapter does not build a Stage 4 bridge request. Title-only automatic requests are skipped.
 6. **Claim and diagnostics follow-up:** After every successful resolution, the adapter calls `ExtendAsync` over the known bridge P-codes to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`, and it also carries `BridgeDiagnostics`, ranked candidates, and rollup details from the package result.
 
-Manual Wikidata searches from the editor and automated fallback reconciliation both flow through `ReconciliationAdapter`'s shared request builder before calling `Tuvima.Wikidata`. Exact QID searches such as `Q155653` are passed through as identity lookups, so the package fetches the entity directly and still applies the configured media type constraints. Creator hints are only added to written-work searches where they help disambiguate titles; they are not appended to exact QIDs, movies, or TV searches.
+Manual Wikidata searches from the editor and automated bridge resolution both flow through `ReconciliationAdapter` before calling `Tuvima.Wikidata`, but manual user searches are not the same as automatic Stage 4 fallback. Exact QID searches such as `Q155653` are passed through as identity lookups, so the package fetches the entity directly and still applies configured media type constraints.
 
-### Preferred Bridge ID Order (per media type)
+### Wikidata Lookup Matrix
 
-The hydration config specifies which bridge IDs to try first per media type:
+The bridge worker sends these fields to Wikidata after Stage 3 has produced a retail match and at least one bridge ID.
 
-| Media Type | Preferred Order |
-|---|---|
-| Books | `isbn` |
-| Audiobooks | `apple_books_id`, `isbn`, `asin` |
-| Movies | `tmdb_id`, `imdb_id` |
-| TV | `tmdb_id`, `imdb_id` |
-| Music | `apple_music_id`, `musicbrainz_id`, `isrc` where present/enabled |
-| Comics | `comic_vine_id`, `gcd_id`, `isbn` |
+| Media type | Bridge IDs | Hints | Media kind / filter |
+|---|---|---|---|
+| Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `open_library_id`, `goodreads_id` | Title, author, year, language | Book/literary work, edition-aware |
+| Audiobooks | `apple_books_id`, `isbn`, `asin`, `audible_id`, MusicBrainz IDs | Title, author, year, language | Audiobook, edition-aware, prefers edition |
+| Music | `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`, MusicBrainz IDs | Album, artist, track title, year, language | Music album when album is known; otherwise music work |
+| Movies | `tmdb_id`, `imdb_id`, Apple TV movie IDs | Title, creator if canonicalized, year, language | Movie/film |
+| TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs | Show name or series, creator if canonicalized, year, language | TV series |
+| Comics | `comic_vine_id`, `gcd_id`, `isbn` | Series plus title, series title, writer/author/illustrator, year, language | Comic issue when series is known; otherwise comic series |
 
 ---
 

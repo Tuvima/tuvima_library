@@ -238,11 +238,7 @@ public sealed class RetailMatchWorker
         var jobHints = new Dictionary<Guid, Dictionary<string, string>>();
         foreach (var job in jobs)
         {
-            var canonicals = await _canonicalRepo.GetByEntityAsync(job.EntityId, ct);
-            var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var c in canonicals)
-                hints.TryAdd(c.Key, c.Value);
-            jobHints[job.EntityId] = hints;
+            jobHints[job.EntityId] = await BuildFileHintsAsync(job.EntityId, ct);
         }
 
         // Group by normalised artist+album key.
@@ -790,11 +786,7 @@ public sealed class RetailMatchWorker
         var jobHints = new Dictionary<Guid, Dictionary<string, string>>();
         foreach (var job in jobs)
         {
-            var canonicals = await _canonicalRepo.GetByEntityAsync(job.EntityId, ct);
-            var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var c in canonicals)
-                hints.TryAdd(c.Key, c.Value);
-            jobHints[job.EntityId] = hints;
+            jobHints[job.EntityId] = await BuildFileHintsAsync(job.EntityId, ct);
         }
 
         // Group by show_name+season_number key.
@@ -1882,6 +1874,76 @@ public sealed class RetailMatchWorker
         return candidate.Rank < currentBest.Rank;
     }
 
+    private async Task<Dictionary<string, string>> BuildFileHintsAsync(Guid entityId, CancellationToken ct)
+    {
+        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+        foreach (var c in canonicals)
+        {
+            if (!string.IsNullOrWhiteSpace(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
+                hints.TryAdd(c.Key, c.Value);
+        }
+
+        if (_arrayRepo is not null)
+        {
+            var arrays = await _arrayRepo.GetAllByEntityAsync(entityId, ct);
+            foreach (var (key, entries) in arrays)
+            {
+                if (hints.ContainsKey(key))
+                    continue;
+
+                var values = entries
+                    .OrderBy(entry => entry.Ordinal)
+                    .Select(entry => entry.Value)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (values.Count > 0)
+                    hints.TryAdd(key, JoinHintValues(key, values));
+            }
+        }
+
+        var claims = await _claimRepo.GetByEntityAsync(entityId, ct);
+        foreach (var group in claims
+            .Where(claim => !string.IsNullOrWhiteSpace(claim.ClaimKey)
+                && !string.IsNullOrWhiteSpace(claim.ClaimValue))
+            .GroupBy(claim => claim.ClaimKey, StringComparer.OrdinalIgnoreCase))
+        {
+            if (hints.ContainsKey(group.Key))
+                continue;
+
+            var values = group
+                .OrderByDescending(claim => claim.IsUserLocked)
+                .ThenByDescending(claim => claim.Confidence)
+                .ThenByDescending(claim => claim.ClaimedAt)
+                .Select(claim => claim.ClaimValue.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (values.Count > 0)
+                hints.TryAdd(group.Key, JoinHintValues(group.Key, values));
+        }
+
+        return hints;
+    }
+
+    private static string JoinHintValues(string key, IReadOnlyList<string> values)
+    {
+        if (values.Count == 1 || !IsMultiValueCreatorHint(key))
+            return values[0];
+
+        return string.Join(" and ", values);
+    }
+
+    private static bool IsMultiValueCreatorHint(string key) =>
+        key.Equals(MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase)
+        || key.Equals(MetadataFieldConstants.Artist, StringComparison.OrdinalIgnoreCase)
+        || key.Equals(MetadataFieldConstants.Composer, StringComparison.OrdinalIgnoreCase)
+        || key.Equals(MetadataFieldConstants.Director, StringComparison.OrdinalIgnoreCase)
+        || key.Equals(MetadataFieldConstants.Narrator, StringComparison.OrdinalIgnoreCase)
+        || key.Equals(MetadataFieldConstants.Illustrator, StringComparison.OrdinalIgnoreCase)
+        || key.Equals("writer", StringComparison.OrdinalIgnoreCase);
+
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
@@ -1956,13 +2018,10 @@ public sealed class RetailMatchWorker
             return;
         }
 
-        // Build hints from existing claims/canonicals
-        var canonicals = await _canonicalRepo.GetByEntityAsync(job.EntityId, ct);
-        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var c in canonicals)
-        {
-            hints.TryAdd(c.Key, c.Value);
-        }
+        // Build hints from existing canonicals plus claim fallbacks. Some local
+        // processor evidence, especially authors, can be multi-valued and may
+        // not have a scalar canonical yet.
+        var hints = await BuildFileHintsAsync(job.EntityId, ct);
 
         var allCandidates = new List<RetailMatchCandidate>();
         RetailMatchCandidate? bestCandidate = null;
