@@ -265,9 +265,15 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("active_group_label", dtoSource, StringComparison.Ordinal);
         Assert.Contains("label_accuracy", dtoSource, StringComparison.Ordinal);
         Assert.Contains("artifact_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("detail_items", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("IngestionStageDetailItemDto", dtoSource, StringComparison.Ordinal);
         Assert.Contains("BuildNumberedStageProgressAsync", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("\"Retail metadata & primary artwork\"", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("\"Deep artwork\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("DetailItems(", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Matches\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Cover art assets\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Retail Match\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Universes\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Artwork\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("\"Resolving Wikidata batch:", serviceSource, StringComparison.Ordinal);
         Assert.Contains("\"GroupedLookup\"", serviceSource, StringComparison.Ordinal);
         Assert.DoesNotContain("activeGroup is null ? \"", serviceSource, StringComparison.Ordinal);

@@ -162,7 +162,13 @@ public sealed class WorkerPipelineTests
             },
         };
 
-        var configLoader = new StubConfigurationLoader();
+        var configLoader = new StubConfigurationLoader
+        {
+            Providers =
+            [
+                new() { Name = "apple_api", Enabled = true, ProviderId = provider.ProviderId.ToString(), Weight = 0.9 },
+            ],
+        };
         var canonicalRepo = new StubCanonicalValueRepository();
         await canonicalRepo.UpsertBatchAsync(
         [
@@ -266,7 +272,13 @@ public sealed class WorkerPipelineTests
             ],
         };
 
-        var configLoader = new StubConfigurationLoader();
+        var configLoader = new StubConfigurationLoader
+        {
+            Providers =
+            [
+                new() { Name = "apple_api", Enabled = true, ProviderId = provider.ProviderId.ToString(), Weight = 0.9 },
+            ],
+        };
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -340,7 +352,13 @@ public sealed class WorkerPipelineTests
             ],
         };
 
-        var configLoader = new StubConfigurationLoader();
+        var configLoader = new StubConfigurationLoader
+        {
+            Providers =
+            [
+                new() { Name = "comicvine", Enabled = true, ProviderId = provider.ProviderId.ToString(), Weight = 0.9 },
+            ],
+        };
         var canonicalRepo = new StubCanonicalValueRepository();
         await canonicalRepo.UpsertBatchAsync(
         [
@@ -420,7 +438,13 @@ public sealed class WorkerPipelineTests
             ],
         };
 
-        var configLoader = new StubConfigurationLoader();
+        var configLoader = new StubConfigurationLoader
+        {
+            Providers =
+            [
+                new() { Name = "comicvine", Enabled = true, ProviderId = provider.ProviderId.ToString(), Weight = 0.9 },
+            ],
+        };
         var canonicalRepo = new StubCanonicalValueRepository();
         await canonicalRepo.UpsertBatchAsync(
         [
@@ -782,6 +806,148 @@ public sealed class WorkerPipelineTests
         var candidate = Assert.Single(candidateRepo.Candidates);
         Assert.Equal("AutoAccepted", candidate.Outcome);
         Assert.Contains("\"single_track_release\":true", candidate.ScoreBreakdownJson);
+        Assert.DoesNotContain("requires_track_number_or_duration_corroboration", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_MusicExactTrackWithAlbum_AllowsAutoAcceptWithoutTrackNumber()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "La Vie en rose", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Artist, Value = "Édith Piaf", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Album, Value = "La Vie en rose", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Year, Value = "1947", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        const string SearchJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 82055,
+                  "collectionId": 1708269212,
+                  "trackId": 1708269213,
+                  "artistName": "Édith Piaf",
+                  "collectionName": "La vie en rose",
+                  "trackName": "La vie en rose",
+                  "trackCount": 33,
+                  "trackNumber": 8,
+                  "releaseDate": "1987-01-01T08:00:00Z",
+                  "primaryGenreName": "French Pop",
+                  "artworkUrl100": "https://example.test/piaf-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        const string LookupJson = """
+            {
+              "resultCount": 2,
+              "results": [
+                {
+                  "wrapperType": "collection",
+                  "collectionType": "Album",
+                  "artistId": 82055,
+                  "collectionId": 1708269212,
+                  "artistName": "Édith Piaf",
+                  "collectionName": "La vie en rose",
+                  "trackCount": 33,
+                  "releaseDate": "1987-01-01T08:00:00Z",
+                  "primaryGenreName": "French Pop"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 82055,
+                  "collectionId": 1708269212,
+                  "trackId": 1708269213,
+                  "artistName": "Édith Piaf",
+                  "collectionName": "La vie en rose",
+                  "trackName": "La vie en rose",
+                  "trackCount": 33,
+                  "trackNumber": 8,
+                  "releaseDate": "1987-01-01T08:00:00Z",
+                  "primaryGenreName": "French Pop",
+                  "artworkUrl100": "https://example.test/piaf-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var configLoader = new StubConfigurationLoader();
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            [
+                new StubExternalMetadataProvider
+                {
+                    Name = "apple_api",
+                    ProviderId = providerId,
+                    Claims = [],
+                },
+            ],
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                configLoader,
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new RoutingHttpClientFactory(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                var body = url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase)
+                    ? LookupJson
+                    : SearchJson;
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+            }),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"album_corroborates\":true", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"strong_canonical_track_identity\":true", candidate.ScoreBreakdownJson);
         Assert.DoesNotContain("requires_track_number_or_duration_corroboration", candidate.ScoreBreakdownJson);
     }
 
@@ -1559,7 +1725,14 @@ public sealed class WorkerPipelineTests
             CompositeScore = 0.70,
         });
 
-        var configLoader = new StubConfigurationLoader();
+        var configLoader = new StubConfigurationLoader
+        {
+            Providers =
+            [
+                new() { Name = "apple_api", Enabled = true, ProviderId = providers[0].ProviderId.ToString(), Weight = 0.9 },
+                new() { Name = "openlibrary", Enabled = true, ProviderId = providers[1].ProviderId.ToString(), Weight = 0.9 },
+            ],
+        };
         var canonicalRepo = new StubCanonicalValueRepository();
         await canonicalRepo.UpsertBatchAsync(
         [
@@ -1853,6 +2026,7 @@ public sealed class WorkerPipelineTests
         {
             new() { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Chapter One", LastScoredAt = DateTimeOffset.UtcNow },
             new() { EntityId = entityId, Key = MetadataFieldConstants.Series, Value = "Saga", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = entityId, Key = MetadataFieldConstants.SeriesPosition, Value = "7", LastScoredAt = DateTimeOffset.UtcNow },
             new() { EntityId = entityId, Key = "writer", Value = "Brian K. Vaughan", LastScoredAt = DateTimeOffset.UtcNow },
             new() { EntityId = entityId, Key = MetadataFieldConstants.Language, Value = "ja", LastScoredAt = DateTimeOffset.UtcNow },
         };
@@ -1865,9 +2039,156 @@ public sealed class WorkerPipelineTests
         Assert.Null(hints.ArtistHint);
         Assert.Equal("Saga", hints.SeriesHint);
         Assert.Equal("ja", hints.LanguageHint);
+        Assert.Equal("7", hints.IssueNumber);
+    }
+
+    [Fact]
+    public void WikidataBridgeWorker_CollectsScopedWorkBridgeIdsForResolution()
+    {
+        var assetId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var trackWorkId = Guid.NewGuid();
+        var albumWorkId = Guid.NewGuid();
+        var lineage = new WorkLineage(
+            assetId,
+            editionId,
+            trackWorkId,
+            albumWorkId,
+            albumWorkId,
+            WorkKind.Child,
+            MediaType.Music);
+
+        var allBridgeIds = new Dictionary<Guid, IReadOnlyList<BridgeIdEntry>>
+        {
+            [assetId] =
+            [
+                new()
+                {
+                    EntityId = assetId,
+                    IdType = BridgeIdKeys.Isbn13,
+                    IdValue = "legacy-asset-id",
+                },
+            ],
+            [trackWorkId] =
+            [
+                new()
+                {
+                    EntityId = trackWorkId,
+                    IdType = BridgeIdKeys.AppleMusicId,
+                    IdValue = "1708269213",
+                },
+            ],
+            [albumWorkId] =
+            [
+                new()
+                {
+                    EntityId = albumWorkId,
+                    IdType = BridgeIdKeys.AppleMusicCollectionId,
+                    IdValue = "1708269212",
+                },
+                new()
+                {
+                    EntityId = albumWorkId,
+                    IdType = BridgeIdKeys.AppleMusicId,
+                    IdValue = "wrong-scope-track-id",
+                },
+            ],
+        };
+
+        var bridgeIds = WikidataBridgeWorker.CollectScopedBridgeIdsForResolution(
+            assetId,
+            MediaType.Music,
+            lineage,
+            allBridgeIds);
+
+        Assert.Contains(bridgeIds, id =>
+            id.EntityId == assetId
+            && id.IdType == BridgeIdKeys.Isbn13
+            && id.IdValue == "legacy-asset-id");
+        Assert.Contains(bridgeIds, id =>
+            id.EntityId == trackWorkId
+            && id.IdType == BridgeIdKeys.AppleMusicId
+            && id.IdValue == "1708269213");
+        Assert.Contains(bridgeIds, id =>
+            id.EntityId == albumWorkId
+            && id.IdType == BridgeIdKeys.AppleMusicCollectionId
+            && id.IdValue == "1708269212");
+        Assert.DoesNotContain(bridgeIds, id => id.IdValue == "wrong-scope-track-id");
     }
 
     // ── Test 4: QuickHydrationWorker queues Stage 3 after quick hydration ──
+
+    [Fact]
+    public void WikidataBridgeWorker_MergesCanonicalBridgeIdsForResolution()
+    {
+        var assetId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var trackWorkId = Guid.NewGuid();
+        var albumWorkId = Guid.NewGuid();
+        var lineage = new WorkLineage(
+            assetId,
+            editionId,
+            trackWorkId,
+            albumWorkId,
+            albumWorkId,
+            WorkKind.Child,
+            MediaType.Music);
+
+        var bridgeIds = new List<BridgeIdEntry>
+        {
+            new()
+            {
+                EntityId = trackWorkId,
+                IdType = BridgeIdKeys.AppleMusicId,
+                IdValue = "726378511",
+            },
+        };
+        var canonicals = new List<CanonicalValue>
+        {
+            new()
+            {
+                EntityId = assetId,
+                Key = BridgeIdKeys.Isbn,
+                Value = "9782070612758",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+            new()
+            {
+                EntityId = albumWorkId,
+                Key = BridgeIdKeys.AppleMusicCollectionId,
+                Value = "726378402",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+            new()
+            {
+                EntityId = albumWorkId,
+                Key = BridgeIdKeys.AppleMusicId,
+                Value = "wrong-scope-track-id",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+        };
+
+        var merged = WikidataBridgeWorker.MergeCanonicalBridgeIdsForResolution(
+            assetId,
+            MediaType.Music,
+            lineage,
+            bridgeIds,
+            canonicals);
+
+        Assert.Contains(merged, id =>
+            id.EntityId == trackWorkId
+            && id.IdType == BridgeIdKeys.AppleMusicId
+            && id.IdValue == "726378511");
+        Assert.Contains(merged, id =>
+            id.EntityId == assetId
+            && id.IdType == BridgeIdKeys.Isbn
+            && id.IdValue == "9782070612758");
+        Assert.Contains(merged, id =>
+            id.EntityId == albumWorkId
+            && id.IdType == BridgeIdKeys.AppleMusicCollectionId
+            && id.IdValue == "726378402");
+        Assert.DoesNotContain(merged, id => id.IdValue == "wrong-scope-track-id");
+    }
 
     [Fact]
     public async Task QuickHydrationWorker_QueuesStage3AfterQuickHydration()
@@ -2230,7 +2551,15 @@ public sealed class WorkerPipelineTests
         };
 
         public HydrationSettings LoadHydration() => Hydration;
-        public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => Providers;
+        public IReadOnlyList<ProviderConfiguration> LoadAllProviders() =>
+            Providers.Count > 0
+                ? Providers
+                :
+                [
+                    new() { Name = "apple_api", Enabled = true, ProviderId = WellKnownProviders.AppleApi.ToString(), Weight = 0.9 },
+                    new() { Name = "comicvine", Enabled = true, ProviderId = WellKnownProviders.ComicVine.ToString(), Weight = 0.9 },
+                    new() { Name = "tmdb", Enabled = true, ProviderId = WellKnownProviders.Tmdb.ToString(), Weight = 0.9 },
+                ];
         public ScoringSettings LoadScoring() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
 

@@ -236,7 +236,31 @@ public sealed class WikidataBridgeWorker
         {
             // ── Phase 2: Load context (batch SQL) ─────────────────────────────────
             // Two queries replace N×2 individual reads.
-            var entityIds = jobs.Select(j => j.EntityId).ToList();
+            var lineagesByEntity = new Dictionary<Guid, WorkLineage?>();
+            var contextEntityIds = new HashSet<Guid>(jobs.Select(j => j.EntityId));
+            foreach (var job in jobs)
+            {
+                WorkLineage? lineage = null;
+                if (string.Equals(job.EntityType, "MediaAsset", StringComparison.OrdinalIgnoreCase))
+                {
+                    try { lineage = await _workRepo.GetLineageByAssetAsync(job.EntityId, ct); }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogDebug(ex,
+                            "Wikidata context: lineage lookup failed for asset {EntityId}; using asset-scoped bridge IDs only",
+                            job.EntityId);
+                    }
+                }
+
+                lineagesByEntity[job.EntityId] = lineage;
+                if (lineage is not null)
+                {
+                    contextEntityIds.Add(lineage.TargetForSelfScope);
+                    contextEntityIds.Add(lineage.TargetForParentScope);
+                }
+            }
+
+            var entityIds = contextEntityIds.ToList();
             var allBridgeIds = await _bridgeIdRepo.GetByEntitiesAsync(entityIds, ct);
             var allCanonicals = await _canonicalRepo.GetByEntitiesAsync(entityIds, ct);
 
@@ -246,12 +270,22 @@ public sealed class WikidataBridgeWorker
                 if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
                     mediaType = MediaType.Unknown;
 
-                var bridgeIds = allBridgeIds.TryGetValue(job.EntityId, out var b)
-                    ? b
-                    : (IReadOnlyList<BridgeIdEntry>)[];
-                var canonicals = allCanonicals.TryGetValue(job.EntityId, out var c)
-                    ? c
-                    : (IReadOnlyList<CanonicalValue>)[];
+                var lineage = lineagesByEntity.GetValueOrDefault(job.EntityId);
+                var bridgeIds = CollectScopedBridgeIdsForResolution(
+                    job.EntityId,
+                    mediaType,
+                    lineage,
+                    allBridgeIds);
+                var canonicals = CollectScopedCanonicalsForResolution(
+                    job.EntityId,
+                    lineage,
+                    allCanonicals);
+                bridgeIds = MergeCanonicalBridgeIdsForResolution(
+                    job.EntityId,
+                    mediaType,
+                    lineage,
+                    bridgeIds,
+                    canonicals);
 
                 var bridgeDict  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -273,7 +307,17 @@ public sealed class WikidataBridgeWorker
                     }
                 }
 
-                var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint) = BuildLookupHints(mediaType, canonicals);
+                var (
+                    titleHint,
+                    authorHint,
+                    yearHint,
+                    albumHint,
+                    artistHint,
+                    seriesHint,
+                    languageHint,
+                    seasonNumber,
+                    episodeNumber,
+                    issueNumber) = BuildLookupHints(mediaType, canonicals);
 
                 var context = new JobContext(
                     Job: job,
@@ -287,7 +331,10 @@ public sealed class WikidataBridgeWorker
                     AlbumHint: albumHint,
                     ArtistHint: artistHint,
                     SeriesHint: seriesHint,
-                    LanguageHint: languageHint)
+                    LanguageHint: languageHint,
+                    SeasonNumber: seasonNumber,
+                    EpisodeNumber: episodeNumber,
+                    IssueNumber: issueNumber)
                 {
                     Operation = operationByJobId.GetValueOrDefault(job.Id)
                 };
@@ -323,6 +370,9 @@ public sealed class WikidataBridgeWorker
                     Year               = ctx.YearHint,
                     FileLanguage       = ctx.LanguageHint,
                     SeriesTitle        = ctx.SeriesHint,
+                    SeasonNumber       = ctx.SeasonNumber,
+                    EpisodeNumber      = ctx.EpisodeNumber,
+                    IssueNumber        = ctx.IssueNumber,
                 })
                 .ToList();
 
@@ -339,6 +389,8 @@ public sealed class WikidataBridgeWorker
                     qid = result.WorkQid ?? result.Qid,
                     matched_by = result.MatchedBy.ToString(),
                     candidate_count = result.RankedBridgeCandidates.Count,
+                    series_count = result.BridgeSeries.Count,
+                    relationship_count = result.BridgeRelationships.Count,
                     diagnostics = result.BridgeDiagnostics
                 }).ConfigureAwait(false);
 
@@ -829,12 +881,47 @@ public sealed class WikidataBridgeWorker
 
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.BridgeSearching, ct: ct);
 
-        // Load context for the single job.
-        var bridgeIds  = await _bridgeIdRepo.GetByEntityAsync(job.EntityId, ct);
-        var canonicals = await _canonicalRepo.GetByEntityAsync(job.EntityId, ct);
-
         if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
             mediaType = MediaType.Unknown;
+
+        WorkLineage? lineage = null;
+        if (string.Equals(job.EntityType, "MediaAsset", StringComparison.OrdinalIgnoreCase))
+        {
+            try { lineage = await _workRepo.GetLineageByAssetAsync(job.EntityId, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex,
+                    "Wikidata context: lineage lookup failed for asset {EntityId}; using asset-scoped bridge IDs only",
+                    job.EntityId);
+            }
+        }
+
+        // Load context for the single job. Include work-level IDs because
+        // retail routes bridge IDs to the asset's own Work or parent Work.
+        var contextEntityIds = new HashSet<Guid> { job.EntityId };
+        if (lineage is not null)
+        {
+            contextEntityIds.Add(lineage.TargetForSelfScope);
+            contextEntityIds.Add(lineage.TargetForParentScope);
+        }
+
+        var allBridgeIds = await _bridgeIdRepo.GetByEntitiesAsync(contextEntityIds.ToList(), ct);
+        var allCanonicals = await _canonicalRepo.GetByEntitiesAsync(contextEntityIds.ToList(), ct);
+        var bridgeIds = CollectScopedBridgeIdsForResolution(
+            job.EntityId,
+            mediaType,
+            lineage,
+            allBridgeIds);
+        var canonicals = CollectScopedCanonicalsForResolution(
+            job.EntityId,
+            lineage,
+            allCanonicals);
+        bridgeIds = MergeCanonicalBridgeIdsForResolution(
+            job.EntityId,
+            mediaType,
+            lineage,
+            bridgeIds,
+            canonicals);
 
         var bridgeDict    = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -852,7 +939,17 @@ public sealed class WikidataBridgeWorker
             }
         }
 
-        var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint) = BuildLookupHints(mediaType, canonicals);
+        var (
+            titleHint,
+            authorHint,
+            yearHint,
+            albumHint,
+            artistHint,
+            seriesHint,
+            languageHint,
+            seasonNumber,
+            episodeNumber,
+            issueNumber) = BuildLookupHints(mediaType, canonicals);
 
         var ctx = new JobContext(
             Job:           job,
@@ -866,7 +963,10 @@ public sealed class WikidataBridgeWorker
             AlbumHint:     albumHint,
             ArtistHint:    artistHint,
             SeriesHint:    seriesHint,
-            LanguageHint:  languageHint);
+            LanguageHint:  languageHint,
+            SeasonNumber:  seasonNumber,
+            EpisodeNumber: episodeNumber,
+            IssueNumber:   issueNumber);
 
         // Resolve QID for this single job via the unified facade.
         try
@@ -887,6 +987,9 @@ public sealed class WikidataBridgeWorker
                     Year               = yearHint,
                     FileLanguage       = languageHint,
                     SeriesTitle        = seriesHint,
+                    SeasonNumber       = seasonNumber,
+                    EpisodeNumber      = episodeNumber,
+                    IssueNumber        = issueNumber,
                 }, ct);
 
             if (result.Found)
@@ -939,7 +1042,17 @@ public sealed class WikidataBridgeWorker
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
     }
 
-    internal static (string? TitleHint, string? AuthorHint, string? YearHint, string? AlbumHint, string? ArtistHint, string? SeriesHint, string? LanguageHint) BuildLookupHints(
+    internal static (
+        string? TitleHint,
+        string? AuthorHint,
+        string? YearHint,
+        string? AlbumHint,
+        string? ArtistHint,
+        string? SeriesHint,
+        string? LanguageHint,
+        int? SeasonNumber,
+        int? EpisodeNumber,
+        string? IssueNumber) BuildLookupHints(
         MediaType mediaType,
         IReadOnlyList<CanonicalValue> canonicals)
     {
@@ -948,6 +1061,9 @@ public sealed class WikidataBridgeWorker
             return values.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
         }
 
+        static string? FirstValue(params string?[] values) =>
+            values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
         var titleHint = GetCanonical(canonicals, MetadataFieldConstants.Title);
         var authorHint = GetCanonical(canonicals, MetadataFieldConstants.Author);
         var yearHint = GetCanonical(canonicals, MetadataFieldConstants.Year);
@@ -955,16 +1071,25 @@ public sealed class WikidataBridgeWorker
         string? albumHint = null;
         string? artistHint = null;
         string? seriesHint = null;
+        int? seasonNumber = null;
+        int? episodeNumber = null;
+        string? issueNumber = null;
 
         if (mediaType == MediaType.TV)
         {
             titleHint = GetCanonical(canonicals, MetadataFieldConstants.ShowName)
                 ?? GetCanonical(canonicals, MetadataFieldConstants.Series)
                 ?? titleHint;
+            seasonNumber = TryParsePositiveOrdinal(GetCanonical(canonicals, MetadataFieldConstants.SeasonNumber));
+            episodeNumber = TryParsePositiveOrdinal(GetCanonical(canonicals, MetadataFieldConstants.EpisodeNumber));
         }
         else if (mediaType == MediaType.Comics)
         {
             seriesHint = GetCanonical(canonicals, MetadataFieldConstants.Series);
+            issueNumber = FirstValue(
+                GetCanonical(canonicals, "issue_number"),
+                GetCanonical(canonicals, "issue"),
+                GetCanonical(canonicals, MetadataFieldConstants.SeriesPosition));
             if (!string.IsNullOrWhiteSpace(seriesHint))
                 titleHint = BuildComicTitleHint(seriesHint, titleHint);
 
@@ -980,7 +1105,173 @@ public sealed class WikidataBridgeWorker
             authorHint ??= artistHint;
         }
 
-        return (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint);
+        return (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint, seasonNumber, episodeNumber, issueNumber);
+    }
+
+    private static int? TryParsePositiveOrdinal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        if (int.TryParse(trimmed, out var parsed) && parsed >= 0)
+            return parsed;
+
+        var digits = new string(trimmed
+            .SkipWhile(c => !char.IsDigit(c))
+            .TakeWhile(char.IsDigit)
+            .ToArray());
+
+        return int.TryParse(digits, out parsed) && parsed >= 0
+            ? parsed
+            : null;
+    }
+
+    internal static IReadOnlyList<BridgeIdEntry> CollectScopedBridgeIdsForResolution(
+        Guid jobEntityId,
+        MediaType mediaType,
+        WorkLineage? lineage,
+        IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>> allBridgeIds)
+    {
+        var entries = new List<BridgeIdEntry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddEntries(Guid entityId, Func<string, bool> include)
+        {
+            if (!allBridgeIds.TryGetValue(entityId, out var entityEntries))
+                return;
+
+            foreach (var entry in entityEntries)
+            {
+                if (string.IsNullOrWhiteSpace(entry.IdType)
+                    || string.IsNullOrWhiteSpace(entry.IdValue)
+                    || !include(entry.IdType))
+                {
+                    continue;
+                }
+
+                if (seen.Add($"{entry.IdType}\u001f{entry.IdValue}"))
+                    entries.Add(entry);
+            }
+        }
+
+        // Include legacy/current asset-scoped rows unfiltered so in-flight
+        // batches can still resolve after a worker restart.
+        AddEntries(jobEntityId, _ => true);
+
+        if (lineage is null)
+            return entries;
+
+        var selfId = lineage.TargetForSelfScope;
+        var parentId = lineage.TargetForParentScope;
+
+        if (selfId == parentId)
+        {
+            AddEntries(selfId, _ => true);
+            return entries;
+        }
+
+        AddEntries(selfId, key => !ClaimScopeCatalog.IsParentScoped(key, mediaType));
+        AddEntries(parentId, key => ClaimScopeCatalog.IsParentScoped(key, mediaType));
+        return entries;
+    }
+
+    internal static IReadOnlyList<BridgeIdEntry> MergeCanonicalBridgeIdsForResolution(
+        Guid jobEntityId,
+        MediaType mediaType,
+        WorkLineage? lineage,
+        IReadOnlyList<BridgeIdEntry> bridgeIds,
+        IReadOnlyList<CanonicalValue> canonicals)
+    {
+        var entries = bridgeIds.ToList();
+        var seen = new HashSet<string>(
+            entries.Select(entry => $"{entry.IdType}\u001f{entry.IdValue}"),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var canonical in canonicals)
+        {
+            if (string.IsNullOrWhiteSpace(canonical.Key)
+                || string.IsNullOrWhiteSpace(canonical.Value)
+                || !BridgeIdHelper.IsBridgeId(canonical.Key)
+                || !BridgeIdIsInResolutionScope(canonical.EntityId, canonical.Key, jobEntityId, mediaType, lineage))
+            {
+                continue;
+            }
+
+            if (!seen.Add($"{canonical.Key}\u001f{canonical.Value}"))
+                continue;
+
+            entries.Add(new BridgeIdEntry
+            {
+                Id = Guid.NewGuid(),
+                EntityId = canonical.EntityId,
+                IdType = canonical.Key,
+                IdValue = canonical.Value,
+                ProviderId = canonical.WinningProviderId?.ToString(),
+                CreatedAt = canonical.LastScoredAt,
+            });
+        }
+
+        return entries;
+    }
+
+    private static bool BridgeIdIsInResolutionScope(
+        Guid entityId,
+        string key,
+        Guid jobEntityId,
+        MediaType mediaType,
+        WorkLineage? lineage)
+    {
+        if (entityId == jobEntityId || lineage is null)
+            return true;
+
+        var selfId = lineage.TargetForSelfScope;
+        var parentId = lineage.TargetForParentScope;
+
+        if (selfId == parentId)
+            return entityId == selfId;
+
+        if (entityId == selfId)
+            return !ClaimScopeCatalog.IsParentScoped(key, mediaType);
+
+        if (entityId == parentId)
+            return ClaimScopeCatalog.IsParentScoped(key, mediaType);
+
+        return false;
+    }
+
+    private static IReadOnlyList<CanonicalValue> CollectScopedCanonicalsForResolution(
+        Guid jobEntityId,
+        WorkLineage? lineage,
+        IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>> allCanonicals)
+    {
+        var values = new List<CanonicalValue>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddValues(Guid entityId)
+        {
+            if (!allCanonicals.TryGetValue(entityId, out var entityValues))
+                return;
+
+            foreach (var value in entityValues)
+            {
+                if (string.IsNullOrWhiteSpace(value.Key))
+                    continue;
+
+                if (seen.Add($"{value.Key}\u001f{value.Value}"))
+                    values.Add(value);
+            }
+        }
+
+        AddValues(jobEntityId);
+
+        if (lineage is not null)
+        {
+            AddValues(lineage.TargetForSelfScope);
+            AddValues(lineage.TargetForParentScope);
+        }
+
+        return values;
     }
 
     private static string? BuildComicTitleHint(string seriesHint, string? titleHint)
@@ -1461,7 +1752,7 @@ public sealed class WikidataBridgeWorker
 
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
-            : assetId;
+            : lineage.TargetForSelfScope;
     }
 
     private async Task RunPostIdentityPersonPassAsync(Guid entityId, string qid, CancellationToken ct)
@@ -1504,6 +1795,9 @@ public sealed class WikidataBridgeWorker
         public string? ArtistHint { get; }
         public string? SeriesHint { get; }
         public string? LanguageHint { get; }
+        public int? SeasonNumber { get; }
+        public int? EpisodeNumber { get; }
+        public string? IssueNumber { get; }
 
         // Populated during Phase 5 distribution.
         public string? ResolvedQid { get; set; }
@@ -1529,7 +1823,10 @@ public sealed class WikidataBridgeWorker
             string? AlbumHint,
             string? ArtistHint,
             string? SeriesHint,
-            string? LanguageHint)
+            string? LanguageHint,
+            int? SeasonNumber,
+            int? EpisodeNumber,
+            string? IssueNumber)
         {
             this.Job           = Job;
             this.MediaType     = MediaType;
@@ -1543,6 +1840,9 @@ public sealed class WikidataBridgeWorker
             this.ArtistHint    = ArtistHint;
             this.SeriesHint    = SeriesHint;
             this.LanguageHint  = LanguageHint;
+            this.SeasonNumber  = SeasonNumber;
+            this.EpisodeNumber = EpisodeNumber;
+            this.IssueNumber   = IssueNumber;
         }
     }
 

@@ -10,6 +10,7 @@ using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
+using System.Globalization;
 using System.Text.Json;
 using ProviderConfig = MediaEngine.Storage.Models.ProviderConfiguration;
 
@@ -882,109 +883,145 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         if (totalFiles <= 0)
             totalFiles = Math.Max(0, summaryTotal);
 
-        var duplicateOrSkipped = CountStage(byKey, "duplicate") + CountStage(byKey, "skipped");
+        var detected = CountStage(byKey, "detected");
+        var parsed = CountStage(byKey, "parsed");
+        var duplicates = CountStage(byKey, "duplicate");
+        var skipped = CountStage(byKey, "skipped");
+        var duplicateOrSkipped = duplicates + skipped;
         var failed = CountStage(byKey, "failed");
         var terminalOther = duplicateOrSkipped + failed;
         var review = Math.Max(0, pendingReviewCount);
         var identified = CountStage(byKey, "identified");
+        var canonicalized = CountStage(byKey, "canonicalized");
+        var wikidataReview = CountStage(byKey, "wikidata_review");
+        var registered = CountStage(byKey, "registered");
+        var needsReview = CountStage(byKey, "needs_review");
         var retailDone = ClampStageCount(identified, totalFiles);
+        var retailReviewTotal = ClampStageCount(CountStage(byKey, "retail_review"), totalFiles);
         var wikidataDone = ClampStageCount(
-            CountStage(byKey, "canonicalized") + CountStage(byKey, "wikidata_review") + review + terminalOther,
+            canonicalized + wikidataReview + review + terminalOther,
             totalFiles);
         var fileReady = ClampStageCount(
-            CountStage(byKey, "registered") + CountStage(byKey, "needs_review") + CountStage(byKey, "wikidata_review") + terminalOther,
+            registered + needsReview + wikidataReview + terminalOther,
             totalFiles);
         var optionalEnrichmentDone = fileReady;
         var reviewResolved = totalFiles > 0
             ? Math.Clamp(totalFiles - review, 0, totalFiles)
             : 0;
+        var scanAccepted = Math.Max(0, totalFiles - duplicateOrSkipped - failed);
 
         var batchIds = displayBatches.Select(batch => batch.Id).Distinct().ToArray();
         var artifactCounts = await ReadNumberedStageArtifactCountsAsync(batchIds, ct).ConfigureAwait(false);
+        ApplyBatchCategoryFallbacks(displayBatches, artifactCounts);
+        var unidentified = Math.Max(0, totalFiles
+            - artifactCounts.BooksCount
+            - artifactCounts.MoviesCount
+            - artifactCounts.TvShowsCount
+            - artifactCounts.MusicCount
+            - artifactCounts.ComicsCount
+            - artifactCounts.AudiobooksCount);
 
         return
         [
             CreateNumberedStage(
                 1,
                 "scan",
-                "Scan folders",
-                CountStage(byKey, "detected"),
+                "Scanned",
+                detected,
                 totalFiles,
-                "files found",
-                CountStage(byKey, "detected"),
-                ActivityFor(currentActivities, "scanning", "scan")),
+                "scanned",
+                scanAccepted,
+                ActivityFor(currentActivities, "scanning", "scan"),
+                DetailItems(
+                    Detail("Books", artifactCounts.BooksCount, "neutral", "books"),
+                    Detail("Movies", artifactCounts.MoviesCount, "neutral", "movies"),
+                    Detail("TV", artifactCounts.TvShowsCount, "neutral", "tv"),
+                    Detail("Music", artifactCounts.MusicCount, "neutral", "music"),
+                    Detail("Comics", artifactCounts.ComicsCount, "neutral", "comics"),
+                    Detail("Audiobooks", artifactCounts.AudiobooksCount, "neutral", "audiobooks"),
+                    Detail("Unidentified", unidentified, unidentified > 0 ? "warning" : "neutral", "review"),
+                    Detail("Skipped / duplicate", duplicateOrSkipped, duplicateOrSkipped > 0 ? "muted" : "neutral", "skip"),
+                    Detail("Failed", failed, failed > 0 ? "danger" : "neutral", "warning"))),
             CreateNumberedStage(
                 2,
-                "read",
-                "Read media details",
-                CountStage(byKey, "parsed"),
-                totalFiles,
-                "files read",
-                CountStage(byKey, "parsed"),
-                ActivityFor(currentActivities, "reading", "read", "scanning")),
-            CreateNumberedStage(
-                3,
                 "retail",
-                "Retail metadata & primary artwork",
+                "Retail Match",
                 retailDone,
                 totalFiles,
-                "metadata/artwork updates",
-                artifactCounts.RetailArtifactCount,
-                ActivityFor(currentActivities, "artwork", "retail", "metadata")),
+                "matches",
+                artifactCounts.ProviderMatches,
+                ActivityFor(currentActivities, "artwork", "retail", "metadata"),
+                DetailItems(
+                    Detail("Matches", artifactCounts.ProviderMatches, "success", "match"),
+                    Detail("Books", artifactCounts.RetailBooksCount, "neutral", "books"),
+                    Detail("Movies", artifactCounts.RetailMoviesCount, "neutral", "movies"),
+                    Detail("TV", artifactCounts.RetailTvShowsCount, "neutral", "tv"),
+                    Detail("Music", artifactCounts.RetailMusicCount, "neutral", "music"),
+                    Detail("Comics", artifactCounts.RetailComicsCount, "neutral", "comics"),
+                    Detail("Audiobooks", artifactCounts.RetailAudiobooksCount, "neutral", "audiobooks"),
+                    Detail("Failed / unresolved", retailReviewTotal + failed, retailReviewTotal + failed > 0 ? "warning" : "neutral", "review"),
+                    Detail("Metadata fields", artifactCounts.MetadataFields, "info", "metadata"),
+                    Detail("Cover art assets", artifactCounts.PrimaryArtworkCount, "success", "artwork"))),
             CreateNumberedStage(
-                4,
+                3,
                 "wikidata",
-                "Wikidata lookup",
+                "Wikidata",
                 wikidataDone,
                 totalFiles,
-                "QIDs resolved",
-                Math.Max(artifactCounts.QidCount, ParseMetricValue(ActivityFor(currentActivities, "wikidata")?.MetricValue)),
-                ActivityFor(currentActivities, "wikidata")),
+                "QIDs",
+                Math.Max(artifactCounts.FilesWithQid, ParseMetricValue(ActivityFor(currentActivities, "wikidata")?.MetricValue)),
+                ActivityFor(currentActivities, "wikidata"),
+                DetailItems(
+                    Detail("Files with media/work QID", artifactCounts.FilesWithQid, "success", "qid"),
+                    Detail("Retail retained without QID", wikidataReview + review, wikidataReview + review > 0 ? "warning" : "neutral", "review"),
+                    Detail("Related QIDs discovered", artifactCounts.RelatedQidCount, "info", "qid"))),
+            CreateNumberedStage(
+                4,
+                "people",
+                "People",
+                optionalEnrichmentDone,
+                totalFiles,
+                "people",
+                Math.Max(artifactCounts.PeopleCount, ParseMetricValue(ActivityFor(currentActivities, "people")?.MetricValue)),
+                ActivityFor(currentActivities, "people"),
+                DetailItems(
+                    Detail("Cast", artifactCounts.CastCount, "neutral", "people"),
+                    Detail("Directors", artifactCounts.DirectorCount, "neutral", "people"),
+                    Detail("Authors", artifactCounts.AuthorCount, "neutral", "people"),
+                    Detail("Narrators", artifactCounts.NarratorCount, "neutral", "people"),
+                    Detail("Music artists", artifactCounts.MusicArtistCount, "neutral", "people"),
+                    Detail("Creators / crew", artifactCounts.CreatorCrewCount, "neutral", "people"),
+                    Detail("Deeply enriched people", artifactCounts.DeepPeopleCount, "success", "people"))),
             CreateNumberedStage(
                 5,
-                "ready",
-                "File ready",
-                fileReady,
+                "universes",
+                "Universes",
+                optionalEnrichmentDone,
                 totalFiles,
-                "files added",
-                CountStage(byKey, "registered"),
-                ActivityFor(currentActivities, "organized", "registered", "ready")),
+                "links",
+                Math.Max(artifactCounts.UniverseLinkCount, ParseMetricValue(ActivityFor(currentActivities, "relationships")?.MetricValue)),
+                ActivityFor(currentActivities, "relationships"),
+                DetailItems(
+                    Detail("Files with universe links", artifactCounts.FilesWithUniverseLinks, "success", "relationships"),
+                    Detail("Series / shelves", artifactCounts.SeriesShelfCount, "neutral", "relationships"),
+                    Detail("Universe roots", artifactCounts.UniverseRootCount, "neutral", "relationships"),
+                    Detail("Characters / locations / orgs", artifactCounts.FictionalEntityCount, "neutral", "relationships"),
+                    Detail("Adaptation / story links", artifactCounts.AdaptationStoryLinkCount, "neutral", "relationships"))),
             CreateNumberedStage(
                 6,
-                "people",
-                "People & cast",
+                "artwork",
+                "Artwork",
                 optionalEnrichmentDone,
                 totalFiles,
-                "people linked/resolved",
-                Math.Max(artifactCounts.PeopleCount, ParseMetricValue(ActivityFor(currentActivities, "people")?.MetricValue)),
-                ActivityFor(currentActivities, "people")),
-            CreateNumberedStage(
-                7,
-                "relationships",
-                "Series & relationships",
-                optionalEnrichmentDone,
-                totalFiles,
-                "relationships/series links",
-                Math.Max(artifactCounts.RelationshipCount, ParseMetricValue(ActivityFor(currentActivities, "relationships")?.MetricValue)),
-                ActivityFor(currentActivities, "relationships")),
-            CreateNumberedStage(
-                8,
-                "deep_artwork",
-                "Deep artwork",
-                optionalEnrichmentDone,
-                totalFiles,
-                "deep artwork assets",
-                artifactCounts.DeepArtworkCount,
-                ActivityFor(currentActivities, "deep_artwork", "images")),
-            CreateNumberedStage(
-                9,
-                "review",
-                "Review / attention",
-                reviewResolved,
-                totalFiles,
-                "items needing review",
-                review,
-                ActivityFor(currentActivities, "review", "needs_review")),
+                "assets",
+                artifactCounts.TotalArtworkCount,
+                ActivityFor(currentActivities, "deep_artwork", "images"),
+                DetailItems(
+                    Detail("Covers / posters", artifactCounts.PrimaryArtworkCount, "success", "artwork"),
+                    Detail("People headshots", artifactCounts.HeadshotCount, "neutral", "artwork"),
+                    Detail("Backdrops / banners / logos", artifactCounts.BackdropBannerLogoCount, "neutral", "artwork"),
+                    Detail("Season / episode art", artifactCounts.SeasonEpisodeArtworkCount, "neutral", "artwork"),
+                    Detail("Album / music art", artifactCounts.MusicArtworkCount, "neutral", "artwork"))),
         ];
     }
 
@@ -1000,21 +1037,46 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         var counts = await conn.QueryFirstOrDefaultAsync<NumberedStageArtifactCounts>("""
             WITH scoped_jobs AS (
-                SELECT id, entity_id, state
+                SELECT id, entity_id, state, media_type, resolved_qid, updated_at, created_at
                 FROM identity_jobs
                 WHERE @hasBatchScope = 0 OR ingestion_run_id IN @batchIds
             ),
+            latest_jobs AS (
+                SELECT
+                    id,
+                    entity_id,
+                    state,
+                    media_type,
+                    resolved_qid,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM scoped_jobs
+                WHERE entity_id IS NOT NULL
+            ),
+            latest_entities AS (
+                SELECT id, entity_id, state, media_type, resolved_qid
+                FROM latest_jobs
+                WHERE rn = 1
+            ),
             batch_assets AS (
                 SELECT DISTINCT entity_id
-                FROM scoped_jobs
+                FROM latest_entities
                 WHERE entity_id IS NOT NULL
             ),
             lineage AS (
                 SELECT DISTINCT
                     ba.entity_id AS asset_id,
                     w.id AS work_id,
+                    w.collection_id AS collection_id,
+                    w.wikidata_qid AS work_qid,
                     p.id AS parent_work_id,
-                    gp.id AS root_work_id
+                    p.collection_id AS parent_collection_id,
+                    p.wikidata_qid AS parent_work_qid,
+                    gp.id AS root_work_id,
+                    gp.collection_id AS root_collection_id,
+                    gp.wikidata_qid AS root_work_qid
                 FROM batch_assets ba
                 LEFT JOIN media_assets ma ON ma.id = ba.entity_id
                 LEFT JOIN editions e ON e.id = ma.edition_id
@@ -1030,14 +1092,51 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 SELECT parent_work_id AS id FROM lineage WHERE parent_work_id IS NOT NULL
                 UNION
                 SELECT root_work_id AS id FROM lineage WHERE root_work_id IS NOT NULL
+            ),
+            batch_collections AS (
+                SELECT collection_id AS id FROM lineage WHERE collection_id IS NOT NULL
+                UNION
+                SELECT parent_collection_id AS id FROM lineage WHERE parent_collection_id IS NOT NULL
+                UNION
+                SELECT root_collection_id AS id FROM lineage WHERE root_collection_id IS NOT NULL
+            ),
+            batch_work_qids AS (
+                SELECT work_qid AS qid FROM lineage WHERE work_qid IS NOT NULL AND work_qid <> ''
+                UNION
+                SELECT parent_work_qid AS qid FROM lineage WHERE parent_work_qid IS NOT NULL AND parent_work_qid <> ''
+                UNION
+                SELECT root_work_qid AS qid FROM lineage WHERE root_work_qid IS NOT NULL AND root_work_qid <> ''
+                UNION
+                SELECT cv.value AS qid
+                FROM canonical_values cv
+                WHERE cv.key = 'wikidata_qid'
+                  AND cv.value IS NOT NULL
+                  AND cv.value <> ''
+                  AND (@hasBatchScope = 0 OR cv.entity_id IN (SELECT id FROM entity_scope))
+            ),
+            retail_matches AS (
+                SELECT DISTINCT sj.entity_id, sj.media_type
+                FROM retail_match_candidates r
+                JOIN scoped_jobs sj ON sj.id = r.job_id
+                WHERE r.outcome IN ('AutoAccepted', 'Ambiguous')
             )
             SELECT
                 (
                     SELECT COUNT(*)
-                    FROM retail_match_candidates r
-                    JOIN scoped_jobs sj ON sj.id = r.job_id
-                    WHERE r.outcome IN ('AutoAccepted', 'Ambiguous')
+                    FROM retail_matches
                 ) AS ProviderMatches,
+                (SELECT COUNT(DISTINCT entity_id) FROM latest_entities WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('books','book')) AS BooksCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM latest_entities WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('movies','movie')) AS MoviesCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM latest_entities WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('tv','tvshows','tvshow','shows')) AS TvShowsCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM latest_entities WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('music','musictrack','musicalbum','album','song')) AS MusicCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM latest_entities WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('comics','comic')) AS ComicsCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM latest_entities WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('audiobooks','audiobook')) AS AudiobooksCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM retail_matches WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('books','book')) AS RetailBooksCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM retail_matches WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('movies','movie')) AS RetailMoviesCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM retail_matches WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('tv','tvshows','tvshow','shows')) AS RetailTvShowsCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM retail_matches WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('music','musictrack','musicalbum','album','song')) AS RetailMusicCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM retail_matches WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('comics','comic')) AS RetailComicsCount,
+                (SELECT COUNT(DISTINCT entity_id) FROM retail_matches WHERE LOWER(REPLACE(COALESCE(media_type, ''), ' ', '')) IN ('audiobooks','audiobook')) AS RetailAudiobooksCount,
                 (
                     SELECT COUNT(*)
                     FROM metadata_claims mc
@@ -1057,18 +1156,195 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS PrimaryArtworkCount,
                 (
-                    SELECT COUNT(DISTINCT cv.value)
-                    FROM canonical_values cv
-                    WHERE cv.key = 'wikidata_qid'
-                      AND cv.value IS NOT NULL
-                      AND cv.value <> ''
-                      AND (@hasBatchScope = 0 OR cv.entity_id IN (SELECT id FROM entity_scope))
-                ) AS QidCount,
+                    SELECT COUNT(DISTINCT le.entity_id)
+                    FROM latest_entities le
+                    WHERE (le.resolved_qid IS NOT NULL AND le.resolved_qid <> '' AND le.resolved_qid <> 'NF')
+                       OR EXISTS (
+                            SELECT 1
+                            FROM lineage l
+                            JOIN canonical_values cv ON cv.entity_id IN (
+                                l.asset_id,
+                                l.work_id,
+                                l.parent_work_id,
+                                l.root_work_id
+                            )
+                            WHERE l.asset_id = le.entity_id
+                              AND cv.key = 'wikidata_qid'
+                              AND cv.value IS NOT NULL
+                              AND cv.value <> ''
+                       )
+                ) AS FilesWithQid,
+                (
+                    SELECT COUNT(DISTINCT qid)
+                    FROM (
+                        SELECT p.wikidata_qid AS qid
+                        FROM persons p
+                        WHERE p.wikidata_qid IS NOT NULL
+                          AND p.wikidata_qid <> ''
+                          AND (
+                                @hasBatchScope = 0
+                                OR EXISTS (
+                                    SELECT 1
+                                    FROM person_media_links pml
+                                    WHERE pml.person_id = p.id
+                                      AND pml.media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL)
+                                )
+                          )
+                        UNION
+                        SELECT c.wikidata_qid AS qid
+                        FROM collections c
+                        WHERE c.wikidata_qid IS NOT NULL
+                          AND c.wikidata_qid <> ''
+                          AND (@hasBatchScope = 0 OR c.id IN (SELECT id FROM batch_collections))
+                        UNION
+                        SELECT fe.wikidata_qid AS qid
+                        FROM fictional_entities fe
+                        WHERE fe.wikidata_qid IS NOT NULL
+                          AND fe.wikidata_qid <> ''
+                          AND (
+                                @hasBatchScope = 0
+                                OR EXISTS (
+                                    SELECT 1
+                                    FROM fictional_entity_work_links fewl
+                                    WHERE fewl.entity_id = fe.id
+                                      AND fewl.work_qid IN (SELECT qid FROM batch_work_qids)
+                                )
+                          )
+                        UNION
+                        SELECT smi.series_qid AS qid
+                        FROM series_manifest_items smi
+                        WHERE smi.series_qid IS NOT NULL
+                          AND smi.series_qid <> ''
+                          AND (@hasBatchScope = 0 OR smi.collection_id IN (SELECT id FROM batch_collections) OR smi.linked_work_id IN (SELECT id FROM entity_scope))
+                        UNION
+                        SELECT smi.item_qid AS qid
+                        FROM series_manifest_items smi
+                        WHERE smi.item_qid IS NOT NULL
+                          AND smi.item_qid <> ''
+                          AND (@hasBatchScope = 0 OR smi.collection_id IN (SELECT id FROM batch_collections) OR smi.linked_work_id IN (SELECT id FROM entity_scope))
+                    )
+                ) AS RelatedQidCount,
                 (
                     SELECT COUNT(*)
                     FROM person_media_links pml
                     WHERE @hasBatchScope = 0 OR pml.media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL)
                 ) AS PeopleCount,
+                (
+                    SELECT COUNT(DISTINCT person_id)
+                    FROM person_media_links
+                    WHERE role IN ('Actor', 'Voice Actor')
+                      AND (@hasBatchScope = 0 OR media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL))
+                ) AS CastCount,
+                (
+                    SELECT COUNT(DISTINCT person_id)
+                    FROM person_media_links
+                    WHERE role = 'Director'
+                      AND (@hasBatchScope = 0 OR media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL))
+                ) AS DirectorCount,
+                (
+                    SELECT COUNT(DISTINCT person_id)
+                    FROM person_media_links
+                    WHERE role = 'Author'
+                      AND (@hasBatchScope = 0 OR media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL))
+                ) AS AuthorCount,
+                (
+                    SELECT COUNT(DISTINCT person_id)
+                    FROM person_media_links
+                    WHERE role = 'Narrator'
+                      AND (@hasBatchScope = 0 OR media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL))
+                ) AS NarratorCount,
+                (
+                    SELECT COUNT(DISTINCT person_id)
+                    FROM person_media_links
+                    WHERE role IN ('Artist', 'Performer', 'Composer')
+                      AND (@hasBatchScope = 0 OR media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL))
+                ) AS MusicArtistCount,
+                (
+                    SELECT COUNT(DISTINCT person_id)
+                    FROM person_media_links
+                    WHERE role IN ('Screenwriter', 'Illustrator', 'Composer')
+                      AND (@hasBatchScope = 0 OR media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL))
+                ) AS CreatorCrewCount,
+                (
+                    SELECT COUNT(DISTINCT p.id)
+                    FROM persons p
+                    WHERE p.wikidata_qid IS NOT NULL
+                      AND p.wikidata_qid <> ''
+                      AND (
+                            @hasBatchScope = 0
+                            OR EXISTS (
+                                SELECT 1
+                                FROM person_media_links pml
+                                WHERE pml.person_id = p.id
+                                  AND pml.media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL)
+                            )
+                      )
+                ) AS DeepPeopleCount,
+                (
+                    SELECT COUNT(*)
+                    FROM (
+                        SELECT id FROM collection_relationships
+                        WHERE @hasBatchScope = 0 OR collection_id IN (SELECT id FROM batch_collections)
+                        UNION ALL
+                        SELECT id FROM entity_relationships
+                        WHERE @hasBatchScope = 0
+                           OR subject_qid IN (SELECT qid FROM batch_work_qids)
+                           OR object_qid IN (SELECT qid FROM batch_work_qids)
+                           OR context_work_qid IN (SELECT qid FROM batch_work_qids)
+                        UNION ALL
+                        SELECT entity_id FROM fictional_entity_work_links
+                        WHERE @hasBatchScope = 0 OR work_qid IN (SELECT qid FROM batch_work_qids)
+                        UNION ALL
+                        SELECT series_qid FROM series_members
+                        WHERE @hasBatchScope = 0
+                           OR work_qid IN (SELECT qid FROM batch_work_qids)
+                           OR series_qid IN (SELECT qid FROM batch_work_qids)
+                    )
+                ) AS UniverseLinkCount,
+                (
+                    SELECT COUNT(DISTINCT asset_id)
+                    FROM lineage
+                    WHERE @hasBatchScope = 0
+                       OR collection_id IS NOT NULL
+                       OR parent_collection_id IS NOT NULL
+                       OR root_collection_id IS NOT NULL
+                       OR work_qid IN (SELECT qid FROM batch_work_qids)
+                       OR parent_work_qid IN (SELECT qid FROM batch_work_qids)
+                       OR root_work_qid IN (SELECT qid FROM batch_work_qids)
+                ) AS FilesWithUniverseLinks,
+                (
+                    SELECT COUNT(DISTINCT series_qid)
+                    FROM series_members
+                    WHERE @hasBatchScope = 0
+                       OR work_qid IN (SELECT qid FROM batch_work_qids)
+                       OR series_qid IN (SELECT qid FROM batch_work_qids)
+                ) AS SeriesShelfCount,
+                (
+                    SELECT COUNT(DISTINCT id)
+                    FROM collections
+                    WHERE wikidata_qid IS NOT NULL
+                      AND wikidata_qid <> ''
+                      AND (@hasBatchScope = 0 OR id IN (SELECT id FROM batch_collections))
+                ) AS UniverseRootCount,
+                (
+                    SELECT COUNT(DISTINCT fe.id)
+                    FROM fictional_entities fe
+                    WHERE @hasBatchScope = 0
+                       OR EXISTS (
+                            SELECT 1
+                            FROM fictional_entity_work_links fewl
+                            WHERE fewl.entity_id = fe.id
+                              AND fewl.work_qid IN (SELECT qid FROM batch_work_qids)
+                       )
+                ) AS FictionalEntityCount,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_relationships
+                    WHERE @hasBatchScope = 0
+                       OR subject_qid IN (SELECT qid FROM batch_work_qids)
+                       OR object_qid IN (SELECT qid FROM batch_work_qids)
+                       OR context_work_qid IN (SELECT qid FROM batch_work_qids)
+                ) AS AdaptationStoryLinkCount,
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
@@ -1080,7 +1356,31 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     FROM canonical_values cv
                     WHERE cv.key = 'stage3_enhanced_at'
                       AND (@hasBatchScope = 0 OR cv.entity_id IN (SELECT id FROM entity_scope))
-                ) AS DeepArtworkFiles;
+                ) AS DeepArtworkFiles,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type = 'Headshot'
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS HeadshotCount,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo', 'ClearArt')
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS BackdropBannerLogoCount,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type IN ('SeasonPoster', 'SeasonThumb', 'EpisodeStill')
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS SeasonEpisodeArtworkCount,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type IN ('DiscArt', 'SquareArt')
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS MusicArtworkCount;
             """, new { batchIds = scopedBatchIds, hasBatchScope }).ConfigureAwait(false);
 
         return counts ?? new NumberedStageArtifactCounts();
@@ -1094,7 +1394,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         int totalFiles,
         string artifactLabel,
         int artifactCount,
-        IngestionCurrentActivityDto? activity)
+        IngestionCurrentActivityDto? activity,
+        List<IngestionStageDetailItemDto>? detailItems = null)
     {
         completedFiles = Math.Max(0, completedFiles);
         totalFiles = Math.Max(0, totalFiles);
@@ -1142,7 +1443,66 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ArtifactCount = Math.Max(0, artifactCount),
             LastUpdatedTime = lastUpdated,
             IsStale = isStale,
+            DetailItems = detailItems ?? [],
         };
+    }
+
+    private static List<IngestionStageDetailItemDto> DetailItems(params IngestionStageDetailItemDto[] items) =>
+        items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Label) && !string.IsNullOrWhiteSpace(item.Value))
+            .ToList();
+
+    private static IngestionStageDetailItemDto Detail(
+        string label,
+        int value,
+        string tone = "neutral",
+        string? icon = null) =>
+        new()
+        {
+            Label = label,
+            Value = FormatDetailCount(value),
+            Tone = tone,
+            Icon = icon,
+        };
+
+    private static string FormatDetailCount(int count) =>
+        Math.Max(0, count).ToString("N0", CultureInfo.InvariantCulture);
+
+    private static void ApplyBatchCategoryFallbacks(
+        IReadOnlyList<IngestionBatch> displayBatches,
+        NumberedStageArtifactCounts counts)
+    {
+        if (displayBatches.Count == 0 || counts.HasMediaBreakdown)
+            return;
+
+        foreach (var batch in displayBatches)
+        {
+            if (string.IsNullOrWhiteSpace(batch.Category) || batch.FilesTotal <= 0)
+                continue;
+
+            var category = NormalizeCategory(batch.Category);
+            switch (category)
+            {
+                case "Movies":
+                    counts.MoviesCount += batch.FilesTotal;
+                    break;
+                case "TV Shows":
+                    counts.TvShowsCount += batch.FilesTotal;
+                    break;
+                case "Books":
+                    counts.BooksCount += batch.FilesTotal;
+                    break;
+                case "Audiobooks":
+                    counts.AudiobooksCount += batch.FilesTotal;
+                    break;
+                case "Music":
+                    counts.MusicCount += batch.FilesTotal;
+                    break;
+                case "Comics":
+                    counts.ComicsCount += batch.FilesTotal;
+                    break;
+            }
+        }
     }
 
     private static IngestionCurrentActivityDto? ActivityFor(
@@ -1452,7 +1812,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 progressOverride: wikidataProgress),
             BuildTaskActivity(
                 "relationships",
-                "Series & relationships",
+                "Relationships",
                 "Building series and relationship graphs.",
                 "enrichment",
                 rows,
@@ -3591,14 +3951,49 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private sealed class NumberedStageArtifactCounts
     {
         public int ProviderMatches { get; init; }
+        public int BooksCount { get; set; }
+        public int MoviesCount { get; set; }
+        public int TvShowsCount { get; set; }
+        public int MusicCount { get; set; }
+        public int ComicsCount { get; set; }
+        public int AudiobooksCount { get; set; }
+        public int RetailBooksCount { get; init; }
+        public int RetailMoviesCount { get; init; }
+        public int RetailTvShowsCount { get; init; }
+        public int RetailMusicCount { get; init; }
+        public int RetailComicsCount { get; init; }
+        public int RetailAudiobooksCount { get; init; }
         public int MetadataFields { get; init; }
         public int CoverUrls { get; init; }
         public int PrimaryArtworkCount { get; init; }
-        public int QidCount { get; init; }
+        public int FilesWithQid { get; init; }
+        public int RelatedQidCount { get; init; }
         public int PeopleCount { get; init; }
-        public int RelationshipCount { get; init; }
+        public int CastCount { get; init; }
+        public int DirectorCount { get; init; }
+        public int AuthorCount { get; init; }
+        public int NarratorCount { get; init; }
+        public int MusicArtistCount { get; init; }
+        public int CreatorCrewCount { get; init; }
+        public int DeepPeopleCount { get; init; }
+        public int UniverseLinkCount { get; init; }
+        public int FilesWithUniverseLinks { get; init; }
+        public int SeriesShelfCount { get; init; }
+        public int UniverseRootCount { get; init; }
+        public int FictionalEntityCount { get; init; }
+        public int AdaptationStoryLinkCount { get; init; }
         public int DeepArtworkCount { get; init; }
         public int DeepArtworkFiles { get; init; }
+        public int HeadshotCount { get; init; }
+        public int BackdropBannerLogoCount { get; init; }
+        public int SeasonEpisodeArtworkCount { get; init; }
+        public int MusicArtworkCount { get; init; }
+
+        public bool HasMediaBreakdown =>
+            BooksCount + MoviesCount + TvShowsCount + MusicCount + ComicsCount + AudiobooksCount > 0;
+
+        public int TotalArtworkCount =>
+            PrimaryArtworkCount + HeadshotCount + BackdropBannerLogoCount + SeasonEpisodeArtworkCount + MusicArtworkCount;
 
         public int RetailArtifactCount =>
             ProviderMatches + MetadataFields + CoverUrls + PrimaryArtworkCount;

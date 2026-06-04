@@ -55,6 +55,12 @@ public sealed class WikidataResolveResult
     /// <summary>Edition/work rollup path selected by the Tuvima.Wikidata bridge resolver.</summary>
     public CanonicalRollup? BridgeRollup { get; init; }
 
+    /// <summary>Series/order signals extracted during bridge resolution.</summary>
+    public IReadOnlyList<BridgeSeriesInfo> BridgeSeries { get; init; } = [];
+
+    /// <summary>Relationship edges extracted during bridge resolution.</summary>
+    public IReadOnlyList<BridgeRelationshipEdge> BridgeRelationships { get; init; } = [];
+
     /// <summary>Singleton not-found result.</summary>
     public static WikidataResolveResult NotFound { get; } = new()
     {

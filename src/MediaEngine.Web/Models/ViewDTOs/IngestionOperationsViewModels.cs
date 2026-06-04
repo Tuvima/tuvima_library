@@ -147,6 +147,15 @@ public sealed class IngestionStageProgressViewModel
     [JsonPropertyName("artifact_count")] public int? ArtifactCount { get; set; }
     [JsonPropertyName("last_updated_time")] public DateTimeOffset? LastUpdatedTime { get; set; }
     [JsonPropertyName("is_stale")] public bool IsStale { get; set; }
+    [JsonPropertyName("detail_items")] public List<IngestionStageDetailItemViewModel> DetailItems { get; set; } = [];
+}
+
+public sealed class IngestionStageDetailItemViewModel
+{
+    [JsonPropertyName("label")] public string Label { get; set; } = "";
+    [JsonPropertyName("value")] public string Value { get; set; } = "";
+    [JsonPropertyName("tone")] public string? Tone { get; set; }
+    [JsonPropertyName("icon")] public string? Icon { get; set; }
 }
 
 public sealed class IngestionReviewReasonViewModel
