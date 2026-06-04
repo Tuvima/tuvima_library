@@ -309,6 +309,24 @@ public sealed class IngestionStageProgressDto
 
     [JsonPropertyName("is_stale")]
     public bool IsStale { get; init; }
+
+    [JsonPropertyName("detail_items")]
+    public List<IngestionStageDetailItemDto> DetailItems { get; init; } = [];
+}
+
+public sealed class IngestionStageDetailItemDto
+{
+    [JsonPropertyName("label")]
+    public string Label { get; init; } = "";
+
+    [JsonPropertyName("value")]
+    public string Value { get; init; } = "";
+
+    [JsonPropertyName("tone")]
+    public string? Tone { get; init; }
+
+    [JsonPropertyName("icon")]
+    public string? Icon { get; init; }
 }
 
 public sealed class IngestionReviewReasonDto

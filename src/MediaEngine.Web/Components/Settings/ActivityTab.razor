@@ -1,14 +1,15 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using System.Text
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.WebUtilities
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
+@inject NavigationManager Nav
+@implements IDisposable
 
 <div class="tl-page">
-    <AppPageHeader Title="@L["Activity_PageTitle"]"
-                   Subtitle="@L["Activity_PageDescription"]" />
-
     <AppCard Title="@L["Activity_RetentionPolicy"]" Class="mb-6">
         <div class="activity-retention-row">
             <div class="activity-retention-control">
@@ -55,6 +56,19 @@
                      Class="activity-filter-chip" />
         }
     </div>
+
+    @if (_filteredRunId is { } runId)
+    {
+        <div class="activity-run-filter mb-4">
+            <span>
+                <MudIcon Icon="@Icons.Material.Outlined.History" />
+                Showing activity for batch <strong>@ShortRunId(runId)</strong>
+            </span>
+            <AppButton Label="Clear"
+                       StartIcon="@Icons.Material.Outlined.Close"
+                       OnClick="@ClearRunFilter" />
+        </div>
+    }
 
     @if (_loading && _entries.Count == 0)
     {
@@ -143,12 +157,14 @@
     private bool _loading;
     private bool _pruning;
     private int _visibleCount = 10;
+    private Guid? _filteredRunId;
     private ActivityStatsViewModel? _stats;
     private List<ActivityEntryViewModel> _entries = [];
     private readonly HashSet<string> _activeFilters = [];
 
     protected override async Task OnInitializedAsync()
     {
+        Nav.LocationChanged += OnLocationChanged;
         await LoadActivityAsync();
     }
 
@@ -157,15 +173,26 @@
         _loading = true;
         try
         {
+            _filteredRunId = ResolveRunFilterFromUri();
             _stats = await Orchestrator.GetActivityStatsAsync();
             if (_stats is not null)
             {
                 _retentionDays = Math.Clamp(_stats.RetentionDays, 7, 365);
             }
 
-            _entries = _activeFilters.Count == 0
-                ? await Orchestrator.GetRecentActivityAsync(100)
-                : await Orchestrator.GetActivityByTypesAsync(_activeFilters.ToArray(), 100);
+            if (_filteredRunId is { } runId)
+            {
+                var entries = await Orchestrator.GetActivityByRunIdAsync(runId);
+                _entries = _activeFilters.Count == 0
+                    ? entries
+                    : entries.Where(entry => _activeFilters.Contains(entry.ActionType)).ToList();
+            }
+            else
+            {
+                _entries = _activeFilters.Count == 0
+                    ? await Orchestrator.GetRecentActivityAsync(100)
+                    : await Orchestrator.GetActivityByTypesAsync(_activeFilters.ToArray(), 100);
+            }
         }
         finally
         {
@@ -190,6 +217,31 @@
         _visibleCount = 10;
         await LoadActivityAsync();
     }
+
+    private void ClearRunFilter() => Nav.NavigateTo("/settings/activity");
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _visibleCount = 10;
+            await LoadActivityAsync();
+            StateHasChanged();
+        });
+    }
+
+    private Guid? ResolveRunFilterFromUri()
+    {
+        var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        var raw = query.TryGetValue("runId", out var runId)
+            ? runId.FirstOrDefault()
+            : query.TryGetValue("batchId", out var batchId)
+                ? batchId.FirstOrDefault()
+                : null;
+        return Guid.TryParse(raw, out var parsed) ? parsed : null;
+    }
+
+    private static string ShortRunId(Guid runId) => runId.ToString("N")[..6];
 
     private void LoadMore() => _visibleCount += 10;
 
@@ -294,5 +346,10 @@
         }
 
         return builder.ToString();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
     }
 }

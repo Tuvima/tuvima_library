@@ -14,7 +14,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
     <!-- Swashbuckle 7.x: kept at 7.x intentionally — upgrading to 10.x requires
          switching Program.cs to the new .NET 9+ OpenAPI infrastructure. -->
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.3.1" />
@@ -36,16 +36,16 @@
     <PackageVersion Include="SharpCompress" Version="0.48.0" />
     <!-- LLamaSharp: .NET native llama.cpp binding for local LLM inference.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="LLamaSharp" Version="0.21.0" />
+    <PackageVersion Include="LLamaSharp" Version="0.27.0" />
     <!-- LLamaSharp CPU backend for cross-platform inference.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="LLamaSharp.Backend.Cpu" Version="0.21.0" />
+    <PackageVersion Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
     <!-- LLamaSharp Vulkan GPU backend: covers AMD, Intel Arc, and NVIDIA on Windows/Linux.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="LLamaSharp.Backend.Vulkan" Version="0.21.0" />
+    <PackageVersion Include="LLamaSharp.Backend.Vulkan" Version="0.27.0" />
     <!-- LLamaSharp CUDA 12 GPU backend: NVIDIA-optimised, higher throughput than Vulkan.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="LLamaSharp.Backend.Cuda12" Version="0.21.0" />
+    <PackageVersion Include="LLamaSharp.Backend.Cuda12" Version="0.27.0" />
     <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="Whisper.net" Version="1.8.0" />
@@ -67,8 +67,8 @@
     <PackageVersion Include="MudBlazor" Version="9.0.0" />
     <!-- Tuvima.Wikidata: unified Wikidata/Wikipedia API client and in-memory graph engine.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="Tuvima.Wikidata" Version="3.1.0" />
-    <PackageVersion Include="Tuvima.Wikidata.AspNetCore" Version="3.1.0" />
+    <PackageVersion Include="Tuvima.Wikidata" Version="3.2.0" />
+    <PackageVersion Include="Tuvima.Wikidata.AspNetCore" Version="3.2.0" />
   </ItemGroup>
   <ItemGroup Label="Test">
     <PackageVersion Include="bunit" Version="1.38.5" />

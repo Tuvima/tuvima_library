@@ -27,6 +27,14 @@ public sealed class AiSettings
     [JsonPropertyName("models")]
     public AiModelDefinitions Models { get; set; } = new();
 
+    /// <summary>Reusable catalog of current, candidate, experimental, and escalation models.</summary>
+    [JsonPropertyName("model_catalog")]
+    public Dictionary<string, AiModelCatalogEntry> ModelCatalog { get; set; } = AiModelCatalogDefaults.CreateCatalog();
+
+    /// <summary>Small-first validation gates for each functional model role.</summary>
+    [JsonPropertyName("role_requirements")]
+    public Dictionary<string, AiRoleRequirement> RoleRequirements { get; set; } = AiModelCatalogDefaults.CreateRoleRequirements();
+
     /// <summary>Per-feature enable/disable flags.</summary>
     [JsonPropertyName("features")]
     public AiFeatureFlags Features { get; set; } = new();
@@ -46,6 +54,25 @@ public sealed class AiSettings
     /// <summary>Hardware profiling result — populated once at startup by HardwareBenchmarkService.</summary>
     [JsonPropertyName("hardware_profile")]
     public HardwareProfile HardwareProfile { get; set; } = new();
+
+    public AiModelCatalogEntry? GetCatalogEntryForRole(Domain.Enums.AiModelRole role)
+    {
+        var definition = Models.GetByRole(role);
+        if (!string.IsNullOrWhiteSpace(definition.CatalogKey)
+            && ModelCatalog.TryGetValue(definition.CatalogKey, out var configured))
+        {
+            return configured;
+        }
+
+        return ModelCatalog.Values.FirstOrDefault(entry =>
+            string.Equals(entry.File, definition.File, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public AiRoleRequirement? GetRequirementForRole(Domain.Enums.AiModelRole role)
+    {
+        var key = AiModelDefinitions.ToRoleKey(role);
+        return RoleRequirements.TryGetValue(key, out var requirement) ? requirement : null;
+    }
 }
 
 /// <summary>Model definitions by role (text_fast, text_quality, audio).</summary>
@@ -54,11 +81,12 @@ public sealed class AiModelDefinitions
     [JsonPropertyName("text_fast")]
     public AiModelDefinition TextFast { get; set; } = new()
     {
+        CatalogKey = "qwen3_0_6b_q8",
         Description = "On-demand text tasks (search parsing, TL;DR, Why Factor)",
-        File = "llama-3.2-1b-instruct.Q4_K_M.gguf",
-        DownloadUrl = "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-        SizeMB = 750,
-        ContextLength = 2048,
+        File = "Qwen3-0.6B-Q8_0.gguf",
+        DownloadUrl = "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf",
+        SizeMB = 639,
+        ContextLength = 32768,
         MaxTokens = 256,
         Temperature = 0.1,
     };
@@ -66,11 +94,12 @@ public sealed class AiModelDefinitions
     [JsonPropertyName("text_quality")]
     public AiModelDefinition TextQuality { get; set; } = new()
     {
+        CatalogKey = "qwen3_1_7b_q8",
         Description = "Batch/scheduled tasks (ingestion manifest, vibe tags, disambiguation)",
-        File = "llama-3.2-3b-instruct.Q4_K_M.gguf",
-        DownloadUrl = "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-        SizeMB = 2000,
-        ContextLength = 4096,
+        File = "Qwen3-1.7B-Q8_0.gguf",
+        DownloadUrl = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf",
+        SizeMB = 1830,
+        ContextLength = 32768,
         MaxTokens = 512,
         Temperature = 0.1,
     };
@@ -79,10 +108,11 @@ public sealed class AiModelDefinitions
     public AiModelDefinition TextScholar { get; set; } = new()
     {
         Description = "Deep enrichment (description intelligence, complex analysis) — scheduled/overnight",
-        File = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        DownloadUrl = "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        SizeMB = 4920,
-        ContextLength = 8192,
+        CatalogKey = "qwen3_4b_q4",
+        File = "Qwen3-4B-Q4_K_M.gguf",
+        DownloadUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+        SizeMB = 2500,
+        ContextLength = 32768,
         MaxTokens = 1024,
         Temperature = 0.1,
     };
@@ -90,20 +120,23 @@ public sealed class AiModelDefinitions
     [JsonPropertyName("audio")]
     public AiModelDefinition Audio { get; set; } = new()
     {
+        CatalogKey = "whisper_medium",
         Description = "Whisper transcription and language detection",
         File = "ggml-medium.bin",
         DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
         SizeMB = 1500,
+        Language = "auto",
     };
 
     [JsonPropertyName("text_cjk")]
     public AiModelDefinition TextCjk { get; set; } = new()
     {
+        CatalogKey = "qwen3_4b_q4",
         Description = "Multilingual model with strong CJK support for Chinese, Japanese, and Korean content analysis",
-        File = "qwen2.5-3b-instruct-q4_k_m.gguf",
-        DownloadUrl = "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
-        SizeMB = 2048,
-        ContextLength = 8192,
+        File = "Qwen3-4B-Q4_K_M.gguf",
+        DownloadUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+        SizeMB = 2500,
+        ContextLength = 32768,
         MaxTokens = 512,
         Temperature = 0.1,
     };
@@ -118,11 +151,24 @@ public sealed class AiModelDefinitions
         Domain.Enums.AiModelRole.TextCjk     => TextCjk,
         _ => throw new ArgumentOutOfRangeException(nameof(role)),
     };
+
+    public static string ToRoleKey(Domain.Enums.AiModelRole role) => role switch
+    {
+        Domain.Enums.AiModelRole.TextFast => "text_fast",
+        Domain.Enums.AiModelRole.TextQuality => "text_quality",
+        Domain.Enums.AiModelRole.TextScholar => "text_scholar",
+        Domain.Enums.AiModelRole.Audio => "audio",
+        Domain.Enums.AiModelRole.TextCjk => "text_cjk",
+        _ => role.ToString(),
+    };
 }
 
 /// <summary>Definition of a single AI model.</summary>
 public sealed class AiModelDefinition
 {
+    [JsonPropertyName("catalog_key")]
+    public string? CatalogKey { get; set; }
+
     [JsonPropertyName("description")]
     public string Description { get; set; } = "";
 
@@ -158,6 +204,171 @@ public sealed class AiModelDefinition
 
     [JsonPropertyName("translate")]
     public bool Translate { get; set; }
+}
+
+public sealed class AiModelCatalogEntry
+{
+    [JsonPropertyName("display_name")]
+    public string DisplayName { get; set; } = "";
+
+    [JsonPropertyName("family")]
+    public string Family { get; set; } = "";
+
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = "";
+
+    [JsonPropertyName("license")]
+    public string License { get; set; } = "";
+
+    [JsonPropertyName("runtime")]
+    public string Runtime { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "candidate";
+
+    [JsonPropertyName("selection_tier")]
+    public string SelectionTier { get; set; } = "candidate";
+
+    [JsonPropertyName("intended_roles")]
+    public List<string> IntendedRoles { get; set; } = [];
+
+    [JsonPropertyName("file")]
+    public string File { get; set; } = "";
+
+    [JsonPropertyName("download_url")]
+    public string DownloadUrl { get; set; } = "";
+
+    [JsonPropertyName("source_url")]
+    public string SourceUrl { get; set; } = "";
+
+    [JsonPropertyName("size_mb")]
+    public int SizeMB { get; set; }
+
+    [JsonPropertyName("parameters_b")]
+    public double ParametersB { get; set; }
+
+    [JsonPropertyName("effective_parameters_b")]
+    public double? EffectiveParametersB { get; set; }
+
+    [JsonPropertyName("quantization")]
+    public string Quantization { get; set; } = "";
+
+    [JsonPropertyName("context_length")]
+    public int ContextLength { get; set; }
+
+    [JsonPropertyName("capabilities")]
+    public AiModelCapabilities Capabilities { get; set; } = new();
+
+    [JsonPropertyName("validation")]
+    public AiModelValidationProfile Validation { get; set; } = new();
+
+    [JsonPropertyName("selection_rationale")]
+    public string SelectionRationale { get; set; } = "";
+
+    [JsonPropertyName("integration_notes")]
+    public string IntegrationNotes { get; set; } = "";
+}
+
+public sealed class AiModelCapabilities
+{
+    [JsonPropertyName("text_input")]
+    public bool TextInput { get; set; }
+
+    [JsonPropertyName("audio_input")]
+    public bool AudioInput { get; set; }
+
+    [JsonPropertyName("image_input")]
+    public bool ImageInput { get; set; }
+
+    [JsonPropertyName("text_output")]
+    public bool TextOutput { get; set; } = true;
+
+    [JsonPropertyName("structured_json")]
+    public bool StructuredJson { get; set; }
+
+    [JsonPropertyName("gbnf")]
+    public bool Gbnf { get; set; }
+
+    [JsonPropertyName("timestamp_segments")]
+    public bool TimestampSegments { get; set; }
+
+    [JsonPropertyName("word_timestamps")]
+    public bool WordTimestamps { get; set; }
+
+    [JsonPropertyName("sync_grade")]
+    public bool SyncGrade { get; set; }
+
+    [JsonPropertyName("multilingual")]
+    public bool Multilingual { get; set; }
+
+    [JsonPropertyName("cjk")]
+    public bool Cjk { get; set; }
+
+    [JsonPropertyName("experimental_multimodal")]
+    public bool ExperimentalMultimodal { get; set; }
+}
+
+public sealed class AiModelValidationProfile
+{
+    [JsonPropertyName("target_warm_latency_ms")]
+    public int TargetWarmLatencyMs { get; set; }
+
+    [JsonPropertyName("max_warm_latency_ms")]
+    public int MaxWarmLatencyMs { get; set; }
+
+    [JsonPropertyName("min_json_validity_rate")]
+    public double MinJsonValidityRate { get; set; } = 0.99;
+
+    [JsonPropertyName("min_task_pass_rate")]
+    public double MinTaskPassRate { get; set; } = 0.9;
+
+    [JsonPropertyName("max_hallucination_rate")]
+    public double MaxHallucinationRate { get; set; } = 0.02;
+
+    [JsonPropertyName("max_wer")]
+    public double? MaxWer { get; set; }
+
+    [JsonPropertyName("max_timestamp_drift_ms")]
+    public int? MaxTimestampDriftMs { get; set; }
+
+    [JsonPropertyName("benchmark_suite")]
+    public string BenchmarkSuite { get; set; } = "";
+}
+
+public sealed class AiRoleRequirement
+{
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("selection_policy")]
+    public string SelectionPolicy { get; set; } = "Use the smallest model that passes all gates.";
+
+    [JsonPropertyName("required_capabilities")]
+    public List<string> RequiredCapabilities { get; set; } = [];
+
+    [JsonPropertyName("preferred_catalog_keys")]
+    public List<string> PreferredCatalogKeys { get; set; } = [];
+
+    [JsonPropertyName("fallback_catalog_keys")]
+    public List<string> FallbackCatalogKeys { get; set; } = [];
+
+    [JsonPropertyName("max_default_size_mb")]
+    public int MaxDefaultSizeMB { get; set; }
+
+    [JsonPropertyName("target_warm_latency_ms")]
+    public int TargetWarmLatencyMs { get; set; }
+
+    [JsonPropertyName("max_background_latency_ms")]
+    public int MaxBackgroundLatencyMs { get; set; }
+
+    [JsonPropertyName("min_json_validity_rate")]
+    public double MinJsonValidityRate { get; set; } = 0.99;
+
+    [JsonPropertyName("min_task_pass_rate")]
+    public double MinTaskPassRate { get; set; } = 0.9;
+
+    [JsonPropertyName("benchmark_suite")]
+    public string BenchmarkSuite { get; set; } = "";
 }
 
 /// <summary>Per-feature enable/disable flags.</summary>

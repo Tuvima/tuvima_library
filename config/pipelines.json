@@ -9,19 +9,14 @@
     ],
     "field_priorities": {
       "cover": [
-        "apple_api",
-        "open_library"
+        "apple_api"
       ],
       "description": [
         "wikidata_reconciliation",
-        "apple_api",
-        "open_library"
+        "apple_api"
       ],
       "rating": [
         "apple_api"
-      ],
-      "page_count": [
-        "open_library"
       ]
     }
   },

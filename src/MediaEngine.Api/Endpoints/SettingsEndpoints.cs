@@ -12,6 +12,7 @@ using MediaEngine.Providers;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
@@ -615,6 +616,17 @@ public static class SettingsEndpoints
             if (providerConfig is null)
                 return Results.NotFound(new { error = $"Provider '{name}' not found." });
 
+            if (!ProviderExecutionFilter.IsEnabled(name, [providerConfig]))
+            {
+                return Results.Ok(new ProviderTestResponse
+                {
+                    Success        = false,
+                    ResponseTimeMs = 0,
+                    SampleFields   = [],
+                    Message        = "Provider disabled. Enable it before running live tests.",
+                });
+            }
+
             // Find the registered adapter by name; fall back to constructing one
             // directly from config when DI lookup fails (e.g. Engine not restarted).
             var adapter = providers.FirstOrDefault(p =>
@@ -733,6 +745,16 @@ public static class SettingsEndpoints
             var providerConfig = configLoader.LoadProvider(name);
             if (providerConfig is null)
                 return Results.NotFound(new { error = $"Provider '{name}' not found." });
+
+            if (!ProviderExecutionFilter.IsEnabled(name, [providerConfig]))
+            {
+                return Results.Ok(new ProviderSampleResponse
+                {
+                    ProviderName = name,
+                    Message      = "Provider disabled. Enable it before fetching sample claims.",
+                    Claims       = [],
+                });
+            }
 
             // Find the registered adapter; fall back to constructing one directly
             // from config when DI lookup fails.

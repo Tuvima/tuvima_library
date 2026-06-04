@@ -42,6 +42,33 @@ public sealed class CollectionAssignmentServiceTests
     }
 
     [Fact]
+    public void SeriesManifestHydration_BuildsDiagnosticsForWikidataOrderWarnings()
+    {
+        var diagnostics = WikidataSeriesManifestHydrationService.BuildWarningDiagnostics(
+        [
+            new SeriesManifestWarning
+            {
+                Code = "BrokenPreviousNextChain",
+                Message = "Book 2 does not point back to Book 1.",
+                Qid = "Q2",
+            },
+            new SeriesManifestWarning
+            {
+                Code = "PreviousNextConflictsWithOrdinal",
+                Message = "The ordinal and previous/next data disagree.",
+                Qid = "Q3",
+            },
+        ],
+        seriesQid: "QSeries",
+        resolvedWorkQid: "QOwned",
+        resolvedWorkPresentInManifest: false);
+
+        Assert.Equal(["BrokenPreviousNextChain", "PreviousNextConflictsWithOrdinal", "ResolvedWorkMissingFromManifest"],
+            diagnostics.Select(d => d.Code));
+        Assert.Equal("QOwned", diagnostics.Last().Qid);
+    }
+
+    [Fact]
     public void SeriesManifestHydration_NormalizesDuplicateItemsAndDenseDisplayOrder()
     {
         var normalized = WikidataSeriesManifestHydrationService.NormalizeManifestItems(

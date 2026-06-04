@@ -230,6 +230,48 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task CanonicalValue_BatchLookup_UsesGuidBlobEntityIds()
+    {
+        var repo = new CanonicalValueRepository(_db);
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+
+        await repo.UpsertBatchAsync([
+            new CanonicalValue
+            {
+                EntityId = first,
+                Key = "title",
+                Value = "Le Petit Prince",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+            new CanonicalValue
+            {
+                EntityId = second,
+                Key = "title",
+                Value = "La Vie en rose",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+        ]);
+
+        var values = await repo.GetByEntitiesAsync([first, second]);
+
+        using var conn = _db.CreateConnection();
+        var storageTypes = conn.Query<string>("""
+            SELECT typeof(entity_id) AS EntityIdType
+            FROM canonical_values
+            WHERE entity_id IN (@first, @second)
+            ORDER BY value;
+            """, new { first, second }).ToList();
+
+        Assert.True(values.ContainsKey(first));
+        Assert.True(values.ContainsKey(second));
+        Assert.Equal("Le Petit Prince", Assert.Single(values[first]).Value);
+        Assert.Equal("La Vie en rose", Assert.Single(values[second]).Value);
+        Assert.Equal(2, storageTypes.Count);
+        Assert.All(storageTypes, storageType => Assert.Equal("blob", storageType));
+    }
+
+    [Fact]
     public async Task CanonicalValue_Upsert_UpdatesExisting()
     {
         var repo = new CanonicalValueRepository(_db);

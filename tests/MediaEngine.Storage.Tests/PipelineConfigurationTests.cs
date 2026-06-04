@@ -12,7 +12,7 @@ public sealed class PipelineConfigurationTests
 
         var expectedRetailFallbacks = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Books"] = ["apple_api", "open_library"],
+            ["Books"] = ["apple_api"],
             ["Audiobooks"] = ["apple_api"],
             ["Music"] = ["apple_api"],
             ["Movies"] = ["tmdb"],

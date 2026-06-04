@@ -53,9 +53,9 @@ MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous. Tuvima uses folder context, 
 3. **Scan:** read embedded metadata and artwork.
 4. **Classify:** resolve media type where needed.
 5. **Stage:** register the file safely before promotion.
-6. **Stage 3 Retail metadata & primary artwork:** call active retail providers for metadata, primary cover/poster evidence, ratings, and bridge IDs.
-7. **Stage 4 Wikidata lookup:** use bridge IDs for canonical identity when possible.
-8. **Stage 5 File ready:** store core canonical values and managed artwork under `.data/assets`.
+6. **Stage 3 Retail Match:** call active retail providers for metadata, primary cover/poster evidence, ratings, and bridge IDs.
+7. **Stage 4 Wikidata:** use bridge IDs for canonical identity when possible.
+8. **Stage 5 Ready:** store core canonical values and managed artwork under `.data/assets`.
 9. **Stages 6-8 Enrichment:** expand people, universe relationships, lyrics/subtitles, and deeper artwork.
 10. **Settle artwork:** decide whether rich artwork is present, missing, or still pending.
 11. **Surface:** show the item only where it is ready and backed by real data.

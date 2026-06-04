@@ -8,12 +8,12 @@ The current pipeline has one modern storage rule: managed artwork and person ima
 
 ```mermaid
 flowchart TD
-    A["Library folder from config/libraries.json"] --> B["1. Scan folders"]
-    B --> C["2. Read media details"]
+    A["Library folder from config/libraries.json"] --> B["1. Scan"]
+    B --> C["2. Read Details"]
     C --> D["Scoring and canonical values"]
-    D --> E["3. Retail metadata and primary artwork"]
-    E -->|retail match + bridge id| F["4. Wikidata lookup"]
-    E -->|no retail match| R["9. Review / attention"]
+    D --> E["3. Retail Match"]
+    E -->|retail match + bridge id| F["4. Wikidata"]
+    E -->|no retail match| R["Review queue / attention metric"]
     F -->|QID found| G["5. File ready"]
     F -->|no QID| H["Retail data retained; retry later"]
     G --> I["Post-pipeline readiness and collection assignment"]
@@ -24,21 +24,22 @@ flowchart TD
 
 ## Dashboard Stage Model
 
-The Ingestion page uses the numbered operational stages below. These are the product-facing names that appear in `GET /ingestion/operations.stage_progress`.
+The Ingestion page uses the numbered operational stages below. These are the product-facing progress rows rendered from `GET /ingestion/operations.stage_progress`.
 
 | # | Stage | Notes |
 | ---: | --- | --- |
-| 1 | Scan folders | Discovers files in configured source folders. |
-| 2 | Read media details | Parses embedded metadata and local file evidence. |
-| 3 | Retail metadata & primary artwork | Collapses retail/catalog lookup, quick metadata, and first cover/poster evidence into one bar. |
-| 4 | Wikidata lookup | Uses bridge IDs from Stage 3 to resolve canonical QIDs. |
-| 5 | File ready | Makes the file visible or records a terminal outcome. |
-| 6 | People & cast | Links and enriches people once retail/Wikidata claims exist. |
-| 7 | Series & relationships | Builds series, shelves, child items, and relationship graphs. |
-| 8 | Deep artwork | Fetches later artwork such as backgrounds, banners, logos, disc art, season posters, album variants, and episode stills. |
-| 9 | Review / attention | Live exception state collected from any stage. |
+| 1 | Scan | Discovers and accepts files in configured source folders. |
+| 2 | Read Details | Parses embedded metadata and local file evidence. |
+| 3 | Retail Match | Collapses retail/catalog lookup, quick metadata, and first cover/poster evidence into one bar. |
+| 4 | Wikidata | Uses bridge IDs from Stage 3 to resolve canonical QIDs. |
+| 5 | Ready | Makes the file visible or records a terminal outcome. |
+| 6 | People | Links and enriches people once retail/Wikidata claims exist. |
+| 7 | Relationships | Builds series, shelves, child items, and relationship graphs. |
+| 8 | Artwork | Fetches later artwork such as backgrounds, banners, logos, disc art, season posters, album variants, and episode stills. |
 
-Stages 6, 7, and 8 can run concurrently after their prerequisites are present. Grouped provider calls, including batched `Tuvima.Wikidata` work, show group labels when exact per-file labels are not available.
+Stages 6, 7, and 8 can run concurrently after their prerequisites are present. Grouped provider calls, including batched `Tuvima.Wikidata` work, show group labels when exact per-file labels are not available. Review/attention is a live exception metric and latest-batch delta, not a ninth progress row in the Dashboard.
+
+Series order is user-facing only when it affects the local shelf. Tuvima prefers explicit order values such as local `series_pos`, retail series position, or Wikidata ordinal qualifiers. Wikidata previous/next chain warnings are kept as diagnostics because public Wikidata chains can be incomplete or one-directional; they do not create Review Queue rows by themselves.
 
 ## Stages 1-2: Local Ingestion
 
@@ -197,7 +198,7 @@ Readiness states are built from:
 | Ready | Required identity, metadata, artwork policy, and hierarchy signals are good enough for normal browsing. |
 | Needs review | Human confirmation is required before the item should be trusted. |
 
-The Library Update page reports two Wikidata counts with different meanings: media-item QID progress counts media assets that resolved to a canonical identity, while the "Linking Wikidata QIDs" activity metric counts distinct resolved entity QIDs across works, people, collections, fictional entities, and manifest items. The Needs Review badge and review page both use the same ready-pending review query, so their counts should match.
+The Ingestion page reports two Wikidata counts with different meanings: media-item QID progress counts media assets that resolved to a canonical identity, while the "Linking Wikidata QIDs" activity metric counts distinct resolved entity QIDs across works, people, collections, fictional entities, and manifest items. The Needs Review badge and review page both use the same ready-pending review query, so their counts should match.
 
 ## Implementation Plan
 

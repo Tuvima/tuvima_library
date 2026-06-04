@@ -115,7 +115,9 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/ingestion/batches/{batchId}/items` | Durable per-file item ledger for a batch, sourced from `media_operations`. | Curator |
 | GET | `/ingestion/watch-folder` | Returns the derived current watch folder view from configured library source folders. | Required |
 
-`/ingestion/operations.stage_progress` contains one row per numbered ingestion stage: `stage_number`, `stage_key`, `label`, `completed_files`, `total_files`, `percent_complete`, `active_count`, `queued_count`, `status_label`, `active_item_label`, `active_group_label`, `active_group_count`, `label_accuracy`, `artifact_label`, `artifact_count`, `last_updated_time`, and `is_stale`. Grouped provider work, such as batched Wikidata resolution, uses group labels instead of fake exact file labels unless per-file correlation is available.
+`/ingestion/operations.stage_progress` contains numbered ingestion stage rows with `stage_number`, `stage_key`, `label`, `completed_files`, `total_files`, `percent_complete`, `active_count`, `queued_count`, `status_label`, `active_item_label`, `active_group_label`, `active_group_count`, `label_accuracy`, `artifact_label`, `artifact_count`, `detail_items`, `last_updated_time`, and `is_stale`. `detail_items` is an optional list of `{ label, value, tone?, icon? }` rows populated by the Engine so clients do not hardcode provider math. Grouped provider work, such as batched Wikidata resolution, uses group labels instead of fake exact file labels unless per-file correlation is available.
+
+The Dashboard renders Stages 1-8 as compact progress rows. Review/attention state remains in the snapshot for API consumers, but the Dashboard surfaces it through the top **Need Review** metric and the `recent_batches` review count rather than as another progress bar. `recent_batches` rows include batch id, status, timing, file totals, media-type counts, registered/review/failed counts, and artifact totals such as people, artwork, metadata, matched, and review.
 
 ---
 

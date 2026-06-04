@@ -5,9 +5,6 @@
 @inject ISnackbar Snackbar
 
 <div class="tl-page">
-    <AppPageHeader Title="Offline Downloads"
-                   Subtitle="Prepared variants for phones, tablets, and travel playback." />
-
     <AppActionBar Class="mb-4">
         <AppButton Label="Refresh" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@LoadJobsAsync" />
         <AppButton Label="Run cleanup" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@CleanupAsync" />

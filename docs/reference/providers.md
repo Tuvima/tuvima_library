@@ -21,11 +21,11 @@ tags:
 
 The provider portion of ingestion maps to the numbered stages shown on the Ingestion page:
 
-1. **Stage 3 (Retail metadata & primary artwork):** Retail providers search for the media item using file metadata. They return primary cover/poster evidence, descriptions, ratings, and - critically - **bridge IDs** (ISBN, TMDB ID, etc.) that uniquely identify the item on external platforms.
+1. **Stage 3 (Retail Match):** Retail providers search for the media item using file metadata. They return primary cover/poster evidence, descriptions, ratings, and - critically - **bridge IDs** (ISBN, TMDB ID, etc.) that uniquely identify the item on external platforms.
 
-2. **Stage 4 (Wikidata lookup):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (for example, ISBN-13 maps to P212). Stage 4 is strict-gated behind Stage 3: no safe retail match means no automatic Wikidata attempt. A Stage 4 request also needs at least one real bridge ID; title and creator hints are sent as ranking context, not as a broad title-only fallback.
+2. **Stage 4 (Wikidata):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (for example, ISBN-13 maps to P212). Stage 4 is strict-gated behind Stage 3: no safe retail match means no automatic Wikidata attempt. A Stage 4 request also needs at least one real bridge ID; title and creator hints are sent as ranking context, not as a broad title-only fallback.
 
-3. **Stage 8 (Deep artwork):** Rich artwork providers such as Fanart.tv run later, after bridge IDs or QIDs are available. They do not provide the first cover/poster pass.
+3. **Stage 8 (Artwork):** Rich artwork providers such as Fanart.tv run later, after bridge IDs or QIDs are available. They do not provide the first cover/poster pass.
 
 Retail providers are a **rich data source for matching** - descriptions, narrator data, ratings, and cover art similarity are all used to rank candidates against file metadata. **Wikidata is the authority** for final canonical values (title, author, year, genre, series).
 

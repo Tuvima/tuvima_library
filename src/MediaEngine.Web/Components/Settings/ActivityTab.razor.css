@@ -1,5 +1,6 @@
 .activity-retention-row,
 .activity-filter-row,
+.activity-run-filter,
 .activity-entry-header {
     display: flex;
     align-items: center;
@@ -41,6 +42,28 @@
 
 .activity-entry-detail {
     margin: 2px 0 0;
+}
+
+.activity-run-filter {
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(96, 165, 250, 0.22);
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.activity-run-filter span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--tl-text-muted);
+}
+
+.activity-run-filter strong {
+    color: var(--tl-text-primary);
+    font-variant-numeric: tabular-nums;
 }
 
 .activity-entry-dot--success { background: var(--tl-status-success); }

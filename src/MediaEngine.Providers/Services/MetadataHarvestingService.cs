@@ -201,8 +201,11 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         foreach (var pc in allProviderConfigs)
             providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
 
-        // Build provider weight maps from provider configs.
-        var (providerWeights, providerFieldWeights) = BuildWeightMaps(allProviderConfigs);
+        var enabledProviders = ProviderExecutionFilter.EnabledProviders(_providers, allProviderConfigs);
+
+        // Build provider weight maps from executable provider configs.
+        var (providerWeights, providerFieldWeights) =
+            ScoringHelper.BuildWeightMaps(allProviderConfigs, enabledProviders);
 
         var sparqlBaseUrl = ResolveSparqlBaseUrl(providerEndpoints);
 
@@ -219,7 +222,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             }
         }
 
-        foreach (var provider in _providers)
+        foreach (var provider in enabledProviders)
         {
             if (!provider.CanHandle(request.MediaType) || !provider.CanHandle(request.EntityType))
                 continue;
@@ -1140,34 +1143,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             HydrationPass = request.Pass,
             Hints        = h,
         };
-    }
-
-    private (IReadOnlyDictionary<Guid, double> Weights,
-             IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, double>>? FieldWeights)
-        BuildWeightMaps(IReadOnlyList<MediaEngine.Storage.Models.ProviderConfiguration> providerConfigs)
-    {
-        var weights      = new Dictionary<Guid, double>();
-        Dictionary<Guid, IReadOnlyDictionary<string, double>>? fieldWeights = null;
-
-        foreach (var provider in _providers)
-        {
-            var provConfig = providerConfigs
-                .FirstOrDefault(p => string.Equals(p.Name, provider.Name,
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (provConfig is null) continue;
-
-            weights[provider.ProviderId] = provConfig.Weight;
-
-            if (provConfig.FieldWeights.Count > 0)
-            {
-                fieldWeights ??= new Dictionary<Guid, IReadOnlyDictionary<string, double>>();
-                fieldWeights[provider.ProviderId] =
-                    (IReadOnlyDictionary<string, double>)provConfig.FieldWeights;
-            }
-        }
-
-        return (weights, fieldWeights);
     }
 
     /// <summary>

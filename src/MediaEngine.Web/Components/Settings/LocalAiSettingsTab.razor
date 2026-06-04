@@ -2,11 +2,6 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <MudText Typo="Typo.h6">Local AI</MudText>
-        <SettingsStatusBadge Status="SettingsStatusKind.Live" />
-    </MudStack>
-
     <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
         Local AI runs on this server. Model download URLs are only used to retrieve model files into the local model directory; inference stays local, no telemetry is sent, and provider metadata calls are separate from AI.
     </AppAlert>

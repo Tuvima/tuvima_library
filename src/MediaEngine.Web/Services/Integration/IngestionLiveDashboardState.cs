@@ -8,13 +8,17 @@ public sealed class IngestionLiveDashboardState : IDisposable
 {
     private static readonly TimeSpan LiveUniverseProgressFreshness = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan LiveItemProgressFreshness = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan LiveNotifyThrottle = TimeSpan.FromMilliseconds(250);
 
     private readonly IEngineApiClient _api;
     private readonly UIOrchestratorService _orchestrator;
     private readonly UniverseStateContainer _stateContainer;
+    private readonly object _liveNotifyGate = new();
     private CancellationTokenSource? _pollCts;
     private CancellationTokenSource? _refreshDebounceCts;
     private string? _lastSnapshotSignature;
+    private DateTimeOffset _lastLiveNotifyAt = DateTimeOffset.MinValue;
+    private bool _liveNotifyScheduled;
     private bool _disposed;
     private bool _initialized;
 
@@ -289,7 +293,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private void OnRealtimeStateChanged()
     {
         LastUpdated = DateTimeOffset.Now;
-        Notify();
+        NotifyLiveThrottled();
         if (_stateContainer.LastStateChangeRequiresSnapshotRefresh)
             DebounceSnapshotRefresh();
     }
@@ -322,6 +326,56 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         if (!_disposed)
             OnChanged?.Invoke();
+    }
+
+    private void NotifyLiveThrottled()
+    {
+        var now = DateTimeOffset.UtcNow;
+        TimeSpan delay;
+        lock (_liveNotifyGate)
+        {
+            if (!_liveNotifyScheduled && now - _lastLiveNotifyAt >= LiveNotifyThrottle)
+            {
+                _lastLiveNotifyAt = now;
+                delay = TimeSpan.Zero;
+            }
+            else
+            {
+                if (_liveNotifyScheduled)
+                    return;
+
+                delay = LiveNotifyThrottle - (now - _lastLiveNotifyAt);
+                if (delay < TimeSpan.Zero)
+                    delay = TimeSpan.Zero;
+                _liveNotifyScheduled = true;
+            }
+        }
+
+        if (delay == TimeSpan.Zero)
+        {
+            Notify();
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delay).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            lock (_liveNotifyGate)
+            {
+                _lastLiveNotifyAt = DateTimeOffset.UtcNow;
+                _liveNotifyScheduled = false;
+            }
+
+            Notify();
+        });
     }
 
     public void Stop()
@@ -645,7 +699,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (activity.StageKey.Equals("retail", StringComparison.OrdinalIgnoreCase)
             && IsQuickMetadataStage(FirstNonBlank(batch.CurrentStage, batch.LifecycleStage)))
         {
-            activity.Message = "Retail metadata & primary artwork";
+            activity.Message = "Retail Match";
             activity.Detail = "Adding retail metadata and primary artwork";
         }
         else if (activity.StageKey.Equals("enrichment", StringComparison.OrdinalIgnoreCase))
@@ -655,13 +709,13 @@ public sealed class IngestionLiveDashboardState : IDisposable
             if (IsQuickMetadataStage(batchStage))
             {
                 activity.StageKey = "retail";
-                activity.Message = "Retail metadata & primary artwork";
+                activity.Message = "Retail Match";
                 activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Adding retail metadata and primary artwork");
             }
             else
             {
                 activity.StageKey = "relationships";
-                activity.Message = "Series & relationships";
+                activity.Message = "Relationships";
                 activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Stage 3 enrichment");
             }
 
@@ -709,7 +763,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             StageKey = "relationships",
             Message = progress.CurrentStep.Contains("enhancer", StringComparison.OrdinalIgnoreCase)
                 ? "Artwork, people, and relationship enhancers"
-                : "Series & relationships",
+                : "Relationships",
             Detail = FirstNonBlank(stepLabel, "Stage 3 enrichment"),
             CurrentItem = progress.WorkTitle,
             Source = "Wikidata",
@@ -896,9 +950,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
             "waiting_for_lock" => "Waiting for lock",
             "queued" => "Queued",
             "hashing" => "Hashing",
-            "processed" => "Read media details",
+            "processed" => "Read details",
             "scored" => "Scored metadata",
-            "parsing" => "Reading media details",
+            "parsing" => "Reading details",
             "scoring" => "Scoring identity",
             "registered" => "Registered",
             "queued_identity" => "Identity queued",
@@ -991,7 +1045,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
                     stage.IsStale,
                     stage.StatusLabel,
                     stage.ActiveCount,
-                    stage.QueuedCount))
+                    stage.QueuedCount,
+                    stage.DetailItems))
                 .ToList();
         }
 
@@ -1121,14 +1176,14 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var key = stageKey.ToLowerInvariant();
         return key switch
         {
-            "scan" => Icons.Material.Outlined.Radar,
+            "scan" => Icons.Material.Outlined.Folder,
             "read" => Icons.Material.Outlined.Description,
             "retail" => Icons.Material.Outlined.Search,
             "wikidata" => Icons.Material.Outlined.TravelExplore,
             "ready" => Icons.Material.Outlined.CheckCircle,
             "people" => Icons.Material.Outlined.Groups,
-            "relationships" => Icons.Material.Outlined.Hub,
-            "deep_artwork" => Icons.Material.Outlined.Image,
+            "relationships" or "universes" => Icons.Material.Outlined.Public,
+            "deep_artwork" or "artwork" => Icons.Material.Outlined.Image,
             "review" => Icons.Material.Outlined.WarningAmber,
             _ => Icons.Material.Outlined.AutoAwesome,
         };
@@ -1783,6 +1838,19 @@ public sealed class IngestionLiveDashboardState : IDisposable
                 activity.TotalCount,
                 activity.ActiveCount,
                 activity.QueuedCount)));
+        var stageProgress = string.Join(';', snapshot.StageProgress
+            .OrderBy(stage => stage.StageNumber)
+            .Select(stage => string.Join(':',
+                stage.StageNumber,
+                stage.StageKey,
+                stage.CompletedFiles,
+                stage.TotalFiles,
+                Math.Round(stage.PercentComplete, 1),
+                stage.ActiveCount,
+                stage.QueuedCount,
+                stage.StatusLabel,
+                stage.ArtifactCount,
+                string.Join(',', stage.DetailItems.Select(item => $"{item.Label}={item.Value}")))));
         var operationSummary = string.Join(';', operationsSummary
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair => $"{pair.Key}:{pair.Value}"));
@@ -1807,6 +1875,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             summary.LastSuccessfulScanTime?.ToUnixTimeSeconds(),
             active,
             activities,
+            stageProgress,
             operationSummary,
             operationRows,
             showDetails,
@@ -2121,7 +2190,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var labels = new[]
         {
             ("Scanned folders", Icons.Material.Outlined.FolderOpen),
-            ("Read media details", Icons.Material.Outlined.MenuBook),
+            ("Read details", Icons.Material.Outlined.MenuBook),
             ("Matched identity", Icons.Material.Outlined.Link),
             ("Enriched metadata", Icons.Material.Outlined.AutoAwesome),
             ("Saved to library", Icons.Material.Outlined.Storage),
@@ -2701,7 +2770,8 @@ public sealed record IngestionDashboardStage(
     bool IsStale = false,
     string? StatusLabel = null,
     int ActiveCount = 0,
-    int QueuedCount = 0);
+    int QueuedCount = 0,
+    IReadOnlyList<IngestionStageDetailItemViewModel>? DetailItems = null);
 
 public sealed record IngestionQueueHealthItem(
     string Key,

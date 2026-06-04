@@ -2,11 +2,9 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
-    <AppPageHeader Title="Models">
-        <Actions>
-            <AppButton Label="Refresh" Size="AppControlSize.Compact" OnClick="RefreshAsync" Disabled="_loading" />
-        </Actions>
-    </AppPageHeader>
+    <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
+        <AppButton Label="Refresh" Size="AppControlSize.Compact" OnClick="RefreshAsync" Disabled="_loading" />
+    </AppActionBar>
 
     @if (!string.IsNullOrWhiteSpace(_message))
     {
@@ -31,9 +29,30 @@
                         <AppChip Text="@model.Role" Tone="AppUiTone.Primary" />
                         <AppChip Text="@StateLabel(model)" Tone="@StateTone(model)" />
                     </div>
-                    <strong class="model-card__title">@(!string.IsNullOrWhiteSpace(model.Description) ? model.Description : "Configured model")</strong>
+                    <strong class="model-card__title">@ModelTitle(model)</strong>
+                    @if (!string.IsNullOrWhiteSpace(model.Family) || !string.IsNullOrWhiteSpace(model.Runtime))
+                    {
+                        <span class="model-card__meta">@ModelFamilyLine(model)</span>
+                    }
                     <span class="model-card__meta">@model.ModelFile</span>
-                    <span class="model-card__meta">Size: @FormatMb(model.SizeMB). Source: @(model.DownloadUrlHost ?? "not configured"). Required tier: @model.RequiredHardwareTier.</span>
+                    <span class="model-card__meta">Size: @FormatMb(model.SizeMB). Source: @(model.DownloadUrlHost ?? "not configured"). Validation suite: @(string.IsNullOrWhiteSpace(model.BenchmarkSuite) ? "not configured" : model.BenchmarkSuite).</span>
+                    @if (!string.IsNullOrWhiteSpace(model.RoleRequirement))
+                    {
+                        <span class="model-card__meta">Requirement: @model.RoleRequirement</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(model.SelectionRationale))
+                    {
+                        <span class="model-card__meta">Why selected: @model.SelectionRationale</span>
+                    }
+                    @if (model.Capabilities.Count > 0)
+                    {
+                        <div class="model-card__header mt-2">
+                            @foreach (var capability in model.Capabilities)
+                            {
+                                <AppChip Text="@capability" Tone="AppUiTone.Info" />
+                            }
+                        </div>
+                    }
 
                     @if (model.State.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
                     {
@@ -43,6 +62,11 @@
                     @if (!string.IsNullOrWhiteSpace(model.ErrorMessage))
                     {
                         <AppAlert Tone="AppUiTone.Error" Class="mt-3">@model.ErrorMessage</AppAlert>
+                    }
+
+                    @foreach (var warning in model.ValidationWarnings)
+                    {
+                        <AppAlert Tone="AppUiTone.Warning" Class="mt-3">@warning</AppAlert>
                     }
 
                     <span class="model-card__meta mt-3">Used by enabled features: @UsedBy(model.Role)</span>
@@ -153,6 +177,29 @@
         states.Any(s => string.Equals(m.State, s, StringComparison.OrdinalIgnoreCase));
 
     private static string StateLabel(AiModelStatusDto model) => model.Active ? "Active" : model.Loaded ? "Loaded" : model.State;
+
+    private static string ModelTitle(AiModelStatusDto model)
+    {
+        if (!string.IsNullOrWhiteSpace(model.DisplayName))
+            return model.DisplayName;
+
+        return !string.IsNullOrWhiteSpace(model.Description) ? model.Description : "Configured model";
+    }
+
+    private static string ModelFamilyLine(AiModelStatusDto model)
+    {
+        var parts = new[]
+            {
+                model.Family,
+                model.Provider,
+                model.Runtime,
+                string.IsNullOrWhiteSpace(model.License) ? "" : $"License: {model.License}",
+                string.IsNullOrWhiteSpace(model.SelectionTier) ? "" : $"Tier: {model.SelectionTier}",
+            }
+            .Where(value => !string.IsNullOrWhiteSpace(value));
+
+        return string.Join(" | ", parts);
+    }
 
     private static AppUiTone StateTone(AiModelStatusDto model) => StateLabel(model).ToLowerInvariant() switch
     {

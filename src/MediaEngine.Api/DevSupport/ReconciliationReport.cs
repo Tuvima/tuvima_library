@@ -10,10 +10,16 @@ namespace MediaEngine.Api.DevSupport;
 /// </summary>
 public sealed record ReconciliationReportItem(
     string FileName,
+    string MediaType,
     string ExpectedStatus,
     string ActualStatus,
+    string? ExpectedQid,
+    string? ActualQid,
+    string? ExpectedProvider,
+    string? ActualProvider,
     string? ExpectedTrigger,
     string? ActualTrigger,
+    string Classification,
     bool Matched,
     string? Reason);
 
@@ -82,15 +88,37 @@ public sealed class ReconciliationReport
         expected = Total,
         matched = Matched,
         mismatched = Mismatched,
+        items = Items.Select(i => new
+        {
+            file_name = i.FileName,
+            media_type = i.MediaType,
+            expected_status = i.ExpectedStatus,
+            actual_status = i.ActualStatus,
+            expected_qid = i.ExpectedQid,
+            actual_qid = i.ActualQid,
+            expected_provider = i.ExpectedProvider,
+            actual_provider = i.ActualProvider,
+            expected_trigger = i.ExpectedTrigger,
+            actual_trigger = i.ActualTrigger,
+            classification = i.Classification,
+            matched = i.Matched,
+            reason = i.Reason,
+        }),
         mismatches = Items
             .Where(i => !i.Matched)
             .Select(i => new
             {
                 file_name        = i.FileName,
+                media_type       = i.MediaType,
                 expected_status  = i.ExpectedStatus,
                 actual_status    = i.ActualStatus,
+                expected_qid     = i.ExpectedQid,
+                actual_qid       = i.ActualQid,
+                expected_provider = i.ExpectedProvider,
+                actual_provider  = i.ActualProvider,
                 expected_trigger = i.ExpectedTrigger,
                 actual_trigger   = i.ActualTrigger,
+                classification   = i.Classification,
                 reason           = i.Reason,
             }),
     }, new JsonSerializerOptions { WriteIndented = true });
@@ -102,20 +130,35 @@ public sealed class ReconciliationReport
 
         sb.Append($"<h3>{System.Net.WebUtility.HtmlEncode(title)} ({list.Count})</h3>");
         sb.Append("<table><thead><tr>");
-        sb.Append("<th>File</th><th>Expected</th><th>Actual</th><th>Trigger</th><th>Reason</th>");
+        sb.Append("<th>File</th><th>Type</th><th>Expected</th><th>Actual</th><th>QID</th><th>Provider</th><th>Trigger</th><th>Class</th><th>Reason</th>");
         sb.Append("</tr></thead><tbody>");
 
         foreach (var item in list)
         {
             sb.Append("<tr>");
             sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(item.FileName)}</td>");
+            sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(item.MediaType)}</td>");
             sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(item.ExpectedStatus)}</td>");
             sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(item.ActualStatus)}</td>");
+            sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(FormatPair(item.ExpectedQid, item.ActualQid))}</td>");
+            sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(FormatPair(item.ExpectedProvider, item.ActualProvider))}</td>");
             sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(item.ActualTrigger ?? item.ExpectedTrigger ?? "")}</td>");
+            sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(item.Classification)}</td>");
             sb.Append($"<td>{System.Net.WebUtility.HtmlEncode(item.Reason ?? "")}</td>");
             sb.Append("</tr>");
         }
 
         sb.Append("</tbody></table>");
+    }
+
+    private static string FormatPair(string? expected, string? actual)
+    {
+        if (string.IsNullOrWhiteSpace(expected) && string.IsNullOrWhiteSpace(actual))
+            return "";
+
+        if (string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            return actual ?? "";
+
+        return $"{actual ?? "(none)"} / expected {expected ?? "(none)"}";
     }
 }

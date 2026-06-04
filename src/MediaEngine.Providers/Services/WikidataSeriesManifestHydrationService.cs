@@ -19,7 +19,6 @@ public sealed class WikidataSeriesManifestHydrationService
     private readonly WikidataReconciler _reconciler;
     private readonly ISeriesManifestRepository _manifestRepo;
     private readonly ICollectionRepository _collectionRepo;
-    private readonly IReviewQueueRepository _reviewRepo;
     private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<WikidataSeriesManifestHydrationService> _logger;
 
@@ -34,14 +33,12 @@ public sealed class WikidataSeriesManifestHydrationService
         WikidataReconciler reconciler,
         ISeriesManifestRepository manifestRepo,
         ICollectionRepository collectionRepo,
-        IReviewQueueRepository reviewRepo,
         IConfigurationLoader configLoader,
         ILogger<WikidataSeriesManifestHydrationService> logger)
     {
         _reconciler = reconciler;
         _manifestRepo = manifestRepo;
         _collectionRepo = collectionRepo;
-        _reviewRepo = reviewRepo;
         _configLoader = configLoader;
         _logger = logger;
     }
@@ -96,7 +93,6 @@ public sealed class WikidataSeriesManifestHydrationService
                         cachedHydration.CollectionId,
                         cachedItems,
                         context,
-                        createReviews: true,
                         ct).ConfigureAwait(false);
 
                     await _manifestRepo.UpsertManifestAsync(cachedHydration.WithUpdatedTimestamp(), relinked, ct)
@@ -136,33 +132,27 @@ public sealed class WikidataSeriesManifestHydrationService
                 .Select(item => ToRecord(collection.Id, manifest.SeriesQid, context.MediaType, item.Item, item.SortOrder, now))
                 .ToList();
 
-            itemRecords = await RelinkItemsAsync(collection.Id, itemRecords, context, createReviews: true, ct)
+            itemRecords = await RelinkItemsAsync(collection.Id, itemRecords, context, ct)
                 .ConfigureAwait(false);
 
-            if (itemRecords.Count > 0
-                && !itemRecords.Any(i => string.Equals(i.ItemQid, context.ResolvedWorkQid, StringComparison.OrdinalIgnoreCase)))
-            {
-                await CreateReviewAsync(
-                    context.WorkId ?? context.Lineage?.TargetForSelfScope ?? context.AssetId,
-                    $"Resolved work {context.ResolvedWorkQid} claims series {manifest.SeriesQid}, but it was not present in the fetched Wikidata series manifest.",
-                    ct).ConfigureAwait(false);
-            }
+            var warningDtos = BuildWarningDiagnostics(
+                manifest.Warnings,
+                manifest.SeriesQid,
+                context.ResolvedWorkQid,
+                resolvedWorkPresentInManifest: itemRecords.Count == 0
+                    || itemRecords.Any(i => string.Equals(i.ItemQid, context.ResolvedWorkQid, StringComparison.OrdinalIgnoreCase)));
 
-            foreach (var warning in manifest.Warnings.Where(IsSeriousWarning))
+            var warningCount = warningDtos.Count;
+            if (warningCount > 0)
             {
-                await CreateReviewAsync(
-                    context.WorkId ?? context.Lineage?.TargetForSelfScope ?? context.AssetId,
-                    $"Wikidata series manifest warning for {manifest.SeriesQid}: {warning.Code} - {warning.Message}",
-                    ct).ConfigureAwait(false);
+                _logger.LogDebug(
+                    "Stored {Count} Wikidata series manifest diagnostic warning(s) for {SeriesQid}; no review queue item was created",
+                    warningCount,
+                    manifest.SeriesQid);
             }
 
             var warningsJson = JsonSerializer.Serialize(
-                manifest.Warnings.Select(w => new SeriesManifestWarningDto
-                {
-                    Code = w.Code,
-                    Message = w.Message,
-                    Qid = w.Qid,
-                }).ToList(),
+                warningDtos,
                 JsonOptions);
 
             var itemQids = itemRecords
@@ -399,6 +389,32 @@ public sealed class WikidataSeriesManifestHydrationService
             .ToList();
     }
 
+    internal static IReadOnlyList<SeriesManifestWarningDto> BuildWarningDiagnostics(
+        IReadOnlyList<SeriesManifestWarning> warnings,
+        string seriesQid,
+        string resolvedWorkQid,
+        bool resolvedWorkPresentInManifest)
+    {
+        var diagnostics = warnings.Select(w => new SeriesManifestWarningDto
+        {
+            Code = w.Code,
+            Message = w.Message,
+            Qid = w.Qid,
+        }).ToList();
+
+        if (!resolvedWorkPresentInManifest)
+        {
+            diagnostics.Add(new SeriesManifestWarningDto
+            {
+                Code = "ResolvedWorkMissingFromManifest",
+                Message = $"Resolved work {resolvedWorkQid} claims series {seriesQid}, but it was not present in the fetched Wikidata series manifest.",
+                Qid = resolvedWorkQid,
+            });
+        }
+
+        return diagnostics;
+    }
+
     private static bool IsCachedHydrationCurrent(SeriesManifestHydration hydration)
     {
         if (string.IsNullOrWhiteSpace(hydration.ApiMetadataJson))
@@ -469,7 +485,6 @@ public sealed class WikidataSeriesManifestHydrationService
         Guid collectionId,
         IReadOnlyList<SeriesManifestItemRecord> items,
         SeriesManifestHydrationContext context,
-        bool createReviews,
         CancellationToken ct)
     {
         var workMatches = await _manifestRepo.FindWorkIdsByQidsAsync(
@@ -496,12 +511,12 @@ public sealed class WikidataSeriesManifestHydrationService
                 _ => "Ambiguous",
             };
 
-            if (state == "Ambiguous" && createReviews)
+            if (state == "Ambiguous")
             {
-                await CreateReviewAsync(
-                    context.WorkId ?? context.Lineage?.TargetForSelfScope ?? context.AssetId,
-                    $"Multiple local works share Wikidata QID {item.ItemQid} while linking series manifest item '{item.ItemLabel ?? item.ItemQid}'.",
-                    ct).ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Series manifest item {ItemQid} has {Count} local works; treating as a variant/duplicate diagnostic, not a review queue item.",
+                    item.ItemQid,
+                    matches.Count);
             }
 
             relinked.Add(item.WithOwnership(collectionId, state, matches.Count == 1 ? matches[0] : null));
@@ -547,29 +562,8 @@ public sealed class WikidataSeriesManifestHydrationService
         };
     }
 
-    private async Task CreateReviewAsync(Guid entityId, string detail, CancellationToken ct)
-    {
-        await _reviewRepo.InsertAsync(new ReviewQueueEntry
-        {
-            Id = Guid.NewGuid(),
-            EntityId = entityId,
-            EntityType = "Work",
-            Trigger = ReviewTrigger.MetadataConflict,
-            Status = ReviewStatus.Pending,
-            Detail = detail,
-            CreatedAt = DateTimeOffset.UtcNow,
-            ReviewReadyAt = DateTimeOffset.UtcNow,
-            AutomationCompletedAt = DateTimeOffset.UtcNow,
-        }, ct).ConfigureAwait(false);
-    }
-
     private static bool ShouldHydrate(MediaType mediaType)
         => mediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Comics or MediaType.Movies or MediaType.TV;
-
-    private static bool IsSeriousWarning(SeriesManifestWarning warning)
-        => warning.Code.Contains("conflict", StringComparison.OrdinalIgnoreCase)
-           || warning.Code.Contains("broken", StringComparison.OrdinalIgnoreCase)
-           || warning.Code.Contains("chain", StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeLanguage(string? value)
         => string.IsNullOrWhiteSpace(value) ? "en" : value.Split('-', '_')[0].ToLowerInvariant();

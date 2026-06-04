@@ -1,4 +1,5 @@
 using System.Reflection;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -100,6 +101,23 @@ public sealed class SearchServiceUniverseSearchTests
         Assert.Equal("Frank Herbert", bookConstraints!["P50"]);
     }
 
+    [Fact]
+    public async Task SearchRetail_DoesNotQueryDisabledProviders()
+    {
+        var disabledProvider = new CapturingRetailProvider("open_library");
+        var service = BuildSearchService(disabledProvider);
+
+        var result = await service.SearchRetailAsync(new SearchRetailRequest(
+            Query: "Le Petit Prince",
+            MediaType: "Books",
+            MaxCandidates: 5,
+            LocalTitle: "Le Petit Prince",
+            LocalAuthor: "Antoine de Saint-Exupery"));
+
+        Assert.Empty(result.Candidates);
+        Assert.Equal(0, disabledProvider.SearchCount);
+    }
+
     private static SearchService BuildSearchService(params IExternalMetadataProvider[] providers)
     {
         var configLoader = new ConfigurationDirectoryLoader(Path.Combine(FindRepoRoot(), "config"));
@@ -161,6 +179,44 @@ public sealed class SearchServiceUniverseSearchTests
                     Year: "2001",
                     ThumbnailUrl: null,
                     ProviderItemId: "Q155653",
+                    Confidence: 0.99,
+                    ProviderName: Name),
+            ]);
+        }
+    }
+
+    private sealed class CapturingRetailProvider(string name) : IExternalMetadataProvider
+    {
+        public string Name { get; } = name;
+        public ProviderDomain Domain => ProviderDomain.Ebook;
+        public IReadOnlyList<string> CapabilityTags => ["title", "cover"];
+        public Guid ProviderId => WellKnownProviders.OpenLibrary;
+        public int SearchCount { get; private set; }
+
+        public bool CanHandle(MediaType mediaType) => mediaType == MediaType.Books;
+
+        public bool CanHandle(EntityType entityType) => entityType == EntityType.Work;
+
+        public Task<IReadOnlyList<ProviderClaim>> FetchAsync(
+            ProviderLookupRequest request,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<ProviderClaim>>([]);
+
+        public Task<IReadOnlyList<SearchResultItem>> SearchAsync(
+            ProviderLookupRequest request,
+            int limit = 25,
+            CancellationToken ct = default)
+        {
+            SearchCount++;
+            return Task.FromResult<IReadOnlyList<SearchResultItem>>(
+            [
+                new SearchResultItem(
+                    Title: "Le Petit Prince",
+                    Author: "Antoine de Saint-Exupery",
+                    Description: "1943 novella",
+                    Year: "1943",
+                    ThumbnailUrl: null,
+                    ProviderItemId: "OL45804W",
                     Confidence: 0.99,
                     ProviderName: Name),
             ]);

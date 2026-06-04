@@ -125,7 +125,7 @@ Live Dashboard updates come from the snapshot endpoint. Existing SignalR Interco
 
 | Field | Meaning |
 | --- | --- |
-| `stage_number` | User-facing order, 1 through 9. |
+| `stage_number` | User-facing order. Stages 1-8 are progress rows; Stage 9 is review exception state for metrics and Activity rollups. |
 | `stage_key` | Stable key such as `scan`, `retail`, `wikidata`, `people`, or `deep_artwork`. |
 | `label` | Display label for the stage. |
 | `completed_files` / `total_files` / `percent_complete` | File progress against the active batch total. |
@@ -135,23 +135,27 @@ Live Dashboard updates come from the snapshot endpoint. Existing SignalR Interco
 | `active_group_label` / `active_group_count` | Group label for batched calls such as Wikidata reconciliation. |
 | `label_accuracy` | `ExactItem`, `GroupedLookup`, `BatchOnly`, `Stale`, or `None`. |
 | `artifact_label` / `artifact_count` | Running artifact count for the stage. |
+| `detail_items` | Optional server-generated detail rows shaped as `{ label, value, tone?, icon? }` for expanded UI content and artifact math. |
 | `last_updated_time` / `is_stale` | Freshness signal for active worker data. |
 
-The numbered stage model is:
+The compact Ingestion page renders Stages 1-8 as progress rows:
 
 | # | Stage | Progress Rule | Artifact Count |
 | ---: | --- | --- | --- |
-| 1 | Scan folders | Files discovered / scan estimate or final discovered total | Files found |
-| 2 | Read media details | Files parsed or terminal / total files | Files read |
-| 3 | Retail metadata & primary artwork | Files retail matched, review-ready, no-result, skipped, or failed / total files | Provider matches, metadata fields, cover/poster URLs, stored primary covers |
-| 4 | Wikidata lookup | Files with QID, no QID, not applicable, review-ready, skipped, or failed / total files | QIDs resolved |
-| 5 | File ready | Files organized, writeback-ready, visible, or terminal / total files | Files added |
-| 6 | People & cast | Files person-enriched, skipped, or not applicable / total files | People linked/resolved |
-| 7 | Series & relationships | Files relationship-enriched, skipped, or not applicable / total files | Relationships, series, child items |
-| 8 | Deep artwork | Files deep-artwork completed, skipped, or not applicable / total files | Backgrounds, banners, logos, disc art, stills |
-| 9 | Review / attention | Review state resolved or acknowledged / total files | Items needing review |
+| 1 | Scan | Files accepted, skipped, duplicated, or failed / total files | Accepted files |
+| 2 | Read Details | Files parsed, skipped, duplicated, or failed / total files | Parsed files |
+| 3 | Retail Match | Files retail matched, review-ready, no-result, skipped, or failed / total files | Provider matches |
+| 4 | Wikidata | Files with QID, no QID, not applicable, review-ready, skipped, or failed / total files | QIDs |
+| 5 | Ready | Files organized, writeback-ready, visible, or terminal / total files | Added files |
+| 6 | People | Files person-enriched, skipped, or not applicable / total files | People |
+| 7 | Relationships | Files relationship-enriched, skipped, or not applicable / total files | Links |
+| 8 | Artwork | Files deep-artwork completed, skipped, or not applicable / total files | Assets |
 
 Stage 3 is the collapsed retail metadata, quick metadata, and primary cover/poster bar. Stage 8 is later deep artwork enrichment. Stages 6, 7, and 8 may run concurrently after their retail/Wikidata prerequisites exist. For grouped `Tuvima.Wikidata` or provider work, the backend must show a group label instead of an exact file label unless it has a correlation key for a specific file.
+
+Stage 7 prefers explicit series order values over Wikidata previous/next backlink consistency. Missing or contradictory public Wikidata chain links are diagnostics, not Review Queue work, unless they expose a local conflict that needs a curator decision.
+
+Review remains live, but it is not a progress row in the Dashboard. `stage_progress` can still expose Stage 9 for API consumers and artifact ledger support; the Dashboard uses the top **Need Review** metric plus latest-batch review delta, and recent batch rows repeat the review count with other artifact totals.
 
 Music remains a conservative organization lane. The status surface emphasizes tag/fingerprint-first handling and preserving album folders instead of implying aggressive rename/move behavior.
 

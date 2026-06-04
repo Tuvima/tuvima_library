@@ -327,10 +327,13 @@ public sealed class RetailMatchWorker
         string? collectionId = null;
         var resolvedVia = "track search";
 
-        var appleProvider = _providers.FirstOrDefault(p =>
-            string.Equals(p.Name, "apple_api", StringComparison.OrdinalIgnoreCase));
+        var providerConfigs = _configLoader.LoadAllProviders();
+        var appleProvider = ProviderExecutionFilter.FindEnabledProvider(
+            _providers,
+            providerConfigs,
+            "apple_api");
 
-        if (!IsProviderEnabled("apple_api") || appleProvider is null)
+        if (appleProvider is null)
         {
             _logger.LogInformation(
                 "Music: Apple provider is disabled or unavailable; falling back to generic retail matching for {TrackCount} queued track(s)",
@@ -586,10 +589,18 @@ public sealed class RetailMatchWorker
         var durationCorroborates = hasFileDuration
             && hasCandidateDuration
             && DurationsCorroborate(fileDurationSeconds, candidateDurationSeconds);
+        var fileAlbum = fileHints.GetValueOrDefault(MetadataFieldConstants.Album);
+        var candidateAlbum = bestTrack["collectionName"]?.GetValue<string>();
+        var albumCorroborates = !string.IsNullOrWhiteSpace(fileAlbum)
+            && RetailTextSimilarity.AreEquivalentNames(fileAlbum, candidateAlbum);
+        var yearCorroborates = retailScore.YearScore >= 0.80;
         var singleTrackRelease = candidateTrackCount == 1;
         var strongSingleTrackIdentity = singleTrackRelease
             && retailScore.TitleScore >= 0.95
             && retailScore.AuthorScore >= 0.85;
+        var strongCanonicalTrackIdentity = retailScore.TitleScore >= 0.95
+            && retailScore.AuthorScore >= 0.85
+            && (albumCorroborates || yearCorroborates);
         var decision = _candidateScorer.EvaluateDecision(
             fileHints,
             candidateTitle,
@@ -600,7 +611,10 @@ public sealed class RetailMatchWorker
             retailAcceptThreshold,
             retailAmbiguousThreshold,
             "grouped_music",
-            autoAcceptCapReasons: trackNumberMatches || durationCorroborates || strongSingleTrackIdentity
+            autoAcceptCapReasons: trackNumberMatches
+                || durationCorroborates
+                || strongSingleTrackIdentity
+                || strongCanonicalTrackIdentity
                 ? null
                 : ["requires_track_number_or_duration_corroboration"]);
 
@@ -628,8 +642,11 @@ public sealed class RetailMatchWorker
                     ["track_match_score"] = Math.Round(bestMatchScore, 4),
                     ["track_number_matches"] = trackNumberMatches,
                     ["duration_corroborates"] = durationCorroborates,
+                    ["album_corroborates"] = albumCorroborates,
+                    ["year_corroborates"] = yearCorroborates,
                     ["single_track_release"] = singleTrackRelease,
                     ["strong_single_track_identity"] = strongSingleTrackIdentity,
+                    ["strong_canonical_track_identity"] = strongCanonicalTrackIdentity,
                     ["file_duration_seconds"] = hasFileDuration ? fileDurationSeconds : null,
                     ["candidate_duration_seconds"] = hasCandidateDuration ? candidateDurationSeconds : null,
                 }),
@@ -846,7 +863,7 @@ public sealed class RetailMatchWorker
             string.Equals(p.Name, "tmdb", StringComparison.OrdinalIgnoreCase));
 
         var tmdbApiKey = tmdbConfig?.HttpClient?.ApiKey;
-        if (tmdbConfig is { Enabled: false })
+        if (!ProviderExecutionFilter.IsEnabled("tmdb", providerConfigs))
         {
             _logger.LogInformation(
                 "RetailMatchWorker: TMDB provider disabled; falling back to generic retail matching for {Count} TV job(s)",
@@ -1983,24 +2000,13 @@ public sealed class RetailMatchWorker
 
         // Get ranked providers for this media type
         var providerConfigs = _configLoader.LoadAllProviders();
-        var providerConfigByName = providerConfigs
-            .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         var rankedProviders = pipeline.Providers.Count > 0
             ? pipeline.Providers.OrderBy(p => p.Rank).Select(p => p.Name).ToList()
             : providerConfigs.Select(p => p.Name).ToList();
-        var enabledProviders = rankedProviders
-            .Where(providerName =>
-            {
-                var provider = _providers.FirstOrDefault(p =>
-                    string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
-                if (provider is null)
-                    return false;
-
-                return !providerConfigByName.TryGetValue(providerName, out var providerConfig)
-                    || providerConfig.Enabled;
-            })
-            .ToList();
+        var enabledProviders = ProviderExecutionFilter.EnabledProviderNames(
+            rankedProviders,
+            _providers,
+            providerConfigs);
         if (enabledProviders.Count == 0)
         {
             var message = $"No enabled retail provider is configured for media type '{job.MediaType}'.";
@@ -2031,19 +2037,9 @@ public sealed class RetailMatchWorker
         var sequentialBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // Iterate providers per strategy
-        foreach (var providerName in rankedProviders)
+        foreach (var providerName in enabledProviders)
         {
             providerRank++;
-            if (providerConfigByName.TryGetValue(providerName, out var providerConfig)
-                && !providerConfig.Enabled)
-            {
-                _logger.LogDebug(
-                    "RetailMatchWorker: skipping disabled provider {Provider} for entity {EntityId}",
-                    providerName,
-                    job.EntityId);
-                continue;
-            }
-
             var provider = _providers.FirstOrDefault(p =>
                 string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
 
@@ -2332,14 +2328,7 @@ public sealed class RetailMatchWorker
 
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
-            : assetId;
+            : lineage.TargetForSelfScope;
     }
 
-    private bool IsProviderEnabled(string providerName)
-    {
-        var providerConfig = _configLoader.LoadAllProviders()
-            .FirstOrDefault(p => string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
-
-        return providerConfig?.Enabled ?? true;
-    }
 }

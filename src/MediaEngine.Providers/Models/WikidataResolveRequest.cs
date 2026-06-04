@@ -92,4 +92,13 @@ public sealed class WikidataResolveRequest
     /// issue-level entity is missing on Wikidata.
     /// </summary>
     public string? SeriesTitle { get; init; }
+
+    /// <summary>Optional TV season hint used by bridge scoring.</summary>
+    public int? SeasonNumber { get; init; }
+
+    /// <summary>Optional TV episode hint used by bridge scoring.</summary>
+    public int? EpisodeNumber { get; init; }
+
+    /// <summary>Optional comic issue hint used by bridge scoring.</summary>
+    public string? IssueNumber { get; init; }
 }

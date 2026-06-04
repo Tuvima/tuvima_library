@@ -103,9 +103,8 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
             // Get mood vocabulary for this media category.
             var moodVocab = _settings.VibeVocabulary.GetForCategory(mediaCategory);
 
-            // Resolve the correct model role based on the hardware tier.
-            // High-tier systems use the 8B Scholar model for richer analysis;
-            // all other tiers fall back to the 3B Quality model.
+            // Resolve the configured enrichment role. Hardware can make larger
+            // roles available, but the default path remains small-first.
             var tier = _settings.HardwareProfile.Tier;
             var features = HardwareTierPolicy.GetFeatures(tier);
             var modelRole = features.EnrichmentModel switch

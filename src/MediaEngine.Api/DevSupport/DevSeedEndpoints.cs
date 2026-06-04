@@ -185,9 +185,9 @@ public static class DevSeedEndpoints
         // â”€â”€ Category 3: Foreign Language â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         new("Le Petit Prince",
-            "Antoine de Saint-ExupÃ©ry",
+            "Antoine de Saint-Exupéry",
             "9782070612758", 1943,
-            "Un pilote, forcÃ© d'atterrir dans le Sahara, rencontre un petit garÃ§on venu d'une autre planÃ¨te.",
+            "Un pilote, forcé d'atterrir dans le Sahara, rencontre un petit garçon venu d'une autre planète.",
             Language: "fr",
             TestCategory: "Foreign â€” French, accented author name",
             ExpectedQid: "Q25338"),
@@ -591,12 +591,13 @@ public static class DevSeedEndpoints
             TestCategory: "Music â€” same artist as Lose Yourself, different album"),
 
         // â”€â”€ Category 4: Foreign language / non-Latin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        new("La Vie en rose", "Ã‰dith Piaf",
+        new("La Vie en rose", "Édith Piaf",
             Album: "La Vie en rose", Year: 1947, Genre: "Chanson", TrackNumber: 1,
             TestCategory: "Music â€” French, accented artist name, classic",
-            ExpectIdentified: true),
+            ExpectIdentified: true,
+            ExpectedQid: "Q3824908"),
 
-        new("FÃ¼r Elise", "Ludwig van Beethoven",
+        new("Für Elise", "Ludwig van Beethoven",
             Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1,
             TestCategory: "Music â€” German umlaut in title, historical classical"),
 

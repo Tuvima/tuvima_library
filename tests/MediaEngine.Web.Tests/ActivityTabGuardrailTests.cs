@@ -12,6 +12,10 @@ public sealed class ActivityTabGuardrailTests
         Assert.Contains("GetActivityStatsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetRecentActivityAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetActivityByTypesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetActivityByRunIdAsync", source, StringComparison.Ordinal);
+        Assert.Contains("QueryHelpers.ParseQuery", source, StringComparison.Ordinal);
+        Assert.Contains("\"runId\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"batchId\"", source, StringComparison.Ordinal);
         Assert.Contains("TriggerPruneAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("_sampleEntries", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.Delay", source, StringComparison.Ordinal);

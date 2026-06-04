@@ -2,15 +2,13 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
-    <AppPageHeader Title="Features">
-        <Actions>
-            <AppButton Label="Save feature flags"
-                       ButtonStyle="AppButtonStyle.Filled"
-                       Tone="AppUiTone.Primary"
-                       OnClick="SaveAsync"
-                       Disabled="@(_config is null || _saving)" />
-        </Actions>
-    </AppPageHeader>
+    <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
+        <AppButton Label="Save feature flags"
+                   ButtonStyle="AppButtonStyle.Filled"
+                   Tone="AppUiTone.Primary"
+                   OnClick="SaveAsync"
+                   Disabled="@(_config is null || _saving)" />
+    </AppActionBar>
 
     @if (_config is null)
     {

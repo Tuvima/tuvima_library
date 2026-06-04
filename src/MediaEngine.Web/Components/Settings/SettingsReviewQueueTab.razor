@@ -5,16 +5,13 @@
 @using MediaEngine.Web.Services.Editing
 
 <div class="tl-page settings-review-page">
-    <AppPageHeader Title="Review Queue"
-                   Subtitle="Pending items that need human confirmation before they move forward.">
-        <Actions>
-            <AppButton Label="Refresh"
-                       Size="AppControlSize.Compact"
-                       StartIcon="@Icons.Material.Outlined.Refresh"
-                       Disabled="@_loading"
-                       OnClick="LoadAsync" />
-        </Actions>
-    </AppPageHeader>
+    <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
+        <AppButton Label="Refresh"
+                   Size="AppControlSize.Compact"
+                   StartIcon="@Icons.Material.Outlined.Refresh"
+                   Disabled="@_loading"
+                   OnClick="LoadAsync" />
+    </AppActionBar>
 
     @if (_loading)
     {

@@ -1457,6 +1457,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 Creator = r.Artist ?? r.Author,
                 Year = int.TryParse(r.Year, out var parsedYear) ? parsedYear : null,
                 SeriesTitle = r.SeriesTitle,
+                SeasonNumber = r.SeasonNumber,
+                EpisodeNumber = r.EpisodeNumber,
+                IssueNumber = r.IssueNumber,
                 Language = language,
                 RollupTarget = ToBridgeRollupTarget(r)
             };
@@ -1471,8 +1474,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         MediaType.Books => BridgeMediaKind.Book,
         MediaType.Audiobooks => BridgeMediaKind.Audiobook,
         MediaType.Movies => BridgeMediaKind.Movie,
-        MediaType.TV => BridgeMediaKind.TvSeries,
-        MediaType.Comics => string.IsNullOrWhiteSpace(request.SeriesTitle)
+        MediaType.TV => request.EpisodeNumber.HasValue
+            ? BridgeMediaKind.TvEpisode
+            : request.SeasonNumber.HasValue
+                ? BridgeMediaKind.TvSeason
+                : BridgeMediaKind.TvSeries,
+        MediaType.Comics => string.IsNullOrWhiteSpace(request.IssueNumber)
             ? BridgeMediaKind.ComicSeries
             : BridgeMediaKind.ComicIssue,
         MediaType.Music => !string.IsNullOrWhiteSpace(request.AlbumTitle)
@@ -1843,6 +1850,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 BridgeDiagnostics   = libResult.Diagnostics,
                 RankedBridgeCandidates = libResult.Candidates,
                 BridgeRollup        = libResult.Rollup,
+                BridgeSeries        = libResult.Series,
+                BridgeRelationships = libResult.Relationships,
             };
 
             _logger.LogInformation(

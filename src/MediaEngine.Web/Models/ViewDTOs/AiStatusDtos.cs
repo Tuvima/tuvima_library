@@ -75,6 +75,45 @@ public sealed class AiModelStatusDto
 
     [JsonPropertyName("errorMessage")]
     public string? ErrorMessage { get; set; }
+
+    [JsonPropertyName("catalogKey")]
+    public string? CatalogKey { get; set; }
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = "";
+
+    [JsonPropertyName("family")]
+    public string Family { get; set; } = "";
+
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = "";
+
+    [JsonPropertyName("license")]
+    public string License { get; set; } = "";
+
+    [JsonPropertyName("runtime")]
+    public string Runtime { get; set; } = "";
+
+    [JsonPropertyName("selectionTier")]
+    public string SelectionTier { get; set; } = "";
+
+    [JsonPropertyName("selectionStatus")]
+    public string SelectionStatus { get; set; } = "";
+
+    [JsonPropertyName("selectionRationale")]
+    public string SelectionRationale { get; set; } = "";
+
+    [JsonPropertyName("roleRequirement")]
+    public string RoleRequirement { get; set; } = "";
+
+    [JsonPropertyName("benchmarkSuite")]
+    public string BenchmarkSuite { get; set; } = "";
+
+    [JsonPropertyName("validationWarnings")]
+    public List<string> ValidationWarnings { get; set; } = [];
+
+    [JsonPropertyName("capabilities")]
+    public List<string> Capabilities { get; set; } = [];
 }
 
 public sealed class AiConfigDto
@@ -94,6 +133,12 @@ public sealed class AiConfigDto
     [JsonPropertyName("models")]
     public Dictionary<string, AiModelDefinitionDto> Models { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    [JsonPropertyName("model_catalog")]
+    public Dictionary<string, AiModelCatalogEntryDto> ModelCatalog { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("role_requirements")]
+    public Dictionary<string, AiRoleRequirementDto> RoleRequirements { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     [JsonPropertyName("features")]
     public Dictionary<string, bool> Features { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -112,6 +157,9 @@ public sealed class AiConfigDto
 
 public sealed class AiModelDefinitionDto
 {
+    [JsonPropertyName("catalog_key")]
+    public string? CatalogKey { get; set; }
+
     [JsonPropertyName("description")]
     public string Description { get; set; } = "";
 
@@ -147,6 +195,57 @@ public sealed class AiModelDefinitionDto
 
     [JsonPropertyName("translate")]
     public bool Translate { get; set; }
+}
+
+public sealed class AiModelCatalogEntryDto
+{
+    [JsonPropertyName("display_name")]
+    public string DisplayName { get; set; } = "";
+
+    [JsonPropertyName("family")]
+    public string Family { get; set; } = "";
+
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = "";
+
+    [JsonPropertyName("license")]
+    public string License { get; set; } = "";
+
+    [JsonPropertyName("runtime")]
+    public string Runtime { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("selection_tier")]
+    public string SelectionTier { get; set; } = "";
+
+    [JsonPropertyName("size_mb")]
+    public int SizeMB { get; set; }
+
+    [JsonPropertyName("selection_rationale")]
+    public string SelectionRationale { get; set; } = "";
+}
+
+public sealed class AiRoleRequirementDto
+{
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("selection_policy")]
+    public string SelectionPolicy { get; set; } = "";
+
+    [JsonPropertyName("preferred_catalog_keys")]
+    public List<string> PreferredCatalogKeys { get; set; } = [];
+
+    [JsonPropertyName("fallback_catalog_keys")]
+    public List<string> FallbackCatalogKeys { get; set; } = [];
+
+    [JsonPropertyName("max_default_size_mb")]
+    public int MaxDefaultSizeMB { get; set; }
+
+    [JsonPropertyName("benchmark_suite")]
+    public string BenchmarkSuite { get; set; } = "";
 }
 
 /// <summary>
