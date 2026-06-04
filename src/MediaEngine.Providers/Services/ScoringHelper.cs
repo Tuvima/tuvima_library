@@ -589,6 +589,7 @@ public static class ScoringHelper
                     StringComparison.OrdinalIgnoreCase));
 
             if (provConfig is null) continue;
+            if (!provConfig.Enabled) continue;
 
             weights[provider.ProviderId] = provConfig.Weight;
 

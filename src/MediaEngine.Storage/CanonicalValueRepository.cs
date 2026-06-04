@@ -131,6 +131,15 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         }
 
         using var conn = _db.CreateConnection();
+        var parameters = new DynamicParameters();
+        var placeholders = new string[entityIds.Count];
+        for (var i = 0; i < entityIds.Count; i++)
+        {
+            var name = $"entityId{i}";
+            placeholders[i] = "@" + name;
+            parameters.Add(name, entityIds[i]);
+        }
+
         var rows = conn.Query<CanonicalValueRow>("""
             SELECT entity_id           AS EntityId,
                    key                 AS Key,
@@ -140,9 +149,11 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
                    winning_provider_id AS WinningProviderId,
                    needs_review        AS NeedsReview
             FROM   canonical_values
-            WHERE  entity_id IN @entityIds
+            WHERE  entity_id IN (
+            """ + string.Join(", ", placeholders) + """
+            )
             ORDER  BY entity_id, key ASC;
-            """, new { entityIds }).AsList();
+            """, parameters).AsList();
 
         var grouped = rows
             .GroupBy(r => r.EntityId)

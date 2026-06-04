@@ -45,23 +45,28 @@ The page does not fabricate production counts. If a signal is not persisted yet,
 
 ## Ingestion Stages
 
-The Ingestion page shows one active batch with one overall progress view and numbered stage bars. Stage bars report file progress against the batch total and show artifact counts as they are found or persisted.
+The Ingestion page shows one active batch with one overall progress view and compact numbered stage rows. Rows report file progress against the batch total and show artifact counts as they are found or persisted. Each row can expand for details such as exact file counts, active or queued work, label accuracy, current item or group label, freshness, and server-provided `detail_items`.
 
 | # | Stage | What It Means | Artifact Count |
 | ---: | --- | --- | --- |
-| 1 | Scan folders | Source folders are being scanned and files are being discovered. | Files found |
-| 2 | Read media details | Files are parsed for embedded metadata, duration, chapters, tracks, pages, and local artwork evidence. | Files read |
-| 3 | Retail metadata & primary artwork | Retail/catalog providers identify the item, add quick metadata, and provide the first cover or poster evidence. | Provider matches, metadata fields, cover/poster URLs, stored primary covers |
-| 4 | Wikidata lookup | Bridge IDs from Stage 3 are resolved to canonical Wikidata QIDs where available. | QIDs resolved |
-| 5 | File ready | The item is visible or otherwise reaches a terminal file outcome. Retail-only retained items can complete here without waiting for a QID. | Files added |
-| 6 | People & cast | Authors, narrators, cast, crew, creators, and related people are linked or enriched. | People linked/resolved |
-| 7 | Series & relationships | Series, albums, seasons, episodes, franchises, narrative roots, and other relationships are built. | Relationships, series, child items |
-| 8 | Deep artwork | Later artwork enrichment fetches backgrounds, banners, logos, disc art, album variants, season posters, and episode stills. | Deep artwork assets |
-| 9 | Review / attention | Live exception count collected from any stage that needs a curator decision. | Items needing review |
+| 1 | Scan | Source folders are scanned and files are accepted, skipped, duplicated, or failed. | Accepted files |
+| 2 | Read Details | Files are parsed for embedded metadata, duration, chapters, tracks, pages, and local artwork evidence. | Parsed files |
+| 3 | Retail Match | Retail/catalog providers identify the item, add quick metadata, and provide first cover or poster evidence. | Provider matches |
+| 4 | Wikidata | Bridge IDs from Stage 3 are resolved to canonical Wikidata QIDs where available. | QIDs |
+| 5 | Ready | The item is visible or otherwise reaches a terminal file outcome. Retail-only retained items can complete here without waiting for a QID. | Added files |
+| 6 | People | Authors, narrators, cast, crew, creators, and related people are linked or enriched. | People |
+| 7 | Relationships | Series, albums, seasons, episodes, franchises, narrative roots, and other relationships are built. | Links |
+| 8 | Artwork | Later artwork enrichment fetches backgrounds, banners, logos, disc art, album variants, season posters, and episode stills. | Assets |
 
 Stage 3 intentionally combines retail lookup, quick metadata, and the first cover/poster pass because those signals arrive together from retail/catalog providers. Stage 8 is separate because rich artwork requires later bridge IDs or QIDs and can run after the item is already visible.
 
+Stage 7 prefers explicit local, retail, or Wikidata series order values over Wikidata previous/next backlink consistency. If Book 1 and Book 2 both have clear series positions, the shelf can be correct even when Wikidata's public previous/next chain is incomplete. Those ordering warnings are stored as diagnostics for Activity and troubleshooting; they do not create Review Queue rows unless there is a local user-impacting conflict, such as multiple owned works claiming the same Wikidata identity.
+
 Stages 1 and 2 are sequential for each file. Stage 3 starts after Stage 2. Stage 4 starts per file as soon as Stage 3 has a retained retail identity and usable bridge data. Stage 6, Stage 7, and Stage 8 can run concurrently once their prerequisites exist, so their bars can move at the same time.
+
+Review is not shown as a progress row. The top **Need Review** metric is the source of truth for the current pending review total, and it shows a batch delta such as `+15 this batch` when the latest batch created new review items. Recent batch rows repeat that review count beside matched, people, artwork, and metadata totals.
+
+The right side of the page is a recent-batches panel. It pins the active batch to the top, shows status, timing, file totals, media-type chips, and artifact totals, and links each batch to `/settings/activity?batchId={batchId}` for the detailed activity view.
 
 ## Live Refresh
 

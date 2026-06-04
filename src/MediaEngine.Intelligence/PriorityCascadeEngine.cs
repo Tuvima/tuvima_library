@@ -52,12 +52,6 @@ public sealed class PriorityCascadeEngine : IScoringEngine
     /// </summary>
     private readonly IConfigurationLoader _configLoader;
 
-    /// <summary>
-    /// Maps provider name (e.g. "wikipedia") to provider GUID for field priority resolution.
-    /// Built once at construction from the provider configs that exist at startup.
-    /// </summary>
-    private readonly IReadOnlyDictionary<string, Guid> _providerNameToGuid;
-
     private readonly ILogger<PriorityCascadeEngine> _logger;
 
     public PriorityCascadeEngine(
@@ -69,18 +63,6 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
         _configLoader = configLoader;
         _logger       = logger;
-
-        // Build provider name → GUID map from all provider configs.
-        var nameMap = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
-        foreach (var provider in configLoader.LoadAllProviders())
-        {
-            if (!string.IsNullOrEmpty(provider.Name) &&
-                Guid.TryParse(provider.ProviderId, out var guid))
-            {
-                nameMap[provider.Name] = guid;
-            }
-        }
-        _providerNameToGuid = nameMap;
 
         // Log the field priority config at startup so the operator can confirm it loaded.
         var initialPriorities = configLoader.LoadFieldPriorities();
@@ -112,6 +94,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         var fieldPriorities = _configLoader.LoadFieldPriorities();
         var pipelines       = _configLoader.LoadPipelines();
         var mediaTypePipeline = pipelines.GetPipelineForMediaType(context.DetectedMediaType);
+        var enabledProviderNameToGuid = BuildEnabledProviderMap(_configLoader.LoadAllProviders());
 
         var fieldScores = new List<FieldScore>();
 
@@ -160,7 +143,10 @@ public sealed class PriorityCascadeEngine : IScoringEngine
                 && pipelinePriority.Count > 0)
             {
                 var pipelineOverride = new FieldPriorityOverride { Priority = pipelinePriority };
-                var resolved = ResolveByFieldPriority(claimsForField, pipelineOverride);
+                var resolved = ResolveByFieldPriority(
+                    claimsForField,
+                    pipelineOverride,
+                    enabledProviderNameToGuid);
                 if (resolved is not null)
                 {
                     fieldScores.Add(resolved);
@@ -171,7 +157,10 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             if (fieldPriorities.FieldOverrides.TryGetValue(group.Key, out var fieldOverride)
                 && fieldOverride.Priority.Count > 0)
             {
-                var resolved = ResolveByFieldPriority(claimsForField, fieldOverride);
+                var resolved = ResolveByFieldPriority(
+                    claimsForField,
+                    fieldOverride,
+                    enabledProviderNameToGuid);
                 if (resolved is not null)
                 {
                     fieldScores.Add(resolved);
@@ -286,11 +275,12 @@ public sealed class PriorityCascadeEngine : IScoringEngine
     /// </summary>
     private FieldScore? ResolveByFieldPriority(
         List<Domain.Entities.MetadataClaim> claimsForField,
-        FieldPriorityOverride fieldOverride)
+        FieldPriorityOverride fieldOverride,
+        IReadOnlyDictionary<string, Guid> providerNameToGuid)
     {
         foreach (var providerName in fieldOverride.Priority)
         {
-            if (!_providerNameToGuid.TryGetValue(providerName, out var providerGuid))
+            if (!providerNameToGuid.TryGetValue(providerName, out var providerGuid))
                 continue;
 
             var claim = claimsForField
@@ -312,6 +302,25 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         }
 
         return null;
+    }
+
+    private static IReadOnlyDictionary<string, Guid> BuildEnabledProviderMap(
+        IReadOnlyList<ProviderConfiguration> providerConfigurations)
+    {
+        var nameMap = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        foreach (var provider in providerConfigurations)
+        {
+            if (!provider.Enabled)
+                continue;
+
+            if (!string.IsNullOrEmpty(provider.Name)
+                && Guid.TryParse(provider.ProviderId, out var guid))
+            {
+                nameMap[provider.Name] = guid;
+            }
+        }
+
+        return nameMap;
     }
 
     private Domain.Entities.MetadataClaim? ResolveWikidataClaim(

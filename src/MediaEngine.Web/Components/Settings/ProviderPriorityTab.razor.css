@@ -5,30 +5,6 @@
     color: rgba(245, 247, 255, 0.94);
 }
 
-.provider-hero {
-    margin-bottom: 18px;
-}
-
-.provider-hero__bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-}
-
-.provider-hero__title {
-    margin: 0 0 4px;
-    font-size: 1.72rem;
-    line-height: 1.15;
-    font-weight: 780;
-    letter-spacing: 0;
-}
-
-.provider-hero__copy {
-    color: rgba(220, 229, 255, 0.72);
-    font-size: 0.95rem;
-}
-
 .provider-stage-strip {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

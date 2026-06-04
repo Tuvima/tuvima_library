@@ -103,6 +103,50 @@ public sealed class RetailParityTests
         Assert.True(score.CompositeScore >= 0.95);
     }
 
+    [Fact]
+    public void ScoreCandidate_DiacriticTolerantBookCreatorMatchScoresAsExact()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "Le Petit Prince",
+            [MetadataFieldConstants.Author] = "Antoine de Saint-Exupery",
+            [MetadataFieldConstants.Year] = "1943",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "Le Petit Prince",
+            candidateAuthor: "Antoine de Saint-Exupéry",
+            candidateYear: "1943",
+            mediaType: MediaType.Books);
+
+        Assert.Equal(1.0, score.TitleScore);
+        Assert.Equal(1.0, score.AuthorScore);
+        Assert.True(score.CompositeScore >= 0.95);
+    }
+
+    [Fact]
+    public void ScoreCandidate_DiacriticTolerantMusicArtistMatchScoresAsExact()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "La Vie en rose",
+            [MetadataFieldConstants.Artist] = "Edith Piaf",
+            [MetadataFieldConstants.Year] = "1947",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "La Vie en rose",
+            candidateAuthor: "Édith Piaf",
+            candidateYear: "1947",
+            mediaType: MediaType.Music);
+
+        Assert.Equal(1.0, score.TitleScore);
+        Assert.Equal(1.0, score.AuthorScore);
+        Assert.True(score.CompositeScore >= 0.95);
+    }
+
     public static IEnumerable<object?[]> Fixtures()
     {
         // Books — title + author + year

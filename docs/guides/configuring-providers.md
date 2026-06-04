@@ -22,9 +22,9 @@ When the Engine identifies a file in your library, it reaches out to external so
 
 The Providers screen is organized around the same numbered stages shown on the Ingestion page:
 
-1. **Retail providers** (Stage 3: Retail metadata & primary artwork) - run after file details are read. These gather practical information: cover art, descriptions, ratings, and identifiers. The Engine uses this data both to enrich your library and to improve its confidence in identifying what the file is.
+1. **Retail providers** (Stage 3: Retail Match) - run after file details are read. These gather practical information: cover art, descriptions, ratings, and identifiers. The Engine uses this data both to enrich your library and to improve its confidence in identifying what the file is.
 
-2. **Wikidata** (Stage 4: Wikidata lookup) - runs after retail lookup, using identifiers gathered in Stage 3. Wikidata is the authority for canonical structured data: the author's full name, the official series name, genre classifications, director credits, and so on. Wikidata is always free to use and requires no key.
+2. **Wikidata** (Stage 4: Wikidata) - runs after retail lookup, using identifiers gathered in Stage 3. Wikidata is the authority for canonical structured data: the author's full name, the official series name, genre classifications, director credits, and so on. Wikidata is always free to use and requires no key.
 
 3. **Enrichment and artwork providers** (Stages 6-8) - run after identity is known. These providers add people, relationships, fan art, synced lyrics, subtitles, and periodic refresh data. Rich artwork providers such as Fanart.tv are Stage 8, not the first cover/poster pass.
 
@@ -100,9 +100,9 @@ Retail confidence uses the configured weights in `config/hydration.json`: title 
 
 ---
 
-## Wikidata lookup inputs by media type
+## Wikidata inputs by media type
 
-Wikidata lookup is Stage 4. It is intentionally gated behind Stage 3: the Wikidata bridge worker only processes items that reached `RetailMatched` or `RetailMatchedNeedsReview`. Items with no safe retail match are not sent to Wikidata as a broad title-only fallback.
+Wikidata is Stage 4. It is intentionally gated behind Stage 3: the Wikidata bridge worker only processes items that reached `RetailMatched` or `RetailMatchedNeedsReview`. Items with no safe retail match are not sent to Wikidata as a broad title-only fallback.
 
 Stage 4 requires at least one real bridge ID. Title, creator, year, series, album, artist, and language hints help the resolver rank or roll up results, but they do not bypass the bridge-ID requirement.
 

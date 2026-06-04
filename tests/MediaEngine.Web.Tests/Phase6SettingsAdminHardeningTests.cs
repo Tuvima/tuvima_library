@@ -31,7 +31,8 @@ public sealed class Phase6SettingsAdminHardeningTests
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
 
-        Assert.Contains("File Organization", source, StringComparison.Ordinal);
+        Assert.Contains("file-organization-page__actions", source, StringComparison.Ordinal);
+        Assert.Contains("Folder health", source, StringComparison.Ordinal);
         Assert.Contains("<AppTabs ActivePanelIndex", source, StringComparison.Ordinal);
         Assert.Contains("settings-tab-strip settings-file-org-tabs", source, StringComparison.Ordinal);
         Assert.Contains("Import Folders", source, StringComparison.Ordinal);
@@ -85,7 +86,7 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("Last tested", source, StringComparison.Ordinal);
         Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Provider Setup", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Provider Setup", source, StringComparison.Ordinal);
         Assert.Contains("Assign Providers to Media Types", source, StringComparison.Ordinal);
         Assert.Contains("[\"Movies\", \"TV\", \"Music\", \"Books\", \"Audiobooks\", \"Comics\"]", source, StringComparison.Ordinal);
         Assert.Contains("GetProviderLogoUrl", source, StringComparison.Ordinal);

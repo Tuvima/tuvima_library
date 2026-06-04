@@ -1,11 +1,9 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page playback-delivery">
-    <AppPageHeader Title="Playback & Delivery">
-        <Stats>
-            <SettingsStatusBadge Status="SettingsStatusKind.Partial" />
-        </Stats>
-    </AppPageHeader>
+    <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
+        <SettingsStatusBadge Status="SettingsStatusKind.Partial" />
+    </AppActionBar>
 
     <AppAlert Tone="AppUiTone.Info">
         Transcoding and offline variant policy are Engine-backed where the section exposes save controls. Direct Play, subtitle burn-in, and audio passthrough controls are visible as planned behavior and remain disabled until persistence exists.

@@ -232,6 +232,22 @@ internal static class AiEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        group.MapGet("/benchmark/suites", (
+            AiBenchmarkHarness harness) =>
+        {
+            return Results.Ok(harness.GetBuiltInSuites().Select(suite => new
+            {
+                key = suite.Key,
+                role = ToRoleKey(suite.Role),
+                gates = suite.Gates,
+                cases = suite.Cases,
+            }));
+        })
+        .WithName("GetAiBenchmarkSuites")
+        .WithSummary("Returns built-in model validation suites and promotion gates.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
+
         // ── GET /ai/resources ────────────────────────────────────────────────
         group.MapGet("/resources", (ResourceMonitorService monitor) =>
         {
@@ -285,15 +301,7 @@ internal static class AiEndpoints
     private static string UnknownRoleMessage(string role) =>
         $"Unknown model role: '{role}'. Valid values: {string.Join(", ", Enum.GetValues<AiModelRole>().Select(ToRoleKey))}.";
 
-    private static string ToRoleKey(AiModelRole role) => role switch
-    {
-        AiModelRole.TextFast => "text_fast",
-        AiModelRole.TextQuality => "text_quality",
-        AiModelRole.TextScholar => "text_scholar",
-        AiModelRole.Audio => "audio",
-        AiModelRole.TextCjk => "text_cjk",
-        _ => role.ToString(),
-    };
+    private static string ToRoleKey(AiModelRole role) => AiModelDefinitions.ToRoleKey(role);
 
     private static string GetRequiredHardwareTier(AiModelRole role) => role switch
     {
@@ -328,11 +336,27 @@ internal static class AiEndpoints
             Active: status.State == AiModelState.Loaded,
             MemoryFootprintMB: status.State == AiModelState.Loaded ? status.SizeMB : 0,
             RequiredHardwareTier: GetRequiredHardwareTier(status.Role),
-            ErrorMessage: status.ErrorMessage);
+            ErrorMessage: status.ErrorMessage,
+            CatalogKey: null,
+            DisplayName: "",
+            Family: "",
+            Provider: "",
+            License: "",
+            Runtime: "",
+            SelectionTier: "",
+            SelectionStatus: "",
+            SelectionRationale: "",
+            RoleRequirement: "",
+            BenchmarkSuite: "",
+            ValidationWarnings: [],
+            Capabilities: []);
 
     private static AiModelStatusResponse ToModelStatusResponse(AiModelStatus status, AiSettings settings, AiModelRole? currentRole)
     {
         var definition = settings.Models.GetByRole(status.Role);
+        var advisor = new AiModelSelectionAdvisor(settings);
+        var decision = advisor.GetDecision(status.Role);
+        var catalog = settings.GetCatalogEntryForRole(status.Role);
         var isLoaded = currentRole == status.Role || status.State == AiModelState.Loaded;
         return new AiModelStatusResponse(
             Role: ToRoleKey(status.Role),
@@ -351,7 +375,41 @@ internal static class AiEndpoints
             Active: currentRole == status.Role,
             MemoryFootprintMB: isLoaded ? definition.SizeMB : 0,
             RequiredHardwareTier: GetRequiredHardwareTier(status.Role),
-            ErrorMessage: status.ErrorMessage);
+            ErrorMessage: status.ErrorMessage,
+            CatalogKey: definition.CatalogKey,
+            DisplayName: decision.DisplayName,
+            Family: decision.Family,
+            Provider: decision.Provider,
+            License: decision.License,
+            Runtime: decision.Runtime,
+            SelectionTier: decision.SelectionTier,
+            SelectionStatus: decision.Status,
+            SelectionRationale: decision.Rationale,
+            RoleRequirement: decision.Requirement,
+            BenchmarkSuite: decision.BenchmarkSuite,
+            ValidationWarnings: decision.Warnings,
+            Capabilities: FormatCapabilities(catalog?.Capabilities));
+    }
+
+    private static IReadOnlyList<string> FormatCapabilities(AiModelCapabilities? capabilities)
+    {
+        if (capabilities is null)
+            return [];
+
+        var values = new List<string>();
+        if (capabilities.TextInput) values.Add("text input");
+        if (capabilities.AudioInput) values.Add("audio input");
+        if (capabilities.ImageInput) values.Add("image input");
+        if (capabilities.TextOutput) values.Add("text output");
+        if (capabilities.StructuredJson) values.Add("structured JSON");
+        if (capabilities.Gbnf) values.Add("GBNF");
+        if (capabilities.TimestampSegments) values.Add("segment timestamps");
+        if (capabilities.WordTimestamps) values.Add("word timestamps");
+        if (capabilities.SyncGrade) values.Add("sync-grade");
+        if (capabilities.Multilingual) values.Add("multilingual");
+        if (capabilities.Cjk) values.Add("CJK");
+        if (capabilities.ExperimentalMultimodal) values.Add("experimental multimodal");
+        return values;
     }
 
     private static IReadOnlyDictionary<string, string[]> ValidateAiSettings(AiSettings settings)
@@ -391,6 +449,43 @@ internal static class AiEndpoints
             {
                 Add($"models.{key}.download_url", "Download URL must be an absolute URI.");
             }
+            if (!string.IsNullOrWhiteSpace(model.CatalogKey)
+                && !settings.ModelCatalog.ContainsKey(model.CatalogKey))
+            {
+                Add($"models.{key}.catalog_key", "Catalog key must reference model_catalog.");
+            }
+        }
+
+        foreach (var (key, entry) in settings.ModelCatalog)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                Add("model_catalog", "Model catalog keys cannot be empty.");
+            if (string.IsNullOrWhiteSpace(entry.DisplayName))
+                Add($"model_catalog.{key}.display_name", "Display name is required.");
+            if (entry.SizeMB <= 0)
+                Add($"model_catalog.{key}.size_mb", "Catalog model size must be positive.");
+            if (!string.IsNullOrWhiteSpace(entry.DownloadUrl)
+                && !Uri.TryCreate(entry.DownloadUrl, UriKind.Absolute, out _))
+            {
+                Add($"model_catalog.{key}.download_url", "Download URL must be an absolute URI.");
+            }
+            if (!string.IsNullOrWhiteSpace(entry.SourceUrl)
+                && !Uri.TryCreate(entry.SourceUrl, UriKind.Absolute, out _))
+            {
+                Add($"model_catalog.{key}.source_url", "Source URL must be an absolute URI.");
+            }
+        }
+
+        foreach (var (key, requirement) in settings.RoleRequirements)
+        {
+            if (requirement.PreferredCatalogKeys.Count == 0)
+                Add($"role_requirements.{key}.preferred_catalog_keys", "At least one preferred model is required.");
+
+            foreach (var catalogKey in requirement.PreferredCatalogKeys.Concat(requirement.FallbackCatalogKeys))
+            {
+                if (!settings.ModelCatalog.ContainsKey(catalogKey))
+                    Add($"role_requirements.{key}.{catalogKey}", "Requirement references an unknown model catalog key.");
+            }
         }
 
         if (settings.Scheduling.WhisperBakeWindowHours <= 0)
@@ -416,5 +511,18 @@ internal static class AiEndpoints
         bool Active,
         int MemoryFootprintMB,
         string RequiredHardwareTier,
-        string? ErrorMessage);
+        string? ErrorMessage,
+        string? CatalogKey,
+        string DisplayName,
+        string Family,
+        string Provider,
+        string License,
+        string Runtime,
+        string SelectionTier,
+        string SelectionStatus,
+        string SelectionRationale,
+        string RoleRequirement,
+        string BenchmarkSuite,
+        IReadOnlyList<string> ValidationWarnings,
+        IReadOnlyList<string> Capabilities);
 }

@@ -6,13 +6,16 @@ public sealed class Phase7AiEndpointGuardrailTests
     public void AiEndpoints_ParseEveryConfiguredRoleAndRequireAdmin()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
+        var roleSource = ReadRepoFile(@"src\MediaEngine.Domain\Enums\AiModelRole.cs");
 
         Assert.Contains("TryParseModelRole", source, StringComparison.Ordinal);
-        Assert.Contains("text_fast", source, StringComparison.Ordinal);
-        Assert.Contains("text_quality", source, StringComparison.Ordinal);
-        Assert.Contains("text_scholar", source, StringComparison.Ordinal);
-        Assert.Contains("text_cjk", source, StringComparison.Ordinal);
-        Assert.Contains("audio", source, StringComparison.Ordinal);
+        Assert.Contains("AiModelDefinitions.ToRoleKey", source, StringComparison.Ordinal);
+        Assert.Contains("Enum.GetValues<AiModelRole>().Select(ToRoleKey)", source, StringComparison.Ordinal);
+        Assert.Contains("TextFast", roleSource, StringComparison.Ordinal);
+        Assert.Contains("TextQuality", roleSource, StringComparison.Ordinal);
+        Assert.Contains("TextScholar", roleSource, StringComparison.Ordinal);
+        Assert.Contains("TextCjk", roleSource, StringComparison.Ordinal);
+        Assert.Contains("Audio", roleSource, StringComparison.Ordinal);
         Assert.True(CountOccurrences(source, ".RequireAdmin()") >= 10);
     }
 
@@ -25,6 +28,19 @@ public sealed class Phase7AiEndpointGuardrailTests
         Assert.Contains("ValidationProblem", source, StringComparison.Ordinal);
         Assert.Contains("Idle unload seconds must be positive", source, StringComparison.Ordinal);
         Assert.Contains("Download URL must be an absolute URI", source, StringComparison.Ordinal);
+        Assert.Contains("Catalog key must reference model_catalog", source, StringComparison.Ordinal);
+        Assert.Contains("Requirement references an unknown model catalog key", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AiModelStatus_ExposesCatalogSelectionAndBenchmarkSuites()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
+
+        Assert.Contains("GetAiBenchmarkSuites", source, StringComparison.Ordinal);
+        Assert.Contains("SelectionRationale", source, StringComparison.Ordinal);
+        Assert.Contains("ValidationWarnings", source, StringComparison.Ordinal);
+        Assert.Contains("Capabilities", source, StringComparison.Ordinal);
     }
 
     private static int CountOccurrences(string value, string pattern) =>

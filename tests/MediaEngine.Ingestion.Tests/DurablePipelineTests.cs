@@ -1185,7 +1185,10 @@ public sealed class DurablePipelineTests : IDisposable
         };
 
         public HydrationSettings LoadHydration() => new();
-        public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
+        public IReadOnlyList<ProviderConfiguration> LoadAllProviders() =>
+        [
+            new() { Name = "apple_api", Enabled = true, ProviderId = WellKnownProviders.AppleApi.ToString(), Weight = 0.9 },
+        ];
         public ScoringSettings LoadScoring() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
         public CoreConfiguration LoadCore() => new();

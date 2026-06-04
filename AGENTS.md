@@ -64,7 +64,7 @@ Runtime notes:
 - `src/MediaEngine.Api` launch settings set `TUVIMA_CONFIG_DIR=../../config` for normal `dotnet run`
 - The Dashboard defaults to `Engine:BaseUrl = http://localhost:61495`
 - If the Engine is started on a different address, set `TUVIMA_ENGINE_URL` before starting the Dashboard
-- First Engine startup may benchmark hardware and download AI models, which can take time and use about 9 GB
+- First Engine startup may benchmark hardware and download selected AI role models, which can take time and use about 6-7 GB with the default small-first catalog
 
 
 ## Current Dashboard/Product UI Model
@@ -155,6 +155,7 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 
 - `src/MediaEngine.AI`
   - Local model configuration, model downloads, model lifecycle management, hardware benchmarking, and AI-powered features.
+  - Model roles are selected through `config/ai.json` `model_catalog` and `role_requirements`; prefer the smallest model that passes validation gates instead of promoting larger models because hardware is available.
   - Features include smart filename cleaning, media type advice, vibe tags, TLDR generation, taste profiling, description intelligence, cover-art checks, and Whisper-based audio work.
 
 - `src/MediaEngine.Identity`

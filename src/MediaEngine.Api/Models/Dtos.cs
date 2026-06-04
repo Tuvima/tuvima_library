@@ -795,6 +795,9 @@ public sealed class ProviderSampleResponse
     [JsonPropertyName("provider_name")]
     public string ProviderName { get; init; } = string.Empty;
 
+    [JsonPropertyName("message")]
+    public string? Message { get; init; }
+
     [JsonPropertyName("claims")]
     public List<ProviderSampleClaim> Claims { get; init; } = [];
 }

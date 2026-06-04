@@ -28,9 +28,9 @@ enrichment pipeline. For standard providers that return JSON from a public HTTP 
 
 ## Step 1 - Understand where providers fit
 
-Identity providers run during the retail phase of the hydration pipeline, shown as **Stage 3: Retail metadata & primary artwork** on the Ingestion page. Provider config still uses the older internal value `hydration_stages: [1]` for this retail phase.
+Identity providers run during the retail phase of the hydration pipeline, shown as **Stage 3: Retail Match** on the Ingestion page. Provider config still uses the older internal value `hydration_stages: [1]` for this retail phase.
 They gather cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID, etc.)
-that Stage 4 (Wikidata lookup) later uses for precise QID resolution. Artwork-only,
+that Stage 4 (Wikidata) later uses for precise QID resolution. Artwork-only,
 lyrics, subtitle, and other follow-up providers should run as Stage 8/deep enrichment or text-track
 enrichment instead; they must not unlock Wikidata identity by themselves.
 

@@ -340,6 +340,12 @@ public static class IntegrationTestEndpoints
         public string Expected { get; set; } = "";
         /// <summary>What the pipeline actually produced.</summary>
         public string Actual { get; set; } = "";
+        public string? ExpectedQid { get; set; }
+        public string? ActualQid { get; set; }
+        public string? ExpectedProvider { get; set; }
+        public string? ActualProvider { get; set; }
+        public string? ExpectedTrigger { get; set; }
+        public string? ActualTrigger { get; set; }
         /// <summary>Match / UnexpectedReview / UnexpectedIdentified / WrongTrigger / NotFound</summary>
         public string Classification { get; set; } = "";
         /// <summary>Human-readable explanation from the seed fixture, or a generated note.</summary>
@@ -349,7 +355,14 @@ public static class IntegrationTestEndpoints
     private sealed class ReconciliationSummary
     {
         public int ExpectedTotal { get; set; }
+        public int ExpectedResolved { get; set; }
+        public int ActualResolved { get; set; }
+        public int ExpectedExactQid { get; set; }
+        public int ActualExactQid { get; set; }
+        public int ExpectedReview { get; set; }
+        public int ActualReview { get; set; }
         public int Matched { get; set; }
+        public List<ReconciliationItemResult> Items { get; set; } = [];
         public List<ReconciliationItemResult> Mismatches { get; set; } = [];
         public Dictionary<string, int> ByClassification { get; set; } = new()
         {
@@ -2543,6 +2556,21 @@ public static class IntegrationTestEndpoints
                 continue;
             }
 
+            if (exp.ExpectIdentified)
+            {
+                summary.ExpectedResolved++;
+                if (!string.IsNullOrWhiteSpace(exp.ExpectedQid))
+                    summary.ExpectedExactQid++;
+            }
+            else if (!exp.KnownNoWikidataEntity)
+            {
+                summary.ExpectedReview++;
+            }
+
+            string? expectedProvider = GetExpectedRetailProvider(exp, exp.MediaType);
+            string providerKey = $"{titleLower}|{mediaTypeLower}";
+            retailProviderByKey.TryGetValue(providerKey, out var actualProvider);
+
             if (!index.TryGetValue($"{titleLower}|{mediaTypeLower}", out var actual))
             {
                 // No matching Work row found
@@ -2552,9 +2580,13 @@ public static class IntegrationTestEndpoints
                     MediaType = exp.MediaType,
                     Expected = expectedDesc,
                     Actual = "NotFound",
+                    ExpectedQid = exp.ExpectedQid,
+                    ExpectedProvider = expectedProvider,
+                    ExpectedTrigger = exp.ExpectedReviewTrigger,
                     Classification = "NotFound",
                     Reason = "No Work row found in database after ingestion",
                 };
+                summary.Items.Add(item);
                 summary.Mismatches.Add(item);
                 summary.ByClassification["NotFound"]++;
                 logger.LogWarning("[Reconciliation] NotFound: '{Title}' ({Type})", exp.Title, exp.MediaType);
@@ -2569,6 +2601,17 @@ public static class IntegrationTestEndpoints
             string actualDesc = hasQid ? "Identified"
                               : hasReview ? $"InReview ({actualTrigger})"
                               : "Unresolved";
+
+            if (hasQid)
+                summary.ActualResolved++;
+            if (hasReview)
+                summary.ActualReview++;
+            if (!string.IsNullOrWhiteSpace(exp.ExpectedQid)
+                && !string.IsNullOrWhiteSpace(actual.WikidataQid)
+                && string.Equals(exp.ExpectedQid, actual.WikidataQid, StringComparison.OrdinalIgnoreCase))
+            {
+                summary.ActualExactQid++;
+            }
 
             string classification;
             if (exp.ExpectIdentified)
@@ -2624,9 +2667,6 @@ public static class IntegrationTestEndpoints
 
                 if (classification == "Match")
                 {
-                    string? expectedProvider = GetExpectedRetailProvider(exp, exp.MediaType);
-                    string providerKey = $"{titleLower}|{mediaTypeLower}";
-                    retailProviderByKey.TryGetValue(providerKey, out var actualProvider);
                     if (!string.IsNullOrWhiteSpace(expectedProvider)
                         && !string.IsNullOrWhiteSpace(actualProvider)
                         && !string.Equals(expectedProvider, actualProvider, StringComparison.OrdinalIgnoreCase))
@@ -2637,6 +2677,23 @@ public static class IntegrationTestEndpoints
                 }
             }
 
+            var result = new ReconciliationItemResult
+            {
+                Title = exp.Title,
+                MediaType = exp.MediaType,
+                Expected = expectedDesc,
+                Actual = actualDesc,
+                ExpectedQid = exp.ExpectedQid,
+                ActualQid = actual.WikidataQid,
+                ExpectedProvider = expectedProvider,
+                ActualProvider = actualProvider,
+                ExpectedTrigger = exp.ExpectedReviewTrigger,
+                ActualTrigger = actualTrigger,
+                Classification = classification,
+                Reason = exp.ExpectedReason,
+            };
+
+            summary.Items.Add(result);
             summary.ByClassification[classification]++;
             if (classification == "Match")
             {
@@ -2646,19 +2703,18 @@ public static class IntegrationTestEndpoints
             }
             else
             {
-                var item = new ReconciliationItemResult
-                {
-                    Title = exp.Title,
-                    MediaType = exp.MediaType,
-                    Expected = expectedDesc,
-                    Actual = actualDesc,
-                    Classification = classification,
-                    Reason = exp.ExpectedReason,
-                };
-                summary.Mismatches.Add(item);
+                summary.Mismatches.Add(result);
                 logger.LogWarning("[Reconciliation] {Class}: '{Title}' ({Type}) â€” expected={Expected}, actual={Actual}",
                     classification, exp.Title, exp.MediaType, expectedDesc, actualDesc);
             }
+        }
+
+        if (summary.ExpectedResolved != summary.ActualResolved
+            || summary.ExpectedExactQid != summary.ActualExactQid
+            || summary.ExpectedReview != summary.ActualReview)
+        {
+            report.IssuesFound.Add(
+                $"Reconciliation count mismatch: expected {summary.ExpectedResolved} resolved ({summary.ExpectedExactQid} exact QID) and {summary.ExpectedReview} review; actual {summary.ActualResolved} resolved ({summary.ActualExactQid} exact QID) and {summary.ActualReview} review.");
         }
 
         report.Reconciliation = summary;
@@ -2670,30 +2726,22 @@ public static class IntegrationTestEndpoints
             Total = summary.ExpectedTotal,
             Matched = summary.Matched,
         };
-        // Matched items are not retained as individual rows by ReconciliationSummary
-        // (only mismatches). Synthesise placeholder rows for matches so the totals
-        // line up; mismatches carry the full detail.
-        for (int i = 0; i < summary.Matched; i++)
+        foreach (var item in summary.Items)
         {
             structured.Items.Add(new ReconciliationReportItem(
-                FileName: "(matched)",
-                ExpectedStatus: "Identified",
-                ActualStatus: "Identified",
-                ExpectedTrigger: null,
-                ActualTrigger: null,
-                Matched: true,
-                Reason: null));
-        }
-        foreach (var mismatch in summary.Mismatches)
-        {
-            structured.Items.Add(new ReconciliationReportItem(
-                FileName: mismatch.Title,
-                ExpectedStatus: mismatch.Expected,
-                ActualStatus: mismatch.Actual,
-                ExpectedTrigger: null,
-                ActualTrigger: null,
-                Matched: false,
-                Reason: mismatch.Reason));
+                FileName: item.Title,
+                MediaType: item.MediaType,
+                ExpectedStatus: item.Expected,
+                ActualStatus: item.Actual,
+                ExpectedQid: item.ExpectedQid,
+                ActualQid: item.ActualQid,
+                ExpectedProvider: item.ExpectedProvider,
+                ActualProvider: item.ActualProvider,
+                ExpectedTrigger: item.ExpectedTrigger,
+                ActualTrigger: item.ActualTrigger,
+                Classification: item.Classification,
+                Matched: item.Classification == "Match",
+                Reason: item.Reason));
         }
         report.ReconciliationReport = structured;
 

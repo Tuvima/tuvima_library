@@ -4,18 +4,14 @@
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="tl-page users-page">
-    <AppPageHeader Title="@L["Users_PageTitle"].Value"
-                   Subtitle="@L["Users_PageDescription"].Value"
-                   Class="users-page__header">
-        <Actions>
-            <AppButton Label="@L["Users_NewProfile"].Value"
-                       StartIcon="@Icons.Material.Filled.PersonAdd"
-                       ButtonStyle="AppButtonStyle.Filled"
-                       Tone="AppUiTone.Primary"
-                       Disabled="@_loading"
-                       OnClick="@OpenCreateDialog" />
-        </Actions>
-    </AppPageHeader>
+    <AppActionBar Align="AppHorizontalAlignment.End" Class="users-page__actions mb-3">
+        <AppButton Label="@L["Users_NewProfile"].Value"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   ButtonStyle="AppButtonStyle.Filled"
+                   Tone="AppUiTone.Primary"
+                   Disabled="@_loading"
+                   OnClick="@OpenCreateDialog" />
+    </AppActionBar>
 
     @if (_loading)
     {

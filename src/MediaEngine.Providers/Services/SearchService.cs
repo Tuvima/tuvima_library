@@ -81,10 +81,13 @@ public sealed class SearchService : ISearchService
 
         var mediaType = ParseMediaType(request.MediaType);
 
-        // Find the Wikidata Reconciliation provider
-        var wikidataProvider = _providers.FirstOrDefault(
-            p => p.Name.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
-              || p.Name.Contains("reconciliation", StringComparison.OrdinalIgnoreCase));
+        var provConfigs = _configLoader.LoadAllProviders();
+
+        // Find the enabled Wikidata Reconciliation provider.
+        var wikidataProvider = ProviderExecutionFilter.EnabledProviders(_providers, provConfigs)
+            .FirstOrDefault(p =>
+                p.Name.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
+                || p.Name.Contains("reconciliation", StringComparison.OrdinalIgnoreCase));
 
         if (wikidataProvider is null)
         {
@@ -93,7 +96,6 @@ public sealed class SearchService : ISearchService
         }
 
         // Build endpoint map for cover art enrichment
-        var provConfigs = _configLoader.LoadAllProviders();
         var (language, country) = GetConfiguredLocale();
         var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
@@ -491,16 +493,12 @@ public sealed class SearchService : ISearchService
     {
         var allConfigs = _configLoader.LoadAllProviders();
 
-        return _providers
+        return ProviderExecutionFilter.EnabledProviders(_providers, allConfigs)
             .Where(p =>
             {
                 if (ExcludedFromRetail.Contains(p.Name)) return false;
                 if (!p.CanHandle(mediaType) || !p.CanHandle(EntityType.Work)) return false;
-
-                // Respect the enabled flag from provider configuration
-                var cfg = allConfigs.FirstOrDefault(c =>
-                    string.Equals(c.Name, p.Name, StringComparison.OrdinalIgnoreCase));
-                return cfg is null || cfg.Enabled;
+                return true;
             })
             .ToList();
     }

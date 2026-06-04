@@ -6,9 +6,6 @@
 @inject ISnackbar Snackbar
 
 <div class="tl-page encode-settings">
-    <AppPageHeader Title="Encode Settings"
-                   Subtitle="Server-side controls for scheduled encodes, HLS fallback packages, and mobile-ready variants." />
-
     <div class="encode-settings__grid">
         <AppCard Title="Scheduling">
             <AppSwitchRow @bind-Value="_scheduledEncodesEnabled"

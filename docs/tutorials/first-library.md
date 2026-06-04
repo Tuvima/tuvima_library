@@ -56,7 +56,7 @@ When a file is discovered, the Engine moves through these broad stages:
 4. **Classify** - resolve ambiguous formats such as MP3, M4A, MP4, MKV, AVI, or WEBM.
 5. **Identify** - compare file data with known works and provider candidates.
 6. **Stage 3 retail metadata & primary artwork** - gather primary cover/poster evidence, descriptions, ratings, people seeds, and bridge IDs from configured providers.
-7. **Stage 4 Wikidata lookup** - use bridge IDs to resolve canonical identity when possible.
+7. **Stage 4 Wikidata** - use bridge IDs to resolve canonical identity when possible.
 8. **Stage 5 file ready** - store core canonical values and managed artwork.
 9. **Stages 6-8 enrichment** - expand people, universe relationships, lyrics/subtitles, and deeper artwork.
 10. **Readiness** - decide whether the item is ready for Home, Read, Watch, Listen, Search, or Collections.

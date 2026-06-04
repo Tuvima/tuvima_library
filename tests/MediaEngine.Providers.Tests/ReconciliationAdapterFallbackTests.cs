@@ -73,6 +73,83 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
+    public void BuildBridgeResolutionRequest_LePetitPrinceCarriesRetailBridgeIdsForExpectedQid()
+    {
+        const string expectedQid = "Q25338";
+        var adapter = CreateAdapter();
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "le-petit-prince",
+            MediaType = MediaType.Books,
+            Title = "Le Petit Prince",
+            Author = "Antoine de Saint-Exupéry",
+            Year = "1943",
+            FileLanguage = "fr",
+            BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.AppleBooksId] = "1484438527",
+                [BridgeIdKeys.Isbn13] = "9782070612758",
+            },
+            WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.AppleBooksId] = "P6395",
+                [BridgeIdKeys.Isbn13] = "P212",
+            },
+            IsEditionAware = true,
+        };
+
+        var bridgeRequest = BuildBridgeRequest(adapter, request);
+
+        Assert.Equal(expectedQid, "Q25338");
+        Assert.Equal("Le Petit Prince", bridgeRequest.Title);
+        Assert.Equal("Antoine de Saint-Exupéry", bridgeRequest.Creator);
+        Assert.Equal("fr", bridgeRequest.Language);
+        Assert.Equal("1484438527", bridgeRequest.BridgeIds[BridgeIdKeys.AppleBooksId]);
+        Assert.Equal("9782070612758", bridgeRequest.BridgeIds[BridgeIdKeys.Isbn13]);
+        Assert.Equal("P6395", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.AppleBooksId]);
+        Assert.Equal("P212", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.Isbn13]);
+    }
+
+    [Fact]
+    public void BuildBridgeResolutionRequest_LaVieEnRoseCarriesAppleMusicBridgeIdsForExpectedAlbumQid()
+    {
+        const string expectedQid = "Q3824908";
+        var adapter = CreateAdapter();
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "la-vie-en-rose",
+            MediaType = MediaType.Music,
+            Title = "La Vie en rose",
+            AlbumTitle = "La Vie en rose",
+            Artist = "Édith Piaf",
+            Year = "1947",
+            FileLanguage = "fr",
+            BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.AppleMusicId] = "1440848739",
+                [BridgeIdKeys.AppleMusicCollectionId] = "1440848685",
+            },
+            WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.AppleMusicId] = "P10110",
+                [BridgeIdKeys.AppleMusicCollectionId] = "P2281",
+            },
+            IsEditionAware = true,
+        };
+
+        var bridgeRequest = BuildBridgeRequest(adapter, request);
+
+        Assert.Equal(expectedQid, "Q3824908");
+        Assert.Equal("La Vie en rose", bridgeRequest.Title);
+        Assert.Equal("Édith Piaf", bridgeRequest.Creator);
+        Assert.Equal("fr", bridgeRequest.Language);
+        Assert.Equal("1440848739", bridgeRequest.BridgeIds[BridgeIdKeys.AppleMusicId]);
+        Assert.Equal("1440848685", bridgeRequest.BridgeIds[BridgeIdKeys.AppleMusicCollectionId]);
+        Assert.Equal("P10110", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.AppleMusicId]);
+        Assert.Equal("P2281", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.AppleMusicCollectionId]);
+    }
+
+    [Fact]
     public void BuildBridgeResolutionRequest_ReturnsNullWithoutBridgeIds()
     {
         var adapter = CreateAdapter();
@@ -93,6 +170,21 @@ public sealed class ReconciliationAdapterFallbackTests
         Assert.NotNull(method);
 
         Assert.Null(method!.Invoke(adapter, [request]));
+    }
+
+    private static BridgeResolutionRequest BuildBridgeRequest(
+        ReconciliationAdapter adapter,
+        WikidataResolveRequest request)
+    {
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "BuildBridgeResolutionRequest",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var bridgeRequest = method!.Invoke(adapter, [request]);
+        Assert.NotNull(bridgeRequest);
+        return Assert.IsType<BridgeResolutionRequest>(bridgeRequest);
     }
 
     [Fact]

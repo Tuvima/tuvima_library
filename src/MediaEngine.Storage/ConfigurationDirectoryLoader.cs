@@ -602,10 +602,10 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         {
             FieldOverrides = new(StringComparer.OrdinalIgnoreCase)
             {
-                ["description"] = new() { Priority = ["wikidata_reconciliation", "apple_api", "open_library", "tmdb"], Note = "Prefer rich Wikipedia descriptions from the reconciliation provider, then fall back to retail descriptions" },
-                ["short_description"] = new() { Priority = ["wikidata_reconciliation", "tmdb", "apple_api", "open_library"], Note = "Prefer Wikidata entity descriptions for hero summaries; full Wikipedia extracts stay in description" },
+                ["description"] = new() { Priority = ["wikidata_reconciliation", "apple_api", "tmdb"], Note = "Prefer rich Wikipedia descriptions from the reconciliation provider, then fall back to enabled retail descriptions" },
+                ["short_description"] = new() { Priority = ["wikidata_reconciliation", "tmdb", "apple_api"], Note = "Prefer Wikidata entity descriptions for hero summaries; full Wikipedia extracts stay in description" },
                 ["biography"]   = new() { Priority = ["wikidata_reconciliation"], Note = "Rich Wikipedia bios for persons" },
-                ["cover"]       = new() { Priority = ["apple_api", "tmdb", "open_library", "musicbrainz"], Note = "Retail providers have high-res commercial art" },
+                ["cover"]       = new() { Priority = ["apple_api", "tmdb", "musicbrainz"], Note = "Enabled retail providers have high-res commercial art" },
                 ["rating"]      = new() { Priority = ["apple_api", "tmdb"], Note = "Wikidata does not carry ratings" },
             }
         });
@@ -635,7 +635,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         SaveProvider(new ProviderConfiguration
         {
             Name           = "open_library",
-            Enabled        = true,
+            Enabled        = false,
             Weight         = 0.7,
             Domain         = ProviderDomain.Ebook,
             CapabilityTags = ["title", "author", "cover", "isbn", "year", "series"],

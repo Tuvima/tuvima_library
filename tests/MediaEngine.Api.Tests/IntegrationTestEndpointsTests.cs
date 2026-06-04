@@ -115,12 +115,58 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void ReconciliationReport_EmitsPerFixtureQidAndProviderAlignment()
+    {
+        var report = new ReconciliationReport
+        {
+            Total = 1,
+            Matched = 1,
+            Items =
+            [
+                new ReconciliationReportItem(
+                    FileName: "Dune",
+                    MediaType: "Books",
+                    ExpectedStatus: "Identified as Q190192",
+                    ActualStatus: "Identified",
+                    ExpectedQid: "Q190192",
+                    ActualQid: "Q190192",
+                    ExpectedProvider: "apple_api",
+                    ActualProvider: "apple_api",
+                    ExpectedTrigger: null,
+                    ActualTrigger: null,
+                    Classification: "Match",
+                    Matched: true,
+                    Reason: null)
+            ],
+        };
+
+        var json = report.ToJson();
+
+        Assert.Contains("\"file_name\": \"Dune\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"media_type\": \"Books\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"expected_qid\": \"Q190192\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"actual_qid\": \"Q190192\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"expected_provider\": \"apple_api\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"actual_provider\": \"apple_api\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"classification\": \"Match\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OverallPass_FailsWhenReconciliationHasMismatches()
     {
         var report = CreateTestReport();
         var reconciliation = CreateReconciliationSummary();
         AddToListProperty(reconciliation, "Mismatches", CreateReconciliationItemResult());
         SetProperty(report, "Reconciliation", reconciliation);
+
+        Assert.False(GetOverallPass(report));
+    }
+
+    [Fact]
+    public void OverallPass_FailsWhenExpectedReconciliationCountsDrift()
+    {
+        var report = CreateTestReport();
+        AddToListProperty(report, "IssuesFound", "Reconciliation count mismatch: expected 97 exact QID, actual 96.");
 
         Assert.False(GetOverallPass(report));
     }

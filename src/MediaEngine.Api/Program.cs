@@ -783,6 +783,8 @@ if (!string.IsNullOrEmpty(modelsDir))
 
 builder.Services.AddSingleton(aiSettings);
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.ModelInventory>();
+builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.AiModelSelectionAdvisor>();
+builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.AiBenchmarkHarness>();
 builder.Services.AddSingleton<IModelDownloadManager, MediaEngine.AI.Infrastructure.ModelDownloadManager>();
 builder.Services.AddSingleton<IModelLifecycleManager, MediaEngine.AI.Infrastructure.ModelLifecycleManager>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.ModelAutoDownloadService>();
@@ -804,7 +806,11 @@ builder.Services.AddHostedService<MediaEngine.Api.Services.QuickHydrationHostedS
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
 builder.Services.AddSingleton<MediaEngine.AI.Llama.ILlamaInferenceService>(
     sp => sp.GetRequiredService<MediaEngine.AI.Llama.LlamaInferenceService>());
+builder.Services.AddSingleton<MediaEngine.AI.Llama.ITextInferenceService>(
+    sp => sp.GetRequiredService<MediaEngine.AI.Llama.LlamaInferenceService>());
 builder.Services.AddSingleton<MediaEngine.AI.Whisper.WhisperInferenceService>();
+builder.Services.AddSingleton<MediaEngine.AI.Whisper.IAudioTranscriptionService>(
+    sp => sp.GetRequiredService<MediaEngine.AI.Whisper.WhisperInferenceService>());
 builder.Services.AddSingleton<MediaEngine.AI.Whisper.AudioPreprocessor>();
 
 // Sprint 2: Ingestion features.

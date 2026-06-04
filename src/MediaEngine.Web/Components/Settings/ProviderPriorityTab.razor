@@ -8,18 +8,6 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="provider-page">
-    <header class="provider-hero">
-        <div class="provider-hero__bar">
-            <div>
-                <h2 class="provider-hero__title">Provider Setup</h2>
-                <div class="provider-hero__copy">
-                    Configure retail data providers and lookup strategies for all media types.
-                </div>
-            </div>
-            <SettingsStatusBadge Status="@(_engineConfigurationUnavailable ? SettingsStatusKind.EngineUnavailable : SettingsStatusKind.Live)" />
-        </div>
-    </header>
-
     <section class="provider-stage-strip" aria-label="Metadata provider stages">
         @foreach (var stage in ProviderStages)
         {

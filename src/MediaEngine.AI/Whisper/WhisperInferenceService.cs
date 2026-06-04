@@ -11,7 +11,7 @@ namespace MediaEngine.AI.Whisper;
 /// Core Whisper inference service wrapping Whisper.net.
 /// Handles model loading, audio transcription, and language detection.
 /// </summary>
-public sealed class WhisperInferenceService
+public sealed class WhisperInferenceService : IAudioTranscriptionService
 {
     private readonly AiSettings _settings;
     private readonly IModelLifecycleManager _lifecycle;

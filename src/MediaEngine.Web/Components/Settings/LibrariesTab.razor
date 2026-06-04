@@ -25,29 +25,23 @@
 else
 {
     <div class="tl-page file-organization-page">
-        <AppPageHeader Title="File Organization"
-                       Subtitle="Manage import folders and the folders used by each media type."
-                       Class="file-organization-page__header">
-            <Stats>
-                <AppStatusBadge Text="@(_engineUnavailable ? "Engine unavailable" : "Live")"
-                                Tone="@(_engineUnavailable ? AppStatusTone.Error : AppStatusTone.Success)" />
-            </Stats>
-            <Actions>
-                <AppButton Label="Folder health"
-                           StartIcon="@Icons.Material.Outlined.Refresh"
-                           ButtonStyle="AppButtonStyle.Text"
-                           OnClick="@CheckInitialHealthAsync" />
-                <AppButton Label="Ingestion"
-                           StartIcon="@Icons.Material.Outlined.PendingActions"
-                           ButtonStyle="AppButtonStyle.Text"
-                           Href="/settings/ingestion" />
-                @if (readOnly)
-                {
-                    <AppChip Text="@L["Libraries_ViewOnly"].Value"
-                             Icon="@Icons.Material.Outlined.Visibility" />
-                }
-            </Actions>
-        </AppPageHeader>
+        <AppActionBar Align="AppHorizontalAlignment.End" Class="file-organization-page__actions mb-4">
+            <AppStatusBadge Text="@(_engineUnavailable ? "Engine unavailable" : "Live")"
+                            Tone="@(_engineUnavailable ? AppStatusTone.Error : AppStatusTone.Success)" />
+            <AppButton Label="Folder health"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       ButtonStyle="AppButtonStyle.Text"
+                       OnClick="@CheckInitialHealthAsync" />
+            <AppButton Label="Ingestion"
+                       StartIcon="@Icons.Material.Outlined.PendingActions"
+                       ButtonStyle="AppButtonStyle.Text"
+                       Href="/settings/ingestion" />
+            @if (readOnly)
+            {
+                <AppChip Text="@L["Libraries_ViewOnly"].Value"
+                         Icon="@Icons.Material.Outlined.Visibility" />
+            }
+        </AppActionBar>
 
         @if (_engineUnavailable)
         {

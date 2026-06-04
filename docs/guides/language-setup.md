@@ -100,10 +100,10 @@ Japanese, Korean, and Chinese (Simplified and Traditional) are supported with sp
 - Romanized forms of CJK titles (such as pinyin, romaji, or romanized Korean) are indexed alongside the original script, so you can find titles by typing either form.
 
 **Optional CJK AI model:**
-If your metadata language or additional languages include Japanese, Korean, or Chinese, the Dashboard's Settings screen will offer an optional AI model optimised for CJK text (Qwen 2.5 3B Instruct). This model improves classification and vibe-tagging accuracy for CJK content.
+If your metadata language or additional languages include Japanese, Korean, or Chinese, the Dashboard's Settings screen will offer the configured CJK-capable model from `config/ai.json`. The default is Qwen3 4B Q4_K_M, selected because it covers CJK and broader multilingual analysis while staying below the old large enrichment tier.
 
 - The model is not downloaded automatically - you need to enable it in **Settings -> Intelligence -> Models**.
-- It is available on medium and high hardware tiers. On lower-end hardware, the standard model continues to be used.
+- It is validated by the `text_multilingual` gate rather than selected only because hardware is available.
 - Once downloaded, it is used automatically when processing CJK files.
 
 ---

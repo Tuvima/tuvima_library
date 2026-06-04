@@ -54,16 +54,24 @@ AI/ML subsystem configuration. Controls model selection, feature toggles, vibe v
 
 | Field | Type | Description |
 |---|---|---|
-| `text_fast.path` | string | Path to the 1B parameter model file (.gguf). Used for on-demand, low-latency inference (SmartLabeler, MediaTypeAdvisor). |
-| `text_fast.context_size` | int | Model context window size. |
-| `text_quality.path` | string | Path to the 3B parameter model file. Used for batch ingestion tasks (QidDisambiguator, VibeTag generation). |
-| `text_quality.context_size` | int | Model context window size. |
-| `text_scholar.path` | string | Path to the 8B parameter model file. Used for deep enrichment. Auto-downloads on High hardware tier only. |
-| `text_scholar.context_size` | int | Model context window size. |
-| `text_cjk.path` | string | Path to the Qwen 2.5 3B Instruct model. Auto-downloads only when CJK languages (ja/ko/zh/zh-TW) are in language preferences. Available on High and Medium hardware tiers. |
-| `text_cjk.context_size` | int | Model context window size. |
-| `audio.path` | string | Path to Whisper Medium model. Used for speech-to-text and audio language detection. |
+| `models.{role}.catalog_key` | string | Selected `model_catalog` key for the role. Used to explain capabilities, validation gates, and selection rationale. |
+| `models.{role}.file` | string | Model filename in the local model directory. |
+| `models.{role}.download_url` | string | Source URL used by the local downloader. |
+| `models.{role}.context_length` | int | Model context window size. |
+| `models.text_fast` | object | Defaults to Qwen3 0.6B Q8 for on-demand, low-latency inference. |
+| `models.text_quality` | object | Defaults to Qwen3 1.7B Q8 for batch ingestion tasks. |
+| `models.text_scholar` | object | Defaults to Qwen3 4B Q4_K_M for hard enrichment when smaller roles fail validation. |
+| `models.text_cjk` | object | Defaults to Qwen3 4B Q4_K_M for CJK and multilingual analysis. |
+| `models.audio` | object | Defaults to Whisper Medium for timestamped speech-to-text, language detection, and sync. |
 | `audio.language` | string | `"auto"` - automatic language detection. Set to a BCP-47 code to force a specific language. |
+
+### model_catalog
+
+The catalog lists current, baseline, candidate, experimental, and escalation models. Each entry declares runtime, license, intended roles, size, source URL, capabilities, and validation gates. Gemma 4 12B is cataloged as an escalation model, not a default role.
+
+### role_requirements
+
+Role requirements define the promotion gates for each role. Tuvima selects the smallest candidate that passes the role's latency, JSON validity, task accuracy, hallucination, WER, and timestamp drift requirements.
 
 ### features
 
@@ -243,7 +251,7 @@ One JSON file per metadata provider. All provider files are self-contained - add
 | `comicvine.json` | Comic Vine (comics) | Stage 3 retail metadata & primary artwork | `source` |
 | `musicbrainz.json` | MusicBrainz | Disabled by default | `source` |
 | `tmdb.json` | TMDB (movies, TV) | Stage 3 retail metadata & primary artwork | `localized` |
-| `wikidata_reconciliation.json` | Wikidata | Stage 4 Wikidata lookup | `both` |
+| `wikidata_reconciliation.json` | Wikidata | Stage 4 Wikidata | `both` |
 | `local_filesystem.json` | Local file metadata (processors) | Stage 2 read media details | `source` |
 | `fanart_tv.json` | Fanart.tv (artwork) | Stage 8 deep artwork | `source` |
 

@@ -1,9 +1,14 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Services;
+using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
+using ProviderDomain = MediaEngine.Storage.Models.ProviderDomain;
 
 namespace MediaEngine.Providers.Tests;
 
@@ -165,17 +170,69 @@ public sealed class IdentityPipelineTests
     [Fact]
     public void RetailMatchWorker_RespectsDisabledProviderConfiguration()
     {
-        var source = ReadRepoSource(@"src\MediaEngine.Providers\Workers\RetailMatchWorker.cs");
+        var enabled = new StubExternalMetadataProvider("apple_api");
+        var disabled = new StubExternalMetadataProvider("open_library");
+        var unconfigured = new StubExternalMetadataProvider("sample_provider");
+        var configs = new ProviderConfiguration[]
+        {
+            new() { Name = "apple_api", Enabled = true },
+            new() { Name = "open_library", Enabled = false },
+        };
 
-        Assert.Contains("providerConfigByName", source, StringComparison.Ordinal);
-        Assert.Contains("!providerConfig.Enabled", source, StringComparison.Ordinal);
-        Assert.Contains("enabledProviders.Count == 0", source, StringComparison.Ordinal);
-        Assert.Contains("ScheduleRetryAsync", source, StringComparison.Ordinal);
-        Assert.Contains("instead of becoming no-match", source, StringComparison.Ordinal);
-        Assert.Contains("providerFailures > 0", source, StringComparison.Ordinal);
-        Assert.Contains("retrying before no-match classification", source, StringComparison.Ordinal);
-        Assert.Contains("IsProviderEnabled(\"apple_api\")", source, StringComparison.Ordinal);
-        Assert.Contains("tmdbConfig is { Enabled: false }", source, StringComparison.Ordinal);
+        var providers = ProviderExecutionFilter.EnabledProviders(
+            [enabled, disabled, unconfigured],
+            configs);
+        var names = ProviderExecutionFilter.EnabledProviderNames(
+            ["apple_api", "open_library", "sample_provider"],
+            [enabled, disabled, unconfigured],
+            configs);
+
+        Assert.Contains(enabled, providers);
+        Assert.DoesNotContain(disabled, providers);
+        Assert.DoesNotContain(unconfigured, providers);
+        Assert.Equal(["apple_api"], names);
+        Assert.Same(
+            enabled,
+            ProviderExecutionFilter.FindEnabledProvider([enabled, disabled], configs, "apple_api"));
+        Assert.Null(ProviderExecutionFilter.FindEnabledProvider([enabled, disabled], configs, "open_library"));
+    }
+
+    [Fact]
+    public void ScoringHelper_WeightMapsSkipDisabledProviders()
+    {
+        var enabled = new StubExternalMetadataProvider("apple_api");
+        var disabled = new StubExternalMetadataProvider("open_library");
+        var configs = new ProviderConfiguration[]
+        {
+            new()
+            {
+                Name = "apple_api",
+                Enabled = true,
+                Weight = 0.9,
+                FieldWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [MetadataFieldConstants.Title] = 0.95,
+                },
+            },
+            new()
+            {
+                Name = "open_library",
+                Enabled = false,
+                Weight = 0.7,
+                FieldWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [MetadataFieldConstants.Title] = 0.7,
+                },
+            },
+        };
+
+        var (weights, fieldWeights) = ScoringHelper.BuildWeightMaps(configs, [enabled, disabled]);
+
+        Assert.True(weights.ContainsKey(enabled.ProviderId));
+        Assert.False(weights.ContainsKey(disabled.ProviderId));
+        Assert.NotNull(fieldWeights);
+        Assert.True(fieldWeights!.ContainsKey(enabled.ProviderId));
+        Assert.False(fieldWeights.ContainsKey(disabled.ProviderId));
     }
 
     [Theory]
@@ -224,5 +281,27 @@ public sealed class IdentityPipelineTests
 
         var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
         return File.ReadAllText(Path.Combine(root, relativePath));
+    }
+
+    private sealed class StubExternalMetadataProvider(string name) : IExternalMetadataProvider
+    {
+        public string Name { get; } = name;
+        public ProviderDomain Domain => ProviderDomain.Universal;
+        public IReadOnlyList<string> CapabilityTags => [];
+        public Guid ProviderId { get; } = Guid.NewGuid();
+
+        public bool CanHandle(MediaType mediaType) => true;
+        public bool CanHandle(EntityType entityType) => true;
+
+        public Task<IReadOnlyList<ProviderClaim>> FetchAsync(
+            ProviderLookupRequest request,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<ProviderClaim>>([]);
+
+        public Task<IReadOnlyList<SearchResultItem>> SearchAsync(
+            ProviderLookupRequest request,
+            int limit = 25,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SearchResultItem>>([]);
     }
 }

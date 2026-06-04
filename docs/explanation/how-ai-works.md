@@ -33,20 +33,20 @@ This isn't just a privacy nicety - it's what makes the AI viable for enriching a
 
 ---
 
-## Four Models, Four Jobs
+## Model Roles
 
-The AI layer uses multiple specialized models rather than one model doing everything. Smaller models are faster and cheaper to run; larger models produce richer analysis. The right tool for the job:
+The AI layer uses multiple specialized roles rather than one model doing everything. Smaller models are faster and cheaper to run, so Tuvima starts with the lightest model that can reliably pass each role's validation gates.
 
 | Model | Size | Role | What it handles |
 |---|---|---|---|
-| Llama 3.2 1B | ~750 MB | Quick tasks | Media type classification, search query parsing, on-demand requests |
-| Llama 3.2 3B | ~1.9 GB | Ingestion | Filename cleaning, Wikidata candidate matching, vibe tag generation |
-| Llama 3.1 8B | ~4.6 GB | Deep enrichment | Theme/mood/setting/pace extraction, TL;DR summaries, character name extraction |
-| Whisper Medium | ~1.5 GB | Audio | Transcription, language detection, subtitle synchronization |
+| Qwen3 0.6B | ~639 MB | Quick tasks | Search query parsing, TL;DR summaries, on-demand requests |
+| Qwen3 1.7B | ~1.8 GB | Ingestion | Filename cleaning, Wikidata candidate matching, vibe tag generation |
+| Qwen3 4B | ~2.5 GB | Scholar/CJK | Deep enrichment, long-context analysis, CJK/multilingual processing |
+| Whisper Medium | ~1.5 GB | Audio | Timestamped transcription, language detection, subtitle synchronization |
 
-There's also an optional fifth model: **Qwen 2.5 3B** for CJK (Chinese, Japanese, Korean) language processing. It downloads automatically if you have CJK languages configured in your preferences - you don't need to think about it.
+The model catalog also tracks legacy Llama baselines, Gemma 4 candidates, Gemma 4 12B as a lab escalation model, and newer ASR candidates such as Distil-Whisper, Whisper turbo, Parakeet, and Qwen3-ASR.
 
-The 1B model handles anything that needs to be fast and on-demand. The 3B handles batch work during ingestion. The 8B handles the deep enrichment that runs in the background over time. Whisper is in its own category entirely - it's a speech-to-text model rather than a language model.
+The fast model handles anything that needs to be responsive. The quality model handles batch work during ingestion. The scholar model is available for harder enrichment, but hardware availability alone does not make it the default. Whisper is in its own category entirely because audio sync depends on reliable timestamps, not only transcription text.
 
 ---
 
@@ -76,7 +76,7 @@ Not every machine has the same capabilities. On first startup, the Engine benchm
 **High** (e.g., RTX 3060 or better)
 - All AI features available
 - Continuous background enrichment
-- 8B model available
+- Scholar model available when validation requires it
 - GPU acceleration via CUDA (NVIDIA) or Vulkan (AMD/Intel Arc)
 
 **Medium** (e.g., i7, 16 GB RAM)
@@ -86,7 +86,7 @@ Not every machine has the same capabilities. On first startup, the Engine benchm
 
 **Low** (e.g., i5, 8 GB RAM)
 - All features available, but heavy features run overnight only
-- No 8B model (too slow to be useful)
+- Uses small-first defaults unless a background validation run promotes a larger role
 - CPU only
 
 GPU detection is automatic. CUDA is tried first for NVIDIA cards. Vulkan is used for AMD and Intel Arc. Integrated GPUs are intentionally left alone - the Engine uses those for video transcoding, so AI takes the discrete GPU and leaves integrated graphics to FFmpeg.
@@ -181,4 +181,3 @@ For technical details about the AI model architecture, hardware benchmark thresh
 - [Local AI Intelligence Layer](../architecture/ai-integration.md)
 - [How to Set Up Language Preferences](../guides/language-setup.md)
 - [How Two-Stage Enrichment Works](how-hydration-works.md)
-

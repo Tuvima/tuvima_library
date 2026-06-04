@@ -32,21 +32,65 @@ NuGet dependencies:
 
 ## Model Roles
 
-Three model roles cover all AI workloads. Only one model is loaded into memory at a time, enforced by a `SemaphoreSlim`. Models auto-unload after a configurable idle timeout. On first run, `ModelAutoDownloadService` downloads all models to the `/models` Docker volume (environment variable: `TUVIMA_MODELS_DIR`).
+Model roles are small-first functional slots. Only one selected model is loaded into memory at a time, enforced by a `SemaphoreSlim`. Models auto-unload after a configurable idle timeout. On first run, `ModelAutoDownloadService` downloads the selected models to the `/models` Docker volume (environment variable: `TUVIMA_MODELS_DIR`).
 
 | Role | Default model | Memory footprint | Use |
 |---|---|---|---|
-| `text_fast` | Llama 3.2 1B Q4_K_M | ~750 MB | On-demand tasks: search intent parsing, TL;DR, recommendation explanations |
-| `text_quality` | Llama 3.2 3B Q4_K_M | ~2 GB | Batch tasks: ingestion manifest analysis, vibe tagging, QID disambiguation |
-| `audio` | Whisper Medium | ~1.5 GB | Audio tasks: transcription, language detection, sync maps |
+| `text_fast` | Qwen3 0.6B Q8 | ~639 MB | On-demand tasks: search intent parsing, TL;DR, recommendation explanations |
+| `text_quality` | Qwen3 1.7B Q8 | ~1.8 GB | Batch tasks: ingestion manifest analysis, vibe tagging, QID disambiguation |
+| `text_scholar` | Qwen3 4B Q4_K_M | ~2.5 GB | Hard enrichment, relationship extraction, and long-context analysis |
+| `text_cjk` | Qwen3 4B Q4_K_M | ~2.5 GB | Chinese, Japanese, Korean, and broader multilingual analysis |
+| `audio` | Whisper Medium | ~1.5 GB | Timestamped transcription, language detection, audiobook sync, subtitle sync |
 
-Model roles are configurable in `config/ai.json`. Any GGUF-format model can be substituted by updating the config.
+Model roles are configurable in `config/ai.json`. Each selected role points at a `model_catalog` entry, and each role has `role_requirements` that define required capabilities and promotion gates. Hardware availability can make a model usable, but does not by itself promote a larger model.
+
+### Model Catalog
+
+The catalog tracks current, candidate, experimental, and escalation models across the local spectrum:
+
+| Catalog group | Intended use | Promotion rule |
+|---|---|---|
+| Qwen3 0.6B / 1.7B / 4B | Primary text ladder | Use the smallest model that passes JSON, accuracy, latency, and hallucination gates |
+| Llama 3.2 1B / 3B | Legacy baselines | Keep for regression comparison until Qwen3 passes the same fixtures |
+| Gemma 4 E2B / E4B | Multimodal and long-context candidates | Validate only when Qwen3 is insufficient or multimodal input becomes a product requirement |
+| Gemma 4 12B | Lab escalation | Never default unless smaller models fail documented gates |
+| Whisper Medium / Distil-Whisper / Whisper turbo | Whisper-compatible ASR candidates | Keep sync-grade timestamp semantics and compare WER, drift, and runtime |
+| Parakeet / Qwen3-ASR | Experimental ASR | Do not promote until a local runtime adapter exists and sync fixtures pass |
 
 ---
 
 ## Structured Output
 
 All LLM calls use GBNF grammar constraints - llama.cpp forces the model to produce valid JSON at the token level. This is model-agnostic and works with Llama, Mistral, Phi, Gemma, and Qwen models. JSON schema validation and retry logic serve as a safety net over the grammar constraint.
+
+---
+
+## Validation Gates
+
+Tuvima promotes models by role requirements, not by hardware tier alone. A larger model is selected only when the smaller candidate fails a documented gate.
+
+| Suite | Role | Required proof |
+|---|---|---|
+| `text_instant` | `text_fast` | Warm response target under 1.5s, valid JSON at least 99%, no UI-blocking model load |
+| `text_ingestion` | `text_quality` | Valid JSON at least 99%, pass rate at least 94% on filename, media type, QID, and vibe fixtures |
+| `text_enrichment` | `text_scholar` | Pass rate at least 95% on Wikipedia-backed description, people, theme, and relationship extraction |
+| `text_multilingual` | `text_cjk` | CJK fixtures preserve canonical names and return schema-valid multilingual output |
+| `audio_sync` | `audio` | WER at or below 12%, segment drift at or below 250 ms, reliable language detection, and recoverable long-file chunking |
+
+The built-in benchmark suite definitions are exposed through `/ai/benchmark/suites`. Actual promotion still requires running the fixtures on the target machine and recording the result before changing the selected catalog key.
+
+---
+
+## Whisper and ASR Replacement Policy
+
+Whisper is older, but it remains the default sync provider because the current .NET integration already returns timestamped segments. For Tuvima, transcription quality alone is not enough; audiobook and subtitle workflows need stable timing.
+
+Replacement candidates are split into two groups:
+
+- Whisper-compatible candidates such as Distil-Whisper large-v3 and Whisper large-v3-turbo can be evaluated first because they preserve the current whisper.cpp/Whisper.net style of integration.
+- Parakeet and Qwen3-ASR are experimental until the Engine has a local ASR adapter for their runtime and their word or segment timestamps pass `audio_sync` fixtures.
+
+Gemma 4 audio is not a Whisper replacement for sync in the current architecture. It can be tested later for transcript extraction or audio question answering, but it does not become sync-grade unless it exposes timestamped alignment output that passes the same gates.
 
 ---
 
@@ -188,4 +232,3 @@ All AI settings live in `config/ai.json`:
 - [How the Local AI Works](../explanation/how-ai-works.md)
 - [How to Set Up Language Preferences](../guides/language-setup.md)
 - [Hydration Pipeline, Provider Architecture and Enrichment Strategy](hydration-and-providers.md)
-
