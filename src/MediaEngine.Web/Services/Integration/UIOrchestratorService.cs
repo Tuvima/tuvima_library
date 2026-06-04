@@ -442,6 +442,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         string[] actionTypes, int limit = 50, CancellationToken ct = default)
         => _api.GetActivityByTypesAsync(actionTypes, limit, ct);
 
+    /// <summary>Returns activity entries for a single ingestion run.</summary>
+    public Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(
+        Guid runId, CancellationToken ct = default)
+        => _api.GetActivityByRunIdAsync(runId, ct);
+
     /// <summary>Triggers a library reconciliation scan for missing files.</summary>
     public Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default)
         => _api.TriggerReconciliationAsync(ct);

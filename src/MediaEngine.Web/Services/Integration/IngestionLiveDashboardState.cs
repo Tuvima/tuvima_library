@@ -1182,7 +1182,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             "wikidata" => Icons.Material.Outlined.TravelExplore,
             "ready" => Icons.Material.Outlined.CheckCircle,
             "people" => Icons.Material.Outlined.Groups,
-            "relationships" or "universes" => Icons.Material.Outlined.Hub,
+            "relationships" or "universes" => Icons.Material.Outlined.Public,
             "deep_artwork" or "artwork" => Icons.Material.Outlined.Image,
             "review" => Icons.Material.Outlined.WarningAmber,
             _ => Icons.Material.Outlined.AutoAwesome,

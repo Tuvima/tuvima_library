@@ -1019,9 +1019,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 DetailItems(
                     Detail("Covers / posters", artifactCounts.PrimaryArtworkCount, "success", "artwork"),
                     Detail("People headshots", artifactCounts.HeadshotCount, "neutral", "artwork"),
-                    Detail("Backdrops / banners / logos", artifactCounts.BackdropBannerLogoCount, "neutral", "artwork"),
+                    Detail("Backdrops", artifactCounts.BackdropBannerCount, "neutral", "artwork"),
                     Detail("Season / episode art", artifactCounts.SeasonEpisodeArtworkCount, "neutral", "artwork"),
-                    Detail("Album / music art", artifactCounts.MusicArtworkCount, "neutral", "artwork"))),
+                    Detail("Album / music art", artifactCounts.MusicArtworkCount, "neutral", "artwork"),
+                    Detail("Logos", artifactCounts.LogoCount, "neutral", "artwork"))),
         ];
     }
 
@@ -1369,6 +1370,18 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     WHERE ea.asset_type IN ('Background', 'Banner', 'Logo', 'ClearArt')
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS BackdropBannerLogoCount,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type IN ('Background', 'Banner', 'ClearArt')
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS BackdropBannerCount,
+                (
+                    SELECT COUNT(*)
+                    FROM entity_assets ea
+                    WHERE ea.asset_type = 'Logo'
+                      AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
+                ) AS LogoCount,
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
@@ -3986,6 +3999,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public int DeepArtworkFiles { get; init; }
         public int HeadshotCount { get; init; }
         public int BackdropBannerLogoCount { get; init; }
+        public int BackdropBannerCount { get; init; }
+        public int LogoCount { get; init; }
         public int SeasonEpisodeArtworkCount { get; init; }
         public int MusicArtworkCount { get; init; }
 
@@ -3993,7 +4008,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             BooksCount + MoviesCount + TvShowsCount + MusicCount + ComicsCount + AudiobooksCount > 0;
 
         public int TotalArtworkCount =>
-            PrimaryArtworkCount + HeadshotCount + BackdropBannerLogoCount + SeasonEpisodeArtworkCount + MusicArtworkCount;
+            PrimaryArtworkCount + HeadshotCount + BackdropBannerCount + LogoCount + SeasonEpisodeArtworkCount + MusicArtworkCount;
 
         public int RetailArtifactCount =>
             ProviderMatches + MetadataFields + CoverUrls + PrimaryArtworkCount;

@@ -15,65 +15,6 @@
     }
     else
     {
-        <section class="library-update__metrics" aria-label="Ingestion summary">
-            <div class="library-update-metric is-purple">
-                <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.Description" /></span>
-                <div>
-                    <span>Files Found</span>
-                    <strong>@FormatCount(Model.TotalFiles)</strong>
-                </div>
-            </div>
-            <div class="library-update-metric is-blue">
-                <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span>
-                <div>
-                    <span>Processed</span>
-                    <strong>@FormatCount(Model.ProcessedFiles)</strong>
-                </div>
-            </div>
-            <div class="library-update-metric is-green">
-                <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.Link" /></span>
-                <div>
-                    <span>Matched</span>
-                    <strong>@FormatCount(Model.MatchedItems)</strong>
-                </div>
-            </div>
-            <div class="library-update-metric is-purple">
-                <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></span>
-                <div>
-                    <span>Enrichment</span>
-                    <strong>@FormatEnrichmentValue(Model)</strong>
-                </div>
-            </div>
-            <div class="library-update-metric is-amber">
-                <span class="library-update-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span>
-                <div>
-                    <span>Need Review</span>
-                    <strong>@FormatCount(Model.ReviewItems)</strong>
-                    @if (!string.IsNullOrWhiteSpace(ReviewMetricSubline))
-                    {
-                        <em class="library-update-metric__sub">@ReviewMetricSubline</em>
-                    }
-                </div>
-            </div>
-        </section>
-
-        <section class="library-update__toolbar" aria-label="Ingestion actions">
-            <AppActionBar Align="AppHorizontalAlignment.End" Class="library-update__actions">
-                <AppButton Label="Refresh"
-                           StartIcon="@Icons.Material.Outlined.Refresh"
-                           Disabled="@Loading"
-                           OnClick="OnRefresh" />
-                <AppButton Label="Scan Now"
-                           ButtonStyle="AppButtonStyle.Filled"
-                           Tone="AppUiTone.Primary"
-                           StartIcon="@Icons.Material.Outlined.PlayArrow"
-                           Disabled="@(Loading || ScanStarting)"
-                           OnClick="OnScanNow" />
-            </AppActionBar>
-        </section>
-
-        <section class="library-update-primary-grid">
-
         <section class="@MainStatusClass" aria-live="polite">
             @if (DisplayStageRows.Count > 0)
             {
@@ -84,6 +25,18 @@
                             <span>@FormatCount(OverallProgress.ProcessedFiles) of @FormatCount(OverallProgress.TotalFiles) files</span>
                         </div>
                         <em>@FormatPercent(OverallProgress.Percent)</em>
+                        <AppActionBar Align="AppHorizontalAlignment.End" Class="library-update__actions">
+                            <AppButton Label="Refresh"
+                                       StartIcon="@Icons.Material.Outlined.Refresh"
+                                       Disabled="@Loading"
+                                       OnClick="OnRefresh" />
+                            <AppButton Label="Scan Now"
+                                       ButtonStyle="AppButtonStyle.Filled"
+                                       Tone="AppUiTone.Primary"
+                                       StartIcon="@Icons.Material.Outlined.PlayArrow"
+                                       Disabled="@(Loading || ScanStarting)"
+                                       OnClick="OnScanNow" />
+                        </AppActionBar>
                     </div>
                     <AppProgressBar Value="@OverallProgress.Percent"
                                     ShowValue="false"
@@ -100,17 +53,18 @@
                                          AriaLabel="@StageSelectionLabel(stage)"
                                          OnClick="@(() => SelectStage(stage))">
                             <span class="library-update-stage-card__progress" aria-hidden="true">
-                                <svg viewBox="0 0 36 36" focusable="false">
-                                    <circle class="library-update-stage-card__progress-track" cx="18" cy="18" r="15.5" pathLength="100" />
-                                    <circle class="library-update-stage-card__progress-value" cx="18" cy="18" r="15.5" pathLength="100" stroke-dasharray="100" stroke-dashoffset="@StageRingOffset(stage)" />
-                                </svg>
                                 @if (IsStageComplete(stage))
                                 {
-                                    <MudIcon Icon="@Icons.Material.Outlined.Check" />
+                                    <span class="library-update-stage-card__check">
+                                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                                    </span>
                                 }
                                 else
                                 {
-                                    <span>@FormatPercent(stage.Percent)</span>
+                                    <svg viewBox="0 0 36 36" focusable="false">
+                                        <circle class="library-update-stage-card__progress-track" cx="18" cy="18" r="15.5" pathLength="100" />
+                                        <circle class="library-update-stage-card__progress-value" cx="18" cy="18" r="15.5" pathLength="100" stroke-dasharray="100" stroke-dashoffset="@StageRingOffset(stage)" />
+                                    </svg>
                                 }
                             </span>
                             <span class="library-update-stage-card__icon">
@@ -132,29 +86,15 @@
                 @if (SelectedStage is not null)
                 {
                     <section class="library-update-stage-detail-panel" aria-label="@($"{DisplayStageLabel(SelectedStage)} details")">
-                        <div class="library-update-stage-detail-panel__hero">
-                            <span class="@StageDetailHeroClass(SelectedStage)">
-                                @if (IsWikidataStage(SelectedStage))
-                                {
-                                    <img src="/assets/providers/wikidata.svg" alt="" aria-hidden="true" />
-                                }
-                                else
-                                {
-                                    <MudIcon Icon="@SelectedStage.Icon" />
-                                }
-                            </span>
-                            <div>
-                                <span>@SelectedBatchContext</span>
-                                <strong>@DisplayStageLabel(SelectedStage) details</strong>
-                                <em>@StageCountLine(SelectedStage)</em>
-                            </div>
-                        </div>
                         <div class="library-update-stage-detail-panel__items">
                             @foreach (var detail in StageDetailLines(SelectedStage))
                             {
                                 <div class="@StageDetailClass(detail)">
-                                    <span>@detail.Label</span>
+                                    <span class="library-update-stage-detail__icon" aria-hidden="true">
+                                        <MudIcon Icon="@detail.Icon" />
+                                    </span>
                                     <strong>@detail.Value</strong>
+                                    <span>@detail.Label</span>
                                 </div>
                             }
                         </div>
@@ -164,15 +104,6 @@
             else if (!Model.ShowProgress && Model.EnrichmentTotal <= 0)
             {
                 <p class="library-update-status__line">@MainLineContent()</p>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(Model.ActivityLine))
-            {
-                <p class="library-update-status__activity">@Model.ActivityLine</p>
-            }
-            @if (!string.IsNullOrWhiteSpace(Model.SecondaryLine))
-            {
-                <p class="library-update-status__secondary">@Model.SecondaryLine</p>
             }
 
             @if (Model.PageState == LibraryUpdatePageState.Failed)
@@ -190,56 +121,60 @@
             }
         </section>
 
-        <section class="library-update-panel library-update-batches">
+        <section class="library-update-batches">
             <div class="library-update-batches__header">
-                <span class="library-update-panel__icon is-purple"><MudIcon Icon="@Icons.Material.Outlined.History" /></span>
+                <span class="library-update-batches__icon"><MudIcon Icon="@Icons.Material.Outlined.History" /></span>
                 <div>
                     <h3>Recent batches</h3>
                     <p>Select a batch to load its stage details above.</p>
                 </div>
-                <AppButton Label="Full Activity"
-                           Href="/settings/activity"
-                           EndIcon="@Icons.Material.Outlined.OpenInNew" />
             </div>
 
             @if (OrderedRecentBatches.Count > 0)
             {
-                <div class="library-update-batch-table" role="list" aria-label="Recent ingestion batches">
+                <div class="library-update-batch-list" role="list" aria-label="Recent ingestion batches">
                     @foreach (var batch in OrderedRecentBatches)
                     {
-                        <AppNativeButton @key="BatchRenderKey(batch)"
-                                         Type="button"
-                                         Class="@BatchCardClass(batch)"
-                                         AriaLabel="@($"Load details for {BatchTitle(batch)}")"
-                                         OnClick="@(() => SelectBatch(batch))">
-                            <span class="library-update-batch__favorite">
-                                <MudIcon Icon="@(IsSelectedBatch(batch) ? Icons.Material.Filled.Star : Icons.Material.Outlined.ChevronRight)" />
-                            </span>
-                            <span class="library-update-batch__name">
-                                <strong>@BatchTitle(batch)</strong>
-                                <span>@BatchTiming(batch)</span>
-                            </span>
-                            <span class="library-update-batch__files">@FormatCount(batch.ProcessedFiles) / @FormatCount(batch.TotalFiles) files</span>
-                            <span class="library-update-batch__media">
-                                @foreach (var chip in BatchMediaChips(batch))
-                                {
-                                    <span class="@BatchChipClass(chip)">
-                                        <MudIcon Icon="@chip.Icon" />
-                                        @chip.Label
-                                    </span>
-                                }
-                            </span>
-                            <span class="library-update-batch__stats">
-                                @foreach (var chip in BatchArtifactChips(batch))
-                                {
-                                    <span class="@BatchChipClass(chip)">
-                                        <strong>@FormatCount(chip.Count)</strong>
-                                        @chip.Label
-                                    </span>
-                                }
-                            </span>
-                            <em class="@BatchStatusClass(batch.Status)">@BatchStatusLabel(batch)</em>
-                        </AppNativeButton>
+                        <div @key="BatchRenderKey(batch)"
+                             class="@BatchCardClass(batch)"
+                             role="listitem">
+                            <AppNativeButton Type="button"
+                                             Class="library-update-batch__select"
+                                             AriaLabel="@($"Load details for {BatchTitle(batch)}")"
+                                             OnClick="@(() => SelectBatch(batch))">
+                                <span class="library-update-batch__favorite">
+                                    <MudIcon Icon="@(IsSelectedBatch(batch) ? Icons.Material.Filled.Star : Icons.Material.Outlined.ChevronRight)" />
+                                </span>
+                                <span class="library-update-batch__name">
+                                    <strong>@BatchTitle(batch)</strong>
+                                    <span>@BatchTimestamp(batch)</span>
+                                </span>
+                                <span class="library-update-batch__media" aria-label="Media types in batch">
+                                    @foreach (var chip in BatchMediaChips(batch))
+                                    {
+                                        <span class="@BatchMediaIconClass(chip)" title="@($"{chip.Label}: {FormatCount(chip.Count)}")" aria-label="@($"{chip.Label}: {FormatCount(chip.Count)}")">
+                                            <MudIcon Icon="@chip.Icon" />
+                                        </span>
+                                    }
+                                </span>
+                                <span class="library-update-batch__stats">
+                                    @foreach (var chip in BatchArtifactChips(batch))
+                                    {
+                                        <span class="@BatchChipClass(chip)" title="@($"{chip.Label}: {FormatCount(chip.Count)}")" aria-label="@($"{chip.Label}: {FormatCount(chip.Count)}")">
+                                            <MudIcon Icon="@chip.Icon" />
+                                            <strong>@FormatCount(chip.Count)</strong>
+                                            <span>@chip.Label</span>
+                                        </span>
+                                    }
+                                </span>
+                            </AppNativeButton>
+                            <a class="library-update-batch__activity"
+                               href="@BatchActivityHref(batch)"
+                               title="@($"Full activity for {BatchTitle(batch)}")"
+                               aria-label="@($"Full activity for {BatchTitle(batch)}")">
+                                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" />
+                            </a>
+                        </div>
                     }
                 </div>
             }
@@ -247,7 +182,6 @@
             {
                 <p class="library-update-batches__empty">Run a scan to see batch history here.</p>
             }
-        </section>
         </section>
 
     }
@@ -308,9 +242,6 @@
     private IngestionDashboardStage? SelectedStage =>
         DisplayStageRows.FirstOrDefault(stage => StageSelectionKey(stage).Equals(_selectedStageKey, StringComparison.OrdinalIgnoreCase))
         ?? DefaultSelectedStage(DisplayStageRows);
-    private string SelectedBatchContext => SelectedBatch is { } batch
-        ? $"{BatchTitle(batch)}"
-        : "Latest batch";
     private IngestionDashboardStage ActiveBatchStage =>
         StageRows.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
         ?? StageRows.FirstOrDefault(stage => stage.Percent < 100)
@@ -658,9 +589,9 @@
                 Detail("Failed", batch.FailedCount, batch.FailedCount > 0 ? "danger" : "neutral")),
             BatchStage(
                 2,
-                "retail",
-                "Retail Match",
-                Icons.Material.Outlined.Search,
+            "retail",
+            "Retail Match",
+            Icons.Material.Outlined.Search,
                 Math.Max(0, batch.RegisteredCount + batch.ReviewCount + batch.FailedCount),
                 total,
                 "matches",
@@ -677,15 +608,14 @@
                 Detail("Cover art assets", batch.ArtworkDownloadedCount, "success")),
             BatchStage(
                 3,
-                "wikidata",
-                "Wikidata",
-                Icons.Material.Outlined.TravelExplore,
-                completeCount,
-                total,
-                "QIDs",
-                batch.RegisteredCount,
+            "wikidata",
+            "Wikidata",
+            Icons.Material.Outlined.TravelExplore,
+            completeCount,
+            total,
+            "QIDs",
+            batch.RegisteredCount,
                 Detail("Files with media/work QID", batch.RegisteredCount, "success"),
-                Detail("Retail retained without QID", batch.ReviewCount, batch.ReviewCount > 0 ? "warning" : "neutral"),
                 Detail("Related QIDs discovered", batch.MetadataUpdatedCount, "info")),
             BatchStage(
                 4,
@@ -701,15 +631,14 @@
                 Detail("Authors", 0),
                 Detail("Narrators", 0),
                 Detail("Music artists", 0),
-                Detail("Creators / crew", 0),
                 Detail("Deeply enriched people", batch.PeopleGeneratedCount, "success")),
             BatchStage(
                 5,
-                "universes",
-                "Universes",
-                Icons.Material.Outlined.Hub,
-                completeCount,
-                total,
+            "universes",
+            "Universes",
+            Icons.Material.Outlined.Public,
+            completeCount,
+            total,
                 "links",
                 batch.MetadataUpdatedCount,
                 Detail("Files with universe links", batch.MetadataUpdatedCount, "success"),
@@ -719,18 +648,19 @@
                 Detail("Adaptation / story links", 0)),
             BatchStage(
                 6,
-                "artwork",
-                "Artwork",
-                Icons.Material.Outlined.Image,
+            "artwork",
+            "Artwork",
+            Icons.Material.Outlined.Image,
                 completeCount,
                 total,
                 "assets",
                 batch.ArtworkDownloadedCount,
                 Detail("Covers / posters", batch.ArtworkDownloadedCount, "success"),
                 Detail("People headshots", 0),
-                Detail("Backdrops / banners / logos", 0),
+                Detail("Backdrops", 0),
                 Detail("Season / episode art", 0),
-                Detail("Album / music art", 0)),
+                Detail("Album / music art", 0),
+                Detail("Logos", 0)),
         ];
     }
 
@@ -786,25 +716,6 @@
 
     private static bool IsReviewStage(IngestionDashboardStage stage) =>
         stage.StageNumber == 9 || stage.Key.Equals("review", StringComparison.OrdinalIgnoreCase);
-
-    private bool IsStageExpanded(IngestionDashboardStage stage) =>
-        stage.StatusKey == "Ingestion_StatusActive" || _expandedStageKeys.Contains(StageExpansionKey(stage));
-
-    private void ToggleStage(IngestionDashboardStage stage)
-    {
-        var key = StageExpansionKey(stage);
-        if (!_expandedStageKeys.Add(key))
-            _expandedStageKeys.Remove(key);
-    }
-
-    private static string StageExpansionKey(IngestionDashboardStage stage) =>
-        stage.StageNumber > 0 ? stage.StageNumber.ToString(CultureInfo.InvariantCulture) : stage.Key;
-
-    private static string ToggleStageLabel(IngestionDashboardStage stage) =>
-        $"Toggle {DisplayStageLabel(stage)} details";
-
-    private static string StageNumberLabel(IngestionDashboardStage stage) =>
-        stage.StageNumber > 0 ? stage.StageNumber.ToString(CultureInfo.CurrentCulture) : "-";
 
     private static string DisplayStageLabel(IngestionDashboardStage stage) =>
         stage.LabelKey switch
@@ -867,58 +778,96 @@
         return $"library-update-stage__status is-{tone}";
     }
 
-    private static string? StageActiveLabel(IngestionDashboardStage stage)
-    {
-        if (stage.ActiveCount <= 0)
-            return null;
-
-        if (!string.IsNullOrWhiteSpace(stage.ActiveGroupLabel))
-            return stage.ActiveGroupLabel;
-        if (!string.IsNullOrWhiteSpace(stage.ActiveItemLabel))
-            return stage.ActiveItemLabel;
-        return $"{FormatCount(stage.ActiveCount)} active";
-    }
-
     private static IReadOnlyList<StageDetailLine> StageDetailLines(IngestionDashboardStage stage)
     {
-        var lines = new List<StageDetailLine>();
-
-        if (stage.ActiveCount > 0)
-            lines.Add(new("Active", FormatCount(stage.ActiveCount), "info"));
-        if (stage.QueuedCount > 0)
-            lines.Add(new("Queued", FormatCount(stage.QueuedCount), "neutral"));
-        if (stage.ActiveCount > 0 && !string.IsNullOrWhiteSpace(stage.ActiveGroupLabel))
-            lines.Add(new("Active group", stage.ActiveGroupLabel!, "info"));
-        if (stage.ActiveCount > 0 && !string.IsNullOrWhiteSpace(stage.ActiveItemLabel))
-            lines.Add(new("Active item", stage.ActiveItemLabel!, "info"));
-        if (!string.IsNullOrWhiteSpace(stage.LabelAccuracy) && !stage.LabelAccuracy.Equals("None", StringComparison.OrdinalIgnoreCase))
-            lines.Add(new("Label accuracy", FormatLabelAccuracy(stage.LabelAccuracy), "neutral"));
-        if (stage.IsStale)
-            lines.Add(new("Worker status", "Waiting for fresh update", "warning"));
-
-        foreach (var detail in stage.DetailItems ?? [])
+        var details = stage.DetailItems ?? [];
+        return stage.Key.ToLowerInvariant() switch
         {
-            if (string.IsNullOrWhiteSpace(detail.Label) || string.IsNullOrWhiteSpace(detail.Value))
-                continue;
-            if (lines.Any(line => line.Label.Equals(detail.Label, StringComparison.OrdinalIgnoreCase)))
-                continue;
-            lines.Add(new(detail.Label, detail.Value, detail.Tone ?? "neutral"));
-        }
-
-        return lines;
+            "scan" => [
+                Metric("Books", DetailCount(details, "Books"), "books", Icons.Material.Outlined.MenuBook),
+                Metric("Movies", DetailCount(details, "Movies"), "movies", Icons.Material.Outlined.Movie),
+                Metric("TV", DetailCount(details, "TV"), "tv", Icons.Material.Outlined.LiveTv),
+                Metric("Music", DetailCount(details, "Music"), "music", Icons.Material.Outlined.Album),
+                Metric("Comics", DetailCount(details, "Comics"), "comics", Icons.Material.Outlined.AutoStories),
+                Metric("Audiobooks", DetailCount(details, "Audiobooks"), "audiobooks", Icons.Material.Outlined.Headphones),
+                Metric("Unidentified", DetailCount(details, "Unidentified"), "warning", Icons.Material.Outlined.HelpOutline),
+                Metric("Skipped/Failed", DetailCount(details, "Skipped / duplicate") + DetailCount(details, "Failed"), "warning", Icons.Material.Outlined.WarningAmber),
+            ],
+            "retail" => [
+                Metric("Books", DetailCount(details, "Books"), "books", Icons.Material.Outlined.MenuBook),
+                Metric("Movies", DetailCount(details, "Movies"), "movies", Icons.Material.Outlined.Movie),
+                Metric("TV", DetailCount(details, "TV"), "tv", Icons.Material.Outlined.LiveTv),
+                Metric("Music", DetailCount(details, "Music"), "music", Icons.Material.Outlined.Album),
+                Metric("Comics", DetailCount(details, "Comics"), "comics", Icons.Material.Outlined.AutoStories),
+                Metric("Audiobooks", DetailCount(details, "Audiobooks"), "audiobooks", Icons.Material.Outlined.Headphones),
+                Metric("Unresolved", DetailCount(details, "Failed / unresolved"), "warning", Icons.Material.Outlined.WarningAmber),
+                Metric("Metadata", DetailCount(details, "Metadata fields"), "info", Icons.Material.Outlined.FactCheck),
+                Metric("Cover Art", DetailCount(details, "Cover art assets"), "success", Icons.Material.Outlined.Image),
+            ],
+            "wikidata" => [
+                Metric("Matched", DetailCount(details, "Files with media/work QID"), "success", Icons.Material.Outlined.Link),
+                Metric("Relevant QIDs", DetailCount(details, "Related QIDs discovered"), "info", Icons.Material.Outlined.AccountTree),
+            ],
+            "people" => [
+                Metric("Cast", DetailCount(details, "Cast"), "neutral", Icons.Material.Outlined.Groups),
+                Metric("Directors", DetailCount(details, "Directors"), "neutral", Icons.Material.Outlined.Movie),
+                Metric("Authors", DetailCount(details, "Authors"), "neutral", Icons.Material.Outlined.MenuBook),
+                Metric("Narrators", DetailCount(details, "Narrators"), "neutral", Icons.Material.Outlined.Mic),
+                Metric("Music Artists", DetailCount(details, "Music artists"), "neutral", Icons.Material.Outlined.MusicNote),
+                Metric("Enriched", DetailCount(details, "Deeply enriched people"), "success", Icons.Material.Outlined.AutoAwesome),
+            ],
+            "universes" or "relationships" => [
+                Metric("Links", DetailCount(details, "Files with universe links"), "success", Icons.Material.Outlined.Public),
+                Metric("Series", DetailCount(details, "Series / shelves"), "neutral", Icons.Material.Outlined.Collections),
+                Metric("Universe Detail", DetailCount(details, "Universe roots") + DetailCount(details, "Characters / locations / orgs"), "neutral", Icons.Material.Outlined.AccountTree),
+                Metric("Adaptations", DetailCount(details, "Adaptation / story links"), "neutral", Icons.Material.Outlined.Link),
+            ],
+            "artwork" or "deep_artwork" => [
+                Metric("Covers", DetailCount(details, "Covers / posters"), "success", Icons.Material.Outlined.Image),
+                Metric("Headshots", DetailCount(details, "People headshots"), "neutral", Icons.Material.Outlined.Groups),
+                Metric("Backdrops", DetailCount(details, "Backdrops"), "neutral", Icons.Material.Outlined.Collections),
+                Metric("Season Art", DetailCount(details, "Season / episode art"), "neutral", Icons.Material.Outlined.LiveTv),
+                Metric("Album Art", DetailCount(details, "Album / music art"), "neutral", Icons.Material.Outlined.Album),
+                Metric("Logos", DetailCount(details, "Logos"), "neutral", Icons.Material.Outlined.Image),
+            ],
+            _ => details
+                .Where(detail => !string.IsNullOrWhiteSpace(detail.Label) && !string.IsNullOrWhiteSpace(detail.Value))
+                .Select(detail => new StageDetailLine(detail.Label, detail.Value, detail.Tone ?? "neutral", ResolveDetailIcon(detail)))
+                .ToList(),
+        };
     }
 
     private static string StageDetailClass(StageDetailLine detail) =>
         $"library-update-stage-detail is-{detail.Tone}";
 
-    private static string FormatLabelAccuracy(string value) =>
-        value switch
+    private static StageDetailLine Metric(string label, int value, string tone, string icon) =>
+        new(label, FormatCount(value), tone, icon);
+
+    private static int DetailCount(IReadOnlyList<IngestionStageDetailItemViewModel> details, string label)
+    {
+        var value = details.FirstOrDefault(detail => detail.Label.Equals(label, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (string.IsNullOrWhiteSpace(value))
+            return 0;
+        return int.TryParse(value, NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out var parsed)
+            ? Math.Max(0, parsed)
+            : 0;
+    }
+
+    private static string ResolveDetailIcon(IngestionStageDetailItemViewModel detail) =>
+        (detail.Icon ?? detail.Label).ToLowerInvariant() switch
         {
-            "ExactItem" => "Exact item",
-            "GroupedLookup" => "Grouped lookup",
-            "BatchOnly" => "Batch only",
-            "Stale" => "Stale",
-            _ => value,
+            var value when value.Contains("book") => Icons.Material.Outlined.MenuBook,
+            var value when value.Contains("movie") => Icons.Material.Outlined.Movie,
+            var value when value.Contains("tv") => Icons.Material.Outlined.LiveTv,
+            var value when value.Contains("music") => Icons.Material.Outlined.Album,
+            var value when value.Contains("comic") => Icons.Material.Outlined.AutoStories,
+            var value when value.Contains("audio") => Icons.Material.Outlined.Headphones,
+            var value when value.Contains("art") || value.Contains("cover") => Icons.Material.Outlined.Image,
+            var value when value.Contains("people") || value.Contains("cast") => Icons.Material.Outlined.Groups,
+            var value when value.Contains("qid") || value.Contains("wikidata") => Icons.Material.Outlined.AccountTree,
+            var value when value.Contains("relationship") || value.Contains("universe") => Icons.Material.Outlined.Public,
+            var value when value.Contains("warning") || value.Contains("review") || value.Contains("failed") => Icons.Material.Outlined.WarningAmber,
+            _ => Icons.Material.Outlined.FactCheck,
         };
 
     private static string BatchTitle(IngestionOperationsBatchViewModel batch)
@@ -931,7 +880,7 @@
     private static string BatchActivityHref(IngestionOperationsBatchViewModel batch) =>
         batch.BatchId == Guid.Empty
             ? "/settings/activity"
-            : $"/settings/activity?batchId={batch.BatchId:D}";
+            : $"/settings/activity?runId={batch.BatchId:D}";
 
     private string BatchCardClass(IngestionOperationsBatchViewModel batch)
     {
@@ -980,6 +929,12 @@
         return $"{FormatCount(batch.ProcessedFiles)} / {FormatCount(batch.TotalFiles)} files - {relative}";
     }
 
+    private static string BatchTimestamp(IngestionOperationsBatchViewModel batch)
+    {
+        var value = (batch.CompletedAt ?? batch.StartedAt).ToLocalTime();
+        return value.ToString("MMM d, yyyy h:mm tt", CultureInfo.CurrentCulture);
+    }
+
     private static IReadOnlyList<BatchChip> BatchMediaChips(IngestionOperationsBatchViewModel batch)
     {
         var chips = new List<BatchChip>
@@ -999,13 +954,13 @@
     [
         new("matched", batch.RegisteredCount, Icons.Material.Outlined.Link, "green"),
         new("review", batch.ReviewCount, Icons.Material.Outlined.WarningAmber, "amber"),
-        new("people", batch.PeopleGeneratedCount, Icons.Material.Outlined.Groups, "blue"),
-        new("artwork", batch.ArtworkDownloadedCount, Icons.Material.Outlined.Collections, "pink"),
-        new("metadata", batch.MetadataUpdatedCount, Icons.Material.Outlined.AutoAwesome, "cyan"),
     ];
 
     private static string BatchChipClass(BatchChip chip) =>
         $"library-update-batch-chip is-{chip.Tone}";
+
+    private static string BatchMediaIconClass(BatchChip chip) =>
+        $"library-update-batch-media-icon is-{chip.Tone}";
 
     private static string FormatEnrichmentValue(LibraryUpdateStatusViewModel model) =>
         FormatCount(model.EnrichmentCompleted);
@@ -1187,7 +1142,7 @@
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
 
-    private sealed record StageDetailLine(string Label, string Value, string Tone);
+    private sealed record StageDetailLine(string Label, string Value, string Tone, string Icon);
 
     private sealed record BatchChip(string Label, int Count, string Icon, string Tone);
 }

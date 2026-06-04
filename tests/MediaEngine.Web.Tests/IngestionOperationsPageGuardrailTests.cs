@@ -1761,7 +1761,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("3 unexpected", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("3 unexpected", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("3 unexpected items need review", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("1 were expected by the harness", cut.Markup, StringComparison.Ordinal);
     }
@@ -1806,7 +1806,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("2 unexpected", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("2 unexpected", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("2 unexpected items need review", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("0 were expected by the harness", cut.Markup, StringComparison.Ordinal);
     }
@@ -1909,7 +1909,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("Need Review", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Need Review", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Needs attention", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Review Items", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("library-update-attention", cut.Markup, StringComparison.Ordinal);
@@ -1945,22 +1945,24 @@ public sealed class IngestionDashboardRenderTests : TestContext
             })
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("Files Found", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Scanned", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Retail Match", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Overall progress", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Recent batches", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Full Activity", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Refresh", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Scan Now", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Files Found", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Processed", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Need Review", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Library Update", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("library-update__header", cut.Markup, StringComparison.Ordinal);
-        Assert.True(
-            cut.Markup.IndexOf("library-update__metrics", StringComparison.Ordinal)
-            < cut.Markup.IndexOf("library-update-primary-grid", StringComparison.Ordinal));
+        Assert.DoesNotContain("library-update__metrics", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("library-update-primary-grid", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("library-update-batch-table", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Update steps", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("What's happening now", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("File processing", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("ingestion-stage-rail", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("href=\"/settings/activity\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -2033,6 +2035,78 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
+    public void LiveDashboard_RendersSimplifiedStageMetricTiles()
+    {
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 97,
+                RegisteredItems = 35,
+            },
+            StageProgress =
+            [
+                new()
+                {
+                    StageNumber = 4,
+                    StageKey = "wikidata",
+                    Label = "Wikidata",
+                    CompletedFiles = 61,
+                    TotalFiles = 97,
+                    PercentComplete = 62.9,
+                    ArtifactLabel = "QIDs",
+                    ArtifactCount = 102,
+                    DetailItems =
+                    [
+                        new() { Label = "Files with media/work QID", Value = "61", Tone = "success" },
+                        new() { Label = "Retail retained without QID", Value = "13", Tone = "warning" },
+                        new() { Label = "Related QIDs discovered", Value = "102", Tone = "info" },
+                    ],
+                },
+                new()
+                {
+                    StageNumber = 5,
+                    StageKey = "people",
+                    Label = "People",
+                    CompletedFiles = 97,
+                    TotalFiles = 97,
+                    PercentComplete = 100,
+                    ArtifactLabel = "people",
+                    ArtifactCount = 570,
+                    DetailItems =
+                    [
+                        new() { Label = "Cast", Value = "200" },
+                        new() { Label = "Directors", Value = "20" },
+                        new() { Label = "Authors", Value = "120" },
+                        new() { Label = "Narrators", Value = "30" },
+                        new() { Label = "Music artists", Value = "160" },
+                        new() { Label = "Creators / crew", Value = "40" },
+                        new() { Label = "Deeply enriched people", Value = "47", Tone = "success" },
+                    ],
+                },
+            ],
+        };
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(97, 35, 0, 0))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 97))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Matched", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Relevant QIDs", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Retail retained without QID", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label accuracy", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Active item", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Active group", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Worker status", cut.Markup, StringComparison.Ordinal);
+
+        cut.FindAll(".library-update-stage-card")[1].Click();
+        Assert.Contains("Enriched", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Creators / crew", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LiveDashboard_HidesStaleActiveLabelsForCompletedNumberedStages()
     {
         var snapshot = new IngestionOperationsSnapshotViewModel
@@ -2097,6 +2171,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
     {
         var batchId = Guid.Parse("83000000-0000-0000-0000-000000000001");
         var completedBatchId = Guid.Parse("84000000-0000-0000-0000-000000000001");
+        var startedAt = new DateTimeOffset(2026, 6, 3, 20, 15, 0, TimeSpan.Zero);
         var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, new IngestionOperationsSnapshotViewModel
             {
@@ -2112,7 +2187,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                     new IngestionOperationsBatchViewModel
                     {
                         BatchId = batchId,
-                        StartedAt = DateTimeOffset.UtcNow.AddMinutes(-12),
+                        StartedAt = startedAt,
                         TotalFiles = 10,
                         MoviesCount = 2,
                         TvShowsCount = 1,
@@ -2131,8 +2206,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
                     new IngestionOperationsBatchViewModel
                     {
                         BatchId = completedBatchId,
-                        StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
-                        CompletedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+                        StartedAt = startedAt.AddMinutes(10),
+                        CompletedAt = startedAt.AddMinutes(11),
                         TotalFiles = 3,
                         ProcessedFiles = 3,
                         MoviesCount = 3,
@@ -2152,17 +2227,20 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.True(
             cut.Markup.IndexOf("Update 830000", StringComparison.Ordinal) <
             cut.Markup.IndexOf("Update 840000", StringComparison.Ordinal));
+        Assert.Contains("2026", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Full activity for Update 830000", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("href=\"/settings/activity?runId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("href=\"/settings/activity?batchId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Full Activity", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("+2 this batch", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("+2 this batch", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Movies", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("TV", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Audiobooks", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Comics", cut.Markup, StringComparison.Ordinal);
-        AssertBatchChip(cut, "7", "people");
-        AssertBatchChip(cut, "3", "artwork");
-        AssertBatchChip(cut, "4", "metadata");
+        AssertBatchChip(cut, "4", "matched");
         AssertBatchChip(cut, "2", "review");
+        Assert.DoesNotContain(">people<", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(">artwork<", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(">metadata<", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Recent library updates", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Last batch runs", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("library-update-batch-grid__row", cut.Markup, StringComparison.Ordinal);
@@ -2171,7 +2249,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
-    public void LiveDashboard_RendersExpandedActiveStageDetails()
+    public void LiveDashboard_RendersMetricOnlyStageDetails()
     {
         var activities = new[]
         {
@@ -2206,8 +2284,12 @@ public sealed class IngestionDashboardRenderTests : TestContext
                     ArtifactCount = 31,
                     DetailItems =
                     [
-                        new() { Label = "Backgrounds", Value = "8", Tone = "success" },
-                        new() { Label = "Episode stills", Value = "12", Tone = "success" },
+                        new() { Label = "Covers / posters", Value = "16", Tone = "success" },
+                        new() { Label = "People headshots", Value = "4" },
+                        new() { Label = "Backdrops", Value = "8" },
+                        new() { Label = "Season / episode art", Value = "12" },
+                        new() { Label = "Album / music art", Value = "2" },
+                        new() { Label = "Logos", Value = "3" },
                     ],
                 },
             ],
@@ -2220,13 +2302,19 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
         Assert.DoesNotContain("31/50", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("31 / 50 files", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("31 assets", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Artwork", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Artwork lookup: 50 files", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Neuromancer", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Backgrounds", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Episode stills", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Covers", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Headshots", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Backdrops", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Season Art", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Album Art", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Logos", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Artwork lookup: 50 files", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Neuromancer", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label accuracy", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Active item", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queued", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("library-update-batch-grid__row", cut.Markup, StringComparison.Ordinal);
     }
 
