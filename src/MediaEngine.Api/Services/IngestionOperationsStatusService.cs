@@ -19,7 +19,8 @@ namespace MediaEngine.Api.Services;
 public sealed class IngestionOperationsStatusService : IIngestionOperationsStatusService
 {
     private static readonly string[] ActiveBatchStatuses = ["running", "queued", "processing", "active"];
-    private static readonly string[] FailedBatchStatuses = ["failed", "abandoned"];
+    private static readonly string[] FailedBatchStatuses = ["failed"];
+    private static readonly string[] InterruptedBatchStatuses = ["abandoned", "interrupted"];
     private static readonly TimeSpan NoWorkBatchGrace = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan NoWorkBatchMaximumAge = TimeSpan.FromMinutes(2);
     private static readonly string[] RetailMatchedStates =
@@ -249,6 +250,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             summaryTotals.Total,
             ct).ConfigureAwait(false);
 
+        var recentBatchDtos = await BuildRecentBatchDtosAsync(
+            recentBatchGroups,
+            recentBatches,
+            batchStats,
+            lifecycle,
+            projection,
+            ct).ConfigureAwait(false);
+
         var activeWorkCount = activeJobs.Count > 0
             ? activeJobs.Count
             : currentActivities.Any(IsActiveActivity) ? 1 : 0;
@@ -282,11 +291,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ReviewReasons = BuildReviewReasons(reviewRows),
             SourceGroups = BuildSourceGroups(folderStats),
             ProviderHealth = providerDtos,
-            RecentBatches = recentBatchGroups
-                .Select(group => ToRecentBatch(
-                    group.Batch,
-                    AggregateBatchStats(group.SourceBatchIds, batchStats)))
-                .ToList(),
+            RecentBatches = recentBatchDtos,
             Organization = BuildOrganizationRules(),
             GeneratedAt = DateTimeOffset.UtcNow,
         };
@@ -546,6 +551,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             && ShouldShowActiveBatch(batch));
         var failed = displayBatches.Any(batch =>
             FailedBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase));
+        var interrupted = displayBatches.Any(batch =>
+            InterruptedBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase));
         var completedAt = displayBatches.All(batch => batch.CompletedAt.HasValue)
             ? displayBatches.Max(batch => batch.CompletedAt)
             : null;
@@ -556,7 +563,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 .OrderByDescending(batch => batch.UpdatedAt)
                 .ThenByDescending(batch => batch.StartedAt)
                 .First().Id,
-            Status = active ? "running" : failed ? "failed" : "completed",
+            Status = active ? "running" : failed ? "failed" : interrupted ? "abandoned" : "completed",
             SourcePath = displayBatches.Count == 1 ? displayBatches[0].SourcePath : "Multiple source folders",
             Category = displayBatches.Count == 1 ? displayBatches[0].Category : "Mixed",
             FilesTotal = displayBatches.Sum(batch => Math.Max(0, batch.FilesTotal)),
@@ -950,7 +957,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 totalFiles,
                 "matches",
                 artifactCounts.ProviderMatches,
-                ActivityFor(currentActivities, "artwork", "retail", "metadata"),
+                ActivityFor(currentActivities, "retail", "metadata"),
                 DetailItems(
                     Detail("Matches", artifactCounts.ProviderMatches, "success", "match"),
                     Detail("Books", artifactCounts.RetailBooksCount, "neutral", "books"),
@@ -959,9 +966,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Detail("Music", artifactCounts.RetailMusicCount, "neutral", "music"),
                     Detail("Comics", artifactCounts.RetailComicsCount, "neutral", "comics"),
                     Detail("Audiobooks", artifactCounts.RetailAudiobooksCount, "neutral", "audiobooks"),
-                    Detail("Failed / unresolved", retailReviewTotal + failed, retailReviewTotal + failed > 0 ? "warning" : "neutral", "review"),
                     Detail("Metadata fields", artifactCounts.MetadataFields, "info", "metadata"),
-                    Detail("Cover art assets", artifactCounts.PrimaryArtworkCount, "success", "artwork"))),
+                    Detail("Cover art assets", artifactCounts.PrimaryArtworkCount, "success", "artwork"),
+                    Detail("Unresolved", Math.Max(retailReviewTotal, artifactCounts.RetailUnresolvedCount), Math.Max(retailReviewTotal, artifactCounts.RetailUnresolvedCount) > 0 ? "warning" : "neutral", "review"),
+                    Detail("Failed", Math.Max(failed, artifactCounts.RetailFailedCount), Math.Max(failed, artifactCounts.RetailFailedCount) > 0 ? "danger" : "neutral", "warning"))),
             CreateNumberedStage(
                 3,
                 "wikidata",
@@ -969,12 +977,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 wikidataDone,
                 totalFiles,
                 "QIDs",
-                Math.Max(artifactCounts.FilesWithQid, ParseMetricValue(ActivityFor(currentActivities, "wikidata")?.MetricValue)),
+                Math.Max(artifactCounts.RelevantQidCount, Math.Max(artifactCounts.MediaQidCount, artifactCounts.FilesWithQid)),
                 ActivityFor(currentActivities, "wikidata"),
                 DetailItems(
-                    Detail("Files with media/work QID", artifactCounts.FilesWithQid, "success", "qid"),
-                    Detail("Retail retained without QID", wikidataReview + review, wikidataReview + review > 0 ? "warning" : "neutral", "review"),
-                    Detail("Related QIDs discovered", artifactCounts.RelatedQidCount, "info", "qid"))),
+                    Detail("Media QIDs", Math.Max(artifactCounts.MediaQidCount, artifactCounts.FilesWithQid), "success", "qid"),
+                    Detail("Relevant QIDs", artifactCounts.RelevantQidCount, "info", "qid"),
+                    Detail("Related QIDs discovered", artifactCounts.RelatedQidCount, "info", "qid"),
+                    Detail("Unresolved", Math.Max(wikidataReview + review, artifactCounts.WikidataUnresolvedCount), Math.Max(wikidataReview + review, artifactCounts.WikidataUnresolvedCount) > 0 ? "warning" : "neutral", "review"),
+                    Detail("Failed", Math.Max(failed, artifactCounts.WikidataFailedCount), Math.Max(failed, artifactCounts.WikidataFailedCount) > 0 ? "danger" : "neutral", "warning"))),
             CreateNumberedStage(
                 4,
                 "people",
@@ -999,9 +1009,10 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 optionalEnrichmentDone,
                 totalFiles,
                 "links",
-                Math.Max(artifactCounts.UniverseLinkCount, ParseMetricValue(ActivityFor(currentActivities, "relationships")?.MetricValue)),
+                artifactCounts.UniverseLinkCount,
                 ActivityFor(currentActivities, "relationships"),
                 DetailItems(
+                    Detail("Relationship links", artifactCounts.UniverseLinkCount, "success", "relationships"),
                     Detail("Files with universe links", artifactCounts.FilesWithUniverseLinks, "success", "relationships"),
                     Detail("Series / shelves", artifactCounts.SeriesShelfCount, "neutral", "relationships"),
                     Detail("Universe roots", artifactCounts.UniverseRootCount, "neutral", "relationships"),
@@ -1015,7 +1026,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 totalFiles,
                 "assets",
                 artifactCounts.TotalArtworkCount,
-                ActivityFor(currentActivities, "deep_artwork", "images"),
+                ActivityFor(currentActivities, "artwork", "deep_artwork", "images"),
                 DetailItems(
                     Detail("Covers / posters", artifactCounts.PrimaryArtworkCount, "success", "artwork"),
                     Detail("People headshots", artifactCounts.HeadshotCount, "neutral", "artwork"),
@@ -1120,6 +1131,63 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 FROM retail_match_candidates r
                 JOIN scoped_jobs sj ON sj.id = r.job_id
                 WHERE r.outcome IN ('AutoAccepted', 'Ambiguous')
+            ),
+            media_qids AS (
+                SELECT resolved_qid AS qid
+                FROM latest_entities
+                WHERE resolved_qid IS NOT NULL
+                  AND resolved_qid <> ''
+                  AND resolved_qid <> 'NF'
+                UNION
+                SELECT qid
+                FROM batch_work_qids
+            ),
+            related_qids AS (
+                SELECT p.wikidata_qid AS qid
+                FROM persons p
+                WHERE p.wikidata_qid IS NOT NULL
+                  AND p.wikidata_qid <> ''
+                  AND (
+                        @hasBatchScope = 0
+                        OR EXISTS (
+                            SELECT 1
+                            FROM person_media_links pml
+                            WHERE pml.person_id = p.id
+                              AND pml.media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL)
+                        )
+                  )
+                UNION
+                SELECT c.wikidata_qid AS qid
+                FROM collections c
+                WHERE c.wikidata_qid IS NOT NULL
+                  AND c.wikidata_qid <> ''
+                  AND (@hasBatchScope = 0 OR c.id IN (SELECT id FROM batch_collections))
+                UNION
+                SELECT fe.wikidata_qid AS qid
+                FROM fictional_entities fe
+                WHERE fe.wikidata_qid IS NOT NULL
+                  AND fe.wikidata_qid <> ''
+                  AND (
+                        @hasBatchScope = 0
+                        OR EXISTS (
+                            SELECT 1
+                            FROM fictional_entity_work_links fewl
+                            WHERE fewl.entity_id = fe.id
+                              AND fewl.work_qid IN (SELECT qid FROM batch_work_qids)
+                        )
+                  )
+                UNION
+                SELECT smi.series_qid AS qid
+                FROM series_manifest_items smi
+                WHERE smi.series_qid IS NOT NULL
+                  AND smi.series_qid <> ''
+                  AND (@hasBatchScope = 0 OR smi.collection_id IN (SELECT id FROM batch_collections) OR smi.linked_work_id IN (SELECT id FROM entity_scope))
+                UNION
+                SELECT smi.item_qid AS qid
+                FROM series_manifest_items smi
+                WHERE smi.item_qid IS NOT NULL
+                  AND smi.item_qid <> ''
+                  AND (@hasBatchScope = 0 OR smi.collection_id IN (SELECT id FROM batch_collections) OR smi.linked_work_id IN (SELECT id FROM entity_scope))
             )
             SELECT
                 (
@@ -1177,54 +1245,40 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 ) AS FilesWithQid,
                 (
                     SELECT COUNT(DISTINCT qid)
-                    FROM (
-                        SELECT p.wikidata_qid AS qid
-                        FROM persons p
-                        WHERE p.wikidata_qid IS NOT NULL
-                          AND p.wikidata_qid <> ''
-                          AND (
-                                @hasBatchScope = 0
-                                OR EXISTS (
-                                    SELECT 1
-                                    FROM person_media_links pml
-                                    WHERE pml.person_id = p.id
-                                      AND pml.media_asset_id IN (SELECT asset_id FROM lineage WHERE asset_id IS NOT NULL)
-                                )
-                          )
-                        UNION
-                        SELECT c.wikidata_qid AS qid
-                        FROM collections c
-                        WHERE c.wikidata_qid IS NOT NULL
-                          AND c.wikidata_qid <> ''
-                          AND (@hasBatchScope = 0 OR c.id IN (SELECT id FROM batch_collections))
-                        UNION
-                        SELECT fe.wikidata_qid AS qid
-                        FROM fictional_entities fe
-                        WHERE fe.wikidata_qid IS NOT NULL
-                          AND fe.wikidata_qid <> ''
-                          AND (
-                                @hasBatchScope = 0
-                                OR EXISTS (
-                                    SELECT 1
-                                    FROM fictional_entity_work_links fewl
-                                    WHERE fewl.entity_id = fe.id
-                                      AND fewl.work_qid IN (SELECT qid FROM batch_work_qids)
-                                )
-                          )
-                        UNION
-                        SELECT smi.series_qid AS qid
-                        FROM series_manifest_items smi
-                        WHERE smi.series_qid IS NOT NULL
-                          AND smi.series_qid <> ''
-                          AND (@hasBatchScope = 0 OR smi.collection_id IN (SELECT id FROM batch_collections) OR smi.linked_work_id IN (SELECT id FROM entity_scope))
-                        UNION
-                        SELECT smi.item_qid AS qid
-                        FROM series_manifest_items smi
-                        WHERE smi.item_qid IS NOT NULL
-                          AND smi.item_qid <> ''
-                          AND (@hasBatchScope = 0 OR smi.collection_id IN (SELECT id FROM batch_collections) OR smi.linked_work_id IN (SELECT id FROM entity_scope))
-                    )
+                    FROM media_qids
+                ) AS MediaQidCount,
+                (
+                    SELECT COUNT(DISTINCT qid)
+                    FROM related_qids
                 ) AS RelatedQidCount,
+                (
+                    SELECT COUNT(DISTINCT qid)
+                    FROM (
+                        SELECT qid FROM media_qids
+                        UNION
+                        SELECT qid FROM related_qids
+                    )
+                ) AS RelevantQidCount,
+                (
+                    SELECT COUNT(DISTINCT entity_id)
+                    FROM latest_entities
+                    WHERE state IN ('RetailNoMatch', 'RetailMatchedNeedsReview')
+                ) AS RetailUnresolvedCount,
+                (
+                    SELECT COUNT(DISTINCT entity_id)
+                    FROM latest_entities
+                    WHERE state = 'Failed'
+                ) AS RetailFailedCount,
+                (
+                    SELECT COUNT(DISTINCT entity_id)
+                    FROM latest_entities
+                    WHERE state IN ('QidNoMatch', 'QidNeedsReview')
+                ) AS WikidataUnresolvedCount,
+                (
+                    SELECT COUNT(DISTINCT entity_id)
+                    FROM latest_entities
+                    WHERE state = 'Failed'
+                ) AS WikidataFailedCount,
                 (
                     SELECT COUNT(*)
                     FROM person_media_links pml
@@ -1463,7 +1517,17 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static List<IngestionStageDetailItemDto> DetailItems(params IngestionStageDetailItemDto[] items) =>
         items
             .Where(item => !string.IsNullOrWhiteSpace(item.Label) && !string.IsNullOrWhiteSpace(item.Value))
+            .OrderBy(item => DetailTerminalSort(item.Label))
             .ToList();
+
+    private static int DetailTerminalSort(string label)
+    {
+        if (label.Contains("failed", StringComparison.OrdinalIgnoreCase))
+            return 2;
+        if (label.Contains("unresolved", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        return 0;
+    }
 
     private static IngestionStageDetailItemDto Detail(
         string label,
@@ -3101,8 +3165,27 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             {
                 terminal = Math.Clamp(terminal, 0, batch.FilesTotal);
             }
-            var noActivePipelineWork = snapshot.Queued == 0 && snapshot.Active == 0;
             var age = DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime();
+            var staleQueuedWork = snapshot.Queued > 0
+                && snapshot.Active == 0
+                && age > TimeSpan.FromMinutes(30)
+                && !IsFreshActiveBatch(batch);
+            var staleRunningWork = (snapshot.StaleActive > 0 || snapshot.StaleRunningOperations > 0)
+                && snapshot.Active == 0
+                && age > TimeSpan.FromMinutes(30)
+                && !IsFreshActiveBatch(batch);
+            var staleInterruptedWork = staleQueuedWork || staleRunningWork;
+            if (staleInterruptedWork && batch.FilesTotal > 0)
+            {
+                var interrupted = Math.Max(0, batch.FilesTotal - terminal);
+                failed += interrupted;
+                terminal += interrupted;
+            }
+
+            var noActivePipelineWork = snapshot.Active == 0
+                && (snapshot.Queued == 0 || staleInterruptedWork)
+                && (snapshot.StaleActive == 0 || staleInterruptedWork)
+                && (snapshot.StaleRunningOperations == 0 || staleInterruptedWork);
             var isNoWorkBatch = batch.FilesTotal > 0
                 && terminal == 0
                 && batch.FilesProcessed == 0
@@ -3133,7 +3216,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 processed = Math.Clamp(processed, 0, batch.FilesTotal);
             }
 
-            var nextStatus = failed > 0 && failed >= Math.Max(1, batch.FilesTotal) ? "failed" : "completed";
+            var nextStatus = staleInterruptedWork
+                ? "abandoned"
+                : failed > 0 && failed >= Math.Max(1, batch.FilesTotal) ? "failed" : "completed";
             if (batch.FilesProcessed == processed
                 && batch.FilesIdentified == identified
                 && batch.FilesReview == review
@@ -3178,6 +3263,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     state,
                     lease_owner,
                     lease_expires_at,
+                    updated_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY entity_id
                         ORDER BY updated_at DESC, created_at DESC
@@ -3186,7 +3272,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 WHERE ingestion_run_id = @batchId
             ),
             job_states AS (
-                SELECT entity_id, state, lease_owner, lease_expires_at
+                SELECT entity_id, state, lease_owner, lease_expires_at, updated_at
                 FROM latest_jobs
                 WHERE rn = 1
             ),
@@ -3211,11 +3297,56 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 COALESCE(SUM(CASE WHEN js.state = 'Queued' THEN 1 ELSE 0 END), 0) AS Queued,
                 COALESCE(SUM(CASE
                     WHEN js.state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
-                         AND js.lease_owner IS NOT NULL
-                         AND js.lease_expires_at IS NOT NULL
-                         AND js.lease_expires_at > @now
+                         AND (
+                            (
+                                js.lease_owner IS NOT NULL
+                                AND js.lease_expires_at IS NOT NULL
+                                AND js.lease_expires_at > @now
+                            )
+                            OR julianday(js.updated_at) > julianday(@staleCutoff)
+                         )
                         THEN 1 ELSE 0
-                END), 0) AS Active,
+                END), 0)
+                + (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.status = 'running'
+                      AND (
+                        (
+                            mo.lease_owner IS NOT NULL
+                            AND mo.lease_expires_at IS NOT NULL
+                            AND mo.lease_expires_at > @now
+                        )
+                        OR julianday(mo.updated_at) > julianday(@staleCutoff)
+                      )
+                ) AS Active,
+                COALESCE(SUM(CASE
+                    WHEN js.state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
+                         AND (
+                            (
+                                js.lease_owner IS NULL
+                                OR js.lease_expires_at IS NULL
+                                OR js.lease_expires_at <= @now
+                            )
+                            AND COALESCE(julianday(js.updated_at), 0) <= julianday(@staleCutoff)
+                         )
+                        THEN 1 ELSE 0
+                END), 0) AS StaleActive,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.status = 'running'
+                      AND (
+                        (
+                            mo.lease_owner IS NULL
+                            OR mo.lease_expires_at IS NULL
+                            OR mo.lease_expires_at <= @now
+                        )
+                        AND COALESCE(julianday(mo.updated_at), 0) <= julianday(@staleCutoff)
+                      )
+                ) AS StaleRunningOperations,
                 COUNT(js.entity_id) AS TotalJobs,
                 (
                     SELECT COUNT(*)
@@ -3253,7 +3384,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             FROM job_states js
             LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
             """,
-            new { batchId = GuidSql.ToBlob(batchId), now = DateTimeOffset.UtcNow.ToString("O") }) ?? new BatchTerminalSnapshot();
+            new
+            {
+                batchId = GuidSql.ToBlob(batchId),
+                now = DateTimeOffset.UtcNow.ToString("O"),
+                staleCutoff = DateTimeOffset.UtcNow.Subtract(ActiveBatchFreshness).ToString("O"),
+            }) ?? new BatchTerminalSnapshot();
     }
 
     private static IngestionOperationsJobDto ToActiveJob(
@@ -3526,16 +3662,81 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return result;
     }
 
-    private static IngestionOperationsBatchDto ToRecentBatch(IngestionBatch batch, BatchActivityStats? stats)
+    private async Task<List<IngestionOperationsBatchDto>> BuildRecentBatchDtosAsync(
+        IReadOnlyList<DisplayBatchGroup> recentBatchGroups,
+        IReadOnlyList<IngestionBatch> recentBatches,
+        IReadOnlyDictionary<Guid, BatchActivityStats> batchStats,
+        LibraryItemLifecycleCounts lifecycle,
+        LibraryItemProjectionSummary projection,
+        CancellationToken ct)
+    {
+        if (recentBatchGroups.Count == 0)
+            return [];
+
+        var recentById = recentBatches.ToDictionary(batch => batch.Id);
+        var result = new List<IngestionOperationsBatchDto>(recentBatchGroups.Count);
+
+        foreach (var group in recentBatchGroups)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var sourceBatches = group.SourceBatchIds
+                .Select(id => recentById.GetValueOrDefault(id))
+                .Where(batch => batch is not null)
+                .Cast<IngestionBatch>()
+                .ToList();
+            if (sourceBatches.Count == 0)
+                sourceBatches = [group.Batch];
+
+            var stats = AggregateBatchStats(group.SourceBatchIds, batchStats);
+            var groupPipelineRows = await ReadIdentityStateCountsAsync(group.SourceBatchIds, ct).ConfigureAwait(false);
+            var groupIngestionRows = await ReadIngestionStatusCountsAsync(group.SourceBatchIds, ct).ConfigureAwait(false);
+            var groupStages = BuildPipelineStages(
+                groupPipelineRows,
+                groupIngestionRows,
+                lifecycle,
+                projection,
+                group.Batch,
+                stats.PendingReviewCount);
+            var groupActivities = await ReadTaskActivitiesAsync(
+                group.SourceBatchIds.ToArray(),
+                groupStages,
+                ct).ConfigureAwait(false);
+            var stageProgress = await BuildNumberedStageProgressAsync(
+                sourceBatches,
+                groupStages,
+                groupActivities,
+                stats.PendingReviewCount,
+                Math.Max(0, group.Batch.FilesTotal),
+                ct).ConfigureAwait(false);
+
+            result.Add(ToRecentBatchWithStageProgress(group.Batch, stats, stageProgress));
+        }
+
+        return result;
+    }
+
+    private static IngestionOperationsBatchDto ToRecentBatch(
+        IngestionBatch batch,
+        BatchActivityStats? stats) =>
+        ToRecentBatchWithStageProgress(batch, stats, null);
+
+    private static IngestionOperationsBatchDto ToRecentBatchWithStageProgress(
+        IngestionBatch batch,
+        BatchActivityStats? stats,
+        List<IngestionStageProgressDto>? stageProgress = null)
     {
         var source = FirstNonBlank(batch.Category, ShortPath(batch.SourcePath), "Library scan");
-        var duration = (batch.CompletedAt ?? DateTimeOffset.UtcNow) - batch.StartedAt;
         var reviewCount = Math.Max(0, stats?.PendingReviewCount ?? batch.FilesReview);
+        var hasActiveStageWork = HasActiveStageWork(stageProgress);
+        var status = hasActiveStageWork ? "running" : batch.Status;
+        var completedAt = hasActiveStageWork ? null : batch.CompletedAt;
+        var duration = (completedAt ?? DateTimeOffset.UtcNow) - batch.StartedAt;
         return new IngestionOperationsBatchDto
         {
             BatchId = batch.Id,
             StartedAt = batch.StartedAt,
-            CompletedAt = batch.CompletedAt,
+            CompletedAt = completedAt,
             Source = source,
             MediaType = batch.Category,
             TotalFiles = batch.FilesTotal,
@@ -3553,10 +3754,21 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ArtworkDownloadedCount = stats?.ArtworkDownloadedCount ?? 0,
             MetadataUpdatedCount = stats?.MetadataUpdatedCount ?? 0,
             DurationSeconds = duration.TotalSeconds > 0 ? (int)Math.Round(duration.TotalSeconds) : null,
-            Status = batch.Status,
+            Status = status,
             Summary = $"{batch.FilesIdentified:N0} registered, {reviewCount:N0} review",
+            StageProgress = stageProgress ?? [],
         };
     }
+
+    private static bool HasActiveStageWork(IReadOnlyList<IngestionStageProgressDto>? stageProgress) =>
+        stageProgress is not null
+        && stageProgress.Any(stage =>
+            stage.StageNumber >= 3
+            && (stage.ActiveCount > 0
+                || stage.QueuedCount > 0
+                || string.Equals(stage.StatusLabel, "Active", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(stage.StatusLabel, "Queued", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(stage.StatusLabel, "In progress", StringComparison.OrdinalIgnoreCase)));
 
     private static BatchActivityStats AggregateBatchStats(
         IReadOnlyCollection<Guid> batchIds,
@@ -3980,7 +4192,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public int CoverUrls { get; init; }
         public int PrimaryArtworkCount { get; init; }
         public int FilesWithQid { get; init; }
+        public int MediaQidCount { get; init; }
         public int RelatedQidCount { get; init; }
+        public int RelevantQidCount { get; init; }
+        public int RetailUnresolvedCount { get; init; }
+        public int RetailFailedCount { get; init; }
+        public int WikidataUnresolvedCount { get; init; }
+        public int WikidataFailedCount { get; init; }
         public int PeopleCount { get; init; }
         public int CastCount { get; init; }
         public int DirectorCount { get; init; }
@@ -4022,6 +4240,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public int Failed { get; init; }
         public int Queued { get; init; }
         public int Active { get; init; }
+        public int StaleActive { get; init; }
+        public int StaleRunningOperations { get; init; }
         public int TotalJobs { get; init; }
         public int LogRows { get; init; }
         public int OperationNoMatch { get; init; }
@@ -4030,7 +4250,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public int FileOperationsTerminal { get; init; }
         public int OperationOnlyTerminal => Math.Max(0, FileOperationsTerminal - TotalJobs);
         public int OperationTerminal => OperationNoMatch + OperationSkipped + OperationFailed + OperationOnlyTerminal;
-        public bool HasRows => TotalJobs > 0 || LogRows > 0 || FileOperationsTerminal > 0;
+        public bool HasRows => TotalJobs > 0 || LogRows > 0 || FileOperationsTerminal > 0 || StaleRunningOperations > 0;
     }
 
     private sealed record BatchSummaryTotals(int Total, int Registered, int Review);

@@ -163,7 +163,8 @@
             @foreach (var result in _universeResults)
             {
                 var isExpanded = _expandedUniverseResult == result.Qid;
-                <div class="pt-result-row @(isExpanded ? "pt-result-expanded" : "")"
+                <div @key="result.Qid"
+                     class="pt-result-row @(isExpanded ? "pt-result-expanded" : "")"
                      @onclick="() => ToggleUniverseExpand(result.Qid)">
                     <div class="d-flex gap-3 pa-3 tl-u-cursor-pointer" >
                         <div class="tl-u-width-60px tl-u-height-60px tl-u-border-radius-8px tl-u-overflow-hidden tl-u-flex-shrink-0 tl-u-background-tl-divider">
@@ -303,7 +304,8 @@
             var providerColor = Catalogue.GetAccentColor(providerGroup.Key);
             var providerDisplay = Catalogue.GetDisplayName(providerGroup.Key);
 
-            <AppPanel Elevation="0" Class="tl-card tl-card--flush mb-4 tl-u-background-rgba-255-255-255-0-03 tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-12px tl-u-overflow-hidden"
+            <AppPanel @key="providerGroup.Key"
+                      Elevation="0" Class="tl-card tl-card--flush mb-4 tl-u-background-rgba-255-255-255-0-03 tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-12px tl-u-overflow-hidden"
                       >
 
                 @* Provider header *@
@@ -324,7 +326,8 @@
                     var resultKey = $"{result.ProviderName}:{result.ProviderItemId ?? result.Title}";
                     var isExpanded = _expandedResult == resultKey;
 
-                    <div class="pt-result-row @(isExpanded ? "pt-result-expanded" : "")"
+                    <div @key="resultKey"
+                         class="pt-result-row @(isExpanded ? "pt-result-expanded" : "")"
                          @onclick="() => ToggleExpand(resultKey)">
 
                         @* Cover + main info *@
@@ -671,8 +674,6 @@
 
         _loading = true;
         _error = null;
-        _results = [];
-        _universeResults = [];
         _hasSearched = true;
         _expandedResult = null;
         _expandedUniverseResult = null;
@@ -682,6 +683,8 @@
 
         try
         {
+            var nextResults = new List<RetailCandidateDto>();
+            var nextUniverseResults = new List<UniverseCandidateDto>();
             var searchFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in _activeFields)
             {
@@ -701,10 +704,10 @@
 
                 if (response?.Candidates is not null)
                 {
-                    _results = response.Candidates;
+                    nextResults = response.Candidates;
                     if (_selectedProvider != "all" && _selectedProvider != "wikidata")
                     {
-                        _results = _results
+                        nextResults = nextResults
                             .Where(r => string.Equals(r.ProviderName, _selectedProvider, StringComparison.OrdinalIgnoreCase))
                             .ToList();
                     }
@@ -723,9 +726,12 @@
 
                 if (universeResponse?.Candidates is not null)
                 {
-                    _universeResults = universeResponse.Candidates;
+                    nextUniverseResults = universeResponse.Candidates;
                 }
             }
+
+            _results = nextResults;
+            _universeResults = nextUniverseResults;
         }
         catch (Exception ex)
         {

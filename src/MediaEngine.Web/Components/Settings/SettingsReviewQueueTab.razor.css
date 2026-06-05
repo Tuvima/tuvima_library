@@ -11,6 +11,33 @@
     gap: 16px;
 }
 
+.settings-review-table-shell {
+    position: relative;
+    min-height: 160px;
+}
+
+.settings-review-table-shell.is-refreshing {
+    opacity: 0.88;
+}
+
+.settings-review-refresh-bar {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+}
+
+.settings-review-refresh-error {
+    margin-bottom: 12px;
+}
+
+.settings-review-table tbody tr {
+    height: 74px;
+}
+
+.settings-review-table td {
+    vertical-align: middle;
+}
+
 .settings-review-item {
     display: flex;
     align-items: center;

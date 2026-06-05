@@ -29,10 +29,26 @@
 
 .activity-timeline {
     display: grid;
+    position: relative;
+    min-height: 180px;
+}
+
+.activity-timeline.is-refreshing {
+    opacity: 0.9;
+}
+
+.activity-refresh-bar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .activity-entry-header {
     align-items: flex-start;
+}
+
+.activity-entry {
+    min-height: 58px;
 }
 
 .activity-entry-time {

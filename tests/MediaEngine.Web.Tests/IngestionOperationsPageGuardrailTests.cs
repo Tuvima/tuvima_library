@@ -29,7 +29,12 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("StageRows", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("library-update-stage-cards", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("library-update-stage-detail-panel", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("SelectedBatch is { StageProgress.Count: > 0 }", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("DetailCountFirst(details, \"Relationship links\"", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("IsInterruptedBatchStatus", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildSnapshotSignature", stateSource, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromSeconds(2)", stateSource, StringComparison.Ordinal);
+        Assert.Contains("LibraryUpdatePageState.Interrupted", stateSource, StringComparison.Ordinal);
         Assert.Contains("SignalREvents.IngestionItemProgress", orchestratorSource, StringComparison.Ordinal);
         Assert.Contains("PushIngestionItemProgress", orchestratorSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<IngestionDiagnosticsPanels", source, StringComparison.Ordinal);
@@ -210,6 +215,53 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.True(status.ShowProgress);
         Assert.Equal(131, status.ProcessedFiles);
         Assert.Equal(60, status.QueuedItems);
+    }
+
+    [Fact]
+    public void LiveDashboardState_TreatsAbandonedBatchAsInterruptedNotFailed()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 40,
+                RegisteredItems = 20,
+                ItemsNeedingReview = 2,
+            },
+            RecentBatches =
+            [
+                new()
+                {
+                    StartedAt = now.AddMinutes(-40),
+                    CompletedAt = now.AddMinutes(-5),
+                    TotalFiles = 40,
+                    ProcessedFiles = 22,
+                    RegisteredCount = 20,
+                    ReviewCount = 2,
+                    Status = "abandoned",
+                },
+            ],
+        };
+
+        var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
+            snapshot,
+            [],
+            [],
+            [],
+            [],
+            new IngestionDashboardMetrics(40, 22, 0, 2),
+            null,
+            now.AddMinutes(-5),
+            now);
+
+        Assert.Equal(LibraryUpdatePageState.Interrupted, status.PageState);
+        Assert.Equal("Library update interrupted", status.Heading);
+        Assert.Equal("Interrupted", status.StatusLabel);
+        Assert.Equal("warning", status.StatusTone);
+        var run = Assert.Single(status.RecentRuns);
+        Assert.Equal("Interrupted", run.StatusLabel);
+        Assert.Equal("warning", run.StatusTone);
     }
 
     [Fact]
@@ -2093,8 +2145,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 97))
             .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
 
-        Assert.Contains("Matched", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Media QIDs", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Relevant QIDs", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Unresolved", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Retail retained without QID", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Label accuracy", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Active item", cut.Markup, StringComparison.Ordinal);
@@ -2211,8 +2264,33 @@ public sealed class IngestionDashboardRenderTests : TestContext
                         TotalFiles = 3,
                         ProcessedFiles = 3,
                         MoviesCount = 3,
-                        RegisteredCount = 3,
+                        RegisteredCount = 99,
+                        MetadataUpdatedCount = 0,
+                        DurationSeconds = 60,
                         Status = "completed",
+                        StageProgress =
+                        [
+                            new()
+                            {
+                                StageNumber = 2,
+                                StageKey = "retail",
+                                Label = "Retail Match",
+                                CompletedFiles = 3,
+                                TotalFiles = 3,
+                                PercentComplete = 100,
+                                ArtifactLabel = "matches",
+                                ArtifactCount = 3,
+                                DetailItems =
+                                [
+                                    new() { Label = "Matches", Value = "3", Tone = "success" },
+                                    new() { Label = "Movies", Value = "3" },
+                                    new() { Label = "Metadata fields", Value = "123", Tone = "info" },
+                                    new() { Label = "Cover art assets", Value = "2", Tone = "success" },
+                                    new() { Label = "Unresolved", Value = "0", Tone = "neutral" },
+                                    new() { Label = "Failed", Value = "0", Tone = "neutral" },
+                                ],
+                            },
+                        ],
                     },
                 ],
             })
@@ -2227,10 +2305,12 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.True(
             cut.Markup.IndexOf("Update 830000", StringComparison.Ordinal) <
             cut.Markup.IndexOf("Update 840000", StringComparison.Ordinal));
-        Assert.Contains("2026", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Active - started", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Complete -", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Full activity for Update 830000", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("href=\"/settings/activity?runId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("href=\"/settings/activity?batchId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("through pipeline", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("+2 this batch", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Movies", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("TV", cut.Markup, StringComparison.Ordinal);
@@ -2246,6 +2326,11 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.DoesNotContain("library-update-batch-grid__row", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Queue &amp; Details", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Source", cut.Markup, StringComparison.Ordinal);
+
+        cut.FindAll(".library-update-batch__select")[1].Click();
+        Assert.Contains("123", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Metadata", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("99 matches", cut.Markup, StringComparison.Ordinal);
     }
 
     [Fact]

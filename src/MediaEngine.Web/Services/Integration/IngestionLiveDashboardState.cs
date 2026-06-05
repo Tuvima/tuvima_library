@@ -8,7 +8,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
 {
     private static readonly TimeSpan LiveUniverseProgressFreshness = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan LiveItemProgressFreshness = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan LiveNotifyThrottle = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan LiveNotifyThrottle = TimeSpan.FromSeconds(2);
 
     private readonly IEngineApiClient _api;
     private readonly UIOrchestratorService _orchestrator;
@@ -18,6 +18,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private CancellationTokenSource? _refreshDebounceCts;
     private string? _lastSnapshotSignature;
     private DateTimeOffset _lastLiveNotifyAt = DateTimeOffset.MinValue;
+    private int _loadInProgress;
+    private bool _loadAgainRequested;
     private bool _liveNotifyScheduled;
     private bool _disposed;
     private bool _initialized;
@@ -100,6 +102,29 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     public async Task LoadAsync(CancellationToken ct = default)
     {
+        if (System.Threading.Interlocked.Exchange(ref _loadInProgress, 1) == 1)
+        {
+            _loadAgainRequested = true;
+            return;
+        }
+
+        try
+        {
+            do
+            {
+                _loadAgainRequested = false;
+                await LoadSnapshotAsync(ct).ConfigureAwait(false);
+            }
+            while (_loadAgainRequested && !ct.IsCancellationRequested && !_disposed);
+        }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _loadInProgress, 0);
+        }
+    }
+
+    private async Task LoadSnapshotAsync(CancellationToken ct)
+    {
         IsLoading = Snapshot is null;
         Error = null;
         var shouldNotify = IsLoading;
@@ -135,9 +160,6 @@ public sealed class IngestionLiveDashboardState : IDisposable
             else
             {
                 Operations = [];
-                _operationDetails.Clear();
-                _capabilitiesByEntity.Clear();
-                ExpandedOperationId = null;
             }
 
             var nextSignature = BuildSnapshotSignature(
@@ -1304,7 +1326,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
         var activeStep = ResolveActiveLibraryUpdateStep(activeJobs, currentActivities);
         var progressPercent = ResolveLibraryUpdateProgress(pageState, activeJobs, processedFiles, totalFiles);
-        var showProgress = pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Failed;
+        var showProgress = pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Failed or LibraryUpdatePageState.Interrupted;
         var isIndeterminate = pageState == LibraryUpdatePageState.Running && totalFiles == 0;
         var primaryActivity = SelectPrimaryActivity(activeJobs, currentActivities, activeStep);
         var currentItem = CleanDisplayTitle(FirstNonBlank(
@@ -1754,6 +1776,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
         if (latestBatch is not null && IsFailedBatchStatus(latestBatch.Status))
             return LibraryUpdatePageState.Failed;
 
+        if (latestBatch is not null && IsInterruptedBatchStatus(latestBatch.Status))
+            return LibraryUpdatePageState.Interrupted;
+
         if (lastCompletedAt is not null && now - lastCompletedAt.Value.ToUniversalTime() <= TimeSpan.FromSeconds(60))
             return LibraryUpdatePageState.Complete;
 
@@ -1765,7 +1790,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private static DateTimeOffset? ResolveLastCompletedAt(IngestionOperationsSnapshotViewModel? snapshot)
     {
         var lastBatchCompletion = snapshot?.RecentBatches
-            .Where(batch => batch.CompletedAt.HasValue && !IsFailedBatchStatus(batch.Status))
+            .Where(batch => batch.CompletedAt.HasValue
+                && !IsFailedBatchStatus(batch.Status)
+                && !IsInterruptedBatchStatus(batch.Status))
             .OrderByDescending(batch => batch.CompletedAt)
             .Select(batch => batch.CompletedAt)
             .FirstOrDefault();
@@ -2050,6 +2077,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             },
             LibraryUpdatePageState.Complete => string.Empty,
             LibraryUpdatePageState.Idle => string.Empty,
+            LibraryUpdatePageState.Interrupted => "Tuvima paused before the update finished.",
             LibraryUpdatePageState.Failed => "Tuvima stopped before the update was complete.",
             LibraryUpdatePageState.StatusUnavailable => "Status temporarily unavailable",
             _ => "Start a scan to find new or changed media.",
@@ -2077,6 +2105,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             LibraryUpdatePageState.Running => BuildRunningPipelineSummary(activeItems, queuedItems, reviewItems),
             LibraryUpdatePageState.Complete => $"{matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched  -  {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
             LibraryUpdatePageState.Idle => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files processed  -  {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched  -  {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
+            LibraryUpdatePageState.Interrupted => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files found  -  {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched  -  {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
             LibraryUpdatePageState.Failed => $"{totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files found  -  {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched  -  {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review",
             LibraryUpdatePageState.StatusUnavailable when lastCompletedAt.HasValue => $"Last successful scan completed {FormatRelativeLong(lastCompletedAt.Value, now)}",
             _ => null,
@@ -2104,6 +2133,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             LibraryUpdatePageState.Running => ("In progress", "info"),
             LibraryUpdatePageState.Complete => ("Complete", reviewItems > 0 ? "warning" : "success"),
             LibraryUpdatePageState.Idle => ("Ready", reviewItems > 0 ? "warning" : "success"),
+            LibraryUpdatePageState.Interrupted => ("Interrupted", "warning"),
             LibraryUpdatePageState.Failed => ("Could not finish", "danger"),
             LibraryUpdatePageState.StatusUnavailable => ("Unavailable", "warning"),
             _ => ("Ready", "neutral"),
@@ -2115,6 +2145,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             LibraryUpdatePageState.Running => "Updating your library",
             LibraryUpdatePageState.Complete => "Library update complete",
             LibraryUpdatePageState.Idle => "Library is up to date",
+            LibraryUpdatePageState.Interrupted => "Library update interrupted",
             LibraryUpdatePageState.Failed => "Library update could not finish",
             LibraryUpdatePageState.StatusUnavailable => "Status temporarily unavailable",
             _ => "Ready to scan your library",
@@ -2128,7 +2159,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         DateTimeOffset? lastCompletedAt,
         DateTimeOffset now)
     {
-        if ((pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete) && totalFiles > 0)
+        if ((pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Interrupted) && totalFiles > 0)
             return $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} of {totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files finished";
 
         return pageState switch
@@ -2137,6 +2168,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete => $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} of {totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files processed",
             LibraryUpdatePageState.Idle when lastCompletedAt.HasValue => $"Last scan completed {FormatRelativeLong(lastCompletedAt.Value, now)}",
             LibraryUpdatePageState.Idle when reviewItems > 0 => $"{reviewItems.ToString("N0", CultureInfo.CurrentCulture)} items need review before they can be fully added.",
+            LibraryUpdatePageState.Interrupted => "The last update was interrupted before all work finished.",
             LibraryUpdatePageState.Failed => "Tuvima stopped before the update was complete.",
             LibraryUpdatePageState.StatusUnavailable => "Tuvima could not refresh the latest status.",
             _ => "Start a scan to find new or changed media.",
@@ -2153,6 +2185,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
         {
             LibraryUpdatePageState.Running => "Updated just now",
             LibraryUpdatePageState.Complete or LibraryUpdatePageState.Idle when lastCompletedAt.HasValue => $"Last scan completed {FormatRelativeLong(lastCompletedAt.Value, now)}",
+            LibraryUpdatePageState.Interrupted when lastUpdated.HasValue => $"Last update changed {FormatRelativeShort(lastUpdated.Value, now)}",
             LibraryUpdatePageState.StatusUnavailable when lastUpdated.HasValue => $"Last known update: {FormatRelativeShort(lastUpdated.Value, now)}",
             _ => "No recent library update",
         };
@@ -2176,6 +2209,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             LibraryUpdatePageState.Running => "Tuvima is matching new media against retail providers, then confirming identity with Wikidata.",
             LibraryUpdatePageState.Complete => "Tuvima finished scanning and matching your library.",
             LibraryUpdatePageState.Idle when lastCompletedAt.HasValue => $"Your library is ready. The most recent scan finished {FormatRelativeLong(lastCompletedAt.Value, now)}.",
+            LibraryUpdatePageState.Interrupted => "Tuvima stopped receiving fresh work updates before this update reached a clean finish.",
             LibraryUpdatePageState.Failed => "Tuvima stopped before the update was complete.",
             LibraryUpdatePageState.StatusUnavailable => "Tuvima could not refresh the latest status. Last known counts are still shown.",
             _ => "No library updates have run yet.",
@@ -2217,7 +2251,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             LibraryUpdatePageState.Complete or LibraryUpdatePageState.Idle => reviewItems > 0 && stepIndex == 2
                 ? LibraryUpdateStepStatus.NeedsReview
                 : LibraryUpdateStepStatus.Complete,
-            LibraryUpdatePageState.Failed => stepIndex < activeStep
+            LibraryUpdatePageState.Failed or LibraryUpdatePageState.Interrupted => stepIndex < activeStep
                 ? LibraryUpdateStepStatus.Complete
                 : stepIndex == activeStep ? LibraryUpdateStepStatus.NeedsReview : LibraryUpdateStepStatus.Pending,
             LibraryUpdatePageState.StatusUnavailable => stepIndex < activeStep
@@ -2440,12 +2474,20 @@ public sealed class IngestionLiveDashboardState : IDisposable
             .Select(batch =>
             {
                 var reviewCount = Math.Max(0, batch.ReviewCount);
-                var statusTone = IsFailedBatchStatus(batch.Status)
-                    ? "danger"
-                    : reviewCount > 0 ? "warning" : IsActiveBatchStatus(batch.Status) ? "info" : "success";
+                var statusTone = IsActiveBatchStatus(batch.Status)
+                    ? "info"
+                    : IsFailedBatchStatus(batch.Status)
+                        ? "danger"
+                        : IsInterruptedBatchStatus(batch.Status)
+                            ? "warning"
+                            : reviewCount > 0 ? "warning" : "success";
                 var statusLabel = IsActiveBatchStatus(batch.Status)
-                    ? "Running"
-                    : reviewCount > 0 ? "Review" : IsFailedBatchStatus(batch.Status) ? "Review" : "Complete";
+                    ? "Active"
+                    : IsFailedBatchStatus(batch.Status)
+                        ? "Failed"
+                        : IsInterruptedBatchStatus(batch.Status)
+                            ? "Interrupted"
+                            : "Complete";
                 var processed = batch.ProcessedFiles > 0
                     ? Math.Min(Math.Max(0, batch.ProcessedFiles), Math.Max(0, batch.TotalFiles))
                     : Math.Min(Math.Max(0, batch.RegisteredCount + batch.ReviewCount), Math.Max(0, batch.TotalFiles));
@@ -2557,8 +2599,12 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     private static bool IsFailedBatchStatus(string? status) =>
         !string.IsNullOrWhiteSpace(status)
-        && (status.Contains("fail", StringComparison.OrdinalIgnoreCase)
-            || status.Contains("abandon", StringComparison.OrdinalIgnoreCase));
+        && status.Contains("fail", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsInterruptedBatchStatus(string? status) =>
+        !string.IsNullOrWhiteSpace(status)
+        && (status.Contains("abandon", StringComparison.OrdinalIgnoreCase)
+            || status.Contains("interrupt", StringComparison.OrdinalIgnoreCase));
 
     private static string ToFriendlyStepLabel(string value)
     {
@@ -2785,6 +2831,7 @@ public enum LibraryUpdatePageState
     Running,
     Complete,
     Idle,
+    Interrupted,
     Failed,
     StatusUnavailable,
 }

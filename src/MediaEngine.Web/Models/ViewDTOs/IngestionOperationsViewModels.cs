@@ -227,6 +227,7 @@ public sealed class IngestionOperationsBatchViewModel
     [JsonPropertyName("duration_seconds")] public int? DurationSeconds { get; set; }
     [JsonPropertyName("status")] public string Status { get; set; } = "";
     [JsonPropertyName("summary")] public string Summary { get; set; } = "";
+    [JsonPropertyName("stage_progress")] public List<IngestionStageProgressViewModel> StageProgress { get; set; } = [];
 }
 
 public sealed class IngestionOrganizationRulesViewModel

@@ -393,8 +393,8 @@
         }
 
         _loading = true;
-        _hero = null;
-        StateHasChanged();
+        if (!_hasLoadedOnce)
+            StateHasChanged();
 
         try
         {

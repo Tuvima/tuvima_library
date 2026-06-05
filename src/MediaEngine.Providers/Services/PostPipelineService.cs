@@ -195,6 +195,7 @@ public sealed class PostPipelineService
         foreach (var review in pendingReviews)
         {
             if (review.Status != "Pending") continue;
+            if (review.ReviewReadyAt is not null) continue;
             if (!autoResolveTriggers.Contains(review.Trigger)) continue;
 
             _logger.LogInformation(
@@ -220,6 +221,7 @@ public sealed class PostPipelineService
         foreach (var review in pendingReviews)
         {
             if (review.Status != "Pending") continue;
+            if (review.ReviewReadyAt is not null) continue;
             if (!string.Equals(review.Trigger, nameof(ReviewTrigger.MetadataConflict),
                     StringComparison.OrdinalIgnoreCase))
                 continue;

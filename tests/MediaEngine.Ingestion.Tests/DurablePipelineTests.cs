@@ -698,6 +698,43 @@ public sealed class DurablePipelineTests : IDisposable
     // ══════════════════════════════════════════════════════════════════════
 
     [Fact]
+    public async Task PostPipelineService_HighConfidenceEntity_DoesNotAutoResolveVisibleReviews()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var visibleReview = new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = "Work",
+            Trigger = ReviewTrigger.RetailMatchAmbiguous,
+            Status = ReviewStatus.Pending,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
+        };
+
+        var reviewRepo = new TrackingReviewQueueRepository();
+        await reviewRepo.InsertAsync(visibleReview);
+
+        var postPipeline = new PostPipelineService(
+            new NoOpMetadataClaimRepository(),
+            new NoOpCanonicalValueRepository(),
+            new NoOpScoringEngine(overallConfidence: 0.92),
+            new MinimalConfigurationLoader(),
+            Array.Empty<IExternalMetadataProvider>(),
+            reviewRepo,
+            new NoOpAutoOrganizeService(),
+            CreateBatchProgressService(),
+            NullLogger<PostPipelineService>.Instance);
+
+        await postPipeline.EvaluateAndOrganizeAsync(entityId, jobId, "Q185166", null, CancellationToken.None);
+
+        var review = Assert.Single(await reviewRepo.GetByEntityAsync(entityId));
+        Assert.Equal(ReviewStatus.Pending, review.Status);
+        Assert.NotNull(review.ReviewReadyAt);
+    }
+
+    [Fact]
     public async Task PostPipelineService_LowConfidenceEntity_MarksQueuedReviewsReady()
     {
         var entityId = Guid.NewGuid();

@@ -78,6 +78,35 @@ public sealed class MediaTypeResolverTests
     }
 
     [Fact]
+    public async Task RootWatchFolderCap_DoesNotDowngradeSingleTypeLibraryRoot()
+    {
+        var booksRoot = TestRoot("single-type-books");
+        var options = Options(
+            watchDirectories: [booksRoot],
+            libraryFolders:
+            [
+                new LibraryFolderEntry
+                {
+                    SourcePaths = [booksRoot],
+                    MediaTypes = [MediaType.Books],
+                },
+            ]);
+        var resolver = CreateResolver(options);
+
+        var resolution = await resolver.ResolveAsync(
+            Path.Combine(booksRoot, "Dune - Scott Brick.mp3"),
+            Result(MediaType.Unknown, [Candidate(MediaType.Music, 0.95)]),
+            0.1,
+            CancellationToken.None);
+
+        Assert.False(resolution.RootWatchFolderReview);
+        Assert.False(resolution.NeedsReview);
+        Assert.Equal(MediaType.Books, resolution.MediaType);
+        Assert.True(resolution.Candidates[0].Confidence >= 0.95);
+        Assert.Equal(0.1, resolution.CategoryConfidencePrior);
+    }
+
+    [Fact]
     public async Task Advisor_IsCalledOnlyForUnknownOrLowConfidenceCases()
     {
         var options = Options(watchDirectories: [Path.Combine(Path.GetTempPath(), "advisor")]);

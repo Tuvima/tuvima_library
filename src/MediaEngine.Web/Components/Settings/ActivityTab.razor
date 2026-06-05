@@ -76,7 +76,11 @@
     }
     else
     {
-        <div class="activity-timeline">
+        <div class="activity-timeline @(_loading ? "is-refreshing" : null)">
+            @if (_loading)
+            {
+                <AppProgressBar Indeterminate="true" Class="activity-refresh-bar" />
+            }
             @{
                 var visible = _entries.Take(_visibleCount).ToList();
                 string? lastDate = null;
@@ -88,12 +92,12 @@
                 if (dateGroup != lastDate)
                 {
                     lastDate = dateGroup;
-                    <div class="activity-date-header">
+                    <div class="activity-date-header" @key="@($"date-{dateGroup}")">
                         <span class="activity-date-label">@dateGroup</span>
                     </div>
                 }
 
-                <div class="activity-entry">
+                <div class="activity-entry" @key="ActivityEntryKey(entry)">
                     <div class="@ActionDotClass(entry.ActionType)">
                         <MudIcon Icon="@ActionIcon(entry.ActionType)" Class="activity-entry-icon" />
                     </div>
@@ -244,6 +248,11 @@
     private static string ShortRunId(Guid runId) => runId.ToString("N")[..6];
 
     private void LoadMore() => _visibleCount += 10;
+
+    private static string ActivityEntryKey(ActivityEntryViewModel entry) =>
+        entry.Id > 0
+            ? entry.Id.ToString(CultureInfo.InvariantCulture)
+            : string.Join('|', entry.OccurredAt, entry.ActionType, entry.EntityId ?? string.Empty, entry.Detail ?? string.Empty);
 
     private async Task PruneNowAsync()
     {

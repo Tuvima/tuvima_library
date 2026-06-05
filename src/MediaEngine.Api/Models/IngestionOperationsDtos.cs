@@ -486,6 +486,9 @@ public sealed class IngestionOperationsBatchDto
 
     [JsonPropertyName("summary")]
     public string Summary { get; init; } = "";
+
+    [JsonPropertyName("stage_progress")]
+    public List<IngestionStageProgressDto> StageProgress { get; init; } = [];
 }
 
 public sealed class IngestionOrganizationRulesDto

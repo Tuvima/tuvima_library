@@ -158,7 +158,6 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
         var results = conn.Query<IngestionBatch>($"""
             SELECT {SelectColumns}
             FROM   ingestion_batches
-            WHERE  status != 'abandoned'
             ORDER BY created_at DESC
             LIMIT  @limit;
             """, new { limit }).AsList();

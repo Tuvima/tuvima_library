@@ -13,11 +13,11 @@
                    OnClick="LoadAsync" />
     </AppActionBar>
 
-    @if (_loading)
+    @if (_loading && _items.Count == 0)
     {
         <AppProgressBar Indeterminate="true" />
     }
-    else if (!string.IsNullOrWhiteSpace(_error))
+    else if (!string.IsNullOrWhiteSpace(_error) && _items.Count == 0)
     {
         <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
     }
@@ -28,6 +28,15 @@
     }
     else
     {
+        <div class="settings-review-table-shell @(_loading ? "is-refreshing" : null)">
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <AppAlert Tone="AppUiTone.Warning" Class="settings-review-refresh-error">@_error</AppAlert>
+        }
+        @if (_loading)
+        {
+            <AppProgressBar Indeterminate="true" Class="settings-review-refresh-bar" />
+        }
         <AppTable Class="settings-review-table">
             <thead>
                 <tr>
@@ -42,7 +51,7 @@
                 @foreach (var item in _items)
                 {
                     var target = ReviewTargetResolver.Resolve(item.MediaType, item.Trigger);
-                    <tr>
+                    <tr @key="item.Id">
                         <td>
                             <div class="settings-review-item">
                                 <div class="settings-review-cover">
@@ -97,6 +106,7 @@
                 }
             </tbody>
         </AppTable>
+        </div>
     }
 </div>
 
@@ -120,7 +130,8 @@
         catch (Exception ex)
         {
             _error = $"Review queue could not load: {ex.Message}";
-            _items = [];
+            if (_items.Count == 0)
+                _items = [];
         }
         finally
         {

@@ -918,6 +918,31 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task IngestionBatch_GetRecent_IncludesAbandonedTerminalBatches()
+    {
+        var batchRepo = new IngestionBatchRepository(_db);
+        var batchId = Guid.NewGuid();
+
+        await batchRepo.CreateAsync(new IngestionBatch
+        {
+            Id = batchId,
+            Status = "abandoned",
+            SourcePath = "/library/interrupted",
+            FilesTotal = 5,
+            FilesProcessed = 5,
+            FilesFailed = 5,
+            CompletedAt = DateTimeOffset.UtcNow,
+        });
+
+        var recent = await batchRepo.GetRecentAsync(10);
+
+        var batch = Assert.Single(recent);
+        Assert.Equal(batchId, batch.Id);
+        Assert.Equal("abandoned", batch.Status);
+        Assert.Equal(5, batch.FilesFailed);
+    }
+
+    [Fact]
     public async Task BridgeId_UpsertAndBatchLookup_UseGuidBlobEntityIds()
     {
         var repo = new BridgeIdRepository(_db);

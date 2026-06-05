@@ -10,7 +10,12 @@
 
 <PageTitle>Tuvima Library</PageTitle>
 
-@if (_loading)
+@if (_loading && _hasLoadedOnce)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="home-discovery-loading mb-4" Rounded="false" />
+}
+
+@if (_loading && !_hasLoadedOnce)
 {
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="home-discovery-loading mb-4" Rounded="false" />
 }
@@ -113,7 +118,14 @@ else
 }
 
 @code {
+    private static readonly TimeSpan StateReloadDebounce = TimeSpan.FromMilliseconds(750);
+
+    private CancellationTokenSource? _stateReloadCts;
     private bool _loading = true;
+    private bool _hasLoadedOnce;
+    private bool _loadInProgress;
+    private bool _loadAgainRequested;
+    private bool _disposed;
     private bool _seeding;
     private bool _scanStarting;
     private bool _canScan;
@@ -134,34 +146,59 @@ else
 
     private async Task LoadAsync()
     {
-        _loading = true;
+        if (_loadInProgress)
+        {
+            _loadAgainRequested = true;
+            return;
+        }
 
+        _loadInProgress = true;
         try
         {
-            _page = await MediaTiles.BuildHomeAsync();
-            if (IsEmpty)
+            do
             {
-                _canScan = await CanStartScanAsync();
+                _loadAgainRequested = false;
+                _loading = true;
+                await InvokeAsync(StateHasChanged);
+
+                try
+                {
+                    _page = await MediaTiles.BuildHomeAsync();
+                    if (IsEmpty)
+                    {
+                        _canScan = await CanStartScanAsync();
+                    }
+                    else
+                    {
+                        _canScan = false;
+                    }
+                }
+                catch
+                {
+                    if (!_hasLoadedOnce)
+                    {
+                        _page = new DiscoveryPageViewModel
+                        {
+                            Key = "home",
+                            EmptyTitle = "Your home screen is waiting for its first story.",
+                            EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own."
+                        };
+                    }
+
+                    _canScan = await CanStartScanAsync();
+                }
+                finally
+                {
+                    _loading = false;
+                    _hasLoadedOnce = true;
+                    await InvokeAsync(StateHasChanged);
+                }
             }
-            else
-            {
-                _canScan = false;
-            }
-        }
-        catch
-        {
-            _page = new DiscoveryPageViewModel
-            {
-                Key = "home",
-                EmptyTitle = "Your home screen is waiting for its first story.",
-                EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own."
-            };
-            _canScan = await CanStartScanAsync();
+            while (_loadAgainRequested && !_disposed);
         }
         finally
         {
-            _loading = false;
-            await InvokeAsync(StateHasChanged);
+            _loadInProgress = false;
         }
     }
 
@@ -251,11 +288,40 @@ else
 
     private void OnStateChanged()
     {
-        _ = InvokeAsync(LoadAsync);
+        if (_disposed)
+            return;
+
+        if (State.IsLoaded && !State.LastStateChangeRequiresSnapshotRefresh)
+            return;
+
+        DebounceStateReload();
+    }
+
+    private void DebounceStateReload()
+    {
+        _stateReloadCts?.Cancel();
+        _stateReloadCts?.Dispose();
+        _stateReloadCts = new CancellationTokenSource();
+        var token = _stateReloadCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(StateReloadDebounce, token);
+                await InvokeAsync(LoadAsync);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, CancellationToken.None);
     }
 
     public void Dispose()
     {
+        _disposed = true;
         State.OnStateChanged -= OnStateChanged;
+        _stateReloadCts?.Cancel();
+        _stateReloadCts?.Dispose();
     }
 }

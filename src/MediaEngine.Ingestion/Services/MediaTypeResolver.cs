@@ -187,6 +187,7 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
         out string? detail)
     {
         detail = null;
+        var matchedFolder = _libraryFolderResolver.ResolveForPath(filePath);
         var sourcePath = _libraryFolderResolver.ResolveSourcePath(filePath)
             ?? options.EffectiveWatchDirectories
                 .Where(path => !string.IsNullOrWhiteSpace(path))
@@ -211,6 +212,14 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
         var ext = Path.GetExtension(filePath)?.ToLowerInvariant();
         if (UnambiguousExtensions.Contains(ext ?? string.Empty))
             return false;
+
+        if (matchedFolder?.MediaTypes.Count == 1)
+        {
+            _logger.LogDebug(
+                "Root watch folder cap skipped for {Path}; source folder is configured for {Type}",
+                filePath, matchedFolder.MediaTypes[0]);
+            return false;
+        }
 
         for (var i = 0; i < candidateList.Count; i++)
         {

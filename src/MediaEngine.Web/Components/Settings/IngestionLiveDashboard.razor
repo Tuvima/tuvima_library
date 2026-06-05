@@ -89,7 +89,7 @@
                         <div class="library-update-stage-detail-panel__items">
                             @foreach (var detail in StageDetailLines(SelectedStage))
                             {
-                                <div class="@StageDetailClass(detail)">
+                                <div @key="StageDetailKey(detail)" class="@StageDetailClass(detail)">
                                     <span class="library-update-stage-detail__icon" aria-hidden="true">
                                         <MudIcon Icon="@detail.Icon" />
                                     </span>
@@ -147,7 +147,7 @@
                                 </span>
                                 <span class="library-update-batch__name">
                                     <strong>@BatchTitle(batch)</strong>
-                                    <span>@BatchTimestamp(batch)</span>
+                                    <span>@BatchTiming(batch)</span>
                                 </span>
                                 <span class="library-update-batch__media" aria-label="Media types in batch">
                                     @foreach (var chip in BatchMediaChips(batch))
@@ -238,7 +238,7 @@
         .Take(5)
         .ToList();
     private IngestionOperationsBatchViewModel? SelectedBatch => ResolveSelectedBatch();
-    private bool UseSelectedBatchSnapshot => SelectedBatch is { } batch && !IsActiveBatchStatus(batch.Status);
+    private bool UseSelectedBatchSnapshot => SelectedBatch is { StageProgress.Count: > 0 };
     private IngestionDashboardStage? SelectedStage =>
         DisplayStageRows.FirstOrDefault(stage => StageSelectionKey(stage).Equals(_selectedStageKey, StringComparison.OrdinalIgnoreCase))
         ?? DefaultSelectedStage(DisplayStageRows);
@@ -282,7 +282,6 @@
             ScanStarting,
             Error,
             RecentBatches,
-            ActivityRows,
             DisplayStageRows,
             SelectionSignature);
         if (string.Equals(_lastRenderSignature, signature, StringComparison.Ordinal))
@@ -305,13 +304,6 @@
             0,
             100)
         : Math.Clamp(Model.ProgressPercent, 0, 100);
-    private IReadOnlyList<IngestionCurrentActivityViewModel> ActivityRows => EffectiveCurrentActivities
-        .Where(activity => !string.IsNullOrWhiteSpace(activity.Message))
-        .OrderBy(activity => ActivitySort(activity))
-        .ThenByDescending(activity => activity.ActiveCount > 0)
-        .ThenByDescending(activity => activity.LastUpdatedTime ?? DateTimeOffset.MinValue)
-        .Take(4)
-        .ToList();
     private string PanelIcon => Model.PageState == LibraryUpdatePageState.Running
         ? Icons.Material.Outlined.GraphicEq
         : Icons.Material.Outlined.AutoAwesome;
@@ -320,9 +312,8 @@
         LibraryUpdateStatusViewModel model,
         bool loading,
         bool scanStarting,
-            string? error,
-            IReadOnlyList<IngestionOperationsBatchViewModel> recentBatches,
-            IReadOnlyList<IngestionCurrentActivityViewModel> activityRows,
+        string? error,
+        IReadOnlyList<IngestionOperationsBatchViewModel> recentBatches,
         IReadOnlyList<IngestionDashboardStage> stages,
         string expandedStageSignature)
     {
@@ -333,16 +324,6 @@
             stat.TotalCount,
             stat.ActiveCount,
             stat.QueuedCount)));
-        var currentActivities = string.Join(';', activityRows.Select(activity => string.Join(':',
-            activity.StageKey,
-            activity.Message,
-            activity.Detail,
-            activity.CurrentItem,
-            activity.ProcessedCount,
-            activity.TotalCount,
-            Math.Round(activity.PercentComplete, 1),
-            activity.ActiveCount,
-            activity.QueuedCount)));
         var recent = string.Join(';', recentBatches.Select(batch => string.Join(':',
             batch.BatchId,
             batch.Status,
@@ -398,7 +379,6 @@
             model.CurrentProvider,
             steps,
             enrichment,
-            currentActivities,
             reasons,
             stageSignature,
             expandedStageSignature,
@@ -554,6 +534,14 @@
 
     private static IReadOnlyList<IngestionDashboardStage> BuildBatchStages(IngestionOperationsBatchViewModel batch)
     {
+        if (batch.StageProgress.Count > 0)
+        {
+            return IngestionLiveDashboardState.BuildStages(
+                new IngestionOperationsSnapshotViewModel { StageProgress = batch.StageProgress },
+                [],
+                Math.Max(0, batch.TotalFiles));
+        }
+
         var total = Math.Max(0, Math.Max(batch.TotalFiles, batch.ProcessedFiles));
         var processed = Math.Clamp(Math.Max(0, batch.ProcessedFiles), 0, total);
         var reviewOrFailed = Math.Max(0, batch.ReviewCount + batch.FailedCount);
@@ -791,22 +779,28 @@
                 Metric("Comics", DetailCount(details, "Comics"), "comics", Icons.Material.Outlined.AutoStories),
                 Metric("Audiobooks", DetailCount(details, "Audiobooks"), "audiobooks", Icons.Material.Outlined.Headphones),
                 Metric("Unidentified", DetailCount(details, "Unidentified"), "warning", Icons.Material.Outlined.HelpOutline),
-                Metric("Skipped/Failed", DetailCount(details, "Skipped / duplicate") + DetailCount(details, "Failed"), "warning", Icons.Material.Outlined.WarningAmber),
+                Metric("Skipped / duplicate", DetailCount(details, "Skipped / duplicate"), "neutral", Icons.Material.Outlined.SkipNext),
+                Metric("Failed", DetailCount(details, "Failed"), "warning", Icons.Material.Outlined.WarningAmber),
             ],
             "retail" => [
+                Metric("Matches", DetailCount(details, "Matches"), "success", Icons.Material.Outlined.Link),
                 Metric("Books", DetailCount(details, "Books"), "books", Icons.Material.Outlined.MenuBook),
                 Metric("Movies", DetailCount(details, "Movies"), "movies", Icons.Material.Outlined.Movie),
                 Metric("TV", DetailCount(details, "TV"), "tv", Icons.Material.Outlined.LiveTv),
                 Metric("Music", DetailCount(details, "Music"), "music", Icons.Material.Outlined.Album),
                 Metric("Comics", DetailCount(details, "Comics"), "comics", Icons.Material.Outlined.AutoStories),
                 Metric("Audiobooks", DetailCount(details, "Audiobooks"), "audiobooks", Icons.Material.Outlined.Headphones),
-                Metric("Unresolved", DetailCount(details, "Failed / unresolved"), "warning", Icons.Material.Outlined.WarningAmber),
                 Metric("Metadata", DetailCount(details, "Metadata fields"), "info", Icons.Material.Outlined.FactCheck),
                 Metric("Cover Art", DetailCount(details, "Cover art assets"), "success", Icons.Material.Outlined.Image),
+                Metric("Unresolved", DetailCountAny(details, "Unresolved", "Failed / unresolved"), "warning", Icons.Material.Outlined.HelpOutline),
+                Metric("Failed", DetailCount(details, "Failed"), "warning", Icons.Material.Outlined.WarningAmber),
             ],
             "wikidata" => [
-                Metric("Matched", DetailCount(details, "Files with media/work QID"), "success", Icons.Material.Outlined.Link),
-                Metric("Relevant QIDs", DetailCount(details, "Related QIDs discovered"), "info", Icons.Material.Outlined.AccountTree),
+                Metric("Media QIDs", DetailCountAny(details, "Media QIDs", "Files with media/work QID"), "success", Icons.Material.Outlined.Link),
+                Metric("Relevant QIDs", DetailCount(details, "Relevant QIDs"), "info", Icons.Material.Outlined.AccountTree),
+                Metric("Related QIDs", DetailCount(details, "Related QIDs discovered"), "info", Icons.Material.Outlined.AccountTree),
+                Metric("Unresolved", DetailCountAny(details, "Unresolved", "Retail retained without QID"), "warning", Icons.Material.Outlined.HelpOutline),
+                Metric("Failed", DetailCount(details, "Failed"), "warning", Icons.Material.Outlined.WarningAmber),
             ],
             "people" => [
                 Metric("Cast", DetailCount(details, "Cast"), "neutral", Icons.Material.Outlined.Groups),
@@ -817,7 +811,8 @@
                 Metric("Enriched", DetailCount(details, "Deeply enriched people"), "success", Icons.Material.Outlined.AutoAwesome),
             ],
             "universes" or "relationships" => [
-                Metric("Links", DetailCount(details, "Files with universe links"), "success", Icons.Material.Outlined.Public),
+                Metric("Links", DetailCountFirst(details, "Relationship links", "Files with universe links"), "success", Icons.Material.Outlined.Public),
+                Metric("Linked Files", DetailCount(details, "Files with universe links"), "success", Icons.Material.Outlined.FolderShared),
                 Metric("Series", DetailCount(details, "Series / shelves"), "neutral", Icons.Material.Outlined.Collections),
                 Metric("Universe Detail", DetailCount(details, "Universe roots") + DetailCount(details, "Characters / locations / orgs"), "neutral", Icons.Material.Outlined.AccountTree),
                 Metric("Adaptations", DetailCount(details, "Adaptation / story links"), "neutral", Icons.Material.Outlined.Link),
@@ -832,6 +827,7 @@
             ],
             _ => details
                 .Where(detail => !string.IsNullOrWhiteSpace(detail.Label) && !string.IsNullOrWhiteSpace(detail.Value))
+                .OrderBy(detail => DetailTerminalSort(detail.Label))
                 .Select(detail => new StageDetailLine(detail.Label, detail.Value, detail.Tone ?? "neutral", ResolveDetailIcon(detail)))
                 .ToList(),
         };
@@ -839,6 +835,9 @@
 
     private static string StageDetailClass(StageDetailLine detail) =>
         $"library-update-stage-detail is-{detail.Tone}";
+
+    private static string StageDetailKey(StageDetailLine detail) =>
+        $"{detail.Label}:{detail.Tone}";
 
     private static StageDetailLine Metric(string label, int value, string tone, string icon) =>
         new(label, FormatCount(value), tone, icon);
@@ -851,6 +850,30 @@
         return int.TryParse(value, NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out var parsed)
             ? Math.Max(0, parsed)
             : 0;
+    }
+
+    private static int DetailCountAny(IReadOnlyList<IngestionStageDetailItemViewModel> details, params string[] labels) =>
+        labels.Sum(label => DetailCount(details, label));
+
+    private static int DetailCountFirst(IReadOnlyList<IngestionStageDetailItemViewModel> details, params string[] labels)
+    {
+        foreach (var label in labels)
+        {
+            var count = DetailCount(details, label);
+            if (count > 0)
+                return count;
+        }
+
+        return 0;
+    }
+
+    private static int DetailTerminalSort(string label)
+    {
+        if (label.Contains("failed", StringComparison.OrdinalIgnoreCase))
+            return 2;
+        if (label.Contains("unresolved", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        return 0;
     }
 
     private static string ResolveDetailIcon(IngestionStageDetailItemViewModel detail) =>
@@ -889,21 +912,23 @@
     }
 
     private static string BatchStatusTone(IngestionOperationsBatchViewModel batch) =>
-        IsFailedBatchStatus(batch.Status)
-            ? "danger"
-            : batch.ReviewCount > 0
-                ? "warning"
-                : IsActiveBatchStatus(batch.Status)
-                    ? "info"
-                    : "success";
+        IsActiveBatchStatus(batch.Status)
+            ? "info"
+            : IsFailedBatchStatus(batch.Status)
+                ? "danger"
+                : IsInterruptedBatchStatus(batch.Status)
+                    ? "warning"
+                    : batch.ReviewCount > 0
+                        ? "warning"
+                        : "success";
 
     private static string BatchStatusLabel(IngestionOperationsBatchViewModel batch) =>
         IsActiveBatchStatus(batch.Status)
-            ? "Running"
+            ? "Active"
             : IsFailedBatchStatus(batch.Status)
                 ? "Failed"
-                : batch.ReviewCount > 0
-                    ? "Review"
+                : IsInterruptedBatchStatus(batch.Status)
+                    ? "Interrupted"
                     : "Complete";
 
     private static bool IsActiveBatchStatus(string? status) =>
@@ -915,18 +940,38 @@
 
     private static bool IsFailedBatchStatus(string? status) =>
         status is not null
-        && (status.Equals("failed", StringComparison.OrdinalIgnoreCase)
-            || status.Equals("abandoned", StringComparison.OrdinalIgnoreCase));
+        && status.Equals("failed", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsInterruptedBatchStatus(string? status) =>
+        status is not null
+        && (status.Equals("abandoned", StringComparison.OrdinalIgnoreCase)
+            || status.Equals("interrupted", StringComparison.OrdinalIgnoreCase));
 
     private static string BatchTiming(IngestionOperationsBatchViewModel batch)
     {
-        var when = batch.CompletedAt ?? batch.StartedAt;
-        var relative = FormatRelative(when);
+        var started = batch.StartedAt.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
         if (IsActiveBatchStatus(batch.Status))
-            return $"{FormatCount(batch.ProcessedFiles)} / {FormatCount(batch.TotalFiles)} files - started {relative}";
+        {
+            var elapsed = DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime();
+            return $"Active - started {started} - {FormatDuration(elapsed)} elapsed - {FormatCount(batch.ProcessedFiles)} / {FormatCount(batch.TotalFiles)} through pipeline";
+        }
+
+        if (IsFailedBatchStatus(batch.Status) || IsInterruptedBatchStatus(batch.Status))
+        {
+            var failedWhen = (batch.CompletedAt ?? batch.StartedAt).ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
+            var failedDuration = batch.DurationSeconds is > 0
+                ? FormatDuration(TimeSpan.FromSeconds(batch.DurationSeconds.Value))
+                : FormatRelative(batch.CompletedAt ?? batch.StartedAt);
+            return $"{BatchStatusLabel(batch)} - {started} to {failedWhen} - {failedDuration}";
+        }
+
         if (batch.DurationSeconds is > 0)
-            return $"{FormatCount(batch.ProcessedFiles)} / {FormatCount(batch.TotalFiles)} files - {FormatDuration(TimeSpan.FromSeconds(batch.DurationSeconds.Value))}";
-        return $"{FormatCount(batch.ProcessedFiles)} / {FormatCount(batch.TotalFiles)} files - {relative}";
+        {
+            var completed = (batch.CompletedAt ?? batch.StartedAt).ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
+            return $"Complete - {started} to {completed} - {FormatDuration(TimeSpan.FromSeconds(batch.DurationSeconds.Value))}";
+        }
+
+        return $"Complete - started {started}";
     }
 
     private static string BatchTimestamp(IngestionOperationsBatchViewModel batch)
@@ -1100,7 +1145,9 @@
     private static string BatchStatusLabel(string? status) =>
         string.IsNullOrWhiteSpace(status)
             ? "Unknown"
-            : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(status.Replace('_', ' '));
+            : IsInterruptedBatchStatus(status)
+                ? "Interrupted"
+                : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(status.Replace('_', ' '));
 
     private static string BatchStatusTone(string? status)
     {
@@ -1111,7 +1158,10 @@
             return "info";
         if (value.Contains("fail", StringComparison.OrdinalIgnoreCase))
             return "danger";
-        if (value.Contains("review", StringComparison.OrdinalIgnoreCase) || value.Contains("partial", StringComparison.OrdinalIgnoreCase))
+        if (value.Contains("review", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("partial", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("abandon", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("interrupt", StringComparison.OrdinalIgnoreCase))
             return "warning";
         return "neutral";
     }

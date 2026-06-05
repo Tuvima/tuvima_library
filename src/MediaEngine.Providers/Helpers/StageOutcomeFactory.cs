@@ -256,6 +256,7 @@ public sealed class StageOutcomeFactory
         {
             foreach (var stale in existing.Where(r =>
                 r.Status == ReviewStatus.Pending
+                && r.ReviewReadyAt is null
                 && string.Equals(r.Trigger, ReviewTrigger.LowConfidence, StringComparison.OrdinalIgnoreCase)))
             {
                 await _reviewRepo

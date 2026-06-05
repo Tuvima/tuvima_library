@@ -155,6 +155,48 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void OperationsService_RecentBatchStatusStaysRunningWhileBatchStagesAreActive()
+    {
+        var startedAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var batch = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = startedAt,
+            CreatedAt = startedAt,
+            UpdatedAt = startedAt.AddMinutes(5),
+            CompletedAt = startedAt.AddMinutes(6),
+            Status = "completed",
+            FilesTotal = 20,
+            FilesProcessed = 20,
+            FilesIdentified = 20,
+        };
+        var stageProgress = new List<IngestionStageProgressDto>
+        {
+            new()
+            {
+                StageNumber = 3,
+                StageKey = "wikidata",
+                CompletedFiles = 12,
+                TotalFiles = 20,
+                ActiveCount = 1,
+                StatusLabel = "Active",
+            },
+        };
+        var recentBatchMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "ToRecentBatchWithStageProgress",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(recentBatchMethod);
+
+        var recentBatch = Assert.IsType<IngestionOperationsBatchDto>(
+            recentBatchMethod.Invoke(null, [batch, null, stageProgress]));
+
+        Assert.Equal("running", recentBatch.Status);
+        Assert.Null(recentBatch.CompletedAt);
+        Assert.Single(recentBatch.StageProgress);
+    }
+
+    [Fact]
     public void OperationsService_ReviewReasonsComeOnlyFromPendingReviewQueueRows()
     {
         var source = File.ReadAllText(Path.Combine(
@@ -193,6 +235,29 @@ public sealed class IngestionOperationsContractTests
         Assert.DoesNotContain("WHEN ma.status = 'Normal'", source, StringComparison.Ordinal);
         Assert.Contains("var processed = isStaleUntrackedBatch || isNoWorkBatch\n                ? batch.FilesTotal\n                : terminal;", source.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("var processed = Math.Clamp(Math.Max(0, batch.FilesProcessed), 0, total);", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OperationsService_ReconcilesStaleQueuedBatchesToTerminalStatus()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("staleQueuedWork", source, StringComparison.Ordinal);
+        Assert.Contains("staleRunningWork", source, StringComparison.Ordinal);
+        Assert.Contains("staleInterruptedWork", source, StringComparison.Ordinal);
+        Assert.Contains("snapshot.Queued > 0", source, StringComparison.Ordinal);
+        Assert.Contains("snapshot.StaleRunningOperations > 0", source, StringComparison.Ordinal);
+        Assert.Contains("mo.status = 'running'", source, StringComparison.Ordinal);
+        Assert.Contains("InterruptedBatchStatuses", source, StringComparison.Ordinal);
+        Assert.Contains("FailedBatchStatuses = [\"failed\"]", source, StringComparison.Ordinal);
+        Assert.Contains("\"abandoned\"", source, StringComparison.Ordinal);
+        Assert.Contains("!IsFreshActiveBatch(batch)", source, StringComparison.Ordinal);
+        Assert.Contains("julianday(js.updated_at) > julianday(@staleCutoff)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -267,10 +332,18 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("artifact_count", dtoSource, StringComparison.Ordinal);
         Assert.Contains("detail_items", dtoSource, StringComparison.Ordinal);
         Assert.Contains("IngestionStageDetailItemDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("public List<IngestionStageProgressDto> StageProgress", dtoSource, StringComparison.Ordinal);
         Assert.Contains("BuildNumberedStageProgressAsync", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("BuildRecentBatchDtosAsync", serviceSource, StringComparison.Ordinal);
         Assert.Contains("DetailItems(", serviceSource, StringComparison.Ordinal);
         Assert.Contains("\"Matches\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("\"Cover art assets\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Relevant QIDs\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Unresolved\"", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("RetailUnresolvedCount", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("WikidataUnresolvedCount", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("DetailTerminalSort", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("\"Relationship links\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("\"Retail Match\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("\"Universes\"", serviceSource, StringComparison.Ordinal);
         Assert.Contains("\"Artwork\"", serviceSource, StringComparison.Ordinal);
