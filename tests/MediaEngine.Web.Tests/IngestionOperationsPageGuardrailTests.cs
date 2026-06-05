@@ -1430,6 +1430,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     {
         Services.AddLocalization();
         Services.AddMudServices();
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        JSInterop.Setup<int>("mudpopoverHelper.countProviders").SetResult(1);
+        RenderComponent<MudPopoverProvider>();
     }
 
     [Fact]
@@ -2307,7 +2310,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             cut.Markup.IndexOf("Update 840000", StringComparison.Ordinal));
         Assert.Contains("Active - started", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Complete -", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Full activity for Update 830000", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Open the full activity log for Update 830000", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("href=\"/settings/activity?runId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("href=\"/settings/activity?batchId=83000000-0000-0000-0000-000000000001\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("through pipeline", cut.Markup, StringComparison.Ordinal);

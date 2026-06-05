@@ -76,6 +76,29 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
+    public void IngestionDashboard_ExplainsIconMeaningWithSimpleTooltips()
+    {
+        var source = Read(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor");
+
+        Assert.Contains("MudTooltip Text=\"Reload the latest ingestion status.\"", source, StringComparison.Ordinal);
+        Assert.Contains("MudTooltip Text=\"Start a new scan of the watched folders.\"", source, StringComparison.Ordinal);
+        Assert.Contains("StageIconTooltip(stage)", source, StringComparison.Ordinal);
+        Assert.Contains("StageProgressTooltip(stage)", source, StringComparison.Ordinal);
+        Assert.Contains("StageDetailTooltip(detail)", source, StringComparison.Ordinal);
+        Assert.Contains("BatchSelectionTooltip(batch)", source, StringComparison.Ordinal);
+        Assert.Contains("BatchMediaTooltip(chip)", source, StringComparison.Ordinal);
+        Assert.Contains("BatchArtifactTooltip(chip)", source, StringComparison.Ordinal);
+        Assert.Contains("BatchActivityTooltip(batch)", source, StringComparison.Ordinal);
+        Assert.Contains("Recent batches show the latest scans and whether they are active or complete.", source, StringComparison.Ordinal);
+        Assert.Contains("Matches files to retail catalog data like title, cover, and description.", source, StringComparison.Ordinal);
+        Assert.Contains("Links matched items to Wikidata IDs so relationships can be built.", source, StringComparison.Ordinal);
+        Assert.Contains("Files or works that have a direct Wikidata ID.", source, StringComparison.Ordinal);
+        Assert.Contains("Extra Wikidata IDs found for people, series, universes, or story details.", source, StringComparison.Ordinal);
+        Assert.Contains("Items Tuvima could not confidently finish.", source, StringComparison.Ordinal);
+        Assert.Contains("People with extra profile data such as biography or images.", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AppErrorState_ProvidesTitleMessageAndRetryAffordance()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Shared\AppErrorState.razor");
