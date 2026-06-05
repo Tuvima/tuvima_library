@@ -3,6 +3,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
@@ -1058,7 +1059,8 @@ public sealed class WikidataBridgeWorker
     {
         static string? GetCanonical(IReadOnlyList<CanonicalValue> values, string key)
         {
-            return values.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+            var value = values.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+            return value is null ? null : TextEncodingRepair.RepairMojibake(value);
         }
 
         static string? FirstValue(params string?[] values) =>
@@ -1337,8 +1339,13 @@ public sealed class WikidataBridgeWorker
             // the final library folder.
             await _coverArt.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct);
 
-            await _postPipeline.EvaluateAndOrganizeAsync(
-                job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct);
+            var organized = await _postPipeline.EvaluateAndOrganizeAsync(
+                job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct,
+                retainedRetailIdentity: true);
+            if (organized)
+            {
+                await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.ReadyWithoutUniverse, ct: ct);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

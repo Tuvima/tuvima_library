@@ -1208,6 +1208,10 @@ CREATE INDEX IF NOT EXISTS idx_review_queue_entity_id
 CREATE INDEX IF NOT EXISTS idx_review_queue_status
     ON review_queue (status);
 
+CREATE UNIQUE INDEX IF NOT EXISTS ux_review_queue_pending_entity_trigger
+    ON review_queue (entity_id, trigger)
+    WHERE status = 'Pending';
+
 CREATE INDEX IF NOT EXISTS idx_series_manifest_hydrations_collection
     ON series_manifest_hydrations(collection_id);
 

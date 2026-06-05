@@ -49,6 +49,12 @@ public sealed class DisplayWorkProjectionReader
                 WorkKind,
                 RootWorkId,
                 AssetId,
+                COALESCE(
+                    NULLIF(TRIM((SELECT wikidata_qid FROM works WHERE id = WorkId LIMIT 1)), ''),
+                    NULLIF(TRIM((SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'wikidata_qid' LIMIT 1)), ''),
+                    NULLIF(TRIM((SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'wikidata_qid' LIMIT 1)), ''),
+                    NULLIF(TRIM((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'wikidata_qid' LIMIT 1)), '')
+                ) AS IdentityQid,
                 COALESCE(CreatedAt, CURRENT_TIMESTAMP) AS CreatedAt,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'issue_title' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'issue_title' LIMIT 1),

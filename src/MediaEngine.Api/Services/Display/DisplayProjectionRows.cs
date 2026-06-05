@@ -38,6 +38,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? WorkKind { get; set; }
     public Guid RootWorkId { get; set; }
     public Guid AssetId { get; set; }
+    public string? IdentityQid { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Author { get; set; }

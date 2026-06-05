@@ -682,6 +682,27 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                 // Same-path re-detection: attempt re-organization (file may have been
                 // enriched since first scan).
+                if (!string.Equals(existing.ContentHash, hash.Hex, StringComparison.OrdinalIgnoreCase))
+                {
+                    var hashUpdated = await _assetRepo.UpdateContentHashAsync(existing.Id, hash.Hex, ct)
+                        .ConfigureAwait(false);
+                    if (hashUpdated)
+                    {
+                        _logger.LogInformation(
+                            "Updated content hash for same-path asset {AssetId}: {OldHash} -> {NewHash}",
+                            existing.Id,
+                            existing.ContentHash.Length >= 12 ? existing.ContentHash[..12] : existing.ContentHash,
+                            hash.Hex[..12]);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Could not update content hash for same-path asset {AssetId}; hash {Hash} already belongs to another asset",
+                            existing.Id,
+                            hash.Hex[..12]);
+                    }
+                }
+
                 await TryReorganizeExistingAsync(existing, candidate.Path, ct)
                     .ConfigureAwait(false);
                 try
@@ -2547,7 +2568,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 EntityId    = entityId,
                 ProviderId  = LocalProcessorProviderId,
                 ClaimKey    = c.Key,
-                ClaimValue  = c.Value,
+                ClaimValue  = TextEncodingRepair.RepairMojibake(c.Value),
                 Confidence  = c.Confidence,
                 ClaimedAt   = DateTimeOffset.UtcNow,
             })
@@ -2561,7 +2582,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             .Where(f => !string.IsNullOrEmpty(f.WinningValue))
             .ToDictionary(
                 f => f.Key,
-                f => f.WinningValue!,
+                f => TextEncodingRepair.RepairMojibake(f.WinningValue!),
                 StringComparer.OrdinalIgnoreCase);
     }
 

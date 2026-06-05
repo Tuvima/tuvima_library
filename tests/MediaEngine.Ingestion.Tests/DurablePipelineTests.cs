@@ -698,7 +698,7 @@ public sealed class DurablePipelineTests : IDisposable
     // ══════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task PostPipelineService_HighConfidenceEntity_DoesNotAutoResolveVisibleReviews()
+    public async Task PostPipelineService_AcceptedQid_SystemResolvesVisibleSupersededReviewsAndOrganizes()
     {
         var entityId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
@@ -715,6 +715,7 @@ public sealed class DurablePipelineTests : IDisposable
 
         var reviewRepo = new TrackingReviewQueueRepository();
         await reviewRepo.InsertAsync(visibleReview);
+        var organizer = new RecordingAutoOrganizeService();
 
         var postPipeline = new PostPipelineService(
             new NoOpMetadataClaimRepository(),
@@ -723,15 +724,66 @@ public sealed class DurablePipelineTests : IDisposable
             new MinimalConfigurationLoader(),
             Array.Empty<IExternalMetadataProvider>(),
             reviewRepo,
-            new NoOpAutoOrganizeService(),
+            organizer,
             CreateBatchProgressService(),
             NullLogger<PostPipelineService>.Instance);
 
-        await postPipeline.EvaluateAndOrganizeAsync(entityId, jobId, "Q185166", null, CancellationToken.None);
+        var didOrganize = await postPipeline.EvaluateAndOrganizeAsync(entityId, jobId, "Q185166", null, CancellationToken.None);
 
         var review = Assert.Single(await reviewRepo.GetByEntityAsync(entityId));
-        Assert.Equal(ReviewStatus.Pending, review.Status);
-        Assert.NotNull(review.ReviewReadyAt);
+        Assert.Equal(ReviewStatus.Resolved, review.Status);
+        Assert.Equal("system:identity-superseded", review.ResolvedBy);
+        var organized = Assert.Single(organizer.Calls);
+        Assert.Equal(entityId, organized.EntityId);
+        Assert.True(didOrganize);
+    }
+
+    [Fact]
+    public async Task PostPipelineService_RetainedRetailIdentity_SystemResolvesRetailReviewAndOrganizes()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var visibleReview = new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            Trigger = ReviewTrigger.RetailMatchAmbiguous,
+            Status = ReviewStatus.Pending,
+            ConfidenceScore = 0.93,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
+        };
+
+        var reviewRepo = new TrackingReviewQueueRepository();
+        await reviewRepo.InsertAsync(visibleReview);
+        var organizer = new RecordingAutoOrganizeService();
+
+        var postPipeline = new PostPipelineService(
+            new NoOpMetadataClaimRepository(),
+            new NoOpCanonicalValueRepository(),
+            new NoOpScoringEngine(overallConfidence: 0.82),
+            new MinimalConfigurationLoader(),
+            Array.Empty<IExternalMetadataProvider>(),
+            reviewRepo,
+            organizer,
+            CreateBatchProgressService(),
+            NullLogger<PostPipelineService>.Instance);
+
+        var didOrganize = await postPipeline.EvaluateAndOrganizeAsync(
+            entityId,
+            jobId,
+            wikidataQid: null,
+            ingestionRunId: null,
+            ct: CancellationToken.None,
+            retainedRetailIdentity: true);
+
+        var review = Assert.Single(await reviewRepo.GetByEntityAsync(entityId));
+        Assert.Equal(ReviewStatus.Resolved, review.Status);
+        Assert.Equal("system:retained-retail-identity", review.ResolvedBy);
+        var organized = Assert.Single(organizer.Calls);
+        Assert.Equal(entityId, organized.EntityId);
+        Assert.True(didOrganize);
     }
 
     [Fact]
@@ -1111,6 +1163,28 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default)
             => Task.FromResult(0);
 
+        public Task<int> ResolvePendingByEntityAndTriggersAsync(
+            Guid entityId,
+            IReadOnlyCollection<string> triggers,
+            string resolvedBy,
+            CancellationToken ct = default)
+        {
+            var triggerSet = triggers.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var count = 0;
+            foreach (var entry in _entries.Where(entry =>
+                entry.EntityId == entityId
+                && entry.Status == ReviewStatus.Pending
+                && triggerSet.Contains(entry.Trigger)))
+            {
+                entry.Status = ReviewStatus.Resolved;
+                entry.ResolvedBy = resolvedBy;
+                entry.ResolvedAt = DateTimeOffset.UtcNow;
+                count++;
+            }
+
+            return Task.FromResult(count);
+        }
+
         public Task<int> PurgeOrphanedAsync(CancellationToken ct = default)
             => Task.FromResult(0);
     }
@@ -1368,6 +1442,7 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<int> GetPendingCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default) => Task.FromResult(0);
+        public Task<int> ResolvePendingByEntityAndTriggersAsync(Guid entityId, IReadOnlyCollection<string> triggers, string resolvedBy, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> PurgeOrphanedAsync(CancellationToken ct = default) => Task.FromResult(0);
     }
 
@@ -1375,6 +1450,17 @@ public sealed class DurablePipelineTests : IDisposable
     {
         public Task TryAutoOrganizeAsync(Guid assetId, CancellationToken ct = default, Guid? ingestionRunId = null)
             => Task.CompletedTask;
+    }
+
+    private sealed class RecordingAutoOrganizeService : IAutoOrganizeService
+    {
+        public List<(Guid EntityId, Guid? IngestionRunId)> Calls { get; } = [];
+
+        public Task TryAutoOrganizeAsync(Guid assetId, CancellationToken ct = default, Guid? ingestionRunId = null)
+        {
+            Calls.Add((assetId, ingestionRunId));
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class NoOpSystemActivityRepository : ISystemActivityRepository

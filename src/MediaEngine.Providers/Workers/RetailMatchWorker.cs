@@ -556,6 +556,12 @@ public sealed class RetailMatchWorker
 
         if (bestTrack is null || bestMatchScore < 0.30)
         {
+            if (await TryRouteMusicLocalIdentityFallbackAsync(job, fileHints, bestMatchScore, ct)
+                    .ConfigureAwait(false))
+            {
+                return;
+            }
+
             // No reasonable track match found — route to no-match.
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
             await _outcomeFactory.CreateRetailFailedAsync(
@@ -728,6 +734,12 @@ public sealed class RetailMatchWorker
         }
         else
         {
+            if (await TryRouteMusicLocalIdentityFallbackAsync(job, fileHints, decision.FinalScore, ct)
+                    .ConfigureAwait(false))
+            {
+                return;
+            }
+
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
             await _outcomeFactory.CreateRetailFailedAsync(
                 job.EntityId, job.MediaType, job.IngestionRunId, null, ct);
@@ -1899,7 +1911,7 @@ public sealed class RetailMatchWorker
         foreach (var c in canonicals)
         {
             if (!string.IsNullOrWhiteSpace(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
-                hints.TryAdd(c.Key, c.Value);
+                hints.TryAdd(c.Key, TextEncodingRepair.RepairMojibake(c.Value));
         }
 
         if (_arrayRepo is not null)
@@ -1912,7 +1924,7 @@ public sealed class RetailMatchWorker
 
                 var values = entries
                     .OrderBy(entry => entry.Ordinal)
-                    .Select(entry => entry.Value)
+                    .Select(entry => TextEncodingRepair.RepairMojibake(entry.Value))
                     .Where(value => !string.IsNullOrWhiteSpace(value))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
@@ -1934,7 +1946,7 @@ public sealed class RetailMatchWorker
                 .OrderByDescending(claim => claim.IsUserLocked)
                 .ThenByDescending(claim => claim.Confidence)
                 .ThenByDescending(claim => claim.ClaimedAt)
-                .Select(claim => claim.ClaimValue.Trim())
+                .Select(claim => TextEncodingRepair.RepairMojibake(claim.ClaimValue.Trim()))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (values.Count > 0)
@@ -1960,6 +1972,45 @@ public sealed class RetailMatchWorker
         || key.Equals(MetadataFieldConstants.Narrator, StringComparison.OrdinalIgnoreCase)
         || key.Equals(MetadataFieldConstants.Illustrator, StringComparison.OrdinalIgnoreCase)
         || key.Equals("writer", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<bool> TryRouteMusicLocalIdentityFallbackAsync(
+        IdentityJob job,
+        IReadOnlyDictionary<string, string> hints,
+        double bestRetailScore,
+        CancellationToken ct)
+    {
+        if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType)
+            || mediaType != MediaType.Music)
+        {
+            return false;
+        }
+
+        var title = hints.GetValueOrDefault(MetadataFieldConstants.Title);
+        var artist = hints.GetValueOrDefault(MetadataFieldConstants.Artist)
+            ?? hints.GetValueOrDefault(MetadataFieldConstants.Author)
+            ?? hints.GetValueOrDefault(MetadataFieldConstants.Composer);
+
+        if (PlaceholderTitleDetector.IsPlaceholder(title)
+            || string.IsNullOrWhiteSpace(artist))
+        {
+            return false;
+        }
+
+        await _jobRepo.UpdateStateAsync(
+            job.Id,
+            IdentityJobState.RetailMatchedNeedsReview,
+            "Retail did not accept a music match; attempting Wikidata from local title and artist.",
+            ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Music identity fallback queued for entity {EntityId}: '{Title}' by '{Artist}' (best retail score {Score:F2})",
+            job.EntityId,
+            title,
+            artist,
+            bestRetailScore);
+
+        return true;
+    }
 
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {
@@ -2293,6 +2344,12 @@ public sealed class RetailMatchWorker
         }
         else
         {
+            if (await TryRouteMusicLocalIdentityFallbackAsync(job, hints, bestScore, ct)
+                    .ConfigureAwait(false))
+            {
+                return;
+            }
+
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
 
             var titleHint = hints.GetValueOrDefault(MetadataFieldConstants.Title);

@@ -1365,6 +1365,55 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 
     [Fact]
+    public void LiveDashboardState_OverallProgressCountsTerminalRetailNoMatchForCompletedBatch()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 26,
+                RegisteredItems = 10,
+                ItemsNeedingReview = 15,
+            },
+            RecentBatches =
+            [
+                new()
+                {
+                    BatchId = Guid.NewGuid(),
+                    StartedAt = now.AddMinutes(-5),
+                    CompletedAt = now,
+                    Status = "completed",
+                    TotalFiles = 26,
+                    ProcessedFiles = 26,
+                    RegisteredCount = 10,
+                    ReviewCount = 15,
+                },
+            ],
+            PipelineStages =
+            [
+                new() { Key = "detected", Count = 26, TotalCount = 26 },
+                new() { Key = "matched", Count = 10, TotalCount = 26 },
+                new() { Key = "retail_review", Count = 16, TotalCount = 26 },
+                new() { Key = "canonicalized", Count = 10, TotalCount = 26 },
+                new() { Key = "wikidata_review", Count = 0, TotalCount = 26 },
+                new() { Key = "enriched", Count = 10, TotalCount = 26 },
+                new() { Key = "registered", Count = 10, TotalCount = 26 },
+                new() { Key = "needs_review", Count = 15, TotalCount = 26 },
+            ],
+        };
+
+        var metrics = IngestionLiveDashboardState.BuildMetrics(snapshot, []);
+        var stages = IngestionLiveDashboardState.BuildStages(snapshot, [], metrics.TotalFiles);
+        var progress = IngestionLiveDashboardState.BuildOverallProgress(metrics, stages, null);
+
+        Assert.Equal(26, metrics.ProcessedFiles);
+        Assert.Equal(26, progress.ProcessedFiles);
+        Assert.Equal(26, progress.TotalFiles);
+        Assert.Equal(100, progress.Percent);
+    }
+
+    [Fact]
     public void LiveDashboardState_HidesScanningCountWhenIdle()
     {
         var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 0);

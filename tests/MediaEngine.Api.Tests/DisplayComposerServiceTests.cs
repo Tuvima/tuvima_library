@@ -68,6 +68,26 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public async Task ReadLane_CollapsesBookAndAudiobookVariantsWithSameQid()
+    {
+        var bookId = Guid.Parse("33333333-aaaa-3333-3333-333333333333");
+        var audiobookId = Guid.Parse("33333333-bbbb-3333-3333-333333333333");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(bookId, "Book", "Harry Potter and the Philosopher's Stone", author: "J. K. Rowling", identityQid: "Q43361"),
+                Work(audiobookId, "Audiobook", "Harry Potter and the Philosopher's Stone", author: "J. K. Rowling", narrator: "Jim Dale", identityQid: "Q43361"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("read", null, "all", null, 0, 48);
+
+        var catalogCard = Assert.Single(page.Catalog);
+        Assert.Equal(bookId, catalogCard.WorkId);
+        Assert.Equal("Harry Potter and the Philosopher's Stone", catalogCard.Title);
+    }
+
+    [Fact]
     public async Task ListenLane_ComposesMusicAudiobookAndContinueShelves()
     {
         var musicId = Guid.Parse("55555555-5555-5555-5555-555555555555");
@@ -218,13 +238,15 @@ public sealed class DisplayComposerServiceTests
         string? season = null,
         string? episode = null,
         string? track = null,
-        Guid? collectionId = null)
+        Guid? collectionId = null,
+        string? identityQid = null)
     {
         return new DisplayWorkRow
         {
             WorkId = workId,
             AssetId = Guid.NewGuid(),
             CollectionId = collectionId,
+            IdentityQid = identityQid,
             MediaType = mediaType,
             CreatedAt = DateTimeOffset.Parse("2026-04-24T12:00:00Z"),
             Title = title,

@@ -27,20 +27,9 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         ArgumentNullException.ThrowIfNull(entry);
 
         using var conn = _db.CreateConnection();
-        conn.Execute("""
-            INSERT INTO review_queue
-                (id, entity_id, entity_type, trigger, status,
-                 proposed_collection_id, confidence_score, candidates_json,
-                 detail, created_at, resolved_at, resolved_by,
-                 source_operation_id, source_capability_id, source_capability_sub_key,
-                 review_ready_at, automation_completed_at)
-            VALUES
-                (@id, @entityId, @entityType, @trigger, @status,
-                 @proposedCollectionId, @confidence, @candidates,
-                 @detail, @createdAt, @resolvedAt, @resolvedBy,
-                 @sourceOperationId, @sourceCapabilityId, @sourceCapabilitySubKey,
-                 @reviewReadyAt, @automationCompletedAt)
-            """, new
+        using var tx = conn.BeginTransaction();
+
+        var parameters = new
         {
             id            = entry.Id,
             entityId      = entry.EntityId,
@@ -59,9 +48,88 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             sourceCapabilitySubKey = entry.SourceCapabilitySubKey,
             reviewReadyAt = entry.ReviewReadyAt?.ToString("O"),
             automationCompletedAt = entry.AutomationCompletedAt?.ToString("O"),
-        });
+            pending = ReviewStatus.Pending,
+        };
 
-        return Task.FromResult(entry.Id);
+        var existingId = conn.QueryFirstOrDefault<Guid?>("""
+            SELECT id
+            FROM review_queue
+            WHERE entity_id = @entityId
+              AND trigger = @trigger
+              AND status = @pending
+            ORDER BY created_at ASC
+            LIMIT 1;
+            """, parameters, tx);
+
+        if (existingId.HasValue)
+        {
+            conn.Execute("""
+                UPDATE review_queue
+                SET entity_type = @entityType,
+                    proposed_collection_id = COALESCE(@proposedCollectionId, proposed_collection_id),
+                    confidence_score = COALESCE(@confidence, confidence_score),
+                    candidates_json = COALESCE(@candidates, candidates_json),
+                    detail = COALESCE(@detail, detail),
+                    source_operation_id = COALESCE(@sourceOperationId, source_operation_id),
+                    source_capability_id = COALESCE(@sourceCapabilityId, source_capability_id),
+                    source_capability_sub_key = COALESCE(@sourceCapabilitySubKey, source_capability_sub_key),
+                    review_ready_at = COALESCE(@reviewReadyAt, review_ready_at),
+                    automation_completed_at = COALESCE(@automationCompletedAt, automation_completed_at)
+                WHERE id = @existingId;
+                """, new
+            {
+                existingId = existingId.Value,
+                parameters.entityType,
+                parameters.proposedCollectionId,
+                parameters.confidence,
+                parameters.candidates,
+                parameters.detail,
+                parameters.sourceOperationId,
+                parameters.sourceCapabilityId,
+                parameters.sourceCapabilitySubKey,
+                parameters.reviewReadyAt,
+                parameters.automationCompletedAt,
+            }, tx);
+
+            tx.Commit();
+            return Task.FromResult(existingId.Value);
+        }
+
+        conn.Execute("""
+            INSERT OR IGNORE INTO review_queue
+                (id, entity_id, entity_type, trigger, status,
+                 proposed_collection_id, confidence_score, candidates_json,
+                 detail, created_at, resolved_at, resolved_by,
+                 source_operation_id, source_capability_id, source_capability_sub_key,
+                 review_ready_at, automation_completed_at)
+            VALUES
+                (@id, @entityId, @entityType, @trigger, @status,
+                 @proposedCollectionId, @confidence, @candidates,
+                 @detail, @createdAt, @resolvedAt, @resolvedBy,
+                 @sourceOperationId, @sourceCapabilityId, @sourceCapabilitySubKey,
+                 @reviewReadyAt, @automationCompletedAt)
+            """, parameters, tx);
+
+        var inserted = conn.ExecuteScalar<long>("SELECT changes();", transaction: tx) > 0;
+        if (inserted)
+        {
+            tx.Commit();
+            return Task.FromResult(entry.Id);
+        }
+
+        existingId = conn.QueryFirstOrDefault<Guid?>("""
+            SELECT id
+            FROM review_queue
+            WHERE entity_id = @entityId
+              AND trigger = @trigger
+              AND status = @pending
+            ORDER BY created_at ASC
+            LIMIT 1;
+            """, parameters, tx);
+
+        tx.Commit();
+
+        return Task.FromResult(existingId ?? entry.Id);
     }
 
     /// <inheritdoc/>
@@ -270,6 +338,40 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             resolvedBy,
             entityId,
             pending    = ReviewStatus.Pending,
+        });
+
+        return Task.FromResult(rows);
+    }
+
+    /// <inheritdoc/>
+    public Task<int> ResolvePendingByEntityAndTriggersAsync(
+        Guid entityId,
+        IReadOnlyCollection<string> triggers,
+        string resolvedBy,
+        CancellationToken ct = default)
+    {
+        if (triggers.Count == 0)
+        {
+            return Task.FromResult(0);
+        }
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Execute("""
+            UPDATE review_queue
+            SET    status      = @resolved,
+                   resolved_at = @now,
+                   resolved_by = @resolvedBy
+            WHERE  entity_id = @entityId
+              AND  status = @pending
+              AND  trigger IN @triggers
+            """, new
+        {
+            resolved = ReviewStatus.Resolved,
+            now = DateTimeOffset.UtcNow.ToString("O"),
+            resolvedBy,
+            entityId,
+            pending = ReviewStatus.Pending,
+            triggers = triggers.ToArray(),
         });
 
         return Task.FromResult(rows);

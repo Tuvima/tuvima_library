@@ -1231,7 +1231,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
     {
         var pipelineStages = stages.Where(stage => !stage.HideCount && !IsReviewStage(stage)).ToList();
         var hasPipelineWork = metrics.TotalFiles > 0 || pipelineStages.Any(stage => stage.Total > 0 || stage.Count > 0);
-        var percent = hasPipelineWork && pipelineStages.Count > 0
+        var percent = metrics.TotalFiles > 0 && metrics.ProcessedFiles >= metrics.TotalFiles
+            ? 100
+            : hasPipelineWork && pipelineStages.Count > 0
             ? Math.Clamp(pipelineStages.Average(stage => Math.Clamp(stage.Percent, 0, 100)), 0, 100)
             : metrics.TotalFiles > 0
                 ? Math.Clamp(metrics.ProcessedFiles * 100d / metrics.TotalFiles, 0, 100)
@@ -1657,10 +1659,25 @@ public sealed class IngestionLiveDashboardState : IDisposable
         var skipped = Count(snapshot, "skipped");
         var failed = Count(snapshot, "failed");
         var terminalCount = readyForLibrary + wikidataTerminal + needsReview + duplicate + skipped + failed;
+        var retailTerminal = Count(snapshot, "matched") + Count(snapshot, "retail_review") + duplicate + skipped + failed;
+        if (HasTerminalRecentBatch(snapshot) && retailTerminal > terminalCount)
+            terminalCount = retailTerminal;
 
         return totalFiles > 0
             ? Math.Clamp(terminalCount, 0, totalFiles)
             : Math.Max(0, terminalCount);
+    }
+
+    private static bool HasTerminalRecentBatch(IngestionOperationsSnapshotViewModel snapshot)
+    {
+        var latestBatch = snapshot.RecentBatches
+            .OrderByDescending(batch => batch.StartedAt)
+            .FirstOrDefault();
+        return latestBatch is not null
+            && (latestBatch.CompletedAt.HasValue
+                || IsFailedBatchStatus(latestBatch.Status)
+                || IsInterruptedBatchStatus(latestBatch.Status)
+                || !IsActiveBatchStatus(latestBatch.Status));
     }
 
     private static int ResolveFileProcessingCount(

@@ -14,8 +14,9 @@ namespace MediaEngine.Domain.Contracts;
 public interface IReviewQueueRepository
 {
     /// <summary>
-    /// Inserts a new review queue entry.
-    /// Returns the assigned <see cref="ReviewQueueEntry.Id"/>.
+    /// Inserts a review queue entry.
+    /// Returns the assigned <see cref="ReviewQueueEntry.Id"/>, or the existing
+    /// pending row id when the same entity/trigger is already waiting for review.
     /// </summary>
     /// <param name="entry">The entry to insert. <see cref="ReviewQueueEntry.Id"/>
     /// should be pre-assigned by the caller.</param>
@@ -95,6 +96,16 @@ public interface IReviewQueueRepository
     /// Returns the number of items resolved.
     /// </summary>
     Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default);
+
+    /// <summary>
+    /// Resolves only pending review rows whose trigger is superseded by a later
+    /// successful automated identity outcome.
+    /// </summary>
+    Task<int> ResolvePendingByEntityAndTriggersAsync(
+        Guid entityId,
+        IReadOnlyCollection<string> triggers,
+        string resolvedBy,
+        CancellationToken ct = default);
 
     /// <summary>Deletes review queue entries whose entity_id no longer exists in media_assets.</summary>
     Task<int> PurgeOrphanedAsync(CancellationToken ct = default);

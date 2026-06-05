@@ -665,6 +665,7 @@ public sealed class BatchGateTests
         public Task<int> GetPendingCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default) => Task.FromResult(0);
+        public Task<int> ResolvePendingByEntityAndTriggersAsync(Guid entityId, IReadOnlyCollection<string> triggers, string resolvedBy, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> PurgeOrphanedAsync(CancellationToken ct = default) => Task.FromResult(0);
     }
 

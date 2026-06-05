@@ -135,6 +135,12 @@ public sealed class DisplayComposerService
                 Contains(work.Artist, search));
         }
 
+        if (string.Equals(normalizedLane, "read", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(mediaType))
+        {
+            filtered = CollapseReadVariantsByQid(filtered);
+        }
+
         var context = normalizedLane ?? "browse";
         var cards = filtered
             .OrderByDescending(work => work.CreatedAt)
@@ -223,8 +229,9 @@ public sealed class DisplayComposerService
 
     public async Task<DisplayPageDto?> BuildGroupAsync(Guid groupId, bool includeCatalog = true, CancellationToken ct = default)
     {
-        var works = (await _repository.LoadWorksAsync(ct))
+        var works = CollapseReadVariantsByQid((await _repository.LoadWorksAsync(ct))
             .Where(work => work.CollectionId == groupId)
+        )
             .OrderBy(work => DisplayMediaRules.ParseDouble(work.SeriesPosition) ?? double.MaxValue)
             .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -280,14 +287,21 @@ public sealed class DisplayComposerService
         var journey = await _repository.LoadJourneyAsync(lane, ct);
         var progressByWork = LatestProgressByWork(journey);
 
-        var laneWorks = works
+        var laneSource = works
             .Where(work => lane switch
             {
                 "watch" => DisplayMediaRules.IsWatchKind(work.MediaType),
                 "read" => DisplayMediaRules.IsReadKind(work.MediaType),
                 "listen" => DisplayMediaRules.IsListenKind(work.MediaType),
                 _ => true,
-            })
+            });
+
+        if (string.Equals(lane, "read", StringComparison.OrdinalIgnoreCase))
+        {
+            laneSource = CollapseReadVariantsByQid(laneSource);
+        }
+
+        var laneWorks = laneSource
             .OrderByDescending(work => work.CreatedAt)
             .ThenByDescending(work => DisplayMediaRules.ParseDouble(work.Year) ?? 0)
             .ToList();
@@ -472,6 +486,35 @@ public sealed class DisplayComposerService
         journey
             .GroupBy(item => item.WorkId)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.LastAccessed).First());
+
+    private static IEnumerable<DisplayWorkRow> CollapseReadVariantsByQid(IEnumerable<DisplayWorkRow> works) =>
+        works
+            .GroupBy(ReadVariantKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Count() == 1
+                ? group.First()
+                : group
+                    .OrderBy(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Audiobook" ? 1 : 0)
+                    .ThenByDescending(HasPrimaryArtwork)
+                    .ThenByDescending(work => work.CreatedAt)
+                    .First());
+
+    private static string ReadVariantKey(DisplayWorkRow work)
+    {
+        if (DisplayMediaRules.IsReadKind(work.MediaType)
+            && !string.IsNullOrWhiteSpace(work.IdentityQid)
+            && !work.IdentityQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"qid:{work.IdentityQid.Trim()}";
+        }
+
+        return $"work:{work.WorkId:N}";
+    }
+
+    private static bool HasPrimaryArtwork(DisplayWorkRow work) =>
+        !string.IsNullOrWhiteSpace(work.CoverUrl)
+        || !string.IsNullOrWhiteSpace(work.SquareUrl)
+        || !string.IsNullOrWhiteSpace(work.BannerUrl)
+        || !string.IsNullOrWhiteSpace(work.BackgroundUrl);
 
     private static string TitleForLane(string? lane) => DisplayMediaRules.NormalizeLane(lane) switch
     {

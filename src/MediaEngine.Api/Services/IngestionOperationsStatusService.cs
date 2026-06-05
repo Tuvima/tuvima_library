@@ -916,6 +916,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ? Math.Clamp(totalFiles - review, 0, totalFiles)
             : 0;
         var scanAccepted = Math.Max(0, totalFiles - duplicateOrSkipped - failed);
+        var terminalBatch = displayBatches.Count > 0
+            && displayBatches.All(IsTerminalBatchForStageProgress);
 
         var batchIds = displayBatches.Select(batch => batch.Id).Distinct().ToArray();
         var artifactCounts = await ReadNumberedStageArtifactCountsAsync(batchIds, ct).ConfigureAwait(false);
@@ -948,7 +950,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Detail("Audiobooks", artifactCounts.AudiobooksCount, "neutral", "audiobooks"),
                     Detail("Unidentified", unidentified, unidentified > 0 ? "warning" : "neutral", "review"),
                     Detail("Skipped / duplicate", duplicateOrSkipped, duplicateOrSkipped > 0 ? "muted" : "neutral", "skip"),
-                    Detail("Failed", failed, failed > 0 ? "danger" : "neutral", "warning"))),
+                    Detail("Failed", failed, failed > 0 ? "danger" : "neutral", "warning")),
+                terminalBatch: terminalBatch),
             CreateNumberedStage(
                 2,
                 "retail",
@@ -969,7 +972,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Detail("Metadata fields", artifactCounts.MetadataFields, "info", "metadata"),
                     Detail("Cover art assets", artifactCounts.PrimaryArtworkCount, "success", "artwork"),
                     Detail("Unresolved", Math.Max(retailReviewTotal, artifactCounts.RetailUnresolvedCount), Math.Max(retailReviewTotal, artifactCounts.RetailUnresolvedCount) > 0 ? "warning" : "neutral", "review"),
-                    Detail("Failed", Math.Max(failed, artifactCounts.RetailFailedCount), Math.Max(failed, artifactCounts.RetailFailedCount) > 0 ? "danger" : "neutral", "warning"))),
+                    Detail("Failed", Math.Max(failed, artifactCounts.RetailFailedCount), Math.Max(failed, artifactCounts.RetailFailedCount) > 0 ? "danger" : "neutral", "warning")),
+                terminalBatch: terminalBatch),
             CreateNumberedStage(
                 3,
                 "wikidata",
@@ -984,7 +988,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Detail("Relevant QIDs", artifactCounts.RelevantQidCount, "info", "qid"),
                     Detail("Related QIDs discovered", artifactCounts.RelatedQidCount, "info", "qid"),
                     Detail("Unresolved", Math.Max(wikidataReview + review, artifactCounts.WikidataUnresolvedCount), Math.Max(wikidataReview + review, artifactCounts.WikidataUnresolvedCount) > 0 ? "warning" : "neutral", "review"),
-                    Detail("Failed", Math.Max(failed, artifactCounts.WikidataFailedCount), Math.Max(failed, artifactCounts.WikidataFailedCount) > 0 ? "danger" : "neutral", "warning"))),
+                    Detail("Failed", Math.Max(failed, artifactCounts.WikidataFailedCount), Math.Max(failed, artifactCounts.WikidataFailedCount) > 0 ? "danger" : "neutral", "warning")),
+                terminalBatch: terminalBatch),
             CreateNumberedStage(
                 4,
                 "people",
@@ -1001,7 +1006,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Detail("Narrators", artifactCounts.NarratorCount, "neutral", "people"),
                     Detail("Music artists", artifactCounts.MusicArtistCount, "neutral", "people"),
                     Detail("Creators / crew", artifactCounts.CreatorCrewCount, "neutral", "people"),
-                    Detail("Deeply enriched people", artifactCounts.DeepPeopleCount, "success", "people"))),
+                    Detail("Deeply enriched people", artifactCounts.DeepPeopleCount, "success", "people")),
+                terminalBatch: terminalBatch),
             CreateNumberedStage(
                 5,
                 "universes",
@@ -1017,7 +1023,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Detail("Series / shelves", artifactCounts.SeriesShelfCount, "neutral", "relationships"),
                     Detail("Universe roots", artifactCounts.UniverseRootCount, "neutral", "relationships"),
                     Detail("Characters / locations / orgs", artifactCounts.FictionalEntityCount, "neutral", "relationships"),
-                    Detail("Adaptation / story links", artifactCounts.AdaptationStoryLinkCount, "neutral", "relationships"))),
+                    Detail("Adaptation / story links", artifactCounts.AdaptationStoryLinkCount, "neutral", "relationships")),
+                terminalBatch: terminalBatch),
             CreateNumberedStage(
                 6,
                 "artwork",
@@ -1033,7 +1040,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Detail("Backdrops", artifactCounts.BackdropBannerCount, "neutral", "artwork"),
                     Detail("Season / episode art", artifactCounts.SeasonEpisodeArtworkCount, "neutral", "artwork"),
                     Detail("Album / music art", artifactCounts.MusicArtworkCount, "neutral", "artwork"),
-                    Detail("Logos", artifactCounts.LogoCount, "neutral", "artwork"))),
+                    Detail("Logos", artifactCounts.LogoCount, "neutral", "artwork")),
+                terminalBatch: terminalBatch),
         ];
     }
 
@@ -1462,7 +1470,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         string artifactLabel,
         int artifactCount,
         IngestionCurrentActivityDto? activity,
-        List<IngestionStageDetailItemDto>? detailItems = null)
+        List<IngestionStageDetailItemDto>? detailItems = null,
+        bool terminalBatch = false)
     {
         completedFiles = Math.Max(0, completedFiles);
         totalFiles = Math.Max(0, totalFiles);
@@ -1501,7 +1510,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             PercentComplete = percent,
             ActiveCount = active,
             QueuedCount = queued,
-            StatusLabel = ResolveNumberedStageStatus(percent, active, queued, artifactCount, stageKey),
+            StatusLabel = ResolveNumberedStageStatus(percent, active, queued, artifactCount, stageKey, terminalBatch),
             ActiveItemLabel = string.IsNullOrWhiteSpace(activeItem) ? null : activeItem,
             ActiveGroupLabel = activeGroup,
             ActiveGroupCount = activeGroupCount,
@@ -1513,6 +1522,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             DetailItems = detailItems ?? [],
         };
     }
+
+    private static bool IsTerminalBatchForStageProgress(IngestionBatch batch) =>
+        batch.CompletedAt.HasValue
+        || string.Equals(batch.Status, "completed", StringComparison.OrdinalIgnoreCase)
+        || FailedBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase)
+        || InterruptedBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase);
 
     private static List<IngestionStageDetailItemDto> DetailItems(params IngestionStageDetailItemDto[] items) =>
         items
@@ -1640,7 +1655,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         int active,
         int queued,
         int artifactCount,
-        string stageKey)
+        string stageKey,
+        bool terminalBatch = false)
     {
         if (stageKey.Equals("review", StringComparison.OrdinalIgnoreCase) && artifactCount > 0)
             return "Needs review";
@@ -1648,6 +1664,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             return "Active";
         if (queued > 0)
             return "Queued";
+        if (terminalBatch)
+            return "Complete";
         if (percent >= 100)
             return "Complete";
         if (percent > 0)
@@ -3767,8 +3785,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             && (stage.ActiveCount > 0
                 || stage.QueuedCount > 0
                 || string.Equals(stage.StatusLabel, "Active", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(stage.StatusLabel, "Queued", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(stage.StatusLabel, "In progress", StringComparison.OrdinalIgnoreCase)));
+                || string.Equals(stage.StatusLabel, "Queued", StringComparison.OrdinalIgnoreCase)));
 
     private static BatchActivityStats AggregateBatchStats(
         IReadOnlyCollection<Guid> batchIds,

@@ -197,6 +197,65 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void OperationsService_RecentBatchStatusUsesCompletedWhenStageHasNoActiveWork()
+    {
+        var startedAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var completedAt = startedAt.AddMinutes(6);
+        var batch = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = startedAt,
+            CreatedAt = startedAt,
+            UpdatedAt = completedAt,
+            CompletedAt = completedAt,
+            Status = "completed",
+            FilesTotal = 20,
+            FilesProcessed = 20,
+            FilesIdentified = 10,
+            FilesReview = 10,
+        };
+        var stageProgress = new List<IngestionStageProgressDto>
+        {
+            new()
+            {
+                StageNumber = 3,
+                StageKey = "wikidata",
+                CompletedFiles = 19,
+                TotalFiles = 20,
+                ActiveCount = 0,
+                QueuedCount = 0,
+                StatusLabel = "In progress",
+            },
+        };
+        var recentBatchMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "ToRecentBatchWithStageProgress",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(recentBatchMethod);
+
+        var recentBatch = Assert.IsType<IngestionOperationsBatchDto>(
+            recentBatchMethod.Invoke(null, [batch, null, stageProgress]));
+
+        Assert.Equal("completed", recentBatch.Status);
+        Assert.Equal(completedAt, recentBatch.CompletedAt);
+        Assert.Single(recentBatch.StageProgress);
+    }
+
+    [Fact]
+    public void OperationsService_NumberedStageStatusTreatsTerminalPartialStageAsComplete()
+    {
+        var statusMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "ResolveNumberedStageStatus",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(statusMethod);
+
+        var status = Assert.IsType<string>(statusMethod.Invoke(null, [96d, 0, 0, 70, "wikidata", true]));
+
+        Assert.Equal("Complete", status);
+    }
+
+    [Fact]
     public void OperationsService_ReviewReasonsComeOnlyFromPendingReviewQueueRows()
     {
         var source = File.ReadAllText(Path.Combine(

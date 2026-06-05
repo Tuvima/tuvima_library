@@ -6,6 +6,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Services;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -127,6 +128,33 @@ public sealed class RepositoryTests : IDisposable
 
         var found = await repo.FindByHashAsync(hash);
         Assert.Equal(asset1.Id, found!.Id);
+    }
+
+    [Fact]
+    public async Task MediaAsset_UpdateContentHash_RefreshesKnownPathAsset()
+    {
+        var repo = new MediaAssetRepository(_db);
+        var editionId = await CreateTestEditionAsync();
+        var oldHash = $"old_{Guid.NewGuid():N}";
+        var newHash = $"new_{Guid.NewGuid():N}";
+        var asset = new MediaAsset
+        {
+            Id = Guid.NewGuid(),
+            EditionId = editionId,
+            ContentHash = oldHash,
+            FilePathRoot = "/library/Books/changed-after-writeback.epub",
+            Status = AssetStatus.Normal,
+        };
+
+        await repo.InsertAsync(asset);
+
+        Assert.True(await repo.UpdateContentHashAsync(asset.Id, newHash));
+
+        Assert.Null(await repo.FindByHashAsync(oldHash));
+        var found = await repo.FindByHashAsync(newHash);
+        Assert.NotNull(found);
+        Assert.Equal(asset.Id, found.Id);
+        Assert.Equal(asset.FilePathRoot, found.FilePathRoot);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -417,6 +445,49 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ReviewQueue_Insert_IsIdempotentForPendingEntityAndTrigger()
+    {
+        var repo = new ReviewQueueRepository(_db);
+        var entityId = Guid.NewGuid();
+        var first = new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.RetailMatchAmbiguous,
+            Status = ReviewStatus.Pending,
+            ConfidenceScore = 0.42,
+            Detail = "First ambiguous match",
+            CreatedAt = DateTimeOffset.UtcNow,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
+            AutomationCompletedAt = DateTimeOffset.UtcNow,
+        };
+        var second = new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.RetailMatchAmbiguous,
+            Status = ReviewStatus.Pending,
+            ConfidenceScore = 0.61,
+            Detail = "Refreshed ambiguous match",
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(1),
+            ReviewReadyAt = DateTimeOffset.UtcNow.AddMinutes(1),
+            AutomationCompletedAt = DateTimeOffset.UtcNow.AddMinutes(1),
+        };
+
+        var firstId = await repo.InsertAsync(first);
+        var secondId = await repo.InsertAsync(second);
+
+        Assert.Equal(firstId, secondId);
+        var pending = await repo.GetPendingByEntityAsync(entityId);
+        var row = Assert.Single(pending);
+        Assert.Equal(first.Id, row.Id);
+        Assert.Equal("Refreshed ambiguous match", row.Detail);
+        Assert.Equal(0.61, row.ConfidenceScore);
+    }
+
+    [Fact]
     public async Task ReviewQueue_Resolve_RemovesFromPending()
     {
         var repo = new ReviewQueueRepository(_db);
@@ -537,6 +608,68 @@ public sealed class RepositoryTests : IDisposable
         Assert.NotNull(pendingAfterPromotion[0].ReviewReadyAt);
         Assert.NotNull(pendingAfterPromotion[0].AutomationCompletedAt);
         Assert.Equal(0, await repo.MarkPendingReadyByEntityAsync(assetId));
+    }
+
+    [Fact]
+    public async Task WorkIdentityReconciliation_MergesDuplicateReadWorksByQid()
+    {
+        var service = new WorkIdentityReconciliationService(_db);
+        var qid = "Q43361";
+        var bookWorkId = Guid.NewGuid();
+        var audiobookWorkId = Guid.NewGuid();
+        var bookEditionId = Guid.NewGuid();
+        var audiobookEditionId = Guid.NewGuid();
+        var bookAssetId = Guid.NewGuid();
+        var audiobookAssetId = Guid.NewGuid();
+
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind, wikidata_qid)
+                VALUES (@bookWorkId, 'Books', 'standalone', @qid),
+                       (@audiobookWorkId, 'Audiobooks', 'standalone', @qid);
+
+                INSERT INTO editions (id, work_id)
+                VALUES (@bookEditionId, @bookWorkId),
+                       (@audiobookEditionId, @audiobookWorkId);
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@bookAssetId, @bookEditionId, @bookHash, '/library/Books/Harry Potter.epub', 'Normal'),
+                       (@audiobookAssetId, @audiobookEditionId, @audioHash, '/library/Audiobooks/Harry Potter.m4b', 'Normal');
+                """,
+                new
+                {
+                    qid,
+                    bookWorkId,
+                    audiobookWorkId,
+                    bookEditionId,
+                    audiobookEditionId,
+                    bookAssetId,
+                    audiobookAssetId,
+                    bookHash = $"book_{Guid.NewGuid():N}",
+                    audioHash = $"audio_{Guid.NewGuid():N}",
+                });
+        }
+
+        var merged = await service.MergeDuplicateReadWorksByQidAsync();
+
+        Assert.Equal(1, merged);
+        using var verify = _db.CreateConnection();
+        var workCount = await verify.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid;",
+            new { qid });
+        var remainingWorkId = await verify.ExecuteScalarAsync<Guid>(
+            "SELECT id FROM works WHERE wikidata_qid = @qid;",
+            new { qid });
+        var editionWorkIds = (await verify.QueryAsync<Guid>(
+            "SELECT DISTINCT work_id FROM editions WHERE id IN (@bookEditionId, @audiobookEditionId);",
+            new { bookEditionId, audiobookEditionId })).ToList();
+
+        Assert.Equal(1, workCount);
+        Assert.Equal(bookWorkId, remainingWorkId);
+        Assert.Single(editionWorkIds);
+        Assert.Equal(bookWorkId, editionWorkIds[0]);
     }
 
     [Fact]

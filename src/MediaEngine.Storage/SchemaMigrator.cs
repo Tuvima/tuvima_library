@@ -71,6 +71,25 @@ internal sealed class SchemaMigrator
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
+            WITH duplicate_pending_reviews AS (
+                SELECT rowid,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY entity_id, trigger
+                           ORDER BY created_at ASC, rowid ASC
+                       ) AS rn
+                FROM review_queue
+                WHERE status = 'Pending'
+            )
+            UPDATE review_queue
+            SET status = 'Resolved',
+                resolved_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+                resolved_by = 'system:review-dedupe'
+            WHERE rowid IN (
+                SELECT rowid
+                FROM duplicate_pending_reviews
+                WHERE rn > 1
+            );
+
             CREATE INDEX IF NOT EXISTS idx_editions_work_id
                 ON editions(work_id);
 
@@ -94,6 +113,10 @@ internal sealed class SchemaMigrator
 
             CREATE INDEX IF NOT EXISTS idx_media_operations_source_path
                 ON media_operations(operation_type, source_path, status);
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_review_queue_pending_entity_trigger
+                ON review_queue(entity_id, trigger)
+                WHERE status = 'Pending';
             """;
         cmd.ExecuteNonQuery();
     }

@@ -39,6 +39,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly ICollectionRepository              _collectionRepo;
     private readonly IEventPublisher              _publisher;
     private readonly WorkHierarchyMaintenanceService _hierarchyMaintenance;
+    private readonly WorkIdentityReconciliationService _workIdentityReconciliation;
     private readonly IConfigurationLoader         _configLoader;
     private readonly AssetPathService             _assetPaths;
     private readonly IDatabaseConnection          _db;
@@ -63,6 +64,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         ICollectionRepository              collectionRepo,
         IEventPublisher             publisher,
         WorkHierarchyMaintenanceService hierarchyMaintenance,
+        WorkIdentityReconciliationService workIdentityReconciliation,
         IConfigurationLoader        configLoader,
         AssetPathService            assetPaths,
         IDatabaseConnection         db,
@@ -77,6 +79,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _collectionRepo       = collectionRepo;
         _publisher     = publisher;
         _hierarchyMaintenance = hierarchyMaintenance;
+        _workIdentityReconciliation = workIdentityReconciliation;
         _configLoader  = configLoader;
         _assetPaths    = assetPaths;
         _db            = db;
@@ -223,6 +226,10 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             }
         }
 
+        var duplicateReadWorksMerged = await _workIdentityReconciliation
+            .MergeDuplicateReadWorksByQidAsync(ct)
+            .ConfigureAwait(false);
+
         // ── Folder Maintenance Passes ───────────────────────────────────────
 
         var core = _configLoader.LoadCore();
@@ -285,6 +292,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 total_scanned        = assets.Count,
                 missing_count        = missingCount,
                 hierarchy_pruned     = hierarchyPruned,
+                duplicate_read_works_merged = duplicateReadWorksMerged,
                 folders_cleaned      = foldersCleanedCount,
                 orphan_people        = orphanPeopleCount,
                 stale_root_sidecars  = staleSidecarsCount,
@@ -296,7 +304,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
         // Broadcast a library-changed event so Dashboard circuits that are already
         // open invalidate their collection cache and refresh the home page.
-        if (missingCount > 0)
+        if (missingCount > 0 || duplicateReadWorksMerged > 0)
         {
             try
             {
@@ -304,6 +312,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 {
                     source        = "reconciliation",
                     removed_count = missingCount,
+                    merged_count = duplicateReadWorksMerged,
                 }, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -314,9 +323,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
         _logger.LogInformation(
             "Reconciliation complete: {Total} scanned, {Missing} missing, {HierarchyPruned} hierarchy rows pruned, " +
-            "{FoldersCleaned} empty folders, {OrphanPeople} orphan people, " +
+            "{DuplicateReadWorksMerged} duplicate read works merged, {FoldersCleaned} empty folders, {OrphanPeople} orphan people, " +
             "{StaleSidecars} stale root sidecars, {Elapsed}ms",
-            assets.Count, missingCount, hierarchyPruned, foldersCleanedCount,
+            assets.Count, missingCount, hierarchyPruned, duplicateReadWorksMerged, foldersCleanedCount,
             orphanPeopleCount, staleSidecarsCount, sw.ElapsedMilliseconds);
 
         return new ReconciliationResult(assets.Count, missingCount, sw.ElapsedMilliseconds);

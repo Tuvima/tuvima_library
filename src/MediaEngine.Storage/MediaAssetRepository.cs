@@ -90,7 +90,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         var row = conn.QueryFirstOrDefault<MediaAssetRow>($"""
             SELECT {SelectColumns}
             FROM   media_assets
-            WHERE  file_path_root = @pathRoot
+            WHERE  file_path_root = @pathRoot COLLATE NOCASE
             LIMIT  1;
             """, new { pathRoot });
 
@@ -194,6 +194,28 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             });
 
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> UpdateContentHashAsync(Guid id, string contentHash, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE OR IGNORE media_assets
+            SET    content_hash = @contentHash
+            WHERE  id = @id;
+            """,
+            new
+            {
+                contentHash,
+                id,
+            });
+
+        var changes = conn.ExecuteScalar<long>("SELECT changes();");
+        return Task.FromResult(changes > 0);
     }
 
     /// <inheritdoc/>

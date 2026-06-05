@@ -66,6 +66,14 @@ public interface IMediaAssetRepository
     Task UpdateFilePathAsync(Guid id, string newPath, CancellationToken ct = default);
 
     /// <summary>
+    /// Updates the stored content hash for an existing asset when the same file
+    /// path is re-detected after writeback or retagging changed the file bytes.
+    /// Returns <see langword="false"/> if the new hash already belongs to a
+    /// different asset.
+    /// </summary>
+    Task<bool> UpdateContentHashAsync(Guid id, string contentHash, CancellationToken ct = default);
+
+    /// <summary>
     /// Permanently deletes the asset record identified by <paramref name="id"/>.
     /// Used during orphan cleanup when the file no longer exists on disk.
     /// </summary>

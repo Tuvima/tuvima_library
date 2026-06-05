@@ -488,6 +488,7 @@ builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
 builder.Services.AddSingleton<ISeriesManifestRepository, SeriesManifestRepository>();
 builder.Services.AddSingleton<HierarchyResolver>();
 builder.Services.AddSingleton<WorkHierarchyMaintenanceService>();
+builder.Services.AddSingleton<WorkIdentityReconciliationService>();
 builder.Services.AddSingleton<WorkClaimRouter>();
 builder.Services.AddSingleton<CatalogUpsertService>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();

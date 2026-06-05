@@ -28,8 +28,26 @@ public sealed class PostPipelineService
     private readonly IAutoOrganizeService _organizer;
     private readonly ICanonicalValueArrayRepository? _arrayRepo;
     private readonly ISearchIndexRepository? _searchIndex;
+    private readonly ISystemActivityRepository? _activityRepo;
     private readonly BatchProgressService _batchProgress;
     private readonly ILogger<PostPipelineService> _logger;
+
+    private static readonly string[] IdentitySupersededReviewTriggers =
+    [
+        ReviewTrigger.RetailMatchFailed,
+        ReviewTrigger.RetailMatchAmbiguous,
+        ReviewTrigger.WikidataBridgeFailed,
+        ReviewTrigger.MissingQid,
+        ReviewTrigger.MultipleQidMatches,
+        ReviewTrigger.LowConfidence,
+    ];
+
+    private static readonly string[] RetainedRetailSupersededReviewTriggers =
+    [
+        ReviewTrigger.RetailMatchFailed,
+        ReviewTrigger.RetailMatchAmbiguous,
+        ReviewTrigger.LowConfidence,
+    ];
 
     public PostPipelineService(
         IMetadataClaimRepository claimRepo,
@@ -42,7 +60,8 @@ public sealed class PostPipelineService
         BatchProgressService batchProgress,
         ILogger<PostPipelineService> logger,
         ICanonicalValueArrayRepository? arrayRepo = null,
-        ISearchIndexRepository? searchIndex = null)
+        ISearchIndexRepository? searchIndex = null,
+        ISystemActivityRepository? activityRepo = null)
     {
         _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
@@ -55,18 +74,20 @@ public sealed class PostPipelineService
         _logger = logger;
         _arrayRepo = arrayRepo;
         _searchIndex = searchIndex;
+        _activityRepo = activityRepo;
     }
 
     /// <summary>
     /// Re-scores the entity, evaluates confidence, auto-resolves stale reviews,
     /// checks for metadata conflicts, and gates organization.
     /// </summary>
-    public async Task EvaluateAndOrganizeAsync(
+    public async Task<bool> EvaluateAndOrganizeAsync(
         Guid entityId,
         Guid jobId,
         string? wikidataQid,
         Guid? ingestionRunId,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool retainedRetailIdentity = false)
     {
         // 1. Reload all claims and re-score
         var allClaims = await _claimRepo.GetByEntityAsync(entityId, ct);
@@ -111,6 +132,17 @@ public sealed class PostPipelineService
             "Post-pipeline confidence for entity {EntityId}: {Confidence:F2}",
             entityId, effectiveConfidence);
 
+        if (!string.IsNullOrWhiteSpace(wikidataQid))
+        {
+            await ResolveIdentitySupersededReviewsAsync(entityId, wikidataQid, ct)
+                .ConfigureAwait(false);
+        }
+        else if (retainedRetailIdentity)
+        {
+            await ResolveRetainedRetailSupersededReviewsAsync(entityId, ct)
+                .ConfigureAwait(false);
+        }
+
         // 2. Low confidence → review
         if (effectiveConfidence < hydration.AutoReviewConfidenceThreshold)
         {
@@ -148,7 +180,7 @@ public sealed class PostPipelineService
                 await _batchProgress.EmitProgressAsync(ingestionRunId.Value, isFinal: false, ct);
             }
 
-            return;
+            return false;
         }
 
         // 3. Auto-resolve stale review items
@@ -168,6 +200,94 @@ public sealed class PostPipelineService
                 entityId, scored.OverallConfidence, organizeThreshold);
 
             await _organizer.TryAutoOrganizeAsync(entityId, ct, ingestionRunId);
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task ResolveRetainedRetailSupersededReviewsAsync(
+        Guid entityId,
+        CancellationToken ct)
+    {
+        var resolved = await _reviewRepo.ResolvePendingByEntityAndTriggersAsync(
+            entityId,
+            RetainedRetailSupersededReviewTriggers,
+            "system:retained-retail-identity",
+            ct).ConfigureAwait(false);
+
+        if (resolved <= 0)
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "Resolved {Count} superseded review item(s) for entity {EntityId} after retained retail identity completed without Wikidata",
+            resolved, entityId);
+
+        if (_activityRepo is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.ReviewItemResolved,
+                EntityId = entityId,
+                EntityType = "MediaAsset",
+                Detail = "Review cleared by identity pipeline: retail identity was retained without a Wikidata link.",
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex,
+                "Activity log failed for retained-retail review cleanup on entity {EntityId}",
+                entityId);
+        }
+    }
+
+    private async Task ResolveIdentitySupersededReviewsAsync(
+        Guid entityId,
+        string wikidataQid,
+        CancellationToken ct)
+    {
+        var resolved = await _reviewRepo.ResolvePendingByEntityAndTriggersAsync(
+            entityId,
+            IdentitySupersededReviewTriggers,
+            "system:identity-superseded",
+            ct).ConfigureAwait(false);
+
+        if (resolved <= 0)
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "Resolved {Count} superseded review item(s) for entity {EntityId} after accepted identity {Qid}",
+            resolved, entityId, wikidataQid);
+
+        if (_activityRepo is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.ReviewItemResolved,
+                EntityId = entityId,
+                EntityType = "MediaAsset",
+                Detail = $"Review cleared by identity pipeline: Wikidata ID {wikidataQid} was accepted.",
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex,
+                "Activity log failed for superseded review cleanup on entity {EntityId}",
+                entityId);
         }
     }
 
