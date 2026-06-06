@@ -32,13 +32,12 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
     private readonly ILogger<BackgroundWorker> _logger;
     private readonly CancellationTokenSource _shutdownCts = new();
     private readonly Task _consumerLoop;
+    private readonly int _maxConcurrency;
 
     // Tracks items queued but not yet completed (queued + executing).
     private int _pendingCount;
     // Tracks items currently executing (semaphore held).
     private int _inFlight;
-    private readonly TaskCompletionSource _drainedTcs =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <param name="logger">Logger for unhandled handler exceptions.</param>
     /// <param name="maxConcurrency">
@@ -52,8 +51,8 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
     {
         _logger = logger;
 
-        int concurrency = maxConcurrency > 0 ? maxConcurrency : Environment.ProcessorCount;
-        _semaphore = new SemaphoreSlim(concurrency, concurrency);
+        _maxConcurrency = maxConcurrency > 0 ? maxConcurrency : Environment.ProcessorCount;
+        _semaphore = new SemaphoreSlim(_maxConcurrency, _maxConcurrency);
 
         _channel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(queueCapacity)
         {
@@ -105,11 +104,22 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
         _channel.Writer.TryComplete();
 
         // Wait for the consumer loop (reads channel until empty + complete).
-        await _consumerLoop.ConfigureAwait(false);
+        await _consumerLoop.WaitAsync(ct).ConfigureAwait(false);
 
-        // Wait for all in-flight executions to finish.
-        if (Volatile.Read(ref _inFlight) > 0)
-            await _drainedTcs.Task.ConfigureAwait(false);
+        // Wait for all execution slots to become available. This reflects the
+        // current in-flight work, instead of relying on a one-shot idle signal
+        // that may have completed before DrainAsync was called.
+        var acquired = 0;
+        try
+        {
+            for (; acquired < _maxConcurrency; acquired++)
+                await _semaphore.WaitAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            for (var i = 0; i < acquired; i++)
+                _semaphore.Release();
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -144,8 +154,7 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
                     Interlocked.Decrement(ref _pendingCount);
                     _semaphore.Release();
 
-                    if (Interlocked.Decrement(ref _inFlight) == 0)
-                        _drainedTcs.TrySetResult();
+                    Interlocked.Decrement(ref _inFlight);
                 }
             }, CancellationToken.None); // don't cancel the fire-and-forget task itself
         }
@@ -159,7 +168,6 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
     {
         _shutdownCts.Cancel();
         _channel.Writer.TryComplete();
-        _drainedTcs.TrySetResult();
 
         try { await _consumerLoop.ConfigureAwait(false); }
         catch (OperationCanceledException) { }

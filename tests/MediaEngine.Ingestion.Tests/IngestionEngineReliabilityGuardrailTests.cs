@@ -32,10 +32,25 @@ public sealed class IngestionEngineReliabilityGuardrailTests
         var source = ReadIngestionEngineSource();
 
         Assert.DoesNotContain("async void FlushFswBuffer", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAwaiter().GetResult()", source, StringComparison.Ordinal);
         Assert.Contains("private async Task FlushFswBufferAsync", source, StringComparison.Ordinal);
+        Assert.Contains("PauseWatcherAsync", source, StringComparison.Ordinal);
         Assert.Contains("_queuedFingerprints", source, StringComparison.Ordinal);
         Assert.Contains("_activePaths", source, StringComparison.Ordinal);
         Assert.DoesNotContain("_enqueuedPaths", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IngestionEngine_UsesHashCacheAndRetryableLockProbeFailures()
+    {
+        var source = ReadIngestionEngineSource();
+
+        Assert.Contains("ComputeHashWithCacheAsync", source, StringComparison.Ordinal);
+        Assert.Contains("_fileHashCache.TryGetAsync", source, StringComparison.Ordinal);
+        Assert.Contains("_fileHashCache.UpsertAsync", source, StringComparison.Ordinal);
+        Assert.Contains("MarkRetryableOperationAsync", source, StringComparison.Ordinal);
+        Assert.Contains("MarkInterruptedOperationAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("await NoResultOperationAsync(durableOperation, candidate.FailureReason", source, StringComparison.Ordinal);
     }
 
     private static string ReadIngestionEngineSource()

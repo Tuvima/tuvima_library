@@ -18,35 +18,36 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
     public Task InsertBatchAsync(IReadOnlyList<WikidataBridgeCandidate> candidates, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        if (candidates.Count == 0)
+            return Task.CompletedTask;
+
         using var conn = _db.CreateConnection();
         using var tx = conn.BeginTransaction();
 
-        foreach (var c in candidates)
-        {
-            conn.Execute("""
-                INSERT INTO wikidata_bridge_candidates
-                    (id, job_id, qid, label, description, matched_by, bridge_id_type,
-                     is_exact_match, score_total, score_breakdown_json, outcome, created_at)
-                VALUES
-                    (@Id, @JobId, @Qid, @Label, @Description, @MatchedBy, @BridgeIdType,
-                     @IsExactMatch, @ScoreTotal, @ScoreBreakdownJson, @Outcome, @CreatedAt);
-                """,
-                new
-                {
-                    c.Id,
-                    c.JobId,
-                    c.Qid,
-                    c.Label,
-                    c.Description,
-                    c.MatchedBy,
-                    c.BridgeIdType,
-                    IsExactMatch = c.IsExactMatch ? 1 : 0,
-                    c.ScoreTotal,
-                    c.ScoreBreakdownJson,
-                    c.Outcome,
-                    CreatedAt    = c.CreatedAt.ToString("O"),
-                }, tx);
-        }
+        conn.Execute("""
+            INSERT INTO wikidata_bridge_candidates
+                (id, job_id, qid, label, description, matched_by, bridge_id_type,
+                 is_exact_match, score_total, score_breakdown_json, outcome, created_at)
+            VALUES
+                (@Id, @JobId, @Qid, @Label, @Description, @MatchedBy, @BridgeIdType,
+                 @IsExactMatch, @ScoreTotal, @ScoreBreakdownJson, @Outcome, @CreatedAt);
+            """,
+            candidates.Select(c => new
+            {
+                c.Id,
+                c.JobId,
+                c.Qid,
+                c.Label,
+                c.Description,
+                c.MatchedBy,
+                c.BridgeIdType,
+                IsExactMatch = c.IsExactMatch ? 1 : 0,
+                c.ScoreTotal,
+                c.ScoreBreakdownJson,
+                c.Outcome,
+                CreatedAt = c.CreatedAt.ToString("O"),
+            }),
+            tx);
 
         tx.Commit();
         return Task.CompletedTask;

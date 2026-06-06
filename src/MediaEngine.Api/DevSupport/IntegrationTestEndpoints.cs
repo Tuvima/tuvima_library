@@ -828,7 +828,7 @@ public static class IntegrationTestEndpoints
         }
         finally
         {
-            resetService.ResumeWatcher();
+            await resetService.ResumeWatcherAsync(ct: ct).ConfigureAwait(false);
         }
     }
 

@@ -1,4 +1,7 @@
+using Dapper;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Storage;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -46,6 +49,41 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
         Assert.Equal(40, people.Count);
         Assert.Contains(people, person => person.Name == "Contributor 000");
         Assert.Contains(people, person => person.Name == "Contributor 039");
+    }
+
+    [Fact]
+    public async Task CreateAsync_RollsBackPersonWhenRoleInsertFails()
+    {
+        using (var conn = _db.CreateConnection())
+        {
+            conn.Execute("""
+                CREATE TRIGGER fail_person_role_insert
+                BEFORE INSERT ON person_roles
+                BEGIN
+                    SELECT RAISE(ABORT, 'forced role failure');
+                END;
+                """);
+        }
+
+        var repo = new PersonRepository(_db);
+        var person = new Person
+        {
+            Name = "Transactional Person",
+            Roles = ["Author"],
+        };
+
+        await Assert.ThrowsAsync<SqliteException>(() => repo.CreateAsync(person));
+
+        using var verify = _db.CreateConnection();
+        var personCount = verify.QuerySingle<int>(
+            "SELECT COUNT(*) FROM persons WHERE id = @id;",
+            new { id = person.Id });
+        var roleCount = verify.QuerySingle<int>(
+            "SELECT COUNT(*) FROM person_roles WHERE person_id = @id;",
+            new { id = person.Id });
+
+        Assert.Equal(0, personCount);
+        Assert.Equal(0, roleCount);
     }
 
     private void SeedPeople(int count)

@@ -226,6 +226,52 @@ public class IngestionCandidateTests
     }
 }
 
+public class DebounceQueueLockProbeTests
+{
+    [Fact]
+    public async Task LockedFile_EmitsFailedCandidateAfterProbeExhaustion()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"tuvima_lock_probe_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var path = Path.Combine(tempDir, "locked.epub");
+
+        try
+        {
+            await using var locked = new FileStream(
+                path,
+                FileMode.CreateNew,
+                FileAccess.ReadWrite,
+                FileShare.None);
+
+            using var debounce = new DebounceQueue(new DebounceOptions
+            {
+                SettleDelay = TimeSpan.FromMilliseconds(1),
+                ProbeInterval = TimeSpan.FromMilliseconds(1),
+                MaxProbeAttempts = 1,
+                MaxProbeDelay = TimeSpan.FromMilliseconds(5),
+                QueueCapacity = 1,
+            });
+
+            debounce.Enqueue(new FileEvent
+            {
+                Path = path,
+                EventType = FileEventType.Created,
+                OccurredAt = DateTimeOffset.UtcNow,
+            });
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var candidate = await debounce.Reader.ReadAsync(timeout.Token);
+
+            Assert.True(candidate.IsFailed);
+            Assert.Contains("File-lock probe exhausted", candidate.FailureReason);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+}
+
 // ════════════════════════════════════════════════════════════════════════
 //  FileEvent model
 // ════════════════════════════════════════════════════════════════════════

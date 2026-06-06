@@ -22,6 +22,8 @@ Avoid N+1 repository loops. When a page needs related people, collections, canon
 
 SQLite indexes should be added for new high-volume query patterns. Prioritize joins and filters over `media_assets`, `editions`, `works`, `canonical_values`, `canonical_value_arrays`, `person_media_links`, `ingestion_log`, and `identity_jobs`.
 
+SQLite operation connections run in WAL mode with `synchronous=NORMAL`, a 5 second busy timeout, memory temp storage, a 16 MiB page cache target, and a 256 MiB mmap cap. This favors local ingestion throughput while accepting that an OS or power crash can require reingesting the most recent media changes; the library is local-first and media files remain the source of truth.
+
 Large-list read paths should emit debug timing logs with operation name, elapsed milliseconds, offset or cursor, limit, returned item count, and `has_more`. Slow reads over one second should log a warning. Do not log sensitive paths, full queries, secrets, or user media metadata.
 
 Performance tests should use generated temp SQLite data or in-memory fixtures. They must not depend on the user's real database, watch folder, media files, local AI models, or network.

@@ -42,6 +42,7 @@ public sealed class DatabaseStartupSafetyTests
             "idx_review_queue_status",
             "idx_review_queue_entity_id",
             "idx_media_assets_content_hash",
+            "idx_media_assets_file_path_root",
             "idx_ingestion_batches_status",
             "idx_ingestion_batch_artifacts_batch",
         ];
@@ -52,8 +53,10 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         Assert.Equal("wal", Scalar(conn, "PRAGMA journal_mode;").ToLowerInvariant());
+        Assert.Equal("1", Scalar(conn, "PRAGMA synchronous;"));
         Assert.Equal("1", Scalar(conn, "PRAGMA foreign_keys;"));
         Assert.Equal("5000", Scalar(conn, "PRAGMA busy_timeout;"));
+        Assert.Equal("-16384", Scalar(conn, "PRAGMA cache_size;"));
         Assert.Equal("ok", Scalar(conn, "PRAGMA integrity_check;"));
     }
 

@@ -33,8 +33,12 @@ internal sealed class SqliteConnectionFactory
         using var pragmaCmd = conn.CreateCommand();
         pragmaCmd.CommandText =
             "PRAGMA journal_mode = WAL; " +
+            "PRAGMA synchronous = NORMAL; " +
             "PRAGMA foreign_keys = ON; " +
-            "PRAGMA temp_store = MEMORY;";
+            "PRAGMA temp_store = MEMORY; " +
+            "PRAGMA busy_timeout = 5000; " +
+            "PRAGMA cache_size = -16384; " +
+            "PRAGMA mmap_size = 268435456;";
         pragmaCmd.ExecuteNonQuery();
     }
 
@@ -43,9 +47,12 @@ internal sealed class SqliteConnectionFactory
         using var pragmaCmd = conn.CreateCommand();
         pragmaCmd.CommandText =
             "PRAGMA journal_mode = WAL; " +
+            "PRAGMA synchronous = NORMAL; " +
             "PRAGMA foreign_keys = ON; " +
             "PRAGMA temp_store = MEMORY; " +
-            "PRAGMA busy_timeout = 5000;";
+            "PRAGMA busy_timeout = 5000; " +
+            "PRAGMA cache_size = -16384; " +
+            "PRAGMA mmap_size = 268435456;";
         pragmaCmd.ExecuteNonQuery();
     }
 }

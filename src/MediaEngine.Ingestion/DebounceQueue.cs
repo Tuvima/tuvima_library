@@ -255,16 +255,13 @@ public sealed class DebounceQueue : IDisposable
         }
 
         // All probe attempts exhausted.
-        // Emit a failed candidate so the ingestion engine can log it and the
-        // recovery journal can schedule a retry on next startup.
-        CleanupEntry(key);
+        // Emit a failed candidate through the same back-pressure path as ready
+        // candidates so a full channel cannot silently drop the recovery signal.
         var failed = IngestionCandidate.Failed(
             fileEvent,
             $"File-lock probe exhausted after {_options.MaxProbeAttempts} attempts.");
 
-        // TryWrite is best-effort here; if the channel is full and shutting down,
-        // the failed event will be surfaced by the recovery journal instead.
-        _channel.Writer.TryWrite(failed);
+        await PromoteAsync(key, failed, ct);
     }
 
     // -------------------------------------------------------------------------

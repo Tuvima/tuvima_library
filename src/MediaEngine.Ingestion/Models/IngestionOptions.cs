@@ -191,6 +191,19 @@ public sealed class IngestionOptions
     public TimeSpan FswQuietPeriod =>
         TimeSpan.FromSeconds(Math.Max(1, FswQuietPeriodSeconds));
 
+    /// <summary>
+    /// Maximum delayed retries after the debounce lock probe exhausts its own
+    /// attempts. After this cap, the operation remains interrupted for a later
+    /// scan/manual retry instead of being marked as completed with no result.
+    /// </summary>
+    public int LockProbeRetryMaxAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// Base delay in seconds for delayed lock-probe recovery attempts.
+    /// Exponential backoff is applied and capped at five minutes.
+    /// </summary>
+    public int LockProbeRetryBaseDelaySeconds { get; set; } = 30;
+
     // ── Language configuration ────────────────────────────────────────
 
     /// <summary>

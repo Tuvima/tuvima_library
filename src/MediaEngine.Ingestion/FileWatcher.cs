@@ -32,13 +32,29 @@ public sealed class FileWatcher : IFileWatcher
 
     // Diagnostic counters for the watcher-status endpoint.
     private long _eventCount;
+    private long _errorCount;
     private DateTimeOffset? _lastEventAt;
+    private DateTimeOffset? _lastErrorAt;
+    private string? _lastErrorKind;
+    private string? _lastErrorMessage;
 
     /// <summary>Total number of raw OS events received since startup.</summary>
     public long EventCount => Interlocked.Read(ref _eventCount);
 
     /// <summary>Timestamp of the last raw OS event received.</summary>
     public DateTimeOffset? LastEventAt => _lastEventAt;
+
+    /// <summary>Total watcher errors received since startup.</summary>
+    public long ErrorCount => Interlocked.Read(ref _errorCount);
+
+    /// <summary>Timestamp of the last watcher error received.</summary>
+    public DateTimeOffset? LastErrorAt => _lastErrorAt;
+
+    /// <summary>Kind of the last watcher error received.</summary>
+    public string? LastErrorKind => _lastErrorKind;
+
+    /// <summary>Message from the last watcher error received.</summary>
+    public string? LastErrorMessage => _lastErrorMessage;
 
     /// <summary>Whether the watcher is currently active.</summary>
     public bool IsRunning => _running && !_disposed;
@@ -53,6 +69,9 @@ public sealed class FileWatcher : IFileWatcher
 
     /// <inheritdoc/>
     public event EventHandler<FileEvent>? FileDetected;
+
+    /// <inheritdoc/>
+    public event EventHandler<FileWatcherErrorEvent>? WatcherError;
 
     /// <inheritdoc/>
     public void AddDirectory(string path, bool includeSubdirectories = true)
@@ -236,18 +255,23 @@ public sealed class FileWatcher : IFileWatcher
 
     private void OnError(object _, System.IO.ErrorEventArgs e)
     {
-        // A buffer overflow means the OS dropped events while the engine was busy.
-        // The startup differential scan (spec: Scalability § Differential Scanning)
-        // will reconcile any missed files on the next application boot.
-        //
-        // Future: route to ILogger when DI is wired up.
         var ex = e.GetException();
-        if (ex is System.IO.InternalBufferOverflowException)
-        {
-            // Tolerable: events were dropped but the library can recover via scan.
-        }
-        // Other errors (network share lost, path deleted) may require a watcher restart.
-        // The IngestionEngine is responsible for monitoring the Error surface and restarting.
+        var isOverflow = ex is System.IO.InternalBufferOverflowException;
+        var kind = isOverflow ? "buffer_overflow" : ex.GetType().Name;
+        var message = string.IsNullOrWhiteSpace(ex.Message)
+            ? "File watcher reported an error."
+            : ex.Message;
+
+        Interlocked.Increment(ref _errorCount);
+        _lastErrorAt = DateTimeOffset.UtcNow;
+        _lastErrorKind = kind;
+        _lastErrorMessage = message;
+
+        WatcherError?.Invoke(this, new FileWatcherErrorEvent(
+            kind,
+            message,
+            _lastErrorAt.Value,
+            isOverflow));
     }
 
     // -------------------------------------------------------------------------

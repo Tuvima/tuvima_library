@@ -67,7 +67,7 @@ public sealed class DevHarnessResetService
     {
         var details = new List<string>();
 
-        PauseWatcher(details);
+        await PauseWatcherAsync(details, ct).ConfigureAwait(false);
 
         try
         {
@@ -85,7 +85,7 @@ public sealed class DevHarnessResetService
         finally
         {
             if (resumeWatcher)
-                ResumeWatcher(details);
+                await ResumeWatcherAsync(details, ct).ConfigureAwait(false);
             else
                 details.Add("Ingestion engine: FSW resume deferred");
         }
@@ -97,7 +97,7 @@ public sealed class DevHarnessResetService
     {
         var details = new List<string>();
 
-        PauseWatcher(details);
+        await PauseWatcherAsync(details, ct).ConfigureAwait(false);
 
         WipeGeneratedCachesOnly(details);
         await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
@@ -107,11 +107,11 @@ public sealed class DevHarnessResetService
         return new DevHarnessResetResult(DevHarnessWipeScope.GeneratedState, details);
     }
 
-    public void PauseWatcher(List<string>? details = null)
+    public async Task PauseWatcherAsync(List<string>? details = null, CancellationToken ct = default)
     {
         try
         {
-            _ingestionEngine.PauseWatcher();
+            await _ingestionEngine.PauseWatcherAsync(ct).ConfigureAwait(false);
             _logger.LogInformation("[HarnessReset] Ingestion engine FSW paused");
             details?.Add("Ingestion engine: FSW paused");
         }
@@ -122,11 +122,11 @@ public sealed class DevHarnessResetService
         }
     }
 
-    public void ResumeWatcher(List<string>? details = null)
+    public async Task ResumeWatcherAsync(List<string>? details = null, CancellationToken ct = default)
     {
         try
         {
-            _ingestionEngine.ResumeWatcher();
+            await _ingestionEngine.ResumeWatcherAsync(ct).ConfigureAwait(false);
             _logger.LogInformation("[HarnessReset] Ingestion engine FSW resumed");
             details?.Add("Ingestion engine: FSW resumed");
         }

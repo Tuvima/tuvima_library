@@ -79,6 +79,8 @@ public sealed class CatalogUpsertService
             return 0;
 
         var inserted = 0;
+        var allClaims = new List<MetadataClaim>();
+        var allCanonicals = new List<CanonicalValue>();
         foreach (var child in children)
         {
             ct.ThrowIfCancellationRequested();
@@ -96,7 +98,7 @@ public sealed class CatalogUpsertService
                 if (ids is not null)
                     await _works.WriteExternalIdentifiersAsync(existing.Value, ids, ct);
 
-                await PersistChildMetadataAsync(existing.Value, childMediaType, child, ct);
+                AppendChildMetadata(existing.Value, childMediaType, child, allClaims, allCanonicals);
                 continue;
             }
 
@@ -107,9 +109,15 @@ public sealed class CatalogUpsertService
                 ids,
                 ct);
 
-            await PersistChildMetadataAsync(childWorkId, childMediaType, child, ct);
+            AppendChildMetadata(childWorkId, childMediaType, child, allClaims, allCanonicals);
             inserted++;
         }
+
+        if (_claims is not null && allClaims.Count > 0)
+            await _claims.InsertBatchAsync(allClaims, ct);
+
+        if (_canonicals is not null && allCanonicals.Count > 0)
+            await _canonicals.UpsertBatchAsync(allCanonicals, ct);
 
         if (inserted > 0)
         {
@@ -130,11 +138,12 @@ public sealed class CatalogUpsertService
         return ids.Count == 0 ? null : ids;
     }
 
-    private async Task PersistChildMetadataAsync(
+    private void AppendChildMetadata(
         Guid childWorkId,
         MediaType childMediaType,
         ChildEntity child,
-        CancellationToken ct)
+        List<MetadataClaim> allClaims,
+        List<CanonicalValue> allCanonicals)
     {
         if (_claims is null && _canonicals is null)
             return;
@@ -147,8 +156,7 @@ public sealed class CatalogUpsertService
 
         if (_claims is not null)
         {
-            var claims = fields
-                .Select(field => new MetadataClaim
+            allClaims.AddRange(fields.Select(field => new MetadataClaim
                 {
                     Id = Guid.NewGuid(),
                     EntityId = childWorkId,
@@ -157,26 +165,19 @@ public sealed class CatalogUpsertService
                     ClaimValue = field.Value,
                     Confidence = 1.0,
                     ClaimedAt = now,
-                })
-                .ToList();
-
-            await _claims.InsertBatchAsync(claims, ct);
+                }));
         }
 
         if (_canonicals is not null)
         {
-            var canonicals = fields
-                .Select(field => new CanonicalValue
+            allCanonicals.AddRange(fields.Select(field => new CanonicalValue
                 {
                     EntityId = childWorkId,
                     Key = field.Key,
                     Value = field.Value,
                     LastScoredAt = now,
                     WinningProviderId = WellKnownProviders.Wikidata,
-                })
-                .ToList();
-
-            await _canonicals.UpsertBatchAsync(canonicals, ct);
+                }));
         }
     }
 

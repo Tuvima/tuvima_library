@@ -120,51 +120,70 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
-    public Task<Person> CreateAsync(Person person, CancellationToken ct = default)
+    public async Task<Person> CreateAsync(Person person, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(person);
 
-        using var conn = _db.CreateConnection();
-        var p = new DynamicParameters();
-        p.Add("id",          person.Id);
-        p.Add("name",        person.Name);
-        p.Add("wikidataQid", person.WikidataQid);
-        p.Add("headshotUrl", person.HeadshotUrl);
-        p.Add("biography",   person.Biography);
-        p.Add("createdAt",   person.CreatedAt.ToString("o"));
-        p.Add("enrichedAt",  person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null);
-        p.Add("dateOfBirth",  person.DateOfBirth);
-        p.Add("dateOfDeath",  person.DateOfDeath);
-        p.Add("placeOfBirth", person.PlaceOfBirth);
-        p.Add("placeOfDeath", person.PlaceOfDeath);
-        p.Add("nationality",  person.Nationality);
-        p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
-        conn.Execute("""
-            INSERT INTO persons
-                (id, name, wikidata_qid, headshot_url, biography,
-                 created_at, enriched_at, date_of_birth, date_of_death,
-                 place_of_birth, place_of_death, nationality, is_pseudonym)
-            VALUES
-                (@id, @name, @wikidataQid, @headshotUrl, @biography,
-                 @createdAt, @enrichedAt, @dateOfBirth, @dateOfDeath,
-                 @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym);
-            """, p);
-
-        // Insert each role into person_roles junction table.
-        foreach (var role in person.Roles)
+        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
+        try
         {
-            if (string.IsNullOrWhiteSpace(role)) continue;
-            var rp = new DynamicParameters();
-            rp.Add("personId", person.Id);
-            rp.Add("role", role);
-            conn.Execute("""
-                INSERT OR IGNORE INTO person_roles (person_id, role)
-                VALUES (@personId, @role);
-                """, rp);
+            using var conn = _db.CreateConnection();
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                var p = new DynamicParameters();
+                p.Add("id",          person.Id);
+                p.Add("name",        person.Name);
+                p.Add("wikidataQid", person.WikidataQid);
+                p.Add("headshotUrl", person.HeadshotUrl);
+                p.Add("biography",   person.Biography);
+                p.Add("createdAt",   person.CreatedAt.ToString("o"));
+                p.Add("enrichedAt",  person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null);
+                p.Add("dateOfBirth",  person.DateOfBirth);
+                p.Add("dateOfDeath",  person.DateOfDeath);
+                p.Add("placeOfBirth", person.PlaceOfBirth);
+                p.Add("placeOfDeath", person.PlaceOfDeath);
+                p.Add("nationality",  person.Nationality);
+                p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
+                conn.Execute("""
+                    INSERT INTO persons
+                        (id, name, wikidata_qid, headshot_url, biography,
+                         created_at, enriched_at, date_of_birth, date_of_death,
+                         place_of_birth, place_of_death, nationality, is_pseudonym)
+                    VALUES
+                        (@id, @name, @wikidataQid, @headshotUrl, @biography,
+                         @createdAt, @enrichedAt, @dateOfBirth, @dateOfDeath,
+                         @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym);
+                    """, p, tx);
+
+                // Insert each role into person_roles junction table in the same transaction.
+                foreach (var role in person.Roles)
+                {
+                    if (string.IsNullOrWhiteSpace(role)) continue;
+                    var rp = new DynamicParameters();
+                    rp.Add("personId", person.Id);
+                    rp.Add("role", role);
+                    conn.Execute("""
+                        INSERT OR IGNORE INTO person_roles (person_id, role)
+                        VALUES (@personId, @role);
+                        """, rp, tx);
+                }
+
+                tx.Commit();
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
+        }
+        finally
+        {
+            _db.ReleaseWriteLock();
         }
 
-        return Task.FromResult(person);
+        return person;
     }
 
     /// <inheritdoc/>

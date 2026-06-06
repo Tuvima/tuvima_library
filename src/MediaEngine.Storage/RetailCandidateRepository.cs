@@ -18,41 +18,42 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
     public Task InsertBatchAsync(IReadOnlyList<RetailMatchCandidate> candidates, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        if (candidates.Count == 0)
+            return Task.CompletedTask;
+
         using var conn = _db.CreateConnection();
         using var tx = conn.BeginTransaction();
 
-        foreach (var c in candidates)
-        {
-            conn.Execute("""
-                INSERT INTO retail_match_candidates
-                    (id, job_id, provider_id, provider_name, provider_item_id, rank,
-                     title, creator, year, score_total, score_breakdown_json,
-                     bridge_ids_json, description, image_url, outcome, created_at)
-                VALUES
-                    (@Id, @JobId, @ProviderId, @ProviderName, @ProviderItemId, @Rank,
-                     @Title, @Creator, @Year, @ScoreTotal, @ScoreBreakdownJson,
-                     @BridgeIdsJson, @Description, @ImageUrl, @Outcome, @CreatedAt);
-                """,
-                new
-                {
-                    c.Id,
-                    c.JobId,
-                    c.ProviderId,
-                    c.ProviderName,
-                    c.ProviderItemId,
-                    c.Rank,
-                    c.Title,
-                    c.Creator,
-                    c.Year,
-                    c.ScoreTotal,
-                    c.ScoreBreakdownJson,
-                    c.BridgeIdsJson,
-                    c.Description,
-                    c.ImageUrl,
-                    c.Outcome,
-                    CreatedAt = c.CreatedAt.ToString("O"),
-                }, tx);
-        }
+        conn.Execute("""
+            INSERT INTO retail_match_candidates
+                (id, job_id, provider_id, provider_name, provider_item_id, rank,
+                 title, creator, year, score_total, score_breakdown_json,
+                 bridge_ids_json, description, image_url, outcome, created_at)
+            VALUES
+                (@Id, @JobId, @ProviderId, @ProviderName, @ProviderItemId, @Rank,
+                 @Title, @Creator, @Year, @ScoreTotal, @ScoreBreakdownJson,
+                 @BridgeIdsJson, @Description, @ImageUrl, @Outcome, @CreatedAt);
+            """,
+            candidates.Select(c => new
+            {
+                c.Id,
+                c.JobId,
+                c.ProviderId,
+                c.ProviderName,
+                c.ProviderItemId,
+                c.Rank,
+                c.Title,
+                c.Creator,
+                c.Year,
+                c.ScoreTotal,
+                c.ScoreBreakdownJson,
+                c.BridgeIdsJson,
+                c.Description,
+                c.ImageUrl,
+                c.Outcome,
+                CreatedAt = c.CreatedAt.ToString("O"),
+            }),
+            tx);
 
         tx.Commit();
         return Task.CompletedTask;

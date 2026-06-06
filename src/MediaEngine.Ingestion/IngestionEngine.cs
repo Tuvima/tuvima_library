@@ -74,6 +74,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly IFileOrganizer        _organizer;
     private readonly IEnumerable<IMetadataTagger> _taggers;
     private readonly IMediaAssetRepository _assetRepo;
+    private readonly IFileHashCacheRepository? _fileHashCache;
     private readonly IBackgroundWorker     _worker;
     private readonly IEventPublisher       _publisher;
     private readonly IngestionOptions      _options;
@@ -143,8 +144,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly Dictionary<string, PollFingerprint> _queuedFingerprints = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, PollFingerprint> _pollFingerprints = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _fswBufferLock = new();
+    private readonly SemaphoreSlim _watcherRecoveryLock = new(1, 1);
     private Timer? _fswFlushTimer;
     private readonly record struct PollFingerprint(long Length, DateTime LastWriteUtc);
+    private sealed record HashLookupResult(HashResult Hash, bool CacheHit);
 
     public IngestionEngine(
         IFileWatcher              watcher,
@@ -184,7 +187,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IAssetExportService?       assetExportService = null,
         IMediaOperationTracker?    operationTracker = null,
         IMediaOperationRepository? operationRepository = null,
-        CapabilityPlanner?         capabilityPlanner = null)
+        CapabilityPlanner?         capabilityPlanner = null,
+        IFileHashCacheRepository?  fileHashCache = null)
     {
         _watcher          = watcher;
         _debounce         = debounce;
@@ -194,6 +198,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _organizer        = organizer;
         _taggers          = taggers;
         _assetRepo        = assetRepo;
+        _fileHashCache    = fileHashCache;
         _worker           = worker;
         _publisher        = publisher;
         _options          = options.Value;
@@ -237,6 +242,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _watcher.FileDetected += (_, evt) =>
         {
             BufferFswEvent(evt);
+        };
+        _watcher.WatcherError += (_, evt) =>
+        {
+            HandleWatcherError(evt);
         };
 
         // -- Step 1: Log server start (no paths — just the fact) ----------
@@ -386,14 +395,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         => ScanExistingFilesAsync(targets, ct);
 
     /// <inheritdoc/>
-    void IIngestionEngine.PauseWatcher()
+    async Task IIngestionEngine.PauseWatcherAsync(CancellationToken ct)
     {
         // Stop the FSW so no new OS events are delivered while the wipe runs.
         _watcher.Stop();
 
         try
         {
-            FlushFswBufferAsync(CancellationToken.None).GetAwaiter().GetResult();
+            await FlushFswBufferAsync(ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -417,8 +426,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     }
 
     /// <inheritdoc/>
-    void IIngestionEngine.ResumeWatcher()
+    Task IIngestionEngine.ResumeWatcherAsync(CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+
         // Clear dedup state so files that were seen before the wipe (and whose
         // paths are now back on disk after re-seeding) can be enqueued again.
         lock (_fswBufferLock)
@@ -432,6 +443,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _watcher.Start();
 
         _logger.LogInformation("IngestionEngine: FSW resumed (watcher restarted, dedup state cleared).");
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
@@ -468,14 +480,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     private async Task ProcessCandidateAsync(IngestionCandidate candidate, CancellationToken ct)
     {
-        // Serialize processing for files in the same source folder.
-        // This ensures: (a) duplicate hash detection works when byte-identical
-        // files arrive concurrently, and (b) folder hints from the first file
-        // are available when sibling files start processing.
-        var folderKey = (Path.GetDirectoryName(candidate.Path) ?? string.Empty)
-            .Replace('\\', '/').TrimEnd('/');
-        var folderLock = _concurrencyGuard.GetFolderLock(folderKey);
-        await folderLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             await ProcessCandidateCoreAsync(candidate, ct).ConfigureAwait(false);
@@ -487,7 +491,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         finally
         {
             ReleaseActivePath(candidate.Path);
-            folderLock.Release();
+            _concurrencyGuard.Cleanup();
         }
     }
 
@@ -502,12 +506,32 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Step 2: skip failed probe candidates.
         if (candidate.IsFailed)
         {
+            var reason = candidate.FailureReason ?? "Lock probe exhausted";
+            var attempt = durableOperation?.AttemptCount ?? 0;
+            var maxAttempts = Math.Max(0, _options.LockProbeRetryMaxAttempts);
+            if (attempt < maxAttempts)
+            {
+                var nextRetryAt = DateTimeOffset.UtcNow.Add(ComputeLockProbeRetryDelay(attempt));
+                _logger.LogWarning(
+                    "Lock probe failed for \"{FileName}\" ({Attempt}/{MaxAttempts}); retrying at {NextRetryAt}: {Reason}",
+                    Path.GetFileName(candidate.Path),
+                    attempt + 1,
+                    maxAttempts,
+                    nextRetryAt,
+                    reason);
+
+                await MarkRetryableOperationAsync(durableOperation, reason, nextRetryAt, ct).ConfigureAwait(false);
+                ScheduleLockProbeRetry(candidate, nextRetryAt, ct);
+                return;
+            }
+
             _logger.LogWarning(
-                "Quarantined: \"{FileName}\" — lock probe failed: {Reason}",
-                Path.GetFileName(candidate.Path), candidate.FailureReason);
+                "Lock probe retry cap reached for \"{FileName}\"; leaving operation interrupted for the next scan/manual retry: {Reason}",
+                Path.GetFileName(candidate.Path), reason);
+
             await SafePublishAsync(SignalREvents.IngestionFailed, new IngestionFailedEvent(
                 candidate.Path,
-                candidate.FailureReason ?? "Lock probe exhausted",
+                reason,
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
             if (candidate.BatchId.HasValue)
             {
@@ -515,7 +539,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
                 await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
             }
-            await NoResultOperationAsync(durableOperation, candidate.FailureReason ?? "Lock probe exhausted", ct).ConfigureAwait(false);
+            await MarkInterruptedOperationAsync(durableOperation, reason, ct).ConfigureAwait(false);
             return;
         }
 
@@ -560,8 +584,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Step 4: hash.
         await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Hashing, 10, "Hashing file.", ct).ConfigureAwait(false);
-        var hash = await _hasher.ComputeAsync(candidate.Path, ct).ConfigureAwait(false);
-        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Hashing, 15, "Hash complete.", ct, new { hash = hash.Hex, bytes = hash.FileSize }).ConfigureAwait(false);
+        var hashLookup = await ComputeHashWithCacheAsync(candidate.Path, ct).ConfigureAwait(false);
+        var hash = hashLookup.Hash;
+        await UpdateOperationStageAsync(
+            durableOperation,
+            MediaOperationStage.Hashing,
+            15,
+            hashLookup.CacheHit ? "Hash cache hit." : "Hash complete.",
+            ct,
+            new { hash = hash.Hex, bytes = hash.FileSize, cache_hit = hashLookup.CacheHit }).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Fingerprinted \"{FileName}\" — sha256={HashPrefix}… ({SizeKB:F1} KB)",
@@ -668,6 +699,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     {
                         if (File.Exists(candidate.Path))
                             File.Delete(candidate.Path);
+                        await DeleteHashCacheEntryAsync(candidate.Path, ct).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -1760,6 +1792,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     {
         _logger.LogInformation("File deleted: {Path}", candidate.Path);
 
+        await DeleteHashCacheEntryAsync(candidate.Path, ct).ConfigureAwait(false);
+
         // Look up the asset by its stored file path.
         // The file is gone so we can't hash it, but file_path_root is still in the DB.
         var asset = await _assetRepo.FindByPathRootAsync(candidate.Path, ct)
@@ -1786,6 +1820,76 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             file_path = candidate.Path,
             status    = "Orphaned",
         }, ct).ConfigureAwait(false);
+    }
+
+    private async Task<HashLookupResult> ComputeHashWithCacheAsync(string filePath, CancellationToken ct)
+    {
+        var info = new FileInfo(filePath);
+        var absolutePath = Path.GetFullPath(filePath);
+        var mtimeUtc = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero);
+
+        if (_fileHashCache is not null)
+        {
+            try
+            {
+                var cachedHash = await _fileHashCache.TryGetAsync(
+                    absolutePath,
+                    info.Length,
+                    mtimeUtc,
+                    ct).ConfigureAwait(false);
+
+                if (!string.IsNullOrWhiteSpace(cachedHash))
+                {
+                    return new HashLookupResult(new HashResult
+                    {
+                        FilePath = absolutePath,
+                        Hex = cachedHash,
+                        FileSize = info.Length,
+                        Elapsed = TimeSpan.Zero,
+                    }, CacheHit: true);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Hash cache lookup failed for {Path}; computing hash", absolutePath);
+            }
+        }
+
+        var hash = await _hasher.ComputeAsync(absolutePath, ct).ConfigureAwait(false);
+
+        if (_fileHashCache is not null)
+        {
+            try
+            {
+                await _fileHashCache.UpsertAsync(
+                    absolutePath,
+                    hash.FileSize,
+                    mtimeUtc,
+                    hash.Hex,
+                    ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Hash cache upsert failed for {Path}", absolutePath);
+            }
+        }
+
+        return new HashLookupResult(hash, CacheHit: false);
+    }
+
+    private async Task DeleteHashCacheEntryAsync(string path, CancellationToken ct)
+    {
+        if (_fileHashCache is null)
+            return;
+
+        try
+        {
+            await _fileHashCache.DeleteAsync(Path.GetFullPath(path), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Failed to remove hash cache entry for {Path}", path);
+        }
     }
 
     // =========================================================================
@@ -2051,7 +2155,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 skipped, scanTargets.Count);
 
         if (newEvents.Count == 0 && resumedEvents.Count == 0)
+        {
+            _concurrencyGuard.Cleanup();
             return;
+        }
 
         if (newEvents.Count > 0)
         {
@@ -2099,6 +2206,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             await EnsureIngestionOperationAsync(evt, MediaOperationStage.Discovered, ct).ConfigureAwait(false);
             _debounce.Enqueue(evt);
         }
+        _concurrencyGuard.Cleanup();
     }
 
     private static bool IsIgnoredScanFile(string filePath)
@@ -2161,6 +2269,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             var searchOption = _options.IncludeSubdirectories
                 ? SearchOption.AllDirectories
                 : SearchOption.TopDirectoryOnly;
+            var seenPollPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             var rawKnownPaths = await _assetRepo.GetAllFilePathsAsync(ct).ConfigureAwait(false);
             var knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2200,6 +2309,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         inspected++;
 
                         var normalizedPath = Path.GetFullPath(filePath);
+                        seenPollPaths.Add(normalizedPath);
                         var fingerprint = GetPollFingerprint(filePath);
                         var trackedInDb = knownPaths.Contains(normalizedPath);
                         var hasPreviousFingerprint = TryGetPollFingerprint(normalizedPath, out var previousFingerprint);
@@ -2250,6 +2360,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     _logger.LogWarning(ex, "Poll sweep failed for {Dir}", watchDirectory);
                 }
             }
+
+            PrunePollFingerprints(seenPollPaths);
+            _concurrencyGuard.Cleanup();
         }
     }
 
@@ -2836,6 +2949,52 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
     }
 
+    private void HandleWatcherError(FileWatcherErrorEvent evt)
+    {
+        _ = Task.Run(() => RecoverWatcherAfterErrorAsync(evt, CancellationToken.None));
+    }
+
+    private async Task RecoverWatcherAfterErrorAsync(FileWatcherErrorEvent evt, CancellationToken ct)
+    {
+        if (!await _watcherRecoveryLock.WaitAsync(0, ct).ConfigureAwait(false))
+            return;
+
+        try
+        {
+            _logger.LogWarning(
+                "File watcher reported {Kind}: {Message}. Restarting watcher and running a targeted rescan.",
+                evt.Kind,
+                evt.Message);
+
+            var scanTargets = _watcher.WatchedPaths
+                .Where(Directory.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(path => new IngestionScanTarget(path, _options.IncludeSubdirectories))
+                .ToList();
+
+            try
+            {
+                _watcher.Stop();
+                _watcher.Start();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "File watcher restart failed after {Kind}", evt.Kind);
+            }
+
+            if (scanTargets.Count > 0)
+                await ScanExistingFilesAsync(scanTargets, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "File watcher recovery failed after {Kind}", evt.Kind);
+        }
+        finally
+        {
+            _watcherRecoveryLock.Release();
+        }
+    }
+
     /// <summary>
     /// Adds an FSW/poll-sourced file event to the collection buffer.
     /// Resets the quiet-period timer. Events that already carry a BatchId
@@ -2953,6 +3112,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         lock (_fswBufferLock)
         {
             _pollFingerprints[path] = fingerprint;
+        }
+    }
+
+    private void PrunePollFingerprints(IReadOnlySet<string> existingPaths)
+    {
+        lock (_fswBufferLock)
+        {
+            foreach (var path in _pollFingerprints.Keys.ToList())
+            {
+                if (!existingPaths.Contains(path) && !File.Exists(path))
+                    _pollFingerprints.Remove(path);
+            }
         }
     }
 
@@ -3274,6 +3445,96 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             _logger.LogDebug(ex, "Durable operation no-result update failed for {OperationId}", operation.Id);
         }
+    }
+
+    private async Task MarkRetryableOperationAsync(
+        MediaOperation? operation,
+        string reason,
+        DateTimeOffset nextRetryAt,
+        CancellationToken ct)
+    {
+        if (_operationRepository is null || operation is null)
+            return;
+
+        try
+        {
+            await _operationRepository.MarkFailedRetryableAsync(operation.Id, reason, nextRetryAt, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable operation retry update failed for {OperationId}", operation.Id);
+        }
+    }
+
+    private async Task MarkInterruptedOperationAsync(
+        MediaOperation? operation,
+        string reason,
+        CancellationToken ct)
+    {
+        if (_operationRepository is null || operation is null)
+            return;
+
+        try
+        {
+            await _operationRepository.MarkInterruptedAsync(operation.Id, reason, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable operation interrupted update failed for {OperationId}", operation.Id);
+        }
+    }
+
+    private TimeSpan ComputeLockProbeRetryDelay(int attempt)
+    {
+        var baseSeconds = Math.Max(1, _options.LockProbeRetryBaseDelaySeconds);
+        var multiplier = Math.Pow(2, Math.Max(0, attempt));
+        var seconds = Math.Min(300, baseSeconds * multiplier);
+        return TimeSpan.FromSeconds(seconds);
+    }
+
+    private void ScheduleLockProbeRetry(IngestionCandidate candidate, DateTimeOffset nextRetryAt, CancellationToken ct)
+    {
+        var delay = nextRetryAt - DateTimeOffset.UtcNow;
+        if (delay < TimeSpan.Zero)
+            delay = TimeSpan.Zero;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delay, ct).ConfigureAwait(false);
+                if (!File.Exists(candidate.Path))
+                    return;
+
+                _debounce.Enqueue(new FileEvent
+                {
+                    Path = candidate.Path,
+                    OldPath = candidate.OldPath,
+                    EventType = candidate.EventType == FileEventType.Deleted
+                        ? FileEventType.Created
+                        : candidate.EventType,
+                    OccurredAt = DateTimeOffset.UtcNow,
+                    BatchId = candidate.BatchId,
+                });
+            }
+            catch (ObjectDisposedException)
+            {
+                // The engine is stopping.
+            }
+            catch (InvalidOperationException)
+            {
+                // The debounce queue is stopping.
+            }
+            catch (OperationCanceledException)
+            {
+                // The engine is stopping.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Delayed lock-probe retry failed for {Path}", candidate.Path);
+            }
+        });
     }
 
     private static string BuildIngestionOperationKey(string path)

@@ -294,6 +294,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 stage = 'failed',
                 last_error = @error,
                 next_retry_at = @nextRetryAt,
+                attempt_count = attempt_count + 1,
                 lease_owner = NULL,
                 lease_expires_at = NULL,
                 updated_at = @now

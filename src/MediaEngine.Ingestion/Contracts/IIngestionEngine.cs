@@ -48,14 +48,14 @@ public interface IIngestionEngine
     /// after the wipe are not detected as spurious FSW events — they are
     /// instead enqueued deterministically via <see cref="ScanDirectory"/>.
     /// </summary>
-    void PauseWatcher();
+    Task PauseWatcherAsync(CancellationToken ct = default);
 
     /// <summary>
-    /// Restarts the FileSystemWatcher after a <see cref="PauseWatcher"/> call.
+    /// Restarts the FileSystemWatcher after a <see cref="PauseWatcherAsync"/> call.
     /// Clears the per-path dedup tracking so that previously-seen file paths
     /// (wiped and re-seeded) can be enqueued again.
     /// </summary>
-    void ResumeWatcher();
+    Task ResumeWatcherAsync(CancellationToken ct = default);
 }
 
 /// <summary>One directory included in a grouped ingestion scan.</summary>

@@ -216,6 +216,23 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task MarkFailedRetryableAsync_IncrementsAttemptCount()
+    {
+        var repo = new MediaOperationRepository(_db);
+        var operation = await repo.EnsureAsync(NewOperation($"ingestion:file:{Guid.NewGuid():N}"));
+        var nextRetryAt = DateTimeOffset.UtcNow.AddMinutes(5);
+
+        await repo.MarkFailedRetryableAsync(operation.Id, "locked", nextRetryAt);
+        var updated = await repo.GetByIdAsync(operation.Id);
+
+        Assert.NotNull(updated);
+        Assert.Equal(MediaOperationStatus.RetryWaiting, updated.Status);
+        Assert.Equal(1, updated.AttemptCount);
+        Assert.Equal("locked", updated.LastError);
+        Assert.NotNull(updated.NextRetryAt);
+    }
+
+    [Fact]
     public async Task EntityCapabilityState_UsesSingleKeyForNullSubKey()
     {
         var repo = new EntityCapabilityStateRepository(_db);

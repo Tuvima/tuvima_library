@@ -1109,6 +1109,9 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_log_status
 CREATE INDEX IF NOT EXISTS idx_media_assets_content_hash
     ON media_assets (content_hash);
 
+CREATE INDEX IF NOT EXISTS idx_media_assets_file_path_root
+    ON media_assets (file_path_root COLLATE NOCASE);
+
 CREATE INDEX IF NOT EXISTS idx_media_assets_edition_id
     ON media_assets (edition_id);
 

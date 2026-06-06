@@ -30,8 +30,13 @@ internal sealed class StubEventPublisher : IEventPublisher
 internal sealed class StubFileWatcher : IFileWatcher
 {
     public event EventHandler<FileEvent>? FileDetected;
+    public event EventHandler<FileWatcherErrorEvent>? WatcherError;
     public long EventCount => 0;
     public DateTimeOffset? LastEventAt => null;
+    public long ErrorCount => 0;
+    public DateTimeOffset? LastErrorAt => null;
+    public string? LastErrorKind => null;
+    public string? LastErrorMessage => null;
     public bool IsRunning => false;
     public IReadOnlyList<string> WatchedPaths => [];
 
@@ -43,6 +48,7 @@ internal sealed class StubFileWatcher : IFileWatcher
 
     // Suppress unused event warning.
     internal void RaiseForTest(FileEvent evt) => FileDetected?.Invoke(this, evt);
+    internal void RaiseErrorForTest(FileWatcherErrorEvent evt) => WatcherError?.Invoke(this, evt);
 }
 
 // ── Background Worker Stub ────────────────────────────────────────────────────

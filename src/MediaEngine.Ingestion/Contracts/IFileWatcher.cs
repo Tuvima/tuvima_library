@@ -18,11 +18,29 @@ public interface IFileWatcher : IDisposable
     /// </summary>
     event EventHandler<FileEvent> FileDetected;
 
+    /// <summary>
+    /// Fired when the underlying watcher reports an error. Consumers should use
+    /// this to trigger a rescan/restart path because OS events may have been lost.
+    /// </summary>
+    event EventHandler<FileWatcherErrorEvent> WatcherError;
+
     /// <summary>Total raw OS events received since startup.</summary>
     long EventCount { get; }
 
     /// <summary>Timestamp of the last raw OS event, or null if none.</summary>
     DateTimeOffset? LastEventAt { get; }
+
+    /// <summary>Total watcher errors received since startup.</summary>
+    long ErrorCount { get; }
+
+    /// <summary>Timestamp of the last watcher error, or null if none.</summary>
+    DateTimeOffset? LastErrorAt { get; }
+
+    /// <summary>Kind of the last watcher error, or null if no error has occurred.</summary>
+    string? LastErrorKind { get; }
+
+    /// <summary>Message from the last watcher error, or null if no error has occurred.</summary>
+    string? LastErrorMessage { get; }
 
     /// <summary>Whether the watcher is currently active.</summary>
     bool IsRunning { get; }

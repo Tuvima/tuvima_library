@@ -1287,7 +1287,7 @@ public static class DevSeedEndpoints
         }
         else
         {
-            resetService.PauseWatcher();
+            await resetService.PauseWatcherAsync(ct: context.RequestAborted).ConfigureAwait(false);
             logger.LogInformation("[FullTest] Wipe skipped (wipe=false); FSW paused before fixture seeding");
         }
 

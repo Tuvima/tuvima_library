@@ -46,6 +46,10 @@ public static class SystemEndpoints
                 directories = watcher.WatchedPaths,
                 event_count = watcher.EventCount,
                 last_event_at = watcher.LastEventAt,
+                error_count = watcher.ErrorCount,
+                last_error_at = watcher.LastErrorAt,
+                last_error_kind = watcher.LastErrorKind,
+                last_error_message = watcher.LastErrorMessage,
             }))
         .WithTags("System")
         .WithName("GetWatcherStatus")
