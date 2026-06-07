@@ -127,7 +127,9 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         Assert.Contains(groups, group => group.MediaType == "Books" && group.TitleCount == 1);
         Assert.Contains(groups, group => group.MediaType == "Audiobooks" && group.TitleCount == 1);
         Assert.Equal("Kindred", Assert.Single(books.Items).Title);
-        Assert.Equal("Kindred Audio", Assert.Single(audiobooks.Items).Title);
+        Assert.Equal("Kindred", Assert.Single(audiobooks.Items).Title);
+        Assert.Equal(1, books.TotalCount);
+        Assert.Equal(1, audiobooks.TotalCount);
     }
 
     private ActivitySeed SeedActivityBatch()
@@ -486,7 +488,7 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
             INSERT INTO works (id, media_type, work_kind)
             VALUES
                 ($bookWorkId, 'Books', 'standalone'),
-                ($audiobookWorkId, 'Audiobooks', 'standalone');
+                ($audiobookWorkId, 'Books', 'standalone');
 
             INSERT INTO editions (id, work_id, format_label)
             VALUES
@@ -501,7 +503,7 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
             INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
             VALUES
                 ($bookAssetId, 'title', 'Kindred', $completedAt),
-                ($audiobookAssetId, 'title', 'Kindred Audio', $completedAt);
+                ($audiobookAssetId, 'title', 'Kindred', $completedAt);
 
             INSERT INTO identity_jobs (
                 id,
@@ -517,6 +519,36 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
             VALUES
                 ($bookJobId, $bookAssetId, 'MediaAsset', 'Books', $batchId, 'ReadyWithoutUniverse', 'Quick', $startedAt, $completedAt),
                 ($audiobookJobId, $audiobookAssetId, 'MediaAsset', 'Books', $batchId, 'ReadyWithoutUniverse', 'Quick', $startedAt, $completedAt);
+
+            INSERT INTO media_operations (
+                id,
+                operation_type,
+                operation_kind,
+                entity_id,
+                entity_kind,
+                batch_id,
+                source_path,
+                content_hash,
+                status,
+                stage,
+                priority,
+                queue_name,
+                position_key,
+                progress_percent,
+                items_total,
+                items_completed,
+                items_failed,
+                result_summary,
+                created_at,
+                started_at,
+                updated_at,
+                completed_at,
+                idempotency_key
+            )
+            VALUES
+                ($bookOperationId1, 'ingestion.file', 'ingestion', $bookAssetId, 'MediaAsset', $batchId, 'C:/watch/books/Kindred.epub', 'kindred-book-hash', 'succeeded', 'completed', 100, 'ingestion', 1, 100, 1, 1, 0, 'Kindred', $startedAt, $startedAt, $startedAt, $startedAt, 'kindred-book-first'),
+                ($bookOperationId2, 'ingestion.file', 'ingestion', $bookAssetId, 'MediaAsset', $batchId, 'C:/watch/books/Kindred.epub', 'kindred-book-hash', 'succeeded', 'completed', 100, 'ingestion', 2, 100, 1, 1, 0, 'Kindred', $startedAt, $startedAt, $completedAt, $completedAt, 'kindred-book-latest'),
+                ($audiobookOperationId, 'ingestion.file', 'ingestion', $audiobookAssetId, 'MediaAsset', $batchId, 'C:/watch/books/Kindred.m4b', 'kindred-audio-hash', 'succeeded', 'completed', 100, 'ingestion', 3, 100, 1, 1, 0, 'Kindred', $startedAt, $startedAt, $completedAt, $completedAt, 'kindred-audio');
             """;
 
         AddGuid(cmd, "$batchId", batchId);
@@ -528,6 +560,9 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         AddGuid(cmd, "$audiobookAssetId", audiobookAssetId);
         AddGuid(cmd, "$bookJobId", Guid.NewGuid());
         AddGuid(cmd, "$audiobookJobId", Guid.NewGuid());
+        AddGuid(cmd, "$bookOperationId1", Guid.NewGuid());
+        AddGuid(cmd, "$bookOperationId2", Guid.NewGuid());
+        AddGuid(cmd, "$audiobookOperationId", Guid.NewGuid());
         cmd.Parameters.AddWithValue("$startedAt", now.AddMinutes(-2).ToString("O"));
         cmd.Parameters.AddWithValue("$completedAt", now.ToString("O"));
         cmd.ExecuteNonQuery();

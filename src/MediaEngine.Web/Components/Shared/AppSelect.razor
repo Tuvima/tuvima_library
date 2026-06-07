@@ -10,7 +10,7 @@
                InputId="@InputId"
                Value="@Value"
                ValueChanged="OnValueChanged"
-               Placeholder="@Placeholder"
+               Placeholder="@EffectivePlaceholder"
                Variant="@Variant"
                Margin="@Margin"
                Dense="@Dense"
@@ -70,6 +70,11 @@
     private string RootClass =>
         string.Join(" ", new[] { "app-field", AppUiMaps.SizeClass(Size), Class }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string? EffectivePlaceholder =>
+        !string.IsNullOrWhiteSpace(Placeholder)
+            ? Placeholder
+            : Options?.FirstOrDefault(option => string.Equals(option.Value, Value ?? string.Empty, StringComparison.Ordinal))?.Label;
 
     private Task OnValueChanged(string? value) => ValueChanged.InvokeAsync(value);
 }

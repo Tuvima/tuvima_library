@@ -63,7 +63,14 @@ public static class ActivityDisplay
         var normalized = raw.ToLowerInvariant();
         if (normalized.Contains("review", StringComparison.Ordinal) || normalized is "qidneedsreview" or "retailmatchedneedsreview")
             return "Needs review";
-        if (normalized is "ready" or "readywithoutuniverse" or "succeeded" or "completed" or "complete")
+        if (normalized is "ready"
+            or "readywithoutuniverse"
+            or "succeeded"
+            or "completed"
+            or "complete"
+            or "qidresolved"
+            or "wikidatamatched"
+            or "retailmatched")
             return "Complete";
         if (normalized is "retailnomatch" or "qidnomatch" or "no_result" or "missing_confirmed")
             return "No match";

@@ -41,7 +41,6 @@
                         <col class="activity-media-group__col-provider" />
                         <col class="activity-media-group__col-qid" />
                         <col class="activity-media-group__col-people" />
-                        <col class="activity-media-group__col-duration" />
                     </colgroup>
                     <thead>
                         <tr>
@@ -49,7 +48,6 @@
                             <th><AppSortableHeader Label="Provider" SortKey="provider" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
                             <th><AppSortableHeader Label="QID" SortKey="qid" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
                             <th><AppSortableHeader Label="People" SortKey="people" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
-                            <th><AppSortableHeader Label="Duration" SortKey="duration" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -91,13 +89,12 @@
                                         @item.PeopleCount.ToString("N0")
                                     </span>
                                 </td>
-                                <td>@FirstNonBlank(item.DurationLabel, FormatDuration(item.DurationSeconds), "-")</td>
                             </tr>
 
                             @if (expanded)
                             {
                                 <tr class="activity-media-group__detail" @key="@($"detail-{item.AssetId}")">
-                                    <td colspan="5">
+                                    <td colspan="4">
                                         <ActivityTitleAuditDetail Detail="@DetailForItem?.Invoke(item)"
                                                                   Loading="@(IsItemLoading?.Invoke(item) == true)" />
                                     </td>
@@ -151,14 +148,4 @@
     private static string ThumbnailUrl(string? coverUrl) =>
         MediaTileArtworkUrl.Sized(coverUrl, "s") ?? coverUrl ?? "";
 
-    private static string? FormatDuration(double? seconds)
-    {
-        if (seconds is not > 0)
-            return null;
-
-        var duration = TimeSpan.FromSeconds(seconds.Value);
-        return duration.TotalHours >= 1
-            ? $"{(int)duration.TotalHours}h {duration.Minutes}m"
-            : $"{duration.Minutes}m {duration.Seconds}s";
-    }
 }

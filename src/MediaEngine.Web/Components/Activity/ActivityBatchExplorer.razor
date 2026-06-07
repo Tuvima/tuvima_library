@@ -77,17 +77,13 @@
                         <td>@FormatDate(batch.StartedAt)</td>
                         <td>
                             <div class="activity-audit__media-icons">
-                                @foreach (var media in batch.MediaTypes.Take(4))
+                                @foreach (var media in batch.MediaTypes)
                                 {
                                     <span class="activity-audit__media-count @ActivityDisplay.MediaToneClass(media.MediaType)"
                                           title="@($"{ActivityDisplay.NormalizeMediaType(media.MediaType)}: {media.Count:N0}")">
                                         <AppMaterialIcon Icon="@ActivityDisplay.MediaIcon(media.MediaType)" Size="MudBlazor.Size.Small" />
                                         <strong>@media.Count.ToString("N0")</strong>
                                     </span>
-                                }
-                                @if (batch.MediaTypes.Count > 4)
-                                {
-                                    <span class="activity-audit__more" title="@($"{batch.MediaTypes.Count - 4:N0} more media groups")">+@((batch.MediaTypes.Count - 4).ToString("N0"))</span>
                                 }
                             </div>
                         </td>

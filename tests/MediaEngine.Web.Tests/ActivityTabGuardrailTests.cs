@@ -1,10 +1,20 @@
 using System.IO;
 using System.Text.RegularExpressions;
+using MediaEngine.Web.Components.Activity;
 
 namespace MediaEngine.Web.Tests;
 
 public sealed class ActivityTabGuardrailTests
 {
+    [Theory]
+    [InlineData("QidResolved")]
+    [InlineData("RetailMatched")]
+    [InlineData("ReadyWithoutUniverse")]
+    public void ActivityDisplay_TreatsLibraryReadyStatusesAsComplete(string status)
+    {
+        Assert.Equal("Complete", ActivityDisplay.StatusText(status, "Complete"));
+    }
+
     [Fact]
     public void ActivityTab_ComposesCentralizedActivitySurfaces()
     {
@@ -38,13 +48,14 @@ public sealed class ActivityTabGuardrailTests
         Assert.Contains("Label=\"Duration\"", batches, StringComparison.Ordinal);
         Assert.Contains("Label=\"Status\"", batches, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Source\"", batches, StringComparison.Ordinal);
+        Assert.DoesNotContain("Take(4)", batches, StringComparison.Ordinal);
         Assert.Contains("table-layout: fixed", batchCss, StringComparison.Ordinal);
 
         Assert.Contains("Label=\"Title\"", group, StringComparison.Ordinal);
         Assert.Contains("Label=\"Provider\"", group, StringComparison.Ordinal);
         Assert.Contains("Label=\"QID\"", group, StringComparison.Ordinal);
         Assert.Contains("Label=\"People\"", group, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Duration\"", group, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Duration\"", group, StringComparison.Ordinal);
         Assert.DoesNotContain("Books T", group, StringComparison.Ordinal);
         Assert.DoesNotContain("Catalog Match", detail, StringComparison.Ordinal);
         Assert.DoesNotContain("Apple Books", detail, StringComparison.Ordinal);

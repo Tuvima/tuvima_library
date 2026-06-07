@@ -63,6 +63,48 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         _db = db;
     }
 
+    private static string ActivityMediaTypeSql(
+        string primaryMediaTypeExpression,
+        string secondaryMediaTypeExpression,
+        string pathExpression,
+        string formatExpression = "NULL")
+    {
+        var rawMediaType = $"COALESCE(NULLIF({primaryMediaTypeExpression}, ''), NULLIF({secondaryMediaTypeExpression}, ''), 'Unknown')";
+        var media = $"LOWER({rawMediaType})";
+        var path = $"LOWER(REPLACE(COALESCE({pathExpression}, ''), '\\', '/'))";
+        var format = $"LOWER(COALESCE({formatExpression}, ''))";
+
+        return $"""
+            CASE
+                WHEN {media} LIKE '%audio%book%'
+                    OR {format} LIKE '%audio%book%'
+                    OR {path} LIKE '%/audiobook/%'
+                    OR {path} LIKE '%/audiobooks/%'
+                    OR {path} LIKE '%audiobook%'
+                    OR {path} LIKE '%.m4b'
+                    OR ({media} IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') AND (
+                        {path} LIKE '%.mp3'
+                        OR {path} LIKE '%.m4a'
+                        OR {path} LIKE '%.flac'
+                        OR {path} LIKE '%.wav'
+                        OR {path} LIKE '%.aac'
+                    )) THEN 'Audiobooks'
+                WHEN {media} IN ('music', 'album', 'albums', 'track', 'tracks', 'song', 'songs')
+                    OR {path} LIKE '%/music/%' THEN 'Music'
+                WHEN {media} IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf')
+                    OR {path} LIKE '%.epub'
+                    OR {path} LIKE '%.pdf' THEN 'Books'
+                WHEN {media} IN ('comic', 'comics', 'cbz', 'cbr')
+                    OR {path} LIKE '%.cbz'
+                    OR {path} LIKE '%.cbr' THEN 'Comics'
+                WHEN {media} IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
+                WHEN {media} IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
+                WHEN {media} IN ('music', 'album', 'albums', 'audio') THEN 'Music'
+                ELSE {rawMediaType}
+            END
+            """;
+    }
+
     public async Task<PagedResponse<ActivityBatchSummaryDto>> GetBatchesAsync(
         ActivityBatchQuery query,
         CancellationToken ct = default)
@@ -87,7 +129,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             latest_jobs AS (
                 SELECT
                     ij.ingestion_run_id AS BatchId,
-                    COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown') AS MediaType,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")} AS MediaType,
                     ij.entity_id,
                     ROW_NUMBER() OVER (
                         PARTITION BY ij.ingestion_run_id, ij.entity_id
@@ -126,7 +168,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             operation_rollups AS (
                 SELECT
                     mo.batch_id AS BatchId,
-                    COUNT(*) AS OperationItemCount,
+                    COUNT(DISTINCT mo.entity_id) AS OperationItemCount,
                     MAX(mo.updated_at) AS LastOperationAt
                 FROM media_operations mo
                 JOIN page_batches pb ON pb.id = mo.batch_id
@@ -256,19 +298,11 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var rows = (await conn.QueryAsync<ActivityMediaTypeGroupDto>("""
+        var rows = (await conn.QueryAsync<ActivityMediaTypeGroupDto>($"""
             WITH latest_jobs AS (
                 SELECT
                     ij.entity_id,
-                    CASE
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                        ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')
-                    END AS media_type,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")} AS media_type,
                     ij.state,
                     ij.updated_at,
                     ROW_NUMBER() OVER (
@@ -304,12 +338,28 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 FROM latest_jobs lj
                 LEFT JOIN review_flags rf ON rf.entity_id = lj.entity_id
                 WHERE lj.rn = 1
+            ),
+            latest_operations AS (
+                SELECT *
+                FROM (
+                    SELECT
+                        mo.*,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY mo.batch_id, mo.entity_id
+                            ORDER BY COALESCE(mo.updated_at, mo.completed_at, mo.started_at, mo.created_at) DESC, mo.created_at DESC
+                        ) AS rn
+                    FROM media_operations mo
+                    JOIN scoped scoped_op ON scoped_op.entity_id = mo.entity_id
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_type = 'ingestion.file'
+                )
+                WHERE rn = 1
             )
             SELECT
                 @batchId AS BatchId,
                 CASE WHEN scoped.needs_review = 1 THEN @reviewGroup ELSE scoped.media_type END AS MediaType,
                 COUNT(DISTINCT scoped.entity_id) AS TitleCount,
-                COUNT(DISTINCT mo.id) AS ItemCount,
+                COUNT(DISTINCT scoped.entity_id) AS ItemCount,
                 COUNT(DISTINCT sa.id) AS EventCount,
                 COUNT(DISTINCT pml.person_id) AS PeopleCount,
                 COUNT(DISTINCT CASE WHEN scoped.needs_review = 1 THEN scoped.entity_id END) AS ReviewCount,
@@ -319,10 +369,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 END) AS AlertCount,
                 MAX(COALESCE(sa.occurred_at, mo.updated_at, scoped.updated_at)) AS LastActivityAt
             FROM scoped
-            LEFT JOIN media_operations mo
+            LEFT JOIN latest_operations mo
                 ON mo.batch_id = @batchId
                AND mo.entity_id = scoped.entity_id
-               AND mo.operation_type = 'ingestion.file'
             LEFT JOIN system_activity sa
                 ON sa.ingestion_run_id = @batchId
                AND sa.entity_id = scoped.entity_id
@@ -373,15 +422,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 SELECT
                     ij.id AS JobId,
                     ij.entity_id,
-                    CASE
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                        ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')
-                    END AS media_type,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma_job.file_path_root", "e_job.format_label")} AS media_type,
                     ij.resolved_qid,
                     ij.state,
                     ij.updated_at,
@@ -429,6 +470,22 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                           AND LOWER(COALESCE(lj.state, '')) NOT LIKE '%review%'
                           AND LOWER(COALESCE(lj.state, '')) NOT IN ('retailmatchambiguous', 'qidneedsreview', 'retailmatchedneedsreview', 'lowconfidence'))
                   )
+            ),
+            latest_operations AS (
+                SELECT *
+                FROM (
+                    SELECT
+                        mo.*,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY mo.batch_id, mo.entity_id
+                            ORDER BY COALESCE(mo.updated_at, mo.completed_at, mo.started_at, mo.created_at) DESC, mo.created_at DESC
+                        ) AS rn
+                    FROM media_operations mo
+                    JOIN scoped scoped_op ON scoped_op.entity_id = mo.entity_id
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_type = 'ingestion.file'
+                )
+                WHERE rn = 1
             ),
             people_rollup AS (
                 SELECT
@@ -559,7 +616,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = scoped.entity_id AND cv.key = 'duration_seconds' LIMIT 1),
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'duration_seconds' LIMIT 1)
                 ) AS REAL) AS DurationSeconds,
-                COALESCE(NULLIF(w.media_type, ''), NULLIF(scoped.media_type, ''), 'Unknown') AS LibraryEntityType,
+                COALESCE(NULLIF(scoped.media_type, ''), NULLIF(w.media_type, ''), 'Unknown') AS LibraryEntityType,
                 w.id AS LibraryEntityId,
                 cc.CoverAssetId AS CoverAssetId,
                 COALESCE(pr.PeopleCount, 0) AS PeopleCount,
@@ -574,10 +631,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     scoped.updated_at
                 ) AS LastActivityAt
             FROM scoped
-            LEFT JOIN media_operations mo
+            LEFT JOIN latest_operations mo
                 ON mo.batch_id = @batchId
                AND mo.entity_id = scoped.entity_id
-               AND mo.operation_type = 'ingestion.file'
             LEFT JOIN media_assets ma ON ma.id = scoped.entity_id
             LEFT JOIN editions e ON e.id = ma.edition_id
             LEFT JOIN works w ON w.id = e.work_id
@@ -608,19 +664,11 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             row.DurationLabel = FormatDurationLabel(row.DurationSeconds, row.DurationLabel);
         }
 
-        var total = await conn.ExecuteScalarAsync<int>("""
+        var total = await conn.ExecuteScalarAsync<int>($"""
             WITH latest_jobs AS (
                 SELECT
                     ij.entity_id,
-                    CASE
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                        ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')
-                    END AS media_type,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")} AS media_type,
                     ij.state,
                     ROW_NUMBER() OVER (
                         PARTITION BY ij.entity_id
@@ -670,19 +718,11 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var item = await conn.QueryFirstOrDefaultAsync<ActivityBatchItemDto>("""
+        var item = await conn.QueryFirstOrDefaultAsync<ActivityBatchItemDto>($"""
             WITH latest_job AS (
                 SELECT
                     ij.entity_id,
-                    CASE
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                        ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')
-                    END AS media_type,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma_job.file_path_root", "e_job.format_label")} AS media_type,
                     ij.resolved_qid,
                     ij.state,
                     ij.updated_at,
@@ -704,6 +744,22 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                   AND status = 'Pending'
                   AND review_ready_at IS NOT NULL
                 GROUP BY entity_id
+            ),
+            latest_operation AS (
+                SELECT *
+                FROM (
+                    SELECT
+                        mo.*,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY mo.batch_id, mo.entity_id
+                            ORDER BY COALESCE(mo.updated_at, mo.completed_at, mo.started_at, mo.created_at) DESC, mo.created_at DESC
+                        ) AS rn
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.entity_id = @assetId
+                      AND mo.operation_type = 'ingestion.file'
+                )
+                WHERE rn = 1
             )
             SELECT
                 @batchId AS BatchId,
@@ -715,15 +771,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     'Unknown title'
                 ) AS Title,
                 NULL AS Subtitle,
-                CASE
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                    ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')
-                END AS MediaType,
+                COALESCE(NULLIF(lj.media_type, ''), 'Unknown') AS MediaType,
                 COALESCE(mo.source_path, ma.file_path_root) AS SourcePath,
                 CASE
                     WHEN COALESCE(rf.review_count, 0) > 0
@@ -759,7 +807,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = @assetId AND cv.key = 'duration_seconds' LIMIT 1),
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'duration_seconds' LIMIT 1)
                 ) AS REAL) AS DurationSeconds,
-                COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown') AS LibraryEntityType,
+                COALESCE(NULLIF(lj.media_type, ''), NULLIF(w.media_type, ''), 'Unknown') AS LibraryEntityType,
                 w.id AS LibraryEntityId,
                 0 AS PeopleCount,
                 0 AS ArtworkCount,
@@ -768,10 +816,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 0 AS EventCount,
                 COALESCE(mo.updated_at, lj.updated_at) AS LastActivityAt
             FROM latest_job lj
-            LEFT JOIN media_operations mo
+            LEFT JOIN latest_operation mo
                 ON mo.batch_id = @batchId
                AND mo.entity_id = lj.entity_id
-               AND mo.operation_type = 'ingestion.file'
             LEFT JOIN media_assets ma ON ma.id = lj.entity_id
             LEFT JOIN editions e ON e.id = ma.edition_id
             LEFT JOIN works w ON w.id = e.work_id
@@ -936,16 +983,19 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         var rows = (await conn.QueryAsync<ActivityPersonAuditDto>($"""
             WITH latest_jobs AS (
                 SELECT
-                    ingestion_run_id,
-                    entity_id,
-                    media_type,
-                    updated_at,
+                    ij.ingestion_run_id,
+                    ij.entity_id,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")} AS media_type,
+                    ij.updated_at,
                     ROW_NUMBER() OVER (
-                        PARTITION BY ingestion_run_id, entity_id
-                        ORDER BY updated_at DESC, created_at DESC
+                        PARTITION BY ij.ingestion_run_id, ij.entity_id
+                        ORDER BY ij.updated_at DESC, ij.created_at DESC
                     ) AS rn
-                FROM identity_jobs
-                WHERE entity_id IS NOT NULL
+                FROM identity_jobs ij
+                LEFT JOIN media_assets ma ON ma.id = ij.entity_id
+                LEFT JOIN editions e ON e.id = ma.edition_id
+                LEFT JOIN works w ON w.id = e.work_id
+                WHERE ij.entity_id IS NOT NULL
             )
             SELECT
                 p.id AS PersonId,
@@ -960,15 +1010,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
                     'Unknown title'
                 ) AS Title,
-                CASE
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                    ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')
-                END AS MediaType,
+                COALESCE(NULLIF(lj.media_type, ''), 'Unknown') AS MediaType,
                 COALESCE(sa.detail, 'Linked from Wikidata claims') AS Source,
                 CASE WHEN p.wikidata_qid IS NOT NULL AND p.wikidata_qid <> '' THEN 'wikidata' ELSE NULL END AS ProviderId,
                 sa.occurred_at AS HydratedAt,
@@ -1003,15 +1045,18 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         var total = await conn.ExecuteScalarAsync<int>($"""
             WITH latest_jobs AS (
                 SELECT
-                    ingestion_run_id,
-                    entity_id,
-                    media_type,
+                    ij.ingestion_run_id,
+                    ij.entity_id,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")} AS media_type,
                     ROW_NUMBER() OVER (
-                        PARTITION BY ingestion_run_id, entity_id
-                        ORDER BY updated_at DESC, created_at DESC
+                        PARTITION BY ij.ingestion_run_id, ij.entity_id
+                        ORDER BY ij.updated_at DESC, ij.created_at DESC
                     ) AS rn
-                FROM identity_jobs
-                WHERE entity_id IS NOT NULL
+                FROM identity_jobs ij
+                LEFT JOIN media_assets ma ON ma.id = ij.entity_id
+                LEFT JOIN editions e ON e.id = ma.edition_id
+                LEFT JOIN works w ON w.id = e.work_id
+                WHERE ij.entity_id IS NOT NULL
             )
             SELECT COUNT(*)
             FROM latest_jobs lj
@@ -1059,19 +1104,11 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         if (batchIds.Count == 0)
             return [];
 
-        var rows = (await conn.QueryAsync<ActivityMediaTypeCountRow>("""
+        var rows = (await conn.QueryAsync<ActivityMediaTypeCountRow>($"""
             WITH latest_jobs AS (
                 SELECT
                     ij.ingestion_run_id AS BatchId,
-                    CASE
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                        WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                        ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')
-                    END AS MediaType,
+                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")} AS MediaType,
                     ij.entity_id,
                     ROW_NUMBER() OVER (
                         PARTITION BY ij.ingestion_run_id, ij.entity_id
@@ -1217,7 +1254,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
 
         if (!string.IsNullOrWhiteSpace(query.MediaType))
         {
-            clauses.Add("""
+            clauses.Add($"""
                 EXISTS (
                     SELECT 1
                     FROM identity_jobs ij
@@ -1225,15 +1262,8 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     LEFT JOIN editions e ON e.id = ma.edition_id
                     LEFT JOIN works w ON w.id = e.work_id
                     WHERE ij.ingestion_run_id = b.id
-                      AND LOWER(CASE
-                          WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                          WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                          WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                          WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                          WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                          WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                          ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(ij.media_type, ''), 'Unknown')
-                      END) = LOWER(@mediaType)
+                      AND ij.entity_id IS NOT NULL
+                      AND LOWER({ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")}) = LOWER(@mediaType)
                 )
                 """);
             parameters.Add("mediaType", query.MediaType.Trim());
@@ -1294,15 +1324,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         if (!string.IsNullOrWhiteSpace(query.MediaType))
         {
             clauses.Add("""
-                AND LOWER(CASE
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) LIKE '%audio%book%' THEN 'Audiobooks'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf') THEN 'Books'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('comic', 'comics', 'cbz', 'cbr') THEN 'Comics'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
-                    WHEN LOWER(COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')) IN ('music', 'album', 'albums', 'audio') THEN 'Music'
-                    ELSE COALESCE(NULLIF(w.media_type, ''), NULLIF(lj.media_type, ''), 'Unknown')
-                END) = LOWER(@mediaType)
+                AND LOWER(COALESCE(lj.media_type, 'Unknown')) = LOWER(@mediaType)
                 """);
             parameters.Add("mediaType", query.MediaType.Trim());
         }

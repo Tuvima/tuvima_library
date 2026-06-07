@@ -17,13 +17,13 @@
 
 .activity-audit__table ::deep .app-table {
     table-layout: fixed;
-    min-width: 1040px;
+    min-width: 1240px;
 }
 
-.activity-audit__col-batch { width: 22%; }
-.activity-audit__col-started { width: 18%; }
-.activity-audit__col-media { width: 26%; }
-.activity-audit__col-total { width: 10%; }
+.activity-audit__col-batch { width: 16%; }
+.activity-audit__col-started { width: 14%; }
+.activity-audit__col-media { width: 38%; }
+.activity-audit__col-total { width: 8%; }
 .activity-audit__col-duration { width: 12%; }
 .activity-audit__col-status { width: 12%; }
 
@@ -73,10 +73,12 @@
 
 .activity-audit__media-icons {
     gap: 8px;
+    flex-wrap: nowrap;
+    width: 100%;
+    white-space: nowrap;
 }
 
-.activity-audit__media-count,
-.activity-audit__more {
+.activity-audit__media-count {
     height: 28px;
     gap: 5px;
     padding: 0 8px;
@@ -119,12 +121,6 @@
 .activity-audit__media-count.is-tv,
 .activity-audit__media-count.is-tv ::deep .mud-icon-root {
     color: #34d399;
-}
-
-.activity-audit__more {
-    display: inline-flex;
-    align-items: center;
-    color: var(--tl-text-muted);
 }
 
 .activity-audit__expanded td {
