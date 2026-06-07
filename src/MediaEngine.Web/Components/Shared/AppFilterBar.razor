@@ -1,10 +1,32 @@
 @namespace MediaEngine.Web.Components.Shared
 
 <div class="@RootClass">
+    <AppTextField Value="@Search"
+                  ValueChanged="@SearchChanged"
+                  Placeholder="@Placeholder"
+                  DebounceInterval="@DebounceInterval"
+                  OnDebounceIntervalElapsed="@OnSearchDebounced"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Outlined.Search"
+                  Class="app-filter-bar__search" />
+
     @ChildContent
+
+    <AppButton Label="Refresh"
+               Size="AppControlSize.Compact"
+               StartIcon="@Icons.Material.Outlined.Refresh"
+               Disabled="@Loading"
+               OnClick="@OnRefresh" />
 </div>
 
 @code {
+    [Parameter] public string? Search { get; set; }
+    [Parameter] public EventCallback<string?> SearchChanged { get; set; }
+    [Parameter] public EventCallback<string> OnSearchDebounced { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Search...";
+    [Parameter] public double DebounceInterval { get; set; } = 350;
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Class { get; set; }
 

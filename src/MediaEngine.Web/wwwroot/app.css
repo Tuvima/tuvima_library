@@ -3852,6 +3852,49 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     margin-top: 0 !important;
 }
 
+.app-select .mud-input-control-input-container {
+    position: relative !important;
+    width: 100% !important;
+}
+
+.app-select .mud-input {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-height: var(--app-control-height, var(--tl-control-height-md)) !important;
+}
+
+.app-select .mud-select {
+    width: 100% !important;
+}
+
+.app-select .mud-input-slot,
+.app-select .mud-select-input {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    justify-content: flex-start !important;
+    padding-right: 8px !important;
+    text-align: left !important;
+}
+
+.app-select .mud-input-adornment-end {
+    position: static !important;
+    flex: 0 0 auto !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+    justify-content: center !important;
+    margin: 0 10px 0 auto !important;
+    padding-right: 0 !important;
+    transform: none !important;
+    pointer-events: none;
+}
+
+.app-select .mud-input-adornment-end .mud-icon-root {
+    width: 18px !important;
+    height: 18px !important;
+}
+
 .app-textarea .mud-input,
 .app-textarea .mud-input-slot,
 .app-textarea textarea {

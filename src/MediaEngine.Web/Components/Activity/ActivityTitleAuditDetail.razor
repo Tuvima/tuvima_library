@@ -1,0 +1,324 @@
+@namespace MediaEngine.Web.Components.Activity
+
+@if (Loading || Detail is null)
+{
+    <AppProgressBar Indeterminate="true" />
+}
+else
+{
+    <div class="activity-title-detail">
+        <section class="activity-title-detail__summary">
+            <div class="activity-title-detail__summary-grid">
+                @foreach (var field in Detail.FileDetails.Where(ShouldShowFileField))
+                {
+                    <div @key="@field.Label">
+                        <dt>@FriendlyFieldLabel(field.Label)</dt>
+                        <dd>@FriendlyFieldValue(field.Label, field.Value)</dd>
+                    </div>
+                }
+                @if (LibraryUrl is not null && IsComplete)
+                {
+                    <div>
+                        <dt>Library</dt>
+                        <dd><a href="@LibraryUrl">Show in library</a></dd>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="activity-title-detail__timeline">
+            <h3>Activity Timeline</h3>
+            <AppTimelineList Items="@MajorTimeline" EmptyTitle="No major events" EmptyMessage="No major milestones are available for this item." />
+        </section>
+
+        <section class="activity-title-detail__people">
+            <header>
+                <h3>People Hydrated: @Detail.People.Count.ToString("N0")</h3>
+            </header>
+            @if (Detail.People.Count == 0)
+            {
+                <AppEmptyState Title="No linked people" Message="No people were linked to this item." />
+            }
+            else
+            {
+                @foreach (var group in PeopleGroups)
+                {
+                    var expanded = _expandedRoles.Contains(group.Key);
+                    var visible = expanded ? group.People : group.People.Take(8).ToList();
+                    <div class="activity-title-detail__role-group" @key="group.Key">
+                        <div class="activity-title-detail__role-label">@group.Label (@group.People.Count.ToString("N0"))</div>
+                        <div class="activity-title-detail__avatars">
+                            @foreach (var person in visible)
+                            {
+                                <a class="activity-title-detail__person" href="@person.PersonUrl" @key="@person.PersonId">
+                                    <span class="activity-title-detail__avatar">
+                                        @if (!string.IsNullOrWhiteSpace(person.HeadshotUrl))
+                                        {
+                                            <img src="@person.HeadshotUrl" alt="" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <span>@Initials(person.PersonName)</span>
+                                        }
+                                    </span>
+                                    <strong>@person.PersonName</strong>
+                                    @if (!string.IsNullOrWhiteSpace(person.WikidataQid))
+                                    {
+                                        <small>@person.WikidataQid</small>
+                                    }
+                                </a>
+                            }
+                        </div>
+                        @if (!expanded && group.People.Count > visible.Count)
+                        {
+                            <AppButton Label="@($"Show more ({group.People.Count - visible.Count:N0})")"
+                                       Size="AppControlSize.Compact"
+                                       ButtonStyle="AppButtonStyle.Outlined"
+                                       OnClick="@(() => ExpandRole(group.Key))" />
+                        }
+                    </div>
+                }
+            }
+        </section>
+
+        <section class="activity-title-detail__evidence">
+            <h3>Source Evidence</h3>
+            <AppEvidenceList Items="@VisibleEvidence" />
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public ActivityBatchItemDetailViewModel? Detail { get; set; }
+    [Parameter] public bool Loading { get; set; }
+
+    private readonly HashSet<string> _expandedRoles = [];
+
+    private IReadOnlyList<ActivityTimelineEventViewModel> MajorTimeline =>
+        Detail is null ? [] : BuildMajorTimeline(Detail.Timeline);
+
+    private string? LibraryUrl =>
+        Detail?.LibraryEntityId is { } id
+            ? MediaNavigation.ForMedia(Detail.LibraryEntityType ?? Detail.MediaType, id)
+            : null;
+
+    private bool IsComplete =>
+        string.Equals(ActivityDisplay.StatusText(Detail?.Status, Detail?.AuditStatus), "Complete", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsAuditReview =>
+        string.Equals(ActivityDisplay.StatusText(Detail?.Status, Detail?.AuditStatus), "Needs review", StringComparison.OrdinalIgnoreCase);
+
+    private IReadOnlyList<ActivityEvidenceViewModel> VisibleEvidence =>
+        Detail is null
+            ? []
+            : Detail.Evidence.Where(evidence => IsAuditReview || !IsReviewEvidence(evidence)).ToList();
+
+    private string? RetailProvider =>
+        Detail?.Evidence
+            .Where(evidence => ContainsAny($"{evidence.Kind} {evidence.Label} {evidence.Source}", "retail", "provider", "match"))
+            .Select(evidence => ActivityDisplay.ProviderName(FirstNonBlank(evidence.ProviderId, evidence.Source)))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value) && value != "-");
+
+    private IReadOnlyList<RolePeopleGroup> PeopleGroups =>
+        Detail?.People
+            .GroupBy(person => RoleKey(person.Role), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => RoleSort(group.Key))
+            .ThenBy(group => group.Key)
+            .Select(group => new RolePeopleGroup(RoleLabel(group.Key), group.Key, group.OrderBy(person => person.PersonName).ToList()))
+            .ToList()
+        ?? [];
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+
+    private IReadOnlyList<ActivityTimelineEventViewModel> BuildMajorTimeline(
+        IReadOnlyList<ActivityTimelineEventViewModel> events)
+    {
+        var milestones = events
+            .Select(ToMilestone)
+            .Where(milestone => milestone is not null)
+            .Cast<ActivityTimelineEventViewModel>()
+            .GroupBy(item => item.EventType, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderBy(item => item.OccurredAt).First())
+            .OrderBy(item => MilestoneOrder(item.EventType))
+            .ThenBy(item => item.OccurredAt)
+            .ToList();
+
+        return milestones.Count == 0
+            ? events.Take(4).Select(ToReadableEvent).ToList()
+            : milestones;
+    }
+
+    private ActivityTimelineEventViewModel? ToMilestone(ActivityTimelineEventViewModel item)
+    {
+        var key = $"{item.EventType} {item.Label} {item.Detail} {item.Source}".ToLowerInvariant();
+        if (ContainsAny(key, "detected", "discovered", "watch folder"))
+            return ReadableCopy(item, "detected", "File detected", "Tuvima found this file in a watched folder.", "success");
+        if (ContainsAny(key, "hashed", "fingerprint", "sha-256", "sha256"))
+            return ReadableCopy(item, "hashed", "File hashed", "The file fingerprint was created for duplicate detection.", "success");
+        if (ContainsAny(key, "metadata", "parsed", "extracted"))
+            return ReadableCopy(item, "metadata", "Metadata extracted", "Metadata was read from the file.", "success");
+        if (ContainsAny(key, "retail", "match found", "provider match", "tmdb", "open library", "apple"))
+        {
+            var provider = RetailProvider;
+            return ReadableCopy(
+                item,
+                "matched",
+                provider is null ? "Retail match found" : $"Retail match found with {provider}",
+                "The item was matched to a known title.",
+                "success");
+        }
+        if (ContainsAny(key, "wikidata", "qid", "bridge"))
+            return ReadableCopy(item, "wikidata", "Wikidata matched", "The title was connected to a canonical Wikidata identity.", "success");
+        if (ContainsAny(key, "person", "people", "credit", "cast", "author"))
+            return ReadableCopy(item, "people", "People hydrated", "People connected to this title were added or refreshed.", "success");
+        if (ContainsAny(key, "artwork", "cover", "image", "poster"))
+            return ReadableCopy(item, "artwork", "Artwork downloaded", "Artwork for this title was downloaded or refreshed.", "success");
+        if (ContainsAny(key, "review", "needs review", "queue"))
+        {
+            if (!IsAuditReview)
+                return null;
+
+            return ReadableCopy(item, "review", "Review needed", "Tuvima found something that needs a human check.", "warning");
+        }
+        if (ContainsAny(key, "failed", "error", "blocked", "quarantined"))
+            return ReadableCopy(item, "attention", "Needs attention", "Processing hit a problem that may need follow-up.", "danger");
+        if (ContainsAny(key, "completed", "complete", "succeeded", "media added", "added to library"))
+            return ReadableCopy(item, "complete", "Completed", "Processing finished.", "success");
+
+        return null;
+    }
+
+    private static ActivityTimelineEventViewModel ToReadableEvent(ActivityTimelineEventViewModel item) =>
+        ReadableCopy(item, item.EventType, ActivityDisplay.SplitWords(FirstNonBlank(item.Label, item.EventType, "Activity")), FriendlyDetail(item), item.Tone);
+
+    private static ActivityTimelineEventViewModel ReadableCopy(
+        ActivityTimelineEventViewModel item,
+        string eventType,
+        string label,
+        string detail,
+        string? tone) =>
+        new()
+        {
+            OccurredAt = item.OccurredAt,
+            EventType = eventType,
+            Label = label,
+            Detail = detail,
+            Source = FriendlySource(item.Source),
+            Tone = tone ?? item.Tone,
+        };
+
+    private static int MilestoneOrder(string eventType) => eventType switch
+    {
+        "detected" => 0,
+        "hashed" => 1,
+        "metadata" => 2,
+        "matched" => 3,
+        "wikidata" => 4,
+        "people" => 5,
+        "artwork" => 6,
+        "review" => 7,
+        "complete" => 8,
+        "attention" => 9,
+        _ => 20,
+    };
+
+    private static bool ContainsAny(string value, params string[] needles) =>
+        needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
+
+    private static bool ShouldShowFileField(ActivityDetailFieldViewModel field) =>
+        !string.IsNullOrWhiteSpace(field.Value);
+
+    private static bool IsReviewEvidence(ActivityEvidenceViewModel evidence) =>
+        ContainsAny(
+            $"{evidence.Kind} {evidence.Label} {evidence.Value} {evidence.Source}",
+            "review",
+            "needs review",
+            "queue");
+
+    private static string FriendlyFieldLabel(string label) => label switch
+    {
+        "Wikidata QID" => "Wikidata",
+        _ => label,
+    };
+
+    private static string FriendlyFieldValue(string label, string? value) =>
+        label switch
+        {
+            "Status" => ActivityDisplay.StatusText(value),
+            "Processing" => ActivityDisplay.StatusText(value),
+            "Path" or "File Name" => value?.Trim() ?? "",
+            "Wikidata QID" => value?.Trim() ?? "",
+            _ => FriendlyDetail(value ?? ""),
+        };
+
+    private static string FriendlyDetail(ActivityTimelineEventViewModel item) =>
+        FriendlyDetail(FirstNonBlank(item.Detail, item.Label, item.EventType));
+
+    private static string FriendlyDetail(string value) =>
+        string.IsNullOrWhiteSpace(value) ? "" : ActivityDisplay.SplitWords(value);
+
+    private static string FriendlySource(string? source) => ActivityDisplay.ProviderName(source) switch
+    {
+        "-" => "",
+        "Provider Lookup" => "",
+        "Queued" or "Hashed" or "Completed" or "Succeeded" => "",
+        { } value => value,
+    };
+
+    private static string RoleKey(string? role)
+    {
+        var normalized = role?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            null or "" => "linked",
+            "author" or "authors" or "writer" or "writers" => "authors",
+            "narrator" or "narrators" => "narrators",
+            "actor" or "actors" or "cast" or "cast member" or "cast_member" => "cast",
+            "character" or "characters" => "characters",
+            "director" or "directors" => "directors",
+            "composer" or "composers" or "artist" or "artists" => "artists",
+            _ => normalized,
+        };
+    }
+
+    private static int RoleSort(string key) => key switch
+    {
+        "authors" => 0,
+        "directors" => 1,
+        "narrators" => 2,
+        "cast" => 3,
+        "characters" => 4,
+        "artists" => 5,
+        _ => 20,
+    };
+
+    private static string RoleLabel(string key) => key switch
+    {
+        "authors" => "Authors",
+        "directors" => "Directors",
+        "narrators" => "Narrators",
+        "cast" => "Cast",
+        "characters" => "Characters",
+        "artists" => "Artists",
+        "linked" => "Linked People",
+        _ => ActivityDisplay.SplitWords(key),
+    };
+
+    private static string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+            return "?";
+
+        return string.Concat(parts.Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    }
+
+    private Task ExpandRole(string key)
+    {
+        _expandedRoles.Add(key);
+        return Task.CompletedTask;
+    }
+
+    private sealed record RolePeopleGroup(string Label, string Key, List<ActivityPersonAuditViewModel> People);
+}

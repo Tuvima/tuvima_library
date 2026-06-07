@@ -1,0 +1,190 @@
+@namespace MediaEngine.Web.Components.Activity
+@using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.AspNetCore.Components.Routing
+@inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="activity-events">
+    <AppFilterBar Search="@_search"
+                  SearchChanged="@OnSearchChanged"
+                  OnSearchDebounced="@OnSearchDebounced"
+                  Placeholder="Search visible events..."
+                  Loading="@_loading"
+                  OnRefresh="@LoadAsync">
+        <AppSelect
+            Value="@_eventType"
+            ValueChanged="@OnEventTypeChanged"
+            Options="@EventTypeOptions"
+            Label="Event Type"
+            Class="activity-events__filter" />
+    </AppFilterBar>
+
+    @if (_runId is { } runId)
+    {
+        <div class="activity-events__run-filter">
+            <span>Showing events for batch <strong>@ShortId(runId)</strong></span>
+            <AppButton Label="Clear" Size="AppControlSize.Compact" StartIcon="@Icons.Material.Outlined.Close" OnClick="@ClearRunFilter" />
+        </div>
+    }
+
+    @if (_loading && _events.Count == 0)
+    {
+        <AppProgressBar Indeterminate="true" />
+    }
+    else
+    {
+        <AppTimelineList Items="@VisibleEvents" EmptyTitle="No activity events" EmptyMessage="No activity entries match the current filters." />
+    }
+</div>
+
+@code {
+    private static readonly IReadOnlyList<AppSelectOption> EventTypeOptions =
+    [
+        new("", "All"),
+        new("FileIngested", "File Ingested"),
+        new("MediaAdded", "Media Added"),
+        new("MetadataHydrated", "Metadata Hydrated"),
+        new("PersonHydrated", "Person Hydrated"),
+        new("ReviewItemCreated", "Review Created"),
+        new("ReviewItemResolved", "Review Resolved"),
+        new("BatchCompleted", "Batch Completed"),
+    ];
+
+    private List<ActivityEntryViewModel> _entries = [];
+    private List<ActivityTimelineEventViewModel> _events = [];
+    private bool _loading = true;
+    private string? _eventType;
+    private string? _search;
+    private Guid? _runId;
+
+    private IReadOnlyList<ActivityTimelineEventViewModel> VisibleEvents =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _events
+            : _events
+                .Where(item =>
+                    Contains(item.Label, _search)
+                    || Contains(item.Detail, _search)
+                    || Contains(item.Source, _search))
+                .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _runId = ResolveRunFilterFromUri();
+            if (_runId is { } runId)
+            {
+                _entries = await Orchestrator.GetActivityByRunIdAsync(runId);
+            }
+            else if (!string.IsNullOrWhiteSpace(_eventType))
+            {
+                _entries = await Orchestrator.GetActivityByTypesAsync([_eventType], 100);
+            }
+            else
+            {
+                _entries = await Orchestrator.GetRecentActivityAsync(100);
+            }
+
+            _events = _entries.Select(ToTimelineEvent).ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchDebounced(string _) => Task.CompletedTask;
+
+    private async Task OnEventTypeChanged(string? value)
+    {
+        _eventType = string.IsNullOrWhiteSpace(value) ? null : value;
+        await LoadAsync();
+    }
+
+    private void ClearRunFilter() => Nav.NavigateTo("/settings/activity");
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    private Guid? ResolveRunFilterFromUri()
+    {
+        var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        var raw = query.TryGetValue("runId", out var runId)
+            ? runId.FirstOrDefault()
+            : query.TryGetValue("batchId", out var batchId)
+                ? batchId.FirstOrDefault()
+                : null;
+        return Guid.TryParse(raw, out var parsed) ? parsed : null;
+    }
+
+    private static ActivityTimelineEventViewModel ToTimelineEvent(ActivityEntryViewModel entry) =>
+        new()
+        {
+            OccurredAt = DateTimeOffset.TryParse(entry.OccurredAt, out var occurredAt)
+                ? occurredAt
+                : DateTimeOffset.UtcNow,
+            EventType = entry.ActionType,
+            Label = ActionLabel(entry.ActionType),
+            Detail = entry.Detail,
+            Source = FirstNonBlank(entry.CollectionName, entry.EntityType),
+            Tone = ActionTone(entry.ActionType),
+        };
+
+    private static bool Contains(string? haystack, string? needle) =>
+        !string.IsNullOrWhiteSpace(haystack)
+        && !string.IsNullOrWhiteSpace(needle)
+        && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+    private static string ShortId(Guid id) => id.ToString("N")[..6];
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+
+    private static string ActionTone(string actionType) => actionType switch
+    {
+        "FileIngested" or "MediaAdded" or "BatchCompleted" => "success",
+        "ReviewItemCreated" => "warning",
+        "MediaFailed" or "BatchFailed" or "FileQuarantined" => "danger",
+        _ => "neutral",
+    };
+
+    private static string ActionLabel(string actionType)
+    {
+        if (string.IsNullOrWhiteSpace(actionType))
+            return "Activity";
+
+        var builder = new System.Text.StringBuilder(actionType.Length + 8);
+        for (var i = 0; i < actionType.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(actionType[i]) && !char.IsWhiteSpace(actionType[i - 1]))
+                builder.Append(' ');
+            builder.Append(actionType[i]);
+        }
+        return builder.ToString();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

@@ -1,0 +1,164 @@
+@namespace MediaEngine.Web.Components.Activity
+
+<section class="activity-media-group @ActivityDisplay.MediaToneClass(Group.MediaType)">
+    <AppNativeButton Type="button"
+                     Class="activity-media-group__summary"
+                     OnClick="@(_ => OnToggle.InvokeAsync(Group))"
+                     aria-expanded="@Expanded">
+        <span class="activity-media-group__heading">
+            <AppMaterialIcon Icon="@(Expanded ? Icons.Material.Outlined.KeyboardArrowUp : Icons.Material.Outlined.KeyboardArrowDown)"
+                             Size="MudBlazor.Size.Small"
+                             Class="activity-media-group__chevron" />
+            <AppMaterialIcon Icon="@ActivityDisplay.MediaIcon(Group.MediaType)"
+                             Size="MudBlazor.Size.Small"
+                             Class="activity-media-group__media-icon" />
+            <strong>@ActivityDisplay.NormalizeMediaType(Group.MediaType)</strong>
+            <span class="activity-media-group__count">@Group.TitleCount.ToString("N0")</span>
+        </span>
+        <span class="activity-media-group__metrics">
+            <span>@Group.TitleCount.ToString("N0") Titles</span>
+            <span>@IssueCount(Group).ToString("N0") Issues</span>
+            <span>@Group.EventCount.ToString("N0") Events</span>
+        </span>
+    </AppNativeButton>
+
+    @if (Expanded)
+    {
+        <div class="activity-media-group__body">
+            @if (Loading)
+            {
+                <AppProgressBar Indeterminate="true" />
+            }
+            else if (Items.Count == 0)
+            {
+                <AppEmptyState Title="No titles" Message="No item rows are available for this group." />
+            }
+            else
+            {
+                <AppExpandableAuditTable Class="activity-media-group__items">
+                    <colgroup>
+                        <col class="activity-media-group__col-title" />
+                        <col class="activity-media-group__col-provider" />
+                        <col class="activity-media-group__col-qid" />
+                        <col class="activity-media-group__col-people" />
+                        <col class="activity-media-group__col-duration" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th><AppSortableHeader Label="Title" SortKey="title" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
+                            <th><AppSortableHeader Label="Provider" SortKey="provider" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
+                            <th><AppSortableHeader Label="QID" SortKey="qid" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
+                            <th><AppSortableHeader Label="People" SortKey="people" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
+                            <th><AppSortableHeader Label="Duration" SortKey="duration" ActiveSort="@ActiveSort" Direction="@SortDirection" SortRequested="@SortRequested" /></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Items)
+                        {
+                            var expanded = IsItemExpanded?.Invoke(item) == true;
+                            <tr class="activity-media-group__item @(expanded ? "is-expanded" : null)"
+                                @key="@($"{item.BatchId:N}-{item.AssetId?.ToString("N") ?? item.Title}")"
+                                @onclick="@(() => OnToggleItem.InvokeAsync(item))">
+                                <td>
+                                    <div class="activity-media-group__title-cell">
+                                        <AppMaterialIcon Icon="@(expanded ? Icons.Material.Outlined.KeyboardArrowUp : Icons.Material.Outlined.KeyboardArrowDown)"
+                                                         Size="MudBlazor.Size.Small"
+                                                         Class="activity-media-group__row-chevron" />
+                                        <span class="activity-media-group__thumb @(!CanShowCover(item) ? "is-placeholder" : null)">
+                                            @if (CanShowCover(item))
+                                            {
+                                                <img src="@ThumbnailUrl(item.CoverUrl)" alt="" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <AppMaterialIcon Icon="@ActivityDisplay.MediaIcon(item.MediaType)" Size="MudBlazor.Size.Small" />
+                                            }
+                                        </span>
+                                        <span class="activity-media-group__title">
+                                            <strong>@item.Title</strong>
+                                            @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                                            {
+                                                <small>@item.Subtitle</small>
+                                            }
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>@ActivityDisplay.ProviderName(item.Provider)</td>
+                                <td>@FirstNonBlank(item.WikidataQid, "-")</td>
+                                <td>
+                                    <span class="activity-media-group__signal">
+                                        <AppMaterialIcon Icon="@Icons.Material.Outlined.People" Size="MudBlazor.Size.Small" />
+                                        @item.PeopleCount.ToString("N0")
+                                    </span>
+                                </td>
+                                <td>@FirstNonBlank(item.DurationLabel, FormatDuration(item.DurationSeconds), "-")</td>
+                            </tr>
+
+                            @if (expanded)
+                            {
+                                <tr class="activity-media-group__detail" @key="@($"detail-{item.AssetId}")">
+                                    <td colspan="5">
+                                        <ActivityTitleAuditDetail Detail="@DetailForItem?.Invoke(item)"
+                                                                  Loading="@(IsItemLoading?.Invoke(item) == true)" />
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </AppExpandableAuditTable>
+
+                <AppCompactPager Offset="@Offset"
+                                 Limit="@Limit"
+                                 HasMore="@HasMore"
+                                 TotalCount="@TotalCount"
+                                 Loading="@Loading"
+                                 OffsetChanged="@OffsetChanged"
+                                 Class="activity-media-group__pager" />
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ActivityMediaTypeGroupViewModel Group { get; set; } = new();
+    [Parameter] public bool Expanded { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public IReadOnlyList<ActivityBatchItemViewModel> Items { get; set; } = [];
+    [Parameter] public int Offset { get; set; }
+    [Parameter] public int Limit { get; set; } = 25;
+    [Parameter] public bool HasMore { get; set; }
+    [Parameter] public int? TotalCount { get; set; }
+    [Parameter] public string ActiveSort { get; set; } = "title";
+    [Parameter] public string SortDirection { get; set; } = "asc";
+    [Parameter] public Func<ActivityBatchItemViewModel, ActivityBatchItemDetailViewModel?>? DetailForItem { get; set; }
+    [Parameter] public Func<ActivityBatchItemViewModel, bool>? IsItemExpanded { get; set; }
+    [Parameter] public Func<ActivityBatchItemViewModel, bool>? IsItemLoading { get; set; }
+    [Parameter] public EventCallback<ActivityMediaTypeGroupViewModel> OnToggle { get; set; }
+    [Parameter] public EventCallback<ActivityBatchItemViewModel> OnToggleItem { get; set; }
+    [Parameter] public EventCallback<string> SortRequested { get; set; }
+    [Parameter] public EventCallback<int> OffsetChanged { get; set; }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+
+    private static int IssueCount(ActivityMediaTypeGroupViewModel group) =>
+        Math.Max(group.ReviewCount, 0) + Math.Max(group.AlertCount - group.ReviewCount, 0);
+
+    private static bool CanShowCover(ActivityBatchItemViewModel item) =>
+        !string.IsNullOrWhiteSpace(item.CoverUrl)
+        && string.Equals(ActivityDisplay.StatusText(item.Status, item.AuditStatus), "Complete", StringComparison.OrdinalIgnoreCase);
+
+    private static string ThumbnailUrl(string? coverUrl) =>
+        MediaTileArtworkUrl.Sized(coverUrl, "s") ?? coverUrl ?? "";
+
+    private static string? FormatDuration(double? seconds)
+    {
+        if (seconds is not > 0)
+            return null;
+
+        var duration = TimeSpan.FromSeconds(seconds.Value);
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}h {duration.Minutes}m"
+            : $"{duration.Minutes}m {duration.Seconds}s";
+    }
+}

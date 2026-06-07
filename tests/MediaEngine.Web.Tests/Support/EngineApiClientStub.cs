@@ -420,6 +420,28 @@ internal class EngineApiClientStub : DispatchProxy
                 Offset: 0,
                 Limit: 100,
                 HasMore: false));
+        _handlers[nameof(IEngineApiClient.GetActivityBatchesAsync)] =
+            _ => Task.FromResult<PagedResponse<ActivityBatchSummaryViewModel>?>(new PagedResponse<ActivityBatchSummaryViewModel>(
+                [],
+                Offset: 0,
+                Limit: 25,
+                HasMore: false));
+        _handlers[nameof(IEngineApiClient.GetActivityBatchGroupsAsync)] =
+            _ => Task.FromResult(new List<ActivityMediaTypeGroupViewModel>());
+        _handlers[nameof(IEngineApiClient.GetActivityBatchItemsAsync)] =
+            _ => Task.FromResult<PagedResponse<ActivityBatchItemViewModel>?>(new PagedResponse<ActivityBatchItemViewModel>(
+                [],
+                Offset: 0,
+                Limit: 25,
+                HasMore: false));
+        _handlers[nameof(IEngineApiClient.GetActivityBatchItemDetailAsync)] =
+            _ => Task.FromResult<ActivityBatchItemDetailViewModel?>(null);
+        _handlers[nameof(IEngineApiClient.GetActivityPeopleAsync)] =
+            _ => Task.FromResult<PagedResponse<ActivityPersonAuditViewModel>?>(new PagedResponse<ActivityPersonAuditViewModel>(
+                [],
+                Offset: 0,
+                Limit: 25,
+                HasMore: false));
         _handlers[nameof(IEngineApiClient.GetAssetCapabilitiesAsync)] =
             _ => Task.FromResult<IReadOnlyList<EntityCapabilityStateViewModel>>([]);
         _handlers[nameof(IEngineApiClient.GetCapabilitySummaryAsync)] =

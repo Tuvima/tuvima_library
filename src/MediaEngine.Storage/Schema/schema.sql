@@ -971,6 +971,9 @@ CREATE INDEX IF NOT EXISTS idx_canonical_value_arrays_key_value_entity
 CREATE INDEX IF NOT EXISTS idx_canonical_values_key_value_entity
     ON canonical_values(key, value, entity_id);
 
+CREATE INDEX IF NOT EXISTS idx_canonical_values_entity_key
+    ON canonical_values(entity_id, key);
+
 CREATE INDEX IF NOT EXISTS idx_character_portraits_character
     ON character_portraits(fictional_entity_id);
 
@@ -1074,6 +1077,9 @@ CREATE INDEX IF NOT EXISTS idx_identity_jobs_lease ON identity_jobs (state, leas
 CREATE INDEX IF NOT EXISTS idx_identity_jobs_run_entity_updated
     ON identity_jobs(ingestion_run_id, entity_id, updated_at);
 
+CREATE INDEX IF NOT EXISTS idx_identity_jobs_activity_latest
+    ON identity_jobs(ingestion_run_id, entity_id, updated_at, created_at);
+
 CREATE INDEX IF NOT EXISTS idx_identity_jobs_state ON identity_jobs (state);
 
 CREATE INDEX IF NOT EXISTS idx_image_cache_phash
@@ -1130,8 +1136,14 @@ ON media_operation_events(entity_id, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_media_operation_events_operation
 ON media_operation_events(operation_id, occurred_at);
 
+CREATE INDEX IF NOT EXISTS idx_media_operation_events_batch_entity
+ON media_operation_events(batch_id, entity_id, occurred_at);
+
 CREATE INDEX IF NOT EXISTS idx_media_operations_batch
 ON media_operations(batch_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_media_operations_batch_entity_type
+ON media_operations(batch_id, entity_id, operation_type);
 
 CREATE INDEX IF NOT EXISTS idx_media_operations_capability
 ON media_operations(capability_id, status, next_retry_at);
@@ -1170,6 +1182,9 @@ CREATE INDEX IF NOT EXISTS idx_person_group_members_member
 
 CREATE INDEX IF NOT EXISTS idx_person_media_links_asset
     ON person_media_links (media_asset_id);
+
+CREATE INDEX IF NOT EXISTS idx_person_media_links_asset_role_person
+    ON person_media_links(media_asset_id, role, person_id);
 
 CREATE INDEX IF NOT EXISTS idx_person_media_links_person
     ON person_media_links(person_id);
@@ -1211,6 +1226,9 @@ CREATE INDEX IF NOT EXISTS idx_review_queue_entity_id
 CREATE INDEX IF NOT EXISTS idx_review_queue_status
     ON review_queue (status);
 
+CREATE INDEX IF NOT EXISTS idx_review_queue_status_entity_ready
+    ON review_queue(status, entity_id, review_ready_at);
+
 CREATE UNIQUE INDEX IF NOT EXISTS ux_review_queue_pending_entity_trigger
     ON review_queue (entity_id, trigger)
     WHERE status = 'Pending';
@@ -1241,6 +1259,9 @@ CREATE INDEX IF NOT EXISTS idx_system_activity_action_type
 
 CREATE INDEX IF NOT EXISTS idx_system_activity_occurred_at
     ON system_activity (occurred_at);
+
+CREATE INDEX IF NOT EXISTS idx_system_activity_run_entity_action
+    ON system_activity(ingestion_run_id, entity_id, action_type, occurred_at);
 
 CREATE INDEX IF NOT EXISTS idx_text_tracks_asset_kind
     ON text_tracks(asset_id, kind);

@@ -1,0 +1,32 @@
+.activity-people {
+    display: grid;
+    gap: 16px;
+}
+
+.activity-people__filter {
+    min-width: 160px;
+}
+
+.activity-people__person,
+.activity-people__source {
+    display: grid;
+    gap: 2px;
+}
+
+.activity-people__media {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--tl-text-secondary);
+    font-weight: 700;
+}
+
+.activity-people__media ::deep .mud-icon-root {
+    color: var(--tl-text-muted);
+}
+
+.activity-people__person span,
+.activity-people__source span {
+    color: var(--tl-text-muted);
+    font-size: 0.82rem;
+}

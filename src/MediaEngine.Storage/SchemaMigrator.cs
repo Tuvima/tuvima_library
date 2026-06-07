@@ -99,11 +99,17 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_canonical_values_key_value_entity
                 ON canonical_values(key, value, entity_id);
 
+            CREATE INDEX IF NOT EXISTS idx_canonical_values_entity_key
+                ON canonical_values(entity_id, key);
+
             CREATE INDEX IF NOT EXISTS idx_canonical_value_arrays_key_value_entity
                 ON canonical_value_arrays(key, value, entity_id);
 
             CREATE INDEX IF NOT EXISTS idx_person_media_links_person
                 ON person_media_links(person_id);
+
+            CREATE INDEX IF NOT EXISTS idx_person_media_links_asset_role_person
+                ON person_media_links(media_asset_id, role, person_id);
 
             CREATE INDEX IF NOT EXISTS idx_ingestion_log_run_created
                 ON ingestion_log(ingestion_run_id, created_at);
@@ -111,8 +117,23 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_identity_jobs_run_entity_updated
                 ON identity_jobs(ingestion_run_id, entity_id, updated_at);
 
+            CREATE INDEX IF NOT EXISTS idx_identity_jobs_activity_latest
+                ON identity_jobs(ingestion_run_id, entity_id, updated_at, created_at);
+
             CREATE INDEX IF NOT EXISTS idx_media_operations_source_path
                 ON media_operations(operation_type, source_path, status);
+
+            CREATE INDEX IF NOT EXISTS idx_media_operations_batch_entity_type
+                ON media_operations(batch_id, entity_id, operation_type);
+
+            CREATE INDEX IF NOT EXISTS idx_media_operation_events_batch_entity
+                ON media_operation_events(batch_id, entity_id, occurred_at);
+
+            CREATE INDEX IF NOT EXISTS idx_review_queue_status_entity_ready
+                ON review_queue(status, entity_id, review_ready_at);
+
+            CREATE INDEX IF NOT EXISTS idx_system_activity_run_entity_action
+                ON system_activity(ingestion_run_id, entity_id, action_type, occurred_at);
 
             CREATE UNIQUE INDEX IF NOT EXISTS ux_review_queue_pending_entity_trigger
                 ON review_queue(entity_id, trigger)

@@ -1,0 +1,35 @@
+.activity-maintenance__row,
+.activity-maintenance__heading,
+.activity-maintenance__bounds {
+    display: flex;
+    align-items: center;
+}
+
+.activity-maintenance__row {
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.activity-maintenance__control {
+    flex: 1;
+    min-width: 220px;
+}
+
+.activity-maintenance__heading,
+.activity-maintenance__bounds {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.activity-maintenance__heading span,
+.activity-maintenance__bounds,
+.activity-maintenance__stats {
+    color: var(--tl-text-muted);
+}
+
+@media (max-width: 720px) {
+    .activity-maintenance__row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Net.Sockets;
 using MediaEngine.Domain;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Settings;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -446,6 +447,35 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(
         Guid runId, CancellationToken ct = default)
         => _api.GetActivityByRunIdAsync(runId, ct);
+
+    public Task<PagedResponse<ActivityBatchSummaryViewModel>?> GetActivityBatchesAsync(
+        ActivityAuditQuery query, CancellationToken ct = default)
+        => _api.GetActivityBatchesAsync(query, ct);
+
+    public Task<List<ActivityMediaTypeGroupViewModel>> GetActivityBatchGroupsAsync(
+        Guid batchId, CancellationToken ct = default)
+        => _api.GetActivityBatchGroupsAsync(batchId, ct);
+
+    public Task<PagedResponse<ActivityBatchItemViewModel>?> GetActivityBatchItemsAsync(
+        Guid batchId,
+        string? mediaType = null,
+        int offset = 0,
+        int limit = 25,
+        string? sort = null,
+        string? sortDirection = null,
+        CancellationToken ct = default)
+        => _api.GetActivityBatchItemsAsync(batchId, mediaType, offset, limit, sort, sortDirection, ct);
+
+    public Task<ActivityBatchItemDetailViewModel?> GetActivityBatchItemDetailAsync(
+        Guid batchId,
+        Guid assetId,
+        CancellationToken ct = default)
+        => _api.GetActivityBatchItemDetailAsync(batchId, assetId, ct);
+
+    public Task<PagedResponse<ActivityPersonAuditViewModel>?> GetActivityPeopleAsync(
+        ActivityAuditQuery query,
+        CancellationToken ct = default)
+        => _api.GetActivityPeopleAsync(query, ct);
 
     /// <summary>Triggers a library reconciliation scan for missing files.</summary>
     public Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default)

@@ -365,6 +365,32 @@ public interface IEngineApiClient
     Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
         string[] actionTypes, int limit = 50, CancellationToken ct = default);
 
+    Task<PagedResponse<ActivityBatchSummaryViewModel>?> GetActivityBatchesAsync(
+        ActivityAuditQuery query,
+        CancellationToken ct = default);
+
+    Task<List<ActivityMediaTypeGroupViewModel>> GetActivityBatchGroupsAsync(
+        Guid batchId,
+        CancellationToken ct = default);
+
+    Task<PagedResponse<ActivityBatchItemViewModel>?> GetActivityBatchItemsAsync(
+        Guid batchId,
+        string? mediaType = null,
+        int offset = 0,
+        int limit = 25,
+        string? sort = null,
+        string? sortDirection = null,
+        CancellationToken ct = default);
+
+    Task<ActivityBatchItemDetailViewModel?> GetActivityBatchItemDetailAsync(
+        Guid batchId,
+        Guid assetId,
+        CancellationToken ct = default);
+
+    Task<PagedResponse<ActivityPersonAuditViewModel>?> GetActivityPeopleAsync(
+        ActivityAuditQuery query,
+        CancellationToken ct = default);
+
     // ── UI Settings (/settings/ui) ───────────────────────────────────────────────
 
     /// <summary>

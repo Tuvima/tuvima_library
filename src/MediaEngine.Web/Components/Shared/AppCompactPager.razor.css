@@ -1,0 +1,23 @@
+.app-compact-pager,
+.app-compact-pager__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.app-compact-pager {
+    justify-content: space-between;
+    padding-top: 12px;
+}
+
+.app-compact-pager__summary {
+    color: var(--tl-text-muted);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+    .app-compact-pager {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

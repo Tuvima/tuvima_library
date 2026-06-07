@@ -1694,6 +1694,164 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<PagedResponse<ActivityBatchSummaryViewModel>?> GetActivityBatchesAsync(
+        ActivityAuditQuery query,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<PagedResponse<ActivityBatchSummaryViewModel>>(
+                BuildActivityQueryPath("/activity/batches", query), ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/batches failed");
+            return null;
+        }
+    }
+
+    public async Task<List<ActivityMediaTypeGroupViewModel>> GetActivityBatchGroupsAsync(
+        Guid batchId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<ActivityMediaTypeGroupViewModel>>(
+                $"/activity/batches/{batchId:D}/groups", ct);
+            return raw ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/batches/{BatchId}/groups failed", batchId);
+            return [];
+        }
+    }
+
+    public async Task<PagedResponse<ActivityBatchItemViewModel>?> GetActivityBatchItemsAsync(
+        Guid batchId,
+        string? mediaType = null,
+        int offset = 0,
+        int limit = 25,
+        string? sort = null,
+        string? sortDirection = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var query = new ActivityAuditQuery
+            {
+                MediaType = mediaType,
+                Offset = offset,
+                Limit = limit,
+                Sort = sort,
+                SortDirection = string.IsNullOrWhiteSpace(sortDirection) ? "asc" : sortDirection,
+            };
+            var page = await _http.GetFromJsonAsync<PagedResponse<ActivityBatchItemViewModel>>(
+                BuildActivityQueryPath($"/activity/batches/{batchId:D}/items", query), ct);
+            if (page is not null)
+            {
+                foreach (var item in page.Items)
+                {
+                    if (item.CoverUrl is not null)
+                        item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+                }
+            }
+
+            return page;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/batches/{BatchId}/items failed", batchId);
+            return null;
+        }
+    }
+
+    public async Task<ActivityBatchItemDetailViewModel?> GetActivityBatchItemDetailAsync(
+        Guid batchId,
+        Guid assetId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var detail = await _http.GetFromJsonAsync<ActivityBatchItemDetailViewModel>(
+                $"/activity/batches/{batchId:D}/items/{assetId:D}", ct);
+            NormalizeActivityDetail(detail);
+            return detail;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/batches/{BatchId}/items/{AssetId} failed", batchId, assetId);
+            return null;
+        }
+    }
+
+    public async Task<PagedResponse<ActivityPersonAuditViewModel>?> GetActivityPeopleAsync(
+        ActivityAuditQuery query,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var page = await _http.GetFromJsonAsync<PagedResponse<ActivityPersonAuditViewModel>>(
+                BuildActivityQueryPath("/activity/people", query), ct);
+            if (page is not null)
+            {
+                foreach (var person in page.Items)
+                    NormalizeActivityPerson(person);
+            }
+
+            return page;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/people failed");
+            return null;
+        }
+    }
+
+    private static string BuildActivityQueryPath(string path, ActivityAuditQuery query)
+    {
+        var values = new List<string>();
+        Add(values, "search", query.Search);
+        Add(values, "mediaType", query.MediaType);
+        Add(values, "status", query.Status);
+        Add(values, "source", query.Source);
+        Add(values, "eventType", query.EventType);
+        Add(values, "start", query.Start?.ToString("O"));
+        Add(values, "end", query.End?.ToString("O"));
+        Add(values, "sort", query.Sort);
+        Add(values, "sortDirection", query.SortDirection);
+        values.Add($"offset={query.Offset}");
+        values.Add($"limit={query.Limit}");
+
+        return values.Count == 0 ? path : $"{path}?{string.Join("&", values)}";
+
+        static void Add(List<string> values, string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                values.Add($"{key}={Uri.EscapeDataString(value)}");
+        }
+    }
+
+    private void NormalizeActivityDetail(ActivityBatchItemDetailViewModel? detail)
+    {
+        if (detail is null)
+            return;
+
+        foreach (var person in detail.People)
+            NormalizeActivityPerson(person);
+    }
+
+    private void NormalizeActivityPerson(ActivityPersonAuditViewModel person)
+    {
+        if (!string.IsNullOrWhiteSpace(person.HeadshotUrl))
+            person.HeadshotUrl = AbsoluteUrl(person.HeadshotUrl);
+    }
+
     // -- Organization template ------------------------------------------------
 
     public async Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(

@@ -1,0 +1,186 @@
+@namespace MediaEngine.Web.Components.Activity
+@using MediaEngine.Contracts.Paging
+@inject UIOrchestratorService Orchestrator
+
+<div class="activity-people">
+    <AppFilterBar Search="@_query.Search"
+                  SearchChanged="@OnSearchChanged"
+                  OnSearchDebounced="@OnSearchDebounced"
+                  Placeholder="Search people, QIDs, titles, or sources..."
+                  Loading="@_loading"
+                  OnRefresh="@LoadAsync">
+        <AppSelect
+            Value="@_query.MediaType"
+            ValueChanged="@OnMediaTypeChanged"
+            Options="@MediaTypeOptions"
+            Label="Media"
+            Class="activity-people__filter" />
+    </AppFilterBar>
+
+    @if (_loading && _people.Count == 0)
+    {
+        <AppProgressBar Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error) && _people.Count == 0)
+    {
+        <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
+    }
+    else if (_people.Count == 0)
+    {
+        <AppEmptyState Title="No people activity" Message="No hydrated or linked people match the current filters." />
+    }
+    else
+    {
+        <AppExpandableAuditTable Class="activity-people__table">
+            <thead>
+                <tr>
+                    <th>Person</th>
+                    <th>Role</th>
+                    <th>Source</th>
+                    <th>Linked Title</th>
+                    <th>Media</th>
+                    <th>Batch</th>
+                    <th>Hydrated</th>
+                    <th>Headshot</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var person in _people)
+                {
+                    <tr @key="@($"{person.PersonId:N}-{person.AssetId?.ToString("N")}-{person.Role}")">
+                        <td>
+                            <div class="activity-people__person">
+                                <strong>@person.PersonName</strong>
+                                @if (!string.IsNullOrWhiteSpace(person.WikidataQid))
+                                {
+                                    <span>@person.WikidataQid</span>
+                                }
+                            </div>
+                        </td>
+                        <td>@FirstNonBlank(person.Role, "-")</td>
+                        <td>
+                            <div class="activity-people__source">
+                                <strong>@FirstNonBlank(person.ProviderId, "inferred")</strong>
+                                <span>@person.Source</span>
+                            </div>
+                        </td>
+                        <td>@FirstNonBlank(person.Title, "-")</td>
+                        <td>
+                            <span class="activity-people__media" title='@FirstNonBlank(person.MediaType, "Unknown")'>
+                                <AppMaterialIcon Icon="@MediaIcon(person.MediaType)" Size="MudBlazor.Size.Small" />
+                                @ShortMediaLabel(person.MediaType)
+                            </span>
+                        </td>
+                        <td>@(person.BatchId.HasValue ? ShortId(person.BatchId.Value) : "-")</td>
+                        <td>@FormatDate(person.HydratedAt ?? person.BatchStartedAt)</td>
+                        <td><AppStatusChip Text="@person.HeadshotStatus" Tone="@HeadshotTone(person.HeadshotStatus)" /></td>
+                    </tr>
+                }
+            </tbody>
+        </AppExpandableAuditTable>
+
+        <AppCompactPager Offset="@_query.Offset"
+                         Limit="@_query.Limit"
+                         HasMore="@(_page?.HasMore == true)"
+                         TotalCount="@_page?.TotalCount"
+                         Loading="@_loading"
+                         OffsetChanged="@OnPageChanged" />
+    }
+</div>
+
+@code {
+    private readonly ActivityAuditQuery _query = new();
+    private PagedResponse<ActivityPersonAuditViewModel>? _page;
+    private List<ActivityPersonAuditViewModel> _people = [];
+    private bool _loading = true;
+    private string? _error;
+
+    private static readonly IReadOnlyList<AppSelectOption> MediaTypeOptions =
+    [
+        new("", "All"),
+        new("Movies", "Movies"),
+        new("TV", "TV"),
+        new("Music", "Music"),
+        new("Books", "Books"),
+        new("Audiobooks", "Audiobooks"),
+        new("Comics", "Comics"),
+    ];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _page = await Orchestrator.GetActivityPeopleAsync(_query);
+            _people = _page?.Items.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _error = $"People activity could not load: {ex.Message}";
+            _people = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _query.Search = value;
+        _query.Offset = 0;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSearchDebounced(string _)
+    {
+        _query.Offset = 0;
+        await LoadAsync();
+    }
+
+    private async Task OnMediaTypeChanged(string? value)
+    {
+        _query.MediaType = string.IsNullOrWhiteSpace(value) ? null : value;
+        _query.Offset = 0;
+        await LoadAsync();
+    }
+
+    private async Task OnPageChanged(int offset)
+    {
+        _query.Offset = offset;
+        await LoadAsync();
+    }
+
+    private static string ShortId(Guid id) => id.ToString("N")[..6];
+
+    private static string FormatDate(DateTimeOffset? value) =>
+        value?.ToLocalTime().ToString("MMM d, yyyy h:mm tt") ?? "-";
+
+    private static string HeadshotTone(string status) =>
+        string.Equals(status, "Missing", StringComparison.OrdinalIgnoreCase) ? "warning" : "success";
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+
+    private static string MediaIcon(string? mediaType) => mediaType?.Trim().ToLowerInvariant() switch
+    {
+        "movies" or "movie" => Icons.Material.Outlined.Movie,
+        "tv" or "tv shows" or "show" => Icons.Material.Outlined.LiveTv,
+        "music" or "album" => Icons.Material.Outlined.Album,
+        "books" or "book" => Icons.Material.Outlined.MenuBook,
+        "audiobooks" or "audiobook" => Icons.Material.Outlined.Headphones,
+        "comics" or "comic" => Icons.Material.Outlined.AutoStories,
+        _ => Icons.Material.Outlined.Inventory2,
+    };
+
+    private static string ShortMediaLabel(string? mediaType) => mediaType?.Trim() switch
+    {
+        "TV Shows" => "TV",
+        "Audiobooks" => "Audio",
+        { Length: > 0 } value => value,
+        _ => "Media",
+    };
+}

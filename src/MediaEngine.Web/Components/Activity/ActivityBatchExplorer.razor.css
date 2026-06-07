@@ -1,0 +1,140 @@
+.activity-audit {
+    display: grid;
+    gap: 16px;
+}
+
+.activity-audit__filters {
+    margin-bottom: 2px;
+}
+
+.activity-audit__filter {
+    min-width: 160px;
+}
+
+.activity-audit__progress {
+    min-height: 120px;
+}
+
+.activity-audit__table ::deep .app-table {
+    table-layout: fixed;
+    min-width: 1040px;
+}
+
+.activity-audit__col-batch { width: 22%; }
+.activity-audit__col-started { width: 18%; }
+.activity-audit__col-media { width: 26%; }
+.activity-audit__col-total { width: 10%; }
+.activity-audit__col-duration { width: 12%; }
+.activity-audit__col-status { width: 12%; }
+
+.activity-audit__row td {
+    vertical-align: middle;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.activity-audit__table ::deep th,
+.activity-audit__table ::deep td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-audit__batch-cell,
+.activity-audit__media-icons,
+.activity-audit__media-count {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.activity-audit__batch-cell {
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.activity-audit__batch-cell strong {
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    letter-spacing: 0;
+}
+
+.activity-audit__expand {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--tl-accent-primary);
+    background: rgba(139, 92, 246, 0.08);
+}
+
+.activity-audit__batch-icon {
+    color: var(--tl-text-muted);
+}
+
+.activity-audit__media-icons {
+    gap: 8px;
+}
+
+.activity-audit__media-count,
+.activity-audit__more {
+    height: 28px;
+    gap: 5px;
+    padding: 0 8px;
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: 7px;
+    color: var(--tl-text-secondary);
+    background: rgba(255, 255, 255, 0.035);
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.activity-audit__media-count.is-review,
+.activity-audit__media-count.is-review ::deep .mud-icon-root {
+    color: var(--tl-status-warning);
+}
+
+.activity-audit__media-count.is-books,
+.activity-audit__media-count.is-books ::deep .mud-icon-root {
+    color: #a78bfa;
+}
+
+.activity-audit__media-count.is-audiobooks,
+.activity-audit__media-count.is-audiobooks ::deep .mud-icon-root {
+    color: #38bdf8;
+}
+
+.activity-audit__media-count.is-music,
+.activity-audit__media-count.is-music ::deep .mud-icon-root {
+    color: #f472b6;
+}
+
+.activity-audit__media-count.is-comics,
+.activity-audit__media-count.is-comics ::deep .mud-icon-root {
+    color: #60a5fa;
+}
+
+.activity-audit__media-count.is-movies,
+.activity-audit__media-count.is-movies ::deep .mud-icon-root,
+.activity-audit__media-count.is-tv,
+.activity-audit__media-count.is-tv ::deep .mud-icon-root {
+    color: #34d399;
+}
+
+.activity-audit__more {
+    display: inline-flex;
+    align-items: center;
+    color: var(--tl-text-muted);
+}
+
+.activity-audit__expanded td {
+    padding: 0 12px 14px;
+    white-space: normal;
+    overflow: visible;
+}
+
+.activity-audit__nested {
+    display: grid;
+    gap: 8px;
+    padding: 8px 0 0;
+}

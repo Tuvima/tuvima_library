@@ -1,90 +1,12 @@
-.activity-retention-row,
-.activity-filter-row,
-.activity-run-filter,
-.activity-entry-header {
-    display: flex;
-    align-items: center;
-}
-
-.activity-retention-heading,
-.activity-retention-bounds {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.activity-retention-heading span,
-.activity-retention-bounds span,
-.activity-retention-stats,
-.activity-filter-label,
-.activity-entry-time,
-.activity-entry-detail {
-    color: var(--tl-text-muted);
-}
-
-.activity-retention-heading strong {
-    color: var(--tl-text-primary);
-}
-
-.activity-timeline {
+.activity-page {
     display: grid;
-    position: relative;
-    min-height: 180px;
+    gap: 18px;
 }
 
-.activity-timeline.is-refreshing {
-    opacity: 0.9;
-}
-
-.activity-refresh-bar {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-
-.activity-entry-header {
-    align-items: flex-start;
-}
-
-.activity-entry {
-    min-height: 58px;
-}
-
-.activity-entry-time {
-    margin-left: auto;
-    font-size: 0.75rem;
-}
-
-.activity-entry-detail {
-    margin: 2px 0 0;
-}
-
-.activity-run-filter {
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid rgba(96, 165, 250, 0.22);
-    border-radius: 8px;
-    background: rgba(59, 130, 246, 0.08);
-}
-
-.activity-run-filter span {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+.activity-page__tabs {
     min-width: 0;
-    color: var(--tl-text-muted);
 }
 
-.activity-run-filter strong {
-    color: var(--tl-text-primary);
-    font-variant-numeric: tabular-nums;
+.activity-page__panel {
+    padding-top: 16px;
 }
-
-.activity-entry-dot--success { background: var(--tl-status-success); }
-.activity-entry-dot--primary { background: var(--tl-accent-primary); }
-.activity-entry-dot--info { background: var(--tl-status-info); }
-.activity-entry-dot--warning { background: var(--tl-status-warning); }
-.activity-entry-dot--danger { background: var(--tl-status-danger); }
-.activity-entry-dot--idle { background: var(--tl-status-idle); }

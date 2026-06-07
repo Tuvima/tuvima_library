@@ -1,0 +1,542 @@
+using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Storage;
+using Microsoft.Data.Sqlite;
+
+namespace MediaEngine.Api.Tests;
+
+public sealed class ActivityBatchReadServiceTests : IDisposable
+{
+    private readonly string _dbPath;
+    private readonly DatabaseConnection _db;
+
+    public ActivityBatchReadServiceTests()
+    {
+        DapperConfiguration.Configure();
+        _dbPath = Path.Combine(Path.GetTempPath(), $"tuvima_activity_batch_{Guid.NewGuid():N}.db");
+        _db = new DatabaseConnection(_dbPath);
+        _db.InitializeSchema();
+        _db.RunStartupChecks();
+    }
+
+    public void Dispose()
+    {
+        try { _db.Dispose(); } catch { }
+        try { File.Delete(_dbPath); } catch { }
+    }
+
+    [Fact]
+    public async Task ActivityBatchReadService_ReturnsBatchGroupsItemsDetailsAndPeopleAudit()
+    {
+        var seed = SeedActivityBatch();
+        var service = new ActivityBatchReadService(_db);
+        var query = new ActivityBatchQuery(
+            Search: "Dune",
+            MediaType: "Movies",
+            Status: "completed",
+            Source: null,
+            EventType: null,
+            Start: null,
+            End: null,
+            Offset: 0,
+            Limit: 10);
+
+        var batches = await service.GetBatchesAsync(query);
+        var groups = await service.GetGroupsAsync(seed.BatchId);
+        var items = await service.GetItemsAsync(seed.BatchId, "Needs Review", 0, 10, "title", "asc");
+        var movieItems = await service.GetItemsAsync(seed.BatchId, "Movies", 0, 10, "title", "asc");
+        var detail = await service.GetItemDetailAsync(seed.BatchId, seed.AssetId);
+        var people = await service.GetPeopleAsync(new ActivityBatchQuery(
+            Search: "Frank Herbert",
+            MediaType: "Movies",
+            Status: null,
+            Source: null,
+            EventType: null,
+            Start: null,
+            End: null,
+            Offset: 0,
+            Limit: 10));
+
+        var batch = Assert.Single(batches.Items);
+        Assert.Equal(seed.BatchId, batch.BatchId);
+        Assert.Equal("completed", batch.Status);
+        Assert.Equal(1, batch.MediaTypeCount);
+        Assert.Equal(1, batch.TitleCount);
+        Assert.Equal(1, batch.ItemCount);
+        Assert.Equal(2, batch.EventCount);
+        Assert.Equal(1, batch.PeopleCount);
+        Assert.Equal(1, batch.ReviewCount);
+        Assert.Equal(1, batch.AlertCount);
+        Assert.NotNull(batch.DurationLabel);
+        Assert.Equal("Movies", Assert.Single(batch.MediaTypes).MediaType);
+
+        var group = Assert.Single(groups);
+        Assert.Equal("Needs Review", group.MediaType);
+        Assert.Equal(1, group.TitleCount);
+        Assert.Equal(1, group.PeopleCount);
+        Assert.Equal(1, group.ReviewCount);
+        Assert.Empty(movieItems.Items);
+
+        var item = Assert.Single(items.Items);
+        Assert.Equal(seed.AssetId, item.AssetId);
+        Assert.Equal("Dune (2021)", item.Title);
+        Assert.Equal("tmdb", item.Provider);
+        Assert.Equal("Q1058080", item.WikidataQid);
+        Assert.Equal($"/stream/artwork/{seed.ArtworkId:D}", item.CoverUrl);
+        Assert.Equal("Needs review", item.Status);
+        Assert.Equal("succeeded", item.ProcessingStatus);
+        Assert.Equal("NeedsReview", item.AuditStatus);
+        Assert.Equal("2h 35m", item.DurationLabel);
+        Assert.Equal(seed.WorkId, item.LibraryEntityId);
+        Assert.Equal(1, item.PeopleCount);
+        Assert.Equal(1, item.ArtworkCount);
+        Assert.Equal(1, item.ReviewCount);
+
+        Assert.NotNull(detail);
+        Assert.Equal(seed.AssetId, detail.AssetId);
+        Assert.Equal("Dune (2021)", detail.Title);
+        Assert.Equal(seed.WorkId, detail.LibraryEntityId);
+        Assert.Equal("2h 35m", detail.DurationLabel);
+        Assert.Contains(detail.Timeline, evt => evt.EventType == "MediaAdded");
+        Assert.Contains(detail.Timeline, evt => evt.EventType == "FileHashed");
+        var detailPerson = Assert.Single(detail.People);
+        Assert.Equal("Frank Herbert", detailPerson.PersonName);
+        Assert.Equal("Author", detailPerson.Role);
+        var evidence = Assert.Single(detail.Evidence);
+        Assert.Equal("provider_match", evidence.Kind);
+        Assert.Equal("{not-json", evidence.Detail);
+
+        var personAudit = Assert.Single(people.Items);
+        Assert.Equal(seed.PersonId, personAudit.PersonId);
+        Assert.Equal("Frank Herbert", personAudit.PersonName);
+        Assert.Equal("Dune (2021)", personAudit.Title);
+        Assert.Equal("Movies", personAudit.MediaType);
+        Assert.Equal("Remote", personAudit.HeadshotStatus);
+        Assert.Equal($"/persons/{seed.PersonId:D}/headshot", personAudit.HeadshotUrl);
+    }
+
+    [Fact]
+    public async Task ActivityBatchReadService_KeepsBooksAndAudiobooksSeparate()
+    {
+        var seed = SeedBooksAndAudiobooksBatch();
+        var service = new ActivityBatchReadService(_db);
+
+        var groups = await service.GetGroupsAsync(seed.BatchId);
+        var books = await service.GetItemsAsync(seed.BatchId, "Books", 0, 10, "title", "asc");
+        var audiobooks = await service.GetItemsAsync(seed.BatchId, "Audiobooks", 0, 10, "title", "asc");
+
+        Assert.Contains(groups, group => group.MediaType == "Books" && group.TitleCount == 1);
+        Assert.Contains(groups, group => group.MediaType == "Audiobooks" && group.TitleCount == 1);
+        Assert.Equal("Kindred", Assert.Single(books.Items).Title);
+        Assert.Equal("Kindred Audio", Assert.Single(audiobooks.Items).Title);
+    }
+
+    private ActivitySeed SeedActivityBatch()
+    {
+        var batchId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var operationId = Guid.NewGuid();
+        var artworkId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO ingestion_batches (
+                id,
+                status,
+                source_path,
+                category,
+                files_total,
+                files_processed,
+                files_registered,
+                files_review,
+                files_no_match,
+                files_failed,
+                started_at,
+                completed_at,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                $batchId,
+                'completed',
+                'C:/watch/movies',
+                'Movies',
+                1,
+                1,
+                1,
+                1,
+                0,
+                0,
+                $startedAt,
+                $completedAt,
+                $startedAt,
+                $completedAt
+            );
+
+            INSERT INTO works (id, media_type, work_kind, wikidata_qid)
+            VALUES ($workId, 'Movies', 'standalone', 'Q1058080');
+
+            INSERT INTO editions (id, work_id, format_label)
+            VALUES ($editionId, $workId, 'Theatrical');
+
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+            VALUES ($assetId, $editionId, 'dune-hash', 'C:/library/movies/Dune.2021.mkv');
+
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+            VALUES
+                ($assetId, 'title', 'Dune (2021)', $completedAt),
+                ($assetId, 'wikidata_qid', 'Q1058080', $completedAt),
+                ($assetId, 'duration_seconds', '9300', $completedAt);
+
+            INSERT INTO identity_jobs (
+                id,
+                entity_id,
+                entity_type,
+                media_type,
+                ingestion_run_id,
+                state,
+                pass,
+                resolved_qid,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                $jobId,
+                $assetId,
+                'MediaAsset',
+                'Movies',
+                $batchId,
+                'ReadyWithoutUniverse',
+                'Quick',
+                'Q1058080',
+                $startedAt,
+                $completedAt
+            );
+
+            INSERT INTO media_operations (
+                id,
+                operation_type,
+                operation_kind,
+                entity_id,
+                entity_kind,
+                batch_id,
+                source_path,
+                content_hash,
+                status,
+                stage,
+                priority,
+                queue_name,
+                position_key,
+                progress_percent,
+                items_total,
+                items_completed,
+                items_failed,
+                result_summary,
+                created_at,
+                started_at,
+                updated_at,
+                completed_at,
+                idempotency_key
+            )
+            VALUES (
+                $operationId,
+                'ingestion.file',
+                'ingestion',
+                $assetId,
+                'MediaAsset',
+                $batchId,
+                'C:/watch/movies/Dune.2021.mkv',
+                'dune-hash',
+                'succeeded',
+                'completed',
+                100,
+                'ingestion',
+                1,
+                100,
+                1,
+                1,
+                0,
+                'Dune (2021)',
+                $startedAt,
+                $startedAt,
+                $completedAt,
+                $completedAt,
+                'activity-batch-test'
+            );
+
+            INSERT INTO ingestion_log (
+                id,
+                file_path,
+                media_asset_id,
+                content_hash,
+                status,
+                media_type,
+                detected_title,
+                normalized_title,
+                wikidata_qid,
+                ingestion_run_id,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                $ingestionLogId,
+                'C:/watch/movies/Dune.2021.mkv',
+                $assetId,
+                'dune-hash',
+                'registered',
+                'Movies',
+                'Dune',
+                'dune',
+                'Q1058080',
+                $batchId,
+                $startedAt,
+                $completedAt
+            );
+
+            INSERT INTO media_operation_events (
+                id,
+                operation_id,
+                entity_id,
+                batch_id,
+                event_type,
+                new_status,
+                new_stage,
+                message,
+                detail_json,
+                occurred_at
+            )
+            VALUES (
+                $operationEventId,
+                $operationId,
+                $assetId,
+                $batchId,
+                'FileHashed',
+                'succeeded',
+                'hashed',
+                'SHA-256 fingerprint computed',
+                '{}',
+                $startedAt
+            );
+
+            INSERT INTO persons (id, name, wikidata_qid, headshot_url, created_at, enriched_at)
+            VALUES ($personId, 'Frank Herbert', 'Q255149', 'https://example.invalid/herbert.jpg', $startedAt, $completedAt);
+
+            INSERT INTO person_media_links (media_asset_id, person_id, role)
+            VALUES ($assetId, $personId, 'Author');
+
+            INSERT INTO entity_assets (
+                id,
+                entity_id,
+                entity_type,
+                asset_type,
+                image_url,
+                local_image_path,
+                aspect_class,
+                created_at
+            )
+            VALUES (
+                $artworkId,
+                $workId,
+                'Work',
+                'CoverArt',
+                'https://example.invalid/dune.jpg',
+                'assets/dune.jpg',
+                'Poster',
+                $completedAt
+            );
+
+            INSERT INTO review_queue (
+                id,
+                entity_id,
+                entity_type,
+                trigger,
+                status,
+                detail,
+                created_at,
+                source_operation_id,
+                source_capability_id,
+                review_ready_at
+            )
+            VALUES (
+                $reviewId,
+                $assetId,
+                'MediaAsset',
+                'NeedsMetadataReview',
+                'Pending',
+                'Provider mismatch requires review',
+                $completedAt,
+                $operationId,
+                'identity.retail',
+                $completedAt
+            );
+
+            INSERT INTO ingestion_batch_artifacts (
+                id,
+                batch_id,
+                artifact_type,
+                artifact_id,
+                parent_entity_id,
+                parent_entity_type,
+                action,
+                display_name,
+                provider_id,
+                source,
+                detail_json,
+                occurred_at
+            )
+            VALUES (
+                $artifactId,
+                $batchId,
+                'provider_match',
+                $assetId,
+                $workId,
+                'Work',
+                'matched',
+                'Dune (2021) [TMDB]',
+                'tmdb',
+                'Retail Match',
+                '{not-json',
+                $completedAt
+            );
+
+            INSERT INTO system_activity (
+                occurred_at,
+                action_type,
+                collection_name,
+                entity_id,
+                entity_type,
+                detail,
+                ingestion_run_id
+            )
+            VALUES
+                ($completedAt, 'MediaAdded', 'Dune (2021)', $assetId, 'MediaAsset', 'Dune (2021) added to library', $batchId),
+                ($completedAt, 'PersonHydrated', 'Frank Herbert', $personId, 'Person', 'Person "Frank Herbert" enriched from Wikidata', $batchId);
+            """;
+
+        AddGuid(cmd, "$batchId", batchId);
+        AddGuid(cmd, "$workId", workId);
+        AddGuid(cmd, "$editionId", editionId);
+        AddGuid(cmd, "$assetId", assetId);
+        AddGuid(cmd, "$personId", personId);
+        AddGuid(cmd, "$operationId", operationId);
+        AddGuid(cmd, "$jobId", Guid.NewGuid());
+        AddGuid(cmd, "$ingestionLogId", Guid.NewGuid());
+        AddGuid(cmd, "$operationEventId", Guid.NewGuid());
+        AddGuid(cmd, "$artworkId", artworkId);
+        AddGuid(cmd, "$reviewId", Guid.NewGuid());
+        AddGuid(cmd, "$artifactId", Guid.NewGuid());
+        cmd.Parameters.AddWithValue("$startedAt", now.AddMinutes(-5).ToString("O"));
+        cmd.Parameters.AddWithValue("$completedAt", now.ToString("O"));
+        cmd.ExecuteNonQuery();
+
+        return new ActivitySeed(batchId, workId, assetId, personId, artworkId);
+    }
+
+    private ActivitySeed SeedBooksAndAudiobooksBatch()
+    {
+        var batchId = Guid.NewGuid();
+        var bookWorkId = Guid.NewGuid();
+        var audiobookWorkId = Guid.NewGuid();
+        var bookEditionId = Guid.NewGuid();
+        var audiobookEditionId = Guid.NewGuid();
+        var bookAssetId = Guid.NewGuid();
+        var audiobookAssetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO ingestion_batches (
+                id,
+                status,
+                source_path,
+                category,
+                files_total,
+                files_processed,
+                files_registered,
+                files_review,
+                files_no_match,
+                files_failed,
+                started_at,
+                completed_at,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                $batchId,
+                'completed',
+                'C:/watch/read',
+                'Books',
+                2,
+                2,
+                2,
+                0,
+                0,
+                0,
+                $startedAt,
+                $completedAt,
+                $startedAt,
+                $completedAt
+            );
+
+            INSERT INTO works (id, media_type, work_kind)
+            VALUES
+                ($bookWorkId, 'Books', 'standalone'),
+                ($audiobookWorkId, 'Audiobooks', 'standalone');
+
+            INSERT INTO editions (id, work_id, format_label)
+            VALUES
+                ($bookEditionId, $bookWorkId, 'Ebook'),
+                ($audiobookEditionId, $audiobookWorkId, 'Audiobook');
+
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+            VALUES
+                ($bookAssetId, $bookEditionId, 'kindred-book-hash', 'C:/library/books/Kindred.epub'),
+                ($audiobookAssetId, $audiobookEditionId, 'kindred-audio-hash', 'C:/library/audiobooks/Kindred.m4b');
+
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+            VALUES
+                ($bookAssetId, 'title', 'Kindred', $completedAt),
+                ($audiobookAssetId, 'title', 'Kindred Audio', $completedAt);
+
+            INSERT INTO identity_jobs (
+                id,
+                entity_id,
+                entity_type,
+                media_type,
+                ingestion_run_id,
+                state,
+                pass,
+                created_at,
+                updated_at
+            )
+            VALUES
+                ($bookJobId, $bookAssetId, 'MediaAsset', 'Books', $batchId, 'ReadyWithoutUniverse', 'Quick', $startedAt, $completedAt),
+                ($audiobookJobId, $audiobookAssetId, 'MediaAsset', 'Books', $batchId, 'ReadyWithoutUniverse', 'Quick', $startedAt, $completedAt);
+            """;
+
+        AddGuid(cmd, "$batchId", batchId);
+        AddGuid(cmd, "$bookWorkId", bookWorkId);
+        AddGuid(cmd, "$audiobookWorkId", audiobookWorkId);
+        AddGuid(cmd, "$bookEditionId", bookEditionId);
+        AddGuid(cmd, "$audiobookEditionId", audiobookEditionId);
+        AddGuid(cmd, "$bookAssetId", bookAssetId);
+        AddGuid(cmd, "$audiobookAssetId", audiobookAssetId);
+        AddGuid(cmd, "$bookJobId", Guid.NewGuid());
+        AddGuid(cmd, "$audiobookJobId", Guid.NewGuid());
+        cmd.Parameters.AddWithValue("$startedAt", now.AddMinutes(-2).ToString("O"));
+        cmd.Parameters.AddWithValue("$completedAt", now.ToString("O"));
+        cmd.ExecuteNonQuery();
+
+        return new ActivitySeed(batchId, bookWorkId, bookAssetId, Guid.Empty, Guid.Empty);
+    }
+
+    private static void AddGuid(SqliteCommand cmd, string name, Guid value) =>
+        cmd.Parameters.Add(name, SqliteType.Blob).Value = GuidSql.ToBlob(value);
+
+    private sealed record ActivitySeed(Guid BatchId, Guid WorkId, Guid AssetId, Guid PersonId, Guid ArtworkId);
+}

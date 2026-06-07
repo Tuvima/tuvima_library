@@ -1,0 +1,23 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<AppChip Text="@Text"
+         Tone="@ResolvedTone"
+         Class="@Class"
+         OnClick="@OnClick" />
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string? Tone { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private AppUiTone ResolvedTone => Tone?.ToLowerInvariant() switch
+    {
+        "success" or "completed" or "succeeded" => AppUiTone.Success,
+        "warning" or "review" or "queued" => AppUiTone.Warning,
+        "danger" or "error" or "failed" or "alert" => AppUiTone.Error,
+        "info" or "running" or "active" => AppUiTone.Info,
+        "primary" => AppUiTone.Primary,
+        _ => AppUiTone.Neutral,
+    };
+}

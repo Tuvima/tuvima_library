@@ -1,0 +1,73 @@
+@namespace MediaEngine.Web.Components.Activity
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+<AppCard Title="Activity Retention" Class="activity-maintenance">
+    <div class="activity-maintenance__row">
+        <div class="activity-maintenance__control">
+            <div class="activity-maintenance__heading">
+                <span>Keep entries for</span>
+                <strong>@_retentionDays days</strong>
+            </div>
+            <AppSlider @bind-Value="_retentionDays" Min="7" Max="365" Step="7" />
+            <div class="activity-maintenance__bounds">
+                <span>7 days</span>
+                <span>1 year</span>
+            </div>
+        </div>
+
+        <AppButton Label="@(_pruning ? "Pruning" : "Prune Now")"
+                   Tone="AppUiTone.Warning"
+                   StartIcon="@Icons.Material.Outlined.DeleteSweep"
+                   Disabled="@(_loading || _pruning)"
+                   OnClick="@PruneNowAsync" />
+    </div>
+
+    @if (_stats is not null)
+    {
+        <span class="activity-maintenance__stats">@($"{_stats.TotalEntries:N0} activity entries retained")</span>
+    }
+</AppCard>
+
+@code {
+    private int _retentionDays = 60;
+    private bool _loading = true;
+    private bool _pruning;
+    private ActivityStatsViewModel? _stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stats = await Orchestrator.GetActivityStatsAsync();
+        if (_stats is not null)
+            _retentionDays = Math.Clamp(_stats.RetentionDays, 7, 365);
+        _loading = false;
+    }
+
+    private async Task PruneNowAsync()
+    {
+        _pruning = true;
+        try
+        {
+            var retentionSaved = await Orchestrator.UpdateRetentionAsync(_retentionDays);
+            if (!retentionSaved)
+            {
+                Snackbar.Add(Orchestrator.LastApiError ?? "Activity retention could not be saved.", Severity.Error);
+                return;
+            }
+
+            var result = await Orchestrator.TriggerPruneAsync();
+            if (result is null)
+            {
+                Snackbar.Add(Orchestrator.LastApiError ?? "Activity pruning failed.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Pruned {result.Deleted:N0} entries older than {result.RetentionDays} days", Severity.Success);
+            _stats = await Orchestrator.GetActivityStatsAsync();
+        }
+        finally
+        {
+            _pruning = false;
+        }
+    }
+}

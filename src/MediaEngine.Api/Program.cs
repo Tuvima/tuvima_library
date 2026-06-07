@@ -6,6 +6,7 @@ using MediaEngine.Api.Realtime;
 using MediaEngine.Api.Middleware;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Domain;
@@ -667,6 +668,7 @@ builder.Services.AddSingleton<IEntityTimelineRepository,     EntityTimelineRepos
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IIngestionBatchRepository,     IngestionBatchRepository>();
 builder.Services.AddSingleton<IIngestionBatchArtifactRepository, IngestionBatchArtifactRepository>();
+builder.Services.AddSingleton<IActivityBatchReadService,     ActivityBatchReadService>();
 builder.Services.AddSingleton<IMediaOperationRepository,      MediaOperationRepository>();
 builder.Services.AddSingleton<IMediaOperationEventRepository, MediaOperationEventRepository>();
 builder.Services.AddSingleton<IEntityCapabilityStateRepository, EntityCapabilityStateRepository>();

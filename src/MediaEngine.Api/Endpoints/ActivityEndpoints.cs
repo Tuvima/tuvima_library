@@ -1,6 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -14,6 +17,122 @@ public static class ActivityEndpoints
     {
         var group = app.MapGroup("/activity")
             .WithTags("Activity");
+
+        group.MapGet("/batches", async (
+            IActivityBatchReadService readService,
+            string? search,
+            string? mediaType,
+            string? status,
+            string? source,
+            string? eventType,
+            DateTimeOffset? start,
+            DateTimeOffset? end,
+            int? offset,
+            int? limit,
+            string? sort,
+            string? sortDirection,
+            CancellationToken ct) =>
+        {
+            var query = new ActivityBatchQuery(
+                search,
+                mediaType,
+                status,
+                source,
+                eventType,
+                start,
+                end,
+                offset ?? 0,
+                limit ?? 25,
+                sort,
+                sortDirection);
+
+            return Results.Ok(await readService.GetBatchesAsync(query, ct));
+        })
+        .WithName("GetActivityBatches")
+        .WithSummary("Returns paged ingestion batch summaries for the Activity audit page.")
+        .Produces<PagedResponse<ActivityBatchSummaryDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        group.MapGet("/batches/{batchId:guid}/groups", async (
+            Guid batchId,
+            IActivityBatchReadService readService,
+            CancellationToken ct) =>
+        {
+            var groups = await readService.GetGroupsAsync(batchId, ct);
+            return Results.Ok(groups);
+        })
+        .WithName("GetActivityBatchGroups")
+        .WithSummary("Returns media-type rollups for one ingestion batch.")
+        .Produces<List<ActivityMediaTypeGroupDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        group.MapGet("/batches/{batchId:guid}/items", async (
+            Guid batchId,
+            IActivityBatchReadService readService,
+            string? mediaType,
+            int? offset,
+            int? limit,
+            string? sort,
+            string? sortDirection,
+            CancellationToken ct) =>
+        {
+            var page = PagedRequest.From(offset, limit, defaultLimit: 25, maxLimit: 100);
+            return Results.Ok(await readService.GetItemsAsync(batchId, mediaType, page.Offset, page.Limit, sort, sortDirection, ct));
+        })
+        .WithName("GetActivityBatchItems")
+        .WithSummary("Returns paged title/item rows for one ingestion batch.")
+        .Produces<PagedResponse<ActivityBatchItemDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        group.MapGet("/batches/{batchId:guid}/items/{assetId:guid}", async (
+            Guid batchId,
+            Guid assetId,
+            IActivityBatchReadService readService,
+            CancellationToken ct) =>
+        {
+            var detail = await readService.GetItemDetailAsync(batchId, assetId, ct);
+            return detail is null ? Results.NotFound() : Results.Ok(detail);
+        })
+        .WithName("GetActivityBatchItemDetail")
+        .WithSummary("Returns timeline, file details, people, and provenance for one batch item.")
+        .Produces<ActivityBatchItemDetailDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        group.MapGet("/people", async (
+            IActivityBatchReadService readService,
+            string? search,
+            string? mediaType,
+            string? status,
+            string? source,
+            string? eventType,
+            DateTimeOffset? start,
+            DateTimeOffset? end,
+            int? offset,
+            int? limit,
+            string? sort,
+            string? sortDirection,
+            CancellationToken ct) =>
+        {
+            var query = new ActivityBatchQuery(
+                search,
+                mediaType,
+                status,
+                source,
+                eventType,
+                start,
+                end,
+                offset ?? 0,
+                limit ?? 25,
+                sort,
+                sortDirection);
+
+            return Results.Ok(await readService.GetPeopleAsync(query, ct));
+        })
+        .WithName("GetActivityPeopleAudit")
+        .WithSummary("Returns people hydrated or linked by ingestion batches with source provenance.")
+        .Produces<PagedResponse<ActivityPersonAuditDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
 
         // GET /activity/recent?limit=50 — returns the most recent activity entries.
         group.MapGet("/recent", async (

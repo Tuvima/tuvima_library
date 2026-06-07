@@ -1,0 +1,455 @@
+@namespace MediaEngine.Web.Components.Activity
+@using MediaEngine.Contracts.Paging
+@inject UIOrchestratorService Orchestrator
+
+<div class="activity-audit">
+    <AppFilterBar Search="@_query.Search"
+                  SearchChanged="@OnSearchChanged"
+                  OnSearchDebounced="@OnSearchDebounced"
+                  Placeholder="Search batches, titles, paths, people, or events..."
+                  Loading="@_loading"
+                  OnRefresh="@LoadBatchesAsync"
+                  Class="activity-audit__filters">
+        <AppSelect Value="@_query.MediaType"
+                   ValueChanged="@OnMediaTypeChanged"
+                   Options="@MediaTypeOptions"
+                   Label="Media"
+                   Class="activity-audit__filter" />
+        <AppSelect Value="@_query.Status"
+                   ValueChanged="@OnStatusChanged"
+                   Options="@StatusOptions"
+                   Label="Status"
+                   Class="activity-audit__filter" />
+    </AppFilterBar>
+
+    @if (_loading && _batches.Count == 0)
+    {
+        <AppProgressBar Indeterminate="true" Class="activity-audit__progress" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error) && _batches.Count == 0)
+    {
+        <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
+    }
+    else if (_batches.Count == 0)
+    {
+        <AppEmptyState Title="No activity batches" Message="No ingestion batches match the current filters." />
+    }
+    else
+    {
+        <AppExpandableAuditTable Class="activity-audit__table">
+            <colgroup>
+                <col class="activity-audit__col-batch" />
+                <col class="activity-audit__col-started" />
+                <col class="activity-audit__col-media" />
+                <col class="activity-audit__col-total" />
+                <col class="activity-audit__col-duration" />
+                <col class="activity-audit__col-status" />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th><AppSortableHeader Label="Batch ID" SortKey="batch_id" ActiveSort="@_query.Sort" Direction="@_query.SortDirection" SortRequested="@OnBatchSortRequested" /></th>
+                    <th><AppSortableHeader Label="Started" SortKey="started" ActiveSort="@_query.Sort" Direction="@_query.SortDirection" SortRequested="@OnBatchSortRequested" /></th>
+                    <th><AppSortableHeader Label="Media" SortKey="media" ActiveSort="@_query.Sort" Direction="@_query.SortDirection" SortRequested="@OnBatchSortRequested" /></th>
+                    <th><AppSortableHeader Label="Total" SortKey="total" ActiveSort="@_query.Sort" Direction="@_query.SortDirection" SortRequested="@OnBatchSortRequested" /></th>
+                    <th><AppSortableHeader Label="Duration" SortKey="duration" ActiveSort="@_query.Sort" Direction="@_query.SortDirection" SortRequested="@OnBatchSortRequested" /></th>
+                    <th><AppSortableHeader Label="Status" SortKey="status" ActiveSort="@_query.Sort" Direction="@_query.SortDirection" SortRequested="@OnBatchSortRequested" /></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var batch in _batches)
+                {
+                    var expanded = _expandedBatch == batch.BatchId;
+                    <tr class="activity-audit__row" @key="batch.BatchId">
+                        <td>
+                            <div class="activity-audit__batch-cell">
+                                <AppIconButton Icon="@(expanded ? Icons.Material.Outlined.KeyboardArrowUp : Icons.Material.Outlined.KeyboardArrowDown)"
+                                               Size="AppControlSize.Compact"
+                                               Class="activity-audit__expand"
+                                               Tooltip="@($"{(expanded ? "Collapse" : "Expand")} batch {ShortId(batch.BatchId)}")"
+                                               AriaLabel="@($"{(expanded ? "Collapse" : "Expand")} batch {ShortId(batch.BatchId)}")"
+                                               OnClick="@(() => ToggleBatchAsync(batch))" />
+                                <AppMaterialIcon Icon="@Icons.Material.Outlined.FolderCopy"
+                                                 Size="MudBlazor.Size.Small"
+                                                 Class="activity-audit__batch-icon" />
+                                <strong>@ShortId(batch.BatchId)</strong>
+                            </div>
+                        </td>
+                        <td>@FormatDate(batch.StartedAt)</td>
+                        <td>
+                            <div class="activity-audit__media-icons">
+                                @foreach (var media in batch.MediaTypes.Take(4))
+                                {
+                                    <span class="activity-audit__media-count @ActivityDisplay.MediaToneClass(media.MediaType)"
+                                          title="@($"{ActivityDisplay.NormalizeMediaType(media.MediaType)}: {media.Count:N0}")">
+                                        <AppMaterialIcon Icon="@ActivityDisplay.MediaIcon(media.MediaType)" Size="MudBlazor.Size.Small" />
+                                        <strong>@media.Count.ToString("N0")</strong>
+                                    </span>
+                                }
+                                @if (batch.MediaTypes.Count > 4)
+                                {
+                                    <span class="activity-audit__more" title="@($"{batch.MediaTypes.Count - 4:N0} more media groups")">+@((batch.MediaTypes.Count - 4).ToString("N0"))</span>
+                                }
+                            </div>
+                        </td>
+                        <td>@batch.ItemCount.ToString("N0")</td>
+                        <td>@FirstNonBlank(batch.DurationLabel, FormatDuration(batch.DurationSeconds), "-")</td>
+                        <td><AppStatusChip Text="@ActivityDisplay.StatusText(batch.Status)" Tone="@ActivityDisplay.StatusTone(batch.Status)" /></td>
+                    </tr>
+
+                    @if (expanded)
+                    {
+                        <tr class="activity-audit__expanded" @key="@($"batch-detail-{batch.BatchId}")">
+                            <td colspan="6">
+                                @if (_loadingGroups.Contains(batch.BatchId))
+                                {
+                                    <AppProgressBar Indeterminate="true" />
+                                }
+                                else
+                                {
+                                    <div class="activity-audit__nested">
+                                        @foreach (var group in GroupsFor(batch.BatchId))
+                                        {
+                                            var groupKey = GroupKey(group);
+                                            var groupState = StateFor(group);
+                                            <ActivityMediaTypeAuditGroup Group="@group"
+                                                                         Expanded="@(_expandedGroupKey == groupKey)"
+                                                                         Loading="@_loadingItems.Contains(groupKey)"
+                                                                         Items="@ItemsFor(group)"
+                                                                         Offset="@groupState.Offset"
+                                                                         Limit="@groupState.Limit"
+                                                                         HasMore="@HasMoreFor(groupKey)"
+                                                                         TotalCount="@TotalCountFor(groupKey)"
+                                                                         ActiveSort="@groupState.Sort"
+                                                                         SortDirection="@groupState.SortDirection"
+                                                                         DetailForItem="@DetailForItem"
+                                                                         IsItemExpanded="@IsItemExpanded"
+                                                                         IsItemLoading="@IsItemLoading"
+                                                                         OnToggle="@ToggleGroupAsync"
+                                                                         OnToggleItem="@ToggleItemAsync"
+                                                                         SortRequested="@(sort => SortGroupAsync(group, sort))"
+                                                                         OffsetChanged="@(offset => PageGroupAsync(group, offset))" />
+                                        }
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </AppExpandableAuditTable>
+
+        <AppCompactPager Offset="@_query.Offset"
+                         Limit="@_query.Limit"
+                         HasMore="@(_page?.HasMore == true)"
+                         TotalCount="@_page?.TotalCount"
+                         Loading="@_loading"
+                         OffsetChanged="@OnPageChanged" />
+    }
+</div>
+
+@code {
+    private readonly ActivityAuditQuery _query = new() { Sort = "started", SortDirection = "desc" };
+    private readonly HashSet<Guid> _loadingGroups = [];
+    private readonly HashSet<string> _loadingItems = [];
+    private readonly HashSet<Guid> _loadingDetails = [];
+    private readonly Dictionary<Guid, List<ActivityMediaTypeGroupViewModel>> _groups = [];
+    private readonly Dictionary<string, List<ActivityBatchItemViewModel>> _items = [];
+    private readonly Dictionary<string, PagedResponse<ActivityBatchItemViewModel>> _itemPages = [];
+    private readonly Dictionary<string, GroupTableState> _groupStates = [];
+    private readonly Dictionary<Guid, ActivityBatchItemDetailViewModel> _details = [];
+    private PagedResponse<ActivityBatchSummaryViewModel>? _page;
+    private List<ActivityBatchSummaryViewModel> _batches = [];
+    private Guid? _expandedBatch;
+    private string? _expandedGroupKey;
+    private Guid? _expandedItem;
+    private bool _loading = true;
+    private string? _error;
+
+    private static readonly IReadOnlyList<AppSelectOption> MediaTypeOptions =
+    [
+        new("", "All"),
+        new("Movies", "Movies"),
+        new("TV", "TV"),
+        new("Music", "Music"),
+        new("Books", "Books"),
+        new("Audiobooks", "Audiobooks"),
+        new("Comics", "Comics"),
+    ];
+
+    private static readonly IReadOnlyList<AppSelectOption> StatusOptions =
+    [
+        new("", "All"),
+        new("running", "Running"),
+        new("completed", "Completed"),
+        new("failed", "Failed"),
+        new("abandoned", "Abandoned"),
+    ];
+
+    protected override Task OnInitializedAsync() => LoadBatchesAsync();
+
+    private async Task LoadBatchesAsync()
+    {
+        _loading = true;
+        _error = null;
+        ClearDrilldown();
+        try
+        {
+            _page = await Orchestrator.GetActivityBatchesAsync(_query);
+            _batches = _page?.Items.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _error = $"Activity batches could not load: {ex.Message}";
+            _batches = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleBatchAsync(ActivityBatchSummaryViewModel batch)
+    {
+        if (_expandedBatch == batch.BatchId)
+        {
+            ClearDrilldown();
+            return;
+        }
+
+        ClearDrilldown();
+        _expandedBatch = batch.BatchId;
+        _loadingGroups.Add(batch.BatchId);
+        try
+        {
+            _groups[batch.BatchId] = await Orchestrator.GetActivityBatchGroupsAsync(batch.BatchId);
+        }
+        finally
+        {
+            _loadingGroups.Remove(batch.BatchId);
+        }
+    }
+
+    private async Task ToggleGroupAsync(ActivityMediaTypeGroupViewModel group)
+    {
+        var key = GroupKey(group);
+        if (_expandedGroupKey == key)
+        {
+            _expandedGroupKey = null;
+            ClearExpandedItem();
+            return;
+        }
+
+        _expandedGroupKey = key;
+        ClearExpandedItem();
+        await LoadGroupItemsAsync(group);
+    }
+
+    private async Task SortGroupAsync(ActivityMediaTypeGroupViewModel group, string sort)
+    {
+        var state = StateFor(group);
+        if (string.Equals(state.Sort, sort, StringComparison.OrdinalIgnoreCase))
+            state.SortDirection = state.SortDirection == "asc" ? "desc" : "asc";
+        else
+        {
+            state.Sort = sort;
+            state.SortDirection = sort == "title" ? "asc" : "desc";
+        }
+
+        state.Offset = 0;
+        ClearExpandedItem();
+        await LoadGroupItemsAsync(group, force: true);
+    }
+
+    private async Task PageGroupAsync(ActivityMediaTypeGroupViewModel group, int offset)
+    {
+        StateFor(group).Offset = offset;
+        ClearExpandedItem();
+        await LoadGroupItemsAsync(group, force: true);
+    }
+
+    private async Task LoadGroupItemsAsync(ActivityMediaTypeGroupViewModel group, bool force = false)
+    {
+        var key = GroupKey(group);
+        var state = StateFor(group);
+        if (!force && _items.ContainsKey(key))
+            return;
+
+        _loadingItems.Add(key);
+        try
+        {
+            var page = await Orchestrator.GetActivityBatchItemsAsync(
+                group.BatchId,
+                group.MediaType,
+                state.Offset,
+                state.Limit,
+                state.Sort,
+                state.SortDirection);
+            _itemPages[key] = page ?? new PagedResponse<ActivityBatchItemViewModel>([], state.Offset, state.Limit, false, 0);
+            _items[key] = _itemPages[key].Items.ToList();
+        }
+        finally
+        {
+            _loadingItems.Remove(key);
+        }
+    }
+
+    private async Task ToggleItemAsync(ActivityBatchItemViewModel item)
+    {
+        if (item.AssetId is null)
+            return;
+
+        var assetId = item.AssetId.Value;
+        if (_expandedItem == assetId)
+        {
+            _expandedItem = null;
+            return;
+        }
+
+        _expandedItem = assetId;
+        if (!_details.ContainsKey(assetId))
+        {
+            _loadingDetails.Add(assetId);
+            try
+            {
+                var detail = await Orchestrator.GetActivityBatchItemDetailAsync(item.BatchId, assetId);
+                if (detail is not null)
+                    _details[assetId] = detail;
+            }
+            finally
+            {
+                _loadingDetails.Remove(assetId);
+            }
+        }
+    }
+
+    private ActivityBatchItemDetailViewModel? DetailForItem(ActivityBatchItemViewModel item) =>
+        item.AssetId is { } assetId && _details.TryGetValue(assetId, out var detail) ? detail : null;
+
+    private bool IsItemExpanded(ActivityBatchItemViewModel item) =>
+        item.AssetId is { } assetId && _expandedItem == assetId;
+
+    private bool IsItemLoading(ActivityBatchItemViewModel item) =>
+        item.AssetId is { } assetId && _loadingDetails.Contains(assetId);
+
+    private IReadOnlyList<ActivityMediaTypeGroupViewModel> GroupsFor(Guid batchId) =>
+        _groups.TryGetValue(batchId, out var groups) ? groups : [];
+
+    private IReadOnlyList<ActivityBatchItemViewModel> ItemsFor(ActivityMediaTypeGroupViewModel group) =>
+        _items.TryGetValue(GroupKey(group), out var items) ? items : [];
+
+    private bool HasMoreFor(string groupKey) =>
+        _itemPages.TryGetValue(groupKey, out var page) && page.HasMore;
+
+    private int? TotalCountFor(string groupKey) =>
+        _itemPages.TryGetValue(groupKey, out var page) ? page.TotalCount : null;
+
+    private GroupTableState StateFor(ActivityMediaTypeGroupViewModel group)
+    {
+        var key = GroupKey(group);
+        if (_groupStates.TryGetValue(key, out var state))
+            return state;
+
+        state = new GroupTableState();
+        _groupStates[key] = state;
+        return state;
+    }
+
+    private async Task OnSearchChanged(string? value)
+    {
+        _query.Search = value;
+        _query.Offset = 0;
+        await Task.CompletedTask;
+    }
+
+    private async Task OnSearchDebounced(string _)
+    {
+        _query.Offset = 0;
+        await LoadBatchesAsync();
+    }
+
+    private async Task OnMediaTypeChanged(string? value)
+    {
+        _query.MediaType = string.IsNullOrWhiteSpace(value) ? null : value;
+        _query.Offset = 0;
+        await LoadBatchesAsync();
+    }
+
+    private async Task OnStatusChanged(string? value)
+    {
+        _query.Status = string.IsNullOrWhiteSpace(value) ? null : value;
+        _query.Offset = 0;
+        await LoadBatchesAsync();
+    }
+
+    private async Task OnPageChanged(int offset)
+    {
+        _query.Offset = offset;
+        await LoadBatchesAsync();
+    }
+
+    private async Task OnBatchSortRequested(string sort)
+    {
+        if (string.Equals(_query.Sort, sort, StringComparison.OrdinalIgnoreCase))
+            _query.SortDirection = _query.SortDirection == "asc" ? "desc" : "asc";
+        else
+        {
+            _query.Sort = sort;
+            _query.SortDirection = sort == "started" ? "desc" : "asc";
+        }
+
+        _query.Offset = 0;
+        await LoadBatchesAsync();
+    }
+
+    private void ClearDrilldown()
+    {
+        _expandedBatch = null;
+        _loadingGroups.Clear();
+        _loadingItems.Clear();
+        _loadingDetails.Clear();
+        _groups.Clear();
+        _items.Clear();
+        _itemPages.Clear();
+        _groupStates.Clear();
+        _details.Clear();
+        ClearExpandedItem();
+        _expandedGroupKey = null;
+    }
+
+    private void ClearExpandedItem()
+    {
+        _expandedItem = null;
+        _details.Clear();
+        _loadingDetails.Clear();
+    }
+
+    private static string GroupKey(ActivityMediaTypeGroupViewModel group) =>
+        $"{group.BatchId:N}|{group.MediaType}";
+
+    private static string ShortId(Guid id) => id.ToString("N")[..6];
+
+    private static string FormatDate(DateTimeOffset? value) =>
+        value?.ToLocalTime().ToString("MMM d, yyyy h:mm tt") ?? "-";
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+
+    private static string? FormatDuration(double? seconds)
+    {
+        if (seconds is not > 0)
+            return null;
+
+        var duration = TimeSpan.FromSeconds(seconds.Value);
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}h {duration.Minutes}m"
+            : $"{duration.Minutes}m {duration.Seconds}s";
+    }
+
+    private sealed class GroupTableState
+    {
+        public int Offset { get; set; }
+        public int Limit { get; } = 25;
+        public string Sort { get; set; } = "title";
+        public string SortDirection { get; set; } = "asc";
+    }
+}
