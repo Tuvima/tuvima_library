@@ -11,7 +11,8 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "../..")
 $DbPaths = @(
     (Join-Path $RepoRoot "src/MediaEngine.Api/library.db"),
-    (Join-Path $RepoRoot ".tmp/dev-runtime/library/.data/database/library.db")
+    (Join-Path $RepoRoot "library.db"),
+    (Join-Path $RepoRoot "tuvima_master.db")
 )
 $WatchDir = "C:\temp\tuvima-watch"
 $LibraryDir = "C:\temp\tuvima-library"
