@@ -90,6 +90,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     // Review queue — created when confidence is too low or category is "Other".
     private readonly IReviewQueueRepository _reviewRepo;
+    private readonly StageOutcomeFactory? _stageOutcomeFactory;
 
     // Activity ledger — records every significant ingestion event.
     private readonly ISystemActivityRepository _activityRepo;
@@ -188,7 +189,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IMediaOperationTracker?    operationTracker = null,
         IMediaOperationRepository? operationRepository = null,
         CapabilityPlanner?         capabilityPlanner = null,
-        IFileHashCacheRepository?  fileHashCache = null)
+        IFileHashCacheRepository?  fileHashCache = null,
+        StageOutcomeFactory?       stageOutcomeFactory = null)
     {
         _watcher          = watcher;
         _debounce         = debounce;
@@ -208,6 +210,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _identity         = identity;
         _chainFactory     = chainFactory;
         _reviewRepo       = reviewRepo;
+        _stageOutcomeFactory = stageOutcomeFactory;
         _activityRepo     = activityRepo;
         _reconciliation   = reconciliation;
         _gate             = gate;
@@ -1403,35 +1406,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 "Review: asset {AssetId} queued for review — trigger={Trigger}",
                 assetId, gateResult.ReviewTrigger);
 
-            // History: review created.
-            await SafeActivityLogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.ReviewItemCreated,
-                EntityId = assetId,
-                Detail = $"Sent for review: {gateResult.ReviewTrigger}",
-                IngestionRunId = ingestionRunId,
-            }, ct).ConfigureAwait(false);
-
-            // Lifecycle log: needs review.
-            try { await _ingestionLog.UpdateStatusAsync(logEntryId, "needs_review",
-                mediaType: resolvedMediaType.ToString(),
-                mediaAssetId: assetId,
-                ct: ct).ConfigureAwait(false);
-                await PublishItemProgressAsync(
-                    candidate,
-                    logEntryId,
-                    "needs_review",
-                    100,
-                    true,
-                    ct,
-                    assetId,
-                    resolvedTitle,
-                    resolvedMediaType.ToString()).ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed - continuing"); }
-
             if (candidate.BatchId.HasValue)
             {
-                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesReview, ct).ConfigureAwait(false);
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesIdentified, ct).ConfigureAwait(false);
             }
         }
         else if (candidate.BatchId.HasValue)
@@ -2738,6 +2715,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     {
         try
         {
+            if (_stageOutcomeFactory is not null)
+            {
+                await _stageOutcomeFactory.CreateProvisionalAsync(
+                    entityId,
+                    trigger,
+                    confidence,
+                    detail,
+                    ingestionRunId,
+                    ct).ConfigureAwait(false);
+                return;
+            }
+
             // Check if a pending review item already exists for this entity
             // (the hydration pipeline may also create one asynchronously).
             var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
@@ -2765,26 +2754,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
 
-            // Activity: review item created.
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-            {
-                ActionType = Domain.Enums.SystemActionType.ReviewItemCreated,
-                EntityId   = entityId,
-                EntityType = "MediaAsset",
-                Detail     = $"Sent to review: {trigger} — {detail}",
-                IngestionRunId = ingestionRunId,
-            }, ct).ConfigureAwait(false);
-
-            await SafePublishAsync(SignalREvents.ReviewItemCreated, new
-            {
-                review_id   = entry.Id,
-                entity_id   = entityId,
-                trigger,
-                confidence,
-            }, ct).ConfigureAwait(false);
-
             _logger.LogInformation(
-                "Review item created for entity {Id}: {Trigger} — {Detail}",
+                "Hidden provisional review item parked for entity {Id}: {Trigger} — {Detail}",
                 entityId, trigger, detail);
         }
         catch (Exception ex)
@@ -2809,6 +2780,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     {
         try
         {
+            if (_stageOutcomeFactory is not null)
+            {
+                await _stageOutcomeFactory.CreateProvisionalAsync(
+                    entityId,
+                    ReviewTrigger.AmbiguousMediaType,
+                    confidence,
+                    detail,
+                    ingestionRunId,
+                    ct,
+                    candidatesJson: candidatesJson).ConfigureAwait(false);
+                return;
+            }
+
             var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
                 .ConfigureAwait(false);
 
@@ -2835,25 +2819,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
 
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-            {
-                ActionType = Domain.Enums.SystemActionType.ReviewItemCreated,
-                EntityId   = entityId,
-                EntityType = "MediaAsset",
-                Detail     = $"Ambiguous media type: {detail}",
-                IngestionRunId = ingestionRunId,
-            }, ct).ConfigureAwait(false);
-
-            await SafePublishAsync(SignalREvents.ReviewItemCreated, new
-            {
-                review_id   = entry.Id,
-                entity_id   = entityId,
-                trigger     = ReviewTrigger.AmbiguousMediaType,
-                confidence,
-            }, ct).ConfigureAwait(false);
-
             _logger.LogInformation(
-                "AmbiguousMediaType review item created for entity {Id}: {Detail}",
+                "Hidden AmbiguousMediaType review item parked for entity {Id}: {Detail}",
                 entityId, detail);
         }
         catch (Exception ex)
@@ -2877,6 +2844,19 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     {
         try
         {
+            var detail = $"Conflicting metadata: {string.Join(", ", conflictedFields)}";
+            if (_stageOutcomeFactory is not null)
+            {
+                await _stageOutcomeFactory.CreateProvisionalAsync(
+                    entityId,
+                    ReviewTrigger.MetadataConflict,
+                    confidence,
+                    detail,
+                    ingestionRunId,
+                    ct).ConfigureAwait(false);
+                return;
+            }
+
             var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
                 .ConfigureAwait(false);
 
@@ -2889,7 +2869,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 return;
             }
 
-            var detail = $"Conflicting metadata: {string.Join(", ", conflictedFields)}";
             var entry = new ReviewQueueEntry
             {
                 Id              = Guid.NewGuid(),
@@ -2903,25 +2882,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
 
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-            {
-                ActionType = Domain.Enums.SystemActionType.ReviewItemCreated,
-                EntityId   = entityId,
-                EntityType = "MediaAsset",
-                Detail     = detail,
-                IngestionRunId = ingestionRunId,
-            }, ct).ConfigureAwait(false);
-
-            await SafePublishAsync(SignalREvents.ReviewItemCreated, new
-            {
-                review_id   = entry.Id,
-                entity_id   = entityId,
-                trigger     = ReviewTrigger.MetadataConflict,
-                confidence,
-            }, ct).ConfigureAwait(false);
-
             _logger.LogInformation(
-                "MetadataConflict review item created for entity {Id}: {Detail}",
+                "Hidden MetadataConflict review item parked for entity {Id}: {Detail}",
                 entityId, detail);
         }
         catch (Exception ex)

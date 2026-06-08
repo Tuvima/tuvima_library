@@ -142,7 +142,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             .ConfigureAwait(false);
 
         var blockingReviews = pendingReviews
-            .Where(r => !string.Equals(r.Trigger, nameof(ReviewTrigger.WritebackFailed), StringComparison.OrdinalIgnoreCase))
+            .Where(r => r.ReviewReadyAt is not null
+                        && !string.Equals(r.Trigger, nameof(ReviewTrigger.WritebackFailed), StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         if (blockingReviews.Any())

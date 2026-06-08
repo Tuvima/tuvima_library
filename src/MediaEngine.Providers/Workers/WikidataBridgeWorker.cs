@@ -57,7 +57,7 @@ public sealed class WikidataBridgeWorker
     private readonly IEntityCapabilityStateRepository? _capabilityStates;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
-    private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(60);
 
     /// <summary>
     /// Cross-job batching window. Sourced from
@@ -364,6 +364,7 @@ public sealed class WikidataBridgeWorker
                     BridgeIds          = ctx.BridgeDict,
                     WikidataProperties = ctx.WikidataProps,
                     IsEditionAware     = ctx.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Music,
+                    AllowConstrainedTextFallback = ShouldAllowConstrainedTextFallback(ctx),
                     AlbumTitle         = ctx.AlbumHint,
                     Artist             = ctx.ArtistHint,
                     Title              = ctx.TitleHint,
@@ -403,6 +404,7 @@ public sealed class WikidataBridgeWorker
                 {
                     ResolveStrategy.MusicAlbum         => "music_album",
                     ResolveStrategy.BridgeId           => "bridge_id",
+                    ResolveStrategy.TextSearch         => "retail_text",
                     _                                  => null,
                 };
 
@@ -981,6 +983,7 @@ public sealed class WikidataBridgeWorker
                     BridgeIds          = bridgeDict,
                     WikidataProperties = wikidataProps,
                     IsEditionAware     = mediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Music,
+                    AllowConstrainedTextFallback = ShouldAllowConstrainedTextFallback(ctx),
                     AlbumTitle         = albumHint,
                     Artist             = artistHint,
                     Title              = titleHint,
@@ -1003,6 +1006,7 @@ public sealed class WikidataBridgeWorker
                 {
                     ResolveStrategy.MusicAlbum         => "music_album",
                     ResolveStrategy.BridgeId           => "bridge_id",
+                    ResolveStrategy.TextSearch         => "retail_text",
                     _                                  => null,
                 };
 
@@ -1077,7 +1081,13 @@ public sealed class WikidataBridgeWorker
         int? episodeNumber = null;
         string? issueNumber = null;
 
-        if (mediaType == MediaType.TV)
+        if (mediaType is MediaType.Books or MediaType.Audiobooks)
+        {
+            authorHint ??= GetCanonical(canonicals, MetadataFieldConstants.Artist);
+            seriesHint = GetCanonical(canonicals, MetadataFieldConstants.Series)
+                ?? GetCanonical(canonicals, MetadataFieldConstants.Album);
+        }
+        else if (mediaType == MediaType.TV)
         {
             titleHint = GetCanonical(canonicals, MetadataFieldConstants.ShowName)
                 ?? GetCanonical(canonicals, MetadataFieldConstants.Series)
@@ -1108,6 +1118,21 @@ public sealed class WikidataBridgeWorker
         }
 
         return (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint, seasonNumber, episodeNumber, issueNumber);
+    }
+
+    private static bool ShouldAllowConstrainedTextFallback(JobContext ctx)
+    {
+        if (ctx.MediaType is not (MediaType.Books or MediaType.Audiobooks))
+            return false;
+
+        if (!string.Equals(ctx.Job.State, IdentityJobState.RetailMatched.ToString(), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(ctx.TitleHint))
+            return false;
+
+        return !string.IsNullOrWhiteSpace(ctx.AuthorHint)
+               || !string.IsNullOrWhiteSpace(ctx.SeriesHint);
     }
 
     private static int? TryParsePositiveOrdinal(string? value)

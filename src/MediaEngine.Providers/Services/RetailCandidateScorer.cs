@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Providers.Services;
@@ -28,7 +29,9 @@ public sealed class RetailCandidateScorer
         double retailAmbiguousThreshold,
         string matchContext,
         string? fileCreatorOverride = null,
-        IReadOnlyList<string>? autoAcceptCapReasons = null)
+        IReadOnlyList<string>? autoAcceptCapReasons = null,
+        MediaType mediaType = MediaType.Unknown,
+        CandidateExtendedMetadata? extendedMetadata = null)
     {
         const double weakCreatorThreshold = 0.55;
         const double weakTextThreshold = 0.60;
@@ -109,6 +112,24 @@ public sealed class RetailCandidateScorer
                 thresholdPath = "accept_capped_to_review";
                 autoAcceptBlocked = true;
             }
+        }
+
+        var qualityRejectionReasons = RetailCandidateQualityGuard.GetRejectionReasons(
+            mediaType,
+            fileHints,
+            candidateTitle,
+            extendedMetadata);
+        if (qualityRejectionReasons.Count > 0)
+        {
+            foreach (var reason in qualityRejectionReasons)
+            {
+                if (!rejectionReasons.Contains(reason, StringComparer.Ordinal))
+                    rejectionReasons.Add(reason);
+            }
+
+            outcome = "Rejected";
+            thresholdPath = "candidate_quality_rejected";
+            autoAcceptBlocked = true;
         }
 
         if (coverWouldRescueWeakText)

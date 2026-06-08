@@ -1443,20 +1443,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // ── Bridge branch — at least one real (non-sentinel) external ID ────
         // Sentinel keys (those starting with '_') are stripped here so the
         // library's strict bridge resolver doesn't trip on them.
-        if (realBridgeIds.Count == 0)
+        if (realBridgeIds.Count == 0 && !CanUseConstrainedTextFallback(r, title))
             return null;
 
         // ── Text fallback — only when title and a known media type are present ─
         return new BridgeResolutionRequest
             {
                 CorrelationKey = r.CorrelationKey,
-                MediaKind = ToBridgeMediaKind(r.MediaType, r),
+                MediaKind = ToBridgeMediaKind(r.MediaType, r, realBridgeIds.Count),
                 BridgeIds = realBridgeIds,
                 CustomWikidataProperties = r.WikidataProperties,
                 Title = title,
                 Creator = r.Artist ?? r.Author,
                 Year = int.TryParse(r.Year, out var parsedYear) ? parsedYear : null,
-                SeriesTitle = r.SeriesTitle,
+                SeriesTitle = GetSeriesHint(r),
                 SeasonNumber = r.SeasonNumber,
                 EpisodeNumber = r.EpisodeNumber,
                 IssueNumber = r.IssueNumber,
@@ -1465,13 +1465,76 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             };
     }
 
+    private static string? GetSeriesHint(WikidataResolveRequest request)
+        => !string.IsNullOrWhiteSpace(request.SeriesTitle)
+            ? request.SeriesTitle
+            : request.MediaType is MediaType.Books or MediaType.Audiobooks
+                ? request.AlbumTitle
+                : null;
+
+    private static bool HasRealBridgeIds(WikidataResolveRequest request)
+        => request.BridgeIds?.Any(kvp =>
+            !kvp.Key.StartsWith('_')
+            && !string.IsNullOrWhiteSpace(kvp.Value)) == true;
+
+    private static BridgeResolutionRequest? BuildConstrainedTextFallbackRequest(
+        WikidataResolveRequest request,
+        Func<WikidataResolveRequest, BridgeResolutionRequest?> build)
+    {
+        if (!HasRealBridgeIds(request))
+            return null;
+
+        var textOnly = new WikidataResolveRequest
+        {
+            CorrelationKey = request.CorrelationKey,
+            MediaType = request.MediaType,
+            Strategy = request.Strategy,
+            BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            WikidataProperties = request.WikidataProperties,
+            IsEditionAware = request.IsEditionAware,
+            AllowConstrainedTextFallback = request.AllowConstrainedTextFallback,
+            AlbumTitle = request.AlbumTitle,
+            Artist = request.Artist,
+            Title = request.Title,
+            Author = request.Author,
+            Year = request.Year,
+            FileLanguage = request.FileLanguage,
+            SeriesTitle = request.SeriesTitle,
+            SeasonNumber = request.SeasonNumber,
+            EpisodeNumber = request.EpisodeNumber,
+            IssueNumber = request.IssueNumber,
+        };
+
+        return build(textOnly);
+    }
+
+    private static bool CanUseConstrainedTextFallback(
+        WikidataResolveRequest request,
+        string? title)
+    {
+        if (!request.AllowConstrainedTextFallback)
+            return false;
+
+        if (request.MediaType is not (MediaType.Books or MediaType.Audiobooks))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        return !string.IsNullOrWhiteSpace(request.Author)
+               || !string.IsNullOrWhiteSpace(request.Artist)
+               || !string.IsNullOrWhiteSpace(request.SeriesTitle)
+               || !string.IsNullOrWhiteSpace(request.AlbumTitle);
+    }
+
     /// <summary>
     /// Translates the app media type and available hints into the bridge media kind
     /// used by Tuvima.Wikidata for property selection and ranking.
     /// </summary>
-    private static BridgeMediaKind ToBridgeMediaKind(MediaType mediaType, WikidataResolveRequest request) => mediaType switch
+    private static BridgeMediaKind ToBridgeMediaKind(MediaType mediaType, WikidataResolveRequest request, int realBridgeIdCount) => mediaType switch
     {
         MediaType.Books => BridgeMediaKind.Book,
+        MediaType.Audiobooks when request.AllowConstrainedTextFallback && realBridgeIdCount == 0 => BridgeMediaKind.Book,
         MediaType.Audiobooks => BridgeMediaKind.Audiobook,
         MediaType.Movies => BridgeMediaKind.Movie,
         MediaType.TV => request.EpisodeNumber.HasValue
@@ -1490,6 +1553,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
     private static BridgeRollupTarget ToBridgeRollupTarget(WikidataResolveRequest request)
     {
+        if (request.AllowConstrainedTextFallback
+            && request.MediaType is MediaType.Books or MediaType.Audiobooks)
+        {
+            return BridgeRollupTarget.ReturnWorkAndEdition;
+        }
+
         if (!request.IsEditionAware)
             return BridgeRollupTarget.ReturnWorkAndEdition;
 
@@ -1543,7 +1612,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private static ResolveStrategy MapBridgeResolutionStrategy(BridgeResolutionStrategy m) => m switch
     {
         BridgeResolutionStrategy.BridgeId => ResolveStrategy.BridgeId,
-        BridgeResolutionStrategy.TextSearch => ResolveStrategy.NotResolved,
+        BridgeResolutionStrategy.TextSearch => ResolveStrategy.TextSearch,
         BridgeResolutionStrategy.NotResolved => ResolveStrategy.NotResolved,
         _ => ResolveStrategy.NotResolved,
     };
@@ -1714,6 +1783,30 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         await PopulateResultsAsync(libResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
+
+        var fallbackRequests = requests
+            .Where(r => r.AllowConstrainedTextFallback
+                        && HasRealBridgeIds(r)
+                        && (!results.TryGetValue(r.CorrelationKey, out var result) || !result.Found))
+            .Select(r => BuildConstrainedTextFallbackRequest(r, BuildBridgeResolutionRequest))
+            .Where(r => r is not null)
+            .Select(r => r!)
+            .ToList();
+
+        if (fallbackRequests.Count > 0)
+        {
+            try
+            {
+                var fallbackResults = await CollectBridgeStreamAsync(fallbackRequests, ct).ConfigureAwait(false);
+                await PopulateResultsAsync(fallbackResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "{Provider}: constrained text fallback failed", Name);
+            }
+        }
+
         return results;
     }
 

@@ -310,7 +310,51 @@ public sealed class WikidataSeriesManifestHydrationService
             }
         }
 
+        if (context.MediaType is MediaType.Books or MediaType.Audiobooks
+            && !IsMainlineLiterarySeriesItem(item, currentWork))
+        {
+            return false;
+        }
+
         return true;
+    }
+
+    private static bool IsMainlineLiterarySeriesItem(SeriesManifestItem item, bool currentWork)
+    {
+        if (currentWork)
+            return true;
+
+        if (item.ParsedSeriesOrdinal is null)
+            return false;
+
+        var ordinal = item.ParsedSeriesOrdinal.Value;
+        if (ordinal < 1 || decimal.Truncate(ordinal) != ordinal)
+            return false;
+
+        var haystack = string.Join(
+            ' ',
+            item.Label,
+            item.Description,
+            item.ParentCollectionLabel).ToLowerInvariant();
+
+        var derivativeMarkers = new[]
+        {
+            "prequel",
+            "sequel",
+            "spin-off",
+            "spinoff",
+            "play",
+            "script",
+            "screenplay",
+            "companion",
+            "guide",
+            "workbook",
+            "short story",
+            "anthology",
+            "collection",
+        };
+
+        return !derivativeMarkers.Any(marker => haystack.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsQidOnlyLabel(string label, string qid) =>
@@ -502,6 +546,15 @@ public sealed class WikidataSeriesManifestHydrationService
                 && context.WorkId.HasValue)
             {
                 matches = [context.WorkId.Value];
+            }
+
+            if (matches.Count > 1
+                && context.MediaType is MediaType.Books or MediaType.Audiobooks)
+            {
+                var selectedMatch = context.WorkId.HasValue && matches.Contains(context.WorkId.Value)
+                    ? context.WorkId.Value
+                    : matches[0];
+                matches = [selectedMatch];
             }
 
             var state = matches.Count switch

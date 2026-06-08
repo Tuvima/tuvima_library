@@ -611,6 +611,46 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ReviewQueue_PromotePendingReadyByEntity_ReturnsOnlyNewlyPromotedRows()
+    {
+        var repo = new ReviewQueueRepository(_db);
+        var assetRepo = new MediaAssetRepository(_db);
+        var editionId = await CreateTestEditionAsync();
+        var assetId = Guid.NewGuid();
+
+        await assetRepo.InsertAsync(new MediaAsset
+        {
+            Id = assetId,
+            EditionId = editionId,
+            ContentHash = $"promote_ready_{Guid.NewGuid():N}",
+            FilePathRoot = "/library/promote-ready.epub",
+            Status = AssetStatus.Normal,
+        });
+
+        var entryId = Guid.NewGuid();
+        await repo.InsertAsync(new ReviewQueueEntry
+        {
+            Id = entryId,
+            EntityId = assetId,
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            Detail = "Still in automation",
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        var promoted = await repo.PromotePendingReadyByEntityAsync(assetId);
+
+        var promotedEntry = Assert.Single(promoted);
+        Assert.Equal(entryId, promotedEntry.Id);
+        Assert.Equal(assetId, promotedEntry.EntityId);
+        Assert.NotNull(promotedEntry.ReviewReadyAt);
+        Assert.NotNull(promotedEntry.AutomationCompletedAt);
+
+        Assert.Empty(await repo.PromotePendingReadyByEntityAsync(assetId));
+    }
+
+    [Fact]
     public async Task WorkIdentityReconciliation_MergesDuplicateReadWorksByQid()
     {
         var service = new WorkIdentityReconciliationService(_db);

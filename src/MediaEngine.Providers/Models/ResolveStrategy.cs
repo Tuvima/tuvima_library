@@ -27,4 +27,9 @@ public enum ResolveStrategy
 
     /// <summary>The request did not produce a match.</summary>
     NotResolved = 3,
+
+    /// <summary>
+    /// Constrained title/creator fallback used only after a trusted retail match.
+    /// </summary>
+    TextSearch = 4,
 }

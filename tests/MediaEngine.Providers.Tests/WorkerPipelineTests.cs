@@ -2043,6 +2043,26 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
+    public void WikidataBridgeWorker_AudiobookLookupHints_FallbackToArtistAndAlbum()
+    {
+        var entityId = Guid.NewGuid();
+        var canonicals = new List<CanonicalValue>
+        {
+            new() { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Harry Potter and the Philosopher's Stone", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = entityId, Key = MetadataFieldConstants.Artist, Value = "J.K. Rowling", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = entityId, Key = MetadataFieldConstants.Album, Value = "Harry Potter", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = entityId, Key = MetadataFieldConstants.Year, Value = "2024", LastScoredAt = DateTimeOffset.UtcNow },
+        };
+
+        var hints = WikidataBridgeWorker.BuildLookupHints(MediaType.Audiobooks, canonicals);
+
+        Assert.Equal("Harry Potter and the Philosopher's Stone", hints.TitleHint);
+        Assert.Equal("J.K. Rowling", hints.AuthorHint);
+        Assert.Equal("Harry Potter", hints.SeriesHint);
+        Assert.Equal("2024", hints.YearHint);
+    }
+
+    [Fact]
     public void WikidataBridgeWorker_CollectsScopedWorkBridgeIdsForResolution()
     {
         var assetId = Guid.NewGuid();

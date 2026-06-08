@@ -1,4 +1,5 @@
 using MediaEngine.Providers.Services;
+using MediaEngine.Domain.Enums;
 using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Tests;
@@ -106,6 +107,60 @@ public sealed class CollectionAssignmentServiceTests
 
         Assert.Equal(["Q1", "Q2", "Q3"], normalized.Select(item => item.Item.Qid));
         Assert.Equal([1, 2, 3], normalized.Select(item => item.SortOrder));
+    }
+
+    [Fact]
+    public void SeriesManifestHydration_FiltersLiteraryManifestToMainlineNumberedWorks()
+    {
+        var items = new List<SeriesManifestItem>
+        {
+            new()
+            {
+                Qid = "QPrequel",
+                Label = "Series prequel",
+                ParsedSeriesOrdinal = 0.5m,
+            },
+            new()
+            {
+                Qid = "QBook1",
+                Label = "Book One",
+                ParsedSeriesOrdinal = 1,
+            },
+            new()
+            {
+                Qid = "QPlay",
+                Label = "The Stage Play",
+                Description = "A two-part stage play script.",
+                ParsedSeriesOrdinal = 8,
+            },
+            new()
+            {
+                Qid = "QBook2",
+                Label = "Book Two",
+                ParsedSeriesOrdinal = 2,
+            },
+        };
+
+        var context = new SeriesManifestHydrationContext(
+            AssetId: Guid.NewGuid(),
+            WorkId: Guid.NewGuid(),
+            ResolvedWorkQid: "QBook1",
+            MediaType: MediaType.Audiobooks,
+            Title: "Book One",
+            SeriesHint: "Series",
+            IngestionRunId: null,
+            Lineage: null,
+            FullClaims: []);
+
+        var method = typeof(WikidataSeriesManifestHydrationService).GetMethod(
+            "FilterManifestItems",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        var filtered = Assert.IsAssignableFrom<IEnumerable<SeriesManifestItem>>(
+            method!.Invoke(null, [items, context, "QSeries"]));
+
+        Assert.Equal(["QBook1", "QBook2"], filtered.Select(item => item.Qid));
     }
 
     private static string GetRepoFilePath(string relativePath) =>

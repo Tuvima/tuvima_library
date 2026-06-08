@@ -82,13 +82,12 @@ public sealed class StageOutcomeFactory
         Action<Guid?>? onBatchAdjust = null,
         CancellationToken ct = default)
     {
-        return CreateCoreAsync(
+        return CreateProvisionalAsync(
             entityId,
             ReviewTrigger.RetailMatchAmbiguous,
             score,
             $"Retail match found with confidence {score:P0} \u2014 needs confirmation",
             ingestionRunId,
-            onBatchAdjust,
             ct);
     }
 
@@ -226,16 +225,66 @@ public sealed class StageOutcomeFactory
     // ── Private ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Shared implementation: dedup check, insert, log activity, publish event.
+    /// Creates a hidden review row while automation is still allowed to resolve
+    /// the entity. Hidden rows do not emit activity, SignalR, batch artifacts, or
+    /// review badges.
+    /// </summary>
+    public Task<Guid?> CreateProvisionalAsync(
+        Guid entityId,
+        string trigger,
+        double? confidence,
+        string detail,
+        Guid? ingestionRunId = null,
+        CancellationToken ct = default,
+        string entityType = "MediaAsset",
+        string? candidatesJson = null)
+        => CreateCoreAsync(
+            entityId,
+            trigger,
+            confidence,
+            detail,
+            ingestionRunId,
+            onBatchAdjust: null,
+            ct,
+            reviewReady: false,
+            entityType,
+            candidatesJson);
+
+    /// <summary>
+    /// Promotes hidden review rows to visible review work and announces each row
+    /// exactly once.
+    /// </summary>
+    public async Task<IReadOnlyList<ReviewQueueEntry>> PromoteProvisionalAsync(
+        Guid entityId,
+        Guid? ingestionRunId = null,
+        CancellationToken ct = default)
+    {
+        var promoted = await _reviewRepo.PromotePendingReadyByEntityAsync(entityId, ct)
+            .ConfigureAwait(false);
+
+        foreach (var entry in promoted)
+        {
+            await LogActivityAndPublishAsync(entry, ingestionRunId, ct).ConfigureAwait(false);
+            await RecordReviewArtifactAsync(entry, ingestionRunId, ct).ConfigureAwait(false);
+        }
+
+        return promoted;
+    }
+
+    /// <summary>
+    /// Shared implementation: dedup check, insert, and optional user-visible publication.
     /// </summary>
     private async Task<Guid?> CreateCoreAsync(
         Guid entityId,
         string trigger,
-        double confidence,
+        double? confidence,
         string detail,
         Guid? ingestionRunId,
         Action<Guid?>? onBatchAdjust,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool reviewReady = true,
+        string entityType = "MediaAsset",
+        string? candidatesJson = null)
     {
         // Dedup: skip if a pending review with the same trigger already exists.
         var existing = await _reviewRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
@@ -272,15 +321,24 @@ public sealed class StageOutcomeFactory
         {
             Id              = Guid.NewGuid(),
             EntityId        = entityId,
-            EntityType      = "MediaAsset",
+            EntityType      = entityType,
             Trigger         = trigger,
             ConfidenceScore = confidence,
             Detail          = detail,
-            ReviewReadyAt   = DateTimeOffset.UtcNow,
-            AutomationCompletedAt = DateTimeOffset.UtcNow,
+            CandidatesJson  = candidatesJson,
+            ReviewReadyAt   = reviewReady ? DateTimeOffset.UtcNow : null,
+            AutomationCompletedAt = reviewReady ? DateTimeOffset.UtcNow : null,
         };
 
         await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
+
+        if (!reviewReady)
+        {
+            _logger.LogDebug(
+                "Pipeline: hidden provisional review parked for entity {EntityId} \u2014 trigger={Trigger}",
+                entityId, trigger);
+            return entry.Id;
+        }
 
         _logger.LogInformation(
             "Pipeline: entity {EntityId} sent to review \u2014 trigger={Trigger}, confidence={Score:P0}",

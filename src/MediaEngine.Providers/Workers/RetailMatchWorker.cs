@@ -2161,7 +2161,9 @@ public sealed class RetailMatchWorker
                     retailScore.CompositeScore,
                     retailAcceptThreshold,
                     retailAmbiguousThreshold,
-                    "single_item");
+                    "single_item",
+                    mediaType: mediaType,
+                    extendedMetadata: extendedMetadata);
 
                 // Extract bridge IDs from claims
                 var bridgeIdsJson = BuildBridgeIdsJson(claims);

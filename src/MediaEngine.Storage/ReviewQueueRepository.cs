@@ -275,6 +275,77 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(
+        Guid entityId,
+        CancellationToken ct = default)
+    {
+        using var conn = _db.CreateConnection();
+        using var tx = conn.BeginTransaction();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        var ids = conn.Query<Guid>("""
+            SELECT id
+            FROM review_queue
+            WHERE entity_id = @entityId
+              AND status = @status
+              AND review_ready_at IS NULL
+            ORDER BY created_at ASC;
+            """, new
+        {
+            entityId,
+            status = ReviewStatus.Pending,
+        }, tx).AsList();
+
+        if (ids.Count == 0)
+        {
+            tx.Commit();
+            return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
+        }
+
+        conn.Execute("""
+            UPDATE review_queue
+            SET    review_ready_at = @now,
+                   automation_completed_at = COALESCE(automation_completed_at, @now)
+            WHERE  entity_id = @entityId
+              AND  status = @status
+              AND  review_ready_at IS NULL;
+            """, new
+        {
+            now,
+            entityId,
+            status = ReviewStatus.Pending,
+        }, tx);
+
+        var rows = conn.Query<ReviewQueueRow>("""
+            SELECT id AS Id, entity_id AS EntityId, entity_type AS EntityType,
+                   trigger AS Trigger, status AS Status,
+                   proposed_collection_id AS ProposedCollectionId,
+                   confidence_score AS ConfidenceScore,
+                   candidates_json AS CandidatesJson, detail AS Detail,
+                   created_at AS CreatedAt, resolved_at AS ResolvedAt,
+                   resolved_by AS ResolvedBy,
+                   source_operation_id AS SourceOperationId,
+                   source_capability_id AS SourceCapabilityId,
+                   source_capability_sub_key AS SourceCapabilitySubKey,
+                   review_ready_at AS ReviewReadyAt,
+                   automation_completed_at AS AutomationCompletedAt
+            FROM review_queue
+            WHERE entity_id = @entityId
+              AND status = @status
+              AND review_ready_at = @now
+            ORDER BY created_at ASC;
+            """, new
+        {
+            entityId,
+            status = ReviewStatus.Pending,
+            now,
+        }, tx).AsList();
+
+        tx.Commit();
+        return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
+    }
+
+    /// <inheritdoc/>
     public Task<int> GetPendingCountAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();

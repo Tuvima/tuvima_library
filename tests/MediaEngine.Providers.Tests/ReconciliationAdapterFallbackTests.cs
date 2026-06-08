@@ -172,6 +172,70 @@ public sealed class ReconciliationAdapterFallbackTests
         Assert.Null(method!.Invoke(adapter, [request]));
     }
 
+    [Fact]
+    public void BuildBridgeResolutionRequest_AllowsConstrainedBookTextFallback()
+    {
+        var adapter = CreateAdapter();
+
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "philosophers-stone",
+            MediaType = MediaType.Audiobooks,
+            Title = "Harry Potter and the Philosopher's Stone",
+            Author = "J. K. Rowling",
+            SeriesTitle = "Harry Potter",
+            FileLanguage = "en-US",
+            IsEditionAware = true,
+            AllowConstrainedTextFallback = true,
+        };
+
+        var bridgeRequest = BuildBridgeRequest(adapter, request);
+
+        Assert.Equal("Harry Potter and the Philosopher's Stone", bridgeRequest.Title);
+        Assert.Equal("J. K. Rowling", bridgeRequest.Creator);
+        Assert.Empty(bridgeRequest.BridgeIds);
+        Assert.Equal(BridgeMediaKind.Book, bridgeRequest.MediaKind);
+    }
+
+    [Fact]
+    public void BuildBridgeResolutionRequest_AllowsConstrainedAudiobookFallbackFromArtistAndAlbum()
+    {
+        var adapter = CreateAdapter();
+
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "philosophers-stone",
+            MediaType = MediaType.Audiobooks,
+            Title = "Harry Potter and the Philosopher's Stone",
+            Artist = "J. K. Rowling",
+            AlbumTitle = "Harry Potter",
+            BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.AppleBooksId] = "1739579440",
+            },
+            WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.AppleBooksId] = "P6395",
+            },
+            FileLanguage = "en-US",
+            IsEditionAware = true,
+            AllowConstrainedTextFallback = true,
+        };
+
+        var bridgeRequest = BuildBridgeRequest(adapter, request);
+        var fallbackRequest = BuildConstrainedFallbackRequest(adapter, request);
+
+        Assert.Equal(BridgeMediaKind.Audiobook, bridgeRequest.MediaKind);
+        Assert.Equal("J. K. Rowling", bridgeRequest.Creator);
+        Assert.Equal("Harry Potter", bridgeRequest.SeriesTitle);
+        Assert.Single(bridgeRequest.BridgeIds);
+
+        Assert.Equal(BridgeMediaKind.Book, fallbackRequest.MediaKind);
+        Assert.Empty(fallbackRequest.BridgeIds);
+        Assert.Equal("J. K. Rowling", fallbackRequest.Creator);
+        Assert.Equal("Harry Potter", fallbackRequest.SeriesTitle);
+    }
+
     private static BridgeResolutionRequest BuildBridgeRequest(
         ReconciliationAdapter adapter,
         WikidataResolveRequest request)
@@ -185,6 +249,28 @@ public sealed class ReconciliationAdapterFallbackTests
         var bridgeRequest = method!.Invoke(adapter, [request]);
         Assert.NotNull(bridgeRequest);
         return Assert.IsType<BridgeResolutionRequest>(bridgeRequest);
+    }
+
+    private static BridgeResolutionRequest BuildConstrainedFallbackRequest(
+        ReconciliationAdapter adapter,
+        WikidataResolveRequest request)
+    {
+        var buildMethod = typeof(ReconciliationAdapter).GetMethod(
+            "BuildBridgeResolutionRequest",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        var fallbackMethod = typeof(ReconciliationAdapter).GetMethod(
+            "BuildConstrainedTextFallbackRequest",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(buildMethod);
+        Assert.NotNull(fallbackMethod);
+
+        BridgeResolutionRequest? Build(WikidataResolveRequest r)
+            => buildMethod!.Invoke(adapter, [r]) as BridgeResolutionRequest;
+
+        var fallback = fallbackMethod!.Invoke(null, [request, (Func<WikidataResolveRequest, BridgeResolutionRequest?>)Build]);
+        Assert.NotNull(fallback);
+        return Assert.IsType<BridgeResolutionRequest>(fallback);
     }
 
     [Fact]

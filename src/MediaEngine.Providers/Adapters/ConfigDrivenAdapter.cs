@@ -10,6 +10,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Providers.Adapters;
@@ -1461,7 +1462,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             var titlePaths  = new[] { "trackName", "collectionName", "title", "name", "issue", "series.name", "series", "volumeName" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
-            var scored = new List<(JsonNode Node, double TitleScore, double AuthorScore)>();
+            var applyDerivativeGuard = request.MediaType is MediaType.Books or MediaType.Audiobooks;
+            var sourceLooksDerivative = applyDerivativeGuard
+                && RetailCandidateQualityGuard.LooksDerivative(
+                    request.Title,
+                    genres: string.IsNullOrWhiteSpace(request.Genre) ? null : [request.Genre]);
+            var scored = new List<(JsonNode Node, double TitleScore, double AuthorScore, bool Derivative)>();
             foreach (var node in arr)
             {
                 if (node is null) continue;
@@ -1493,7 +1499,16 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     ? ComputeWordOverlap(request.Author, nodeAuthor)
                     : 0.0;
 
-                scored.Add((node, titleScore, authorScore));
+                var nodeDescription = ExtractFirstString(node, ["description", "shortDescription", "longDescription"]);
+                var nodeGenre = ExtractFirstString(node, ["primaryGenreName", "genre", "genres"]);
+                var derivative = applyDerivativeGuard
+                    && !sourceLooksDerivative
+                    && RetailCandidateQualityGuard.LooksDerivative(
+                        bestNodeTitle,
+                        nodeDescription,
+                        string.IsNullOrWhiteSpace(nodeGenre) ? null : [nodeGenre]);
+
+                scored.Add((node, titleScore, authorScore, derivative));
             }
 
             if (scored.Count == 0)
@@ -1506,7 +1521,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
 
             // Tier 1: prefer results where both author AND title match.
-            var authorMatched = scored.Where(s => s.AuthorScore >= 0.50).ToList();
+            var selectable = scored.Any(s => !s.Derivative)
+                ? scored.Where(s => !s.Derivative).ToList()
+                : scored;
+
+            var authorMatched = selectable.Where(s => s.AuthorScore >= 0.50).ToList();
             if (authorMatched.Count > 0)
                 return authorMatched.OrderByDescending(s => s.TitleScore).First().Node;
 
@@ -1515,7 +1534,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             // Short queries (e.g. "Batman") have low precision against longer candidate
             // titles (e.g. "Absolute Batman (2024) #1") but full coverage — 0.40 allows
             // these while still rejecting completely unrelated results.
-            var bestByTitle = scored.OrderByDescending(s => s.TitleScore).First();
+            var bestByTitle = selectable.OrderByDescending(s => s.TitleScore).First();
             return bestByTitle.TitleScore >= 0.40 ? bestByTitle.Node : null;
         }
 

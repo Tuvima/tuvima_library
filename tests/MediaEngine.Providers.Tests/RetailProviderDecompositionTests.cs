@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -238,6 +239,38 @@ public sealed class RetailProviderDecompositionTests
         Assert.Equal("Ambiguous", ambiguous.Outcome);
         Assert.Contains("creator_similarity_weak", ambiguous.RejectionReasons);
         Assert.Equal("Rejected", rejected.Outcome);
+    }
+
+    [Fact]
+    public void RetailCandidateScorer_RejectsDerivativeBookCandidateForNormalSource()
+    {
+        var scorer = new RetailCandidateScorer();
+        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "The Long Walk",
+            [MetadataFieldConstants.Author] = "Stephen King",
+        };
+
+        var decision = scorer.EvaluateDecision(
+            hints,
+            "The Long Walk: Book Analysis and Summary",
+            "Stephen King",
+            null,
+            new FieldMatchScores { TitleScore = 0.96, AuthorScore = 1, FormatScore = 1, CompositeScore = 0.97 },
+            0.97,
+            0.90,
+            0.65,
+            "test",
+            mediaType: MediaType.Books,
+            extendedMetadata: new CandidateExtendedMetadata
+            {
+                Description = "A chapter by chapter analysis of the novel.",
+                Genres = ["Study Aids"],
+            });
+
+        Assert.Equal("Rejected", decision.Outcome);
+        Assert.Equal("candidate_quality_rejected", decision.ThresholdPath);
+        Assert.Contains("derivative_candidate", decision.RejectionReasons);
     }
 
     private static AppleRetailClient BuildAppleClient(Func<HttpRequestMessage, HttpResponseMessage> responder)

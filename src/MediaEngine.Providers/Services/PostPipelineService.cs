@@ -5,6 +5,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -31,6 +32,7 @@ public sealed class PostPipelineService
     private readonly ISystemActivityRepository? _activityRepo;
     private readonly BatchProgressService _batchProgress;
     private readonly ILogger<PostPipelineService> _logger;
+    private readonly StageOutcomeFactory? _outcomeFactory;
 
     private static readonly string[] IdentitySupersededReviewTriggers =
     [
@@ -61,7 +63,8 @@ public sealed class PostPipelineService
         ILogger<PostPipelineService> logger,
         ICanonicalValueArrayRepository? arrayRepo = null,
         ISearchIndexRepository? searchIndex = null,
-        ISystemActivityRepository? activityRepo = null)
+        ISystemActivityRepository? activityRepo = null,
+        StageOutcomeFactory? outcomeFactory = null)
     {
         _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
@@ -75,6 +78,7 @@ public sealed class PostPipelineService
         _arrayRepo = arrayRepo;
         _searchIndex = searchIndex;
         _activityRepo = activityRepo;
+        _outcomeFactory = outcomeFactory;
     }
 
     /// <summary>
@@ -150,8 +154,12 @@ public sealed class PostPipelineService
                 "Entity {EntityId} below confidence threshold ({Confidence:F2} < {Threshold:F2})",
                 entityId, effectiveConfidence, hydration.AutoReviewConfidenceThreshold);
 
-            var promoted = await _reviewRepo.MarkPendingReadyByEntityAsync(entityId, ct);
-            var hasReadyPendingReview = promoted > 0;
+            var promoted = _outcomeFactory is not null
+                ? await _outcomeFactory.PromoteProvisionalAsync(entityId, ingestionRunId, ct)
+                    .ConfigureAwait(false)
+                : await _reviewRepo.PromotePendingReadyByEntityAsync(entityId, ct)
+                    .ConfigureAwait(false);
+            var hasReadyPendingReview = promoted.Count > 0;
             if (!hasReadyPendingReview)
             {
                 var pendingReviews = await _reviewRepo.GetByEntityAsync(entityId, ct);
@@ -162,17 +170,28 @@ public sealed class PostPipelineService
 
             if (!hasReadyPendingReview)
             {
-                await _reviewRepo.InsertAsync(new ReviewQueueEntry
+                if (_outcomeFactory is not null)
                 {
-                    Id              = Guid.NewGuid(),
-                    EntityId        = entityId,
-                    EntityType      = "MediaAsset",
-                    Trigger         = ReviewTrigger.LowConfidence,
-                    ConfidenceScore = effectiveConfidence,
-                    Detail          = $"Post-pipeline confidence {effectiveConfidence:P0} below auto-review threshold",
-                    ReviewReadyAt   = DateTimeOffset.UtcNow,
-                    AutomationCompletedAt = DateTimeOffset.UtcNow,
-                }, ct);
+                    await _outcomeFactory.CreateLowConfidenceAsync(
+                        entityId,
+                        effectiveConfidence,
+                        ingestionRunId,
+                        ct: ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _reviewRepo.InsertAsync(new ReviewQueueEntry
+                    {
+                        Id              = Guid.NewGuid(),
+                        EntityId        = entityId,
+                        EntityType      = "MediaAsset",
+                        Trigger         = ReviewTrigger.LowConfidence,
+                        ConfidenceScore = effectiveConfidence,
+                        Detail          = $"Post-pipeline confidence {effectiveConfidence:P0} below auto-review threshold",
+                        ReviewReadyAt   = DateTimeOffset.UtcNow,
+                        AutomationCompletedAt = DateTimeOffset.UtcNow,
+                    }, ct);
+                }
             }
 
             if (ingestionRunId.HasValue)

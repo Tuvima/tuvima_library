@@ -60,6 +60,12 @@ public sealed class WikidataResolveRequest
     /// </summary>
     public bool IsEditionAware { get; init; }
 
+    /// <summary>
+    /// Allows a constrained title/creator text fallback after a trusted retail
+    /// match when provider bridge IDs are absent or do not resolve.
+    /// </summary>
+    public bool AllowConstrainedTextFallback { get; init; }
+
     // ── Music album strategy ─────────────────────────────────────────────────
 
     /// <summary>The album title (used by <see cref="ResolveStrategy.MusicAlbum"/>).</summary>
