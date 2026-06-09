@@ -276,7 +276,7 @@
         ?? DefaultSelectedStage(DisplayStageRows);
     private IngestionDashboardStage ActiveBatchStage =>
         StageRows.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
-        ?? StageRows.FirstOrDefault(stage => stage.Percent < 100)
+        ?? StageRows.FirstOrDefault(stage => !IsStageComplete(stage))
         ?? StageRows.LastOrDefault()
         ?? new IngestionDashboardStage("scan", "Scan", "Scan", Icons.Material.Outlined.Radar, 0, 0, 0, "Ingestion_StatusIdle", 0, false, 0, 0, 0, false, 1);
     private int LatestBatchReviewDelta => OrderedRecentBatches.FirstOrDefault() is { } batch
@@ -499,7 +499,9 @@
     }
 
     private static bool IsStageComplete(IngestionDashboardStage stage) =>
-        stage.Percent >= 99.5 || stage.StatusKey == "Ingestion_StatusComplete";
+        stage.Percent >= 99.5
+        || stage.StatusKey == "Ingestion_StatusComplete"
+        || string.Equals(stage.StatusLabel, "Complete", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsWikidataStage(IngestionDashboardStage stage) =>
         stage.Key.Equals("wikidata", StringComparison.OrdinalIgnoreCase);
@@ -587,7 +589,7 @@
 
     private static IngestionDashboardStage? DefaultSelectedStage(IReadOnlyList<IngestionDashboardStage> stages) =>
         stages.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
-        ?? stages.FirstOrDefault(stage => stage.Percent < 100)
+        ?? stages.FirstOrDefault(stage => !IsStageComplete(stage))
         ?? stages.FirstOrDefault();
 
     private static string BatchRenderKey(IngestionOperationsBatchViewModel batch) =>
@@ -794,6 +796,8 @@
             return "Active";
         if (stage.IsStale)
             return "Waiting";
+        if (IsStageComplete(stage))
+            return null;
         if (stage.QueuedCount > 0)
             return "Queued";
         if (!string.IsNullOrWhiteSpace(stage.StatusLabel)

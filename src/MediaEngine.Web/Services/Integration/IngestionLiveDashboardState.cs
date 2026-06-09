@@ -1213,6 +1213,8 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
     private static string ResolveNumberedStageStatusKey(IngestionStageProgressViewModel stage)
     {
+        if (IsCompleteStageLabel(stage.StatusLabel))
+            return "Ingestion_StatusComplete";
         if (stage.ActiveCount > 0)
             return "Ingestion_StatusActive";
         if (stage.IsStale)
@@ -1223,6 +1225,9 @@ public sealed class IngestionLiveDashboardState : IDisposable
             return "Ingestion_StatusPending";
         return "Ingestion_StatusIdle";
     }
+
+    private static bool IsCompleteStageLabel(string? statusLabel) =>
+        string.Equals(statusLabel, "Complete", StringComparison.OrdinalIgnoreCase);
 
     public static IngestionOverallProgress BuildOverallProgress(
         IngestionDashboardMetrics metrics,

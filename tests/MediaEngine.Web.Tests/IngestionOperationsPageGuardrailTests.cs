@@ -2272,6 +2272,103 @@ public sealed class IngestionDashboardRenderTests : TestContext
     }
 
     [Fact]
+    public void LiveDashboard_RendersCompletedCheckForTerminalStagesWithPartialRawCounts()
+    {
+        var batchId = Guid.Parse("85000000-0000-0000-0000-000000000001");
+        var completedAt = new DateTimeOffset(2026, 6, 8, 18, 30, 0, TimeSpan.Zero);
+        var terminalStages = new List<IngestionStageProgressViewModel>
+        {
+            new()
+            {
+                StageNumber = 4,
+                StageKey = "wikidata",
+                Label = "Wikidata",
+                CompletedFiles = 129,
+                TotalFiles = 131,
+                PercentComplete = 98.47,
+                StatusLabel = "Complete",
+                ArtifactLabel = "QIDs",
+                ArtifactCount = 124,
+            },
+            new()
+            {
+                StageNumber = 5,
+                StageKey = "people",
+                Label = "People",
+                CompletedFiles = 129,
+                TotalFiles = 131,
+                PercentComplete = 98.47,
+                StatusLabel = "Complete",
+                ArtifactLabel = "people",
+                ArtifactCount = 412,
+            },
+            new()
+            {
+                StageNumber = 6,
+                StageKey = "universes",
+                Label = "Universes",
+                CompletedFiles = 129,
+                TotalFiles = 131,
+                PercentComplete = 98.47,
+                StatusLabel = "Complete",
+                ArtifactLabel = "links",
+                ArtifactCount = 38,
+            },
+            new()
+            {
+                StageNumber = 7,
+                StageKey = "artwork",
+                Label = "Artwork",
+                CompletedFiles = 129,
+                TotalFiles = 131,
+                PercentComplete = 98.47,
+                StatusLabel = "Complete",
+                ArtifactLabel = "assets",
+                ArtifactCount = 294,
+            },
+        };
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            Summary = new IngestionOperationsSummaryViewModel
+            {
+                TotalItems = 131,
+                RegisteredItems = 124,
+                ItemsNeedingReview = 5,
+            },
+            StageProgress = terminalStages,
+            RecentBatches =
+            [
+                new()
+                {
+                    BatchId = batchId,
+                    StartedAt = completedAt.AddMinutes(-12),
+                    CompletedAt = completedAt,
+                    TotalFiles = 131,
+                    ProcessedFiles = 131,
+                    RegisteredCount = 124,
+                    ReviewCount = 5,
+                    Status = "completed",
+                    StageProgress = terminalStages,
+                },
+            ],
+        };
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(131, 131, 0, 5))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 131))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        foreach (var label in new[] { "Wikidata", "People", "Universes", "Artwork" })
+        {
+            Assert.Contains(cut.FindAll(".library-update-stage-card.is-complete"),
+                card => card.TextContent.Contains(label, StringComparison.Ordinal));
+            Assert.Contains($"{label} is complete for this batch.", cut.Markup, StringComparison.Ordinal);
+            Assert.DoesNotContain($"{label} has started but is not finished.", cut.Markup, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void LiveDashboard_RendersCompactRecentBatchesPanel()
     {
         var batchId = Guid.Parse("83000000-0000-0000-0000-000000000001");
