@@ -1,20 +1,24 @@
 using System.Collections.Concurrent;
+using System.Globalization;
+using System.Text;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
 /// <summary>
-/// Assigns works to ContentGroup collections based on Wikidata QID relationships.
-/// After Stage 2 resolves a QID, this service reads the work's canonical values
-/// (series_qid plus broader franchise/universe relationships) and creates or
-/// finds a Collection for the immediate shelf entity (album, TV show, book
-/// series, movie series, etc.).
+/// Assigns works to ContentGroup collections based on stable shelf identities.
+/// QIDs are preferred when Stage 2 has resolved them; provider-backed keys such
+/// as TMDB movie collections and TV show IDs keep shelves stable before Wikidata
+/// catches up. Broader franchise/universe relationships remain rollup inputs.
 ///
-/// Uses <see cref="ICollectionRepository.FindByQidAsync"/> to avoid duplicates and
+/// Uses QID/rule-hash lookups to avoid duplicates and
 /// <see cref="ICollectionRepository.AssignWorkToCollectionAsync"/> to set the FK.
 /// Idempotent — skips works that already have a collection_id.
 /// </summary>
@@ -25,11 +29,10 @@ public sealed class CollectionAssignmentService
     private readonly IWorkRepository _workRepo;
     private readonly ILogger<CollectionAssignmentService> _logger;
 
-    // Per-QID semaphores serialise concurrent find-or-create calls so two
-    // workers cannot race past FindByQidAsync and both UpsertAsync the same
-    // ContentGroup collection. The service is a singleton, so the dictionary lives
-    // for the process lifetime; entries are cheap (one SemaphoreSlim each).
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> QidLocks = new();
+    // Per-shelf semaphores serialise concurrent find-or-create calls so two
+    // workers cannot race past lookup and both UpsertAsync the same ContentGroup
+    // collection. The service is a singleton, so entries are process-lifetime.
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> ShelfLocks = new();
 
     public CollectionAssignmentService(
         ICollectionRepository collectionRepo,
@@ -68,24 +71,25 @@ public sealed class CollectionAssignmentService
         var canonicalEntityId = lineage?.TargetForParentScope ?? workId.Value;
         var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
         var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+        var mediaType = lineage?.MediaType ?? ResolveMediaType(lookup);
 
-        // Try to find an immediate shelf QID. Broader franchise/universe
+        // Try to find an immediate shelf identity. Broader franchise/universe
         // values are relationships on the shelf and become Collections only
         // when multiple shelves share them.
-        var (parentQid, parentLabel) = ResolveParentQid(lookup);
+        var shelf = ResolveShelfIdentity(lookup, mediaType);
 
-        if (string.IsNullOrWhiteSpace(parentQid))
+        if (shelf is null)
         {
-            _logger.LogDebug("CollectionAssignment: no parent QID for work {WorkId} — standalone", workId);
+            _logger.LogDebug("CollectionAssignment: no shelf identity for work {WorkId}; standalone", workId);
             return;
         }
 
         if (existingCollectionId is not null)
         {
             var existingCollection = await _collectionRepo.GetByIdAsync(existingCollectionId.Value, ct);
-            if (existingCollection is not null
-                && string.Equals(existingCollection.WikidataQid, parentQid, StringComparison.OrdinalIgnoreCase))
+            if (existingCollection is not null && CollectionMatchesShelf(existingCollection, shelf))
             {
+                await UpgradeCollectionIdentityAsync(existingCollection, shelf, ct);
                 await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
 
                 _logger.LogDebug(
@@ -102,39 +106,38 @@ public sealed class CollectionAssignmentService
                     workId,
                     existingCollection.DisplayName,
                     existingCollection.WikidataQid,
-                    parentQid);
+                    shelf.Qid ?? shelf.ProviderKey);
             }
         }
 
         // Find or create a ContentGroup collection for this parent QID.
         // Serialise on the QID so two workers cannot race past FindByQidAsync
         // and both Upsert a duplicate collection for the same album/show/series.
-        var gate = QidLocks.GetOrAdd(parentQid, _ => new SemaphoreSlim(1, 1));
+        var gate = ShelfLocks.GetOrAdd(shelf.LockKey, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
         Collection collection;
         try
         {
-            var existing = await _collectionRepo.FindByQidAsync(parentQid, ct);
+            var existing = await FindShelfCollectionAsync(shelf, ct);
             if (existing is not null)
             {
                 collection = existing;
+                await UpgradeCollectionIdentityAsync(collection, shelf, ct);
             }
             else
             {
                 // Sanitize the label — fall back to QID if label is just a QID or empty
-                if (string.IsNullOrWhiteSpace(parentLabel) ||
-                    (parentLabel.Length > 1 && parentLabel[0] is 'Q' && char.IsDigit(parentLabel[1])))
-                {
-                    parentLabel = parentQid;
-                }
+                var displayName = SanitizeShelfLabel(shelf.Label, shelf.Qid, shelf.ProviderKey);
 
                 collection = new Collection
                 {
                     Id = Guid.NewGuid(),
-                    DisplayName = parentLabel,
-                    WikidataQid = parentQid,
+                    DisplayName = displayName,
+                    WikidataQid = shelf.Qid,
                     CollectionType = "ContentGroup",
                     Resolution = "materialized",
+                    RuleHash = shelf.ProviderKey,
+                    GroupByField = GetGroupByField(shelf.MediaType),
                     UniverseStatus = "Unknown",
                     CreatedAt = DateTimeOffset.UtcNow,
                 };
@@ -142,8 +145,8 @@ public sealed class CollectionAssignmentService
                 await _collectionRepo.UpsertAsync(collection, ct);
 
                 _logger.LogInformation(
-                    "CollectionAssignment: created ContentGroup collection '{Name}' ({Qid}) for work {WorkId}",
-                    collection.DisplayName, parentQid, workId);
+                    "CollectionAssignment: created ContentGroup collection '{Name}' ({Identity}) for work {WorkId}",
+                    collection.DisplayName, shelf.Qid ?? shelf.ProviderKey, workId);
             }
 
             await EnsureCollectionRelationshipsAsync(collection.Id, lookup, ct);
@@ -157,8 +160,230 @@ public sealed class CollectionAssignmentService
         await _collectionRepo.AssignWorkToCollectionAsync(workId.Value, collection.Id, ct);
 
         _logger.LogInformation(
-            "CollectionAssignment: assigned work {WorkId} to collection '{CollectionName}' ({Qid})",
-            workId, collection.DisplayName, parentQid);
+            "CollectionAssignment: assigned work {WorkId} to collection '{CollectionName}' ({Identity})",
+            workId, collection.DisplayName, shelf.Qid ?? shelf.ProviderKey);
+    }
+
+    private async Task<Collection?> FindShelfCollectionAsync(ShelfIdentity shelf, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(shelf.Qid))
+        {
+            var byQid = await _collectionRepo.FindByQidAsync(shelf.Qid, ct);
+            if (byQid is not null)
+                return byQid;
+        }
+
+        return string.IsNullOrWhiteSpace(shelf.ProviderKey)
+            ? null
+            : await _collectionRepo.FindByRuleHashAsync(shelf.ProviderKey, ct);
+    }
+
+    private async Task UpgradeCollectionIdentityAsync(Collection collection, ShelfIdentity shelf, CancellationToken ct)
+    {
+        var changed = false;
+
+        if (!string.IsNullOrWhiteSpace(shelf.Qid)
+            && !string.Equals(collection.WikidataQid, shelf.Qid, StringComparison.OrdinalIgnoreCase))
+        {
+            collection.WikidataQid = shelf.Qid;
+            changed = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(shelf.ProviderKey)
+            && !string.Equals(collection.RuleHash, shelf.ProviderKey, StringComparison.OrdinalIgnoreCase))
+        {
+            collection.RuleHash = shelf.ProviderKey;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(collection.DisplayName) || IsQidLike(collection.DisplayName))
+        {
+            collection.DisplayName = SanitizeShelfLabel(shelf.Label, shelf.Qid, shelf.ProviderKey);
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(collection.GroupByField))
+        {
+            collection.GroupByField = GetGroupByField(shelf.MediaType);
+            changed = true;
+        }
+
+        if (changed)
+            await _collectionRepo.UpsertAsync(collection, ct);
+    }
+
+    private static bool CollectionMatchesShelf(Collection collection, ShelfIdentity shelf)
+    {
+        if (!string.IsNullOrWhiteSpace(shelf.Qid)
+            && string.Equals(collection.WikidataQid, shelf.Qid, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(shelf.ProviderKey)
+            && string.Equals(collection.RuleHash, shelf.ProviderKey, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ShelfIdentity? ResolveShelfIdentity(
+        Dictionary<string, string> lookup,
+        MediaType mediaType)
+    {
+        var relationshipKeys = BuildRelationshipKeys(lookup);
+
+        if (TryGetQid(lookup, "series", out var qid, out var label))
+        {
+            return new ShelfIdentity(
+                mediaType,
+                label,
+                qid,
+                ResolveProviderKey(lookup, mediaType),
+                relationshipKeys);
+        }
+
+        var providerKey = ResolveProviderKey(lookup, mediaType);
+        var providerLabel = ResolveProviderLabel(lookup, mediaType);
+        if (!string.IsNullOrWhiteSpace(providerKey) && !string.IsNullOrWhiteSpace(providerLabel))
+            return new ShelfIdentity(mediaType, providerLabel, null, providerKey, relationshipKeys);
+
+        var localLabel = ResolveLocalShelfLabel(lookup, mediaType);
+        if (string.IsNullOrWhiteSpace(localLabel))
+            return null;
+
+        var localKey = $"local:{mediaType.ToString().ToLowerInvariant()}:{NormalizeKey(localLabel)}";
+        return new ShelfIdentity(mediaType, localLabel, null, localKey, relationshipKeys);
+    }
+
+    private static string? ResolveProviderKey(Dictionary<string, string> lookup, MediaType mediaType)
+    {
+        return mediaType switch
+        {
+            MediaType.Movies when TryGetValue(lookup, "tmdb_collection_id", out var tmdbCollectionId)
+                => $"tmdb:collection:{tmdbCollectionId}",
+            MediaType.TV when TryGetValue(lookup, BridgeIdKeys.TmdbId, out var tmdbTvId)
+                => $"tmdb:tv:{tmdbTvId}",
+            MediaType.TV when TryGetValue(lookup, BridgeIdKeys.TvdbId, out var tvdbId)
+                => $"tvdb:tv:{tvdbId}",
+            MediaType.Music when TryGetValue(lookup, BridgeIdKeys.AppleMusicCollectionId, out var appleCollectionId)
+                => $"applemusic:album:{appleCollectionId}",
+            MediaType.Music when TryGetValue(lookup, BridgeIdKeys.MusicBrainzReleaseGroupId, out var releaseGroupId)
+                => $"musicbrainz:release-group:{releaseGroupId}",
+            MediaType.Comics when TryGetValue(lookup, BridgeIdKeys.ComicVineId, out var comicVineId)
+                => $"comicvine:series:{comicVineId}",
+            _ => null,
+        };
+    }
+
+    private static string? ResolveProviderLabel(Dictionary<string, string> lookup, MediaType mediaType)
+    {
+        return mediaType switch
+        {
+            MediaType.Movies => FirstNonBlank(
+                ValueOrNull(lookup, "tmdb_collection_name"),
+                ValueOrNull(lookup, MetadataFieldConstants.Series)),
+            MediaType.TV => FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.ShowName),
+                ValueOrNull(lookup, MetadataFieldConstants.Title),
+                ValueOrNull(lookup, MetadataFieldConstants.Series)),
+            MediaType.Music => FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.Album),
+                ValueOrNull(lookup, MetadataFieldConstants.Title)),
+            MediaType.Comics => ValueOrNull(lookup, MetadataFieldConstants.Series),
+            _ => null,
+        };
+    }
+
+    private static string? ResolveLocalShelfLabel(Dictionary<string, string> lookup, MediaType mediaType)
+    {
+        return mediaType switch
+        {
+            MediaType.TV => FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.ShowName),
+                ValueOrNull(lookup, MetadataFieldConstants.Series)),
+            MediaType.Music => FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.Album),
+                ValueOrNull(lookup, MetadataFieldConstants.Title)),
+            MediaType.Books or MediaType.Audiobooks or MediaType.Comics => ValueOrNull(lookup, MetadataFieldConstants.Series),
+            _ => null,
+        };
+    }
+
+    private static IReadOnlyList<string> BuildRelationshipKeys(Dictionary<string, string> lookup)
+    {
+        var keys = new List<string>();
+        foreach (var claimKey in new[] { "series", "franchise", "fictional_universe" })
+        {
+            if (TryGetQid(lookup, claimKey, out var qid, out _))
+                keys.Add($"{claimKey}:{qid}");
+        }
+
+        return keys;
+    }
+
+    private static MediaType ResolveMediaType(Dictionary<string, string> lookup)
+        => Enum.TryParse<MediaType>(ValueOrNull(lookup, MetadataFieldConstants.MediaTypeField), ignoreCase: true, out var mediaType)
+            ? mediaType
+            : MediaType.Unknown;
+
+    private static string SanitizeShelfLabel(string label, string? qid, string? providerKey)
+        => string.IsNullOrWhiteSpace(label) || IsQidLike(label)
+            ? FirstNonBlank(qid, providerKey, "Untitled shelf")!
+            : label.Trim();
+
+    private static string? GetGroupByField(MediaType mediaType) => mediaType switch
+    {
+        MediaType.TV => MetadataFieldConstants.ShowName,
+        MediaType.Music => MetadataFieldConstants.Album,
+        MediaType.Books or MediaType.Audiobooks or MediaType.Comics or MediaType.Movies => MetadataFieldConstants.Series,
+        _ => null,
+    };
+
+    private static bool TryGetValue(Dictionary<string, string> lookup, string key, out string value)
+    {
+        value = string.Empty;
+        if (!lookup.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw))
+            return false;
+
+        value = raw.Trim();
+        return true;
+    }
+
+    private static string? ValueOrNull(Dictionary<string, string> lookup, string key)
+        => TryGetValue(lookup, key, out var value) ? value : null;
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
+    private static bool IsQidLike(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && value.Length > 1
+           && value[0] is 'Q'
+           && char.IsDigit(value[1]);
+
+    private static string NormalizeKey(string value)
+    {
+        var decomposed = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(decomposed.Length);
+        var previousWasSeparator = false;
+
+        foreach (var ch in decomposed)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (char.IsLetterOrDigit(ch))
+            {
+                builder.Append(char.ToLowerInvariant(ch));
+                previousWasSeparator = false;
+            }
+            else if (!previousWasSeparator && builder.Length > 0)
+            {
+                builder.Append('-');
+                previousWasSeparator = true;
+            }
+        }
+
+        return builder.ToString().Trim('-');
     }
 
     /// <summary>

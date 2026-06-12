@@ -3,6 +3,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage;
 
@@ -24,6 +25,16 @@ public sealed class CollectionRepository : ICollectionRepository
         public Guid? LeafWorkId { get; init; }
         public Guid? ParentWorkId { get; init; }
         public Guid? RootWorkId { get; init; }
+    }
+
+    private sealed class WorkCanonicalValueRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid EntityId { get; init; }
+        public string Key { get; init; } = string.Empty;
+        public string Value { get; init; } = string.Empty;
+        public DateTimeOffset LastScoredAt { get; init; }
+        public int ScopeRank { get; init; }
     }
 
     // Reusable SELECT list for single-collection queries (no table prefix needed).
@@ -98,6 +109,85 @@ public sealed class CollectionRepository : ICollectionRepository
             ids.Add(value.Value);
     }
 
+    private static Guid ReadGuid(SqliteDataReader reader, int ordinal) =>
+        GuidSql.FromDb(reader.GetValue(ordinal));
+
+    private static Guid? ReadNullableGuid(SqliteDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : GuidSql.FromDb(reader.GetValue(ordinal));
+
+    private static void LoadCanonicalValuesForLoadedWorks(
+        SqliteConnection conn,
+        Dictionary<Guid, Work> works,
+        bool visibleAssetsOnly)
+    {
+        if (works.Count == 0)
+            return;
+
+        var visibleAssetPredicate = visibleAssetsOnly
+            ? $"AND {HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root")}"
+            : string.Empty;
+
+        var rows = conn.Query<WorkCanonicalValueRow>($"""
+            WITH work_lineage AS (
+                SELECT w.id AS WorkId,
+                       w.id AS LeafWorkId,
+                       p.id AS ParentWorkId,
+                       COALESCE(gp.id, p.id, w.id) AS RootWorkId
+                FROM works w
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                WHERE w.id IN @workIds
+            ),
+            canonical_sources AS (
+                SELECT WorkId, LeafWorkId AS EntityId, 1 AS ScopeRank
+                FROM work_lineage
+                UNION ALL
+                SELECT WorkId, ParentWorkId AS EntityId, 2 AS ScopeRank
+                FROM work_lineage
+                WHERE ParentWorkId IS NOT NULL
+                UNION ALL
+                SELECT WorkId, RootWorkId AS EntityId, 3 AS ScopeRank
+                FROM work_lineage
+                WHERE RootWorkId IS NOT NULL
+                UNION ALL
+                SELECT wl.WorkId, ma.id AS EntityId, 0 AS ScopeRank
+                FROM work_lineage wl
+                JOIN editions e ON e.work_id = wl.WorkId
+                JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE 1 = 1
+                {visibleAssetPredicate}
+            )
+            SELECT cs.WorkId,
+                   cv.entity_id AS EntityId,
+                   cv.key AS Key,
+                   cv.value AS Value,
+                   cv.last_scored_at AS LastScoredAt,
+                   cs.ScopeRank
+            FROM canonical_sources cs
+            JOIN canonical_values cv ON cv.entity_id = cs.EntityId
+            ORDER BY cs.WorkId, cs.ScopeRank, cv.key, cv.last_scored_at DESC;
+            """, new { workIds = works.Keys.Select(GuidSql.ToBlob).ToArray() });
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            if (!works.TryGetValue(row.WorkId, out var work))
+                continue;
+
+            var key = $"{row.WorkId:N}:{row.EntityId:N}:{row.Key}";
+            if (!seen.Add(key))
+                continue;
+
+            work.AddCanonicalValue(new CanonicalValue
+            {
+                EntityId = row.EntityId,
+                Key = row.Key,
+                Value = row.Value,
+                LastScoredAt = row.LastScoredAt,
+            });
+        }
+    }
+
     // -------------------------------------------------------------------------
     // GetAllAsync — kept as raw reader (complex 3-query grouping pattern)
     // -------------------------------------------------------------------------
@@ -131,23 +221,23 @@ public sealed class CollectionRepository : ICollectionRepository
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                var collectionId = Guid.Parse(reader.GetString(0));
+                var collectionId = ReadGuid(reader, 0);
                 if (!collections.TryGetValue(collectionId, out var collection))
                 {
                     collection = new Collection
                     {
                         Id              = collectionId,
-                        UniverseId      = reader.IsDBNull(1)  ? null : Guid.Parse(reader.GetString(1)),
+                        UniverseId      = ReadNullableGuid(reader, 1),
                         DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
                         CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
                         UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
-                        ParentCollectionId     = reader.IsDBNull(5)  ? null : Guid.Parse(reader.GetString(5)),
+                        ParentCollectionId     = ReadNullableGuid(reader, 5),
                         WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
                         CollectionType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
                         Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
                         IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
                         Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
-                        ProfileId       = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                        ProfileId       = ReadNullableGuid(reader, 11),
                         IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
                         IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
                         MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
@@ -162,7 +252,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 // LEFT JOIN: work columns are NULL when the collection has no works.
                 if (!reader.IsDBNull(19))
                 {
-                    var workId = Guid.Parse(reader.GetString(19));
+                    var workId = ReadGuid(reader, 19);
                     if (!works.ContainsKey(workId))
                     {
                         var work = new Work
@@ -185,40 +275,7 @@ public sealed class CollectionRepository : ICollectionRepository
         }
 
         // ── Query B: canonical values for all loaded works ────────────────────
-        if (works.Count > 0)
-        {
-            var workIds    = works.Keys.ToList();
-            var paramNames = workIds.Select((_, i) => $"@p{i}").ToList();
-
-            using var cmd2 = conn.CreateCommand();
-            cmd2.CommandText = $"""
-                SELECT e.work_id, cv.entity_id, cv.key, cv.value, cv.last_scored_at
-                FROM   canonical_values cv
-                JOIN   media_assets ma ON ma.id = cv.entity_id
-                JOIN   editions e      ON e.id  = ma.edition_id
-                WHERE  e.work_id IN ({string.Join(", ", paramNames)});
-                """;
-
-            for (int i = 0; i < workIds.Count; i++)
-                cmd2.Parameters.AddWithValue($"@p{i}", workIds[i].ToString());
-
-            using var reader2 = cmd2.ExecuteReader();
-            while (reader2.Read())
-            {
-                var workId   = Guid.Parse(reader2.GetString(0));
-                var entityId = Guid.Parse(reader2.GetString(1));
-                if (works.TryGetValue(workId, out var work))
-                {
-                    work.AddCanonicalValue(new CanonicalValue
-                    {
-                        EntityId     = entityId,
-                        Key          = reader2.GetString(2),
-                        Value        = reader2.GetString(3),
-                        LastScoredAt = DateTimeOffset.Parse(reader2.GetString(4)),
-                    });
-                }
-            }
-        }
+        LoadCanonicalValuesForLoadedWorks(conn, works, visibleAssetsOnly: false);
 
         // ── Query C: collection relationships ────────────────────────────────────────
         if (collections.Count > 0)
@@ -234,17 +291,17 @@ public sealed class CollectionRepository : ICollectionRepository
                 """;
 
             for (int i = 0; i < collectionIds.Count; i++)
-                cmd3.Parameters.AddWithValue($"@h{i}", collectionIds[i].ToString());
+                cmd3.Parameters.Add($"@h{i}", SqliteType.Blob).Value = GuidSql.ToBlob(collectionIds[i]);
 
             using var reader3 = cmd3.ExecuteReader();
             while (reader3.Read())
             {
-                var collectionId = Guid.Parse(reader3.GetString(1));
+                var collectionId = ReadGuid(reader3, 1);
                 if (collections.TryGetValue(collectionId, out var collection))
                 {
                     collection.AddRelationship(new CollectionRelationship
                     {
-                        Id           = Guid.Parse(reader3.GetString(0)),
+                        Id           = ReadGuid(reader3, 0),
                         CollectionId        = collectionId,
                         RelType      = reader3.GetString(2),
                         RelQid       = reader3.GetString(3),
@@ -876,8 +933,8 @@ public sealed class CollectionRepository : ICollectionRepository
 
         var edition = new Edition
         {
-            Id          = Guid.Parse(reader.GetString(0)),
-            WorkId      = Guid.Parse(reader.GetString(1)),
+            Id          = ReadGuid(reader, 0),
+            WorkId      = ReadGuid(reader, 1),
             FormatLabel = reader.IsDBNull(2) ? null : reader.GetString(2),
             WikidataQid = reader.IsDBNull(3) ? null : reader.GetString(3),
         };
@@ -1163,23 +1220,23 @@ public sealed class CollectionRepository : ICollectionRepository
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                var collectionId = Guid.Parse(reader.GetString(0));
+                var collectionId = ReadGuid(reader, 0);
                 if (!collections.TryGetValue(collectionId, out var collection))
                 {
                     collection = new Collection
                     {
                         Id              = collectionId,
-                        UniverseId      = reader.IsDBNull(1)  ? null : Guid.Parse(reader.GetString(1)),
+                        UniverseId      = ReadNullableGuid(reader, 1),
                         DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
                         CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
                         UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
-                        ParentCollectionId     = reader.IsDBNull(5)  ? null : Guid.Parse(reader.GetString(5)),
+                        ParentCollectionId     = ReadNullableGuid(reader, 5),
                         WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
                         CollectionType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
                         Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
                         IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
                         Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
-                        ProfileId       = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                        ProfileId       = ReadNullableGuid(reader, 11),
                         IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
                         IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
                         MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
@@ -1191,7 +1248,7 @@ public sealed class CollectionRepository : ICollectionRepository
                     collections[collectionId] = collection;
                 }
 
-                var workId = Guid.Parse(reader.GetString(19));
+                var workId = ReadGuid(reader, 19);
                 if (!works.ContainsKey(workId))
                 {
                     var work = new Work
@@ -1212,42 +1269,8 @@ public sealed class CollectionRepository : ICollectionRepository
             }
         }
 
-        // Canonical values for all loaded works.
-        if (works.Count > 0)
-        {
-            var workIds    = works.Keys.ToList();
-            var paramNames = workIds.Select((_, i) => $"@p{i}").ToList();
-            var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-
-            using var cmd2 = conn.CreateCommand();
-            cmd2.CommandText = $"""
-                SELECT e.work_id, cv.entity_id, cv.key, cv.value, cv.last_scored_at
-                FROM   canonical_values cv
-                JOIN   media_assets ma ON ma.id = cv.entity_id
-                JOIN   editions e      ON e.id  = ma.edition_id
-                WHERE  e.work_id IN ({string.Join(", ", paramNames)})
-                  AND  {visibleAssetPredicate}
-                """;
-
-            for (int i = 0; i < workIds.Count; i++)
-                cmd2.Parameters.AddWithValue($"@p{i}", workIds[i].ToString());
-
-            using var reader2 = cmd2.ExecuteReader();
-            while (reader2.Read())
-            {
-                var workId   = Guid.Parse(reader2.GetString(0));
-                if (works.TryGetValue(workId, out var work))
-                {
-                    work.AddCanonicalValue(new CanonicalValue
-                    {
-                        EntityId     = Guid.Parse(reader2.GetString(1)),
-                        Key          = reader2.GetString(2),
-                        Value        = reader2.GetString(3),
-                        LastScoredAt = DateTimeOffset.Parse(reader2.GetString(4)),
-                    });
-                }
-            }
-        }
+        // Canonical values for file, leaf, parent, and root work rows.
+        LoadCanonicalValuesForLoadedWorks(conn, works, visibleAssetsOnly: true);
 
         IReadOnlyList<Collection> result = collections.Values.ToList();
         return Task.FromResult(result);
@@ -1280,7 +1303,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 """;
             var p = cmd.CreateParameter();
             p.ParameterName = "@CollectionId";
-            p.Value = collectionId.ToString();
+            p.SqliteType = SqliteType.Blob;
+            p.Value = GuidSql.ToBlob(collectionId);
             cmd.Parameters.Add(p);
 
             using var reader = cmd.ExecuteReader();
@@ -1290,18 +1314,18 @@ public sealed class CollectionRepository : ICollectionRepository
                 {
                     collection = new Collection
                     {
-                        Id              = Guid.Parse(reader.GetString(0)),
-                        UniverseId      = reader.IsDBNull(1)  ? null : Guid.Parse(reader.GetString(1)),
+                        Id              = ReadGuid(reader, 0),
+                        UniverseId      = ReadNullableGuid(reader, 1),
                         DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
                         CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
                         UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
-                        ParentCollectionId     = reader.IsDBNull(5)  ? null : Guid.Parse(reader.GetString(5)),
+                        ParentCollectionId     = ReadNullableGuid(reader, 5),
                         WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
                         CollectionType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
                         Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
                         IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
                         Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
-                        ProfileId       = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                        ProfileId       = ReadNullableGuid(reader, 11),
                         IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
                         IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
                         MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
@@ -1315,7 +1339,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 // LEFT JOIN: work columns are NULL when collection has no works.
                 if (!reader.IsDBNull(19))
                 {
-                    var workId = Guid.Parse(reader.GetString(19));
+                    var workId = ReadGuid(reader, 19);
                     if (!works.ContainsKey(workId))
                     {
                         var work = new Work
@@ -1340,40 +1364,8 @@ public sealed class CollectionRepository : ICollectionRepository
         if (collection is null)
             return Task.FromResult<Collection?>(null);
 
-        // Canonical values for all loaded works.
-        if (works.Count > 0)
-        {
-            var workIds    = works.Keys.ToList();
-            var paramNames = workIds.Select((_, i) => $"@p{i}").ToList();
-
-            using var cmd2 = conn.CreateCommand();
-            cmd2.CommandText = $"""
-                SELECT e.work_id, cv.entity_id, cv.key, cv.value, cv.last_scored_at
-                FROM   canonical_values cv
-                JOIN   media_assets ma ON ma.id = cv.entity_id
-                JOIN   editions e      ON e.id  = ma.edition_id
-                WHERE  e.work_id IN ({string.Join(", ", paramNames)});
-                """;
-
-            for (int i = 0; i < workIds.Count; i++)
-                cmd2.Parameters.AddWithValue($"@p{i}", workIds[i].ToString());
-
-            using var reader2 = cmd2.ExecuteReader();
-            while (reader2.Read())
-            {
-                var wid = Guid.Parse(reader2.GetString(0));
-                if (works.TryGetValue(wid, out var work))
-                {
-                    work.AddCanonicalValue(new CanonicalValue
-                    {
-                        EntityId     = Guid.Parse(reader2.GetString(1)),
-                        Key          = reader2.GetString(2),
-                        Value        = reader2.GetString(3),
-                        LastScoredAt = DateTimeOffset.Parse(reader2.GetString(4)),
-                    });
-                }
-            }
-        }
+        // Canonical values for file, leaf, parent, and root work rows.
+        LoadCanonicalValuesForLoadedWorks(conn, works, visibleAssetsOnly: false);
 
         return Task.FromResult<Collection?>(collection);
     }
@@ -1384,12 +1376,11 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var raw = conn.QueryFirstOrDefault<string>(
+        var collectionId = conn.QueryFirstOrDefault<Guid?>(
             "SELECT collection_id FROM works WHERE id = @workId AND collection_id IS NOT NULL;",
-            new { workId = workId.ToString() });
+            new { workId });
 
-        if (raw is null) return Task.FromResult<Guid?>(null);
-        return Task.FromResult<Guid?>(Guid.Parse(raw));
+        return Task.FromResult(collectionId);
     }
 
     /// <inheritdoc/>

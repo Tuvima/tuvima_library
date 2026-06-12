@@ -421,7 +421,7 @@ public static partial class MetadataEndpoints
 
             using (var conn = db.CreateConnection())
             {
-                var assetRow = conn.QueryFirstOrDefault<(string AssetId, string WorkId)>(
+                var assetRow = conn.QueryFirstOrDefault<EditorMediaTypeAssetRow>(
                     """
                     SELECT ma.id AS AssetId, e.work_id AS WorkId
                     FROM media_assets ma
@@ -429,18 +429,16 @@ public static partial class MetadataEndpoints
                     WHERE ma.id = @EntityId
                     LIMIT 1;
                     """,
-                    new { EntityId = entityId.ToString() });
+                    new { EntityId = entityId });
 
-                if (!string.IsNullOrWhiteSpace(assetRow.AssetId)
-                    && Guid.TryParse(assetRow.AssetId, out var parsedAssetId))
+                if (assetRow is not null)
                 {
-                    targetAssetId = parsedAssetId;
-                    if (Guid.TryParse(assetRow.WorkId, out var parsedWorkId))
-                        targetWorkId = parsedWorkId;
+                    targetAssetId = assetRow.AssetId;
+                    targetWorkId = assetRow.WorkId;
                 }
                 else
                 {
-                    var workAssetRow = conn.QueryFirstOrDefault<(string? AssetId, string WorkId)>(
+                    var workAssetRow = conn.QueryFirstOrDefault<EditorMediaTypeWorkAssetRow>(
                         """
                         SELECT ma.id AS AssetId, w.id AS WorkId
                         FROM works w
@@ -450,17 +448,12 @@ public static partial class MetadataEndpoints
                         ORDER BY ma.id IS NULL, ma.id
                         LIMIT 1;
                         """,
-                        new { EntityId = entityId.ToString() });
+                        new { EntityId = entityId });
 
-                    if (!string.IsNullOrWhiteSpace(workAssetRow.WorkId)
-                        && Guid.TryParse(workAssetRow.WorkId, out var parsedWorkId))
+                    if (workAssetRow is not null)
                     {
-                        targetWorkId = parsedWorkId;
-                        if (!string.IsNullOrWhiteSpace(workAssetRow.AssetId)
-                            && Guid.TryParse(workAssetRow.AssetId, out var parsedWorkAssetId))
-                        {
-                            targetAssetId = parsedWorkAssetId;
-                        }
+                        targetWorkId = workAssetRow.WorkId;
+                        targetAssetId = workAssetRow.AssetId ?? targetAssetId;
                     }
                 }
             }
@@ -500,7 +493,7 @@ public static partial class MetadataEndpoints
                 using var conn = db.CreateConnection();
                 await conn.ExecuteAsync(
                     "UPDATE works SET media_type = @MediaType WHERE id = @WorkId;",
-                    new { MediaType = newMediaType.ToString(), WorkId = workId.ToString() });
+                    new { MediaType = newMediaType.ToString(), WorkId = workId });
             }
 
             // 3. Resolve any pending AmbiguousMediaType review items for this entity.
@@ -1898,19 +1891,56 @@ public static partial class MetadataEndpoints
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
-        if (workRow is not null && Guid.TryParse(workRow.WorkId, out var workId))
+        if (workRow is not null)
         {
+            var workId = workRow.WorkId;
             var representativeAsset = GetRepresentativeAssetForWorkTree(conn, workId);
             return new EditorLaunchContext(
                 entityId,
                 "Work",
                 workId,
-                TryParseGuid(workRow.ParentWorkId),
-                TryParseGuid(workRow.RootWorkId) ?? workId,
+                workRow.ParentWorkId,
+                workRow.RootWorkId ?? workId,
                 string.IsNullOrWhiteSpace(workRow.MediaType) ? "Books" : workRow.MediaType,
                 string.IsNullOrWhiteSpace(workRow.WorkKind) ? "standalone" : workRow.WorkKind,
+                representativeAsset?.AssetId,
+                representativeAsset?.FilePath,
+                representativeAsset?.WritebackStatus);
+        }
+
+        var collectionRow = conn.QueryFirstOrDefault<EditorLaunchCollectionRow>("""
+            SELECT target.id             AS WorkId,
+                   target.media_type     AS MediaType,
+                   target.work_kind      AS WorkKind,
+                   target.parent_work_id AS ParentWorkId,
+                   target.id             AS RootWorkId
+            FROM collections c
+            INNER JOIN works w ON w.collection_id = c.id
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            INNER JOIN works target ON target.id = COALESCE(gp.id, p.id, w.id)
+            WHERE c.id = @entityId
+            ORDER BY
+                CASE WHEN target.id = w.id THEN 0 ELSE 1 END,
+                COALESCE(w.ordinal, 999999),
+                w.id
+            LIMIT 1;
+            """, new { entityId });
+
+        if (collectionRow is not null)
+        {
+            var collectionWorkId = collectionRow.WorkId;
+            var representativeAsset = GetRepresentativeAssetForWorkTree(conn, collectionWorkId);
+            return new EditorLaunchContext(
+                entityId,
+                "Collection",
+                collectionWorkId,
+                collectionRow.ParentWorkId,
+                collectionRow.RootWorkId ?? collectionWorkId,
+                string.IsNullOrWhiteSpace(collectionRow.MediaType) ? "Books" : collectionRow.MediaType,
+                string.IsNullOrWhiteSpace(collectionRow.WorkKind) ? "standalone" : collectionRow.WorkKind,
                 representativeAsset?.AssetId,
                 representativeAsset?.FilePath,
                 representativeAsset?.WritebackStatus);
@@ -1932,20 +1962,21 @@ public static partial class MetadataEndpoints
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE a.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
-        if (assetRow is null || !Guid.TryParse(assetRow.WorkId, out var assetWorkId))
+        if (assetRow is null)
             return null;
 
+        var assetWorkId = assetRow.WorkId;
         return new EditorLaunchContext(
             entityId,
             "MediaAsset",
             assetWorkId,
-            TryParseGuid(assetRow.ParentWorkId),
-            TryParseGuid(assetRow.RootWorkId) ?? assetWorkId,
+            assetRow.ParentWorkId,
+            assetRow.RootWorkId ?? assetWorkId,
             string.IsNullOrWhiteSpace(assetRow.MediaType) ? "Books" : assetRow.MediaType,
             string.IsNullOrWhiteSpace(assetRow.WorkKind) ? "standalone" : assetRow.WorkKind,
-            TryParseGuid(assetRow.AssetId),
+            assetRow.AssetId,
             assetRow.FilePath,
             assetRow.WritebackStatus);
     }
@@ -2061,7 +2092,7 @@ public static partial class MetadataEndpoints
         using var conn = db.CreateConnection();
         var json = conn.QueryFirstOrDefault<string?>(
             "SELECT display_overrides_json FROM works WHERE id = @workId LIMIT 1;",
-            new { workId = workId.ToString() });
+            new { workId });
 
         if (string.IsNullOrWhiteSpace(json))
             return new(StringComparer.OrdinalIgnoreCase);
@@ -2099,7 +2130,7 @@ public static partial class MetadataEndpoints
             ORDER BY work_tree.depth,
                      ma.id
             LIMIT 1;
-            """, new { workId = workId.ToString() });
+            """, new { workId });
 
     private static Guid? ResolveArtistArtworkOwnerId(
         IDatabaseConnection db,
@@ -2844,7 +2875,7 @@ public static partial class MetadataEndpoints
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
         if (workRow is not null)
         {
@@ -2876,7 +2907,7 @@ public static partial class MetadataEndpoints
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE a.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
         if (assetRow is not null)
         {
@@ -2905,52 +2936,49 @@ public static partial class MetadataEndpoints
 
     private static ArtworkResolutionContext BuildArtworkResolutionContext(
         Guid requestedEntityId,
-        string? workId,
-        string? rootWorkId,
-        string? primaryAssetId,
-        string? rootPrimaryAssetId,
+        Guid? workId,
+        Guid? rootWorkId,
+        Guid? primaryAssetId,
+        Guid? rootPrimaryAssetId,
         List<Guid> artworkEntityIds)
     {
-        var parsedWorkId = TryParseGuid(workId);
-        var parsedRootWorkId = TryParseGuid(rootWorkId) ?? parsedWorkId;
-        var parsedPrimaryAssetId = TryParseGuid(primaryAssetId);
-        var parsedRootPrimaryAssetId = TryParseGuid(rootPrimaryAssetId);
+        var resolvedRootWorkId = rootWorkId ?? workId;
 
         var dedupedArtworkIds = artworkEntityIds
             .Where(static id => id != Guid.Empty)
             .Distinct()
             .ToList();
 
-        if (parsedWorkId is Guid resolvedWorkId && !dedupedArtworkIds.Contains(resolvedWorkId))
+        if (workId is Guid resolvedWorkId && !dedupedArtworkIds.Contains(resolvedWorkId))
             dedupedArtworkIds.Insert(0, resolvedWorkId);
 
-        if (parsedRootWorkId is Guid resolvedRootWorkId && !dedupedArtworkIds.Contains(resolvedRootWorkId))
-            dedupedArtworkIds.Add(resolvedRootWorkId);
+        if (resolvedRootWorkId is Guid rootId && !dedupedArtworkIds.Contains(rootId))
+            dedupedArtworkIds.Add(rootId);
 
         return new ArtworkResolutionContext(
             RequestedEntityId: requestedEntityId,
-            WorkId: parsedWorkId,
-            RootWorkId: parsedRootWorkId,
-            PrimaryAssetId: parsedPrimaryAssetId,
-            RootPrimaryAssetId: parsedRootPrimaryAssetId,
+            WorkId: workId,
+            RootWorkId: resolvedRootWorkId,
+            PrimaryAssetId: primaryAssetId,
+            RootPrimaryAssetId: rootPrimaryAssetId,
             ArtworkEntityIds: dedupedArtworkIds,
-            PreferredArtworkEntityId: parsedPrimaryAssetId ?? parsedRootPrimaryAssetId);
+            PreferredArtworkEntityId: primaryAssetId ?? rootPrimaryAssetId);
     }
 
     private static List<Guid> GetArtworkEntityIds(
         System.Data.IDbConnection conn,
-        string? workId,
-        string? rootWorkId)
+        Guid? workId,
+        Guid? rootWorkId)
     {
         var ids = new List<Guid>();
 
-        AddParsedGuid(ids, workId);
-        AddParsedGuid(ids, rootWorkId);
+        AddCanonicalSource(ids, workId);
+        AddCanonicalSource(ids, rootWorkId);
 
-        if (string.IsNullOrWhiteSpace(workId) && string.IsNullOrWhiteSpace(rootWorkId))
+        if (workId is null && rootWorkId is null)
             return ids;
 
-        var assetRows = conn.Query<string>("""
+        var assetRows = conn.Query<Guid>("""
             SELECT DISTINCT ma.id
             FROM editions e
             INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -2961,11 +2989,11 @@ public static partial class MetadataEndpoints
             {
                 workId,
                 rootWorkId,
-            }.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray(),
+            }.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToArray(),
         });
 
         foreach (var assetId in assetRows)
-            AddParsedGuid(ids, assetId);
+            AddCanonicalSource(ids, assetId);
 
         return ids;
     }
@@ -3273,21 +3301,24 @@ public static partial class MetadataEndpoints
         IReadOnlyList<Guid> ArtworkEntityIds,
         Guid? PreferredArtworkEntityId);
     private sealed record ArtworkWorkResolutionRow(
-        string WorkId,
-        string RootWorkId,
-        string? PrimaryAssetId,
-        string? RootPrimaryAssetId);
+        Guid WorkId,
+        Guid RootWorkId,
+        Guid? PrimaryAssetId,
+        Guid? RootPrimaryAssetId);
     private sealed record ArtworkAssetResolutionRow(
-        string AssetId,
-        string WorkId,
-        string RootWorkId,
-        string? RootPrimaryAssetId);
-    private sealed record EditorAssetSample(string AssetIdValue, string? FilePath, string? WritebackStatus)
+        Guid AssetId,
+        Guid WorkId,
+        Guid RootWorkId,
+        Guid? RootPrimaryAssetId);
+    private sealed record EditorMediaTypeAssetRow(Guid AssetId, Guid WorkId);
+    private sealed record EditorMediaTypeWorkAssetRow(Guid WorkId, Guid? AssetId);
+    private sealed record EditorAssetSample(Guid AssetIdValue, string? FilePath, string? WritebackStatus)
     {
-        public Guid? AssetId => TryParseGuid(AssetIdValue);
+        public Guid? AssetId => AssetIdValue;
     }
-    private sealed record EditorLaunchWorkRow(string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
-    private sealed record EditorLaunchAssetRow(string AssetId, string? FilePath, string? WritebackStatus, string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchWorkRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
+    private sealed record EditorLaunchCollectionRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
+    private sealed record EditorLaunchAssetRow(Guid AssetId, string? FilePath, string? WritebackStatus, Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
     private sealed record EditorLaunchContext(
         Guid LaunchEntityId,
         string LaunchEntityKind,

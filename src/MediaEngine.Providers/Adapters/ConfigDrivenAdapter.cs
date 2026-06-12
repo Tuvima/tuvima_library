@@ -1025,6 +1025,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             AddIfMissing(enriched, MetadataFieldConstants.Tagline, details["tagline"]?.GetValue<string>(), 0.70);
             AddIfMissing(enriched, MetadataFieldConstants.Runtime, details["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.90);
             AddIfMissing(enriched, "content_rating", ExtractTmdbContentRating(details, mediaType), 0.88);
+            if (mediaType == MediaType.Movies)
+                AddTmdbMovieCollectionClaims(enriched, details);
+
             AddTmdbProductionClaims(enriched, details, mediaType);
             AddTmdbCastClaims(enriched, details, mediaType);
             AddTmdbCrewClaims(enriched, details, mediaType);
@@ -1050,6 +1053,21 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         }
 
         claims.Add(new ProviderClaim(key, value, confidence));
+    }
+
+    private static void AddTmdbMovieCollectionClaims(List<ProviderClaim> claims, JsonNode details)
+    {
+        var collection = details["belongs_to_collection"];
+        if (collection is null)
+            return;
+
+        var collectionId = collection["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+            ?? collection["id"]?.GetValue<string>();
+        var collectionName = collection["name"]?.GetValue<string>();
+
+        AddIfMissing(claims, "tmdb_collection_id", collectionId, 1.0);
+        AddIfMissing(claims, "tmdb_collection_name", collectionName, 0.94);
+        AddIfMissing(claims, MetadataFieldConstants.Series, collectionName, 0.90);
     }
 
     private static string? ExtractTmdbContentRating(JsonNode details, MediaType mediaType)

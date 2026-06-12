@@ -183,6 +183,40 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         Assert.Equal([leafWork, parentWork, rootWork], lineage);
     }
 
+    [Fact]
+    public async Task GetContentGroupsAsync_LoadsCanonicalValuesFromAssetLeafParentAndRoot()
+    {
+        var repo = new CollectionRepository(_db);
+        var collection = CreateCollection("The Expanse", "ContentGroup");
+        await repo.UpsertAsync(collection);
+
+        var showWorkId = Guid.NewGuid();
+        var seasonWorkId = Guid.NewGuid();
+        var episodeWorkId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        InsertWork(showWorkId, collection.Id, mediaType: "TV");
+        InsertWork(seasonWorkId, collection.Id, showWorkId, mediaType: "TV");
+        InsertWork(episodeWorkId, collection.Id, seasonWorkId, mediaType: "TV");
+        InsertEditionAndAsset(editionId, episodeWorkId, assetId);
+
+        InsertCanonicalValue(showWorkId, "show_name", "The Expanse");
+        InsertCanonicalValue(seasonWorkId, "season_number", "1");
+        InsertCanonicalValue(episodeWorkId, "episode_title", "Dulcinea");
+        InsertCanonicalValue(assetId, "duration_seconds", "2700");
+
+        var groups = await repo.GetContentGroupsAsync();
+
+        var group = Assert.Single(groups);
+        var episode = Assert.Single(group.Works);
+        Assert.Equal(episodeWorkId, episode.Id);
+        Assert.Contains(episode.CanonicalValues, value => value.EntityId == showWorkId && value.Key == "show_name" && value.Value == "The Expanse");
+        Assert.Contains(episode.CanonicalValues, value => value.EntityId == seasonWorkId && value.Key == "season_number" && value.Value == "1");
+        Assert.Contains(episode.CanonicalValues, value => value.EntityId == episodeWorkId && value.Key == "episode_title" && value.Value == "Dulcinea");
+        Assert.Contains(episode.CanonicalValues, value => value.EntityId == assetId && value.Key == "duration_seconds" && value.Value == "2700");
+    }
+
     private static Collection CreateCollection(string name, string type = "Universe") => new()
     {
         Id = Guid.NewGuid(),
@@ -217,15 +251,16 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         AddedAt = DateTimeOffset.UtcNow,
     };
 
-    private void InsertWork(Guid workId, Guid collectionId, Guid? parentWorkId = null)
+    private void InsertWork(Guid workId, Guid collectionId, Guid? parentWorkId = null, string mediaType = "Music")
     {
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO works (id, collection_id, parent_work_id, media_type) VALUES ($id, $collectionId, $parentWorkId, 'Music')";
+        cmd.CommandText = "INSERT INTO works (id, collection_id, parent_work_id, media_type) VALUES ($id, $collectionId, $parentWorkId, $mediaType)";
         cmd.Parameters.Add("$id", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(workId);
         cmd.Parameters.Add("$collectionId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(collectionId);
         cmd.Parameters.Add("$parentWorkId", Microsoft.Data.Sqlite.SqliteType.Blob).Value =
             parentWorkId.HasValue ? GuidSql.ToBlob(parentWorkId.Value) : DBNull.Value;
+        cmd.Parameters.AddWithValue("$mediaType", mediaType);
         cmd.ExecuteNonQuery();
     }
 
@@ -243,6 +278,21 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         cmd.Parameters.Add("$assetId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
         cmd.Parameters.AddWithValue("$hash", $"asset-{assetId:N}");
         cmd.Parameters.AddWithValue("$path", $"C:/library/{assetId:N}.mkv");
+        cmd.ExecuteNonQuery();
+    }
+
+    private void InsertCanonicalValue(Guid entityId, string key, string value)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+            VALUES ($entityId, $key, $value, $lastScoredAt);
+            """;
+        cmd.Parameters.Add("$entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+        cmd.Parameters.AddWithValue("$key", key);
+        cmd.Parameters.AddWithValue("$value", value);
+        cmd.Parameters.AddWithValue("$lastScoredAt", DateTimeOffset.UtcNow.ToString("O"));
         cmd.ExecuteNonQuery();
     }
 }

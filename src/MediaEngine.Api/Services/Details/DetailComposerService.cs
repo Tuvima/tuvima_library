@@ -1915,10 +1915,7 @@ public sealed class DetailComposerService
             if ((isLinkedOwned || string.Equals(manifestItem.ItemQid, currentQid, StringComparison.OrdinalIgnoreCase))
                 && TryApplyManifestPositionToOwnedItem(merged, manifestItem, position, currentWorkId))
             {
-                if (position.HasValue)
-                {
-                    ownedPositions.Add(position.Value);
-                }
+                ownedPositions = BuildOwnedPositionSet(merged);
 
                 continue;
             }
@@ -1928,10 +1925,7 @@ public sealed class DetailComposerService
                 && ownedTitles.Contains(normalizedManifestTitle)
                 && TryApplyManifestPositionToOwnedItemByTitle(merged, normalizedManifestTitle, position, manifestItem.RawOrdinal))
             {
-                if (position.HasValue)
-                {
-                    ownedPositions.Add(position.Value);
-                }
+                ownedPositions = BuildOwnedPositionSet(merged);
 
                 continue;
             }
@@ -1952,16 +1946,56 @@ public sealed class DetailComposerService
                 EntityType = entityType,
                 Title = FirstNonBlank(manifestItem.ItemLabel, manifestItem.ItemQid) ?? "Missing from library",
                 PositionNumber = position,
-                PositionLabel = position?.ToString(CultureInfo.InvariantCulture) ?? manifestItem.RawOrdinal,
+                PositionLabel = FirstNonBlank(position?.ToString(CultureInfo.InvariantCulture), manifestItem.RawOrdinal),
                 IsOwned = false,
                 ProgressState = LibraryProgressState.Unknown,
             });
+
+            if (position.HasValue)
+            {
+                ownedPositions.Add(position.Value);
+            }
         }
 
-        return merged
+        return DeduplicateManifestMergeItems(merged)
             .OrderBy(item => item.PositionNumber ?? int.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static HashSet<int> BuildOwnedPositionSet(IEnumerable<SequenceItemViewModel> items)
+        => items
+            .Where(item => item.PositionNumber.HasValue)
+            .Select(item => item.PositionNumber!.Value)
+            .ToHashSet();
+
+    private static IEnumerable<SequenceItemViewModel> DeduplicateManifestMergeItems(
+        IEnumerable<SequenceItemViewModel> items)
+    {
+        return items
+            .GroupBy(BuildManifestMergeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(item => item.IsOwned)
+                .ThenByDescending(item => item.IsCurrent)
+                .First());
+    }
+
+    private static string BuildManifestMergeKey(SequenceItemViewModel item)
+    {
+        if (Guid.TryParse(item.Id, out var linkedWorkId))
+            return $"work:{linkedWorkId:D}";
+
+        if (item.Id.StartsWith("missing-", StringComparison.OrdinalIgnoreCase))
+            return $"qid:{item.Id["missing-".Length..]}";
+
+        var title = NormalizeSeriesTitle(item.Title);
+        if (!string.IsNullOrWhiteSpace(title) && item.PositionNumber.HasValue)
+            return $"title-position:{title}:{item.PositionNumber.Value}";
+
+        if (!string.IsNullOrWhiteSpace(title))
+            return $"title:{title}";
+
+        return $"id:{item.Id}";
     }
 
     private static bool TryApplyManifestPositionToOwnedItemByTitle(
@@ -1979,10 +2013,7 @@ public sealed class DetailComposerService
         }
 
         var item = items[index];
-        if (item.PositionNumber.HasValue && !string.IsNullOrWhiteSpace(item.PositionLabel))
-        {
-            return true;
-        }
+        var manifestPositionLabel = FirstNonBlank(position?.ToString(CultureInfo.InvariantCulture), rawOrdinal);
 
         items[index] = new SequenceItemViewModel
         {
@@ -1990,9 +2021,9 @@ public sealed class DetailComposerService
             EntityType = item.EntityType,
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
-            PositionNumber = item.PositionNumber ?? position,
-            PositionLabel = FirstNonBlank(item.PositionLabel, position?.ToString(CultureInfo.InvariantCulture), rawOrdinal),
-            PositionText = item.PositionText,
+            PositionNumber = position ?? item.PositionNumber,
+            PositionLabel = manifestPositionLabel ?? item.PositionLabel,
+            PositionText = position.HasValue ? null : item.PositionText,
             GroupKey = item.GroupKey,
             GroupTitle = item.GroupTitle,
             IsCurrent = item.IsCurrent,
@@ -2017,10 +2048,7 @@ public sealed class DetailComposerService
         }
 
         var item = items[index];
-        if (item.PositionNumber.HasValue && !string.IsNullOrWhiteSpace(item.PositionLabel))
-        {
-            return true;
-        }
+        var manifestPositionLabel = FirstNonBlank(position?.ToString(CultureInfo.InvariantCulture), manifestItem.RawOrdinal);
 
         items[index] = new SequenceItemViewModel
         {
@@ -2028,9 +2056,9 @@ public sealed class DetailComposerService
             EntityType = item.EntityType,
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
-            PositionNumber = item.PositionNumber ?? position,
-            PositionLabel = FirstNonBlank(item.PositionLabel, position?.ToString(CultureInfo.InvariantCulture), manifestItem.RawOrdinal),
-            PositionText = item.PositionText,
+            PositionNumber = position ?? item.PositionNumber,
+            PositionLabel = manifestPositionLabel ?? item.PositionLabel,
+            PositionText = position.HasValue ? null : item.PositionText,
             GroupKey = item.GroupKey,
             GroupTitle = item.GroupTitle,
             IsCurrent = item.IsCurrent,

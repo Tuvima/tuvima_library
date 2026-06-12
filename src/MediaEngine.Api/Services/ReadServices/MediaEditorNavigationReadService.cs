@@ -61,19 +61,56 @@ public sealed class MediaEditorNavigationReadService(
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString("D") });
+            """, new { entityId });
 
-        if (workRow is not null && Guid.TryParse(workRow.WorkId, out var workId))
+        if (workRow is not null)
         {
+            var workId = workRow.WorkId;
             var representativeAsset = GetRepresentativeAssetForWorkTree(conn, workId);
             return new EditorLaunchContext(
                 entityId,
                 "Work",
                 workId,
-                TryParseGuid(workRow.ParentWorkId),
-                TryParseGuid(workRow.RootWorkId) ?? workId,
+                workRow.ParentWorkId,
+                workRow.RootWorkId ?? workId,
                 string.IsNullOrWhiteSpace(workRow.MediaType) ? "Books" : workRow.MediaType,
                 string.IsNullOrWhiteSpace(workRow.WorkKind) ? "standalone" : workRow.WorkKind,
+                representativeAsset?.AssetId,
+                representativeAsset?.FilePath,
+                representativeAsset?.WritebackStatus);
+        }
+
+        var collectionRow = conn.QueryFirstOrDefault<EditorLaunchCollectionRow>("""
+            SELECT target.id             AS WorkId,
+                   target.media_type     AS MediaType,
+                   target.work_kind      AS WorkKind,
+                   target.parent_work_id AS ParentWorkId,
+                   target.id             AS RootWorkId
+            FROM collections c
+            INNER JOIN works w ON w.collection_id = c.id
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            INNER JOIN works target ON target.id = COALESCE(gp.id, p.id, w.id)
+            WHERE c.id = @entityId
+            ORDER BY
+                CASE WHEN target.id = w.id THEN 0 ELSE 1 END,
+                COALESCE(w.ordinal, 999999),
+                w.id
+            LIMIT 1;
+            """, new { entityId });
+
+        if (collectionRow is not null)
+        {
+            var collectionWorkId = collectionRow.WorkId;
+            var representativeAsset = GetRepresentativeAssetForWorkTree(conn, collectionWorkId);
+            return new EditorLaunchContext(
+                entityId,
+                "Collection",
+                collectionWorkId,
+                collectionRow.ParentWorkId,
+                collectionRow.RootWorkId ?? collectionWorkId,
+                string.IsNullOrWhiteSpace(collectionRow.MediaType) ? "Books" : collectionRow.MediaType,
+                string.IsNullOrWhiteSpace(collectionRow.WorkKind) ? "standalone" : collectionRow.WorkKind,
                 representativeAsset?.AssetId,
                 representativeAsset?.FilePath,
                 representativeAsset?.WritebackStatus);
@@ -95,22 +132,23 @@ public sealed class MediaEditorNavigationReadService(
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE a.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString("D") });
+            """, new { entityId });
 
-        if (assetRow is null || !Guid.TryParse(assetRow.WorkId, out var assetWorkId))
+        if (assetRow is null)
         {
             return null;
         }
 
+        var assetWorkId = assetRow.WorkId;
         return new EditorLaunchContext(
             entityId,
             "MediaAsset",
             assetWorkId,
-            TryParseGuid(assetRow.ParentWorkId),
-            TryParseGuid(assetRow.RootWorkId) ?? assetWorkId,
+            assetRow.ParentWorkId,
+            assetRow.RootWorkId ?? assetWorkId,
             string.IsNullOrWhiteSpace(assetRow.MediaType) ? "Books" : assetRow.MediaType,
             string.IsNullOrWhiteSpace(assetRow.WorkKind) ? "standalone" : assetRow.WorkKind,
-            TryParseGuid(assetRow.AssetId),
+            assetRow.AssetId,
             assetRow.FilePath,
             assetRow.WritebackStatus);
     }
@@ -135,7 +173,7 @@ public sealed class MediaEditorNavigationReadService(
             ORDER BY work_tree.depth,
                      ma.id
             LIMIT 1;
-            """, new { workId = workId.ToString("D") });
+            """, new { workId });
 
     private static string FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
@@ -152,14 +190,15 @@ public sealed class MediaEditorNavigationReadService(
     private static Guid? TryParseGuid(string? value) =>
         Guid.TryParse(value, out var parsed) ? parsed : null;
 
-    private sealed record EditorAssetSample(string AssetIdValue, string? FilePath, string? WritebackStatus)
+    private sealed record EditorAssetSample(Guid AssetIdValue, string? FilePath, string? WritebackStatus)
     {
-        public Guid? AssetId => TryParseGuid(AssetIdValue);
+        public Guid? AssetId => AssetIdValue;
     }
 
-    private sealed record EditorLaunchWorkRow(string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchWorkRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
 
-    private sealed record EditorLaunchAssetRow(string AssetId, string? FilePath, string? WritebackStatus, string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchCollectionRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
+    private sealed record EditorLaunchAssetRow(Guid AssetId, string? FilePath, string? WritebackStatus, Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
 
     private sealed record EditorLaunchContext(
         Guid LaunchEntityId,

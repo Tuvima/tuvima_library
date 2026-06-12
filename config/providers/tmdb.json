@@ -16,6 +16,8 @@
     "description",
     "short_description",
     "cover",
+    "tmdb_collection_id",
+    "tmdb_collection_name",
     "tmdb_id",
     "imdb_id",
     "rating",

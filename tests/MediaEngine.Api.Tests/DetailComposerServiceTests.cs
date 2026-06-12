@@ -336,6 +336,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("FROM series_members", source);
         Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, ExtractQid(containerId), detail.WikidataQid, workId, entityType, ct)", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
+        Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
+        Assert.Contains("BuildOwnedPositionSet(merged)", source);
+        Assert.Contains("BuildManifestMergeKey", source);
         Assert.DoesNotContain("if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))", source);
         Assert.Contains("Missing from library", source);
     }

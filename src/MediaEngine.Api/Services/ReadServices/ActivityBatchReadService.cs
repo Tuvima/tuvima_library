@@ -91,17 +91,70 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     )) THEN 'Audiobooks'
                 WHEN {media} IN ('music', 'album', 'albums', 'track', 'tracks', 'song', 'songs')
                     OR {path} LIKE '%/music/%' THEN 'Music'
+                WHEN {media} IN ('comic', 'comics', 'cbz', 'cbr')
+                    OR {path} LIKE '%/comic/%'
+                    OR {path} LIKE '%/comics/%'
+                    OR {path} LIKE '%.cbz'
+                    OR {path} LIKE '%.cbr' THEN 'Comics'
                 WHEN {media} IN ('book', 'books', 'ebook', 'ebooks', 'epub', 'pdf')
                     OR {path} LIKE '%.epub'
                     OR {path} LIKE '%.pdf' THEN 'Books'
-                WHEN {media} IN ('comic', 'comics', 'cbz', 'cbr')
-                    OR {path} LIKE '%.cbz'
-                    OR {path} LIKE '%.cbr' THEN 'Comics'
                 WHEN {media} IN ('movie', 'movies', 'film', 'films') THEN 'Movies'
                 WHEN {media} IN ('tv', 'tv shows', 'television', 'show', 'shows') THEN 'TV'
                 WHEN {media} IN ('music', 'album', 'albums', 'audio') THEN 'Music'
                 ELSE {rawMediaType}
             END
+            """;
+    }
+
+    private static string ActivityDisplayTitleSql(
+        string mediaTypeExpression,
+        string assetIdExpression,
+        string workIdExpression,
+        string parentWorkIdExpression,
+        string rootWorkIdExpression,
+        string fallbackTitleExpression)
+    {
+        var mediaType = $"LOWER(COALESCE({mediaTypeExpression}, ''))";
+        var showName = $"COALESCE({CanonicalValueSql(rootWorkIdExpression, ["show_name", "title"], "CASE cv.key WHEN 'show_name' THEN 0 ELSE 1 END")}, {CanonicalValueSql(workIdExpression, ["show_name"])}, {CanonicalValueSql(assetIdExpression, ["show_name"])}, 'Unknown show')";
+        var seasonNumber = $"COALESCE({CanonicalValueSql(assetIdExpression, ["season_number"])}, {CanonicalValueSql(workIdExpression, ["season_number"])}, {CanonicalValueSql(parentWorkIdExpression, ["season_number"])})";
+        var episodeNumber = $"COALESCE({CanonicalValueSql(assetIdExpression, ["episode_number"])}, {CanonicalValueSql(workIdExpression, ["episode_number"])})";
+        var episodeTitle = $"COALESCE({CanonicalValueSql(assetIdExpression, ["episode_title"])}, {CanonicalValueSql(workIdExpression, ["episode_title"])}, {CanonicalValueSql(assetIdExpression, ["title"])}, {CanonicalValueSql(workIdExpression, ["title"])})";
+
+        return $"""
+            CASE
+                WHEN {mediaType} IN ('tv', 'television', 'tv shows', 'show', 'shows') THEN
+                    {showName}
+                    || CASE
+                        WHEN {seasonNumber} IS NOT NULL OR {episodeNumber} IS NOT NULL THEN
+                            ' - '
+                            || CASE WHEN {seasonNumber} IS NOT NULL THEN 'S' || printf('%02d', CAST({seasonNumber} AS INTEGER)) ELSE '' END
+                            || CASE WHEN {episodeNumber} IS NOT NULL THEN 'E' || printf('%02d', CAST({episodeNumber} AS INTEGER)) ELSE '' END
+                        ELSE ''
+                    END
+                    || CASE
+                        WHEN {episodeTitle} IS NOT NULL THEN ' - ' || {episodeTitle}
+                        ELSE ''
+                    END
+                ELSE {fallbackTitleExpression}
+            END
+            """;
+    }
+
+    private static string CanonicalValueSql(
+        string entityExpression,
+        IReadOnlyList<string> keys,
+        string? orderBy = null)
+    {
+        var keyList = string.Join(", ", keys.Select(key => $"'{key.Replace("'", "''", StringComparison.Ordinal)}'"));
+        var order = string.IsNullOrWhiteSpace(orderBy) ? "cv.last_scored_at DESC" : $"{orderBy}, cv.last_scored_at DESC";
+        return $"""
+            (SELECT NULLIF(CAST(cv.value AS TEXT), '')
+             FROM canonical_values cv
+             WHERE cv.entity_id = {entityExpression}
+               AND cv.key IN ({keyList})
+             ORDER BY {order}
+             LIMIT 1)
             """;
     }
 
@@ -415,6 +468,21 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         var page = PagedRequest.From(offset, limit, DefaultLimit, MaxLimit);
         var filterMediaType = string.IsNullOrWhiteSpace(mediaType) ? null : mediaType.Trim();
         var orderBy = BuildItemOrderBy(sort, sortDirection);
+        var itemTitleSql = ActivityDisplayTitleSql(
+            "COALESCE(NULLIF(scoped.media_type, ''), NULLIF(w.media_type, ''), 'Unknown')",
+            "scoped.entity_id",
+            "w.id",
+            "p.id",
+            "COALESCE(gp.id, p.id, w.id)",
+            """
+            COALESCE(
+                (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = scoped.entity_id AND cv.key IN ('title', 'episode_title') ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END LIMIT 1),
+                (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
+                NULLIF(mo.result_summary, ''),
+                CASE WHEN mo.source_path IS NOT NULL THEN replace(substr(mo.source_path, length(rtrim(mo.source_path, replace(mo.source_path, '\', ''))) + 1), '.', ' ') END,
+                'Unknown title'
+            )
+            """);
 
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<ActivityBatchItemDto>($"""
@@ -580,13 +648,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             SELECT
                 @batchId AS BatchId,
                 scoped.entity_id AS AssetId,
-                COALESCE(
-                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = scoped.entity_id AND cv.key IN ('title', 'episode_title') ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END LIMIT 1),
-                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
-                    NULLIF(mo.result_summary, ''),
-                    CASE WHEN mo.source_path IS NOT NULL THEN replace(substr(mo.source_path, length(rtrim(mo.source_path, replace(mo.source_path, '\', ''))) + 1), '.', ' ') END,
-                    'Unknown title'
-                ) AS Title,
+                {itemTitleSql} AS Title,
                 COALESCE(
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = scoped.entity_id AND cv.key IN ('year', 'release_year') LIMIT 1),
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('year', 'release_year') LIMIT 1)
@@ -718,6 +780,20 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var detailTitleSql = ActivityDisplayTitleSql(
+            "COALESCE(NULLIF(lj.media_type, ''), NULLIF(w.media_type, ''), 'Unknown')",
+            "@assetId",
+            "w.id",
+            "p.id",
+            "COALESCE(gp.id, p.id, w.id)",
+            """
+            COALESCE(
+                (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = @assetId AND cv.key IN ('title', 'episode_title') ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END LIMIT 1),
+                (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
+                NULLIF(mo.result_summary, ''),
+                'Unknown title'
+            )
+            """);
         var item = await conn.QueryFirstOrDefaultAsync<ActivityBatchItemDto>($"""
             WITH latest_job AS (
                 SELECT
@@ -764,12 +840,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             SELECT
                 @batchId AS BatchId,
                 @assetId AS AssetId,
-                COALESCE(
-                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = @assetId AND cv.key IN ('title', 'episode_title') ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END LIMIT 1),
-                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
-                    NULLIF(mo.result_summary, ''),
-                    'Unknown title'
-                ) AS Title,
+                {detailTitleSql} AS Title,
                 NULL AS Subtitle,
                 COALESCE(NULLIF(lj.media_type, ''), 'Unknown') AS MediaType,
                 COALESCE(mo.source_path, ma.file_path_root) AS SourcePath,
@@ -980,6 +1051,19 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         parameters.Add("limitPlusOne", page.Limit + 1);
 
         using var conn = _db.CreateConnection();
+        var peopleTitleSql = ActivityDisplayTitleSql(
+            "COALESCE(NULLIF(lj.media_type, ''), NULLIF(w.media_type, ''), 'Unknown')",
+            "ma.id",
+            "w.id",
+            "pw.id",
+            "COALESCE(gpw.id, pw.id, w.id)",
+            """
+            COALESCE(
+                (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('title', 'episode_title') ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END LIMIT 1),
+                (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
+                'Unknown title'
+            )
+            """);
         var rows = (await conn.QueryAsync<ActivityPersonAuditDto>($"""
             WITH latest_jobs AS (
                 SELECT
@@ -1005,11 +1089,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 b.id AS BatchId,
                 b.started_at AS BatchStartedAt,
                 ma.id AS AssetId,
-                COALESCE(
-                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('title', 'episode_title') ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END LIMIT 1),
-                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
-                    'Unknown title'
-                ) AS Title,
+                {peopleTitleSql} AS Title,
                 COALESCE(NULLIF(lj.media_type, ''), 'Unknown') AS MediaType,
                 COALESCE(sa.detail, 'Linked from Wikidata claims') AS Source,
                 CASE WHEN p.wikidata_qid IS NOT NULL AND p.wikidata_qid <> '' THEN 'wikidata' ELSE NULL END AS ProviderId,
@@ -1024,6 +1104,8 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             JOIN media_assets ma ON ma.id = lj.entity_id
             JOIN editions e ON e.id = ma.edition_id
             JOIN works w ON w.id = e.work_id
+            LEFT JOIN works pw ON pw.id = w.parent_work_id
+            LEFT JOIN works gpw ON gpw.id = pw.parent_work_id
             JOIN person_media_links pml ON pml.media_asset_id = ma.id
             JOIN persons p ON p.id = pml.person_id
             LEFT JOIN system_activity sa

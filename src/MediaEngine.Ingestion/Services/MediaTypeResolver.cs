@@ -17,6 +17,9 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
     private static readonly HashSet<string> UnambiguousExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".epub", ".cbz", ".cbr", ".m4b", ".pdf" };
 
+    private static readonly HashSet<string> StrongFormatExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".epub", ".cbz", ".cbr", ".m4b" };
+
     private const double RootWatchFolderMaxConfidence = 0.40;
 
     private readonly IOptionsMonitor<IngestionOptions> _options;
@@ -119,14 +122,32 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
         if (matchedFolder is null || matchedFolder.MediaTypes.Count == 0)
             return;
 
-        if (candidateList.Count == 0 && resolvedMediaType != MediaType.Unknown)
+        var extension = Path.GetExtension(filePath);
+        if (candidateList.Count == 0
+            && resolvedMediaType != MediaType.Unknown
+            && !CanSingleTypeFolderOverride(filePath, resolvedMediaType, matchedFolder.MediaTypes))
+        {
             return;
+        }
 
         var folderTypes = matchedFolder.MediaTypes;
         var matchingCandidate = candidateList.FirstOrDefault(c => folderTypes.Contains(c.Type));
 
         if (matchingCandidate is not null)
         {
+            if (folderTypes.Count == 1
+                && matchingCandidate.Type != resolvedMediaType
+                && !CanSingleTypeFolderOverride(filePath, resolvedMediaType, folderTypes))
+            {
+                _logger.LogInformation(
+                    "Library folder prior: kept processor type {ProcessorType} for {Path}; extension {Extension} is strong format evidence outside the folder media type [{Types}]",
+                    resolvedMediaType,
+                    filePath,
+                    extension,
+                    string.Join(", ", folderTypes));
+                return;
+            }
+
             var topConfidence = candidateList.Max(c => c.Confidence);
             var boostedConfidence = Math.Max(Math.Max(topConfidence + 0.01, matchingCandidate.Confidence), 0.98);
             var index = candidateList.IndexOf(matchingCandidate);
@@ -142,7 +163,8 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
                 "Library folder prior applied: boosted {Type} to {Confidence:P0} for {Path} (folder configured for [{Types}])",
                 matchingCandidate.Type, boostedConfidence, filePath, string.Join(", ", folderTypes));
         }
-        else if (folderTypes.Count == 1)
+        else if (folderTypes.Count == 1
+                 && CanSingleTypeFolderOverride(filePath, resolvedMediaType, folderTypes))
         {
             candidateList.Insert(0, new MediaTypeCandidate
             {
@@ -154,6 +176,15 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
             _logger.LogInformation(
                 "Library folder prior override: assigned {Type} at 0.95 for {Path}",
                 folderTypes[0], filePath);
+        }
+        else if (folderTypes.Count == 1)
+        {
+            _logger.LogInformation(
+                "Library folder prior: kept processor type {ProcessorType} for {Path}; extension {Extension} is strong format evidence outside the folder media type [{Types}]",
+                resolvedMediaType,
+                filePath,
+                extension,
+                string.Join(", ", folderTypes));
         }
         else if (candidateList.Count == 0)
         {
@@ -178,6 +209,35 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
                 candidateList[0].Type, string.Join(", ", folderTypes), filePath);
         }
     }
+
+    private static bool CanSingleTypeFolderOverride(
+        string filePath,
+        MediaType processorType,
+        IReadOnlyList<MediaType> folderTypes)
+    {
+        if (folderTypes.Count != 1)
+            return false;
+
+        var folderType = folderTypes[0];
+        if (folderType == processorType)
+            return true;
+
+        var extension = Path.GetExtension(filePath);
+        if (StrongFormatExtensions.Contains(extension))
+            return false;
+
+        return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+            || IsVideoExtension(extension)
+            || processorType == MediaType.Unknown;
+    }
+
+    private static bool IsVideoExtension(string? extension)
+        => extension is not null
+           && (extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".m4v", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".webm", StringComparison.OrdinalIgnoreCase)
+               || extension.Equals(".avi", StringComparison.OrdinalIgnoreCase));
 
     private bool ApplyRootWatchFolderCap(
         string filePath,

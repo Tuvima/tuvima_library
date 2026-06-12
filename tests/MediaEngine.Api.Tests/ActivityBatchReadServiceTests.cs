@@ -132,6 +132,21 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         Assert.Equal(1, audiobooks.TotalCount);
     }
 
+    [Fact]
+    public async Task ActivityBatchReadService_FormatsTvTitlesFromShowSeasonEpisodeMetadata()
+    {
+        var seed = SeedTvActivityBatch();
+        var service = new ActivityBatchReadService(_db);
+
+        var items = await service.GetItemsAsync(seed.BatchId, "TV", 0, 10, "title", "asc");
+        var detail = await service.GetItemDetailAsync(seed.BatchId, seed.AssetId);
+
+        var item = Assert.Single(items.Items);
+        Assert.Equal("The Expanse - S01E01 - Dulcinea", item.Title);
+        Assert.NotNull(detail);
+        Assert.Equal("The Expanse - S01E01 - Dulcinea", detail.Title);
+    }
+
     private ActivitySeed SeedActivityBatch()
     {
         var batchId = Guid.NewGuid();
@@ -568,6 +583,162 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         cmd.ExecuteNonQuery();
 
         return new ActivitySeed(batchId, bookWorkId, bookAssetId, Guid.Empty, Guid.Empty);
+    }
+
+    private ActivitySeed SeedTvActivityBatch()
+    {
+        var batchId = Guid.NewGuid();
+        var showWorkId = Guid.NewGuid();
+        var seasonWorkId = Guid.NewGuid();
+        var episodeWorkId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var operationId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO ingestion_batches (
+                id,
+                status,
+                source_path,
+                category,
+                files_total,
+                files_processed,
+                files_registered,
+                files_review,
+                files_no_match,
+                files_failed,
+                started_at,
+                completed_at,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                $batchId,
+                'completed',
+                'C:/watch/tv',
+                'TV',
+                1,
+                1,
+                1,
+                0,
+                0,
+                0,
+                $startedAt,
+                $completedAt,
+                $startedAt,
+                $completedAt
+            );
+
+            INSERT INTO works (id, media_type, work_kind, parent_work_id)
+            VALUES
+                ($showWorkId, 'TV', 'parent', NULL),
+                ($seasonWorkId, 'TV', 'parent', $showWorkId),
+                ($episodeWorkId, 'TV', 'child', $seasonWorkId);
+
+            INSERT INTO editions (id, work_id, format_label)
+            VALUES ($editionId, $episodeWorkId, 'Episode');
+
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+            VALUES ($assetId, $editionId, 'expanse-s01e01-hash', 'C:/library/tv/The Expanse/Season 01/The Expanse - S01E01.mkv');
+
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+            VALUES
+                ($showWorkId, 'show_name', 'The Expanse', $completedAt),
+                ($seasonWorkId, 'season_number', '1', $completedAt),
+                ($episodeWorkId, 'episode_number', '1', $completedAt),
+                ($episodeWorkId, 'episode_title', 'Dulcinea', $completedAt);
+
+            INSERT INTO identity_jobs (
+                id,
+                entity_id,
+                entity_type,
+                media_type,
+                ingestion_run_id,
+                state,
+                pass,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                $jobId,
+                $assetId,
+                'MediaAsset',
+                'TV',
+                $batchId,
+                'ReadyWithoutUniverse',
+                'Quick',
+                $startedAt,
+                $completedAt
+            );
+
+            INSERT INTO media_operations (
+                id,
+                operation_type,
+                operation_kind,
+                entity_id,
+                entity_kind,
+                batch_id,
+                source_path,
+                content_hash,
+                status,
+                stage,
+                priority,
+                queue_name,
+                position_key,
+                progress_percent,
+                items_total,
+                items_completed,
+                items_failed,
+                result_summary,
+                created_at,
+                started_at,
+                updated_at,
+                completed_at,
+                idempotency_key
+            )
+            VALUES (
+                $operationId,
+                'ingestion.file',
+                'ingestion',
+                $assetId,
+                'MediaAsset',
+                $batchId,
+                'C:/watch/tv/The Expanse/Season 01/The Expanse - S01E01 - Dulcinea.mkv',
+                'expanse-s01e01-hash',
+                'succeeded',
+                'completed',
+                100,
+                'ingestion',
+                1,
+                100,
+                1,
+                1,
+                0,
+                'Dulcinea',
+                $startedAt,
+                $startedAt,
+                $completedAt,
+                $completedAt,
+                'expanse-s01e01'
+            );
+            """;
+
+        AddGuid(cmd, "$batchId", batchId);
+        AddGuid(cmd, "$showWorkId", showWorkId);
+        AddGuid(cmd, "$seasonWorkId", seasonWorkId);
+        AddGuid(cmd, "$episodeWorkId", episodeWorkId);
+        AddGuid(cmd, "$editionId", editionId);
+        AddGuid(cmd, "$assetId", assetId);
+        AddGuid(cmd, "$operationId", operationId);
+        AddGuid(cmd, "$jobId", Guid.NewGuid());
+        cmd.Parameters.AddWithValue("$startedAt", now.AddMinutes(-1).ToString("O"));
+        cmd.Parameters.AddWithValue("$completedAt", now.ToString("O"));
+        cmd.ExecuteNonQuery();
+
+        return new ActivitySeed(batchId, episodeWorkId, assetId, Guid.Empty, Guid.Empty);
     }
 
     private static void AddGuid(SqliteCommand cmd, string name, Guid value) =>

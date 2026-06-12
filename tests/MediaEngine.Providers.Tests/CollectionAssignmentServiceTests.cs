@@ -10,10 +10,10 @@ public sealed class CollectionAssignmentServiceTests
     public void CollectionAssignment_UsesSeriesAsShelfAndDoesNotFallbackToBroadUniverse()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\CollectionAssignmentService.cs"));
-        var resolveStart = source.IndexOf("private static (string? Qid, string? Label) ResolveParentQid", StringComparison.Ordinal);
+        var resolveStart = source.IndexOf("private static ShelfIdentity? ResolveShelfIdentity", StringComparison.Ordinal);
         Assert.True(resolveStart >= 0);
 
-        var resolveEnd = source.IndexOf("private static bool TryGetQid", resolveStart, StringComparison.Ordinal);
+        var resolveEnd = source.IndexOf("private static string? ResolveProviderKey", resolveStart, StringComparison.Ordinal);
         Assert.True(resolveEnd > resolveStart);
 
         var resolveSource = source[resolveStart..resolveEnd];
@@ -21,8 +21,37 @@ public sealed class CollectionAssignmentServiceTests
         Assert.DoesNotContain("TryGetQid(lookup, \"franchise\"", resolveSource, StringComparison.Ordinal);
         Assert.DoesNotContain("TryGetQid(lookup, \"fictional_universe\"", resolveSource, StringComparison.Ordinal);
         Assert.Contains("multiple shelves share them", source, StringComparison.Ordinal);
-        Assert.Contains("string.Equals(existingCollection.WikidataQid, parentQid", source, StringComparison.Ordinal);
+        Assert.Contains("FindShelfCollectionAsync(shelf", source, StringComparison.Ordinal);
         Assert.Contains("reassigning", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CollectionAssignment_SupportsProviderBackedShelfIdentityBeforeQidUpgrade()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\CollectionAssignmentService.cs"));
+
+        Assert.Contains("internal sealed record ShelfIdentity", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Models\ShelfIdentity.cs")), StringComparison.Ordinal);
+        Assert.Contains("FindByRuleHashAsync(shelf.ProviderKey", source, StringComparison.Ordinal);
+        Assert.Contains("collection.RuleHash, shelf.ProviderKey", source, StringComparison.Ordinal);
+        Assert.Contains("tmdb:collection:{tmdbCollectionId}", source, StringComparison.Ordinal);
+        Assert.Contains("tmdb:tv:{tmdbTvId}", source, StringComparison.Ordinal);
+        Assert.Contains("tvdb:tv:{tvdbId}", source, StringComparison.Ordinal);
+        Assert.Contains("UpgradeCollectionIdentityAsync(existingCollection, shelf", source, StringComparison.Ordinal);
+        Assert.Contains("WikidataQid = shelf.Qid", source, StringComparison.Ordinal);
+        Assert.Contains("RuleHash = shelf.ProviderKey", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TmdbAdapter_AddsMovieCollectionClaimsForWatchShelves()
+    {
+        var adapter = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Adapters\ConfigDrivenAdapter.cs"));
+        var config = File.ReadAllText(GetRepoFilePath(@"config\providers\tmdb.json"));
+
+        Assert.Contains("AddTmdbMovieCollectionClaims", adapter, StringComparison.Ordinal);
+        Assert.Contains("belongs_to_collection", adapter, StringComparison.Ordinal);
+        Assert.Contains("\"tmdb_collection_id\"", config, StringComparison.Ordinal);
+        Assert.Contains("\"tmdb_collection_name\"", config, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.Series", adapter, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -157,21 +157,21 @@ Query-resolved collections store their predicates in the `rule_json` column. Mat
 
 ---
 
-## ContentGroup Collections - Created at Ingestion
+## ContentGroup Collections - Created During Readiness
 
-ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic volumes. They are created **during ingestion** by `MediaEntityChainFactory`, not during Wikidata enrichment - so they work immediately when files are scanned.
+ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic volumes, audiobook series, and movie series. They are materialized during the ingestion/readiness path so Read, Watch, and Listen can show lane shelves before every broader Wikidata relationship has been hydrated.
 
 When a file is ingested:
-1. The processor extracts grouping metadata (show name, album name, series name).
-2. `MediaEntityChainFactory` checks for an existing ContentGroup collection matching the group identity.
-3. If none exists, it creates one with a rule like `{ "field": "series", "op": "eq", "value": "Breaking Bad" }`.
-4. The new Work is linked to the collection.
+1. Processors and retail providers extract grouping metadata such as show name, album name, series name, Comic Vine series/volume facts, or TMDB `belongs_to_collection`.
+2. `CollectionAssignmentService` builds a stable shelf identity for the item. A Wikidata `series_qid` is preferred when known; otherwise provider-backed keys such as `tmdb:collection:{id}`, `tmdb:tv:{id}`, `tvdb:tv:{id}`, album IDs, or a normalized local series/show/album label are used.
+3. The service checks for an existing ContentGroup by QID or provider key (`rule_hash`) and creates one only when no matching shelf exists.
+4. The Work is linked to the shelf collection. If a later enrichment pass discovers the QID, the provider-backed shelf is upgraded instead of duplicated.
 
 ContentGroup collections have additional fields:
 - **`group_by_field`** - the metadata field that defines the group (e.g. `series`, `album`, `show`)
 - **`sort_field`** / **`sort_direction`** - default ordering for items (e.g. episode number ascending, track number ascending)
 
-These collections power the **container views** in the Read, Watch, Listen, and Collections surfaces. When Watch groups TV by show, the table displays ContentGroup collections filtered to TV. Clicking a container opens the group surface with the show's seasons and episodes.
+These collections power the **container views** in the Read, Watch, and Listen lanes. When Watch groups TV by show, the table displays ContentGroup collections filtered to TV. Clicking a container opens the group surface with the show's seasons and episodes. The Collections page uses broader rollups only when relationships such as series, franchise, or fictional universe connect multiple shelves.
 
 ### ContentGroup by Media Type
 

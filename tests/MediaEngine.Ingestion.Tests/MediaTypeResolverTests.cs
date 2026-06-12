@@ -107,6 +107,127 @@ public sealed class MediaTypeResolverTests
     }
 
     [Fact]
+    public async Task SingleTypeComicsFolder_CanOverrideAmbiguousPdfBookDetection()
+    {
+        var comicsRoot = TestRoot("single-type-comics-pdf");
+        var options = Options(
+            watchDirectories: [comicsRoot],
+            libraryFolders:
+            [
+                new LibraryFolderEntry
+                {
+                    SourcePaths = [comicsRoot],
+                    MediaTypes = [MediaType.Comics],
+                },
+            ]);
+        var resolver = CreateResolver(options);
+
+        var resolution = await resolver.ResolveAsync(
+            Path.Combine(comicsRoot, "Saga", "Saga 001.pdf"),
+            Result(MediaType.Books, [Candidate(MediaType.Books, 0.91)]),
+            0,
+            CancellationToken.None);
+
+        Assert.Equal(MediaType.Comics, resolution.MediaType);
+        Assert.False(resolution.NeedsReview);
+        Assert.Equal(MediaType.Comics, resolution.Candidates[0].Type);
+        Assert.True(resolution.Candidates[0].Confidence >= 0.95);
+    }
+
+    [Fact]
+    public async Task SingleTypeBooksFolder_KeepsPdfBooksAsBooks()
+    {
+        var booksRoot = TestRoot("single-type-books-pdf");
+        var options = Options(
+            watchDirectories: [booksRoot],
+            libraryFolders:
+            [
+                new LibraryFolderEntry
+                {
+                    SourcePaths = [booksRoot],
+                    MediaTypes = [MediaType.Books],
+                },
+            ]);
+        var resolver = CreateResolver(options);
+
+        var resolution = await resolver.ResolveAsync(
+            Path.Combine(booksRoot, "Dune.pdf"),
+            Result(MediaType.Books, [Candidate(MediaType.Books, 0.91)]),
+            0,
+            CancellationToken.None);
+
+        Assert.Equal(MediaType.Books, resolution.MediaType);
+        Assert.False(resolution.NeedsReview);
+        Assert.Equal(MediaType.Books, resolution.Candidates[0].Type);
+    }
+
+    [Theory]
+    [InlineData(MediaType.TV, "Shows", "Breaking Bad - S01E01.mkv")]
+    [InlineData(MediaType.Movies, "Movies", "Dune Part Two.mp4")]
+    public async Task SingleTypeWatchFolders_CanClassifyAmbiguousVideoContainers(
+        MediaType configuredType,
+        string folderName,
+        string fileName)
+    {
+        var videoRoot = TestRoot($"single-type-{folderName.ToLowerInvariant()}-video");
+        var options = Options(
+            watchDirectories: [videoRoot],
+            libraryFolders:
+            [
+                new LibraryFolderEntry
+                {
+                    SourcePaths = [videoRoot],
+                    MediaTypes = [configuredType],
+                },
+            ]);
+        var resolver = CreateResolver(options);
+
+        var resolution = await resolver.ResolveAsync(
+            Path.Combine(videoRoot, folderName, fileName),
+            Result(MediaType.Unknown, []),
+            0,
+            CancellationToken.None);
+
+        Assert.Equal(configuredType, resolution.MediaType);
+        Assert.False(resolution.NeedsReview);
+        Assert.Equal(configuredType, resolution.Candidates[0].Type);
+    }
+
+    [Theory]
+    [InlineData(".epub", MediaType.Books, MediaType.Comics)]
+    [InlineData(".cbz", MediaType.Comics, MediaType.Books)]
+    [InlineData(".cbr", MediaType.Comics, MediaType.Books)]
+    [InlineData(".m4b", MediaType.Audiobooks, MediaType.Music)]
+    public async Task StrongFormats_DoNotCrossMediaTypeBecauseOfSingleTypeFolder(
+        string extension,
+        MediaType processorType,
+        MediaType configuredType)
+    {
+        var root = TestRoot($"strong-format-{extension.TrimStart('.')}");
+        var options = Options(
+            watchDirectories: [root],
+            libraryFolders:
+            [
+                new LibraryFolderEntry
+                {
+                    SourcePaths = [root],
+                    MediaTypes = [configuredType],
+                },
+            ]);
+        var resolver = CreateResolver(options);
+
+        var resolution = await resolver.ResolveAsync(
+            Path.Combine(root, "incoming", $"sample{extension}"),
+            Result(processorType, [Candidate(processorType, 0.92), Candidate(configuredType, 0.65)]),
+            0,
+            CancellationToken.None);
+
+        Assert.Equal(processorType, resolution.MediaType);
+        Assert.False(resolution.NeedsReview);
+        Assert.Equal(processorType, resolution.Candidates[0].Type);
+    }
+
+    [Fact]
     public async Task Advisor_IsCalledOnlyForUnknownOrLowConfidenceCases()
     {
         var options = Options(watchDirectories: [Path.Combine(Path.GetTempPath(), "advisor")]);

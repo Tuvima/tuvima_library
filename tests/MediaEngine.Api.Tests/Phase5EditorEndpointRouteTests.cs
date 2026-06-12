@@ -51,6 +51,24 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("!string.Equals(launch.WorkKind, \"child\"", metadata, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void EditorLaunchContext_ResolvesCollectionShelvesToCanonicalContainerWork()
+    {
+        var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
+        var navigatorService = ReadSource("src/MediaEngine.Api/Services/ReadServices/MediaEditorNavigationReadService.cs");
+
+        Assert.Contains("private sealed record EditorLaunchCollectionRow", metadata, StringComparison.Ordinal);
+        Assert.Contains("private sealed record EditorLaunchCollectionRow", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("INNER JOIN works target ON target.id = COALESCE(gp.id, p.id, w.id)", metadata, StringComparison.Ordinal);
+        Assert.Contains("INNER JOIN works target ON target.id = COALESCE(gp.id, p.id, w.id)", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("\"Collection\",", metadata, StringComparison.Ordinal);
+        Assert.Contains("\"Collection\",", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("new { entityId }", metadata, StringComparison.Ordinal);
+        Assert.Contains("new { entityId }", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("GetRepresentativeAssetForWorkTree(conn, collectionWorkId)", metadata, StringComparison.Ordinal);
+        Assert.Contains("GetRepresentativeAssetForWorkTree(conn, collectionWorkId)", navigatorService, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath) =>
         File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
 

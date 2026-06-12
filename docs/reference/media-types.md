@@ -12,13 +12,13 @@ tags:
 
 # Supported Media Types and Formats
 
-Six media types are supported today. Each type has a processor path, supported file extensions, and configured providers. Ambiguous formats such as MP3, M4A, MP4, MKV, AVI, and WEBM are resolved through folder context, metadata, filename patterns, heuristics, and Local AI where available.
+Six media types are supported today. Each type has a processor path, supported file extensions, and configured providers. Ambiguous formats such as PDF, MP3, M4A, MP4, MKV, AVI, and WEBM are resolved through configured library folder context, metadata, filename patterns, heuristics, and Local AI where available.
 
 Provider stages are strict: Stage 3 retail metadata uses active retail providers (Apple, TMDB, Comic Vine); Stage 4 Wikidata only runs from safe Stage 3 bridge IDs; Stages 6-8 enrichment add universe data, Fanart.tv artwork, lyrics, subtitles, people, and relationships. Open Library and MusicBrainz configs are retained but disabled by default.
 
 ---
 
-## Books (EPUB)
+## Books (EPUB, PDF)
 
 **Processor:** `EpubProcessor` - priority 100
 
@@ -53,7 +53,7 @@ Waterfall order during Stage 3:
 
 ### Ambiguity resolution
 
-EPUB and PDF are unambiguous. No classification required.
+EPUB is strong book evidence. PDF defaults to Books unless the file is inside a single-type Comics library folder, where the folder/media hint wins and the item is routed as Comics.
 
 ### Organization template
 
@@ -154,6 +154,8 @@ Classification order:
 1. TMDB - title+year search; cover art (poster), description, ratings, cast, TMDB ID bridge
 2. Wikidata - Stage 4, QID resolution via TMDB ID bridge
 
+TMDB movie details also supply `belongs_to_collection`. Tuvima stores that as a provider-backed movie-series shelf key, so Watch can show film-series shelves before a Wikidata `series_qid` is available.
+
 ### Organization template
 
 ```
@@ -201,6 +203,8 @@ TV/Breaking Bad (Q1079331)/Season 01/S01E01 - Pilot.mkv
 
 1. TMDB - series and episode metadata; poster and backdrop images
 2. Wikidata - Stage 4, QID resolution
+
+TV is treated as show-first. The show identity comes from folder/path hints, parsed show/season/episode values, and TMDB/TVDB IDs; episode title remains episode metadata. A show shelf can exist with a provider key before Wikidata relationships are available.
 
 ---
 
@@ -275,6 +279,7 @@ Music/Pink Floyd/The Dark Side of the Moon (Q183221)/01 - Speak to Me.flac
 |---|---|
 | `.cbz` | Comic Book Archive (ZIP) |
 | `.cbr` | Comic Book Archive (RAR) |
+| `.pdf` | Portable Document Format comic or graphic novel when routed from a Comics library folder |
 
 ### Extracted metadata
 
@@ -320,6 +325,7 @@ Comics/{Title} ({Qid})/{Title}.cbz
 
 | Extension | Default Classification | Resolution Method |
 |---|---|---|
+| `.pdf` | Book unless in a Comics library | Single-type library folder context can route to Comics |
 | `.mp3` | Uncertain | Heuristics -> AI `MediaTypeAdvisor` |
 | `.mp4` | Uncertain | Filename pattern -> AI `MediaTypeAdvisor` |
 | `.m4a` | Uncertain | Heuristics -> AI `MediaTypeAdvisor` |
@@ -328,7 +334,7 @@ Comics/{Title} ({Qid})/{Title}.cbz
 | `.avi` | Movie or TV | Filename pattern -> AI confirmation |
 | `.webm` | Movie or TV | Filename pattern -> AI confirmation |
 
-All other extensions (`.epub`, `.pdf`, `.m4b`, `.flac`, `.ogg`, `.wav`, `.cbz`, `.cbr`) are unambiguous and require no AI classification.
+Strong format extensions (`.epub`, `.m4b`, `.flac`, `.ogg`, `.wav`, `.cbz`, `.cbr`) are not changed by unrelated single-type folder hints. PDF and video containers remain media-aware because those formats are common across more than one lane.
 
 ## Related
 
