@@ -608,7 +608,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType     = Domain.Enums.SystemActionType.FileHashed,
             EntityType     = "MediaAsset",
-            Detail         = $"Fingerprinted: {hash.Hex[..12]}… ({hash.FileSize / 1024.0:F1} KB)",
+            Detail         = $"Fingerprinted {Path.GetFileName(candidate.Path)}: {hash.Hex[..12]}... ({hash.FileSize / 1024.0:F1} KB)",
             ChangesJson    = JsonSerializer.Serialize(new
             {
                 hash_prefix  = hash.Hex[..12],
@@ -831,7 +831,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             ActionType     = Domain.Enums.SystemActionType.FileProcessed,
             EntityType     = "MediaAsset",
-            Detail         = $"Scanned: {result.DetectedType} — {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
+            Detail         = $"Scanned {Path.GetFileName(candidate.Path)}: {result.DetectedType} - {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
             ChangesJson    = JsonSerializer.Serialize(new
             {
                 detected_type  = result.DetectedType.ToString(),

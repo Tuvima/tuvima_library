@@ -651,7 +651,7 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task WorkIdentityReconciliation_MergesDuplicateReadWorksByQid()
+    public async Task WorkIdentityReconciliation_DoesNotMergeReadWorksAcrossMediaTypesByQid()
     {
         var service = new WorkIdentityReconciliationService(_db);
         var qid = "Q43361";
@@ -694,22 +694,78 @@ public sealed class RepositoryTests : IDisposable
 
         var merged = await service.MergeDuplicateReadWorksByQidAsync();
 
+        Assert.Equal(0, merged);
+        using var verify = _db.CreateConnection();
+        var workCount = await verify.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid;",
+            new { qid });
+        var bookEditionWorkId = await verify.ExecuteScalarAsync<Guid>(
+            "SELECT work_id FROM editions WHERE id = @bookEditionId;",
+            new { bookEditionId });
+        var audiobookEditionWorkId = await verify.ExecuteScalarAsync<Guid>(
+            "SELECT work_id FROM editions WHERE id = @audiobookEditionId;",
+            new { audiobookEditionId });
+
+        Assert.Equal(2, workCount);
+        Assert.Equal(bookWorkId, bookEditionWorkId);
+        Assert.Equal(audiobookWorkId, audiobookEditionWorkId);
+    }
+
+    [Fact]
+    public async Task WorkIdentityReconciliation_MergesDuplicateReadWorksWithinMediaTypeByQid()
+    {
+        var service = new WorkIdentityReconciliationService(_db);
+        var qid = "Q190192";
+        var firstWorkId = Guid.NewGuid();
+        var secondWorkId = Guid.NewGuid();
+        var firstEditionId = Guid.NewGuid();
+        var secondEditionId = Guid.NewGuid();
+        var firstAssetId = Guid.NewGuid();
+        var secondAssetId = Guid.NewGuid();
+
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind, wikidata_qid)
+                VALUES (@firstWorkId, 'Books', 'standalone', @qid),
+                       (@secondWorkId, 'Books', 'standalone', @qid);
+
+                INSERT INTO editions (id, work_id)
+                VALUES (@firstEditionId, @firstWorkId),
+                       (@secondEditionId, @secondWorkId);
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@firstAssetId, @firstEditionId, @firstHash, '/library/Books/Dune.epub', 'Normal'),
+                       (@secondAssetId, @secondEditionId, @secondHash, '/library/Books/Dune-copy.epub', 'Normal');
+                """,
+                new
+                {
+                    qid,
+                    firstWorkId,
+                    secondWorkId,
+                    firstEditionId,
+                    secondEditionId,
+                    firstAssetId,
+                    secondAssetId,
+                    firstHash = $"book_{Guid.NewGuid():N}",
+                    secondHash = $"book_{Guid.NewGuid():N}",
+                });
+        }
+
+        var merged = await service.MergeDuplicateReadWorksByQidAsync();
+
         Assert.Equal(1, merged);
         using var verify = _db.CreateConnection();
         var workCount = await verify.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid;",
             new { qid });
-        var remainingWorkId = await verify.ExecuteScalarAsync<Guid>(
-            "SELECT id FROM works WHERE wikidata_qid = @qid;",
-            new { qid });
         var editionWorkIds = (await verify.QueryAsync<Guid>(
-            "SELECT DISTINCT work_id FROM editions WHERE id IN (@bookEditionId, @audiobookEditionId);",
-            new { bookEditionId, audiobookEditionId })).ToList();
+            "SELECT DISTINCT work_id FROM editions WHERE id IN (@firstEditionId, @secondEditionId);",
+            new { firstEditionId, secondEditionId })).ToList();
 
         Assert.Equal(1, workCount);
-        Assert.Equal(bookWorkId, remainingWorkId);
         Assert.Single(editionWorkIds);
-        Assert.Equal(bookWorkId, editionWorkIds[0]);
     }
 
     [Fact]

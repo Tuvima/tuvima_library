@@ -221,7 +221,7 @@ public static class DevSeedEndpoints
             "Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive.",
             Series: "Harry Potter", SeriesPosition: 1,
             TestCategory: "Series â€” position 1",
-            ExpectedQid: "Q43361"),
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed),
 
         new("Harry Potter and the Chamber of Secrets",
             "J.K. Rowling",

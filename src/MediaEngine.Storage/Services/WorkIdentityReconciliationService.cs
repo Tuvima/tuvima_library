@@ -55,7 +55,7 @@ public sealed class WorkIdentityReconciliationService
             """).AsList();
 
         var groups = rows
-            .GroupBy(row => row.IdentityQid, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(row => (MediaType: NormalizeMediaType(row.MediaType), Qid: row.IdentityQid.ToUpperInvariant()))
             .Where(group => group.Count() > 1)
             .ToList();
 
@@ -75,12 +75,17 @@ public sealed class WorkIdentityReconciliationService
         if (merged > 0)
         {
             _logger?.LogInformation(
-                "Merged {Count} duplicate Read work(s) by Wikidata QID.",
+                "Merged {Count} duplicate Read work(s) by media type and Wikidata QID.",
                 merged);
         }
 
         return Task.FromResult(merged);
     }
+
+    private static string NormalizeMediaType(string mediaType) =>
+        string.IsNullOrWhiteSpace(mediaType)
+            ? string.Empty
+            : mediaType.Trim().ToUpperInvariant();
 
     private static ReadWorkIdentityRow ChooseCanonical(IReadOnlyList<ReadWorkIdentityRow> rows) =>
         rows

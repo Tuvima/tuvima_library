@@ -132,6 +132,75 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task AppleBooks_FetchAsync_DerivativeUsResults_ReturnsEmptyWithoutCrossStorefrontFallback()
+    {
+        var config = LoadExampleConfig("apple_api");
+
+        var emptyLookupResponse = """
+            {
+              "resultCount": 0,
+              "results": []
+            }
+            """;
+
+        var usDerivativeResponse = """
+            {
+              "resultCount": 2,
+              "results": [
+                {
+                  "trackId": 6505071899,
+                  "trackName": "J.K. Rowling - Harry Potter and the Philosopher's Stone - Summary & Reading Guide",
+                  "artistName": "Olivier Tableau Daniel Jacques",
+                  "releaseDate": "2024-07-01T07:00:00Z",
+                  "description": "A summary and reading guide for the novel."
+                },
+                {
+                  "trackId": 1604673091,
+                  "trackName": "Myths and Symbols in J.K. Rowling's Harry Potter and the Philosopher's Stone",
+                  "artistName": "Volker Geyer",
+                  "releaseDate": "2002-03-23T08:00:00Z",
+                  "description": "A chapter by chapter analysis of the novel."
+                }
+              ]
+            }
+            """;
+
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+
+                if (url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(emptyLookupResponse);
+
+                return JsonResponse(usDerivativeResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Books,
+            Title = "Harry Potter and the Philosopher's Stone",
+            Author = "J.K. Rowling",
+            Isbn = "9780747532699",
+            Country = "us",
+            Language = "en",
+            BaseUrl = "https://itunes.apple.com",
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains("country=us", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(requestedUrls, url => url.Contains("country=GB", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(claims);
+    }
+
+    [Fact]
     public async Task ComicVine_FetchAsync_PrefersIssueSearch_WhenTitleIsPresent()
     {
         var config = LoadExampleConfig("comicvine");

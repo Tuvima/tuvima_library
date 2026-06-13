@@ -1505,9 +1505,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
 
             // Tier 1: prefer results where both author AND title match.
-            var selectable = scored.Any(s => !s.Derivative)
-                ? scored.Where(s => !s.Derivative).ToList()
-                : scored;
+            var selectable = scored.Where(s => !s.Derivative).ToList();
+            if (applyDerivativeGuard && !sourceLooksDerivative && selectable.Count == 0)
+                return null;
+
+            if (selectable.Count == 0)
+                selectable = scored;
 
             var authorMatched = selectable.Where(s => s.AuthorScore >= 0.50).ToList();
             if (authorMatched.Count > 0)
