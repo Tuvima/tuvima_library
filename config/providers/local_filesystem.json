@@ -7,8 +7,7 @@
   "capability_tags": [],
   "field_weights": {},
   "endpoints": {},
-  "throttle_ms": 0,
-  "max_concurrency": 1,
+  "rate_limit": null,
 
   "adapter_type": "coded"
 }

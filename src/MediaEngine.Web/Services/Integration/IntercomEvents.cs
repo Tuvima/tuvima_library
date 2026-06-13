@@ -201,6 +201,27 @@ public sealed record BatchProgressEvent(
     int    WorkUnitsTotal = 0,
     int    WorkUnitsCompleted = 0);
 
+/// <summary>
+/// Payload broadcast while provider requests are in flight.
+///
+/// SignalR method name: <c>"ProviderActivity"</c>
+/// </summary>
+public sealed record ProviderActivityEvent(
+    IReadOnlyList<ProviderActivityItemEvent> Providers,
+    DateTimeOffset CapturedAt);
+
+public sealed record ProviderActivityItemEvent(
+    string ProviderName,
+    int ActiveRequests,
+    long RequestsTotal,
+    int RequestsLastMinute,
+    long ErrorsTotal,
+    int ErrorsLastMinute,
+    long ThrottleWaitMsTotal,
+    double AverageLatencyMs,
+    DateTimeOffset? LastRequestAt,
+    string? LastError);
+
 // ── Hydration Pipeline Events ────────────────────────────────────────────────
 
 /// <summary>

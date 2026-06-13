@@ -4,6 +4,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Events;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -214,6 +215,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
 
         await _assetRepo.UpdateFilePathAsync(assetId, destPath, ct).ConfigureAwait(false);
+        await MarkPresentedAndPublishAsync(assetId, metadata, mediaType, ct).ConfigureAwait(false);
 
         string sourcePath = asset.FilePathRoot;
         string editionFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
@@ -321,6 +323,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         if (string.Equals(asset.FilePathRoot, newDest, StringComparison.OrdinalIgnoreCase))
         {
+            await MarkPresentedAndPublishAsync(assetId, metadata, mediaType, ct).ConfigureAwait(false);
+
             // Path unchanged — nothing to do.
             _logger.LogDebug(
                 "Already organized at {Path} for {Id}",
@@ -337,6 +341,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         if (relocated)
         {
             await _assetRepo.UpdateFilePathAsync(assetId, newDest, ct).ConfigureAwait(false);
+            await MarkPresentedAndPublishAsync(assetId, metadata, mediaType, ct).ConfigureAwait(false);
 
             MoveCompanionFiles(oldPath, newDest);
 
@@ -366,6 +371,46 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private async Task MarkPresentedAndPublishAsync(
+        Guid assetId,
+        IReadOnlyDictionary<string, string> metadata,
+        MediaType? mediaType,
+        CancellationToken ct)
+    {
+        var newlyPresented = await _assetRepo
+            .MarkPresentedAsync(assetId, DateTimeOffset.UtcNow, ct)
+            .ConfigureAwait(false);
+
+        if (!newlyPresented)
+            return;
+
+        var title = metadata.GetValueOrDefault("title", "Unknown");
+        WorkLineage? lineage = null;
+        if (_workRepo is not null)
+            lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
+
+        var workId = lineage?.TargetForSelfScope ?? assetId;
+        var collectionId = lineage is not null && lineage.TargetForParentScope != workId
+            ? lineage.TargetForParentScope
+            : (Guid?)null;
+
+        try
+        {
+            await _publisher.PublishAsync(
+                SignalREvents.MediaAdded,
+                new MediaAddedEvent(
+                    workId,
+                    collectionId,
+                    mediaType?.ToString() ?? "Unknown",
+                    title),
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "MediaAdded event publish failed for {Id}; continuing", assetId);
+        }
+    }
 
     private static void MoveCompanionFiles(string oldMediaPath, string newMediaPath)
     {

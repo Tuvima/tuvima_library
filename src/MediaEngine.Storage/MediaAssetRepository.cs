@@ -197,6 +197,28 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
     }
 
     /// <inheritdoc/>
+    public Task<bool> MarkPresentedAsync(Guid id, DateTimeOffset presentedAt, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE media_assets
+            SET    presented_at = @presentedAt
+            WHERE  id = @id
+              AND  presented_at IS NULL;
+            """,
+            new
+            {
+                id,
+                presentedAt = presentedAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            });
+
+        var changes = conn.ExecuteScalar<long>("SELECT changes();");
+        return Task.FromResult(changes > 0);
+    }
+
+    /// <inheritdoc/>
     public Task<bool> UpdateContentHashAsync(Guid id, string contentHash, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

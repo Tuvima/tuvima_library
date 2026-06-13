@@ -44,7 +44,7 @@ public sealed class WikidataBridgeHostedService : BackgroundService
                 {
                     var jobRepo = scope.ServiceProvider.GetRequiredService<IIdentityJobRepository>();
                     var reclaimed = await jobRepo.ReclaimStuckJobsAsync(
-                        TimeSpan.FromMinutes(5), stoppingToken);
+                        TimeSpan.FromMinutes(10), stoppingToken);
                     if (reclaimed > 0)
                         _logger.LogInformation("{Service}: reclaimed {Count} stuck job(s)",
                             nameof(WikidataBridgeHostedService), reclaimed);

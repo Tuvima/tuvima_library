@@ -216,6 +216,54 @@
             }
         </section>
 
+        @if (EffectiveProviderActivity.Count > 0)
+        {
+            <section class="library-update-batches">
+                <div class="library-update-batches__header">
+                    <span class="library-update-batches__icon" title="Provider activity shows live requests, throttling, and recent errors.">
+                        <MudTooltip Text="Provider activity shows live requests, throttling, and recent errors." Placement="Placement.Top">
+                            <MudIcon Icon="@Icons.Material.Outlined.Traffic" />
+                        </MudTooltip>
+                    </span>
+                    <div>
+                        <h3>Provider activity</h3>
+                        <p>External lookups are rate-limited per service while ingestion continues in parallel.</p>
+                    </div>
+                </div>
+
+                <div class="library-update-batch-list" role="list" aria-label="Provider request activity">
+                    @foreach (var provider in EffectiveProviderActivity)
+                    {
+                        <div @key="provider.ProviderName" class="library-update-batch" role="listitem">
+                            <div class="library-update-batch__select">
+                                <span class="library-update-batch__favorite" title="@ProviderActivityTooltip(provider)">
+                                    <MudTooltip Text="@ProviderActivityTooltip(provider)" Placement="Placement.Top">
+                                        <MudIcon Icon="@(provider.ActiveRequests > 0 ? Icons.Material.Outlined.Sync : Icons.Material.Outlined.CheckCircle)" />
+                                    </MudTooltip>
+                                </span>
+                                <span class="library-update-batch__name">
+                                    <strong>@ProviderLabel(provider.ProviderName)</strong>
+                                    <span>@ProviderActivitySummary(provider)</span>
+                                </span>
+                                <span class="library-update-batch__stats">
+                                    <span class="@ProviderActivityChipClass(provider)">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Bolt" />
+                                        <strong>@provider.ActiveRequests</strong>
+                                        <span>active</span>
+                                    </span>
+                                    <span class="@ProviderErrorChipClass(provider)">
+                                        <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
+                                        <strong>@FormatCount(provider.ErrorsLastMinute)</strong>
+                                        <span>errors/min</span>
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
     }
 </div>
 
@@ -230,6 +278,7 @@
     [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
     [Parameter] public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; set; } = [];
     [Parameter] public IReadOnlyList<IngestionReviewReasonViewModel> ReviewReasons { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionProviderActivityViewModel> ProviderActivity { get; set; } = [];
     [Parameter] public IngestionLiveMode LiveMode { get; set; }
     [Parameter] public EngineConnectionState ConnectionState { get; set; }
     [Parameter] public DateTimeOffset? LastUpdated { get; set; }
@@ -328,6 +377,8 @@
     private IReadOnlyList<IngestionOperationsBatchViewModel> RecentBatches => Snapshot?.RecentBatches ?? [];
     private IReadOnlyList<IngestionCurrentActivityViewModel> EffectiveCurrentActivities =>
         CurrentActivities.Count > 0 ? CurrentActivities : Snapshot?.CurrentActivities ?? [];
+    private IReadOnlyList<IngestionProviderActivityViewModel> EffectiveProviderActivity =>
+        ProviderActivity.Count > 0 ? ProviderActivity : Snapshot?.ProviderActivity ?? [];
     private double FileProcessingPercent => Model.TotalFiles > 0
         ? Math.Clamp(
             Model.PageState == LibraryUpdatePageState.Running && Model.ProgressPercent > 0
@@ -1347,6 +1398,34 @@
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
+    private static string FormatCount(long value) => value.ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string ProviderLabel(string providerName) =>
+        string.IsNullOrWhiteSpace(providerName)
+            ? "Provider"
+            : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(providerName.Replace("_", " ").Replace("-", " "));
+
+    private static string ProviderActivitySummary(IngestionProviderActivityViewModel provider)
+    {
+        var wait = TimeSpan.FromMilliseconds(Math.Max(0, provider.ThrottleWaitMsTotal));
+        var waitLabel = wait.TotalSeconds >= 1
+            ? $"{wait.TotalSeconds:N1}s waiting"
+            : $"{provider.ThrottleWaitMsTotal:N0}ms waiting";
+        var latency = provider.AverageLatencyMs > 0 ? $"{provider.AverageLatencyMs:N0}ms average" : "latency pending";
+        var last = provider.LastRequestAt is null ? "no requests yet" : $"last {FormatRelative(provider.LastRequestAt.Value)}";
+        return $"{FormatCount(provider.RequestsLastMinute)} requests/min, {FormatCount(provider.RequestsTotal)} total, {waitLabel}, {latency}, {last}";
+    }
+
+    private static string ProviderActivityTooltip(IngestionProviderActivityViewModel provider) =>
+        string.IsNullOrWhiteSpace(provider.LastError)
+            ? ProviderActivitySummary(provider)
+            : $"{ProviderActivitySummary(provider)}. Last error: {provider.LastError}";
+
+    private static string ProviderActivityChipClass(IngestionProviderActivityViewModel provider) =>
+        $"library-update-batch-count is-{(provider.ActiveRequests > 0 ? "info" : "neutral")}";
+
+    private static string ProviderErrorChipClass(IngestionProviderActivityViewModel provider) =>
+        $"library-update-batch-count is-{(provider.ErrorsLastMinute > 0 ? "warning" : "success")}";
 
     private sealed record StageDetailLine(string Label, string Value, string Tone, string Icon);
 

@@ -17,6 +17,7 @@
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject ILogger<MediaBrowseShell> Logger
+@inject UniverseStateContainer StateContainer
 
 <BrowseShellStyles />
 
@@ -317,6 +318,7 @@
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
+        StateContainer.MediaAddedReceived += OnMediaAdded;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -440,6 +442,16 @@
     }
 
     private Task ReloadAsync() => LoadBrowseContentAsync();
+
+    private void OnMediaAdded(MediaAddedEvent ev)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            Snackbar.Add($"Added to library: {ev.Title}", Severity.Success);
+            await LoadBrowseContentAsync();
+            StateHasChanged();
+        });
+    }
 
     private async Task<bool> LoadDisplayCardsAsync(bool append)
     {
@@ -1423,6 +1435,7 @@
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
+        StateContainer.MediaAddedReceived -= OnMediaAdded;
     }
 
     private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)

@@ -67,6 +67,20 @@
         </div>
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__actions">
+            @if (State.BatchProgress is { } batchProgress)
+            {
+                <MudTooltip Text="@GetIngestionProgressText(batchProgress)">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Outlined.Sync"
+                               Class="layout-shell__ingestion-indicator"
+                               OnClick="@OpenIngestionDashboard">
+                        @batchProgress.ProgressPercent%
+                    </MudButton>
+                </MudTooltip>
+            }
+
             @if (_reviewCount > 0)
             {
                 <MudBadge Overlap="true"
@@ -217,6 +231,7 @@
     {
         DeviceContext.OnChanged += OnDeviceContextChanged;
         Nav.LocationChanged += OnLocationChanged;
+        State.OnStateChanged += OnUniverseStateChanged;
         Orchestrator.OnEngineConnectionStateChanged += OnEngineConnectionStateChanged;
         SyncLocationState();
     }
@@ -302,6 +317,12 @@
         _isProfileMenuOpen = false;
         Nav.NavigateTo("/settings");
         return Task.CompletedTask;
+    }
+
+    private void OpenIngestionDashboard()
+    {
+        _isProfileMenuOpen = false;
+        Nav.NavigateTo("/settings/ingestion");
     }
 
     private void ToggleProfileMenu() => _isProfileMenuOpen = !_isProfileMenuOpen;
@@ -441,6 +462,7 @@
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
         Orchestrator.OnProfileChanged -= OnProfileChanged;
         Orchestrator.OnEngineConnectionStateChanged -= OnEngineConnectionStateChanged;
+        State.OnStateChanged -= OnUniverseStateChanged;
 
         try
         {
@@ -493,6 +515,18 @@
             _ => _engineStatusSummary,
         };
         InvokeAsync(StateHasChanged);
+    }
+
+    private void OnUniverseStateChanged() => InvokeAsync(StateHasChanged);
+
+    private static string GetIngestionProgressText(BatchProgressEvent progress)
+    {
+        var current = string.IsNullOrWhiteSpace(progress.CurrentFileTitle)
+            ? progress.CurrentStage
+            : $"{progress.CurrentStage}: {progress.CurrentFileTitle}";
+        return string.IsNullOrWhiteSpace(current)
+            ? $"{progress.FilesProcessed} of {progress.FilesTotal} files processed"
+            : $"{current} - {progress.FilesProcessed} of {progress.FilesTotal} files processed";
     }
 
     private Color GetEngineStatusColor() =>

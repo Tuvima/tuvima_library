@@ -67,6 +67,31 @@
             </div>
         </MudExpansionPanel>
 
+        <MudExpansionPanel Text="Provider activity">
+            <div class="ops-provider-list">
+                @foreach (var provider in Snapshot.ProviderActivity.OrderByDescending(p => p.ActiveRequests).ThenBy(p => p.ProviderName))
+                {
+                    <div class="ops-provider-row">
+                        <div>
+                            <strong>@ProviderLabel(provider.ProviderName)</strong>
+                            <span>@ProviderActivitySummary(provider)</span>
+                            @if (!string.IsNullOrWhiteSpace(provider.LastError))
+                            {
+                                <small>@provider.LastError</small>
+                            }
+                        </div>
+                        <span class="@StatusBadgeClass(provider.ErrorsLastMinute > 0 ? "warning" : provider.ActiveRequests > 0 ? "active" : "complete")">
+                            @ProviderActivityBadge(provider)
+                        </span>
+                    </div>
+                }
+                @if (Snapshot.ProviderActivity.Count == 0)
+                {
+                    @Empty(Icons.Material.Outlined.Traffic, "No provider requests yet", "Provider request activity appears while matching and enrichment are running.")
+                }
+            </div>
+        </MudExpansionPanel>
+
         <MudExpansionPanel Text="Review reasons">
             <div class="ops-review-list">
                 @foreach (var reason in Snapshot.ReviewReasons)
@@ -147,6 +172,8 @@
 
     private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
 
+    private static string FormatCount(long value) => value.ToString("N0", CultureInfo.CurrentCulture);
+
     private static string FormatStatus(string status)
     {
         if (string.IsNullOrWhiteSpace(status))
@@ -197,4 +224,27 @@
 
     private static string FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+
+    private static string ProviderLabel(string providerName) =>
+        string.IsNullOrWhiteSpace(providerName)
+            ? "Provider"
+            : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(providerName.Replace("_", " ").Replace("-", " "));
+
+    private static string ProviderActivityBadge(IngestionProviderActivityViewModel provider) =>
+        provider.ActiveRequests > 0
+            ? $"{provider.ActiveRequests} active"
+            : provider.ErrorsLastMinute > 0
+                ? $"{provider.ErrorsLastMinute} recent errors"
+                : "Idle";
+
+    private static string ProviderActivitySummary(IngestionProviderActivityViewModel provider)
+    {
+        var wait = TimeSpan.FromMilliseconds(Math.Max(0, provider.ThrottleWaitMsTotal));
+        var waitLabel = wait.TotalSeconds >= 1
+            ? $"{wait.TotalSeconds:N1}s waiting"
+            : $"{provider.ThrottleWaitMsTotal:N0}ms waiting";
+        var latency = provider.AverageLatencyMs > 0 ? $"{provider.AverageLatencyMs:N0}ms avg" : "latency pending";
+        var last = provider.LastRequestAt is null ? "no requests yet" : $"last request {FormatRelative(provider.LastRequestAt)}";
+        return $"{FormatCount(provider.RequestsLastMinute)} in the last minute, {FormatCount(provider.RequestsTotal)} total, {waitLabel}, {latency}, {last}";
+    }
 }

@@ -404,6 +404,7 @@ CREATE TABLE IF NOT EXISTS media_assets (
     edition_id     BLOB NOT NULL REFERENCES editions(id) ON DELETE CASCADE,
     content_hash   TEXT NOT NULL UNIQUE,       -- reconciliation key; SHA-256 hex, lowercase
     file_path_root TEXT NOT NULL,              -- FS path, no BLOBs
+    presented_at   TEXT,                       -- first time the asset became visible in browse
     status         TEXT NOT NULL DEFAULT 'Normal'
                        CHECK (status IN ('Normal', 'Conflicted', 'Orphaned')),
 
@@ -1082,6 +1083,9 @@ CREATE INDEX IF NOT EXISTS idx_identity_jobs_activity_latest
 
 CREATE INDEX IF NOT EXISTS idx_identity_jobs_state ON identity_jobs (state);
 
+CREATE INDEX IF NOT EXISTS idx_identity_jobs_next_retry
+    ON identity_jobs(next_retry_at) WHERE next_retry_at IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_image_cache_phash
     ON image_cache(phash) WHERE phash IS NOT NULL;
 
@@ -1117,6 +1121,9 @@ CREATE INDEX IF NOT EXISTS idx_media_assets_content_hash
 
 CREATE INDEX IF NOT EXISTS idx_media_assets_file_path_root
     ON media_assets (file_path_root COLLATE NOCASE);
+
+CREATE INDEX IF NOT EXISTS idx_media_assets_presented
+    ON media_assets(presented_at) WHERE presented_at IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_media_assets_edition_id
     ON media_assets (edition_id);

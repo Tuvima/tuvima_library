@@ -28,6 +28,9 @@ public sealed class IngestionOperationsSnapshotViewModel
     [JsonPropertyName("provider_health")]
     public List<IngestionProviderHealthViewModel> ProviderHealth { get; set; } = [];
 
+    [JsonPropertyName("provider_activity")]
+    public List<IngestionProviderActivityViewModel> ProviderActivity { get; set; } = [];
+
     [JsonPropertyName("recent_batches")]
     public List<IngestionOperationsBatchViewModel> RecentBatches { get; set; } = [];
 
@@ -36,6 +39,20 @@ public sealed class IngestionOperationsSnapshotViewModel
 
     [JsonPropertyName("generated_at")]
     public DateTimeOffset GeneratedAt { get; set; }
+}
+
+public sealed class IngestionProviderActivityViewModel
+{
+    [JsonPropertyName("provider_name")] public string ProviderName { get; set; } = "";
+    [JsonPropertyName("active_requests")] public int ActiveRequests { get; set; }
+    [JsonPropertyName("requests_total")] public long RequestsTotal { get; set; }
+    [JsonPropertyName("requests_last_minute")] public int RequestsLastMinute { get; set; }
+    [JsonPropertyName("errors_total")] public long ErrorsTotal { get; set; }
+    [JsonPropertyName("errors_last_minute")] public int ErrorsLastMinute { get; set; }
+    [JsonPropertyName("throttle_wait_ms_total")] public long ThrottleWaitMsTotal { get; set; }
+    [JsonPropertyName("average_latency_ms")] public double AverageLatencyMs { get; set; }
+    [JsonPropertyName("last_request_at")] public DateTimeOffset? LastRequestAt { get; set; }
+    [JsonPropertyName("last_error")] public string? LastError { get; set; }
 }
 
 public sealed class IngestionOperationsSummaryViewModel

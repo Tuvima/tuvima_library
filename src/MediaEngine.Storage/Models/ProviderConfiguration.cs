@@ -93,6 +93,14 @@ public sealed class ProviderConfiguration
     public int MaxConcurrency { get; set; } = 1;
 
     /// <summary>
+    /// Structured request pacing policy for this provider. This replaces the
+    /// older millisecond-gap throttle with provider-level rate and concurrency
+    /// limits that can be surfaced in operations telemetry.
+    /// </summary>
+    [JsonPropertyName("rate_limit")]
+    public ProviderRateLimitConfiguration? RateLimit { get; set; }
+
+    /// <summary>
     /// Which stages of the three-stage hydration pipeline this provider participates in.
     /// Values: <c>1</c> (Retail Match), <c>2</c> (Universal Bridge), <c>3</c> (Human Collection).
     ///
@@ -207,6 +215,21 @@ public sealed class ProviderConfiguration
     /// </summary>
     [JsonPropertyName("ui_metadata")]
     public ProviderUiMetadata? UiMetadata { get; set; }
+}
+
+public sealed class ProviderRateLimitConfiguration
+{
+    [JsonPropertyName("requests_per_second")]
+    public double? RequestsPerSecond { get; set; }
+
+    [JsonPropertyName("requests_per_minute")]
+    public int? RequestsPerMinute { get; set; }
+
+    [JsonPropertyName("burst")]
+    public int Burst { get; set; } = 1;
+
+    [JsonPropertyName("max_concurrency")]
+    public int MaxConcurrency { get; set; } = 1;
 }
 
 /// <summary>

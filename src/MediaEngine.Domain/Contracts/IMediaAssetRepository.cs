@@ -66,6 +66,13 @@ public interface IMediaAssetRepository
     Task UpdateFilePathAsync(Guid id, string newPath, CancellationToken ct = default);
 
     /// <summary>
+    /// Stamps the first time an asset became visible to normal library browse
+    /// surfaces. Returns <see langword="true"/> only when the stamp was newly
+    /// written, allowing callers to publish one-time presentation events.
+    /// </summary>
+    Task<bool> MarkPresentedAsync(Guid id, DateTimeOffset presentedAt, CancellationToken ct = default);
+
+    /// <summary>
     /// Updates the stored content hash for an existing asset when the same file
     /// path is re-detected after writeback or retagging changed the file bytes.
     /// Returns <see langword="false"/> if the new hash already belongs to a

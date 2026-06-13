@@ -38,6 +38,7 @@ public static class SignalREvents
     // ── Provider health ──────────────────────────────────────────────
     public const string ProviderStatusChanged  = "ProviderStatusChanged";
     public const string ProviderRecoveryFlush  = "ProviderRecoveryFlush";
+    public const string ProviderActivity       = "ProviderActivity";
 
     // ── AI model lifecycle ───────────────────────────────────────────
     public const string ModelStateChanged      = "ModelStateChanged";

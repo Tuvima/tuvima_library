@@ -438,7 +438,8 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
             sp.GetRequiredService<IHttpClientFactory>(),
             sp.GetRequiredService<ILogger<ConfigDrivenAdapter>>(),
             sp.GetRequiredService<IProviderHealthMonitor>(),
-            sp.GetRequiredService<IProviderResponseCacheRepository>()));
+            sp.GetRequiredService<IProviderResponseCacheRepository>(),
+            sp.GetRequiredService<MediaEngine.Providers.Services.IProviderRateLimiterCoordinator>()));
 }
 
 
@@ -712,7 +713,8 @@ builder.Services.AddSingleton<IUniverseEnrichmentScheduler>(sp => sp.GetRequired
 builder.Services.AddSingleton<MediaEngine.Providers.Services.CollectionAssignmentService>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.WikidataSeriesManifestHydrationService>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailRequestBuilder>();
-builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailHttpThrottle>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.IProviderRateLimiterCoordinator, MediaEngine.Providers.Services.ProviderRateLimiterCoordinator>();
+builder.Services.AddHostedService<ProviderActivityBroadcastService>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.AppleRetailClient>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.TmdbRetailClient>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailCandidateScorer>();

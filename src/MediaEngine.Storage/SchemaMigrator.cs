@@ -7,9 +7,19 @@ internal sealed class SchemaMigrator
 {
     public void RunStartupTasks(SqliteConnection conn)
     {
+        EnsureCurrentColumns(conn);
         EnsureCurrentIndexes(conn);
         SeedMetadataProviders(conn);
         SeedDefaultProfile(conn);
+    }
+
+    private static void EnsureCurrentColumns(SqliteConnection conn)
+    {
+        AddColumnIfMissing(
+            conn,
+            "media_assets",
+            "presented_at",
+            "ALTER TABLE media_assets ADD COLUMN presented_at TEXT;");
     }
 
     private static void SeedMetadataProviders(SqliteConnection conn)
@@ -96,6 +106,9 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_media_assets_edition_id
                 ON media_assets(edition_id);
 
+            CREATE INDEX IF NOT EXISTS idx_media_assets_presented
+                ON media_assets(presented_at) WHERE presented_at IS NOT NULL;
+
             CREATE INDEX IF NOT EXISTS idx_canonical_values_key_value_entity
                 ON canonical_values(key, value, entity_id);
 
@@ -120,6 +133,9 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_identity_jobs_activity_latest
                 ON identity_jobs(ingestion_run_id, entity_id, updated_at, created_at);
 
+            CREATE INDEX IF NOT EXISTS idx_identity_jobs_next_retry
+                ON identity_jobs(next_retry_at) WHERE next_retry_at IS NOT NULL;
+
             CREATE INDEX IF NOT EXISTS idx_media_operations_source_path
                 ON media_operations(operation_type, source_path, status);
 
@@ -140,5 +156,25 @@ internal sealed class SchemaMigrator
                 WHERE status = 'Pending';
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    private static void AddColumnIfMissing(
+        SqliteConnection conn,
+        string table,
+        string column,
+        string alterSql)
+    {
+        using var exists = conn.CreateCommand();
+        exists.CommandText = $"PRAGMA table_info([{table}]);";
+        using var reader = exists.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        using var alter = conn.CreateCommand();
+        alter.CommandText = alterSql;
+        alter.ExecuteNonQuery();
     }
 }

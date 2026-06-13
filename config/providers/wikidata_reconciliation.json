@@ -9,8 +9,7 @@
     "wikibase_api": "https://www.wikidata.org/w/api.php",
     "commons_file_path": "https://commons.wikimedia.org/wiki/Special:FilePath/"
   },
-  "throttle_ms": 500,
-  "max_concurrency": 3,
+  "rate_limit": null,
   "cache_ttl_hours": 168,
   "language_strategy": "both",
   "batch_size": 50,

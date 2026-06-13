@@ -18,18 +18,18 @@ public sealed class AppleRetailClient
 {
     private readonly IHttpClientFactory _httpFactory;
     private readonly RetailRequestBuilder _requestBuilder;
-    private readonly RetailHttpThrottle _throttle;
+    private readonly IProviderRateLimiterCoordinator _rateLimiter;
     private readonly ILogger<AppleRetailClient> _logger;
 
     public AppleRetailClient(
         IHttpClientFactory httpFactory,
         RetailRequestBuilder requestBuilder,
-        RetailHttpThrottle throttle,
+        IProviderRateLimiterCoordinator rateLimiter,
         ILogger<AppleRetailClient> logger)
     {
         _httpFactory = httpFactory;
         _requestBuilder = requestBuilder;
-        _throttle = throttle;
+        _rateLimiter = rateLimiter;
         _logger = logger;
     }
 
@@ -53,9 +53,11 @@ public sealed class AppleRetailClient
             {
                 var url = _requestBuilder.BuildAppleTrackSearchUrl(searchQuery, country, language);
 
-                await _throttle.ThrottleItunesAsync(ct).ConfigureAwait(false);
-
-                var json = await client.GetFromJsonAsync<JsonNode>(url, ct).ConfigureAwait(false);
+                var json = await _rateLimiter.ExecuteAsync(
+                    "apple_api",
+                    ProviderRateLimitDefaults.Apple,
+                    token => client.GetFromJsonAsync<JsonNode>(url, token),
+                    ct).ConfigureAwait(false);
                 var results = json?["results"]?.AsArray();
                 if (results is null || results.Count == 0)
                     continue;
@@ -106,12 +108,14 @@ public sealed class AppleRetailClient
 
         var url = _requestBuilder.BuildAppleAlbumSearchUrl(artist, album, country, language);
 
-        await _throttle.ThrottleItunesAsync(ct).ConfigureAwait(false);
-
         try
         {
             using var client = _httpFactory.CreateClient("apple_api");
-            var json = await client.GetFromJsonAsync<JsonNode>(url, ct).ConfigureAwait(false);
+            var json = await _rateLimiter.ExecuteAsync(
+                "apple_api",
+                ProviderRateLimitDefaults.Apple,
+                token => client.GetFromJsonAsync<JsonNode>(url, token),
+                ct).ConfigureAwait(false);
 
             var results = json?["results"]?.AsArray();
             if (results is null || results.Count == 0)
@@ -176,12 +180,14 @@ public sealed class AppleRetailClient
     {
         var url = _requestBuilder.BuildAppleAlbumLookupUrl(collectionId, country, language);
 
-        await _throttle.ThrottleItunesAsync(ct).ConfigureAwait(false);
-
         try
         {
             using var client = _httpFactory.CreateClient("apple_api");
-            var json = await client.GetFromJsonAsync<JsonNode>(url, ct).ConfigureAwait(false);
+            var json = await _rateLimiter.ExecuteAsync(
+                "apple_api",
+                ProviderRateLimitDefaults.Apple,
+                token => client.GetFromJsonAsync<JsonNode>(url, token),
+                ct).ConfigureAwait(false);
 
             var results = json?["results"]?.AsArray();
             if (results is null || results.Count == 0)

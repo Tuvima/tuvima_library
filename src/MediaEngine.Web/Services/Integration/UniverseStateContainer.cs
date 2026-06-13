@@ -25,6 +25,7 @@ public sealed class UniverseStateContainer
     private readonly Dictionary<Guid, LiveIngestionItemProgress> _ingestionItemProgress = new();
     private UniverseEnrichmentProgressEvent? _universeEnrichmentProgress;
     private DateTimeOffset?            _universeEnrichmentProgressReceivedAt;
+    private List<IngestionProviderActivityViewModel> _providerActivity = [];
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
     private string[]?                  _activeLaneMediaTypes;
     private bool                       _lastStateChangeRequiresSnapshotRefresh = true;
@@ -72,6 +73,7 @@ public sealed class UniverseStateContainer
             .ToList();
     public UniverseEnrichmentProgressEvent? UniverseEnrichmentProgress  => _universeEnrichmentProgress;
     public DateTimeOffset?                  UniverseEnrichmentProgressReceivedAt => _universeEnrichmentProgressReceivedAt;
+    public IReadOnlyList<IngestionProviderActivityViewModel> ProviderActivity => _providerActivity;
     public bool                             LastStateChangeRequiresSnapshotRefresh => _lastStateChangeRequiresSnapshotRefresh;
 
     public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates        => _personUpdates;
@@ -134,6 +136,7 @@ public sealed class UniverseStateContainer
     /// use <c>InvokeAsync(StateHasChanged)</c> in component handlers.
     /// </summary>
     public event Action? OnStateChanged;
+    public event Action<MediaAddedEvent>? MediaAddedReceived;
 
     // ── Collection-list mutations ────────────────────────────────────────────────────
 
@@ -260,6 +263,7 @@ public sealed class UniverseStateContainer
             "library_add",
             $"New {ev.MediaType.ToLowerInvariant()} added: \"{ev.Title}\"",
             ev.CollectionId is { } collectionId ? $"Assigned to Collection {collectionId:N}" : "Standalone (no Collection)"));
+        MediaAddedReceived?.Invoke(ev);
         Invalidate(requiresSnapshotRefresh: false);
     }
 
@@ -310,6 +314,25 @@ public sealed class UniverseStateContainer
             $"Metadata updated by {ev.ProviderName}",
             $"Fields enriched: {fields}"));
         Invalidate(requiresSnapshotRefresh: false);
+    }
+
+    public void PushProviderActivity(ProviderActivityEvent ev)
+    {
+        _providerActivity = ev.Providers.Select(provider => new IngestionProviderActivityViewModel
+        {
+            ProviderName = provider.ProviderName,
+            ActiveRequests = provider.ActiveRequests,
+            RequestsTotal = provider.RequestsTotal,
+            RequestsLastMinute = provider.RequestsLastMinute,
+            ErrorsTotal = provider.ErrorsTotal,
+            ErrorsLastMinute = provider.ErrorsLastMinute,
+            ThrottleWaitMsTotal = provider.ThrottleWaitMsTotal,
+            AverageLatencyMs = provider.AverageLatencyMs,
+            LastRequestAt = provider.LastRequestAt,
+            LastError = provider.LastError,
+        }).ToList();
+
+        NotifyStateChanged(requiresSnapshotRefresh: false);
     }
 
     /// <summary>

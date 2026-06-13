@@ -21,8 +21,11 @@
   "endpoints": {
     "api": "https://comicvine.gamespot.com/api"
   },
-  "throttle_ms": 500,
-  "max_concurrency": 1,
+  "rate_limit": {
+    "requests_per_second": 1,
+    "burst": 1,
+    "max_concurrency": 1
+  },
   "hydration_stages": [
     1
   ],

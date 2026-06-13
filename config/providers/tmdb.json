@@ -35,8 +35,11 @@
   "endpoints": {
     "api": "https://api.themoviedb.org/3"
   },
-  "throttle_ms": 500,
-  "max_concurrency": 1,
+  "rate_limit": {
+    "requests_per_second": 20,
+    "burst": 20,
+    "max_concurrency": 8
+  },
   "hydration_stages": [
     1
   ],

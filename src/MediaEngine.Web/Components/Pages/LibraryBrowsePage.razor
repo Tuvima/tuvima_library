@@ -140,6 +140,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         State.OnStateChanged += OnStateChanged;
+        State.MediaAddedReceived += OnMediaAdded;
         await Orchestrator.StartSignalRAsync();
         await LoadAsync();
     }
@@ -297,6 +298,18 @@ else
         DebounceStateReload();
     }
 
+    private void OnMediaAdded(MediaAddedEvent ev)
+    {
+        if (_disposed)
+            return;
+
+        _ = InvokeAsync(() =>
+        {
+            Snackbar.Add($"Added to library: {ev.Title}", Severity.Success);
+            return Task.CompletedTask;
+        });
+    }
+
     private void DebounceStateReload()
     {
         _stateReloadCts?.Cancel();
@@ -321,6 +334,7 @@ else
     {
         _disposed = true;
         State.OnStateChanged -= OnStateChanged;
+        State.MediaAddedReceived -= OnMediaAdded;
         _stateReloadCts?.Cancel();
         _stateReloadCts?.Dispose();
     }

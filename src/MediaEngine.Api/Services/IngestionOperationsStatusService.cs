@@ -5,6 +5,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
@@ -124,6 +125,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private readonly ILibraryItemRepository _libraryItems;
     private readonly IOptions<IngestionOptions> _ingestionOptions;
     private readonly IReviewQueueReadService _reviewQueueReadService;
+    private readonly IProviderRateLimiterCoordinator? _providerRateLimiter;
 
     public IngestionOperationsStatusService(
         IDatabaseConnection db,
@@ -132,7 +134,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IIngestionBatchRepository batchRepository,
         ILibraryItemRepository libraryItems,
         IReviewQueueReadService reviewQueueReadService,
-        IOptions<IngestionOptions> ingestionOptions)
+        IOptions<IngestionOptions> ingestionOptions,
+        IProviderRateLimiterCoordinator? providerRateLimiter = null)
     {
         _db = db;
         _configLoader = configLoader;
@@ -141,6 +144,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         _libraryItems = libraryItems;
         _reviewQueueReadService = reviewQueueReadService;
         _ingestionOptions = ingestionOptions;
+        _providerRateLimiter = providerRateLimiter;
     }
 
     public async Task<IngestionOperationsSnapshotDto> GetSnapshotAsync(CancellationToken ct = default)
@@ -220,6 +224,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .ThenBy(p => p.Name)
             .Select(p => ToProviderDto(p, healthById.GetValueOrDefault(p.Name)))
             .ToList();
+        var providerActivity = _providerRateLimiter?.GetSnapshots()
+            .Select(ToProviderActivityDto)
+            .ToList() ?? [];
 
         var providerWarnings = providerDtos.Count(p =>
             p.Status is "Degraded" or "Offline" or "Missing Configuration");
@@ -291,6 +298,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ReviewReasons = BuildReviewReasons(reviewRows),
             SourceGroups = BuildSourceGroups(folderStats),
             ProviderHealth = providerDtos,
+            ProviderActivity = providerActivity,
             RecentBatches = recentBatchDtos,
             Organization = BuildOrganizationRules(),
             GeneratedAt = DateTimeOffset.UtcNow,
@@ -3856,6 +3864,20 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 : provider.ThrottleMs > 0 ? $"Throttled at {provider.ThrottleMs}ms" : null,
         };
     }
+
+    private static IngestionProviderActivityDto ToProviderActivityDto(ProviderActivitySnapshot activity) => new()
+    {
+        ProviderName = activity.ProviderName,
+        ActiveRequests = activity.ActiveRequests,
+        RequestsTotal = activity.RequestsTotal,
+        RequestsLastMinute = activity.RequestsLastMinute,
+        ErrorsTotal = activity.ErrorsTotal,
+        ErrorsLastMinute = activity.ErrorsLastMinute,
+        ThrottleWaitMsTotal = activity.ThrottleWaitMsTotal,
+        AverageLatencyMs = activity.AverageLatencyMs,
+        LastRequestAt = activity.LastRequestAt,
+        LastError = activity.LastError,
+    };
 
     private static bool IsIngestionProvider(ProviderConfig provider)
     {

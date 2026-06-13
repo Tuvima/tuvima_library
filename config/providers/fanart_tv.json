@@ -12,9 +12,12 @@
     "entity_types": ["Work", "MediaAsset"]
   },
 
-  "throttle_ms": 1000,
+  "rate_limit": {
+    "requests_per_second": 2,
+    "burst": 2,
+    "max_concurrency": 2
+  },
   "cache_ttl_hours": 336,
-  "max_concurrency": 1,
 
   "endpoints": {
     "api": "https://webservice.fanart.tv/v3"

@@ -60,6 +60,7 @@ public sealed class RetailMatchWorker
     private readonly AppleRetailClient _appleClient;
     private readonly TmdbRetailClient _tmdbClient;
     private readonly RetailCandidateScorer _candidateScorer;
+    private readonly CoverArtWorker? _coverArtWorker;
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
@@ -98,7 +99,8 @@ public sealed class RetailMatchWorker
         ICanonicalValueArrayRepository? arrayRepo = null,
         AppleRetailClient? appleClient = null,
         TmdbRetailClient? tmdbClient = null,
-        RetailCandidateScorer? candidateScorer = null)
+        RetailCandidateScorer? candidateScorer = null,
+        CoverArtWorker? coverArtWorker = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -125,14 +127,15 @@ public sealed class RetailMatchWorker
         _appleClient = appleClient ?? new AppleRetailClient(
             _httpFactory,
             new RetailRequestBuilder(),
-            new RetailHttpThrottle(),
+            new ProviderRateLimiterCoordinator(),
             NullLogger<AppleRetailClient>.Instance);
         _tmdbClient = tmdbClient ?? new TmdbRetailClient(
             _httpFactory,
             new RetailRequestBuilder(),
-            new RetailHttpThrottle(),
+            new ProviderRateLimiterCoordinator(),
             NullLogger<TmdbRetailClient>.Instance);
         _candidateScorer = candidateScorer ?? new RetailCandidateScorer();
+        _coverArtWorker = coverArtWorker;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -168,47 +171,29 @@ public sealed class RetailMatchWorker
                 otherJobs.Add(job);
         }
 
-        // Process non-Music/TV jobs with the existing per-item logic.
-        foreach (var job in otherJobs)
-        {
-            try
-            {
-                await _concurrency.RunAsync(
-                    EnrichmentWorkKind.RetailProvider,
-                    token => ProcessJobAsync(job, token),
-                    ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "RetailMatchWorker failed for job {JobId} (entity {EntityId})",
-                    job.Id, job.EntityId);
-                await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
-                    _jobRepo,
-                    job,
-                    IdentityJobState.Queued,
-                    ex,
-                    _configLoader.LoadHydration(),
-                    ct);
-            }
-        }
+        var work = new List<Task>();
+
+        // Process non-Music/TV jobs independently so a slow provider or retry for
+        // one file does not block unrelated Stage 1 work.
+        work.AddRange(otherJobs.Select(job =>
+            _concurrency.RunAsync(
+                EnrichmentWorkKind.RetailProvider,
+                token => ProcessJobWithRetryAsync(job, token),
+                ct)));
 
         // Process Music jobs grouped by album (artist+album key).
         if (musicJobs.Count > 0)
         {
-            await _concurrency.RunAsync(
-                EnrichmentWorkKind.RetailProvider,
-                token => ProcessMusicBatchAsync(musicJobs, token),
-                ct);
+            work.Add(ProcessMusicBatchAsync(musicJobs, ct));
         }
 
         // Process TV jobs grouped by show+season (show_name+season_number key).
         if (tvJobs.Count > 0)
         {
-            await _concurrency.RunAsync(
-                EnrichmentWorkKind.RetailProvider,
-                token => ProcessTvBatchAsync(tvJobs, token),
-                ct);
+            work.Add(ProcessTvBatchAsync(tvJobs, ct));
         }
+
+        await Task.WhenAll(work).ConfigureAwait(false);
 
         foreach (var runId in jobs
                      .Select(j => j.IngestionRunId)
@@ -220,6 +205,26 @@ public sealed class RetailMatchWorker
         }
 
         return jobs.Count;
+    }
+
+    private async Task ProcessJobWithRetryAsync(IdentityJob job, CancellationToken ct)
+    {
+        try
+        {
+            await ProcessJobAsync(job, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "RetailMatchWorker failed for job {JobId} (entity {EntityId})",
+                job.Id, job.EntityId);
+            await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                _jobRepo,
+                job,
+                IdentityJobState.Queued,
+                ex,
+                _configLoader.LoadHydration(),
+                ct).ConfigureAwait(false);
+        }
     }
 
     private int GetBatchSize() =>
@@ -250,35 +255,45 @@ public sealed class RetailMatchWorker
             "Music: grouping {TrackCount} track(s) into {GroupCount} album group(s) for retail match",
             jobs.Count, groups.Count);
 
-        foreach (var group in groups)
-        {
-            var groupJobs = group.ToList();
-            try
-            {
-                await ProcessMusicGroupAsync(groupJobs, jobHints, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex,
-                    "Music: album group '{Key}' failed — falling back to per-track search for {Count} job(s)",
-                    group.Key, groupJobs.Count);
+        var groupTasks = groups
+            .Select(group => _concurrency.RunAsync(
+                EnrichmentWorkKind.RetailProvider,
+                token => ProcessMusicGroupWithFallbackAsync(group.Key, group.ToList(), jobHints, token),
+                ct))
+            .ToList();
+        await Task.WhenAll(groupTasks).ConfigureAwait(false);
+    }
 
-                // Fall back to per-track processing for each job in this group.
-                foreach (var job in groupJobs)
+    private async Task ProcessMusicGroupWithFallbackAsync(
+        string groupKey,
+        IReadOnlyList<IdentityJob> groupJobs,
+        IReadOnlyDictionary<Guid, Dictionary<string, string>> jobHints,
+        CancellationToken ct)
+    {
+        try
+        {
+            await ProcessMusicGroupAsync(groupJobs, jobHints, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Music: album group '{Key}' failed; falling back to per-track search for {Count} job(s)",
+                groupKey, groupJobs.Count);
+
+            foreach (var job in groupJobs)
+            {
+                try { await ProcessJobAsync(job, ct).ConfigureAwait(false); }
+                catch (Exception innerEx) when (innerEx is not OperationCanceledException)
                 {
-                    try { await ProcessJobAsync(job, ct); }
-                    catch (Exception innerEx) when (innerEx is not OperationCanceledException)
-                    {
-                        _logger.LogError(innerEx,
-                            "RetailMatchWorker per-track fallback failed for {EntityId}", job.EntityId);
-                        await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
-                            _jobRepo,
-                            job,
-                            IdentityJobState.Queued,
-                            innerEx,
-                            _configLoader.LoadHydration(),
-                            ct);
-                    }
+                    _logger.LogError(innerEx,
+                        "RetailMatchWorker per-track fallback failed for {EntityId}", job.EntityId);
+                    await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                        _jobRepo,
+                        job,
+                        IdentityJobState.Queued,
+                        innerEx,
+                        _configLoader.LoadHydration(),
+                        ct).ConfigureAwait(false);
                 }
             }
         }
@@ -711,6 +726,9 @@ public sealed class RetailMatchWorker
                 await _postPipeline.EvaluateAndOrganizeAsync(
                     job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
                     .ConfigureAwait(false);
+                if (_coverArtWorker is not null)
+                    await _coverArtWorker.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct)
+                        .ConfigureAwait(false);
             }
             catch (Exception orgEx) when (orgEx is not OperationCanceledException)
             {
@@ -827,28 +845,40 @@ public sealed class RetailMatchWorker
             "TV: grouping {EpisodeCount} episode(s) into {GroupCount} show/season group(s) for retail match",
             jobs.Count, groups.Count);
 
-        foreach (var group in groups)
-        {
-            var groupJobs = group.ToList();
-            try
-            {
-                await ProcessTvGroupAsync(groupJobs, jobHints, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex,
-                    "TV: show/season group '{Key}' failed — falling back to per-episode search for {Count} job(s)",
-                    group.Key, groupJobs.Count);
+        var groupTasks = groups
+            .Select(group => _concurrency.RunAsync(
+                EnrichmentWorkKind.RetailProvider,
+                token => ProcessTvGroupWithFallbackAsync(group.Key, group.ToList(), jobHints, token),
+                ct))
+            .ToList();
+        await Task.WhenAll(groupTasks).ConfigureAwait(false);
+    }
 
-                foreach (var job in groupJobs)
+    private async Task ProcessTvGroupWithFallbackAsync(
+        string groupKey,
+        IReadOnlyList<IdentityJob> groupJobs,
+        IReadOnlyDictionary<Guid, Dictionary<string, string>> jobHints,
+        CancellationToken ct)
+    {
+        try
+        {
+            await ProcessTvGroupAsync(groupJobs, jobHints, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "TV: show/season group '{Key}' failed; falling back to per-episode search for {Count} job(s)",
+                groupKey, groupJobs.Count);
+
+            foreach (var job in groupJobs)
+            {
+                try { await ProcessJobAsync(job, ct).ConfigureAwait(false); }
+                catch (Exception innerEx) when (innerEx is not OperationCanceledException)
                 {
-                    try { await ProcessJobAsync(job, ct); }
-                    catch (Exception innerEx) when (innerEx is not OperationCanceledException)
-                    {
-                        _logger.LogError(innerEx,
-                            "RetailMatchWorker per-episode fallback failed for {EntityId}", job.EntityId);
-                        await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, innerEx.Message, ct);
-                    }
+                    _logger.LogError(innerEx,
+                        "RetailMatchWorker per-episode fallback failed for {EntityId}", job.EntityId);
+                    await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, innerEx.Message, ct)
+                        .ConfigureAwait(false);
                 }
             }
         }
@@ -1261,6 +1291,9 @@ public sealed class RetailMatchWorker
                 await _postPipeline.EvaluateAndOrganizeAsync(
                     job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
                     .ConfigureAwait(false);
+                if (_coverArtWorker is not null)
+                    await _coverArtWorker.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct)
+                        .ConfigureAwait(false);
             }
             catch (Exception orgEx) when (orgEx is not OperationCanceledException)
             {
@@ -2305,6 +2338,9 @@ public sealed class RetailMatchWorker
                 await _postPipeline.EvaluateAndOrganizeAsync(
                     job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
                     .ConfigureAwait(false);
+                if (_coverArtWorker is not null)
+                    await _coverArtWorker.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct)
+                        .ConfigureAwait(false);
             }
             catch (Exception orgEx) when (orgEx is not OperationCanceledException)
             {

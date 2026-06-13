@@ -35,7 +35,7 @@ public sealed class HydrationSettings
     /// Maximum app-wide concurrent retail provider work items across all libraries.
     /// </summary>
     [JsonPropertyName("max_concurrent_retail_provider_jobs")]
-    public int MaxConcurrentRetailProviderJobs { get; set; } = 2;
+    public int MaxConcurrentRetailProviderJobs { get; set; } = 4;
 
     /// <summary>
     /// Maximum app-wide concurrent Wikidata/Wikipedia work items across all libraries.

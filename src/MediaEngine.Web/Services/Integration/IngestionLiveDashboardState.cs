@@ -69,6 +69,10 @@ public sealed class IngestionLiveDashboardState : IDisposable
     private readonly Dictionary<Guid, IReadOnlyList<EntityCapabilityStateViewModel>> _capabilitiesByEntity = new();
 
     public EngineConnectionState ConnectionState => _orchestrator.EngineConnectionState;
+    public IReadOnlyList<IngestionProviderActivityViewModel> ProviderActivity =>
+        _stateContainer.ProviderActivity.Count > 0
+            ? _stateContainer.ProviderActivity
+            : Snapshot?.ProviderActivity ?? [];
     public IReadOnlyList<IngestionOperationsJobViewModel> ActiveJobs => BuildActiveJobs(Snapshot, _stateContainer);
     public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities => BuildCurrentActivities(Snapshot, ActiveJobs, Stages, _stateContainer);
     public IngestionDashboardMetrics Metrics => BuildMetrics(Snapshot, ActiveJobs);

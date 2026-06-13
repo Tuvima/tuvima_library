@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Providers.Contracts;
+using MediaEngine.Providers.Services;
 
 namespace MediaEngine.Api.Services;
 
@@ -11,15 +12,21 @@ namespace MediaEngine.Api.Services;
 public sealed class HydrationStartupSweepService : BackgroundService
 {
     private readonly IIdentityJobRepository _jobs;
+    private readonly IIngestionBatchRepository _batches;
+    private readonly BatchProgressService _batchProgress;
     private readonly IIdentityPipelineSignal _signal;
     private readonly ILogger<HydrationStartupSweepService> _logger;
 
     public HydrationStartupSweepService(
         IIdentityJobRepository jobs,
+        IIngestionBatchRepository batches,
+        BatchProgressService batchProgress,
         IIdentityPipelineSignal signal,
         ILogger<HydrationStartupSweepService> logger)
     {
         _jobs = jobs;
+        _batches = batches;
+        _batchProgress = batchProgress;
         _signal = signal;
         _logger = logger;
     }
@@ -29,10 +36,26 @@ public sealed class HydrationStartupSweepService : BackgroundService
         try
         {
             var recovered = await _jobs.RecoverInterruptedJobsAsync(cancellationToken).ConfigureAwait(false);
+            var recentRunningBatches = (await _batches.GetRecentAsync(50, cancellationToken).ConfigureAwait(false))
+                .Where(batch => string.Equals(batch.Status, "running", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var batch in recentRunningBatches)
+            {
+                await _batchProgress.EmitProgressAsync(batch.Id, isFinal: false, ct: cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             if (recovered == 0)
             {
                 _logger.LogInformation("Identity startup recovery found no interrupted jobs.");
+                var abandoned = await _batches.AbandonRunningAsync(cancellationToken).ConfigureAwait(false);
+                if (abandoned > 0)
+                {
+                    _logger.LogInformation(
+                        "Identity startup recovery marked {Count} stale running batch(es) abandoned.",
+                        abandoned);
+                }
             }
             else
             {

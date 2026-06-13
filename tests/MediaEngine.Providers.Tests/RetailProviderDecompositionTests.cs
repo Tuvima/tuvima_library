@@ -277,14 +277,14 @@ public sealed class RetailProviderDecompositionTests
         => new(
             new RoutingHttpClientFactory(responder),
             new RetailRequestBuilder(),
-            new RetailHttpThrottle(),
+            new ProviderRateLimiterCoordinator(),
             NullLogger<AppleRetailClient>.Instance);
 
     private static TmdbRetailClient BuildTmdbClient(Func<HttpRequestMessage, HttpResponseMessage> responder)
         => new(
             new RoutingHttpClientFactory(responder),
             new RetailRequestBuilder(),
-            new RetailHttpThrottle(),
+            new ProviderRateLimiterCoordinator(),
             NullLogger<TmdbRetailClient>.Instance);
 
     private static HttpResponseMessage JsonResponse(string json)

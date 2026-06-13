@@ -103,14 +103,14 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         if (!libResult.Found || string.IsNullOrWhiteSpace(libResult.Qid))
         {
             _logger.LogDebug(
-                "Person reconciliation auto-skipped: '{Name}' ({Role}) — best score {Score:F2} below threshold {Threshold:F2}",
+                "Person reconciliation auto-skipped: '{Name}' ({Role}) - best score {Score:F2} below threshold {Threshold:F2}",
                 name, expectedRole, libResult.Score, AutoAcceptThreshold);
             return null;
         }
 
         var canonicalName = libResult.CanonicalName ?? name;
         _logger.LogInformation(
-            "Person reconciliation auto-accepted: '{Name}' ({Role}) → {QID} '{WikiName}' (score={Score:F2})",
+            "Person reconciliation auto-accepted: '{Name}' ({Role}) -> {QID} '{WikiName}' (score={Score:F2})",
             name, expectedRole, libResult.Qid, canonicalName, libResult.Score);
 
         return new PersonSearchResult(libResult.Qid!, canonicalName, libResult.Score);
@@ -136,18 +136,54 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
 
         if (seen.Count == 0) return results;
 
-        // PersonsService does not yet expose a batch entry point — issue the
-        // unique requests sequentially. The library's internal ConcurrencyLimiter
-        // (default MaxConcurrency = 5) bounds the parallelism if a future
-        // version adds Task.WhenAll fan-out here. For now, the deduplication
-        // alone is the primary win: 30 tracks by the same artist still cost
-        // one round-trip instead of 30.
-        foreach (var (personName, role, workTitle) in seen.Values)
+        // The Wikidata client deduplicates and bounds provider concurrency internally.
+        // We still deduplicate here so the result map preserves this service's
+        // name-keyed contract for downstream callers.
+        var language = _configLoader.LoadCore().Language?.Metadata ?? "en";
+        var uniqueRequests = seen.Values.ToList();
+        IReadOnlyList<TwPersonSearchResult> batchResults;
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            var result = await SearchPersonAsync(personName, role, workTitle, ct)
-                .ConfigureAwait(false);
-            results[personName.ToLowerInvariant()] = result;
+            batchResults = await _reconciler.Persons.SearchBatchAsync(
+                uniqueRequests.Select(req => new TwPersonSearchRequest
+                {
+                    Name = req.Name,
+                    Role = MapRole(req.Role),
+                    TitleHint = req.WorkTitle,
+                    Language = language,
+                    AcceptThreshold = AutoAcceptThreshold,
+                }).ToList(),
+                ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Person reconciliation batch search failed for {Count} person(s)", seen.Count);
+            return results;
+        }
+
+        for (var i = 0; i < uniqueRequests.Count; i++)
+        {
+            var (personName, role, _) = uniqueRequests[i];
+            var libResult = batchResults[i];
+            if (!libResult.Found || string.IsNullOrWhiteSpace(libResult.Qid))
+            {
+                _logger.LogDebug(
+                    "Person reconciliation auto-skipped: '{Name}' ({Role}) - best score {Score:F2} below threshold {Threshold:F2}",
+                    personName, role, libResult.Score, AutoAcceptThreshold);
+                results[personName.ToLowerInvariant()] = null;
+                continue;
+            }
+
+            var canonicalName = libResult.CanonicalName ?? personName;
+            _logger.LogInformation(
+                "Person reconciliation auto-accepted: '{Name}' ({Role}) -> {QID} '{WikiName}' (score={Score:F2})",
+                personName, role, libResult.Qid, canonicalName, libResult.Score);
+
+            results[personName.ToLowerInvariant()] = new PersonSearchResult(
+                libResult.Qid!,
+                canonicalName,
+                libResult.Score);
         }
 
         return results;

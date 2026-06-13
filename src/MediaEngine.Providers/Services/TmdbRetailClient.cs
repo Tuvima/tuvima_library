@@ -11,18 +11,18 @@ public sealed class TmdbRetailClient
 {
     private readonly IHttpClientFactory _httpFactory;
     private readonly RetailRequestBuilder _requestBuilder;
-    private readonly RetailHttpThrottle _throttle;
+    private readonly IProviderRateLimiterCoordinator _rateLimiter;
     private readonly ILogger<TmdbRetailClient> _logger;
 
     public TmdbRetailClient(
         IHttpClientFactory httpFactory,
         RetailRequestBuilder requestBuilder,
-        RetailHttpThrottle throttle,
+        IProviderRateLimiterCoordinator rateLimiter,
         ILogger<TmdbRetailClient> logger)
     {
         _httpFactory = httpFactory;
         _requestBuilder = requestBuilder;
-        _throttle = throttle;
+        _rateLimiter = rateLimiter;
         _logger = logger;
     }
 
@@ -40,12 +40,14 @@ public sealed class TmdbRetailClient
         var url = _requestBuilder.BuildTmdbTvSearchUrl(showName, yearHint, apiKey, language, country);
         var fallbackUrl = _requestBuilder.BuildTmdbTvSearchUrl(showName, null, apiKey, language, country);
 
-        await _throttle.ThrottleTmdbAsync(ct).ConfigureAwait(false);
-
         try
         {
             using var client = _httpFactory.CreateClient("tmdb");
-            var json = await client.GetFromJsonAsync<JsonNode>(url, ct).ConfigureAwait(false);
+            var json = await _rateLimiter.ExecuteAsync(
+                "tmdb",
+                ProviderRateLimitDefaults.Tmdb,
+                token => client.GetFromJsonAsync<JsonNode>(url, token),
+                ct).ConfigureAwait(false);
             var results = json?["results"]?.AsArray();
 
             if ((results is null || results.Count == 0) && yearHint.HasValue)
@@ -53,8 +55,11 @@ public sealed class TmdbRetailClient
                 _logger.LogInformation(
                     "TV: TMDB year-filtered search returned 0 results for '{ShowName}' (year={Year}); retrying unfiltered",
                     showName, yearHint.Value);
-                await _throttle.ThrottleTmdbAsync(ct).ConfigureAwait(false);
-                json = await client.GetFromJsonAsync<JsonNode>(fallbackUrl, ct).ConfigureAwait(false);
+                json = await _rateLimiter.ExecuteAsync(
+                    "tmdb",
+                    ProviderRateLimitDefaults.Tmdb,
+                    token => client.GetFromJsonAsync<JsonNode>(fallbackUrl, token),
+                    ct).ConfigureAwait(false);
                 results = json?["results"]?.AsArray();
             }
 
@@ -121,12 +126,14 @@ public sealed class TmdbRetailClient
     {
         var url = _requestBuilder.BuildTmdbTvDetailsUrl(tvId, apiKey, language, country);
 
-        await _throttle.ThrottleTmdbAsync(ct).ConfigureAwait(false);
-
         try
         {
             using var client = _httpFactory.CreateClient("tmdb");
-            using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+            using var response = await _rateLimiter.ExecuteAsync(
+                "tmdb",
+                ProviderRateLimitDefaults.Tmdb,
+                token => client.GetAsync(url, token),
+                ct).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return null;
@@ -152,12 +159,14 @@ public sealed class TmdbRetailClient
     {
         var url = _requestBuilder.BuildTmdbSeasonUrl(tvId, seasonNumber, apiKey, language, country);
 
-        await _throttle.ThrottleTmdbAsync(ct).ConfigureAwait(false);
-
         try
         {
             using var client = _httpFactory.CreateClient("tmdb");
-            using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+            using var response = await _rateLimiter.ExecuteAsync(
+                "tmdb",
+                ProviderRateLimitDefaults.Tmdb,
+                token => client.GetAsync(url, token),
+                ct).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return [];

@@ -13,8 +13,11 @@
   "endpoints": {
     "api": "https://api.opensubtitles.com/api/v1"
   },
-  "throttle_ms": 1000,
-  "max_concurrency": 1,
+  "rate_limit": {
+    "requests_per_second": 1,
+    "burst": 1,
+    "max_concurrency": 1
+  },
   "hydration_stages": [],
   "cache_ttl_hours": 168,
   "adapter_type": "text_track",

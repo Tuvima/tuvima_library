@@ -28,6 +28,9 @@ public sealed class IngestionOperationsSnapshotDto
     [JsonPropertyName("provider_health")]
     public List<IngestionProviderHealthDto> ProviderHealth { get; init; } = [];
 
+    [JsonPropertyName("provider_activity")]
+    public List<IngestionProviderActivityDto> ProviderActivity { get; init; } = [];
+
     [JsonPropertyName("recent_batches")]
     public List<IngestionOperationsBatchDto> RecentBatches { get; init; } = [];
 
@@ -36,6 +39,39 @@ public sealed class IngestionOperationsSnapshotDto
 
     [JsonPropertyName("generated_at")]
     public DateTimeOffset GeneratedAt { get; init; } = DateTimeOffset.UtcNow;
+}
+
+public sealed class IngestionProviderActivityDto
+{
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; init; } = "";
+
+    [JsonPropertyName("active_requests")]
+    public int ActiveRequests { get; init; }
+
+    [JsonPropertyName("requests_total")]
+    public long RequestsTotal { get; init; }
+
+    [JsonPropertyName("requests_last_minute")]
+    public int RequestsLastMinute { get; init; }
+
+    [JsonPropertyName("errors_total")]
+    public long ErrorsTotal { get; init; }
+
+    [JsonPropertyName("errors_last_minute")]
+    public int ErrorsLastMinute { get; init; }
+
+    [JsonPropertyName("throttle_wait_ms_total")]
+    public long ThrottleWaitMsTotal { get; init; }
+
+    [JsonPropertyName("average_latency_ms")]
+    public double AverageLatencyMs { get; init; }
+
+    [JsonPropertyName("last_request_at")]
+    public DateTimeOffset? LastRequestAt { get; init; }
+
+    [JsonPropertyName("last_error")]
+    public string? LastError { get; init; }
 }
 
 public sealed class IngestionOperationsSummaryDto

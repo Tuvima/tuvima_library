@@ -30,6 +30,7 @@ internal static class CoverArtWorkerTestFactory
         public Task<MediaAsset?> FindByPathRootAsync(string pathRoot, CancellationToken ct = default) => Task.FromResult<MediaAsset?>(null);
         public Task UpdateStatusAsync(Guid id, AssetStatus status, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateFilePathAsync(Guid id, string newPath, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<bool> MarkPresentedAsync(Guid id, DateTimeOffset presentedAt, CancellationToken ct = default) => Task.FromResult(false);
         public Task<bool> UpdateContentHashAsync(Guid id, string contentHash, CancellationToken ct = default) => Task.FromResult(false);
         public Task DeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<MediaAsset>> ListByStatusAsync(AssetStatus status, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MediaAsset>>([]);

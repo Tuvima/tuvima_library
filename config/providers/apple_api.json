@@ -31,8 +31,11 @@
   "endpoints": {
     "api": "https://itunes.apple.com"
   },
-  "throttle_ms": 500,
-  "max_concurrency": 1,
+  "rate_limit": {
+    "requests_per_minute": 20,
+    "burst": 5,
+    "max_concurrency": 2
+  },
   "hydration_stages": [
     1
   ],

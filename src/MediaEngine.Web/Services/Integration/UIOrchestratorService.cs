@@ -1137,6 +1137,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             _state.PushBatchProgress(ev);
         });
 
+        _hubConnection.On<ProviderActivityEvent>(SignalREvents.ProviderActivity, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ? ProviderActivity: {ProviderCount} providers at {CapturedAt}",
+                ev.Providers.Count, ev.CapturedAt);
+            _state.PushProviderActivity(ev);
+        });
+
         // -- "UniverseEnrichmentProgress" ------------------------------------
         // Live Stage 3 progress for inline or maintenance universe enrichment.
         _hubConnection.On<UniverseEnrichmentProgressEvent>(SignalREvents.UniverseEnrichmentProgress, ev =>

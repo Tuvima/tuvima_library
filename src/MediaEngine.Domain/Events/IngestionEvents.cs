@@ -18,6 +18,18 @@ public sealed record IngestionCompletedEvent(
     string MediaType,
     DateTimeOffset CompletedAt);
 
+/// <summary>
+/// Published when a media asset first becomes visible in the normal library browse
+/// surface after Stage 1 accepted identity and organization.
+///
+/// SignalR method name: <c>"MediaAdded"</c>
+/// </summary>
+public sealed record MediaAddedEvent(
+    Guid WorkId,
+    Guid? CollectionId,
+    string MediaType,
+    string Title);
+
 /// <summary>Published when a file cannot be ingested (lock timeout, corruption, or duplicate skip).</summary>
 public sealed record IngestionFailedEvent(
     string FilePath,
@@ -113,3 +125,24 @@ public sealed record BatchProgressEvent(
     string? LifecycleStage = null,
     int    WorkUnitsTotal = 0,
     int    WorkUnitsCompleted = 0);
+
+/// <summary>
+/// Published at most once per second while external metadata providers are active.
+///
+/// SignalR method name: <c>"ProviderActivity"</c>
+/// </summary>
+public sealed record ProviderActivityEvent(
+    IReadOnlyList<ProviderActivityItemEvent> Providers,
+    DateTimeOffset CapturedAt);
+
+public sealed record ProviderActivityItemEvent(
+    string ProviderName,
+    int ActiveRequests,
+    long RequestsTotal,
+    int RequestsLastMinute,
+    long ErrorsTotal,
+    int ErrorsLastMinute,
+    long ThrottleWaitMsTotal,
+    double AverageLatencyMs,
+    DateTimeOffset? LastRequestAt,
+    string? LastError);

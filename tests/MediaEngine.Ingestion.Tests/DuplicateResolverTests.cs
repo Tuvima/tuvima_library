@@ -71,6 +71,7 @@ public sealed class DuplicateResolverTests
         public Task<bool> InsertAsync(MediaAsset asset, CancellationToken ct = default) => throw new NotSupportedException();
         public Task UpdateStatusAsync(Guid id, AssetStatus status, CancellationToken ct = default) => throw new NotSupportedException();
         public Task UpdateFilePathAsync(Guid id, string newPath, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<bool> MarkPresentedAsync(Guid id, DateTimeOffset presentedAt, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> UpdateContentHashAsync(Guid id, string contentHash, CancellationToken ct = default) => throw new NotSupportedException();
         public Task DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<MediaAsset>> ListByStatusAsync(AssetStatus status, CancellationToken ct = default) => throw new NotSupportedException();

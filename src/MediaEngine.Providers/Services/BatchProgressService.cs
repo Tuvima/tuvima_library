@@ -1,4 +1,5 @@
 using Dapper;
+using System.Collections.Concurrent;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Events;
@@ -20,11 +21,13 @@ public sealed class BatchProgressService
         "Hydrating",
         "UniverseEnriching",
     ];
+    private static readonly TimeSpan MinimumEmitInterval = TimeSpan.FromSeconds(1);
 
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly IDatabaseConnection _db;
     private readonly IEventPublisher _eventPublisher;
     private readonly ILogger<BatchProgressService> _logger;
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _lastProgressEmitUtc = new();
 
     public BatchProgressService(
         IIngestionBatchRepository batchRepo,
@@ -78,6 +81,16 @@ public sealed class BatchProgressService
     {
         try
         {
+            var now = DateTimeOffset.UtcNow;
+            if (!isFinal
+                && _lastProgressEmitUtc.TryGetValue(batchId, out var lastEmit)
+                && now - lastEmit < MinimumEmitInterval)
+            {
+                return;
+            }
+
+            _lastProgressEmitUtc[batchId] = now;
+
             var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
             if (batch is null) return;
 
@@ -229,6 +242,9 @@ public sealed class BatchProgressService
                     WorkUnitsTotal: total,
                     WorkUnitsCompleted: progressed),
                 ct).ConfigureAwait(false);
+
+            if (isFinal || completed)
+                _lastProgressEmitUtc.TryRemove(batchId, out _);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

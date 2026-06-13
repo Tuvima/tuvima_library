@@ -7,8 +7,16 @@
     "name": { "type": "string", "minLength": 1 },
     "enabled": { "type": "boolean" },
     "weight": { "type": "number", "minimum": 0, "maximum": 1 },
-    "throttle_ms": { "type": "integer", "minimum": 0 },
-    "max_concurrency": { "type": "integer", "minimum": 1 },
+    "rate_limit": {
+      "type": ["object", "null"],
+      "properties": {
+        "requests_per_second": { "type": "number", "exclusiveMinimum": 0 },
+        "requests_per_minute": { "type": "integer", "minimum": 1 },
+        "burst": { "type": "integer", "minimum": 1 },
+        "max_concurrency": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
     "hydration_stages": { "type": "array", "items": { "enum": [1, 2, 3] } },
     "http_client": {
       "type": "object",

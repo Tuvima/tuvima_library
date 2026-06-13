@@ -38,10 +38,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     private readonly ILogger<ConfigDrivenAdapter> _logger;
     private readonly IProviderResponseCacheRepository? _responseCache;
     private readonly IProviderHealthMonitor _healthMonitor;
-
-    // Throttle: per-instance semaphore + timestamp gap.
-    private readonly SemaphoreSlim _throttle;
-    private DateTime _lastCallUtc = DateTime.MinValue;
+    private readonly IProviderRateLimiterCoordinator _rateLimiter;
 
     // Parsed once at construction.
     private readonly Guid _providerId;
@@ -53,7 +50,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         IHttpClientFactory httpFactory,
         ILogger<ConfigDrivenAdapter> logger,
         IProviderHealthMonitor healthMonitor,
-        IProviderResponseCacheRepository? responseCache = null)
+        IProviderResponseCacheRepository? responseCache = null,
+        IProviderRateLimiterCoordinator? rateLimiter = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpFactory);
@@ -65,10 +63,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         _responseCache = responseCache;
         _logger = logger;
         _healthMonitor = healthMonitor;
-
-        _throttle = new SemaphoreSlim(
-            Math.Max(1, config.MaxConcurrency),
-            Math.Max(1, config.MaxConcurrency));
+        _rateLimiter = rateLimiter ?? new ProviderRateLimiterCoordinator();
 
         _providerId = !string.IsNullOrEmpty(config.ProviderId)
             ? Guid.Parse(config.ProviderId)
@@ -368,18 +363,6 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var url = BuildUrl(strategy, request, limit);
         _logger.LogInformation("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
 
-        await _throttle.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            if (_config.ThrottleMs > 0)
-            {
-                var elapsed = (DateTime.UtcNow - _lastCallUtc).TotalMilliseconds;
-                if (elapsed < _config.ThrottleMs)
-                    await Task.Delay(
-                        TimeSpan.FromMilliseconds(_config.ThrottleMs - elapsed), ct)
-                        .ConfigureAwait(false);
-            }
-
             using var client = _httpFactory.CreateClient(_config.Name);
             using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
 
@@ -403,8 +386,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                         "Basic", credentials);
             }
 
-            using var response = await client.SendAsync(httpRequest, ct).ConfigureAwait(false);
-            _lastCallUtc = DateTime.UtcNow;
+            using var response = await _rateLimiter.ExecuteAsync(
+                Name,
+                _config.RateLimit,
+                token => client.SendAsync(httpRequest, token),
+                ct).ConfigureAwait(false);
 
             _logger.LogInformation(
                 "{Provider}/{Strategy}: HTTP {StatusCode}",
@@ -451,11 +437,6 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             // see multiple editions with different covers, narrators, and years.
             // For automated pipelines, the scoring service picks the best match.
             return items;
-        }
-        finally
-        {
-            _throttle.Release();
-        }
     }
 
     /// <summary>
@@ -739,20 +720,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
         }
 
-        // -- HTTP call with throttle ------------------------------------------
-        await _throttle.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            // Enforce throttle gap.
-            if (_config.ThrottleMs > 0)
-            {
-                var elapsed = (DateTime.UtcNow - _lastCallUtc).TotalMilliseconds;
-                if (elapsed < _config.ThrottleMs)
-                    await Task.Delay(
-                        TimeSpan.FromMilliseconds(_config.ThrottleMs - elapsed), ct)
-                        .ConfigureAwait(false);
-            }
-
+        // -- HTTP call with provider-level rate limiting ----------------------
             using var client = _httpFactory.CreateClient(_config.Name);
 
             // ETag conditional revalidation for expired entries.
@@ -789,8 +757,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                         "Basic", credentials);
             }
 
-            using var response = await client.SendAsync(httpRequest, ct).ConfigureAwait(false);
-            _lastCallUtc = DateTime.UtcNow;
+            using var response = await _rateLimiter.ExecuteAsync(
+                Name,
+                _config.RateLimit,
+                token => client.SendAsync(httpRequest, token),
+                ct).ConfigureAwait(false);
 
             // ETag 304: cache is still valid — refresh expiry and use it.
             if (response.StatusCode == System.Net.HttpStatusCode.NotModified
@@ -855,11 +826,6 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             return await ExtractAndValidateClaimsAsync(strategy, request, resultObj, ct)
                 .ConfigureAwait(false);
-        }
-        finally
-        {
-            _throttle.Release();
-        }
     }
 
     private async Task<IReadOnlyList<ProviderClaim>> ExtractAndValidateClaimsAsync(

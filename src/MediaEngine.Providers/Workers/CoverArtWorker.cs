@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers;
 using MediaEngine.Providers.Helpers;
 using Microsoft.Extensions.Logging;
 
@@ -26,6 +27,7 @@ public sealed class CoverArtWorker
     private readonly AssetPathService _assetPaths;
     private readonly IAssetExportService? _assetExportService;
     private readonly ICoverArtHashService? _coverArtHash;
+    private readonly IEventPublisher? _eventPublisher;
     private readonly ILogger<CoverArtWorker> _logger;
 
     public CoverArtWorker(
@@ -38,7 +40,8 @@ public sealed class CoverArtWorker
         ILogger<CoverArtWorker> logger,
         IAssetExportService? assetExportService = null,
         ICoverArtHashService? coverArtHash = null,
-        IEntityAssetRepository? entityAssetRepo = null)
+        IEntityAssetRepository? entityAssetRepo = null,
+        IEventPublisher? eventPublisher = null)
     {
         _assetRepo = assetRepo;
         _entityAssetRepo = entityAssetRepo;
@@ -50,6 +53,7 @@ public sealed class CoverArtWorker
         _assetExportService = assetExportService;
         _logger = logger;
         _coverArtHash = coverArtHash;
+        _eventPublisher = eventPublisher;
     }
 
     /// <summary>
@@ -139,6 +143,7 @@ public sealed class CoverArtWorker
                 ct);
             if (existingVariant is not null && _assetExportService is not null)
                 await _assetExportService.ReconcileArtworkAsync(existingVariant.EntityId, existingVariant.EntityType, existingVariant.AssetTypeValue, ct);
+            await PublishCoverHarvestedAsync(ownerEntityId, ct).ConfigureAwait(false);
 
             var titleForSkip = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
@@ -227,6 +232,7 @@ public sealed class CoverArtWorker
             ct);
         if (coverVariant is not null && _assetExportService is not null)
             await _assetExportService.ReconcileArtworkAsync(coverVariant.EntityId, coverVariant.EntityType, coverVariant.AssetTypeValue, ct);
+        await PublishCoverHarvestedAsync(ownerEntityId, ct).ConfigureAwait(false);
 
         {
             var titleForDone = canonicals
@@ -241,6 +247,24 @@ public sealed class CoverArtWorker
                 "Cover art: downloaded poster for '{Title}' ({SizeKB:F1} KB) → {LocalPath}",
                 titleForDone, bytes.Length / 1024.0, coverPath);
         }
+    }
+
+    private Task PublishCoverHarvestedAsync(Guid entityId, CancellationToken ct)
+    {
+        if (_eventPublisher is null)
+            return Task.CompletedTask;
+
+        return _eventPublisher.PublishAsync(
+            SignalREvents.MetadataHarvested,
+            new MetadataHarvestedEvent(
+                entityId,
+                "cover_art",
+                [
+                    MetadataFieldConstants.Cover,
+                    MetadataFieldConstants.CoverUrl,
+                    MetadataFieldConstants.CoverState,
+                ]),
+            ct);
     }
 
     /// <summary>

@@ -13,8 +13,11 @@
   "endpoints": {
     "api": "https://lrclib.net"
   },
-  "throttle_ms": 1000,
-  "max_concurrency": 1,
+  "rate_limit": {
+    "requests_per_second": 2,
+    "burst": 2,
+    "max_concurrency": 1
+  },
   "hydration_stages": [],
   "cache_ttl_hours": 168,
   "adapter_type": "text_track",
