@@ -4,6 +4,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
@@ -21,7 +22,7 @@ public sealed class QuickHydrationWorker
 {
     private readonly IIdentityJobRepository _jobRepo;
     private readonly IEnrichmentService _enrichment;
-    private readonly CollectionAssignmentService _collectionAssignment;
+    private readonly CollectionFinalizationService _collectionFinalization;
     private readonly ILogger<QuickHydrationWorker> _logger;
     private readonly PostPipelineService _postPipeline;
     private readonly BatchProgressService? _batchProgress;
@@ -41,7 +42,7 @@ public sealed class QuickHydrationWorker
     public QuickHydrationWorker(
         IIdentityJobRepository jobRepo,
         IEnrichmentService enrichment,
-        CollectionAssignmentService collectionAssignment,
+        CollectionFinalizationService collectionFinalization,
         PostPipelineService postPipeline,
         ICanonicalValueRepository canonicalRepo,
         ICollectionRepository collectionRepo,
@@ -52,7 +53,7 @@ public sealed class QuickHydrationWorker
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
-        _collectionAssignment = collectionAssignment;
+        _collectionFinalization = collectionFinalization;
         _postPipeline = postPipeline;
         _canonicalRepo = canonicalRepo;
         _collectionRepo = collectionRepo;
@@ -146,17 +147,13 @@ public sealed class QuickHydrationWorker
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
         await EmitBatchProgressAsync(job.IngestionRunId, ct).ConfigureAwait(false);
 
-        // Assign the work to a ContentGroup collection based on Wikidata relationships
-        // (series, franchise, fictional_universe). Must run after enrichment
-        // populates canonical values but before PostPipeline gates organization.
-        try
-        {
-            await _collectionAssignment.AssignAsync(job.EntityId, ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "Collection assignment failed for entity {EntityId}; continuing", job.EntityId);
-        }
+        // Finalize browse grouping after enrichment populates canonical values,
+        // before PostPipeline gates organization and Stage 3 batching.
+        await _collectionFinalization.FinalizeAsync(
+            job.EntityId,
+            CollectionFinalizationReason.QuickHydration,
+            job.IngestionRunId,
+            ct).ConfigureAwait(false);
 
         await _postPipeline.EvaluateAndOrganizeAsync(
             job.EntityId, job.Id, job.ResolvedQid, job.IngestionRunId, ct);

@@ -60,18 +60,28 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ICollectionBrowseReadService browseReadService", endpointSource, StringComparison.Ordinal);
         Assert.Contains("ICollectionSearchReadService searchReadService", endpointSource, StringComparison.Ordinal);
         Assert.Contains("ICollectionMediaLookupReadService mediaLookupReadService", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("CollectionCatalogReadService catalogReadService", endpointSource, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<ICollectionBrowseReadService, CollectionBrowseReadService>", registrations, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>", registrations, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>", registrations, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<CollectionCatalogReadService>", registrations, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.GetManagementCatalogAsync(activeProfile, ct)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.GetSummaryAsync(id, activeProfile, ct)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.GetItemsAsync(id, activeProfile, take, ct)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/reconcile\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("backfillService.RunAsync", endpointSource, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ManagementCatalog_ClassifiesCollectionsServerSide()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var catalogReadServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs"));
+        var source = endpointSource + catalogReadServiceSource;
         var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\ManagedCollectionDto.cs"));
 
-        Assert.Contains("/management-catalog", source, StringComparison.Ordinal);
+        Assert.Contains("/management-catalog", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("GetManagementCatalogAsync", catalogReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("ClassifyCollectionForCatalog", source, StringComparison.Ordinal);
         Assert.Contains("GetSystemCollectionKey", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
@@ -108,10 +118,10 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains(".Count() >= 2", source, StringComparison.Ordinal);
         Assert.Contains("SelectMany(entry => entry.WorkIds)", source, StringComparison.Ordinal);
         Assert.Contains("ISeriesManifestRepository manifestRepo", source, StringComparison.Ordinal);
-        Assert.Contains("HasKnownSeriesManifestAsync(collection, manifestRepo, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("HasKnownSeriesManifestAsync(collection, ct)", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogAggregation(collection) is null", source, StringComparison.Ordinal);
         Assert.DoesNotContain("collection:{NormalizeCatalogQid(collection.WikidataQid)}", source, StringComparison.Ordinal);
-        Assert.Contains("mediaCounts.TotalCount < 2 && !hasKnownSeriesManifest", source, StringComparison.Ordinal);
+        Assert.Contains("mediaCounts.TotalCount >= 2 || hasKnownSeriesManifest", source, StringComparison.Ordinal);
         Assert.Contains("manifest?.TotalCount > 1", source, StringComparison.Ordinal);
         Assert.Contains("ResolveCollectionWorkIdsToItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetAggregatedCollectionWorkIdsAsync", source, StringComparison.Ordinal);

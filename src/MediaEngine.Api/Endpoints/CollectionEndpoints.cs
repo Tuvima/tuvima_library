@@ -4,6 +4,7 @@ using System.Text;
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -1951,103 +1952,13 @@ public static class CollectionEndpoints
         // GET /collections/management-catalog — classified collection catalog for the Collections hub.
         group.MapGet("/management-catalog", async (
             Guid? profileId,
-            ICollectionRepository collectionRepo,
-            ISeriesManifestRepository manifestRepo,
             IProfileRepository profileRepo,
-            IArtworkPaletteService artworkPaletteService,
-            IDatabaseConnection db,
+            CollectionCatalogReadService catalogReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var collections = await collectionRepo.GetAllAsync(ct);
-            var accessibleCollections = collections
-                .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
-                .ToList();
-
-            var materializedCounts = await collectionRepo.GetCollectionItemCountsAsync(
-                accessibleCollections
-                    .Where(collection => !string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase))
-                    .Select(collection => collection.Id),
-                ct);
-
-            var candidates = new List<CollectionManagementCatalogCandidate>();
-            foreach (var collection in accessibleCollections)
-            {
-                var classification = ClassifyCollectionForCatalog(collection);
-                var workIds = await GetCollectionCatalogDisplayWorkIdsAsync(
-                    await GetCollectionCatalogSourceWorkIdsAsync(collection, accessibleCollections, collectionRepo, db, ct),
-                    db,
-                    ct);
-                var itemCount = GetManagedCollectionItemCount(collection, materializedCounts, workIds);
-                var mediaCounts = await GetCollectionMediaCountsAsync(workIds, db, ct);
-                var hasKnownSeriesManifest = await HasKnownSeriesManifestAsync(collection, manifestRepo, ct);
-                if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts, hasKnownSeriesManifest))
-                {
-                    continue;
-                }
-
-                var grouping = GetCollectionCatalogAggregation(collection);
-                candidates.Add(new CollectionManagementCatalogCandidate(collection, classification, grouping, workIds, itemCount, mediaCounts));
-            }
-
-            var dtos = new List<CollectionManagementCatalogDto>();
-            foreach (var group in candidates.GroupBy(candidate => candidate.Grouping?.Key ?? candidate.Collection.Id.ToString("D"), StringComparer.OrdinalIgnoreCase))
-            {
-                var entries = group.ToList();
-                if (!ShouldIncludeCatalogGroup(entries))
-                {
-                    continue;
-                }
-
-                var representative = SelectCatalogRepresentative(entries);
-                var workIds = entries
-                    .SelectMany(entry => entry.WorkIds)
-                    .Distinct()
-                    .ToList();
-                var mediaCounts = await GetCollectionMediaCountsAsync(workIds, db, ct);
-                if (IsGeneratedTvShowContainer(representative.Collection, mediaCounts))
-                {
-                    continue;
-                }
-
-                var artworkItems = await GetCollectionArtworkItemsAsync(workIds, db, 4, ct);
-                var artworkPalette = await artworkPaletteService.GeneratePaletteAsync(
-                    artworkItems
-                        .Select(item => new ArtworkPaletteSource
-                        {
-                            Id = item.WorkId.ToString("D"),
-                            ImageUrl = item.CoverUrl ?? string.Empty,
-                            LocalPath = item.LocalImagePath,
-                            MediaType = TryParseMediaType(item.MediaType),
-                            Shape = TryParseArtworkShape(item.ArtworkShape),
-                        })
-                        .ToList(),
-                    new ArtworkPaletteOptions
-                    {
-                        StableSeed = representative.Collection.Id.ToString("D"),
-                        MaxImagesToAnalyze = 5,
-                    },
-                    ct);
-                var displayName = entries.Count > 1
-                    ? representative.Grouping?.Label
-                    : null;
-
-                dtos.Add(CollectionManagementCatalogDto.FromDomain(
-                    representative.Collection,
-                    workIds.Count,
-                    activeProfile,
-                    representative.Classification,
-                    mediaCounts,
-                    artworkItems,
-                    artworkPalette,
-                    displayName));
-            }
-
-            return Results.Ok(dtos
-                .OrderBy(dto => dto.Family == "System" ? 0 : dto.Family == "Global" ? 1 : dto.Family == "User" ? 2 : 3)
-                .ThenByDescending(dto => dto.IsFeatured)
-                .ThenBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList());
+            var catalog = await catalogReadService.GetManagementCatalogAsync(activeProfile, ct);
+            return Results.Ok(catalog);
         })
         .WithName("GetCollectionManagementCatalog")
         .WithSummary("Returns all collections visible to the active profile with server-side family and lane classification for the Collections hub.")
@@ -2055,6 +1966,19 @@ public static class CollectionEndpoints
         .RequireAnyRole();
 
         // GET /collections/managed/counts — type → count for stats bar.
+        group.MapPost("/reconcile", async (
+            CollectionBackfillRequest? body,
+            CollectionBackfillService backfillService,
+            CancellationToken ct) =>
+        {
+            var result = await backfillService.RunAsync(body ?? new CollectionBackfillRequest(), ct);
+            return Results.Ok(result);
+        })
+        .WithName("ReconcileCollections")
+        .WithSummary("Repairs missing collection shelf assignments for already-ingested media.")
+        .Produces<CollectionBackfillResult>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
         group.MapGet("/managed/counts", async (
             Guid? profileId,
             ICollectionRepository collectionRepo,
@@ -2118,53 +2042,45 @@ public static class CollectionEndpoints
         .Produces<List<CollectionMediaLookupDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        group.MapGet("/{id:guid}/items", async (
+        group.MapGet("/{id:guid}/summary", async (
             Guid id,
-            int? limit,
-            ICollectionRepository collectionRepo,
-            IProfileRepository profileRepo,
             Guid? profileId,
-            ICollectionMediaLookupReadService mediaLookupReadService,
-            IDatabaseConnection db,
+            IProfileRepository profileRepo,
+            CollectionCatalogReadService catalogReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var collection = await collectionRepo.GetByIdAsync(id, ct);
-            if (collection is null)
+            var summary = await catalogReadService.GetSummaryAsync(id, activeProfile, ct);
+            return summary is null ? Results.NotFound() : Results.Ok(summary);
+        })
+        .WithName("GetCollectionSummary")
+        .WithSummary("Returns the Collections hub summary for one visible collection.")
+        .Produces<CollectionManagementCatalogDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{id:guid}/items", async (
+            Guid id,
+            int? limit,
+            IProfileRepository profileRepo,
+            Guid? profileId,
+            CollectionCatalogReadService catalogReadService,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var take = limit is > 0 ? limit.Value : 20;
+            var result = await catalogReadService.GetItemsAsync(id, activeProfile, take, ct);
+            if (!result.Found)
             {
                 return Results.NotFound();
             }
 
-            if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
+            if (result.Forbidden)
             {
                 return Results.Forbid();
             }
 
-            var take = limit is > 0 ? limit.Value : 20;
-            List<CollectionItemDto> dtos;
-            if (IsGeneratedSeriesCollection(collection))
-            {
-                var workIds = (await GetAggregatedCollectionWorkIdsAsync(id, activeProfile, collectionRepo, db, ct))
-                    .Distinct()
-                    .Take(take)
-                    .ToList();
-                dtos = await ResolveCollectionWorkIdsToItemsAsync(id, workIds, db, ct);
-            }
-            else if (string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
-            {
-                var items = await collectionRepo.GetCollectionItemsAsync(id, take, ct);
-                dtos = await mediaLookupReadService.ResolveItemsAsync(id, items, ct);
-            }
-            else
-            {
-                var workIds = (await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct))
-                    .Distinct()
-                    .Take(take)
-                    .ToList();
-                dtos = await ResolveCollectionWorkIdsToItemsAsync(id, workIds, db, ct);
-            }
-
-            return Results.Ok(dtos);
+            return Results.Ok(result.Items);
         })
         .WithName("GetCollectionItems")
         .WithSummary("Returns curated items for a collection with resolved work metadata.")

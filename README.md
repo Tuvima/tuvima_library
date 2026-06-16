@@ -31,7 +31,7 @@ The product is branded as **Tuvima Library**. The code still uses `MediaEngine.*
 
 ## Why It Matters
 
-- **Story-first organization:** Read, Watch, and Listen stay focused on what you can do next. Collections appear only when a broader world spans multiple shelves.
+- **Story-first organization:** Read, Watch, and Listen stay focused on what you can do next. Ingestion creates lane shelves from trusted QIDs, provider IDs, or local grouping metadata; Collections appear only when a broader world spans multiple shelves.
 - **Local-first privacy:** Your files, database, models, and processing stay on your machine. Provider calls are only for metadata lookups that you configure.
 - **Honest automation:** Strong matches flow through automatically. Low-confidence, blocked, or uncertain items go to the Review Queue instead of being silently misfiled.
 - **One dashboard:** Home, media lanes, Search, detail pages, Settings/Admin, and Review Queue work together instead of forcing every correction into a separate management workspace.
@@ -60,7 +60,7 @@ In plain English:
 3. Processors extract details from EPUB, audio, video, comic, and other supported files.
 4. Stage 1 retail providers such as Apple, TMDB, and Comic Vine can provide artwork, descriptions, ratings, people, and bridge IDs. Disabled configs such as Open Library and MusicBrainz are not treated as active runtime sources.
 5. Stage 2 Wikidata resolution uses bridge IDs such as ISBN, TMDB ID, Apple ID, or Comic Vine ID to find canonical identity when possible. If Stage 1 finds no safe retail match, Wikidata is not used as a broad fallback.
-6. Quick Hydration gets the item visible with core identity and managed artwork, then Stage 3 enrichment expands people, fictional entities, relationships, narrative roots, text tracks, and additional artwork.
+6. Quick Hydration gets the item visible with core identity, managed artwork, and lane shelf assignment. If retail metadata is retained but Wikidata finds no QID, the item can still get a Read, Watch, or Listen shelf without becoming a top-level Collections tile.
 7. Managed artwork and headshots are stored under `.data/assets/...` and indexed in SQLite through `entity_assets` or person/entity records. Sidecar files beside media are optional exports only.
 8. The Priority Cascade decides which metadata wins, while user corrections stay final.
 9. The Dashboard updates through HTTP and SignalR so ingestion and review progress are visible.

@@ -30,6 +30,8 @@ public sealed class CollectionAssignmentServiceTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\CollectionAssignmentService.cs"));
 
+        Assert.Contains("Task<CollectionAssignmentResult> AssignAsync", source, StringComparison.Ordinal);
+        Assert.Contains("AssignWorkToCollectionAsync(workId.Value, collection.Id, ct)", source, StringComparison.Ordinal);
         Assert.Contains("internal sealed record ShelfIdentity", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Models\ShelfIdentity.cs")), StringComparison.Ordinal);
         Assert.Contains("FindByRuleHashAsync(shelf.ProviderKey", source, StringComparison.Ordinal);
         Assert.Contains("collection.RuleHash, shelf.ProviderKey", source, StringComparison.Ordinal);
@@ -39,6 +41,20 @@ public sealed class CollectionAssignmentServiceTests
         Assert.Contains("UpgradeCollectionIdentityAsync(existingCollection, shelf", source, StringComparison.Ordinal);
         Assert.Contains("WikidataQid = shelf.Qid", source, StringComparison.Ordinal);
         Assert.Contains("RuleHash = shelf.ProviderKey", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CollectionFinalization_IsSharedByQidAndRetainedRetailPaths()
+    {
+        var quickHydration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\QuickHydrationWorker.cs"));
+        var wikidataBridge = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\WikidataBridgeWorker.cs"));
+        var finalizer = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\CollectionFinalizationService.cs"));
+
+        Assert.Contains("CollectionFinalizationService", quickHydration, StringComparison.Ordinal);
+        Assert.Contains("CollectionFinalizationReason.QuickHydration", quickHydration, StringComparison.Ordinal);
+        Assert.Contains("CollectionFinalizationReason.RetainedRetailIdentity", wikidataBridge, StringComparison.Ordinal);
+        Assert.Contains("ResolveParentCollectionAsync", finalizer, StringComparison.Ordinal);
+        Assert.Contains("CollectionAssignmentFailed", finalizer, StringComparison.Ordinal);
     }
 
     [Fact]

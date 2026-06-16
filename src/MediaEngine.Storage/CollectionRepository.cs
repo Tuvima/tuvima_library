@@ -1395,6 +1395,68 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
+    public async Task<int> CountCollectionBackfillCandidatesAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"""
+            SELECT COUNT(DISTINCT w.id)
+            FROM works w
+            INNER JOIN editions e ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.collection_id IS NULL
+              AND COALESCE(w.is_catalog_only, 0) = 0
+              AND COALESCE(w.work_kind, '') <> 'parent'
+              AND ma.status = 'Normal'
+              AND COALESCE(ma.is_orphaned, 0) = 0
+              AND {visibleAssetPredicate};
+            """,
+            cancellationToken: ct));
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CollectionBackfillCandidate>> GetCollectionBackfillCandidatesAsync(
+        int limit,
+        Guid? afterWorkId = null,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (limit <= 0)
+        {
+            return [];
+        }
+
+        using var conn = _db.CreateConnection();
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var cursorPredicate = afterWorkId.HasValue ? "AND hex(w.id) > @AfterWorkIdHex" : string.Empty;
+        var rows = await conn.QueryAsync<CollectionBackfillCandidate>(new CommandDefinition(
+            $"""
+            SELECT w.id AS WorkId,
+                   MIN(ma.id) AS MediaAssetId
+            FROM works w
+            INNER JOIN editions e ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.collection_id IS NULL
+              AND COALESCE(w.is_catalog_only, 0) = 0
+              AND COALESCE(w.work_kind, '') <> 'parent'
+              AND ma.status = 'Normal'
+              AND COALESCE(ma.is_orphaned, 0) = 0
+              AND {visibleAssetPredicate}
+              {cursorPredicate}
+            GROUP BY w.id
+            ORDER BY hex(w.id)
+            LIMIT @Limit;
+            """,
+            new { Limit = limit, AfterWorkIdHex = afterWorkId?.ToString("N").ToUpperInvariant() },
+            cancellationToken: ct));
+
+        return rows.AsList();
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

@@ -127,7 +127,8 @@ public sealed class CollectionsHubTests
         var css = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\CollectionDetail.razor.css"));
 
         Assert.Contains("@page \"/collection/{Id:guid}\"", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionManagementCatalogAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionSummaryAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetCollectionManagementCatalogAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("LookupCollectionMediaAsync", source, StringComparison.Ordinal);
         Assert.Contains("AddCollectionItemAsync", source, StringComparison.Ordinal);

@@ -75,6 +75,7 @@ The Dashboard is organized by user experience, not by a separate media managemen
 - **Read**, **Watch**, and **Listen** are the media lanes where users browse and experience their library.
 - Lane-level groups are **shelves**: book series and comic volumes in Read, film series and TV shows in Watch, albums and audio series in Listen. A single shelf must stay visible in its lane and must not be duplicated as a top-level Collections tile.
 - **Collections** are broader rollups only when a shared series/franchise/universe relationship connects multiple shelves. Multiple formats of one work, such as ebook plus audiobook, are variants and do not create a collection by themselves.
+- Ingestion must assign lane shelves even when Wikidata cannot resolve a QID, using the shared collection finalization path after quick hydration or retained-retail organization. Local/provider shelf identity is allowed for shelves; top-level Collections rollups still require trusted shared relationship rows.
 - **Search** is cross-library discovery.
 - **Detail pages** are where users view an item and fix/edit that item inline.
 - **Review Queue** is only for blocked, uncertain, or low-confidence items that need human confirmation.
@@ -217,11 +218,12 @@ In plain English:
 5. Retail Identification (Stage 1) searches commercial catalogues for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). If no retail provider matches, the item goes to review - Wikidata is never attempted.
 6. Wikidata Bridge Resolution (Stage 2) uses bridge IDs from Stage 1 to find the canonical Wikidata entity (QID). This provides universe linkage, person relationships, and canonical metadata. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking.
 7. Quick Hydration gets the item visible with core identity, canonical values, and managed artwork.
-8. Universe enrichment (Stage 3) expands people, fictional entities, relationships, narrative roots, lyrics/subtitles, and additional artwork.
-9. Storage writes the results into SQLite and stores managed artwork/headshots under `.data/assets/...` through `entity_assets` or the relevant person/entity table. Sidecars beside media files are optional exports only.
-10. Organization and write-back services can move files into the library structure and write metadata back into the files.
-11. The API exposes all of that state to the Dashboard.
-12. SignalR broadcasts live events so the UI can update while ingestion and enrichment are happening.
+8. Collection finalization assigns the item to its lane shelf and resolves any broader parent collection only when trusted shared relationships exist. This also runs for retained retail identities that have no Wikidata QID.
+9. Universe enrichment (Stage 3) expands people, fictional entities, relationships, narrative roots, lyrics/subtitles, and additional artwork.
+10. Storage writes the results into SQLite and stores managed artwork/headshots under `.data/assets/...` through `entity_assets` or the relevant person/entity table. Sidecars beside media files are optional exports only.
+11. Organization and write-back services can move files into the library structure and write metadata back into the files.
+12. The API exposes all of that state to the Dashboard.
+13. SignalR broadcasts live events so the UI can update while ingestion and enrichment are happening.
 
 Two-pass enrichment: The Quick pass gets the item visible on the Dashboard fast (core identity + cover art). The Universe pass runs later in the background for deep enrichment (relationships, people, fictional entities, additional images).
 

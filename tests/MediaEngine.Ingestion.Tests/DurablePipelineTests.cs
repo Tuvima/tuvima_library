@@ -531,19 +531,25 @@ public sealed class DurablePipelineTests : IDisposable
             CreateBatchProgressService(),
             NullLogger<PostPipelineService>.Instance);
 
+        var collectionRepo = new NoOpCollectionRepository();
         var collectionAssignment = new CollectionAssignmentService(
-            new NoOpCollectionRepository(),
+            collectionRepo,
             new NoOpCanonicalValueRepository(),
             new NoOpWorkRepository(),
             NullLogger<CollectionAssignmentService>.Instance);
+        var collectionFinalization = new CollectionFinalizationService(
+            collectionAssignment,
+            new ParentCollectionResolver(collectionRepo, NullLogger<ParentCollectionResolver>.Instance),
+            new NoOpSystemActivityRepository(),
+            NullLogger<CollectionFinalizationService>.Instance);
 
         var worker = new QuickHydrationWorker(
             jobRepo,
             enrichment,
-            collectionAssignment,
+            collectionFinalization,
             postPipeline,
             new NoOpCanonicalValueRepository(),
-            new NoOpCollectionRepository(),
+            collectionRepo,
             universeScheduler,
             new MinimalConfigurationLoader(),
             NullLogger<QuickHydrationWorker>.Instance);
@@ -601,17 +607,25 @@ public sealed class DurablePipelineTests : IDisposable
             CreateBatchProgressService(),
             NullLogger<PostPipelineService>.Instance);
 
+        var collectionRepo = new NoOpCollectionRepository();
+        var collectionAssignment = new CollectionAssignmentService(
+            collectionRepo,
+            new NoOpCanonicalValueRepository(),
+            new NoOpWorkRepository(),
+            NullLogger<CollectionAssignmentService>.Instance);
+        var collectionFinalization = new CollectionFinalizationService(
+            collectionAssignment,
+            new ParentCollectionResolver(collectionRepo, NullLogger<ParentCollectionResolver>.Instance),
+            new NoOpSystemActivityRepository(),
+            NullLogger<CollectionFinalizationService>.Instance);
+
         var worker = new QuickHydrationWorker(
             jobRepo,
             enrichment,
-            new CollectionAssignmentService(
-                new NoOpCollectionRepository(),
-                new NoOpCanonicalValueRepository(),
-                new NoOpWorkRepository(),
-                NullLogger<CollectionAssignmentService>.Instance),
+            collectionFinalization,
             postPipeline,
             new NoOpCanonicalValueRepository(),
-            new NoOpCollectionRepository(),
+            collectionRepo,
             universeScheduler,
             new MinimalConfigurationLoader(),
             NullLogger<QuickHydrationWorker>.Instance);
@@ -1555,6 +1569,8 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<Collection?> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
         public Task<Guid?> GetCollectionIdByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
+        public Task<int> CountCollectionBackfillCandidatesAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<IReadOnlyList<CollectionBackfillCandidate>> GetCollectionBackfillCandidatesAsync(int limit, Guid? afterWorkId = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionBackfillCandidate>>([]);
         public Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
     }
 

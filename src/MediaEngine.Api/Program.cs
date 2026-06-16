@@ -711,6 +711,7 @@ builder.Services.AddSingleton<TextTrackEnrichmentWorker>();
 builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
 builder.Services.AddSingleton<IUniverseEnrichmentScheduler>(sp => sp.GetRequiredService<MediaEngine.Api.Services.UniverseEnrichmentService>());
 builder.Services.AddSingleton<MediaEngine.Providers.Services.CollectionAssignmentService>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.CollectionFinalizationService>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.WikidataSeriesManifestHydrationService>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.RetailRequestBuilder>();
 builder.Services.AddSingleton<MediaEngine.Providers.Services.IProviderRateLimiterCoordinator, MediaEngine.Providers.Services.ProviderRateLimiterCoordinator>();
@@ -761,6 +762,7 @@ builder.Services.AddHostedService<HydrationStartupSweepService>();
 builder.Services.AddHostedService<EditionRecheckService>();
 
 // -- Library Reconciliation: periodic scan for missing files ------------------
+builder.Services.AddSingleton<CollectionBackfillService>();
 builder.Services.AddSingleton<LibraryReconciliationService>();
 builder.Services.AddSingleton<IReconciliationService>(sp =>
     sp.GetRequiredService<LibraryReconciliationService>());

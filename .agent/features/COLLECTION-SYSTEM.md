@@ -59,7 +59,7 @@ Operators: eq, neq, contains, gt, lt, between, in, like. Match mode: ALL (AND) o
 
 ### Content Groups
 
-Created during ingestion by `MediaEntityChainFactory` and enriched by canonical QID assignment. Albums, TV shows, book series, and movie series power the shelves in Read, Watch, and Listen. They become eligible for a top-level Collections rollup only when another shelf shares a broader series/franchise/universe relationship.
+Created during collection finalization after quick hydration or retained-retail organization. Albums, TV shows, book series, and movie series power the shelves in Read, Watch, and Listen. A shelf can be identified by a Wikidata series QID, provider-backed grouping key, or local series/show/album metadata. It becomes eligible for a top-level Collections rollup only when another shelf shares a broader trusted series/franchise/universe relationship.
 
 ### Collection Placements
 
@@ -109,6 +109,10 @@ Migration: M-070 (collection columns + collection_placements table + backfill)
 
 | Endpoint | Purpose |
 |----------|---------|
+| `GET /collections/management-catalog` | Collections hub catalog: system/user/managed collections plus broader multi-shelf rollups |
+| `GET /collections/{id}/summary` | One Collections hub summary for the detail page |
+| `GET /collections/{id}/items` | Detail-page items, including generated rollup aggregation |
+| `POST /collections/reconcile` | Repair missing shelf assignments for already-ingested media |
 | `GET /collections/resolve/{id}` | Evaluate rules, return items |
 | `POST /collections/preview` | Evaluate rules without saving |
 | `GET /collections/by-location/{location}` | Collections at a UI location |
@@ -123,10 +127,10 @@ Migration: M-070 (collection columns + collection_placements table + backfill)
 | # | Rule | Where enforced |
 |---|------|----------------|
 | HBR-01 | Every Media Asset has a unique fingerprint (SHA-256 hash). Duplicate files are rejected. | MediaAssetRepository (UNIQUE constraint) |
-| HBR-02 | A Work must always belong to a Series (Collection). If a Series is deleted, the Work's link is set to null (unassigned). | Schema (ON DELETE SET NULL on works.collection_id) |
+| HBR-02 | A Work should be assigned to a shelf when grouping metadata exists; standalone or unresolved works may remain unassigned. If a Series is deleted, the Work's link is set to null. | CollectionFinalizationService + schema ON DELETE SET NULL |
 | HBR-03 | Metadata Claims are append-only — historical claims are never deleted. | Domain convention + repository design |
 | HBR-04 | Canonical Values are the scored winners — one per field per entity. | CanonicalValueRepository (composite PK) |
-| HBR-05 | Content groups are created at ingestion time, not deferred to enrichment. | MediaEntityChainFactory |
+| HBR-05 | Content groups are finalized after quick hydration or retained-retail organization, and repaired by collection reconciliation when older items are missing shelves. | CollectionFinalizationService + CollectionBackfillService |
 | HBR-06 | Collection rules use normalized JSON predicates — no raw SQL in rule definitions. | CollectionRulePredicate model |
 | HBR-07 | Only user-created collections (Playlist, Custom) can be deleted. System, Smart, Mix, and ContentGroup are managed by the Engine. | Collection CRUD endpoints |
 | HBR-08 | Person records are linked to Media Assets via a many-to-many join (idempotent). | PersonRepository (INSERT OR IGNORE) |
@@ -135,5 +139,4 @@ Migration: M-070 (collection columns + collection_placements table + backfill)
 
 ## PO Summary
 
-The collection system has been unified into a single universal model. Every collection — whether an auto-detected album, a genre category, or a user playlist — uses the same rule-based mechanism. Content groups (albums, TV shows, series) are created the moment files are scanned, so they work immediately. A dedicated Collections page replaces the old Collections page for managing all collection types. Users can create their own smart collections using an intuitive filter builder inspired by Apple Music's Smart Playlist interface.
-
+The collection system has been unified into a single universal model. Every collection, whether an auto-detected album, a genre category, or a user playlist, uses the same storage model. Content groups are finalized after identity/readiness work so shelves still appear even when Wikidata cannot resolve a QID. The Collections page stays focused on broader rollups and authored collections instead of duplicating every shelf from Read, Watch, and Listen.

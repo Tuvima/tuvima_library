@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Storage.Contracts;
@@ -122,9 +123,9 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
             Id = Guid.NewGuid(),
             DisplayName = label,
             CreatedAt = DateTimeOffset.UtcNow,
-            UniverseStatus = "Unknown",
-            CollectionType = "Universe",
-            Resolution = "materialized",
+            UniverseStatus = CollectionUniverseStatusNames.Unknown,
+            CollectionType = CollectionTypeNames.Universe,
+            Resolution = CollectionResolutionNames.Materialized,
             WikidataQid = qid,
         };
 

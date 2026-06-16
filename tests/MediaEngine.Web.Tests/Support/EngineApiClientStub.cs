@@ -581,6 +581,31 @@ internal class EngineApiClientStub : DispatchProxy
                 },
             });
 
+        _handlers[nameof(IEngineApiClient.GetCollectionSummaryAsync)] =
+            _ => Task.FromResult<CollectionManagementCatalogViewModel?>(new CollectionManagementCatalogViewModel
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000001"),
+                Name = "Dune Universe",
+                Description = "A generated Wikidata-backed universe across formats.",
+                CollectionType = "Universe",
+                Family = "Global",
+                Visibility = "shared",
+                IsGlobal = true,
+                IsEnabled = true,
+                IsFeatured = true,
+                ItemCount = 12,
+                WatchCount = 4,
+                ListenCount = 3,
+                ReadCount = 5,
+                PrimaryLane = "CrossMedia",
+                CreatedAt = DateTimeOffset.UtcNow.AddDays(-8),
+                CanEdit = true,
+                CanShare = true,
+                CanToggleGlobal = true,
+                CanRename = true,
+                CanDelete = true,
+            });
+
         _handlers[nameof(IEngineApiClient.GetDisplayHomeAsync)] =
             _ => Task.FromResult<DisplayPageDto?>(CreateDisplayPage("home", "Home"));
 

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -50,7 +51,7 @@ public sealed class CollectionAssignmentService
     /// Finds or creates a ContentGroup collection for the work's parent entity
     /// (album, series, show) and assigns the work to it via collection_id FK.
     /// </summary>
-    public async Task AssignAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<CollectionAssignmentResult> AssignAsync(Guid entityId, CancellationToken ct = default)
     {
         var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
 
@@ -61,7 +62,10 @@ public sealed class CollectionAssignmentService
         if (workId is null)
         {
             _logger.LogDebug("CollectionAssignment: no work found for entity {EntityId}", entityId);
-            return;
+            return new CollectionAssignmentResult(
+                CollectionAssignmentOutcome.SkippedNoWork,
+                entityId,
+                Message: "No work found for entity.");
         }
 
         var existingCollectionId = await _collectionRepo.GetCollectionIdByWorkIdAsync(workId.Value, ct);
@@ -81,7 +85,11 @@ public sealed class CollectionAssignmentService
         if (shelf is null)
         {
             _logger.LogDebug("CollectionAssignment: no shelf identity for work {WorkId}; standalone", workId);
-            return;
+            return new CollectionAssignmentResult(
+                CollectionAssignmentOutcome.SkippedNoShelfIdentity,
+                entityId,
+                workId.Value,
+                Message: "No shelf identity found.");
         }
 
         if (existingCollectionId is not null)
@@ -90,13 +98,19 @@ public sealed class CollectionAssignmentService
             if (existingCollection is not null && CollectionMatchesShelf(existingCollection, shelf))
             {
                 await UpgradeCollectionIdentityAsync(existingCollection, shelf, ct);
-                await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
+                var relationshipsAdded = await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
 
                 _logger.LogDebug(
                     "CollectionAssignment: work {WorkId} already assigned to collection {CollectionId}",
                     workId,
                     existingCollectionId);
-                return;
+                return new CollectionAssignmentResult(
+                    CollectionAssignmentOutcome.AlreadyAssigned,
+                    entityId,
+                    workId.Value,
+                    existingCollection.Id,
+                    RelationshipsAdded: relationshipsAdded,
+                    IdentityKey: shelf.Qid ?? shelf.ProviderKey);
             }
 
             if (existingCollection is not null)
@@ -116,6 +130,8 @@ public sealed class CollectionAssignmentService
         var gate = ShelfLocks.GetOrAdd(shelf.LockKey, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
         Collection collection;
+        var createdCollection = false;
+        var relationshipCount = 0;
         try
         {
             var existing = await FindShelfCollectionAsync(shelf, ct);
@@ -134,34 +150,42 @@ public sealed class CollectionAssignmentService
                     Id = Guid.NewGuid(),
                     DisplayName = displayName,
                     WikidataQid = shelf.Qid,
-                    CollectionType = "ContentGroup",
-                    Resolution = "materialized",
+                    CollectionType = CollectionTypeNames.ContentGroup,
+                    Resolution = CollectionResolutionNames.Materialized,
                     RuleHash = shelf.ProviderKey,
                     GroupByField = GetGroupByField(shelf.MediaType),
-                    UniverseStatus = "Unknown",
+                    UniverseStatus = CollectionUniverseStatusNames.Unknown,
                     CreatedAt = DateTimeOffset.UtcNow,
                 };
 
                 await _collectionRepo.UpsertAsync(collection, ct);
+                createdCollection = true;
 
                 _logger.LogInformation(
                     "CollectionAssignment: created ContentGroup collection '{Name}' ({Identity}) for work {WorkId}",
                     collection.DisplayName, shelf.Qid ?? shelf.ProviderKey, workId);
             }
 
-            await EnsureCollectionRelationshipsAsync(collection.Id, lookup, ct);
+            relationshipCount = await EnsureCollectionRelationshipsAsync(collection.Id, lookup, ct);
+            await _collectionRepo.AssignWorkToCollectionAsync(workId.Value, collection.Id, ct);
         }
         finally
         {
             gate.Release();
         }
 
-        // Assign the work to the collection
-        await _collectionRepo.AssignWorkToCollectionAsync(workId.Value, collection.Id, ct);
-
         _logger.LogInformation(
             "CollectionAssignment: assigned work {WorkId} to collection '{CollectionName}' ({Identity})",
             workId, collection.DisplayName, shelf.Qid ?? shelf.ProviderKey);
+
+        return new CollectionAssignmentResult(
+            CollectionAssignmentOutcome.Assigned,
+            entityId,
+            workId.Value,
+            collection.Id,
+            CreatedCollection: createdCollection,
+            RelationshipsAdded: relationshipCount,
+            IdentityKey: shelf.Qid ?? shelf.ProviderKey);
     }
 
     private async Task<Collection?> FindShelfCollectionAsync(ShelfIdentity shelf, CancellationToken ct)
@@ -441,14 +465,14 @@ public sealed class CollectionAssignmentService
         return true;
     }
 
-    private async Task EnsureCollectionRelationshipsAsync(
+    private async Task<int> EnsureCollectionRelationshipsAsync(
         Guid collectionId,
         Dictionary<string, string> lookup,
         CancellationToken ct)
     {
         var desiredRelationships = BuildCollectionRelationships(collectionId, lookup);
         if (desiredRelationships.Count == 0)
-            return;
+            return 0;
 
         var existingRelationships = await _collectionRepo.GetRelationshipsAsync(collectionId, ct);
         var missingRelationships = desiredRelationships
@@ -458,7 +482,7 @@ public sealed class CollectionAssignmentService
             .ToList();
 
         if (missingRelationships.Count == 0)
-            return;
+            return 0;
 
         await _collectionRepo.InsertRelationshipsAsync(missingRelationships, ct);
 
@@ -466,6 +490,8 @@ public sealed class CollectionAssignmentService
             "CollectionAssignment: added {Count} relationship(s) to collection {CollectionId}",
             missingRelationships.Count,
             collectionId);
+
+        return missingRelationships.Count;
     }
 
     private static IReadOnlyList<CollectionRelationship> BuildCollectionRelationships(

@@ -5815,6 +5815,35 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<CollectionManagementCatalogViewModel?> GetCollectionSummaryAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/summary", profileId);
+            var collection = await _http.GetFromJsonAsync<CollectionManagementCatalogViewModel>(url, ct);
+            if (collection?.SquareArtworkUrl is not null)
+                collection.SquareArtworkUrl = AbsoluteUrl(collection.SquareArtworkUrl);
+
+            if (collection is not null)
+            {
+                foreach (var artworkItem in collection.ArtworkItems)
+                {
+                    if (artworkItem.CoverUrl is not null)
+                        artworkItem.CoverUrl = AbsoluteUrl(artworkItem.CoverUrl);
+                }
+            }
+
+            return collection;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /collections/{CollectionId}/summary failed", collectionId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     public async Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(Guid? profileId = null, CancellationToken ct = default)
     {
         try

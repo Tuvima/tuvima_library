@@ -3,6 +3,8 @@ using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Storage.Contracts;
 
+public sealed record CollectionBackfillCandidate(Guid WorkId, Guid MediaAssetId);
+
 /// <summary>
 /// Persistence contract for loading <see cref="Collection"/> aggregates with their
 /// child Works, Relationships, and associated CanonicalValues.
@@ -220,6 +222,15 @@ public interface ICollectionRepository
 
     /// <summary>Finds a collection by its rule hash for deduplication.</summary>
     Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default);
+
+    /// <summary>Counts owned, visible works that have media assets but no shelf collection assignment.</summary>
+    Task<int> CountCollectionBackfillCandidatesAsync(CancellationToken ct = default);
+
+    /// <summary>Returns representative media assets for owned, visible works that need shelf assignment repair.</summary>
+    Task<IReadOnlyList<CollectionBackfillCandidate>> GetCollectionBackfillCandidatesAsync(
+        int limit,
+        Guid? afterWorkId = null,
+        CancellationToken ct = default);
 
     /// <summary>Returns all enabled collections for placement resolution.</summary>
     Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default);

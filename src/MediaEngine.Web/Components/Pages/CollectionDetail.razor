@@ -219,7 +219,6 @@ else
 
     [Parameter] public Guid Id { get; set; }
 
-    private readonly List<CollectionManagementCatalogViewModel> _catalog = [];
     private readonly List<CollectionItemViewModel> _items = [];
     private readonly List<CollectionMediaLookupItemViewModel> _lookupItems = [];
     private CollectionManagementCatalogViewModel? _collection;
@@ -351,9 +350,7 @@ else
         try
         {
             _activeProfile ??= await Orchestrator.GetActiveProfileAsync();
-            _catalog.Clear();
-            _catalog.AddRange(await ApiClient.GetCollectionManagementCatalogAsync(_activeProfile?.Id));
-            _collection = _catalog.FirstOrDefault(collection => collection.Id == Id);
+            _collection = await ApiClient.GetCollectionSummaryAsync(Id, _activeProfile?.Id);
 
             if (_collection is not null)
                 await LoadItemsAsync();

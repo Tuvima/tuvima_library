@@ -2224,8 +2224,8 @@ body,
 .layout-shell__nav-link:hover,
 .layout-shell__nav-link--active {
     color: var(--tl-text-primary) !important;
-    background: var(--tl-accent-primary-soft) !important;
-    border-color: var(--tl-accent-primary-border) !important;
+    background: transparent !important;
+    border-color: transparent !important;
 }
 
 .layout-shell__nav-link::after {

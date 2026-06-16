@@ -981,6 +981,8 @@ public interface IEngineApiClient
     Task<List<CollectionManagementCatalogViewModel>> GetCollectionManagementCatalogAsync(Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/managed/counts — collection count grouped by type for stats bar.</summary>
+    Task<CollectionManagementCatalogViewModel?> GetCollectionSummaryAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
+
     Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/content-groups — Universe-type collections (albums, TV series, book series, movie series) for the Content Groups section.</summary>

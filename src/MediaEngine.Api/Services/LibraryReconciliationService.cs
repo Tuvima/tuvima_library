@@ -40,6 +40,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly IEventPublisher              _publisher;
     private readonly WorkHierarchyMaintenanceService _hierarchyMaintenance;
     private readonly WorkIdentityReconciliationService _workIdentityReconciliation;
+    private readonly CollectionBackfillService    _collectionBackfill;
     private readonly IConfigurationLoader         _configLoader;
     private readonly AssetPathService             _assetPaths;
     private readonly IDatabaseConnection          _db;
@@ -65,6 +66,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         IEventPublisher             publisher,
         WorkHierarchyMaintenanceService hierarchyMaintenance,
         WorkIdentityReconciliationService workIdentityReconciliation,
+        CollectionBackfillService   collectionBackfill,
         IConfigurationLoader        configLoader,
         AssetPathService            assetPaths,
         IDatabaseConnection         db,
@@ -80,6 +82,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _publisher     = publisher;
         _hierarchyMaintenance = hierarchyMaintenance;
         _workIdentityReconciliation = workIdentityReconciliation;
+        _collectionBackfill = collectionBackfill;
         _configLoader  = configLoader;
         _assetPaths    = assetPaths;
         _db            = db;
@@ -213,6 +216,19 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         // ── Database hierarchy pruning ────────────────────────────────────────
         // After deleting MediaAssets, remove any Editions / Works / Collections that
         // are now empty so they stop appearing on the home page.
+        var collectionBackfill = await _collectionBackfill.RunAutomaticAsync(ct).ConfigureAwait(false);
+        if (collectionBackfill.ProcessedCount > 0)
+        {
+            _logger.LogInformation(
+                "Reconciliation: collection backfill processed {Processed}/{Candidates} candidate work(s), assigned {Assigned}, created {Created}, skipped {Skipped}, failed {Failed}",
+                collectionBackfill.ProcessedCount,
+                collectionBackfill.CandidateCount,
+                collectionBackfill.AssignedCount,
+                collectionBackfill.CreatedCollectionCount,
+                collectionBackfill.SkippedCount,
+                collectionBackfill.FailedCount);
+        }
+
         int hierarchyPruned = 0;
         if (missingCount > 0)
         {
@@ -304,15 +320,20 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
         // Broadcast a library-changed event so Dashboard circuits that are already
         // open invalidate their collection cache and refresh the home page.
-        if (missingCount > 0 || duplicateReadWorksMerged > 0)
+        if (missingCount > 0 || duplicateReadWorksMerged > 0 || collectionBackfill.AssignedCount > 0)
         {
             try
             {
-                await _publisher.PublishAsync(SignalREvents.MediaRemoved, new
+                var eventName = missingCount > 0 || duplicateReadWorksMerged > 0
+                    ? SignalREvents.MediaRemoved
+                    : SignalREvents.MediaAdded;
+
+                await _publisher.PublishAsync(eventName, new
                 {
                     source        = "reconciliation",
                     removed_count = missingCount,
                     merged_count = duplicateReadWorksMerged,
+                    collection_assignments_repaired = collectionBackfill.AssignedCount,
                 }, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -322,10 +343,10 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         }
 
         _logger.LogInformation(
-            "Reconciliation complete: {Total} scanned, {Missing} missing, {HierarchyPruned} hierarchy rows pruned, " +
+            "Reconciliation complete: {Total} scanned, {Missing} missing, {CollectionBackfillAssigned} collection assignments repaired, {HierarchyPruned} hierarchy rows pruned, " +
             "{DuplicateReadWorksMerged} duplicate read works merged, {FoldersCleaned} empty folders, {OrphanPeople} orphan people, " +
             "{StaleSidecars} stale root sidecars, {Elapsed}ms",
-            assets.Count, missingCount, hierarchyPruned, duplicateReadWorksMerged, foldersCleanedCount,
+            assets.Count, missingCount, collectionBackfill.AssignedCount, hierarchyPruned, duplicateReadWorksMerged, foldersCleanedCount,
             orphanPeopleCount, staleSidecarsCount, sw.ElapsedMilliseconds);
 
         return new ReconciliationResult(assets.Count, missingCount, sw.ElapsedMilliseconds);

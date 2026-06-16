@@ -5,6 +5,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Intelligence;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Intelligence.Services;
@@ -2251,19 +2252,25 @@ public sealed class WorkerPipelineTests
             batchProgress,
             NullLogger<PostPipelineService>.Instance);
 
+        var collectionRepo = new NoOpCollectionRepository();
         var collectionAssignment = new CollectionAssignmentService(
-            new NoOpCollectionRepository(),
+            collectionRepo,
             canonicalRepo,
             new StubWorkRepository(),
             NullLogger<CollectionAssignmentService>.Instance);
+        var collectionFinalization = new CollectionFinalizationService(
+            collectionAssignment,
+            new ParentCollectionResolver(collectionRepo, NullLogger<ParentCollectionResolver>.Instance),
+            new StubSystemActivityRepository(),
+            NullLogger<CollectionFinalizationService>.Instance);
 
         var worker = new QuickHydrationWorker(
             jobRepo,
             enrichment,
-            collectionAssignment,
+            collectionFinalization,
             postPipeline,
             canonicalRepo,
-            new NoOpCollectionRepository(),
+            collectionRepo,
             universeScheduler,
             configLoader,
             NullLogger<QuickHydrationWorker>.Instance);
@@ -3036,6 +3043,8 @@ public sealed class WorkerPipelineTests
         public Task<Collection?> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
         public Task<Guid?> GetCollectionIdByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
+        public Task<int> CountCollectionBackfillCandidatesAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<IReadOnlyList<CollectionBackfillCandidate>> GetCollectionBackfillCandidatesAsync(int limit, Guid? afterWorkId = null, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionBackfillCandidate>>([]);
         public Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
     }
 

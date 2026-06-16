@@ -115,7 +115,7 @@ Stage 4 requires at least one real bridge ID. Title, creator, year, series, albu
 | TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs when present. | Show name or series as title, author/creator if canonicalized, year, language. | TV-series classes; TMDB maps to the TV-series property. | Not edition-aware in the bridge worker; resolves series/show identity. |
 | Comics | `comic_vine_id`, `gcd_id`, `isbn` when present. | Series plus title, series title, writer/author/illustrator fallback, year, language. | Comic issue when a series title is present; otherwise comic series. | Not edition-aware in the bridge worker; resolves issue or series identity depending on hints. |
 
-When a bridge ID resolves, Wikidata supplies canonical identity, relationship facts, people, series/franchise data, and additional bridge identifiers. If retail succeeded but Wikidata cannot resolve a QID, the item keeps its retail metadata and is marked as a missing-QID outcome rather than being silently changed.
+When a bridge ID resolves, Wikidata supplies canonical identity, relationship facts, people, series/franchise data, and additional bridge identifiers. If retail succeeded but Wikidata cannot resolve a QID, the item keeps its retail metadata and is marked as a missing-QID outcome rather than being silently changed. It can still receive a Read, Watch, or Listen shelf from provider/local grouping metadata; it only becomes a top-level Collections rollup when trusted shared relationships connect multiple shelves.
 
 ---
 

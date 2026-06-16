@@ -51,6 +51,7 @@ public sealed class WikidataBridgeWorker
     private readonly PersonEnrichmentWorker? _personEnrichment;
     private readonly WikidataSeriesManifestHydrationService? _seriesManifestHydration;
     private readonly CoverArtWorker _coverArt;
+    private readonly CollectionFinalizationService? _collectionFinalization;
     private readonly BatchProgressService? _batchProgress;
     private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly IMediaOperationTracker? _operationTracker;
@@ -91,7 +92,8 @@ public sealed class WikidataBridgeWorker
         WikidataSeriesManifestHydrationService? seriesManifestHydration = null,
         PersonEnrichmentWorker? personEnrichment = null,
         IMediaOperationTracker? operationTracker = null,
-        IEntityCapabilityStateRepository? capabilityStates = null)
+        IEntityCapabilityStateRepository? capabilityStates = null,
+        CollectionFinalizationService? collectionFinalization = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -113,6 +115,7 @@ public sealed class WikidataBridgeWorker
         _personEnrichment = personEnrichment;
         _seriesManifestHydration = seriesManifestHydration;
         _coverArt = coverArt;
+        _collectionFinalization = collectionFinalization;
         _logger = logger;
         _batchProgress = batchProgress;
         _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
@@ -1369,6 +1372,15 @@ public sealed class WikidataBridgeWorker
                 retainedRetailIdentity: true);
             if (organized)
             {
+                if (_collectionFinalization is not null)
+                {
+                    await _collectionFinalization.FinalizeAsync(
+                        job.EntityId,
+                        CollectionFinalizationReason.RetainedRetailIdentity,
+                        job.IngestionRunId,
+                        ct).ConfigureAwait(false);
+                }
+
                 await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.ReadyWithoutUniverse, ct: ct);
             }
         }

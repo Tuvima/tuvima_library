@@ -157,15 +157,19 @@ Query-resolved collections store their predicates in the `rule_json` column. Mat
 
 ---
 
-## ContentGroup Collections - Created During Readiness
+## ContentGroup Collections - Finalized During Readiness
 
 ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic volumes, audiobook series, and movie series. They are materialized during the ingestion/readiness path so Read, Watch, and Listen can show lane shelves before every broader Wikidata relationship has been hydrated.
 
 When a file is ingested:
 1. Processors and retail providers extract grouping metadata such as show name, album name, series name, Comic Vine series/volume facts, or TMDB `belongs_to_collection`.
-2. `CollectionAssignmentService` builds a stable shelf identity for the item. A Wikidata `series_qid` is preferred when known; otherwise provider-backed keys such as `tmdb:collection:{id}`, `tmdb:tv:{id}`, `tvdb:tv:{id}`, album IDs, or a normalized local series/show/album label are used.
-3. The service checks for an existing ContentGroup by QID or provider key (`rule_hash`) and creates one only when no matching shelf exists.
-4. The Work is linked to the shelf collection. If a later enrichment pass discovers the QID, the provider-backed shelf is upgraded instead of duplicated.
+2. `CollectionFinalizationService` runs after quick hydration, or after retained-retail organization when Wikidata cannot resolve a QID.
+3. `CollectionAssignmentService` builds a stable shelf identity for the item. A Wikidata `series_qid` is preferred when known; otherwise provider-backed keys such as `tmdb:collection:{id}`, `tmdb:tv:{id}`, `tvdb:tv:{id}`, album IDs, or a normalized local series/show/album label are used.
+4. The service checks for an existing ContentGroup by QID or provider key (`rule_hash`) and creates one only when no matching shelf exists.
+5. The Work is linked to the shelf collection inside the per-shelf lock. If a later enrichment pass discovers the QID, the provider-backed shelf is upgraded instead of duplicated.
+6. Parent rollup resolution runs only after shelf assignment and only creates a broader parent when trusted relationship rows connect at least two shelves.
+
+`CollectionBackfillService` repairs older works that have visible owned media assets but missed shelf assignment. It runs a bounded pass during library reconciliation and is also exposed through `POST /collections/reconcile` for manual repair.
 
 ContentGroup collections have additional fields:
 - **`group_by_field`** - the metadata field that defines the group (e.g. `series`, `album`, `show`)
@@ -496,6 +500,10 @@ For performance, Smart collections cache a `rule_hash` - the hash of the seriali
 
 | Action | Method | Purpose |
 |--------|--------|---------|
+| Collections hub catalog | `GET /collections/management-catalog` | Server-classified catalog for `/collections`: system/user/managed collections plus broader multi-shelf rollups |
+| Collection summary | `GET /collections/{id}/summary` | One catalog summary for a detail page without loading the full catalog |
+| Collection items | `GET /collections/{id}/items` | Detail-page items, including generated rollup aggregation |
+| Repair shelf assignments | `POST /collections/reconcile` | Dry-run or run collection backfill for already-ingested media |
 | Resolve collection items | `GET /collections/resolve/{id}` | Evaluate rules, return matching items |
 | Preview rules | `POST /collections/preview` | Evaluate rules without saving - powers the live preview in the collection builder |
 | Collections at location | `GET /collections/by-location/{location}` | All collections placed at a UI location, with display limits applied |
