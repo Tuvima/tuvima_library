@@ -3869,12 +3869,17 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         ProviderName = activity.ProviderName,
         ActiveRequests = activity.ActiveRequests,
+        WaitingRequests = activity.WaitingRequests,
         RequestsTotal = activity.RequestsTotal,
         RequestsLastMinute = activity.RequestsLastMinute,
+        MaxActiveLastMinute = activity.MaxActiveLastMinute,
         ErrorsTotal = activity.ErrorsTotal,
         ErrorsLastMinute = activity.ErrorsLastMinute,
         ThrottleWaitMsTotal = activity.ThrottleWaitMsTotal,
+        WaitMsLastMinute = activity.WaitMsLastMinute,
+        AverageWaitMs = activity.AverageWaitMs,
         AverageLatencyMs = activity.AverageLatencyMs,
+        LastSuccessAt = activity.LastSuccessAt,
         LastRequestAt = activity.LastRequestAt,
         LastError = activity.LastError,
     };

@@ -213,12 +213,17 @@ public sealed record ProviderActivityEvent(
 public sealed record ProviderActivityItemEvent(
     string ProviderName,
     int ActiveRequests,
+    int WaitingRequests,
     long RequestsTotal,
     int RequestsLastMinute,
+    int MaxActiveLastMinute,
     long ErrorsTotal,
     int ErrorsLastMinute,
     long ThrottleWaitMsTotal,
+    long WaitMsLastMinute,
+    double AverageWaitMs,
     double AverageLatencyMs,
+    DateTimeOffset? LastSuccessAt,
     DateTimeOffset? LastRequestAt,
     string? LastError);
 

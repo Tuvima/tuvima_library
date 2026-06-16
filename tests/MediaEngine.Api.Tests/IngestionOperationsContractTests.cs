@@ -369,6 +369,50 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void OperationsSnapshot_ExposesUsefulProviderActivityTelemetry()
+    {
+        var dtoSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Models",
+            "IngestionOperationsDtos.cs"));
+        var serviceSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+        var broadcastSource = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "ProviderActivityBroadcastService.cs"));
+
+        foreach (var jsonName in new[]
+        {
+            "waiting_requests",
+            "max_active_last_minute",
+            "wait_ms_last_minute",
+            "average_wait_ms",
+            "last_success_at",
+        })
+        {
+            Assert.Contains(jsonName, dtoSource, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("WaitingRequests = activity.WaitingRequests", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("MaxActiveLastMinute = activity.MaxActiveLastMinute", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("WaitMsLastMinute = activity.WaitMsLastMinute", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("AverageWaitMs = activity.AverageWaitMs", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("LastSuccessAt = activity.LastSuccessAt", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("snapshot.WaitingRequests > 0", broadcastSource, StringComparison.Ordinal);
+        Assert.Contains("snapshot.WaitMsLastMinute", broadcastSource, StringComparison.Ordinal);
+        Assert.Contains("snapshot.LastSuccessAt", broadcastSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OperationsSnapshot_ExposesNumberedStageProgressContract()
     {
         var dtoSource = File.ReadAllText(Path.Combine(

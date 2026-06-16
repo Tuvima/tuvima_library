@@ -24,12 +24,17 @@ public interface IProviderRateLimiterCoordinator
 public sealed record ProviderActivitySnapshot(
     string ProviderName,
     int ActiveRequests,
+    int WaitingRequests,
     long RequestsTotal,
     int RequestsLastMinute,
+    int MaxActiveLastMinute,
     long ErrorsTotal,
     int ErrorsLastMinute,
     long ThrottleWaitMsTotal,
+    long WaitMsLastMinute,
+    double AverageWaitMs,
     double AverageLatencyMs,
+    DateTimeOffset? LastSuccessAt,
     DateTimeOffset? LastRequestAt,
     string? LastError);
 
@@ -50,24 +55,49 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
         var limiter = _limiters.GetOrAdd(providerName, _ => new ProviderRequestLimiter(rateLimit));
         var activity = _activity.GetOrAdd(providerName, name => new ProviderActivityCounter(name));
 
-        await using var lease = await limiter.WaitAsync(ct).ConfigureAwait(false);
-        activity.RecordStarted(lease.WaitDuration);
+        activity.RecordWaiting();
+        ProviderRateLimitLease lease;
+        try
+        {
+            lease = await limiter.WaitAsync(ct).ConfigureAwait(false);
+            activity.RecordStarted(lease.WaitDuration);
+        }
+        catch
+        {
+            activity.RecordWaitAbandoned();
+            throw;
+        }
 
+        try
+        {
+            return await ExecuteWithLeaseAsync(activity, operation, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            await lease.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<T> ExecuteWithLeaseAsync<T>(
+        ProviderActivityCounter activity,
+        Func<CancellationToken, Task<T>> operation,
+        CancellationToken ct)
+    {
         var stopwatch = Stopwatch.StartNew();
         try
         {
             var result = await operation(ct).ConfigureAwait(false);
-            activity.RecordCompleted(stopwatch.Elapsed, error: null);
+            activity.RecordCompleted(stopwatch.Elapsed, error: null, successful: true);
             return result;
         }
         catch (OperationCanceledException)
         {
-            activity.RecordCompleted(stopwatch.Elapsed, error: null);
+            activity.RecordCompleted(stopwatch.Elapsed, error: null, successful: false);
             throw;
         }
         catch (Exception ex)
         {
-            activity.RecordCompleted(stopwatch.Elapsed, ex);
+            activity.RecordCompleted(stopwatch.Elapsed, ex, successful: false);
             throw;
         }
     }
@@ -211,12 +241,16 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
     {
         private readonly ConcurrentQueue<DateTimeOffset> _requestStarts = new();
         private readonly ConcurrentQueue<DateTimeOffset> _errorStarts = new();
+        private readonly ConcurrentQueue<ProviderActivitySample> _activeSamples = new();
+        private readonly ConcurrentQueue<ProviderWaitSample> _waitSamples = new();
+        private long _waitingRequests;
         private long _activeRequests;
         private long _requestsTotal;
         private long _errorsTotal;
         private long _throttleWaitMsTotal;
         private long _latencyMsTotal;
         private string? _lastError;
+        private DateTimeOffset? _lastSuccessAt;
         private DateTimeOffset? _lastRequestAt;
 
         public ProviderActivityCounter(string providerName)
@@ -226,20 +260,37 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
 
         private string ProviderName { get; }
 
+        public void RecordWaiting()
+        {
+            Interlocked.Increment(ref _waitingRequests);
+        }
+
+        public void RecordWaitAbandoned()
+        {
+            Interlocked.Decrement(ref _waitingRequests);
+        }
+
         public void RecordStarted(TimeSpan throttleWait)
         {
             var now = DateTimeOffset.UtcNow;
-            Interlocked.Increment(ref _activeRequests);
+            Interlocked.Decrement(ref _waitingRequests);
+            var activeRequests = Interlocked.Increment(ref _activeRequests);
             Interlocked.Increment(ref _requestsTotal);
-            Interlocked.Add(ref _throttleWaitMsTotal, (long)throttleWait.TotalMilliseconds);
+            var waitMs = Math.Max(0, (long)throttleWait.TotalMilliseconds);
+            Interlocked.Add(ref _throttleWaitMsTotal, waitMs);
             _lastRequestAt = now;
             _requestStarts.Enqueue(now);
+            _activeSamples.Enqueue(new ProviderActivitySample(now, (int)Math.Min(int.MaxValue, activeRequests)));
+            _waitSamples.Enqueue(new ProviderWaitSample(now, waitMs));
         }
 
-        public void RecordCompleted(TimeSpan latency, Exception? error)
+        public void RecordCompleted(TimeSpan latency, Exception? error, bool successful)
         {
             Interlocked.Decrement(ref _activeRequests);
             Interlocked.Add(ref _latencyMsTotal, (long)latency.TotalMilliseconds);
+
+            if (successful)
+                _lastSuccessAt = DateTimeOffset.UtcNow;
 
             if (error is null)
                 return;
@@ -253,19 +304,33 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
         {
             Trim(_requestStarts, now);
             Trim(_errorStarts, now);
+            Trim(_activeSamples, now, sample => sample.Timestamp);
+            Trim(_waitSamples, now, sample => sample.Timestamp);
 
             var totalRequests = Interlocked.Read(ref _requestsTotal);
             var totalLatency = Interlocked.Read(ref _latencyMsTotal);
+            var totalWait = Interlocked.Read(ref _throttleWaitMsTotal);
+            var activeRequests = Math.Max(0, Interlocked.Read(ref _activeRequests));
+            var waitingRequests = Math.Max(0, Interlocked.Read(ref _waitingRequests));
+            var maxActiveLastMinute = Math.Max(
+                (int)Math.Min(int.MaxValue, activeRequests),
+                _activeSamples.Select(sample => sample.ActiveRequests).DefaultIfEmpty(0).Max());
+            var waitMsLastMinute = _waitSamples.Sum(sample => sample.WaitMs);
 
             return new ProviderActivitySnapshot(
                 ProviderName,
-                (int)Math.Max(0, Interlocked.Read(ref _activeRequests)),
+                (int)Math.Min(int.MaxValue, activeRequests),
+                (int)Math.Min(int.MaxValue, waitingRequests),
                 totalRequests,
                 _requestStarts.Count,
+                maxActiveLastMinute,
                 Interlocked.Read(ref _errorsTotal),
                 _errorStarts.Count,
-                Interlocked.Read(ref _throttleWaitMsTotal),
+                totalWait,
+                waitMsLastMinute,
+                totalRequests > 0 ? (double)totalWait / totalRequests : 0,
                 totalRequests > 0 ? (double)totalLatency / totalRequests : 0,
+                _lastSuccessAt,
                 _lastRequestAt,
                 _lastError);
         }
@@ -276,6 +341,20 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
             while (queue.TryPeek(out var value) && value < cutoff)
                 queue.TryDequeue(out _);
         }
+
+        private static void Trim<T>(
+            ConcurrentQueue<T> queue,
+            DateTimeOffset now,
+            Func<T, DateTimeOffset> timestampSelector)
+        {
+            var cutoff = now.AddMinutes(-1);
+            while (queue.TryPeek(out var value) && timestampSelector(value) < cutoff)
+                queue.TryDequeue(out _);
+        }
+
+        private sealed record ProviderActivitySample(DateTimeOffset Timestamp, int ActiveRequests);
+
+        private sealed record ProviderWaitSample(DateTimeOffset Timestamp, long WaitMs);
     }
 }
 

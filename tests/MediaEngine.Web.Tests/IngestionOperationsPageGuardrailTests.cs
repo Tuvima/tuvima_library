@@ -26,6 +26,8 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildRenderSignature", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("EffectiveProviderActivity", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("providerSignature", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("StageRows", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("library-update-stage-cards", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("library-update-stage-detail-panel", dashboardSource, StringComparison.Ordinal);
@@ -2366,6 +2368,65 @@ public sealed class IngestionDashboardRenderTests : TestContext
             Assert.Contains($"{label} is complete for this batch.", cut.Markup, StringComparison.Ordinal);
             Assert.DoesNotContain($"{label} has started but is not finished.", cut.Markup, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void LiveDashboard_RendersProviderActivityAsWaitingRecentOrHealthy()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new IngestionOperationsSnapshotViewModel
+        {
+            ProviderActivity =
+            [
+                new()
+                {
+                    ProviderName = "apple_api",
+                    WaitingRequests = 2,
+                    ActiveRequests = 0,
+                    RequestsTotal = 103,
+                    RequestsLastMinute = 20,
+                    WaitMsLastMinute = 1250,
+                    AverageWaitMs = 194,
+                    AverageLatencyMs = 220,
+                    LastSuccessAt = now.AddSeconds(-5),
+                    LastRequestAt = now.AddSeconds(-4),
+                },
+                new()
+                {
+                    ProviderName = "tmdb",
+                    ActiveRequests = 0,
+                    RequestsTotal = 40,
+                    RequestsLastMinute = 18,
+                    MaxActiveLastMinute = 3,
+                    AverageLatencyMs = 50,
+                    LastSuccessAt = now.AddSeconds(-2),
+                    LastRequestAt = now.AddSeconds(-2),
+                },
+                new()
+                {
+                    ProviderName = "comicvine",
+                    RequestsTotal = 10,
+                    AverageLatencyMs = 700,
+                    LastSuccessAt = now.AddMinutes(-2),
+                    LastRequestAt = now.AddMinutes(-2),
+                },
+            ],
+        };
+
+        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+            .Add(component => component.Snapshot, snapshot)
+            .Add(component => component.Metrics, new IngestionDashboardMetrics(0, 0, 0, 0))
+            .Add(component => component.Stages, Array.Empty<IngestionDashboardStage>())
+            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+
+        Assert.Contains("Provider activity", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("waiting", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("req/min", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Healthy", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("recent wait", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("last success", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("0 active", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("0 errors/min", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -45,12 +45,19 @@ public sealed class ProviderActivityBroadcastService : BackgroundService
             string.Join(':',
                 snapshot.ProviderName,
                 snapshot.ActiveRequests,
+                snapshot.WaitingRequests,
                 snapshot.RequestsTotal,
+                snapshot.RequestsLastMinute,
                 snapshot.ErrorsTotal,
+                snapshot.ErrorsLastMinute,
                 snapshot.ThrottleWaitMsTotal,
+                snapshot.WaitMsLastMinute,
+                Math.Round(snapshot.AverageWaitMs, 1),
+                snapshot.MaxActiveLastMinute,
+                snapshot.LastSuccessAt?.ToUnixTimeSeconds() ?? 0,
                 snapshot.LastRequestAt?.ToUnixTimeSeconds() ?? 0)));
-        var hasActiveRequests = snapshots.Any(snapshot => snapshot.ActiveRequests > 0);
-        if (!hasActiveRequests && string.Equals(signature, _lastSignature, StringComparison.Ordinal))
+        var hasLiveProviderWork = snapshots.Any(snapshot => snapshot.ActiveRequests > 0 || snapshot.WaitingRequests > 0);
+        if (!hasLiveProviderWork && string.Equals(signature, _lastSignature, StringComparison.Ordinal))
             return;
 
         _lastSignature = signature;
@@ -76,12 +83,17 @@ public sealed class ProviderActivityBroadcastService : BackgroundService
     private static ProviderActivityItemEvent ToEvent(ProviderActivitySnapshot snapshot) => new(
         snapshot.ProviderName,
         snapshot.ActiveRequests,
+        snapshot.WaitingRequests,
         snapshot.RequestsTotal,
         snapshot.RequestsLastMinute,
+        snapshot.MaxActiveLastMinute,
         snapshot.ErrorsTotal,
         snapshot.ErrorsLastMinute,
         snapshot.ThrottleWaitMsTotal,
+        snapshot.WaitMsLastMinute,
+        snapshot.AverageWaitMs,
         snapshot.AverageLatencyMs,
+        snapshot.LastSuccessAt,
         snapshot.LastRequestAt,
         snapshot.LastError);
 }

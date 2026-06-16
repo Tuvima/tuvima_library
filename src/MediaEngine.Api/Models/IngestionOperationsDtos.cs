@@ -49,11 +49,17 @@ public sealed class IngestionProviderActivityDto
     [JsonPropertyName("active_requests")]
     public int ActiveRequests { get; init; }
 
+    [JsonPropertyName("waiting_requests")]
+    public int WaitingRequests { get; init; }
+
     [JsonPropertyName("requests_total")]
     public long RequestsTotal { get; init; }
 
     [JsonPropertyName("requests_last_minute")]
     public int RequestsLastMinute { get; init; }
+
+    [JsonPropertyName("max_active_last_minute")]
+    public int MaxActiveLastMinute { get; init; }
 
     [JsonPropertyName("errors_total")]
     public long ErrorsTotal { get; init; }
@@ -64,8 +70,17 @@ public sealed class IngestionProviderActivityDto
     [JsonPropertyName("throttle_wait_ms_total")]
     public long ThrottleWaitMsTotal { get; init; }
 
+    [JsonPropertyName("wait_ms_last_minute")]
+    public long WaitMsLastMinute { get; init; }
+
+    [JsonPropertyName("average_wait_ms")]
+    public double AverageWaitMs { get; init; }
+
     [JsonPropertyName("average_latency_ms")]
     public double AverageLatencyMs { get; init; }
+
+    [JsonPropertyName("last_success_at")]
+    public DateTimeOffset? LastSuccessAt { get; init; }
 
     [JsonPropertyName("last_request_at")]
     public DateTimeOffset? LastRequestAt { get; init; }

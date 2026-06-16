@@ -69,7 +69,11 @@
 
         <MudExpansionPanel Text="Provider activity">
             <div class="ops-provider-list">
-                @foreach (var provider in Snapshot.ProviderActivity.OrderByDescending(p => p.ActiveRequests).ThenBy(p => p.ProviderName))
+                @foreach (var provider in Snapshot.ProviderActivity
+                    .OrderByDescending(p => p.WaitingRequests)
+                    .ThenByDescending(p => p.ActiveRequests)
+                    .ThenByDescending(p => p.RequestsLastMinute)
+                    .ThenBy(p => p.ProviderName))
                 {
                     <div class="ops-provider-row">
                         <div>
@@ -80,7 +84,7 @@
                                 <small>@provider.LastError</small>
                             }
                         </div>
-                        <span class="@StatusBadgeClass(provider.ErrorsLastMinute > 0 ? "warning" : provider.ActiveRequests > 0 ? "active" : "complete")">
+                        <span class="@StatusBadgeClass(ProviderActivityStatus(provider))">
                             @ProviderActivityBadge(provider)
                         </span>
                     </div>
@@ -231,20 +235,49 @@
             : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(providerName.Replace("_", " ").Replace("-", " "));
 
     private static string ProviderActivityBadge(IngestionProviderActivityViewModel provider) =>
-        provider.ActiveRequests > 0
-            ? $"{provider.ActiveRequests} active"
-            : provider.ErrorsLastMinute > 0
-                ? $"{provider.ErrorsLastMinute} recent errors"
-                : "Idle";
+        provider.ErrorsLastMinute > 0
+            ? $"{provider.ErrorsLastMinute} recent errors"
+            : !string.IsNullOrWhiteSpace(provider.LastError) && provider.LastSuccessAt is null
+                ? "Last error"
+                : provider.WaitingRequests > 0
+                    ? $"{provider.WaitingRequests} waiting"
+                    : provider.ActiveRequests > 0
+                        ? $"{provider.ActiveRequests} in flight"
+                        : provider.RequestsLastMinute > 0
+                            ? $"{provider.RequestsLastMinute} req/min"
+                            : provider.MaxActiveLastMinute > 0
+                                ? $"{provider.MaxActiveLastMinute} recent peak"
+                                : "Healthy idle";
+
+    private static string ProviderActivityStatus(IngestionProviderActivityViewModel provider)
+    {
+        if (provider.ErrorsLastMinute > 0 || (!string.IsNullOrWhiteSpace(provider.LastError) && provider.LastSuccessAt is null))
+            return "warning";
+        if (provider.WaitingRequests > 0)
+            return "warning";
+        if (provider.ActiveRequests > 0 || provider.RequestsLastMinute > 0 || provider.MaxActiveLastMinute > 0)
+            return "active";
+        return "complete";
+    }
 
     private static string ProviderActivitySummary(IngestionProviderActivityViewModel provider)
     {
-        var wait = TimeSpan.FromMilliseconds(Math.Max(0, provider.ThrottleWaitMsTotal));
-        var waitLabel = wait.TotalSeconds >= 1
-            ? $"{wait.TotalSeconds:N1}s waiting"
-            : $"{provider.ThrottleWaitMsTotal:N0}ms waiting";
+        var recentWait = FormatMilliseconds(provider.WaitMsLastMinute);
+        var averageWait = provider.AverageWaitMs > 0 ? $"{provider.AverageWaitMs:N0}ms avg wait" : "no avg wait";
         var latency = provider.AverageLatencyMs > 0 ? $"{provider.AverageLatencyMs:N0}ms avg" : "latency pending";
-        var last = provider.LastRequestAt is null ? "no requests yet" : $"last request {FormatRelative(provider.LastRequestAt)}";
-        return $"{FormatCount(provider.RequestsLastMinute)} in the last minute, {FormatCount(provider.RequestsTotal)} total, {waitLabel}, {latency}, {last}";
+        var last = provider.LastSuccessAt is not null
+            ? $"last success {FormatRelative(provider.LastSuccessAt)}"
+            : provider.LastRequestAt is null
+                ? "no requests yet"
+                : $"last request {FormatRelative(provider.LastRequestAt)}";
+        return $"{FormatCount(provider.RequestsLastMinute)} in the last minute, {FormatCount(provider.RequestsTotal)} total, {recentWait} recent wait, {averageWait}, {latency}, {last}";
+    }
+
+    private static string FormatMilliseconds(long value)
+    {
+        var safeValue = Math.Max(0, value);
+        return safeValue >= 1000
+            ? $"{TimeSpan.FromMilliseconds(safeValue).TotalSeconds:N1}s"
+            : $"{safeValue:N0}ms";
     }
 }

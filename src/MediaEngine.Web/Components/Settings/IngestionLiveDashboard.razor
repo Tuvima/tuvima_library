@@ -238,7 +238,7 @@
                             <div class="library-update-batch__select">
                                 <span class="library-update-batch__favorite" title="@ProviderActivityTooltip(provider)">
                                     <MudTooltip Text="@ProviderActivityTooltip(provider)" Placement="Placement.Top">
-                                        <MudIcon Icon="@(provider.ActiveRequests > 0 ? Icons.Material.Outlined.Sync : Icons.Material.Outlined.CheckCircle)" />
+                                        <MudIcon Icon="@ProviderActivityIcon(provider)" />
                                     </MudTooltip>
                                 </span>
                                 <span class="library-update-batch__name">
@@ -246,16 +246,27 @@
                                     <span>@ProviderActivitySummary(provider)</span>
                                 </span>
                                 <span class="library-update-batch__stats">
-                                    <span class="@ProviderActivityChipClass(provider)">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Bolt" />
-                                        <strong>@provider.ActiveRequests</strong>
-                                        <span>active</span>
+                                    <span class="@ProviderStatusChipClass(provider)">
+                                        <MudIcon Icon="@ProviderStatusIcon(provider)" />
+                                        <strong>@ProviderStatusValue(provider)</strong>
+                                        <span>@ProviderStatusLabel(provider)</span>
                                     </span>
-                                    <span class="@ProviderErrorChipClass(provider)">
-                                        <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
-                                        <strong>@FormatCount(provider.ErrorsLastMinute)</strong>
-                                        <span>errors/min</span>
-                                    </span>
+                                    @if (ProviderHasVisibleError(provider))
+                                    {
+                                        <span class="@ProviderErrorChipClass(provider)">
+                                            <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
+                                            <strong>@ProviderErrorValue(provider)</strong>
+                                            <span>@ProviderErrorLabel(provider)</span>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="@ProviderWaitChipClass(provider)">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Schedule" />
+                                            <strong>@ProviderWaitValue(provider)</strong>
+                                            <span>@ProviderWaitLabel(provider)</span>
+                                        </span>
+                                    }
                                 </span>
                             </div>
                         </div>
@@ -364,6 +375,7 @@
             Error,
             RecentBatches,
             DisplayStageRows,
+            EffectiveProviderActivity,
             SelectionSignature);
         if (string.Equals(_lastRenderSignature, signature, StringComparison.Ordinal))
             return false;
@@ -398,6 +410,7 @@
         string? error,
         IReadOnlyList<IngestionOperationsBatchViewModel> recentBatches,
         IReadOnlyList<IngestionDashboardStage> stages,
+        IReadOnlyList<IngestionProviderActivityViewModel> providerActivity,
         string expandedStageSignature)
     {
         var steps = string.Join(';', model.Steps.Select(step => $"{step.Label}:{step.Status}"));
@@ -434,6 +447,21 @@
             stage.QueuedCount,
             stage.IsStale,
             string.Join(',', StageDetailLines(stage).Select(detail => $"{detail.Label}={detail.Value}")))));
+        var providerSignature = string.Join(';', providerActivity.Select(provider => string.Join(':',
+            provider.ProviderName,
+            provider.ActiveRequests,
+            provider.WaitingRequests,
+            provider.RequestsTotal,
+            provider.RequestsLastMinute,
+            provider.MaxActiveLastMinute,
+            provider.ErrorsTotal,
+            provider.ErrorsLastMinute,
+            provider.WaitMsLastMinute,
+            Math.Round(provider.AverageWaitMs, 1),
+            Math.Round(provider.AverageLatencyMs, 1),
+            provider.LastSuccessAt?.ToUnixTimeSeconds() ?? 0,
+            provider.LastRequestAt?.ToUnixTimeSeconds() ?? 0,
+            provider.LastError)));
 
         return string.Join('|',
             loading,
@@ -464,6 +492,7 @@
             enrichment,
             reasons,
             stageSignature,
+            providerSignature,
             expandedStageSignature,
             recent);
     }
@@ -1407,13 +1436,15 @@
 
     private static string ProviderActivitySummary(IngestionProviderActivityViewModel provider)
     {
-        var wait = TimeSpan.FromMilliseconds(Math.Max(0, provider.ThrottleWaitMsTotal));
-        var waitLabel = wait.TotalSeconds >= 1
-            ? $"{wait.TotalSeconds:N1}s waiting"
-            : $"{provider.ThrottleWaitMsTotal:N0}ms waiting";
+        var recentWait = FormatMilliseconds(provider.WaitMsLastMinute);
+        var averageWait = provider.AverageWaitMs > 0 ? $"{provider.AverageWaitMs:N0}ms avg wait" : "no avg wait";
         var latency = provider.AverageLatencyMs > 0 ? $"{provider.AverageLatencyMs:N0}ms average" : "latency pending";
-        var last = provider.LastRequestAt is null ? "no requests yet" : $"last {FormatRelative(provider.LastRequestAt.Value)}";
-        return $"{FormatCount(provider.RequestsLastMinute)} requests/min, {FormatCount(provider.RequestsTotal)} total, {waitLabel}, {latency}, {last}";
+        var last = provider.LastSuccessAt is not null
+            ? $"last success {FormatRelative(provider.LastSuccessAt.Value)}"
+            : provider.LastRequestAt is null
+                ? "no requests yet"
+                : $"last request {FormatRelative(provider.LastRequestAt.Value)}";
+        return $"{FormatCount(provider.RequestsLastMinute)} requests/min, {FormatCount(provider.RequestsTotal)} total, {recentWait} recent wait, {averageWait}, {latency}, {last}";
     }
 
     private static string ProviderActivityTooltip(IngestionProviderActivityViewModel provider) =>
@@ -1421,11 +1452,108 @@
             ? ProviderActivitySummary(provider)
             : $"{ProviderActivitySummary(provider)}. Last error: {provider.LastError}";
 
-    private static string ProviderActivityChipClass(IngestionProviderActivityViewModel provider) =>
-        $"library-update-batch-count is-{(provider.ActiveRequests > 0 ? "info" : "neutral")}";
+    private static string ProviderActivityIcon(IngestionProviderActivityViewModel provider) =>
+        ProviderHasVisibleError(provider)
+            ? Icons.Material.Outlined.WarningAmber
+            : provider.WaitingRequests > 0
+                ? Icons.Material.Outlined.HourglassTop
+                : provider.ActiveRequests > 0
+                    ? Icons.Material.Outlined.Sync
+                    : provider.RequestsLastMinute > 0 || provider.MaxActiveLastMinute > 0
+                        ? Icons.Material.Outlined.Bolt
+                        : Icons.Material.Outlined.CheckCircle;
+
+    private static string ProviderStatusIcon(IngestionProviderActivityViewModel provider) =>
+        provider.WaitingRequests > 0
+            ? Icons.Material.Outlined.HourglassTop
+            : provider.ActiveRequests > 0
+                ? Icons.Material.Outlined.Sync
+                : provider.RequestsLastMinute > 0 || provider.MaxActiveLastMinute > 0
+                    ? Icons.Material.Outlined.Bolt
+                    : Icons.Material.Outlined.CheckCircle;
+
+    private static string ProviderStatusValue(IngestionProviderActivityViewModel provider) =>
+        provider.WaitingRequests > 0
+            ? FormatCount(provider.WaitingRequests)
+            : provider.ActiveRequests > 0
+                ? FormatCount(provider.ActiveRequests)
+                : provider.RequestsLastMinute > 0
+                    ? FormatCount(provider.RequestsLastMinute)
+                    : provider.MaxActiveLastMinute > 0
+                        ? FormatCount(provider.MaxActiveLastMinute)
+                        : "Healthy";
+
+    private static string ProviderStatusLabel(IngestionProviderActivityViewModel provider) =>
+        provider.WaitingRequests > 0
+            ? "waiting"
+            : provider.ActiveRequests > 0
+                ? "in flight"
+                : provider.RequestsLastMinute > 0
+                    ? "req/min"
+                    : provider.MaxActiveLastMinute > 0
+                        ? "recent peak"
+                        : "idle";
+
+    private static string ProviderStatusChipClass(IngestionProviderActivityViewModel provider) =>
+        $"library-update-batch-count is-{ProviderActivityTone(provider)}";
 
     private static string ProviderErrorChipClass(IngestionProviderActivityViewModel provider) =>
         $"library-update-batch-count is-{(provider.ErrorsLastMinute > 0 ? "warning" : "success")}";
+
+    private static string ProviderWaitChipClass(IngestionProviderActivityViewModel provider) =>
+        $"library-update-batch-count is-{(provider.WaitingRequests > 0 || provider.WaitMsLastMinute > 0 ? "warning" : "neutral")}";
+
+    private static string ProviderWaitValue(IngestionProviderActivityViewModel provider) =>
+        provider.WaitMsLastMinute > 0
+            ? FormatMillisecondsCompact(provider.WaitMsLastMinute)
+            : provider.AverageWaitMs > 0
+                ? $"{provider.AverageWaitMs:N0}ms"
+                : "0ms";
+
+    private static string ProviderWaitLabel(IngestionProviderActivityViewModel provider) =>
+        provider.WaitMsLastMinute > 0 ? "recent wait" : "avg wait";
+
+    private static string ProviderActivityTone(IngestionProviderActivityViewModel provider)
+    {
+        if (ProviderHasVisibleError(provider))
+            return "warning";
+        if (provider.WaitingRequests > 0)
+            return "warning";
+        if (provider.ActiveRequests > 0 || provider.RequestsLastMinute > 0 || provider.MaxActiveLastMinute > 0)
+            return "info";
+        return "success";
+    }
+
+    private static bool ProviderHasVisibleError(IngestionProviderActivityViewModel provider) =>
+        ProviderHasRecentErrors(provider) || ProviderHasUnrecoveredError(provider);
+
+    private static bool ProviderHasRecentErrors(IngestionProviderActivityViewModel provider) =>
+        provider.ErrorsLastMinute > 0;
+
+    private static bool ProviderHasUnrecoveredError(IngestionProviderActivityViewModel provider) =>
+        !string.IsNullOrWhiteSpace(provider.LastError) && provider.LastSuccessAt is null;
+
+    private static string ProviderErrorValue(IngestionProviderActivityViewModel provider) =>
+        ProviderHasRecentErrors(provider) ? FormatCount(provider.ErrorsLastMinute) : "Last";
+
+    private static string ProviderErrorLabel(IngestionProviderActivityViewModel provider) =>
+        ProviderHasRecentErrors(provider) ? "errors/min" : "error";
+
+    private static string FormatMilliseconds(long value)
+    {
+        var safeValue = Math.Max(0, value);
+        return safeValue >= 1000
+            ? $"{TimeSpan.FromMilliseconds(safeValue).TotalSeconds:N1}s"
+            : $"{safeValue:N0}ms";
+    }
+
+    private static string FormatMillisecondsCompact(long value)
+    {
+        var safeValue = Math.Max(0, value);
+        return safeValue >= 1000
+            ? $"{TimeSpan.FromMilliseconds(safeValue).TotalSeconds:N1}s"
+            : $"{safeValue:N0}ms";
+    }
 
     private sealed record StageDetailLine(string Label, string Value, string Tone, string Icon);
 

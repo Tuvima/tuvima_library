@@ -322,12 +322,17 @@ public sealed class UniverseStateContainer
         {
             ProviderName = provider.ProviderName,
             ActiveRequests = provider.ActiveRequests,
+            WaitingRequests = provider.WaitingRequests,
             RequestsTotal = provider.RequestsTotal,
             RequestsLastMinute = provider.RequestsLastMinute,
+            MaxActiveLastMinute = provider.MaxActiveLastMinute,
             ErrorsTotal = provider.ErrorsTotal,
             ErrorsLastMinute = provider.ErrorsLastMinute,
             ThrottleWaitMsTotal = provider.ThrottleWaitMsTotal,
+            WaitMsLastMinute = provider.WaitMsLastMinute,
+            AverageWaitMs = provider.AverageWaitMs,
             AverageLatencyMs = provider.AverageLatencyMs,
+            LastSuccessAt = provider.LastSuccessAt,
             LastRequestAt = provider.LastRequestAt,
             LastError = provider.LastError,
         }).ToList();
