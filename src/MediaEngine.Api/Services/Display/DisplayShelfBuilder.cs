@@ -5,10 +5,12 @@ namespace MediaEngine.Api.Services.Display;
 public sealed class DisplayShelfBuilder
 {
     private readonly DisplayCardBuilder _cards;
+    private readonly DisplayLaneGroupPolicy _groupPolicy;
 
-    public DisplayShelfBuilder(DisplayCardBuilder cards)
+    public DisplayShelfBuilder(DisplayCardBuilder cards, DisplayLaneGroupPolicy? groupPolicy = null)
     {
         _cards = cards;
+        _groupPolicy = groupPolicy ?? new DisplayLaneGroupPolicy();
     }
 
     public IReadOnlyList<DisplayShelfDto> BuildReadShelves(
@@ -19,10 +21,15 @@ public sealed class DisplayShelfBuilder
     {
         var take = Math.Max(1, shelfLimit);
         var shelves = new List<DisplayShelfDto>();
+        var groupShelf = _groupPolicy.GetShelf("read");
         AddShelf(shelves, "continue-reading", "Continue reading", "Books, comics, and audiobooks already in motion",
             journey.Take(take).Select(item => _cards.FromJourney(item, "read")).ToList(), "/read/books");
-        AddShelf(shelves, "reading-collections", "Collections to explore", "Series and grouped reading pulled from your library",
-            _cards.BuildCollectionCards(works, "read").Take(take).ToList(), "/collections");
+        if (groupShelf.Enabled)
+        {
+            AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,
+                _cards.BuildCollectionCards(works, "read").Take(take).ToList(), groupShelf.SeeAllRoute);
+        }
+
         AddShelf(shelves, "recently-added", "Recently added to read", "Fresh pages ready to pick up",
             works.Take(take).Select(work => _cards.FromWork(work, "read", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), "/read/books");
 
@@ -51,14 +58,17 @@ public sealed class DisplayShelfBuilder
     {
         var take = Math.Max(1, shelfLimit);
         var shelves = new List<DisplayShelfDto>();
+        var groupShelf = _groupPolicy.GetShelf("watch");
         AddShelf(shelves, "continue-watching", "Continue watching", "Movies and shows already in progress",
             journey.Take(take).Select(item => _cards.FromJourney(item, "watch")).ToList(), "/watch/movies");
-        AddShelf(shelves, "watch-collections", "Collections to watch", "Shows, series, and grouped franchises from your library",
-            _cards.BuildCollectionCards(works, "watch").Take(take).ToList(), "/collections");
+        if (groupShelf.Enabled)
+        {
+            AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,
+                _cards.BuildCollectionCards(works, "watch").Take(take).ToList(), groupShelf.SeeAllRoute);
+        }
+
         AddShelf(shelves, "movies", "Movies in your library", "Feature films ready to play",
             works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Movie").Take(take).Select(work => _cards.FromWork(work, "watch", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), "/watch/movies");
-        AddShelf(shelves, "tv", "TV in your library", "Shows and episodes ready to continue",
-            works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "TV").Take(take).Select(work => _cards.FromWork(work, "watch", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), "/watch/tv");
 
         var genreShelves = works
             .SelectMany(work => DisplayMediaRules.SplitValues(work.Genre).Select(genre => (Genre: genre, Work: work)))

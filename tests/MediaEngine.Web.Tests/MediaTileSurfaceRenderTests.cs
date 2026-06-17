@@ -48,6 +48,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("flex:0 0 auto", css);
         Assert.Contains("aspect-ratio:var(--media-tile-media-aspect)", css);
         Assert.Contains(".media-tile-image.is-contained { object-fit:contain; padding:0; background:transparent; }", css);
+        Assert.Contains(".media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:none;", css);
+        Assert.Contains(".media-tile-hover-actions, .media-tile-icon-button { pointer-events:auto; }", css);
         Assert.DoesNotContain("overflow:hidden auto", css);
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-contained"));
         Assert.Equal(2, cut.FindAll(".media-tile-chip").Count);
@@ -123,6 +125,79 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains(".media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(330px,25vw,410px);", File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css")));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-logo"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-fill"));
+    }
+
+    [Fact]
+    public void MediaTile_TvSeriesCollectionWithLogoSuppressesDuplicateTileTitleAndShowsRichHover()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "Severance",
+            Subtitle = "2 seasons",
+            HoverFacts = ["New episodes added", "2 seasons", "Thriller"],
+            MediaKind = "TV",
+            AccentColor = "#38BDF8",
+            Shape = MediaTileShape.Landscape,
+            Presentation = MediaTilePresentation.TvSeries,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/severance-bg.jpg",
+            HoverImageUrl = "/art/severance-bg.jpg",
+            LogoUrl = "/art/severance-logo.png",
+            NavigationUrl = "/watch/tv/show/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            PrimaryNavigationUrl = "/watch/tv/show/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            PrimaryActionLabel = "Open Show",
+            IsCollection = true,
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.NotEmpty(cut.FindAll(".media-tile-logo"));
+        Assert.Empty(cut.FindAll(".media-tile-collection-title"));
+        Assert.Empty(cut.FindAll(".media-tile-caption"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-body"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Open Show']"));
+        Assert.Empty(cut.FindAll(".media-tile-hover-title"));
+        Assert.Contains("New episodes added", cut.Markup);
+    }
+
+    [Fact]
+    public void MediaTile_BookSeriesCollectionUsesRichPortraitHover()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "The Expanse",
+            Subtitle = "9 titles",
+            Description = "A long-running space opera series.",
+            HoverFacts = ["9 titles", "Science Fiction"],
+            Genres = ["Science Fiction", "Space Opera"],
+            MediaKind = "Book",
+            AccentColor = "#5DCAA5",
+            Shape = MediaTileShape.Portrait,
+            Presentation = MediaTilePresentation.BookSeries,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/expanse.jpg",
+            HoverImageUrl = "/art/expanse.jpg",
+            NavigationUrl = "/read/books?grouping=series",
+            PrimaryNavigationUrl = "/read/books?grouping=series",
+            PrimaryActionLabel = "Open Series",
+            IsCollection = true,
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-portrait.is-book-series.is-collection-hover"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-body"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Open Series']"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-title"));
+        Assert.Contains("A long-running space opera series.", cut.Markup);
     }
 
     [Fact]

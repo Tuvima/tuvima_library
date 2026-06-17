@@ -32,6 +32,12 @@ public sealed class CollectionGroupDetailViewModel
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; set; }
 
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; set; }
+
+    [JsonPropertyName("logo_url")]
+    public string? LogoUrl { get; set; }
+
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
@@ -91,7 +97,7 @@ public sealed class CollectionGroupDetailViewModel
     public List<CollectionGroupWorkViewModel> Works { get; set; } = [];
 }
 
-/// <summary>Lightweight person reference used by cast chips on MediaGroupPage.</summary>
+/// <summary>Lightweight person reference used by cast chips on grouped detail surfaces.</summary>
 public sealed class CharacterPortrayalViewModel
 {
     [JsonPropertyName("fictional_entity_id")]

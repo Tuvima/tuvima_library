@@ -169,6 +169,39 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_MapsReadSeriesCollectionsToExpandedHover()
+    {
+        var collectionId = Guid.Parse("66666666-2222-2222-2222-666666666666");
+        var action = new DisplayActionDto("openSeries", "Open Series", CollectionId: collectionId, WebUrl: $"/details/bookseries/{collectionId}");
+        var card = new DisplayCardDto(
+            Id: collectionId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: collectionId,
+            MediaType: "Book",
+            GroupingType: "bookSeries",
+            Title: "The Expanse",
+            Subtitle: "9 titles",
+            Facts: ["9 titles", "Science Fiction"],
+            Artwork: EmptyArtwork("#5DCAA5"),
+            PreferredShape: "portrait",
+            Presentation: "bookSeries",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(false, true, false, true, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.True(mapped.IsCollection);
+        Assert.Equal(MediaTilePresentation.BookSeries, mapped.Presentation);
+        Assert.Equal(MediaTileHoverMode.Expanded, mapped.HoverMode);
+        Assert.Equal("Open Series", mapped.PrimaryActionLabel);
+    }
+
+    [Fact]
     public void FromDisplayPage_UsesDisplayHeroAndShelvesWithoutLegacyComposition()
     {
         var workId = Guid.Parse("33333333-3333-3333-3333-333333333333");

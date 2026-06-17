@@ -7,13 +7,4 @@ public sealed record BrowseState(
     string Grouping,
     string SearchText,
     string SortBy,
-    LibraryLayoutMode Layout,
-    Guid? GroupId,
-    string? GroupType,
-    string? GroupName,
-    string? GroupField,
-    string? GroupMediaType,
-    string? ArtistName)
-{
-    public bool IsGroupDrilldown => GroupId.HasValue && !string.IsNullOrWhiteSpace(GroupType);
-}
+    LibraryLayoutMode Layout);

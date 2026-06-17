@@ -56,7 +56,7 @@ Tuvima is a unified media intelligence platform that runs entirely on the user's
 
 A **Universe** is a creative world — the books, films, audiobooks, comics, and music that belong together because their metadata says so. A **Series** is a sub-grouping within a Universe — a specific sequence or collection of related works.
 
-Current product rule: a Series is the lane-level shelf shown in Read, Watch, or Listen. A broader Universe/Collection is shown on `/collections` only when a shared series/franchise/universe relationship connects multiple shelves. A single shelf, such as only owning the Matrix films, stays in Watch and does not duplicate itself as a top-level Collection. Multiple formats of one work are variants, not collection triggers.
+Current product rule: a Series is the lane-level shelf shown in Read, Watch, or Listen. A broader Universe/Collection is shown on `/collections` only when a shared series/franchise/universe relationship connects multiple shelves. A single shelf, such as only owning the Matrix films, stays in Watch and does not duplicate itself as a top-level Collection. Multiple formats of one work are variants, not collection triggers. Internal collection IDs may back a lane group, but user-facing surfaces must name and route by the group type: a TV show is a show, a book sequence is a series, and a curated rollup is a collection/list.
 
 Matching is automatic: when the Engine discovers that a novel, its film adaptation, and an audiobook share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into the same Universe. Users browse by creative world, not by file type.
 
@@ -328,14 +328,14 @@ Browsing lives on Home, Read, Watch, Listen, Collections, Search, and detail pag
 
 Every collection is a parameterised query container. Normalised filter predicates are stored as JSON arrays of `{field, op, value}` objects in the `rule_json` column; `CollectionRuleEvaluator` (Storage) translates predicates to SQL. Six collection types as presentation hints:
 
-- **ContentGroup** — drillable containers (albums, TV shows, book series)
+- **ContentGroup** — engine-owned lane shelves (albums, TV shows, book series) that route through their media-specific surfaces
 - **Smart** — auto-generated from library data (by genre, author, director, decade, etc.)
 - **System** — per-user, pre-created (Reading List, Watchlist, Favorites, etc.)
 - **Mix** — AI-generated per-user (Continue, Heavy Rotation, Discovery Queue, etc.)
 - **Playlist** — user-created, materialised
 - **Custom** — user-created, query-resolved via the collection builder
 
-Resolution is hybrid: query-resolved collections evaluate predicates at display time; materialised collections track membership in `collection_works`. System view collections (seeded at startup) drive container views for media types. `CollectionAssignmentService` (called by `QuickHydrationWorker`) reads Wikidata series / franchise / universe QIDs and assigns works to a ContentGroup collection via the `collection_id` FK. `collection_placements` maps collections to UI locations. The Collections page at `/collections` lets the user browse, create, and manage all collection types.
+Resolution is hybrid: query-resolved collections evaluate predicates at display time; materialised collections track membership in `collection_works`. `CollectionAssignmentService` (called by `QuickHydrationWorker`) reads Wikidata series / franchise / universe QIDs and assigns works to a ContentGroup collection via the `collection_id` FK, but lane shelves route by media concept, such as `/watch/tv/show/{CollectionId}` for TV. `collection_placements` maps broader collections/lists to UI locations. The Collections page at `/collections` lets the user browse, create, and manage collection/list surfaces.
 
 ### 3.14 — Localization & Multi-Language Support
 
@@ -602,7 +602,7 @@ Reusable visual components, organised by feature slice.
 | `Discovery/` | `DiscoveryHero`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
 | `MediaTiles/` | `MediaTile`, `MediaTileGrid`, `MediaTileShelf` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
-| `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, status pills, and group drill-down components. Do not add all-in-one management workflow components here. |
+| `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, and status pills. Do not add all-in-one management workflow components here. |
 | `Listen/` | `ListenNowPlayingBar`, `ListenTrackDataGrid` |
 | `MediaEditor/` | `SharedMediaEditorShell`, `SharedMediaBatchConfirmDialog` |
 | `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |
@@ -612,7 +612,7 @@ Reusable visual components, organised by feature slice.
 | `Settings/` | Settings shell tabs — see §3.11 for the section list and component inventory. |
 | `Shared/` | `AppIcon`, `AppIconCatalog`, `AppPageHeader`, `AppSurfaceCard`, `FuzzySearchField` — cross-cutting primitives |
 | `Universe/` | Hero, swimlane, and card components: `CollectionHero`, `CompactHero`, `HeroCarousel`, `PosterSwimlane`, `SwimlaneSection`, `LandscapeCard`, `SquareCard`, `WideCard`, `WorkCard`, `LibraryCard`, `PersonCard`, `PersonSwimlaneHeader`, `TrackRow`, `MetadataChips`, `ProgressIndicator`, `AmbientBackground`, `GlobalBackground`, `GreetingBar`, `AdaptationTree` + node, `FamilyTreeView`, `AlphabeticalGrid`, `CastComparison`, `BookDetailContent`, `CollectionShell`, `CollectionToolbar`, `LaneFilterBar`, `ManualEntryForm`, `MediaSearchPanel`, `MissingUniverseChip`, `PathFinderPanel`, `PendingFilesAlert`, `UniverseGuide` |
-| `Watch/` | `TvBrowsePage`, `WatchPlaybackSpecs`, `WatchTvStyles` |
+| `Watch/` | `WatchPlaybackSpecs` |
 
 ### 6.3 — Other top-level folders under `src/MediaEngine.Web/`
 

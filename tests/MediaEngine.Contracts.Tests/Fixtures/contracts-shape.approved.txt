@@ -658,9 +658,17 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.WatchingSettingsDt
   RememberPerTitlePlaybackSpeed: System.Boolean | nullability=not-null | accessors=get,set
   PreferredVideoQuality: System.String | nullability=not-null | accessors=get,set
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryLaneGroupDisplaySettings
+  Enabled: System.Boolean? | nullability=nullable | accessors=get,set
+  ShelfKey: System.String | nullability=nullable | accessors=get,set
+  Title: System.String | nullability=nullable | accessors=get,set
+  Subtitle: System.String | nullability=nullable | accessors=get,set
+  SeeAllRoute: System.String | nullability=nullable | accessors=get,set
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryPreferencesSettings
   ShowUnowned: System.Boolean | nullability=not-null | accessors=get,set
   ViewModes: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
+  LaneGroupDisplay: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Settings.LibraryLaneGroupDisplaySettings> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MediaTypePipeline
   Strategy: MediaEngine.Domain.Enums.ProviderStrategy | nullability=not-null | accessors=get,set

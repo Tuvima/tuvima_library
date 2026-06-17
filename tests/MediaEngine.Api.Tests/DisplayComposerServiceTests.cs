@@ -9,10 +9,11 @@ public sealed class DisplayComposerServiceTests
     {
         var movieId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var tvId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var tvCollectionId = Guid.Parse("22222222-aaaa-2222-2222-222222222222");
         var repository = new StubDisplayProjectionRepository(
             [
                 Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction; Drama"),
-                Work(tvId, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1"),
+                Work(tvId, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: tvCollectionId, showName: "Breaking Bad"),
             ],
             [
                 Journey(movieId, "Movie", "Arrival", progressPct: 42, year: "2016", genre: "Science Fiction; Drama"),
@@ -23,15 +24,22 @@ public sealed class DisplayComposerServiceTests
 
         Assert.Equal("watch", page.Key);
         Assert.Contains(page.Shelves, shelf => shelf.Key == "continue-watching");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "shows-and-series");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "movies");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "tv");
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "tv");
         Assert.Equal("/watch/movies", page.Shelves.Single(shelf => shelf.Key == "movies").SeeAllRoute);
-        Assert.Equal("/watch/tv", page.Shelves.Single(shelf => shelf.Key == "tv").SeeAllRoute);
+        Assert.Equal("/watch/tv", page.Shelves.Single(shelf => shelf.Key == "shows-and-series").SeeAllRoute);
 
         var continueCard = page.Shelves.Single(shelf => shelf.Key == "continue-watching").Items.Single();
         Assert.Equal(42, continueCard.Progress?.Percent);
         Assert.Equal("Continue Watching", continueCard.Actions[0].Label);
         Assert.Equal(["2016", "Science Fiction", "Drama"], continueCard.Facts);
+
+        var showCard = page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items.Single();
+        Assert.Equal("Breaking Bad", showCard.Title);
+        Assert.Equal("1 season", showCard.Subtitle);
+        Assert.Equal("Open Show", showCard.Actions[0].Label);
+        Assert.Equal($"/watch/tv/show/{tvCollectionId:D}", showCard.Actions[0].WebUrl);
     }
 
     [Fact]
@@ -151,6 +159,33 @@ public sealed class DisplayComposerServiceTests
         Assert.Empty(page.Shelves);
         Assert.Single(page.Catalog);
         Assert.Equal("Arrival", page.Catalog[0].Title);
+    }
+
+    [Fact]
+    public async Task TvShowsBrowse_ReturnsShowCardsInsteadOfEpisodeCards()
+    {
+        var collectionId = Guid.Parse("77777777-9999-9999-9999-777777777777");
+        var firstEpisode = Guid.Parse("77777777-aaaa-9999-9999-777777777777");
+        var secondEpisode = Guid.Parse("77777777-bbbb-9999-9999-777777777777");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(firstEpisode, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: collectionId, showName: "Breaking Bad"),
+                Work(secondEpisode, "TV", "Cat's in the Bag...", year: "2008", genre: "Crime", season: "1", episode: "2", collectionId: collectionId, showName: "Breaking Bad"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", "TV", "shows", null, 0, 48, includeCatalog: true);
+
+        var card = Assert.Single(page.Catalog);
+        Assert.Equal(collectionId, card.Id);
+        Assert.Null(card.WorkId);
+        Assert.Equal("Breaking Bad", card.Title);
+        Assert.Equal("1 season", card.Subtitle);
+        Assert.Equal("tvSeries", card.Presentation);
+        Assert.Equal("Open Show", card.Actions[0].Label);
+        Assert.Equal($"/watch/tv/show/{collectionId:D}", card.Actions[0].WebUrl);
+        Assert.DoesNotContain(page.Catalog, item => item.Title == "Pilot");
     }
 
     [Fact]
@@ -337,7 +372,8 @@ public sealed class DisplayComposerServiceTests
         string? identityQid = null,
         string? network = null,
         string? source = null,
-        string? quality = null)
+        string? quality = null,
+        string? showName = null)
     {
         return new DisplayWorkRow
         {
@@ -353,6 +389,7 @@ public sealed class DisplayComposerServiceTests
             Album = album,
             Year = year,
             Genre = genre,
+            ShowName = showName,
             Narrator = narrator,
             SeasonNumber = season,
             EpisodeNumber = episode,

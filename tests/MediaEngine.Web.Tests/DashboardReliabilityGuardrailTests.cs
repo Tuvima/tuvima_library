@@ -76,13 +76,23 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
-    public void BrowseShell_FallsBackToDisplayCardsWhenTvShowGroupsAreEmpty()
+    public void BrowseShell_UsesDisplayCardsForTvShowCardView()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
 
         Assert.Contains("IsTvShowsGrouping", source, StringComparison.Ordinal);
-        Assert.Contains("_groups.Count == 0 && IsTvShowsGrouping", source, StringComparison.Ordinal);
+        Assert.Contains("IsTvShowsGrouping && !UseListLayout", source, StringComparison.Ordinal);
+        Assert.Contains("LoadDisplayCardsAsync(append)", source, StringComparison.Ordinal);
         Assert.Contains("Display API did not return a TV browse page.", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BrowseShell_BindsSortValueInsteadOfLiteralFieldName()
+    {
+        var source = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
+
+        Assert.Contains("Value=\"@_sortBy\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Value=\"_sortBy\"", source, StringComparison.Ordinal);
     }
 
     [Fact]

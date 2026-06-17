@@ -19,35 +19,12 @@ public static class BrowseQueryBuilder
         var layout = ResolveLayout(query["layout"], resolvedTab, grouping);
         var sortBy = ResolveSort(query["sort"], resolvedTab.Id, grouping);
 
-        Guid? groupId = null;
-        string? groupType = null;
-        string? groupName = null;
-        string? groupField = null;
-        string? groupMediaType = null;
-        string? artistName = null;
-
-        if (Guid.TryParse(query["group"], out var parsedGroupId) && !string.IsNullOrWhiteSpace(query["groupType"]))
-        {
-            groupId = parsedGroupId;
-            groupType = Uri.UnescapeDataString(query["groupType"]!);
-            groupName = query["groupName"] is { Length: > 0 } rawGroupName ? Uri.UnescapeDataString(rawGroupName) : null;
-            groupField = query["groupField"] is { Length: > 0 } rawGroupField ? Uri.UnescapeDataString(rawGroupField) : null;
-            groupMediaType = query["groupMediaType"] is { Length: > 0 } rawMediaType ? Uri.UnescapeDataString(rawMediaType) : null;
-            artistName = query["artistName"] is { Length: > 0 } rawArtistName ? Uri.UnescapeDataString(rawArtistName) : null;
-        }
-
         return new BrowseState(
             resolvedTab.Id,
             grouping,
             query["search"] ?? string.Empty,
             sortBy,
-            layout,
-            groupId,
-            groupType,
-            groupName,
-            groupField,
-            groupMediaType,
-            artistName);
+            layout);
     }
 
     public static string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab)
@@ -95,7 +72,6 @@ public static class BrowseQueryBuilder
 
     public static string? GetSystemViewGroupField(string activeTabId, string grouping) => (activeTabId, grouping) switch
     {
-        ("tv", "shows") => "show_name",
         ("music", "artists") => "artist",
         ("music", "albums") => "album",
         ("books", "series") => "series",
@@ -104,15 +80,4 @@ public static class BrowseQueryBuilder
         _ => null,
     };
 
-    public static string? GetGroupType(string activeTabId, string grouping) => (activeTabId, grouping) switch
-    {
-        ("movies", "series") => "movie-series",
-        ("tv", "shows") => "tv-show",
-        ("music", "artists") => "artist",
-        ("music", "albums") => "album",
-        ("books", "series") => "book-series",
-        ("audiobooks", "series") => "book-series",
-        ("comics", "series") => "comic-series",
-        _ => null,
-    };
 }

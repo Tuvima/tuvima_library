@@ -11,6 +11,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Details;
@@ -254,7 +255,7 @@ public sealed class DetailComposerService
             WHERE c.id = @collectionId
             LIMIT 1;
             """,
-            new { collectionId = collectionId.ToString() },
+            new { collectionId = GuidSql.ToBlob(collectionId) },
             cancellationToken: ct));
 
         if (rawRow is null)
@@ -2241,8 +2242,8 @@ public sealed class DetailComposerService
         using var conn = _db.CreateConnection();
         var rawRows = await conn.QueryAsync(new CommandDefinition(
             """
-            SELECT CAST(w.id AS TEXT) AS Id,
-                   CAST(ma.id AS TEXT) AS AssetId,
+            SELECT w.id AS Id,
+                   ma.id AS AssetId,
                    CAST(w.media_type AS TEXT) AS MediaType,
                    w.ordinal AS Ordinal,
                    CAST(w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson,
@@ -2355,7 +2356,12 @@ public sealed class DetailComposerService
             GROUP BY w.id
             ORDER BY COALESCE(ci.sort_order, 9999), CAST(NULLIF(Season, '') AS INTEGER), CAST(NULLIF(Episode, '') AS INTEGER), CAST(NULLIF(TrackNumber, '') AS INTEGER), COALESCE(w.ordinal, 9999), Title;
             """,
-            new { collectionId = collectionId.ToString(), rootWorkId = rootWorkId?.ToString("D"), defaultOwnerUserId = DefaultOwnerUserId.ToString("D") },
+            new
+            {
+                collectionId = GuidSql.ToBlob(collectionId),
+                rootWorkId = rootWorkId.HasValue ? GuidSql.ToBlob(rootWorkId.Value) : null,
+                defaultOwnerUserId = GuidSql.ToBlob(DefaultOwnerUserId),
+            },
             cancellationToken: ct));
         return rawRows.Select(row => new CollectionWorkSummary(
             StringValue(row.Id) ?? string.Empty,
@@ -2363,7 +2369,7 @@ public sealed class DetailComposerService
             IntValue(row.Ordinal),
             FirstNonBlank(
                 ResolveDisplayTitleOverride(
-                    StringValue(row.WorkDisplayOverridesJson),
+                    (string?)StringValue(row.WorkDisplayOverridesJson),
                     InferMediaItemEntityType(StringValue(row.MediaType) ?? string.Empty, StringValue(row.Episode))),
                 StringValue(row.Title),
                 "Untitled"),
@@ -2452,7 +2458,7 @@ public sealed class DetailComposerService
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<CanonicalPair>(new CommandDefinition(
             "SELECT key AS Key, value AS Value FROM canonical_values WHERE entity_id = @entityId;",
-            new { entityId = entityId.ToString() },
+            new { entityId = GuidSql.ToBlob(entityId) },
             cancellationToken: ct));
         return rows.GroupBy(r => r.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Value, StringComparer.OrdinalIgnoreCase);
@@ -2464,7 +2470,7 @@ public sealed class DetailComposerService
         CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
-        var rootId = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+        var rootValue = await conn.ExecuteScalarAsync<object?>(new CommandDefinition(
             """
             SELECT COALESCE(gp.id, p.id, w.id)
             FROM works w
@@ -2484,11 +2490,12 @@ public sealed class DetailComposerService
             """,
             new
             {
-                collectionId = collectionId.ToString("D"),
+                collectionId = GuidSql.ToBlob(collectionId),
                 requireRootWithChildren = requireRootWithChildren ? 1 : 0,
             },
             cancellationToken: ct));
 
+        var rootId = StringValue(rootValue);
         return Guid.TryParse(rootId, out var rootGuid) ? rootGuid : null;
     }
 
@@ -5175,7 +5182,9 @@ public sealed class DetailComposerService
 
         if (value is byte[] bytes)
         {
-            return Encoding.UTF8.GetString(bytes);
+            return bytes.Length == 16
+                ? GuidSql.FromDb(bytes).ToString("D")
+                : Encoding.UTF8.GetString(bytes);
         }
 
         var text = Convert.ToString(value);

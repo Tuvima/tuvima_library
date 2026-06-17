@@ -22,7 +22,7 @@
 <BrowseShellStyles />
 
 <div class="browse-shell">
-    @if (!_isGroupDrilldown && _hero is not null)
+    @if (_hero is not null)
     {
         <MediaBrowseHero Hero="_hero" />
     }
@@ -51,94 +51,82 @@
             </div>
 
             <div class="browse-shell__toolbar">
-                @if (_isGroupDrilldown)
+                @if (CurrentTab.GroupingOptions.Count > 1)
                 {
-                    <AppButton Variant="Variant.Outlined"
-                               StartIcon="@Icons.Material.Outlined.ArrowBack"
-                               OnClick="NavigateBackFromGroup"
-                               Class="browse-shell__back">
-                        Back to @CurrentTab.Label
-                    </AppButton>
+                    <MudChipSet T="string"
+                                SelectedValue="@_grouping"
+                                SelectedValueChanged="OnGroupingChanged"
+                                Class="browse-shell__groupings">
+                        @foreach (var option in CurrentTab.GroupingOptions)
+                        {
+                            <AppChip T="string"
+                                     @key="option.Value"
+                                     Value="@option.Value"
+                                     Icon="@option.Icon"
+                                     Variant="Variant.Text">
+                                @option.Label
+                            </AppChip>
+                        }
+                    </MudChipSet>
                 }
-                else
-                {
-                    @if (CurrentTab.GroupingOptions.Count > 1)
+
+                <AppTextField T="string"
+                              @bind-Value="_searchText"
+                              Placeholder="Search your library"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                              Immediate="true"
+                              DebounceInterval="250"
+                              OnDebounceIntervalElapsed="OnSearchChanged"
+                              Class="browse-shell__search" />
+
+                <div class="browse-shell__controls">
+                    @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
                     {
-                        <MudChipSet T="string"
-                                    SelectedValue="@_grouping"
-                                    SelectedValueChanged="OnGroupingChanged"
-                                    Class="browse-shell__groupings">
-                            @foreach (var option in CurrentTab.GroupingOptions)
-                            {
-                                <AppChip T="string"
-                                         @key="option.Value"
-                                         Value="@option.Value"
-                                         Icon="@option.Icon"
-                                         Variant="Variant.Text">
-                                    @option.Label
-                                </AppChip>
-                            }
-                        </MudChipSet>
+                        <AppButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Outlined.Edit"
+                                   OnClick="OpenBatchEditorAsync"
+                                   Class="browse-shell__batch-edit">
+                            Edit @_selectedItems.Count
+                        </AppButton>
                     }
 
-                    <AppTextField T="string"
-                                  @bind-Value="_searchText"
-                                  Placeholder="Search your library"
-                                  Variant="Variant.Outlined"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Outlined.Search"
-                                  Immediate="true"
-                                  DebounceInterval="250"
-                                  OnDebounceIntervalElapsed="OnSearchChanged"
-                                  Class="browse-shell__search" />
-
-                    <div class="browse-shell__controls">
-                        @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
+                    <AppSelect T="string"
+                               Value="@_sortBy"
+                               ValueChanged="OnSortChanged"
+                               Label="Sort"
+                               Variant="Variant.Outlined"
+                               Dense="true"
+                               Class="browse-shell__sort">
+                        @foreach (var option in GetSortOptions())
                         {
-                            <AppButton Variant="Variant.Outlined"
-                                       Color="Color.Default"
-                                       StartIcon="@Icons.Material.Outlined.Edit"
-                                       OnClick="OpenBatchEditorAsync"
-                                       Class="browse-shell__batch-edit">
-                                Edit @_selectedItems.Count
-                            </AppButton>
+                            <MudSelectItem T="string" @key="option.Value" Value="@option.Value">@option.Label</MudSelectItem>
                         }
+                    </AppSelect>
 
-                        <AppSelect T="string"
-                                   Value="_sortBy"
-                                   ValueChanged="OnSortChanged"
-                                   Label="Sort"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Class="browse-shell__sort">
-                            @foreach (var option in GetSortOptions())
-                            {
-                                <MudSelectItem T="string" @key="option.Value" Value="@option.Value">@option.Label</MudSelectItem>
-                            }
-                        </AppSelect>
-
-                        @if (SupportsLayoutToggle)
-                        {
-                            <MudChipSet T="string"
-                                        SelectedValue="@_layout.ToString()"
-                                        SelectedValueChanged="OnLayoutChanged"
-                                        Class="browse-shell__layout-toggle">
-                                <AppChip T="string"
-                                         Value="@LibraryLayoutMode.Card.ToString()"
-                                         Icon="@Icons.Material.Outlined.GridView"
-                                         Variant="Variant.Text">
-                                    Cards
-                                </AppChip>
-                                <AppChip T="string"
-                                         Value="@LibraryLayoutMode.List.ToString()"
-                                         Icon="@Icons.Material.Outlined.ViewList"
-                                         Variant="Variant.Text">
-                                    List
-                                </AppChip>
-                            </MudChipSet>
-                        }
-                    </div>
-                }
+                    @if (SupportsLayoutToggle)
+                    {
+                        <MudChipSet T="string"
+                                    SelectedValue="@_layout.ToString()"
+                                    SelectedValueChanged="OnLayoutChanged"
+                                    Class="browse-shell__layout-toggle">
+                            <AppChip T="string"
+                                     Value="@LibraryLayoutMode.Card.ToString()"
+                                     Icon="@Icons.Material.Outlined.GridView"
+                                     Variant="Variant.Text">
+                                Cards
+                            </AppChip>
+                            <AppChip T="string"
+                                     Value="@LibraryLayoutMode.List.ToString()"
+                                     Icon="@Icons.Material.Outlined.ViewList"
+                                     Variant="Variant.Text">
+                                List
+                            </AppChip>
+                        </MudChipSet>
+                    }
+                </div>
             </div>
         </div>
     </div>
@@ -148,23 +136,6 @@
         <div class="browse-shell__loading">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
         </div>
-    }
-    else if (_isGroupDrilldown && _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType))
-    {
-        <MediaGroupPage GroupType="@(_activeGroupType!)"
-                        GroupId="@_activeGroupId.Value"
-                        ArtistAlbumCollectionIds="@_artistAlbumCollectionIds"
-                        ArtistName="@_activeArtistName"
-                        GroupName="@_activeGroupName"
-                        GroupField="@_activeGroupField"
-                        MediaType="@_activeGroupMediaType"
-                        RefreshVersion="@_groupRefreshVersion"
-                        OnBack="NavigateBackFromGroup"
-                        OnItemClicked="OpenItem"
-                        OnItemEditClicked="OpenItemEditorAsync"
-                        OnAlbumTileClicked="OpenAlbumGroup"
-                        OnAlbumNameClicked="OpenAlbumGroupByName"
-                        OnPersonClicked="OpenPerson" />
     }
     else if (_loadFailed)
     {
@@ -210,7 +181,7 @@
                        Class="browse-shell__grid" />
     }
 
-    @if (_hasMore && !_isGroupDrilldown && !IsContainerGrouping)
+    @if (_hasMore && !IsContainerGrouping)
     {
         <div class="browse-shell__load-more">
             <AppButton Variant="Variant.Filled"
@@ -248,21 +219,11 @@
     private List<ContentGroupViewModel> _groups = [];
     private BrowseHeroViewModel? _hero;
 
-    private Guid? _activeGroupId;
-    private string? _activeGroupType;
-    private string? _activeGroupName;
-    private string? _activeGroupField;
-    private string? _activeGroupMediaType;
-    private string? _activeArtistName;
-    private List<Guid>? _artistAlbumCollectionIds;
-    private int _groupRefreshVersion;
-
     private BrowseTabPreset CurrentTab =>
         Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
         ?? Preset.Tabs[0];
 
     private int ActiveBrowseTabIndex => GetSelectedIndex(Preset.Tabs.Select(tab => tab.Id), _activeTabId);
-    private bool _isGroupDrilldown => _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType);
     private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
     private bool IsTvShowsGrouping =>
         string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
@@ -365,19 +326,7 @@
         _searchText = state.SearchText;
         _sortBy = state.SortBy;
 
-        if (state.IsGroupDrilldown)
-        {
-            _activeGroupId = state.GroupId;
-            _activeGroupType = state.GroupType;
-            _activeGroupName = state.GroupName;
-            _activeGroupField = state.GroupField;
-            _activeGroupMediaType = state.GroupMediaType;
-            _activeArtistName = state.ArtistName;
-        }
-        else
-        {
-            ClearActiveGroupState();
-        }
+        ClearActiveGroupState();
     }
 
     private static string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab) =>
@@ -393,13 +342,6 @@
     {
         _loadFailed = false;
         _loadError = null;
-        if (_isGroupDrilldown)
-        {
-            _loading = false;
-            _hasLoadedOnce = true;
-            return;
-        }
-
         _loading = true;
         if (!_hasLoadedOnce)
             StateHasChanged();
@@ -410,10 +352,9 @@
 
             if (IsContainerGrouping)
             {
-                var groupsTask = LoadGroupsAsync();
-                await Task.WhenAll(journeyTask, groupsTask);
-                if (_groups.Count == 0 && IsTvShowsGrouping && !_loadFailed)
+                if (IsTvShowsGrouping && !UseListLayout)
                 {
+                    await journeyTask;
                     if (!await LoadDisplayCardsAsync(append))
                     {
                         throw new InvalidOperationException("Display API did not return a TV browse page.");
@@ -421,6 +362,8 @@
                 }
                 else
                 {
+                    var groupsTask = LoadGroupsAsync();
+                    await Task.WhenAll(journeyTask, groupsTask);
                     _cards.Clear();
                     _cards.AddRange(_groups.Select(ToGroupCard));
                 }
@@ -499,6 +442,7 @@
         }
 
         _items = [];
+        _groups = [];
         _hasMore = page.Catalog.Count >= PageSize;
         _hero = BuildDisplayHero(page.Hero);
         return true;
@@ -794,7 +738,7 @@
             GroupingType: string.Equals(presentation, "default", StringComparison.OrdinalIgnoreCase) ? "collection" : presentation,
             Title: group.DisplayName,
             Subtitle: group.Creator ?? group.Network,
-            Facts: BrowseArtworkRules.CompactFacts(group.Year, $"{group.WorkCount} items"),
+            Facts: BrowseArtworkRules.CompactFacts(group.Year, GroupCountLabel(group)),
             Artwork: new DisplayArtworkDto(coverUrl, coverSmallUrl, coverMediumUrl, coverLargeUrl, group.ArtistPhotoUrl, artistSmallUrl, artistMediumUrl, artistLargeUrl, group.BannerUrl, bannerSmallUrl, bannerMediumUrl, bannerLargeUrl, wideArtwork, backgroundSmallUrl, backgroundMediumUrl, backgroundLargeUrl, group.LogoUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx, group.BannerWidthPx, group.BannerHeightPx, group.BackgroundWidthPx, group.BackgroundHeightPx, group.MediaTypeColor ?? AccentForMedia(group.PrimaryMediaType)),
             PreferredShape: BrowseArtworkRules.PreferredDisplayShape(group.PrimaryMediaType, wideArtwork, group.ArtistPhotoUrl),
             Presentation: presentation,
@@ -809,10 +753,44 @@
             MediaTileComposerService.FromDisplayCard(card),
             description: BuildGroupDescription(group),
             heroUrl: null,
-            previewImages: !string.Equals(presentation, "artist", StringComparison.OrdinalIgnoreCase) && MediaTileArtworkUrl.Sized(group.CoverUrl, "s") is { Length: > 0 } cover ? [cover] : [],
+            previewImages: BuildGroupPreviewImages(group, wideArtwork, presentation),
             creator: group.Creator,
             collectionKey: group.DisplayName,
             sortYear: ParseYear(group.Year));
+    }
+
+    private static IReadOnlyList<string> BuildGroupPreviewImages(ContentGroupViewModel group, string? wideArtwork, string presentation)
+    {
+        IEnumerable<string?> candidates = string.Equals(presentation, "artist", StringComparison.OrdinalIgnoreCase)
+            ? new[] { group.ArtistPhotoUrl, group.CoverUrl, group.BannerUrl, group.BackgroundUrl }
+            : new[] { wideArtwork, group.BannerUrl, group.BackgroundUrl, group.CoverUrl };
+
+        return candidates
+            .Select(value => MediaTileArtworkUrl.Sized(value, "s") ?? value)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToList();
+    }
+
+    private static string GroupCountLabel(ContentGroupViewModel group)
+    {
+        if (string.Equals(group.PrimaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && group.SeasonCount is int seasonCount
+            && seasonCount > 0)
+        {
+            return seasonCount == 1 ? "1 season" : $"{seasonCount} seasons";
+        }
+
+        var noun = group.PrimaryMediaType switch
+        {
+            "Comic" => group.WorkCount == 1 ? "issue" : "issues",
+            "Music" => group.WorkCount == 1 ? "track" : "tracks",
+            _ => group.WorkCount == 1 ? "title" : "titles",
+        };
+
+        return $"{group.WorkCount} {noun}";
     }
 
     private List<LibraryItemViewModel> BuildContainerDisplayItems()
@@ -952,7 +930,7 @@
             card.Subtitle,
             card.CoverUrl,
             item?.MediaType ?? card.MediaKind,
-            reloadGroup: false);
+            reloadOrigin: true);
     }
 
     private async Task OpenItemEditorAsync(Guid entityId)
@@ -966,7 +944,7 @@
             item?.Creator ?? item?.ContextLabel,
             item?.CoverUrl,
             item?.MediaType,
-            reloadGroup: _isGroupDrilldown);
+            reloadOrigin: true);
     }
 
     private async Task OpenBatchEditorAsync()
@@ -1012,7 +990,7 @@
         string? subtitle,
         string? coverUrl,
         string? mediaType,
-        bool reloadGroup)
+        bool reloadOrigin)
     {
         if (entityId == Guid.Empty)
         {
@@ -1049,20 +1027,14 @@
             return;
         }
 
-        await RefreshOriginAsync(reloadGroup);
+        await RefreshOriginAsync(reloadOrigin);
         Snackbar.Add("Media details updated.", Severity.Success);
     }
 
-    private async Task RefreshOriginAsync(bool reloadGroup = false)
+    private async Task RefreshOriginAsync(bool reloadOrigin = true)
     {
-        if (reloadGroup)
-        {
-            _groupRefreshVersion++;
-            StateHasChanged();
-            return;
-        }
-
-        await LoadBrowseContentAsync();
+        if (reloadOrigin)
+            await LoadBrowseContentAsync();
     }
 
     private static string NormalizeEditorMediaType(string? mediaType)
@@ -1079,42 +1051,6 @@
         if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
             return "Comics";
         return "Books";
-    }
-
-    private Task OpenPerson(Guid personId)
-    {
-        Nav.NavigateTo($"/details/person/{personId}");
-        return Task.CompletedTask;
-    }
-
-    private Task OpenAlbumGroup(Guid collectionId)
-    {
-        _activeGroupName = null;
-        _activeGroupField = null;
-        _activeGroupMediaType = "Music";
-        _activeGroupType = "album";
-        _activeGroupId = collectionId;
-        _activeArtistName = null;
-        _artistAlbumCollectionIds = null;
-        return NavigateAndReloadAsync(reloadData: false);
-    }
-
-    private Task OpenAlbumGroupByName(string albumName)
-    {
-        _activeGroupName = albumName;
-        _activeGroupField = "album";
-        _activeGroupMediaType = "Music";
-        _activeGroupType = "album";
-        _activeGroupId = GenerateDeterministicGuid(albumName);
-        _activeArtistName = null;
-        _artistAlbumCollectionIds = null;
-        return NavigateAndReloadAsync(reloadData: false);
-    }
-
-    private Task NavigateBackFromGroup()
-    {
-        ClearActiveGroupState();
-        return NavigateAndReloadAsync(reloadData: false);
     }
 
     private Task NavigateAndReloadAsync(bool reloadData = true, bool replace = false)
@@ -1153,83 +1089,22 @@
             queryParts.Add($"sort={Uri.EscapeDataString(_sortBy)}");
         }
 
-        if (_isGroupDrilldown && _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType))
-        {
-            queryParts.Add($"group={_activeGroupId.Value}");
-            queryParts.Add($"groupType={Uri.EscapeDataString(_activeGroupType!)}");
-            if (!string.IsNullOrWhiteSpace(_activeGroupName))
-            {
-                queryParts.Add($"groupName={Uri.EscapeDataString(_activeGroupName)}");
-            }
-            if (!string.IsNullOrWhiteSpace(_activeGroupField))
-            {
-                queryParts.Add($"groupField={Uri.EscapeDataString(_activeGroupField)}");
-            }
-            if (!string.IsNullOrWhiteSpace(_activeGroupMediaType))
-            {
-                queryParts.Add($"groupMediaType={Uri.EscapeDataString(_activeGroupMediaType)}");
-            }
-            if (!string.IsNullOrWhiteSpace(_activeArtistName))
-            {
-                queryParts.Add($"artistName={Uri.EscapeDataString(_activeArtistName)}");
-            }
-        }
-
         return queryParts.Count == 0 ? path : $"{path}?{string.Join("&", queryParts)}";
     }
 
     private string BuildGroupNavigationUrl(ContentGroupViewModel group)
     {
-        var groupId = GetGroupNavigationId(group);
-        var groupType = GetGroupType();
-        if (groupType is null)
+        return (_activeTabId, _grouping) switch
         {
-            return BuildCurrentUrl();
-        }
-
-        var defaultTab = Preset.Tabs[0].Id;
-        var path = string.Equals(_activeTabId, defaultTab, StringComparison.OrdinalIgnoreCase)
-            ? Preset.RouteBase
-            : $"{Preset.RouteBase}/{_activeTabId}";
-
-        var queryParts = new List<string>();
-
-        if (!string.Equals(_grouping, CurrentTab.DefaultGrouping, StringComparison.OrdinalIgnoreCase))
-        {
-            queryParts.Add($"grouping={Uri.EscapeDataString(_grouping)}");
-        }
-
-        if (_layout != ResolveLayout(null, CurrentTab, _grouping))
-        {
-            queryParts.Add($"layout={_layout.ToString().ToLowerInvariant()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(_searchText))
-        {
-            queryParts.Add($"search={Uri.EscapeDataString(_searchText)}");
-        }
-
-        if (!string.Equals(_sortBy, ResolveSort(null), StringComparison.OrdinalIgnoreCase))
-        {
-            queryParts.Add($"sort={Uri.EscapeDataString(_sortBy)}");
-        }
-
-        queryParts.Add($"group={groupId}");
-        queryParts.Add($"groupType={Uri.EscapeDataString(groupType)}");
-
-        var systemGroupField = GetSystemViewGroupField();
-        if (systemGroupField is not null)
-        {
-            queryParts.Add($"groupName={Uri.EscapeDataString(group.DisplayName)}");
-            queryParts.Add($"groupField={Uri.EscapeDataString(systemGroupField)}");
-            queryParts.Add($"groupMediaType={Uri.EscapeDataString(CurrentTab.MediaType)}");
-            if (_grouping == "artists")
-            {
-                queryParts.Add($"artistName={Uri.EscapeDataString(group.DisplayName)}");
-            }
-        }
-
-        return $"{path}?{string.Join("&", queryParts)}";
+            ("tv", "shows") => $"/watch/tv/show/{group.CollectionId:D}",
+            ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
+            ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
+            ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
+            ("comics", "series") => $"/details/comicseries/{group.CollectionId:D}?context=comics",
+            ("music", "albums") => $"/listen/music/albums/{group.CollectionId:D}",
+            ("music", "artists") => $"/listen/music/artists/{Uri.EscapeDataString(group.DisplayName)}",
+            _ => BuildCurrentUrl(),
+        };
     }
 
     private Guid GetGroupNavigationId(ContentGroupViewModel group) =>
@@ -1240,18 +1115,8 @@
     private string? GetSystemViewGroupField() =>
         BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping);
 
-    private string? GetGroupType() =>
-        BrowseQueryBuilder.GetGroupType(_activeTabId, _grouping);
-
     private void ClearActiveGroupState()
     {
-        _activeGroupId = null;
-        _activeGroupType = null;
-        _activeGroupName = null;
-        _activeGroupField = null;
-        _activeGroupMediaType = null;
-        _activeArtistName = null;
-        _artistAlbumCollectionIds = null;
     }
 
     private string BuildJourneyPrimaryUrl(JourneyItemViewModel item)

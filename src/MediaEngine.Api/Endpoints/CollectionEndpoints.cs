@@ -910,9 +910,9 @@ public static class CollectionEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
-        // GET /collections/system-view-detail?groupField=show_name&groupValue=Breaking Bad&mediaType=TV
-        // Generic system-view drill-down that works for any group field (show_name, series, album, artist).
-        // Returns a CollectionGroupDetailDto with seasons/sections grouped by a secondary field when available.
+        // GET /collections/system-view-detail?groupField=album&groupValue=The%20Record&mediaType=Music
+        // Generic grouped detail endpoint for non-routed system views such as music albums/artists.
+        // TV shows use /watch/tv/show/{collectionId} and the unified detail composer instead of this endpoint.
         group.MapGet("/system-view-detail", async (
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupField")] string? groupField,
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupValue")] string? groupValue,
@@ -1040,11 +1040,64 @@ public static class CollectionEndpoints
                         MAX(CASE WHEN cv.key = 'year'                THEN cv.value END) AS year_val,
                         MAX(CASE WHEN cv.key = 'duration'            THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime'             THEN cv.value END) AS runtime,
-                        '/stream/' || MIN(ma.id) || '/cover' AS cover,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_cover.value, '')
+                                FROM canonical_values cv_group_cover
+                                WHERE cv_group_cover.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_cover.key IN ('cover_url', 'cover', 'poster_url', 'poster')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('cover_url', 'cover', 'poster_url', 'poster') THEN NULLIF(cv.value, '') END),
+                            '/stream/' || MIN(ma.id) || '/cover'
+                        ) AS cover,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_background.value, '')
+                                FROM canonical_values cv_group_background
+                                WHERE cv_group_background.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_background.key IN ('background_url', 'background')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('background_url', 'background') THEN NULLIF(cv.value, '') END)
+                        ) AS background,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_banner.value, '')
+                                FROM canonical_values cv_group_banner
+                                WHERE cv_group_banner.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_banner.key IN ('banner_url', 'banner')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('banner_url', 'banner') THEN NULLIF(cv.value, '') END)
+                        ) AS banner,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_hero.value, '')
+                                FROM canonical_values cv_group_hero
+                                WHERE cv_group_hero.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_hero.key IN ('hero_url', 'hero')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('hero_url', 'hero') THEN NULLIF(cv.value, '') END)
+                        ) AS hero,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_logo.value, '')
+                                FROM canonical_values cv_group_logo
+                                WHERE cv_group_logo.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_logo.key IN ('clear_logo_url', 'clear_logo', 'logo_url', 'logo')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('clear_logo_url', 'clear_logo', 'logo_url', 'logo') THEN NULLIF(cv.value, '') END)
+                        ) AS logo,
                         MAX(CASE WHEN cv.key = 'genre'               THEN cv.value END) AS genre,
                         MAX(CASE WHEN cv.key = 'network'             THEN cv.value END) AS network,
                         MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json
                     FROM matched_works mw
+                    INNER JOIN works w ON w.id = mw.work_id
+                    LEFT JOIN works p ON p.id = w.parent_work_id
+                    LEFT JOIN works gp ON gp.id = p.parent_work_id
                     INNER JOIN editions e ON e.work_id = mw.work_id
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
                     INNER JOIN canonical_values cv ON cv.entity_id = ma.id
@@ -1090,6 +1143,10 @@ public static class CollectionEndpoints
             var sectionMap = new Dictionary<string, List<CollectionGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
             string? combinedCreator = null;
             string? combinedCover = null;
+            string? combinedBackground = null;
+            string? combinedBanner = null;
+            string? combinedHero = null;
+            string? combinedLogo = null;
             string? combinedGenre = null;
             string? combinedNetwork = null;
             var allYears = new List<string>();
@@ -1103,6 +1160,10 @@ public static class CollectionEndpoints
                 var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
                 var episodeTitle = reader.IsDBNull(reader.GetOrdinal("episode_title")) ? null : reader.GetString(reader.GetOrdinal("episode_title"));
                 var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
+                var background = reader.IsDBNull(reader.GetOrdinal("background")) ? null : reader.GetString(reader.GetOrdinal("background"));
+                var banner = reader.IsDBNull(reader.GetOrdinal("banner")) ? null : reader.GetString(reader.GetOrdinal("banner"));
+                var hero = reader.IsDBNull(reader.GetOrdinal("hero")) ? null : reader.GetString(reader.GetOrdinal("hero"));
+                var logo = reader.IsDBNull(reader.GetOrdinal("logo")) ? null : reader.GetString(reader.GetOrdinal("logo"));
                 var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
                 var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
                 var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
@@ -1134,6 +1195,10 @@ public static class CollectionEndpoints
 
                 combinedCreator ??= creator;
                 combinedCover ??= cover;
+                combinedBackground ??= background;
+                combinedBanner ??= banner;
+                combinedHero ??= hero;
+                combinedLogo ??= logo;
                 combinedGenre ??= genre;
 
                 combinedNetwork ??= networkVal;
@@ -1169,6 +1234,9 @@ public static class CollectionEndpoints
                     Year = year,
                     Duration = duration ?? runtime,
                     CoverUrl = cover,
+                    BackgroundUrl = background,
+                    BannerUrl = banner,
+                    HeroUrl = hero,
                     Episode = episodeNum,
                     TrackNumber = trackNum,
                     Ordinal = int.TryParse(seqIndex, out var si) ? si : null,
@@ -1236,6 +1304,10 @@ public static class CollectionEndpoints
                 DisplayName = groupValue,
                 PrimaryMediaType = mediaType ?? "Unknown",
                 CoverUrl = combinedCover,
+                BackgroundUrl = combinedBackground,
+                BannerUrl = combinedBanner,
+                HeroUrl = combinedHero,
+                LogoUrl = combinedLogo,
                 Creator = combinedCreator,
                 YearRange = yearRange,
                 Genre = combinedGenre,

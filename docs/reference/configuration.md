@@ -323,6 +323,18 @@ Each file defines constraints appropriate for the device class: navigation style
 
 Per-user UI preference overrides. Stored server-side and merged into the resolved settings at circuit start. Controls: column visibility and order per media library media type (also persisted to localStorage), default sort column, sidebar collapsed state.
 
+### config/ui/library-preferences.json
+
+Library display preferences used by browse and discovery surfaces.
+
+| Field | Type | Description |
+|---|---|---|
+| `show_unowned` | boolean | Whether lane shelf detail views include unowned items discovered from metadata. |
+| `view_modes` | object | Per-tab default groupings, such as `tv: "shows"` or `comics: "series"`. |
+| `lane_group_display` | object | Per-lane display policy for lane group shelves. Watch defaults to `Shows & Series` and Read defaults to `Series & Reading Lists`; these are lane groups, not top-level Collections tiles. |
+
+Each `lane_group_display` entry supports `enabled`, `shelf_key`, `title`, `subtitle`, and `see_all_route`.
+
 ## Related
 
 - [How to Configure Metadata Providers](../guides/configuring-providers.md)

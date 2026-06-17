@@ -137,9 +137,9 @@ Rules reference fields from six categories:
 
 The collection type is a **presentation hint** - it tells the Dashboard how to render the collection, who owns it, and what the user can do with it. The underlying rule mechanism is the same for all types.
 
-| Type | Created by | Resolution | Scoped to | Editable | Drillable |
-|------|-----------|------------|-----------|----------|-----------|
-| **ContentGroup** | Engine (during ingestion) | Materialized | Library | Read-only | Yes - navigates to sub-page |
+| Type | Created by | Resolution | Scoped to | Editable | Primary surface |
+|------|-----------|------------|-----------|----------|-----------------|
+| **ContentGroup** | Engine (during ingestion) | Materialized | Library | Read-only | Lane shelf/detail route |
 | **Smart** | Engine (auto-generated from templates) | Query-resolved | Library | Disable/enable, feature, adjust threshold | No |
 | **System** | System (pre-created, always present) | Materialized | User (per profile) | Add/remove/reorder items | No |
 | **Mix** | Engine + AI (from taste profile) | Materialized | User (per profile) | Enable/disable | No |
@@ -175,7 +175,7 @@ ContentGroup collections have additional fields:
 - **`group_by_field`** - the metadata field that defines the group (e.g. `series`, `album`, `show`)
 - **`sort_field`** / **`sort_direction`** - default ordering for items (e.g. episode number ascending, track number ascending)
 
-These collections power the **container views** in the Read, Watch, and Listen lanes. When Watch groups TV by show, the table displays ContentGroup collections filtered to TV. Clicking a container opens the group surface with the show's seasons and episodes. The Collections page uses broader rollups only when relationships such as series, franchise, or fictional universe connect multiple shelves.
+These ContentGroup records power **lane shelves** in Read, Watch, and Listen, but the user-facing surface follows the media concept rather than the storage type. When Watch groups TV by show, clicking a show opens `/watch/tv/show/{collectionId}` on the unified detail page with seasons and episodes. The Collections page uses broader rollups only when relationships such as series, franchise, or fictional universe connect multiple shelves.
 
 ### ContentGroup by Media Type
 

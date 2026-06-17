@@ -971,7 +971,7 @@ public interface IEngineApiClient
     /// <summary>GET /collections/artist-detail-by-name?artistName=X — artist drill-down by name (system-view mode).</summary>
     Task<CollectionGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default);
 
-    /// <summary>GET /collections/system-view-detail?groupField=&amp;groupValue=&amp;mediaType=&amp;artistName= — generic system-view drill-down for any group field.</summary>
+    /// <summary>GET /collections/system-view-detail?groupField=&amp;groupValue=&amp;mediaType=&amp;artistName= — grouped detail for non-routed system views such as music albums/artists.</summary>
     Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, string? artistName = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/managed — all non-Universe collections for the managed collections surface.</summary>
@@ -988,7 +988,7 @@ public interface IEngineApiClient
     /// <summary>GET /collections/content-groups — Universe-type collections (albums, TV series, book series, movie series) for the Content Groups section.</summary>
     Task<List<ContentGroupViewModel>> GetContentGroupsAsync(CancellationToken ct = default);
 
-    /// <summary>GET /collections/system-views?mediaType=&amp;groupField= — System view collections resolved as grouped content groups (By Show, By Artist, By Album).</summary>
+    /// <summary>GET /collections/system-views?mediaType=&amp;groupField= — system-view collections resolved as grouped content groups where no routed collection detail exists.</summary>
     Task<List<ContentGroupViewModel>> GetSystemViewGroupsAsync(string? mediaType = null, string? groupField = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/{id}/items?limit= — curated items for a collection.</summary>

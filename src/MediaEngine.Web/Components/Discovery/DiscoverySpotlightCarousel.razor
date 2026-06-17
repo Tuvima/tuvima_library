@@ -27,13 +27,9 @@
                     <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
                 </AppNativeButton>
 
-                <div class="discovery-spotlight-carousel__counter"
-                     aria-live="polite"
-                     aria-label="@($"Spotlight {_activeIndex + 1} of {Slides.Count}")">
-                    <span>@(_activeIndex + 1)</span>
-                    <span aria-hidden="true">/</span>
-                    <span>@Slides.Count</span>
-                </div>
+                <span class="discovery-spotlight-carousel__counter"
+                      aria-live="polite"
+                      aria-label="@($"Spotlight {_activeIndex + 1} of {Slides.Count}")"></span>
 
                 <AppNativeButton Type="button"
                                  Class="discovery-spotlight-carousel__control"

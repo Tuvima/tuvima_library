@@ -117,7 +117,7 @@ public sealed class DisplayCardBuilder
             .First();
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(representative.MediaType);
         var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
-        var action = new DisplayActionDto("openCollection", "Open", null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind));
+        var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind, title));
 
         return new DisplayCardDto(
             Id: collectionId,
@@ -125,10 +125,10 @@ public sealed class DisplayCardBuilder
             AssetId: null,
             CollectionId: collectionId,
             MediaType: mediaKind,
-            GroupingType: "collection",
+            GroupingType: CollectionPresentation(lane, mediaKind),
             Title: title,
-            Subtitle: CollectionCountLabel(mediaKind, works.Count),
-            Facts: CollectionFacts(mediaKind, works.Count, representative.Genre),
+            Subtitle: CollectionSubtitle(mediaKind, works),
+            Facts: CollectionFacts(mediaKind, works, representative.Genre),
             Artwork: ArtworkFor(representative),
             PreferredShape: CollectionShape(lane, mediaKind, representative),
             Presentation: CollectionPresentation(lane, mediaKind),
@@ -190,7 +190,7 @@ public sealed class DisplayCardBuilder
         };
     }
 
-    private static string CollectionUrlFor(Guid collectionId, Guid representativeWorkId, string mediaKind) =>
+    private static string CollectionUrlFor(Guid collectionId, Guid representativeWorkId, string mediaKind, string title) =>
         mediaKind switch
         {
             "Movie" => $"/watch/movie/{representativeWorkId}?collectionId={collectionId}",
@@ -293,9 +293,15 @@ public sealed class DisplayCardBuilder
         _ => "default",
     };
 
-    private static IReadOnlyList<string> CollectionFacts(string mediaKind, int count, string? genre)
+    private static IReadOnlyList<string> CollectionFacts(string mediaKind, IReadOnlyList<DisplayWorkRow> works, string? genre)
     {
-        var facts = new List<string> { CollectionCountLabel(mediaKind, count) };
+        var facts = new List<string>();
+        if (mediaKind == "TV" && HasRecentlyAddedEpisodes(works))
+        {
+            AddFact(facts, "New episodes added");
+        }
+
+        AddFact(facts, CollectionSubtitle(mediaKind, works));
         facts.AddRange(DisplayMediaRules.SplitValues(genre).Where(value => !string.Equals(value, mediaKind, StringComparison.OrdinalIgnoreCase)).Take(2));
         return facts;
     }
@@ -336,6 +342,52 @@ public sealed class DisplayCardBuilder
 
         return $"{count} {noun}";
     }
+
+    private static string CollectionSubtitle(string mediaKind, IReadOnlyList<DisplayWorkRow> works)
+    {
+        if (mediaKind == "TV")
+        {
+            var seasonCount = works
+                .Select(work => work.SeasonNumber)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+
+            if (seasonCount > 0)
+            {
+                return seasonCount == 1 ? "1 season" : $"{seasonCount} seasons";
+            }
+        }
+
+        return CollectionCountLabel(mediaKind, works.Count);
+    }
+
+    private static bool HasRecentlyAddedEpisodes(IReadOnlyList<DisplayWorkRow> works)
+    {
+        if (works.Count == 0)
+        {
+            return false;
+        }
+
+        var threshold = DateTimeOffset.UtcNow.AddDays(-30);
+        return works.Any(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "TV" && work.CreatedAt >= threshold);
+    }
+
+    private static string CollectionActionKind(string mediaKind) => mediaKind switch
+    {
+        "TV" => "openShow",
+        "Movie" or "Book" or "Comic" or "Audiobook" => "openSeries",
+        "Music" => "openAlbum",
+        _ => "openCollection",
+    };
+
+    private static string CollectionActionLabel(string mediaKind) => mediaKind switch
+    {
+        "TV" => "Open Show",
+        "Movie" or "Book" or "Comic" or "Audiobook" => "Open Series",
+        "Music" => "Open Album",
+        _ => "Open",
+    };
 
     private static string ContinueLabel(string mediaKind) => mediaKind switch
     {

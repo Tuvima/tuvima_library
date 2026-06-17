@@ -64,15 +64,18 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void WatchTv_UsesSharedBrowseShellSystemView()
+    public void WatchTv_UsesSharedBrowseShellAndDirectShowDetails()
     {
         var watchPage = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\WatchPage.razor");
         var browseShell = ReadRepoFile(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
+        var queryBuilder = ReadRepoFile(@"src\MediaEngine.Web\Components\Browse\BrowseQueryBuilder.cs");
 
         Assert.Contains("<MediaBrowseShell Tab=\"@Tab\"", watchPage, StringComparison.Ordinal);
         Assert.DoesNotContain("<TvBrowsePage", watchPage, StringComparison.Ordinal);
-        Assert.Contains("GetSystemViewGroupsAsync(mediaType, systemGroupField)", browseShell, StringComparison.Ordinal);
-        Assert.Contains("BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping)", browseShell, StringComparison.Ordinal);
+        Assert.Contains("IsTvShowsGrouping && !UseListLayout", browseShell, StringComparison.Ordinal);
+        Assert.Contains("LoadDisplayCardsAsync(append)", browseShell, StringComparison.Ordinal);
+        Assert.Contains("(\"tv\", \"shows\") => $\"/watch/tv/show/{group.CollectionId:D}\"", browseShell, StringComparison.Ordinal);
+        Assert.DoesNotContain("(\"tv\", \"shows\") => \"show_name\"", queryBuilder, StringComparison.Ordinal);
     }
 
     [Fact]

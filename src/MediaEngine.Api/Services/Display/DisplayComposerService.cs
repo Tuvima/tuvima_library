@@ -135,11 +135,13 @@ public sealed class DisplayComposerService
         {
             filtered = filtered.Where(work =>
                 Contains(work.Title, search) ||
+                Contains(work.ShowName, search) ||
                 Contains(work.Author, search) ||
                 Contains(work.Series, search) ||
                 Contains(work.Genre, search) ||
                 Contains(work.Album, search) ||
-                Contains(work.Artist, search));
+                Contains(work.Artist, search) ||
+                Contains(work.Network, search));
         }
 
         if (string.Equals(normalizedLane, "read", StringComparison.OrdinalIgnoreCase)
@@ -148,9 +150,32 @@ public sealed class DisplayComposerService
             filtered = CollapseReadVariantsByQid(filtered);
         }
 
-        var context = normalizedLane ?? "browse";
-        var cards = filtered
+        var filteredWorks = filtered
             .OrderByDescending(work => work.CreatedAt)
+            .ToList();
+
+        if (ShouldReturnTvShowGroups(normalizedLane, mediaType, grouping))
+        {
+            var showCards = _cards.BuildCollectionCards(filteredWorks, "watch");
+            if (showCards.Count > 0)
+            {
+                var pagedShowCards = showCards
+                    .Skip(Math.Max(0, offset))
+                    .Take(Math.Clamp(limit <= 0 ? 48 : limit, 1, 200))
+                    .ToList();
+
+                return new DisplayPageDto(
+                    Key: "browse-watch-shows",
+                    Title: "TV Shows",
+                    Subtitle: "Shows grouped by title",
+                    Hero: pagedShowCards.FirstOrDefault() is { } showHero ? DisplayCardBuilder.ToHero(showHero, "TV Shows") : null,
+                    Shelves: includeCatalog ? [] : [new DisplayShelfDto("results", "TV Shows", null, pagedShowCards, null)],
+                    Catalog: includeCatalog ? pagedShowCards : []);
+            }
+        }
+
+        var context = normalizedLane ?? "browse";
+        var cards = filteredWorks
             .Skip(Math.Max(0, offset))
             .Take(Math.Clamp(limit <= 0 ? 48 : limit, 1, 200))
             .Select(work => _cards.FromWork(work, context, progressByWork.GetValueOrDefault(work.WorkId)))
@@ -549,6 +574,11 @@ public sealed class DisplayComposerService
 
     private static bool Contains(string? value, string query) =>
         !string.IsNullOrWhiteSpace(value) && value.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldReturnTvShowGroups(string? normalizedLane, string? mediaType, string? grouping) =>
+        string.Equals(grouping, "shows", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(normalizedLane, "watch", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(DisplayMediaRules.NormalizeMediaType(mediaType ?? string.Empty), "TV", StringComparison.OrdinalIgnoreCase));
 
     private static int ResolveShelfOffset(string? cursor, int? offset)
     {

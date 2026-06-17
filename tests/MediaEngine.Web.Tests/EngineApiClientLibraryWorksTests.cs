@@ -434,6 +434,10 @@ public sealed class EngineApiClientLibraryWorksTests
             {
               "collection_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
               "display_name": "The Record",
+              "background_url": "/stream/album-background",
+              "banner_url": "/stream/album-banner",
+              "hero_url": "/stream/album-hero",
+              "logo_url": "/stream/album-logo",
               "works": [],
               "seasons": [],
               "top_cast": []
@@ -454,6 +458,10 @@ public sealed class EngineApiClientLibraryWorksTests
         var detail = await client.GetSystemViewGroupDetailAsync("album", "The Record", mediaType: "Music", artistName: "boygenius");
 
         Assert.NotNull(detail);
+        Assert.Equal("http://localhost:61495/stream/album-background", detail!.BackgroundUrl);
+        Assert.Equal("http://localhost:61495/stream/album-banner", detail.BannerUrl);
+        Assert.Equal("http://localhost:61495/stream/album-hero", detail.HeroUrl);
+        Assert.Equal("http://localhost:61495/stream/album-logo", detail.LogoUrl);
         Assert.NotNull(capturedRequest);
         Assert.Equal(
             "http://localhost:61495/collections/system-view-detail?groupField=album&groupValue=The Record&mediaType=Music&artistName=boygenius",

@@ -4548,6 +4548,10 @@ public sealed class EngineApiClient : IEngineApiClient
             detail.BackgroundUrl = AbsoluteUrl(detail.BackgroundUrl);
         if (detail.BannerUrl is not null)
             detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
+        if (detail.HeroUrl is not null)
+            detail.HeroUrl = AbsoluteUrl(detail.HeroUrl);
+        if (detail.LogoUrl is not null)
+            detail.LogoUrl = AbsoluteUrl(detail.LogoUrl);
         if (detail.ArtistPhotoUrl is not null)
             detail.ArtistPhotoUrl = AbsoluteUrl(detail.ArtistPhotoUrl);
 

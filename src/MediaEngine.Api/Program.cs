@@ -304,6 +304,7 @@ builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayWorkProjectio
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayJourneyProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayFavoriteProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayHomeCollectionProjectionReader>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayLaneGroupPolicy>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayCardBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayShelfBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayComposerService>();

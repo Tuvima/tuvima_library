@@ -157,6 +157,13 @@ public sealed class MediaTileComposerService
             "artist" => MediaTilePresentation.Artist,
             _ => MediaTilePresentation.Default,
         };
+        var isTypedGroup = card.Flags.IsCollection
+                           && presentation is MediaTilePresentation.TvSeries
+                               or MediaTilePresentation.MovieSeries
+                               or MediaTilePresentation.BookSeries
+                               or MediaTilePresentation.ComicSeries
+                               or MediaTilePresentation.AudiobookSeries
+                               or MediaTilePresentation.Album;
 
         var surface = MediaTileArtworkResolver.Resolve(
             bucket,
@@ -191,7 +198,7 @@ public sealed class MediaTileComposerService
             Presentation = presentation,
             SurfaceKind = surface.SurfaceKind,
             HoverLayout = surface.HoverLayout,
-            HoverMode = bucket is MediaTileBucket.Movie or MediaTileBucket.Tv ? MediaTileHoverMode.Expanded : MediaTileHoverMode.Preview,
+            HoverMode = (bucket is MediaTileBucket.Movie or MediaTileBucket.Tv) || isTypedGroup ? MediaTileHoverMode.Expanded : MediaTileHoverMode.Preview,
             TileTextMode = string.Equals(card.TileTextMode, "coverOnly", StringComparison.OrdinalIgnoreCase)
                 ? MediaTileTextMode.CoverOnly
                 : MediaTileTextMode.Caption,

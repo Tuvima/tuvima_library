@@ -258,6 +258,12 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
+        Assert.Contains("collectionId = GuidSql.ToBlob(collectionId)", source, StringComparison.Ordinal);
+        Assert.Contains("rootWorkId = rootWorkId.HasValue ? GuidSql.ToBlob(rootWorkId.Value) : null", source, StringComparison.Ordinal);
+        Assert.Contains("defaultOwnerUserId = GuidSql.ToBlob(DefaultOwnerUserId)", source, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.FromDb(bytes).ToString(\"D\")", source, StringComparison.Ordinal);
+        Assert.Contains("(string?)StringValue(row.WorkDisplayOverridesJson)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("collectionId = collectionId.ToString()", source, StringComparison.Ordinal);
         Assert.Contains("LEFT JOIN collection_items ci ON ci.work_id = w.id AND ci.collection_id = @collectionId", source);
         Assert.Contains("OR ci.collection_id = @collectionId", source);
         Assert.Contains("ORDER BY COALESCE(ci.sort_order, 9999)", source);

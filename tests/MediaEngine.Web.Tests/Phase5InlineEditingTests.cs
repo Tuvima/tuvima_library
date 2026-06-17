@@ -19,16 +19,14 @@ public sealed class Phase5InlineEditingTests
         var browse = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
         var table = ReadSource("src/MediaEngine.Web/Components/Library/LibraryConfigurableTable.razor");
         var card = ReadSource("src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor");
-        var group = ReadSource("src/MediaEngine.Web/Components/Library/MediaGroupPage.razor");
 
         Assert.Contains("MediaEditorLauncherService MediaEditorLauncher", browse, StringComparison.Ordinal);
         Assert.Contains("OnEditClicked=\"OpenItemEditorAsync\"", browse, StringComparison.Ordinal);
         Assert.Contains("OnEditClicked=\"OpenCardEditorAsync\"", browse, StringComparison.Ordinal);
-        Assert.Contains("OnItemEditClicked=\"OpenItemEditorAsync\"", browse, StringComparison.Ordinal);
+        Assert.DoesNotContain("MediaGroupPage", browse, StringComparison.Ordinal);
         Assert.Contains("MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest", browse, StringComparison.Ordinal);
         Assert.Contains("OnEditClicked.InvokeAsync(item.EntityId)", table, StringComparison.Ordinal);
         Assert.Contains("OnEditClicked.InvokeAsync(Item)", card, StringComparison.Ordinal);
-        Assert.Contains("isOwned && OnItemEditClicked.HasDelegate", group, StringComparison.Ordinal);
     }
 
     [Fact]

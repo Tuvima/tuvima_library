@@ -59,7 +59,7 @@
     .media-tile-collection-count { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:28px; min-width:50px; padding:4px 9px; border-radius:999px; background:rgba(2,6,16,.5); border:1px solid rgba(255,255,255,.15); color:rgba(226,232,240,.9); font-family:var(--app-font-sans, 'Nunito', sans-serif); font-size:.78rem; line-height:1; font-weight:900; letter-spacing:.02em; text-shadow:0 2px 10px rgba(0,0,0,.52); box-shadow:inset 0 0 0 1px rgba(255,255,255,.025), 0 10px 22px rgba(0,0,0,.2); backdrop-filter:blur(10px); }
     .media-tile-collection-count .mud-icon-root { font-size:17px; }
     .media-tile.is-collection-card .media-tile-gradient { background:linear-gradient(90deg,var(--art-bg-overlay, rgba(2,6,16,.42)) 0%,transparent 38%,rgba(2,6,16,.18) 100%),linear-gradient(180deg,rgba(255,255,255,.025) 0%,rgba(2,6,16,.32) 100%); z-index:2; }
-    .media-tile-logo, .media-tile-hover-logo { object-fit:contain; object-position:left bottom; filter:drop-shadow(0 8px 18px rgba(0,0,0,.42)); z-index:2; }
+    .media-tile-logo, .media-tile-hover-logo { object-fit:contain; object-position:left bottom; filter:drop-shadow(0 0 1px rgba(255,255,255,.78)) drop-shadow(0 0 12px rgba(255,255,255,.16)) drop-shadow(0 8px 18px rgba(0,0,0,.62)); z-index:2; }
     .media-tile-logo { position:absolute; left:14px; bottom:18px; width:min(calc(100% - 28px),170px); max-height:54px; }
     .media-tile-hover-logo { position:absolute; left:14px; bottom:14px; width:min(calc(100% - 28px),220px); max-height:54px; }
     .media-tile-badge { position:absolute; top:14px; left:14px; width:36px; height:36px; border-radius:var(--app-radius-md); display:inline-flex; align-items:center; justify-content:center; background:rgba(2,6,16,.74); border:1px solid rgba(255,255,255,.1); color:rgba(248,250,252,.94); z-index:2; backdrop-filter:blur(12px); }
@@ -76,15 +76,20 @@
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(84vw, clamp(248px, 22vw, 320px)); max-width:320px; max-height:min(64vh,460px); }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square,
     .media-tile-hover-panel.is-art-popover.is-square { display:flex; flex-direction:column; width:min(82vw, clamp(228px, 18vw, 286px)); max-width:286px; max-height:min(58vh,388px); }
-    .media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; box-shadow:var(--tl-shadow-hover-media); }
+    .media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:none; transform:translateY(0) scale(1); transition-delay:0s; box-shadow:var(--tl-shadow-hover-media); }
     .media-tile-hover-panel.is-hover-preview { width:min(84vw,var(--media-tile-hover-panel-width, 360px)); background:rgba(7,10,18,.98); }
     .media-tile-hover-panel.is-hover-preview .media-tile-hover-art { min-height:0; }
     .media-tile-hover-panel.is-banner-popover.is-landscape { width:min(82vw, clamp(330px,25vw,410px)); max-width:410px; }
     .media-tile-hover-panel.is-collection-hover { width:min(82vw, clamp(320px,24vw,390px)); max-width:390px; background:rgba(7,10,18,.96); }
+    .media-tile-hover-panel.is-collection-hover.is-banner-popover.is-landscape { width:min(86vw, clamp(420px,34vw,560px)); max-width:560px; }
+    .media-tile-hover-panel.is-collection-hover.is-art-popover.is-portrait { width:min(86vw, clamp(430px,36vw,540px)); max-width:540px; grid-template-columns:minmax(142px,36%) minmax(214px,1fr); }
+    .media-tile-hover-panel.is-collection-hover.is-art-popover.is-square { width:min(84vw, clamp(300px,24vw,380px)); max-width:380px; }
     .media-tile-hover-art { position:relative; overflow:hidden; background:radial-gradient(circle at top right,color-mix(in srgb,var(--media-tile-accent) 18%,transparent) 0%,transparent 40%),linear-gradient(180deg,rgba(10,14,24,.94) 0%,rgba(5,8,14,.98) 100%); }
-    .media-tile-hover-panel.is-art-popover .media-tile-hover-art { cursor:pointer; }
+    .media-tile-hover-panel.is-art-popover .media-tile-hover-art { cursor:default; pointer-events:none; }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-art { aspect-ratio:16 / 9; min-height:132px; max-height:min(34vh,220px); }
     .media-tile-hover-panel.is-collection-hover .media-tile-hover-art { min-height:132px; max-height:min(30vh,204px); }
+    .media-tile-hover-panel.is-collection-hover.is-banner-popover .media-tile-hover-art { min-height:188px; max-height:min(38vh,300px); }
+    .media-tile-hover-panel.is-collection-hover.is-art-popover.is-portrait .media-tile-hover-art { min-height:260px; max-height:min(62vh,460px); }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-art::after { content:""; position:absolute; inset:auto 0 0 0; height:64%; background:linear-gradient(180deg,rgba(5,8,14,0) 0%,rgba(5,8,14,.92) 100%); }
     .media-tile-hover-panel.is-art-popover .media-tile-hover-art { padding:0; }
     .media-tile-hover-panel.is-art-popover.is-cover-portrait .media-tile-hover-art { aspect-ratio:2 / 3; max-height:min(42vh,390px); }
@@ -97,10 +102,12 @@
     .media-tile-hover-image.is-fill { object-fit:cover; }
     .media-tile-hover-image.is-contained { object-fit:contain; }
     .media-tile-hover-body { padding:10px 12px 12px; display:flex; flex-direction:column; gap:7px; }
+    .media-tile-hover-panel.is-collection-hover .media-tile-hover-body { padding:14px 16px 16px; gap:9px; }
     .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-body { justify-content:center; min-width:0; }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait .media-tile-hover-body,
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square .media-tile-hover-body { justify-content:flex-start; flex:0 0 auto; padding:8px 10px 10px; gap:5px; }
     .media-tile-hover-actions, .media-tile-hover-meta-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .media-tile-hover-actions, .media-tile-icon-button { pointer-events:auto; }
     .media-tile-hover-actions-left, .media-tile-hover-chips { display:flex; align-items:center; gap:10px; }
     .media-tile-hover-chips { flex-wrap:wrap; margin-top:2px; gap:8px; }
     .media-tile-icon-button { width:36px; height:36px; border:1px solid rgba(255,255,255,.14); border-radius:var(--app-radius-md); background:rgba(255,255,255,.04); color:rgba(248,250,252,.94); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .16s ease,border-color .16s ease,background .16s ease; }

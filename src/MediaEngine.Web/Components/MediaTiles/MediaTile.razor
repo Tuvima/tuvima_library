@@ -111,10 +111,13 @@
                           aria-label="@ProgressLabel"></progress>
             }
 
-            @if (ShowCollectionBanner)
+            @if (ShowCollectionBanner && (ShowCollectionTitleOverlay || CollectionMediaCounts.Count > 0))
             {
                 <div class="media-tile-collection-copy">
-                    <div class="media-tile-collection-title">@Item.Title</div>
+                    @if (ShowCollectionTitleOverlay)
+                    {
+                        <div class="media-tile-collection-title">@Item.Title</div>
+                    }
                     @if (CollectionMediaCounts.Count > 0)
                     {
                         <div class="media-tile-collection-counts">
@@ -194,15 +197,18 @@
                             </div>
                         </div>
 
-                        <div class="media-tile-hover-heading">
-                            <div class="media-tile-hover-title">@Item.Title</div>
-                            @if (!UseCompactHover && !string.IsNullOrWhiteSpace(DisplaySubtitle))
-                            {
-                                <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
-                            }
-                        </div>
+                        @if (ShowHoverHeading)
+                        {
+                            <div class="media-tile-hover-heading">
+                                <div class="media-tile-hover-title">@Item.Title</div>
+                                @if (!UseCompactHover && !string.IsNullOrWhiteSpace(DisplaySubtitle))
+                                {
+                                    <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
+                                }
+                            </div>
+                        }
 
-                        @if (UseCompactHover)
+                        @if (UseCompactHover || ShowRichHoverFacts)
                         {
                             <div class="media-tile-hover-facts">
                                 @foreach (var fact in CompactHoverFacts)
@@ -303,7 +309,16 @@
 
     private bool IsHoverEnabled => EffectiveHoverMode != MediaTileHoverMode.None;
 
-    private bool ShowExpandedHoverBody => EffectiveHoverMode == MediaTileHoverMode.Expanded && !Item.IsCollection;
+    private bool SupportsRichGroupHover =>
+        Item.IsCollection
+        && Item.Presentation is MediaTilePresentation.TvSeries
+            or MediaTilePresentation.MovieSeries
+            or MediaTilePresentation.BookSeries
+            or MediaTilePresentation.ComicSeries
+            or MediaTilePresentation.AudiobookSeries
+            or MediaTilePresentation.Album;
+
+    private bool ShowExpandedHoverBody => EffectiveHoverMode == MediaTileHoverMode.Expanded && (!Item.IsCollection || SupportsRichGroupHover);
 
     private string HoverModeClass => EffectiveHoverMode switch
     {
@@ -374,6 +389,8 @@
 
     private bool ShowHoverLogo => Item.HoverLayout == MediaTileHoverLayout.BannerPopover && !string.IsNullOrWhiteSpace(Item.LogoUrl);
 
+    private bool ShowCollectionTitleOverlay => ShowCollectionBanner && !ShowTileLogo;
+
     private string ProgressLabel => Item.ProgressLabel ?? $"{Math.Min(100, Item.ProgressPct ?? 0):F0}%";
 
     private IReadOnlyList<string> PreviewImages => Item.PreviewImages
@@ -432,11 +449,13 @@
 
     private string HoverImageFitClass => Item.HoverImageFitMode == MediaTileImageFitMode.Contain ? "is-contained" : "is-fill";
 
-    private bool ShowHoverContextLines => Item.HoverLayout == MediaTileHoverLayout.BannerPopover && Item.ContextLines.Count > 0;
+    private bool ShowHoverContextLines => (Item.HoverLayout == MediaTileHoverLayout.BannerPopover || SupportsRichGroupHover) && Item.ContextLines.Count > 0;
 
-    private bool ShowHoverDescription => Item.HoverLayout == MediaTileHoverLayout.BannerPopover && !string.IsNullOrWhiteSpace(DisplaySummary);
+    private bool ShowHoverDescription => (Item.HoverLayout == MediaTileHoverLayout.BannerPopover || SupportsRichGroupHover) && !string.IsNullOrWhiteSpace(DisplaySummary);
 
-    private bool ShowCaption => Item.TileTextMode != MediaTileTextMode.CoverOnly;
+    private bool ShowCaption => Item.TileTextMode != MediaTileTextMode.CoverOnly && !ShowTileLogo;
+
+    private bool ShowHoverHeading => !(Item.IsCollection && ShowHoverLogo);
 
     private IReadOnlyList<string> CompactHoverFacts => Item.HoverFacts
         .Where(fact => !string.IsNullOrWhiteSpace(fact))
@@ -444,7 +463,9 @@
         .Take(4)
         .ToList();
 
-    private bool UseCompactHover => CompactHoverFacts.Count > 0;
+    private bool UseCompactHover => CompactHoverFacts.Count > 0 && !SupportsRichGroupHover;
+
+    private bool ShowRichHoverFacts => SupportsRichGroupHover && CompactHoverFacts.Count > 0;
 
     private string PrimaryIcon => Item.MediaKind switch
     {

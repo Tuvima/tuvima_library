@@ -7,7 +7,7 @@ namespace MediaEngine.Web.Tests;
 public sealed class BrowseQueryBuilderTests
 {
     [Fact]
-    public void Read_NormalizesTabGroupingLayoutSortAndGroupState()
+    public void Read_NormalizesTabGroupingLayoutSortAndIgnoresLegacyGroupState()
     {
         var preset = CreatePreset();
         var state = BrowseQueryBuilder.Read(
@@ -20,10 +20,7 @@ public sealed class BrowseQueryBuilderTests
         Assert.Equal(LibraryLayoutMode.List, state.Layout);
         Assert.Equal("title", state.SortBy);
         Assert.Equal("dune", state.SearchText);
-        Assert.True(state.IsGroupDrilldown);
-        Assert.Equal(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), state.GroupId);
-        Assert.Equal("album", state.GroupType);
-        Assert.Equal("Dune OST", state.GroupName);
+        Assert.DoesNotContain("GroupId", state.GetType().GetProperties().Select(property => property.Name));
     }
 
     [Fact]
@@ -39,7 +36,6 @@ public sealed class BrowseQueryBuilderTests
         Assert.Equal("all", state.Grouping);
         Assert.Equal(LibraryLayoutMode.Card, state.Layout);
         Assert.Equal("newest", state.SortBy);
-        Assert.False(state.IsGroupDrilldown);
     }
 
     private static LibraryBrowsePreset CreatePreset() => new()
