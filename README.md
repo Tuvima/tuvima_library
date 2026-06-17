@@ -14,7 +14,7 @@
 
 [![License: AGPLv3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-c9922e.svg)](https://tuvima.github.io/tuvima_library/)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-8b5cf6.svg)](https://tuvima.github.io/tuvima_library/)
 [![Status](https://img.shields.io/badge/status-Early%20Access-f0ad4e.svg)](https://tuvima.github.io/tuvima_library/product/status/)
 
 </div>
@@ -31,7 +31,7 @@ The product is branded as **Tuvima Library**. The code still uses `MediaEngine.*
 
 ## Why It Matters
 
-- **Story-first organization:** Read, Watch, and Listen stay focused on what you can do next. Ingestion creates lane shelves from trusted QIDs, provider IDs, or local grouping metadata; Collections appear only when a broader world spans multiple shelves.
+- **Story-first organization:** Home highlights what to resume, then Watch, Read, Listen, placed Collections & Lists, and new arrivals. Read and Watch open as cinematic lane landings, while `/read/books`, `/read/comics`, `/watch/movies`, and `/watch/tv` keep detailed browsing. Ingestion creates lane shelves from trusted QIDs, provider IDs, or local grouping metadata; Collections appear only when a broader world spans multiple shelves.
 - **Local-first privacy:** Your files, database, models, and processing stay on your machine. Provider calls are only for metadata lookups that you configure.
 - **Honest automation:** Strong matches flow through automatically. Low-confidence, blocked, or uncertain items go to the Review Queue instead of being silently misfiled.
 - **One dashboard:** Home, media lanes, Search, detail pages, Settings/Admin, and Review Queue work together instead of forcing every correction into a separate management workspace.
@@ -72,7 +72,7 @@ Learn more in [How File Ingestion Works](https://tuvima.github.io/tuvima_library
 Tuvima is Early Access, but it is not just a mockup. Current builds include:
 
 - Engine and Dashboard apps for local development.
-- Home, Read, Watch, Listen, Collections, Search, detail pages, Settings/Admin, and Review Queue surfaces.
+- Home, Read, Watch, Listen, Collections, Search, detail pages, Settings/Admin, and Review Queue surfaces. Home and Watch/Read lane landings use spotlight-and-shelf discovery; detailed browse tabs stay available under lane subroutes.
 - Folder scanning, ingestion operations, file fingerprinting, duplicate handling, review creation, and live progress.
 - SQLite persistence with startup schema initialization, `guid-blob-v1` internal GUID storage, and reset/reingest safety for legacy database epochs.
 - EPUB reading routes, video/audio streaming routes, playback/reader progress APIs, and personal playback preferences.

@@ -33,6 +33,21 @@ public sealed class DisplayJourneyProjectionReader
                 COALESCE(cv_issue_a.value, cv_issue_w.value, cv_series_position_a.value) AS SeriesPosition,
                 cv_show_w.value AS ShowName,
                 cv_narrator_w.value AS Narrator,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1)
+                ) AS Network,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('source_service', 'source_platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('source_service', 'source_platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('source_service', 'source_platform') LIMIT 1)
+                ) AS Source,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('quality', 'video_quality', 'resolution', 'video_resolution', 'video_resolution_label') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('quality', 'video_quality', 'resolution', 'video_resolution', 'video_resolution_label') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('quality', 'video_quality', 'resolution', 'video_resolution', 'video_resolution_label') LIMIT 1)
+                ) AS Quality,
                 COALESCE(cv_cover_a.value, cv_cover_item.value, cv_cover_w.value) AS CoverUrl,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url_s', 'poster_url_s', 'episode_still_url_s', 'still_url_s') LIMIT 1),

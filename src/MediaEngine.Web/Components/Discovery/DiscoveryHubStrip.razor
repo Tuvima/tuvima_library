@@ -19,7 +19,7 @@
                 <AppCssElement Tag="a"
                    href="@hub.NavigationUrl"
                    Class="discovery-hub-card tl-card-hover--media"
-                   Css="@($"--hub-accent: {(string.IsNullOrWhiteSpace(hub.AccentColor) ? "#1CE783" : hub.AccentColor)};")">
+                   Css="@($"--hub-accent: {(string.IsNullOrWhiteSpace(hub.AccentColor) ? "var(--tl-accent-primary)" : hub.AccentColor)};")">
                     @if (!string.IsNullOrWhiteSpace(hub.ImageUrl))
                     {
                         <img src="@hub.ImageUrl" alt="@hub.Title" class="discovery-hub-image" loading="lazy" />

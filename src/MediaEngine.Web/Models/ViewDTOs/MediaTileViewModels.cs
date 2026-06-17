@@ -79,6 +79,9 @@ public sealed class MediaTileViewModel
     public IReadOnlyList<ArtworkStackItem> ArtworkStackItems { get; init; } = [];
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
+    public string? QualityBadge { get; init; }
+    public string? SourceBadgeLabel { get; init; }
+    public string? SourceLogoUrl { get; init; }
     public IReadOnlyList<MediaTileMediaCountViewModel> MediaCounts { get; init; } = [];
     public IReadOnlyList<string> ContextLines { get; init; } = [];
     public IReadOnlyList<string> HoverFacts { get; init; } = [];

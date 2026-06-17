@@ -76,7 +76,21 @@ public sealed class DisplayWorkProjectionReader
                 ) AS SeriesPosition,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'narrator' LIMIT 1) AS Narrator,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'network' LIMIT 1) AS Network,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1)
+                ) AS Network,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('source_service', 'source_platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('source_service', 'source_platform') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('source_service', 'source_platform') LIMIT 1)
+                ) AS Source,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('quality', 'video_quality', 'resolution', 'video_resolution', 'video_resolution_label') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('quality', 'video_quality', 'resolution', 'video_resolution', 'video_resolution_label') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('quality', 'video_quality', 'resolution', 'video_resolution', 'video_resolution_label') LIMIT 1)
+                ) AS Quality,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'show_name' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'title' LIMIT 1)

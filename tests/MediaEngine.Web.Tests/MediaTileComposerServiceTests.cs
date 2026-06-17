@@ -73,6 +73,41 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_MapsWatchBadgesToTileFieldsAndLogos()
+    {
+        var workId = Guid.Parse("44444444-1111-1111-1111-444444444444");
+        var action = new DisplayActionDto("playAsset", "Play", WorkId: workId, WebUrl: $"/watch/movie/{workId}");
+        var card = new DisplayCardDto(
+            Id: workId,
+            WorkId: workId,
+            AssetId: null,
+            CollectionId: null,
+            MediaType: "Movie",
+            GroupingType: "work",
+            Title: "Arrival",
+            Subtitle: "2016",
+            Facts: ["2016", "Science Fiction"],
+            Artwork: EmptyArtwork("#60A5FA"),
+            PreferredShape: "landscape",
+            Presentation: "movie",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
+        {
+            Badges = [new DisplayCardBadgeDto("quality", "4K"), new DisplayCardBadgeDto("source", "HBO")],
+        };
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.Equal("4K", mapped.QualityBadge);
+        Assert.Equal("HBO", mapped.SourceBadgeLabel);
+        Assert.Contains("max", mapped.SourceLogoUrl, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void FromDisplayPage_UsesDisplayHeroAndShelvesWithoutLegacyComposition()
     {
         var workId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -126,7 +161,10 @@ public sealed class MediaTileComposerServiceTests
             Key: "watch",
             Title: "Watch",
             Subtitle: "Movies and shows",
-            Hero: new DisplayHeroDto("Arrival", null, "Featured from your library", card.Artwork, null, [action]),
+            Hero: new DisplayHeroDto("Arrival", null, "Featured from your library", card.Artwork, null, [action])
+            {
+                Facts = card.Facts,
+            },
             Shelves: [new DisplayShelfDto("movies", "Movies in your library", null, [card], null)],
             Catalog: [card]);
 
@@ -136,10 +174,88 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal("Arrival", mapped.Hero?.Title);
         Assert.Single(mapped.Shelves);
         Assert.Single(mapped.Catalog);
+        Assert.Equal(["2016", "Science Fiction"], mapped.Hero?.MetaPills);
+        Assert.Equal(["Arrival"], mapped.Spotlights.Select(slide => slide.Title));
         Assert.Equal(["2016", "Science Fiction"], mapped.Catalog[0].HoverFacts);
         Assert.Equal("/background-s.jpg", mapped.Catalog[0].TileImageUrl);
         Assert.Equal("/background-m.jpg", mapped.Catalog[0].HoverImageUrl);
     }
+
+    [Fact]
+    public void FromDisplayPage_DerivesUpToFiveSpotlightsFromContinueShelf()
+    {
+        var cards = Enumerable.Range(1, 6)
+            .Select(index =>
+            {
+                var workId = Guid.Parse($"55555555-0000-0000-0000-{index:000000000000}");
+                var action = new DisplayActionDto("playAsset", "Play", WorkId: workId, WebUrl: $"/watch/movie/{workId}");
+                return new DisplayCardDto(
+                    Id: workId,
+                    WorkId: workId,
+                    AssetId: null,
+                    CollectionId: null,
+                    MediaType: "Movie",
+                    GroupingType: "work",
+                    Title: $"Movie {index}",
+                    Subtitle: "2016",
+                    Facts: [$"Fact {index}"],
+                    Artwork: EmptyArtwork("#60A5FA"),
+                    PreferredShape: "landscape",
+                    Presentation: "movie",
+                    TileTextMode: "caption",
+                    PreviewPlacement: "smart",
+                    Progress: null,
+                    Actions: [action],
+                    Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+                    SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
+            })
+            .ToList();
+        var page = new DisplayPageDto(
+            Key: "home",
+            Title: "Home",
+            Subtitle: null,
+            Hero: new DisplayHeroDto(cards[0].Title, cards[0].Subtitle, "Jump Back In", cards[0].Artwork, null, cards[0].Actions)
+            {
+                Facts = cards[0].Facts,
+            },
+            Shelves: [new DisplayShelfDto("continue", "Jump Back In", null, cards, null)],
+            Catalog: cards);
+
+        var mapped = MediaTileComposerService.FromDisplayPage(page);
+
+        Assert.Equal(5, mapped.Spotlights.Count);
+        Assert.Equal(["Movie 1", "Movie 2", "Movie 3", "Movie 4", "Movie 5"], mapped.Spotlights.Select(slide => slide.Title));
+        Assert.Equal(["Fact 2"], mapped.Spotlights[1].MetaPills);
+    }
+
+    private static DisplayArtworkDto EmptyArtwork(string? accentColor) =>
+        new(
+            CoverUrl: null,
+            CoverSmallUrl: null,
+            CoverMediumUrl: null,
+            CoverLargeUrl: null,
+            SquareUrl: null,
+            SquareSmallUrl: null,
+            SquareMediumUrl: null,
+            SquareLargeUrl: null,
+            BannerUrl: null,
+            BannerSmallUrl: null,
+            BannerMediumUrl: null,
+            BannerLargeUrl: null,
+            BackgroundUrl: null,
+            BackgroundSmallUrl: null,
+            BackgroundMediumUrl: null,
+            BackgroundLargeUrl: null,
+            LogoUrl: null,
+            CoverWidthPx: null,
+            CoverHeightPx: null,
+            SquareWidthPx: null,
+            SquareHeightPx: null,
+            BannerWidthPx: null,
+            BannerHeightPx: null,
+            BackgroundWidthPx: null,
+            BackgroundHeightPx: null,
+            AccentColor: accentColor);
 
     private static WorkViewModel CreateWork(
         Guid id,

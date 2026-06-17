@@ -16,20 +16,23 @@ The Engine owns consumer display composition for browse surfaces. Web, mobile, T
 The stable consumer routes are versioned under `/api/v1/display`:
 
 - `/home`
+- `/home?profileId=...`
 - `/browse`
 - `/continue`
 - `/search`
 - `/groups/{groupId}`
 
-Display responses use platform-neutral DTOs from `MediaEngine.Contracts.Display`. They intentionally avoid web-only concepts such as CSS classes. Clients render their own layout while using the same card facts, artwork variants, progress state, and action targets.
+Display responses use platform-neutral DTOs from `MediaEngine.Contracts.Display`. They intentionally avoid web-only concepts such as CSS classes. Clients render their own layout while using the same card facts, typed badges, artwork variants, progress state, and action targets.
 
 ## Composition Boundaries
 
 `DisplayComposerService` is the page and shelf orchestration layer. It should decide which shelves exist and how they are ordered.
 
+Home composition is placement-aware: the Collections & Lists shelf comes from accessible collection placements at `location=home`, filtered by the active profile when `profileId` is supplied. The composer must not synthesize broad series/franchise cards for Home.
+
 `DisplayProjectionRepository` owns database reads for display projections. It should keep SQL and visibility filtering out of page composition.
 
-`DisplayCardBuilder` owns card, fact, artwork, progress, and action construction. This keeps media-specific presentation rules in one reusable place.
+`DisplayCardBuilder` owns card, fact, badge, artwork, progress, and action construction. Hero facts should flow from the source card so spotlight and tile metadata stay consistent.
 
 ## Payload Size
 

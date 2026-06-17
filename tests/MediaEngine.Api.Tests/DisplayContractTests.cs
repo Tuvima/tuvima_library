@@ -56,13 +56,19 @@ public sealed class DisplayContractTests
             Progress: new DisplayProgressDto(Percent: 42, Label: "42%", LastAccessed: DateTimeOffset.Parse("2026-04-24T12:00:00Z"), ResumeAction: primaryAction),
             Actions: [primaryAction],
             Flags: new DisplayCardFlagsDto(IsPlayable: true, IsReadable: false, CanAddToCollection: true, IsCollection: false, IsFavorite: false),
-            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
+        {
+            Badges = [new DisplayCardBadgeDto("quality", "4K"), new DisplayCardBadgeDto("source", "Max")],
+        };
 
         var page = new DisplayPageDto(
             Key: "home",
             Title: "Home",
             Subtitle: null,
-            Hero: new DisplayHeroDto("Continue", "Pick up where you left off.", "home-hero", card.Artwork, card.Progress, card.Actions),
+            Hero: new DisplayHeroDto("Continue", "Pick up where you left off.", "home-hero", card.Artwork, card.Progress, card.Actions)
+            {
+                Facts = card.Facts,
+            },
             Shelves: [new DisplayShelfDto("continue", "Continue", "continue", [card], "/api/v1/display/continue")],
             Catalog: [card]);
 
@@ -78,6 +84,8 @@ public sealed class DisplayContractTests
         Assert.Contains("\"previewPlacement\":\"bottom\"", json, StringComparison.Ordinal);
         Assert.Contains("\"progress\":{\"percent\":42", json, StringComparison.Ordinal);
         Assert.Contains("\"actions\":[{\"type\":\"playAsset\",\"label\":\"Play\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"facts\":[\"2016\",\"Science Fiction\"]", json, StringComparison.Ordinal);
+        Assert.Contains("\"badges\":[{\"kind\":\"quality\",\"label\":\"4K\"}", json, StringComparison.Ordinal);
         Assert.Contains("\"flags\":{\"isPlayable\":true", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"WorkId\"", json, StringComparison.Ordinal);
     }

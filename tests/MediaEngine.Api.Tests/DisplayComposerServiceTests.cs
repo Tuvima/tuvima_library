@@ -25,6 +25,8 @@ public sealed class DisplayComposerServiceTests
         Assert.Contains(page.Shelves, shelf => shelf.Key == "continue-watching");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "movies");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "tv");
+        Assert.Equal("/watch/movies", page.Shelves.Single(shelf => shelf.Key == "movies").SeeAllRoute);
+        Assert.Equal("/watch/tv", page.Shelves.Single(shelf => shelf.Key == "tv").SeeAllRoute);
 
         var continueCard = page.Shelves.Single(shelf => shelf.Key == "continue-watching").Items.Single();
         Assert.Equal(42, continueCard.Progress?.Percent);
@@ -53,6 +55,8 @@ public sealed class DisplayComposerServiceTests
 
         Assert.Contains(page.Shelves, shelf => shelf.Key == "continue-reading");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-added");
+        Assert.Equal("/read/books", page.Shelves.Single(shelf => shelf.Key == "continue-reading").SeeAllRoute);
+        Assert.Equal("/read/books", page.Shelves.Single(shelf => shelf.Key == "recently-added").SeeAllRoute);
 
         var continueCard = page.Shelves.Single(shelf => shelf.Key == "continue-reading").Items.Single();
         Assert.Equal("bottom", continueCard.PreviewPlacement);
@@ -150,6 +154,97 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public async Task WatchCards_PopulateQualityAndSourceBadgesOnlyFromRealData()
+    {
+        var movieId = Guid.Parse("99999999-1111-1111-1111-999999999999");
+        var tvId = Guid.Parse("99999999-2222-2222-2222-999999999999");
+        var bookId = Guid.Parse("99999999-3333-3333-3333-999999999999");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction", quality: "2160p", source: "HBO"),
+                Work(tvId, "TV", "Pilot", year: "2008", genre: "Crime"),
+                Work(bookId, "Book", "Dune", author: "Frank Herbert", quality: "2160p", source: "HBO"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var watchPage = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48);
+        var arrival = watchPage.Catalog.Single(card => card.Title == "Arrival");
+        var pilot = watchPage.Catalog.Single(card => card.Title == "Pilot");
+
+        Assert.Equal(["quality:4K", "source:HBO"], arrival.Badges.Select(badge => $"{badge.Kind}:{badge.Label}"));
+        Assert.Empty(pilot.Badges);
+
+        var readPage = await composer.BuildBrowseAsync("read", null, "all", null, 0, 48);
+        Assert.Empty(readPage.Catalog.Single(card => card.Title == "Dune").Badges);
+    }
+
+    [Fact]
+    public async Task Home_ComposesCinematicShelfOrderAndProfileAwareCollections()
+    {
+        var profileId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var movieId = Guid.Parse("aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa");
+        var bookId = Guid.Parse("aaaaaaaa-2222-2222-2222-aaaaaaaaaaaa");
+        var trackId = Guid.Parse("aaaaaaaa-3333-3333-3333-aaaaaaaaaaaa");
+        var collectionId = Guid.Parse("aaaaaaaa-4444-4444-4444-aaaaaaaaaaaa");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction", quality: "Ultra HD", source: "Max"),
+                Work(bookId, "Book", "Dune", author: "Frank Herbert", genre: "Science Fiction"),
+                Work(trackId, "Music", "Static", artist: "Among The Outcasts", album: "Static On The Line"),
+            ],
+            [
+                Journey(movieId, "Movie", "Arrival", progressPct: 42, year: "2016", genre: "Science Fiction", quality: "Ultra HD", source: "Max"),
+            ],
+            homeCollections:
+            [
+                new DisplayHomeCollectionRow
+                {
+                    CollectionId = collectionId,
+                    Title = "Sci-Fi Favorites",
+                    CollectionType = "Smart",
+                    PrimaryLane = "CrossMedia",
+                    ItemCount = 12,
+                    WatchCount = 7,
+                    ReadCount = 5,
+                    CreatedAt = DateTimeOffset.Parse("2026-04-24T12:00:00Z"),
+                },
+            ]);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildHomeAsync(includeCatalog: false, profileId: profileId);
+
+        Assert.Equal(profileId, repository.LastHomeCollectionsProfileId);
+        Assert.Equal(
+            ["continue", "watch-next", "read-next", "listen-next", "home-collections", "fresh"],
+            page.Shelves.Select(shelf => shelf.Key));
+        Assert.Equal("Jump Back In", page.Shelves[0].Title);
+        Assert.Equal("Watch", page.Shelves[1].Title);
+        Assert.Equal("/watch", page.Shelves[1].SeeAllRoute);
+        Assert.Equal("Read", page.Shelves[2].Title);
+        Assert.Equal("/read", page.Shelves[2].SeeAllRoute);
+        Assert.Equal("Listen", page.Shelves[3].Title);
+        Assert.Equal("/listen", page.Shelves[3].SeeAllRoute);
+        Assert.Equal("Collections & Lists", page.Shelves[4].Title);
+        Assert.Equal("/collections", page.Shelves[4].SeeAllRoute);
+        Assert.Equal("New in your library", page.Shelves[5].Title);
+        Assert.Equal(page.Shelves[0].Items[0].Facts, page.Hero?.Facts);
+    }
+
+    [Fact]
+    public async Task Home_HidesCollectionsShelfWhenNoPlacedCollectionsAreEligible()
+    {
+        var repository = new StubDisplayProjectionRepository(
+            [Work(Guid.Parse("aaaaaaaa-5555-5555-5555-aaaaaaaaaaaa"), "Movie", "Arrival")],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildHomeAsync(includeCatalog: false);
+
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "home-collections");
+    }
+
+    [Fact]
     public async Task ShelfPage_ReturnsCursorPagedShelfItems()
     {
         var firstId = Guid.Parse("77777777-1111-1111-1111-777777777777");
@@ -239,7 +334,10 @@ public sealed class DisplayComposerServiceTests
         string? episode = null,
         string? track = null,
         Guid? collectionId = null,
-        string? identityQid = null)
+        string? identityQid = null,
+        string? network = null,
+        string? source = null,
+        string? quality = null)
     {
         return new DisplayWorkRow
         {
@@ -259,6 +357,9 @@ public sealed class DisplayComposerServiceTests
             SeasonNumber = season,
             EpisodeNumber = episode,
             TrackNumber = track,
+            Network = network,
+            Source = source,
+            Quality = quality,
         };
     }
 
@@ -276,7 +377,10 @@ public sealed class DisplayComposerServiceTests
         string? season = null,
         string? episode = null,
         string? track = null,
-        Guid? collectionId = null)
+        Guid? collectionId = null,
+        string? network = null,
+        string? source = null,
+        string? quality = null)
     {
         return new DisplayJourneyRow
         {
@@ -296,6 +400,9 @@ public sealed class DisplayComposerServiceTests
             SeasonNumber = season,
             EpisodeNumber = episode,
             TrackNumber = track,
+            Network = network,
+            Source = source,
+            Quality = quality,
         };
     }
 
@@ -310,15 +417,20 @@ public sealed class DisplayComposerServiceTests
         private readonly IReadOnlyList<DisplayWorkRow> _works;
         private readonly IReadOnlyList<DisplayJourneyRow> _journey;
         private readonly IReadOnlySet<Guid> _favoriteWorkIds;
+        private readonly IReadOnlyList<DisplayHomeCollectionRow> _homeCollections;
+
+        public Guid? LastHomeCollectionsProfileId { get; private set; }
 
         public StubDisplayProjectionRepository(
             IReadOnlyList<DisplayWorkRow> works,
             IReadOnlyList<DisplayJourneyRow> journey,
-            IReadOnlySet<Guid>? favoriteWorkIds = null)
+            IReadOnlySet<Guid>? favoriteWorkIds = null,
+            IReadOnlyList<DisplayHomeCollectionRow>? homeCollections = null)
         {
             _works = works;
             _journey = journey;
             _favoriteWorkIds = favoriteWorkIds ?? new HashSet<Guid>();
+            _homeCollections = homeCollections ?? [];
         }
 
         public Task<IReadOnlyList<DisplayWorkRow>> LoadWorksAsync(CancellationToken ct) =>
@@ -339,5 +451,11 @@ public sealed class DisplayComposerServiceTests
 
         public Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct) =>
             Task.FromResult(profileId.HasValue ? _favoriteWorkIds : new HashSet<Guid>());
+
+        public Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadHomeCollectionsAsync(Guid? profileId, CancellationToken ct)
+        {
+            LastHomeCollectionsProfileId = profileId;
+            return Task.FromResult(_homeCollections);
+        }
     }
 }

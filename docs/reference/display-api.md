@@ -13,7 +13,7 @@ The Engine owns consumer display composition for Home, Watch, Read, Listen, musi
 
 ## Endpoints
 
-- `GET /api/v1/display/home`
+- `GET /api/v1/display/home?profileId=...`
 - `GET /api/v1/display/browse?lane=watch&mediaType=Movie&grouping=all`
 - `GET /api/v1/display/continue?lane=read`
 - `GET /api/v1/display/search?q=dune`
@@ -26,13 +26,17 @@ The Engine owns consumer display composition for Home, Watch, Read, Listen, musi
 - Shelf pagination returns `DisplayShelfPageDto` with `nextCursor` and `hasMore`.
 - Browse/search endpoints return cards in `catalog` by default to avoid duplicating the same cards in a `results` shelf.
 - Clients that need a shelf-shaped browse response can pass `includeCatalog=false`.
+- Home composition is shelf-driven: Jump Back In, Watch, Read, Listen, Collections & Lists, then New in your library when each shelf has real data.
+- Home collections come from accessible collection placements at `location=home`; clients should not synthesize top-level series/franchise cards.
 - Detail/edit/playback APIs remain separate; display cards carry compact facts and semantic action targets, not full detail payloads.
 
 ## DTO Semantics
 
 - `DisplayPageDto`: a client-neutral page with optional hero, shelves, and/or catalog.
 - `DisplayShelfDto`: a named row of `DisplayCardDto` cards plus an optional see-all route.
-- `DisplayCardDto`: compact card identity, title, facts, artwork, progress, flags, and semantic actions.
+- `DisplayHeroDto`: spotlight identity, artwork, actions, progress, and display facts copied from the source card.
+- `DisplayCardDto`: compact card identity, title, facts, typed badges, artwork, progress, flags, and semantic actions.
+- `DisplayCardBadgeDto`: typed badge metadata such as `quality` and `source`; badges are omitted unless source data exists.
 - `DisplayArtworkDto`: platform-neutral artwork variants and dimensions.
 - `DisplayProgressDto`: progress percent, display label, last access timestamp, and resume action.
 - `DisplayActionDto`: semantic action type such as `openWork`, `openCollection`, `playAsset`, or `readAsset`, plus IDs and optional web fallback URL.

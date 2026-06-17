@@ -69,6 +69,27 @@
                 </div>
             }
 
+            @if (ShowQualityBadge)
+            {
+                <div class="media-tile-quality-badge" title="@Item.QualityBadge">
+                    @Item.QualityBadge
+                </div>
+            }
+
+            @if (ShowSourceBadge)
+            {
+                <div class="media-tile-source-badge" title="@Item.SourceBadgeLabel">
+                    @if (!string.IsNullOrWhiteSpace(Item.SourceLogoUrl))
+                    {
+                        <img src="@Item.SourceLogoUrl" alt="@Item.SourceBadgeLabel" class="media-tile-source-logo" loading="lazy" decoding="async" />
+                    }
+                    else
+                    {
+                        <span>@Item.SourceBadgeLabel</span>
+                    }
+                </div>
+            }
+
             @if (Item.ProgressPct is > 0)
             {
                 <progress class="media-tile-progress"
@@ -312,6 +333,10 @@
     private bool ShowCollectionBanner => Item.IsCollection && Item.SurfaceKind == MediaTileSurfaceKind.BannerLandscape;
 
     private bool ShowMediaKindBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(MediaKindIcon);
+
+    private bool ShowQualityBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(Item.QualityBadge);
+
+    private bool ShowSourceBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(Item.SourceBadgeLabel);
 
     private bool ShowPreviewStack => !ShowCollectionBanner && string.IsNullOrWhiteSpace(CardImageUrl) && PreviewImages.Count > 0;
 

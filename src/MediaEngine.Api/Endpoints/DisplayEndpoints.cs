@@ -11,8 +11,8 @@ public static class DisplayEndpoints
         var group = app.MapGroup("/api/v1/display")
             .WithTags("Display");
 
-        group.MapGet("/home", async (bool? includeCatalog, DisplayComposerService display, CancellationToken ct) =>
-            Results.Ok(await display.BuildHomeAsync(includeCatalog ?? true, ct)))
+        group.MapGet("/home", async (bool? includeCatalog, Guid? profileId, DisplayComposerService display, CancellationToken ct) =>
+            Results.Ok(await display.BuildHomeAsync(includeCatalog ?? true, profileId, ct)))
             .WithName("GetDisplayHome")
             .WithSummary("Returns the cross-platform consumer Home display model.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)

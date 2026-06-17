@@ -89,7 +89,7 @@ public interface IEngineApiClient
     Task<List<EditionViewModel>> GetWorkEditionsAsync(Guid workId, CancellationToken ct = default);
 
     /// <summary>GET /api/v1/display/home — cross-platform consumer display model for Home.</summary>
-    Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default);
+    Task<DisplayPageDto?> GetDisplayHomeAsync(Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>GET /api/v1/display/browse — cross-platform consumer display model for Watch, Read, Listen, and browse surfaces.</summary>
     Task<DisplayPageDto?> GetDisplayBrowseAsync(

@@ -124,17 +124,28 @@ public sealed class ContractJsonRoundTripTests
             Progress: new DisplayProgressDto(42, "42%", DateTimeOffset.Parse("2026-04-24T12:00:00Z"), action),
             Actions: [action],
             Flags: new DisplayCardFlagsDto(true, false, true, false, true),
-            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
-        var dto = new DisplayPageDto("home", "Home", null, null, [new DisplayShelfDto("continue", "Continue", null, [card], "/display/continue")], [card]);
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
+        {
+            Badges = [new DisplayCardBadgeDto("quality", "4K"), new DisplayCardBadgeDto("source", "Max")],
+        };
+        var hero = new DisplayHeroDto("Arrival", "2016", "Featured", card.Artwork, card.Progress, card.Actions)
+        {
+            Facts = card.Facts,
+        };
+        var dto = new DisplayPageDto("home", "Home", null, hero, [new DisplayShelfDto("continue", "Continue", null, [card], "/display/continue")], [card]);
 
         var json = JsonSerializer.Serialize(dto, JsonOptions);
         var roundTrip = JsonSerializer.Deserialize<DisplayPageDto>(json, JsonOptions);
 
         Assert.NotNull(roundTrip);
         Assert.Equal(dto.Key, roundTrip.Key);
+        Assert.Equal(["PG-13", "116 min"], roundTrip.Hero?.Facts);
         Assert.Equal(card.WorkId, roundTrip.Catalog[0].WorkId);
         Assert.Equal(card.Actions[0].Type, roundTrip.Catalog[0].Actions[0].Type);
+        Assert.Equal("4K", roundTrip.Catalog[0].Badges.Single(badge => badge.Kind == "quality").Label);
         Assert.Contains("\"workId\":\"11111111-1111-1111-1111-111111111111\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"badges\":[{\"kind\":\"quality\",\"label\":\"4K\"}", json, StringComparison.Ordinal);
+        Assert.Contains("\"facts\":[\"PG-13\",\"116 min\"]", json, StringComparison.Ordinal);
     }
 
     [Fact]

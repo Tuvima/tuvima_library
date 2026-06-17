@@ -303,6 +303,7 @@ builder.Services.AddScoped<MediaEngine.Api.Services.Display.IDisplayProjectionRe
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayWorkProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayJourneyProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayFavoriteProjectionReader>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayHomeCollectionProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayCardBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayShelfBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayComposerService>();

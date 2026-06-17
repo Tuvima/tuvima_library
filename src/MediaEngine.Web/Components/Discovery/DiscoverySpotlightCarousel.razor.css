@@ -1,0 +1,23 @@
+.discovery-spotlight-carousel { position:relative; }
+    .discovery-spotlight-carousel__slide { position:relative; }
+    .discovery-spotlight-carousel__controls { position:absolute; right:clamp(16px,3vw,34px); bottom:clamp(16px,2vw,28px); z-index:4; display:flex; align-items:center; gap:8px; padding:8px; border-radius:var(--tl-radius-md); background:rgba(2,6,16,.54); border:1px solid rgba(255,255,255,.1); box-shadow:0 16px 32px rgba(0,0,0,.24); backdrop-filter:blur(18px) saturate(140%); }
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__control,
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__dot { width:32px; height:32px; min-width:32px; min-height:32px; border:1px solid rgba(255,255,255,.12); border-radius:var(--tl-radius-md); background:rgba(255,255,255,.06); color:rgba(248,250,252,.94); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background var(--tl-motion-duration-fast) var(--tl-motion-ease-standard),border-color var(--tl-motion-duration-fast) var(--tl-motion-ease-standard),transform var(--tl-motion-duration-fast) var(--tl-motion-ease-standard); }
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__control:hover,
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__dot:hover,
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__control:focus-visible,
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__dot:focus-visible { background:rgba(255,255,255,.12); border-color:var(--tl-accent-primary-border); outline:2px solid var(--tl-accent-primary); outline-offset:2px; }
+    .discovery-spotlight-carousel__dots { display:flex; align-items:center; gap:6px; }
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__dot { border-radius:var(--tl-radius-pill); }
+    .discovery-spotlight-carousel__dot-indicator { width:8px; height:8px; border-radius:var(--tl-radius-pill); background:rgba(248,250,252,.44); transition:width var(--tl-motion-duration-fast) var(--tl-motion-ease-standard),background var(--tl-motion-duration-fast) var(--tl-motion-ease-standard); }
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__dot.is-active .discovery-spotlight-carousel__dot-indicator { width:18px; background:var(--tl-accent-primary); }
+
+@media (max-width:640px) {
+    .discovery-spotlight-carousel__controls { left:18px; right:auto; bottom:14px; max-width:calc(100vw - 36px); overflow-x:auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__control,
+    .discovery-spotlight-carousel__controls ::deep .discovery-spotlight-carousel__dot,
+    .discovery-spotlight-carousel__dot-indicator { transition-duration:1ms !important; }
+}

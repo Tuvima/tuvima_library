@@ -71,10 +71,10 @@ Runtime notes:
 
 The Dashboard is organized by user experience, not by a separate media management workspace:
 
-- **Home** is discovery and overview.
-- **Read**, **Watch**, and **Listen** are the media lanes where users browse and experience their library.
+- **Home** is discovery and overview. It uses a cinematic spotlight plus shelf-driven rows in this order when data exists: Jump Back In, Watch, Read, Listen, Collections & Lists, then New in your library.
+- **Read**, **Watch**, and **Listen** are the media lanes where users browse and experience their library. `/read` and `/watch` are cinematic lane landing pages; `/read/books`, `/read/comics`, `/watch/movies`, and `/watch/tv` keep the detailed browse shell.
 - Lane-level groups are **shelves**: book series and comic volumes in Read, film series and TV shows in Watch, albums and audio series in Listen. A single shelf must stay visible in its lane and must not be duplicated as a top-level Collections tile.
-- **Collections** are broader rollups only when a shared series/franchise/universe relationship connects multiple shelves. Multiple formats of one work, such as ebook plus audiobook, are variants and do not create a collection by themselves.
+- **Collections** are broader rollups only when a shared series/franchise/universe relationship connects multiple shelves. Multiple formats of one work, such as ebook plus audiobook, are variants and do not create a collection by themselves. Home's Collections & Lists shelf is placement-driven and profile-aware; do not synthesize top-level series/franchise tiles there.
 - Ingestion must assign lane shelves even when Wikidata cannot resolve a QID, using the shared collection finalization path after quick hydration or retained-retail organization. Local/provider shelf identity is allowed for shelves; top-level Collections rollups still require trusted shared relationship rows.
 - **Search** is cross-library discovery.
 - **Detail pages** are where users view an item and fix/edit that item inline.
@@ -87,11 +87,13 @@ Current UI entry points:
 
 1. `src/MediaEngine.Web/Shared/MainLayout.razor` for the global shell, search, review notification, profile menu, engine status, command palette, and persistent playback host.
 2. `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` for Home/discovery.
-3. `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` for shared Read/Watch/Listen browse behavior.
-4. `src/MediaEngine.Web/Components/Details/DetailPage.razor` and `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` for detail surfaces and inline edit launch points.
-5. `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` for the exception queue.
-6. `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` for normal, review, and batch editing.
-7. `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` for the Ingestion dashboard at `/settings/ingestion`; it uses the Engine `GET /ingestion/operations` snapshot plus SignalR ingestion progress.
+3. `src/MediaEngine.Web/Components/Discovery/DiscoverySpotlightCarousel.razor` and `src/MediaEngine.Web/Components/Discovery/DiscoveryHero.razor` for the reusable cinematic spotlight.
+4. `src/MediaEngine.Web/Components/Browse/LaneLandingView.razor` for the `/read` and `/watch` cinematic landing pages.
+5. `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` for detailed Read/Watch/Listen browse behavior under tab routes.
+6. `src/MediaEngine.Web/Components/Details/DetailPage.razor` and `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` for detail surfaces and inline edit launch points.
+7. `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` for the exception queue.
+8. `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` for normal, review, and batch editing.
+9. `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` for the Ingestion dashboard at `/settings/ingestion`; it uses the Engine `GET /ingestion/operations` snapshot plus SignalR ingestion progress.
 
 Treat stale references to old all-in-one workspace components, retired CSS prefixes, broad management workbenches, or removed-workspace docs as cleanup candidates.
 

@@ -105,12 +105,12 @@ window.CytoscapeInterop = {
                         'background-clip': 'node'
                     }
                 },
-                // Selected node — golden amber accent
+                // Selected node — product accent
                 {
                     selector: 'node:selected',
                     style: {
                         'border-width': 3,
-                        'border-color': '#c9922e',
+                        'border-color': '#8b5cf6',
                         'overlay-opacity': 0.1
                     }
                 },
@@ -140,12 +140,12 @@ window.CytoscapeInterop = {
                         'opacity': 0.9
                     }
                 },
-                // Selected edge — golden amber accent
+                // Selected edge — product accent
                 {
                     selector: 'edge:selected',
                     style: {
-                        'line-color': '#c9922e',
-                        'target-arrow-color': '#c9922e',
+                        'line-color': '#8b5cf6',
+                        'target-arrow-color': '#8b5cf6',
                         'width': 3,
                         'opacity': 1
                     }

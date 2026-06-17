@@ -973,12 +973,15 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // -- GET /api/v1/display/home ---------------------------------------------
 
-    public async Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default)
+    public async Task<DisplayPageDto?> GetDisplayHomeAsync(Guid? profileId = null, CancellationToken ct = default)
     {
         const string endpoint = "GET /api/v1/display/home";
         try
         {
-            var response = await _http.GetAsync("/api/v1/display/home", ct);
+            var query = new List<string>();
+            AddQuery(query, "profileId", profileId?.ToString("D"));
+            var url = "/api/v1/display/home" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
+            var response = await _http.GetAsync(url, ct);
             if (!response.IsSuccessStatusCode)
             {
                 await RecordHttpFailureAsync(endpoint, response, ct);

@@ -32,13 +32,13 @@
 
 :root {
   /* ── Brand ────────────────────────────────────────────────────────────── */
-  --tv-amber:              #EAB308;   /* accent — CTA, active nav */
-  --tv-amber-deep:         #C9922E;   /* title accent, active dots */
+  --tv-amber:              #8B5CF6;   /* product chrome accent — CTA, active nav */
+  --tv-amber-deep:         #7C3AED;   /* title accent, active dots */
   --tv-gold-light:         #EED688;   /* radial-gradient top of logo */
   --tv-gold-mid:           #EBBB10;
   --tv-gold-dark:          #C3922E;
-  --tv-cta-grad-from:      #D4A03C;   /* primary CTA gradient */
-  --tv-cta-grad-to:        #B87820;
+  --tv-cta-grad-from:      #8B5CF6;   /* primary CTA gradient */
+  --tv-cta-grad-to:        #6D28D9;
 
   /* ── Base surfaces (cinematic deep-navy) ──────────────────────────────── */
   --tv-bg-base-0:          #0B1220;   /* top of page gradient */
@@ -68,7 +68,7 @@
   --tv-fg-muted:           rgba(248, 248, 248, 0.50);
   --tv-fg-faint:           rgba(248, 248, 248, 0.38);
   --tv-fg-disabled:        rgba(248, 248, 248, 0.25);
-  --tv-fg-on-amber:        #1A1208;   /* dark text sitting on amber CTA */
+  --tv-fg-on-amber:        #FFFFFF;   /* text sitting on purple CTA */
 
   /* ── Icons ────────────────────────────────────────────────────────────── */
   --tv-icon-muted:         rgba(248, 248, 248, 0.35);
@@ -124,8 +124,8 @@
   --tv-shadow-md:          0 16px 36px rgba(15, 23, 42, 0.40);
   --tv-shadow-lg:          0 22px 48px rgba(15, 23, 42, 0.60);
   --tv-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-  --tv-amber-glow:         0 4px 18px rgba(185, 120, 32, 0.30);
-  --tv-amber-glow-strong:  0 6px 24px rgba(185, 120, 32, 0.50);
+  --tv-amber-glow:         0 4px 18px rgba(139, 92, 246, 0.28);
+  --tv-amber-glow-strong:  0 6px 24px rgba(139, 92, 246, 0.42);
 
   /* ── Backdrop blur ────────────────────────────────────────────────────── */
   --tv-blur:               blur(8px);
@@ -180,7 +180,7 @@ html, body {
   font-family: var(--tv-font-sans);
   font-weight: 800;
   font-size: clamp(2rem, 4.5vw, var(--tv-text-hero));
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 1.05;
   color: var(--tv-fg-primary);
 }
@@ -190,7 +190,7 @@ html, body {
   font-family: var(--tv-font-sans);
   font-weight: 800;
   font-size: var(--tv-text-2xl);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--tv-fg-strong);
 }
 
@@ -199,7 +199,7 @@ html, body {
   font-family: var(--tv-font-sans);
   font-weight: 700;
   font-size: var(--tv-text-xl);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--tv-fg);
 }
 

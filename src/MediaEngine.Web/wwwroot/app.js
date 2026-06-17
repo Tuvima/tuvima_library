@@ -8,6 +8,10 @@ window.setThemeClass = function () {
     document.body.classList.add('app-dark');
 };
 
+window.tuvimaPrefersReducedMotion = function () {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+};
+
 /**
  * Registers a global Ctrl+K (or Cmd+K on Mac) keydown listener that invokes
  * the .NET OpenPalette() method on the provided DotNetObjectReference.

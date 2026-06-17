@@ -15,10 +15,11 @@ public sealed class DisplayComposerService
         _shelves = shelves;
     }
 
-    public async Task<DisplayPageDto> BuildHomeAsync(bool includeCatalog = true, CancellationToken ct = default, int shelfLimit = 18)
+    public async Task<DisplayPageDto> BuildHomeAsync(bool includeCatalog = true, Guid? profileId = null, CancellationToken ct = default, int shelfLimit = 18)
     {
         var works = await _repository.LoadWorksAsync(ct);
         var journey = await _repository.LoadJourneyAsync(null, ct);
+        var homeCollections = await _repository.LoadHomeCollectionsAsync(profileId, ct);
         var progressByWork = LatestProgressByWork(journey);
 
         var continueCards = journey
@@ -54,12 +55,18 @@ public sealed class DisplayComposerService
             .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
             .ToList();
 
+        var collectionCards = homeCollections
+            .Take(Math.Max(1, shelfLimit))
+            .Select(DisplayCardBuilder.FromHomeCollection)
+            .ToList();
+
         var shelves = new List<DisplayShelfDto>();
-        DisplayShelfBuilder.AddShelf(shelves, "continue", "Continue", "Pick up where you left off", continueCards, null);
-        DisplayShelfBuilder.AddShelf(shelves, "fresh", "Fresh in your library", "Recently added across every media type", freshCards, null);
-        DisplayShelfBuilder.AddShelf(shelves, "watch-next", "Watch next", "Movies and shows ready to play", watchCards, "/watch");
-        DisplayShelfBuilder.AddShelf(shelves, "read-next", "Read next", "Books and comics ready to open", readCards, "/read");
-        DisplayShelfBuilder.AddShelf(shelves, "listen-next", "Listen next", "Music and audiobooks ready to resume", listenCards, "/listen");
+        DisplayShelfBuilder.AddShelf(shelves, "continue", "Jump Back In", "Pick up where you left off", continueCards, null);
+        DisplayShelfBuilder.AddShelf(shelves, "watch-next", "Watch", "Movies and shows ready to play", watchCards, "/watch");
+        DisplayShelfBuilder.AddShelf(shelves, "read-next", "Read", "Books and comics ready to open", readCards, "/read");
+        DisplayShelfBuilder.AddShelf(shelves, "listen-next", "Listen", "Music and audiobooks ready to resume", listenCards, "/listen");
+        DisplayShelfBuilder.AddShelf(shelves, "home-collections", "Collections & Lists", "Curated lists and broader rollups from your library", collectionCards, "/collections");
+        DisplayShelfBuilder.AddShelf(shelves, "fresh", "New in your library", "Recently added across every media type", freshCards, null);
 
         var heroCard = continueCards.FirstOrDefault() ?? freshCards.FirstOrDefault();
 
@@ -67,7 +74,7 @@ public sealed class DisplayComposerService
             Key: "home",
             Title: "Home",
             Subtitle: "A cross-media view of your local library",
-            Hero: heroCard is null ? null : DisplayCardBuilder.ToHero(heroCard, continueCards.Count > 0 ? "Continue with your library" : "Fresh in your library"),
+            Hero: heroCard is null ? null : DisplayCardBuilder.ToHero(heroCard, continueCards.Count > 0 ? "Jump Back In" : "New in your library"),
             Shelves: shelves,
             Catalog: includeCatalog
                 ? works.Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId))).ToList()
@@ -204,7 +211,7 @@ public sealed class DisplayComposerService
                    && string.IsNullOrWhiteSpace(mediaType)
                    && string.IsNullOrWhiteSpace(grouping)
                    && string.IsNullOrWhiteSpace(search)
-            ? await BuildHomeAsync(includeCatalog: false, ct: ct, shelfLimit: sourceLimit)
+            ? await BuildHomeAsync(includeCatalog: false, profileId: profileId, ct: ct, shelfLimit: sourceLimit)
             : await BuildShelfSourcePageAsync(lane, mediaType, grouping, search, sourceLimit, profileId, ct);
 
         var shelf = page.Shelves.FirstOrDefault(item => string.Equals(item.Key, shelfKey, StringComparison.OrdinalIgnoreCase));

@@ -28,7 +28,10 @@ public sealed class DisplayCardBuilder
             Progress: progressDto,
             Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind)],
             Flags: FlagsFor(row.MediaType, isCollection: false),
-            SortTimestamp: row.CreatedAt);
+            SortTimestamp: row.CreatedAt)
+        {
+            Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
+        };
     }
 
     public DisplayCardDto FromJourney(DisplayJourneyRow row, string context)
@@ -54,7 +57,10 @@ public sealed class DisplayCardBuilder
             Progress: ToProgress(row, action),
             Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind)],
             Flags: FlagsFor(row.MediaType, isCollection: false),
-            SortTimestamp: row.LastAccessed);
+            SortTimestamp: row.LastAccessed)
+        {
+            Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
+        };
     }
 
     public IReadOnlyList<DisplayCardDto> BuildCollectionCards(IReadOnlyList<DisplayWorkRow> works, string lane) =>
@@ -68,7 +74,34 @@ public sealed class DisplayCardBuilder
             .ToList();
 
     public static DisplayHeroDto ToHero(DisplayCardDto card, string eyebrow) =>
-        new(card.Title, card.Subtitle, eyebrow, card.Artwork, card.Progress, card.Actions);
+        new(card.Title, card.Subtitle, eyebrow, card.Artwork, card.Progress, card.Actions)
+        {
+            Facts = card.Facts,
+        };
+
+    public static DisplayCardDto FromHomeCollection(DisplayHomeCollectionRow row)
+    {
+        var action = new DisplayActionDto("openCollection", "Open", null, null, row.CollectionId, $"/collection/{row.CollectionId:D}");
+        return new DisplayCardDto(
+            Id: row.CollectionId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: row.CollectionId,
+            MediaType: "Collection",
+            GroupingType: "collection",
+            Title: row.Title,
+            Subtitle: row.Subtitle ?? CollectionCountLabel("Collection", row.ItemCount),
+            Facts: HomeCollectionFacts(row),
+            Artwork: ArtworkFor(row),
+            PreferredShape: "landscape",
+            Presentation: "default",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(false, false, false, true, false),
+            SortTimestamp: row.CreatedAt);
+    }
 
     private DisplayCardDto? ToCollectionCard(Guid collectionId, IReadOnlyList<DisplayWorkRow> works, string lane)
     {
@@ -267,6 +300,30 @@ public sealed class DisplayCardBuilder
         return facts;
     }
 
+    private static IReadOnlyList<string> HomeCollectionFacts(DisplayHomeCollectionRow row)
+    {
+        var facts = new List<string>();
+        AddFact(facts, CollectionCountLabel("Collection", row.ItemCount));
+        AddFact(facts, row.CollectionType);
+
+        if (row.WatchCount > 0)
+        {
+            AddFact(facts, $"{row.WatchCount} watch");
+        }
+
+        if (row.ReadCount > 0)
+        {
+            AddFact(facts, $"{row.ReadCount} read");
+        }
+
+        if (row.ListenCount > 0)
+        {
+            AddFact(facts, $"{row.ListenCount} listen");
+        }
+
+        return facts;
+    }
+
     private static string CollectionCountLabel(string mediaKind, int count)
     {
         var noun = mediaKind switch
@@ -287,6 +344,56 @@ public sealed class DisplayCardBuilder
         "Music" or "Audiobook" => "Continue Listening",
         _ => "Continue",
     };
+
+    private static IReadOnlyList<DisplayCardBadgeDto> BuildBadges(string mediaKind, string? quality, string? source)
+    {
+        if (mediaKind is not ("Movie" or "TV"))
+        {
+            return [];
+        }
+
+        var badges = new List<DisplayCardBadgeDto>();
+        if (NormalizeWatchQualityLabel(quality) is { } qualityLabel)
+        {
+            badges.Add(new DisplayCardBadgeDto("quality", qualityLabel));
+        }
+
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            badges.Add(new DisplayCardBadgeDto("source", source.Trim()));
+        }
+
+        return badges;
+    }
+
+    private static string? NormalizeWatchQualityLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (normalized.Equals("2160p", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("UHD", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Ultra HD", StringComparison.OrdinalIgnoreCase))
+        {
+            return "4K";
+        }
+
+        if (normalized.Contains("3840", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("2160", StringComparison.OrdinalIgnoreCase))
+        {
+            return "4K";
+        }
+
+        if (normalized.Contains("1080", StringComparison.OrdinalIgnoreCase))
+        {
+            return "HD";
+        }
+
+        return normalized;
+    }
 
     private static string? CreatorFor(DisplayWorkRow row) =>
         FirstNonBlank(row.Author, row.Artist, row.Director, row.Narrator);
@@ -360,6 +467,20 @@ public sealed class DisplayCardBuilder
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static void AddFact(List<string> facts, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var trimmed = value.Trim();
+        if (!facts.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+        {
+            facts.Add(trimmed);
+        }
+    }
 
     private static int? ParseInt(string? value) =>
         int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;

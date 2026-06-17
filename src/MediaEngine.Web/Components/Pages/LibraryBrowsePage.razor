@@ -96,17 +96,17 @@ else
     <div class="home-discovery-page @(_page.Hero is not null ? "home-discovery-page--with-hero" : null)">
         @if (_page.Hero is not null)
         {
-            <DiscoveryHero Hero="@_page.Hero" />
+            @if (_page.Spotlights.Count > 1)
+            {
+                <DiscoverySpotlightCarousel Items="@_page.Spotlights" AriaLabel="Home spotlight" />
+            }
+            else
+            {
+                <DiscoveryHero Hero="@_page.Hero" />
+            }
         }
 
         <div class="home-discovery-content-shell">
-            @if (_page.Hubs.Count > 0)
-            {
-                <DiscoveryHubStrip Hubs="@_page.Hubs"
-                                   Title="Library hubs"
-                                   Subtitle="Collections, franchises, albums, and series assembled automatically from your library." />
-            }
-
             <div class="home-discovery-shelves">
                 @foreach (var shelf in _page.Shelves)
                 {
@@ -164,7 +164,8 @@ else
 
                 try
                 {
-                    _page = await MediaTiles.BuildHomeAsync();
+                    var activeProfile = await Orchestrator.GetActiveProfileAsync();
+                    _page = await MediaTiles.BuildHomeAsync(activeProfile?.Id);
                     if (IsEmpty)
                     {
                         _canScan = await CanStartScanAsync();

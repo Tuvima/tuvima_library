@@ -2,7 +2,7 @@
     .discovery-hero-backdrop, .discovery-hero-overlay, .discovery-hero-texture { position:absolute; inset:0; }
     .discovery-hero-backdrop { background:radial-gradient(circle at center,rgba(14,18,28,.42) 0%,rgba(3,5,10,.92) 100%),linear-gradient(135deg,rgba(4,6,12,.98) 0%,rgba(2,4,8,1) 100%); }
     .discovery-hero-backdrop-image { width:100%; height:100%; display:block; }
-    .discovery-hero-shell.is-banner-hero .discovery-hero-backdrop-image { object-fit:cover; object-position:center center; transform:scale(1.02); }
+    .discovery-hero-shell.is-banner-hero .discovery-hero-backdrop-image { object-fit:cover; object-position:center center; transform:none; }
     .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(48vw,560px); max-width:100%; margin-left:auto; object-fit:contain; object-position:right center; opacity:.62; padding:24px 28px 24px 0; }
     .discovery-hero-overlay { background:linear-gradient(180deg,rgba(3,5,10,.16) 0%,rgba(3,5,10,.34) 18%,rgba(3,5,10,.72) 72%,rgba(3,5,10,.985) 100%),linear-gradient(90deg,rgba(3,5,10,.98) 0%,rgba(3,5,10,.9) 34%,rgba(3,5,10,.42) 60%,rgba(3,5,10,.88) 100%); pointer-events:none; }
     .discovery-hero-texture { background:radial-gradient(circle at top right,color-mix(in srgb,var(--hero-accent) 8%,transparent) 0%,transparent 34%),linear-gradient(180deg,rgba(255,255,255,.02) 0%,rgba(255,255,255,0) 24%); mix-blend-mode:screen; opacity:.18; pointer-events:none; }
@@ -11,12 +11,13 @@
     .discovery-hero-eyebrow, .discovery-hero-meta, .discovery-hero-progress-label, .discovery-hero-btn { font-family: var(--app-font-sans, 'Nunito', sans-serif); text-transform:uppercase; }
     .discovery-hero-eyebrow { display:inline-flex; width:fit-content; align-items:center; padding:7px 12px; border-radius:var(--app-radius-md); background:color-mix(in srgb,var(--hero-accent) 18%,rgba(255,255,255,.02)); border:1px solid color-mix(in srgb,var(--hero-accent) 36%,rgba(255,255,255,.12)); font-size:10px; font-weight:800; letter-spacing:.18em; color:rgba(226,232,240,.94); }
     .discovery-hero-logo { width:min(100%,460px); max-height:180px; object-fit:contain; object-position:left center; display:block; filter:drop-shadow(0 16px 34px rgba(0,0,0,.42)); }
-    .discovery-hero-title { margin:0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(2.8rem,6vw,5.4rem); font-weight:700; line-height:.93; letter-spacing:-.04em; color:rgba(248,250,252,.98); text-wrap:balance; }
+    .discovery-hero-title { margin:0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(2.8rem,6vw,5.4rem); font-weight:700; line-height:1.1; letter-spacing:0; color:rgba(248,250,252,.98); text-wrap:balance; }
     .discovery-hero-subtitle { font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:clamp(1rem,1.6vw,1.2rem); font-weight:600; color:rgba(226,232,240,.9); }
     .discovery-hero-status { font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:.88rem; font-weight:700; color:color-mix(in srgb,var(--hero-accent) 82%,white 10%); }
-    .discovery-hero-meta-row, .discovery-hero-chips, .discovery-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+    .discovery-hero-meta-row, .discovery-hero-facts, .discovery-hero-chips, .discovery-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
     .discovery-hero-kind { width:34px; height:34px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); color:rgba(248,250,252,.92); backdrop-filter:blur(12px); }
     .discovery-hero-meta { font-size:.78rem; font-weight:700; letter-spacing:.16em; color:rgba(226,232,240,.82); }
+    .discovery-hero-fact { display:inline-flex; align-items:center; min-height:24px; padding:3px 9px; border-radius:var(--tl-radius-sm); background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); font-family:var(--app-font-sans, 'Nunito', sans-serif); font-size:.76rem; font-weight:800; line-height:1; color:rgba(248,250,252,.92); backdrop-filter:blur(12px); }
     .discovery-hero-chip { display:inline-flex; align-items:center; padding:6px 10px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:.74rem; color:rgba(248,250,252,.88); }
     .discovery-hero-description { margin:0; max-width:680px; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:1rem; line-height:1.68; color:rgba(226,232,240,.86); text-shadow:0 2px 14px rgba(0,0,0,.26); }
     .discovery-hero-progress { display:flex; flex-direction:column; gap:8px; max-width:320px; margin-top:4px; }
@@ -36,5 +37,5 @@
     .discovery-hero-preview-image.is-fill { object-fit:cover; }
     .discovery-hero-preview-image.is-contained { object-fit:contain; background:linear-gradient(180deg,rgba(12,16,26,.92) 0%,rgba(5,8,14,.96) 100%); }
     .discovery-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-    @@media (max-width:960px) { .discovery-hero-content { grid-template-columns:1fr; align-items:end; padding-top:24px; } .discovery-hero-preview { width:min(52vw,260px); justify-self:start; } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(68vw,420px); padding-right:12px; } }
-    @@media (max-width:640px) { .discovery-hero-shell { min-height:0; } .discovery-hero-content { padding:24px 22px; } .discovery-hero-logo { width:min(100%,320px); max-height:120px; } .discovery-hero-preview { width:min(50vw,210px); } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(76vw,340px); } }
+    @media (max-width:960px) { .discovery-hero-content { grid-template-columns:1fr; align-items:end; padding-top:24px; } .discovery-hero-preview { width:min(52vw,260px); justify-self:start; } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(68vw,420px); padding-right:12px; } }
+    @media (max-width:640px) { .discovery-hero-shell { min-height:0; } .discovery-hero-content { padding:24px 22px; } .discovery-hero-logo { width:min(100%,320px); max-height:120px; } .discovery-hero-preview { width:min(50vw,210px); } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(76vw,340px); } }

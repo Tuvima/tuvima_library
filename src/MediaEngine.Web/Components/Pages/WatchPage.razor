@@ -2,16 +2,77 @@
 @page "/watch/{Tab}"
 @using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.MediaTiles
+@inject MediaTileComposerService MediaTiles
 
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Watch - Tuvima</PageTitle>
 
-<MediaBrowseShell Tab="@Tab"
-                  Preset="@Preset" />
+@if (string.IsNullOrWhiteSpace(Tab))
+{
+    @if (_loading)
+    {
+        <div class="browse-shell__loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
+        </div>
+    }
+    else if (_loadFailed)
+    {
+        <AppErrorState Title="Watch failed to load"
+                       Message="The Dashboard could not load the Watch landing from the Engine."
+                       Retry="LoadLandingAsync" />
+    }
+    else if (_landingPage is not null)
+    {
+        <LaneLandingView Page="@_landingPage"
+                         Title="Watch"
+                         Subtitle="Movies and shows from your local library"
+                         BrowseAllRoute="/watch/movies" />
+    }
+}
+else
+{
+    <MediaBrowseShell Tab="@Tab"
+                      Preset="@Preset" />
+}
 
 @code {
     [Parameter] public string? Tab { get; set; }
+
+    private DiscoveryPageViewModel? _landingPage;
+    private bool _loading = true;
+    private bool _loadFailed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Tab) || _landingPage is not null)
+        {
+            _loading = false;
+            return;
+        }
+
+        await LoadLandingAsync();
+    }
+
+    private async Task LoadLandingAsync()
+    {
+        _loading = true;
+        _loadFailed = false;
+
+        try
+        {
+            _landingPage = await MediaTiles.BuildWatchAsync();
+        }
+        catch
+        {
+            _loadFailed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
 
     private static readonly LibraryBrowsePreset Preset = new()
     {

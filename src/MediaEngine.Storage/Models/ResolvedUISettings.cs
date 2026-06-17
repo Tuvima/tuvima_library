@@ -24,7 +24,7 @@ public sealed class ResolvedUISettings
     public bool DarkMode { get; set; } = true;
 
     [JsonPropertyName("accent_color")]
-    public string AccentColor { get; set; } = "#EAB308";
+    public string AccentColor { get; set; } = "#8B5CF6";
 
     // ── Layout ─────────────────────────────────────────────────────────
 

@@ -1,0 +1,220 @@
+@namespace MediaEngine.Web.Components.Discovery
+@using MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Models.ViewDTOs
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (Slides.Count > 0)
+{
+    <section class="discovery-spotlight-carousel"
+             aria-roledescription="carousel"
+             aria-label="@AriaLabel"
+             @onmouseenter="PauseForHover"
+             @onmouseleave="ResumeFromHover"
+             @onfocusin="PauseForFocus">
+        <div class="discovery-spotlight-carousel__slide" aria-live="polite">
+            <DiscoveryHero Hero="@Slides[_activeIndex]" />
+        </div>
+
+        @if (Slides.Count > 1)
+        {
+            <div class="discovery-spotlight-carousel__controls">
+                <AppNativeButton Type="button"
+                                 Class="discovery-spotlight-carousel__control"
+                                 AriaLabel="Previous spotlight"
+                                 Title="Previous spotlight"
+                                 OnClick="PreviousAsync">
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
+                </AppNativeButton>
+
+                <div class="discovery-spotlight-carousel__dots" role="tablist" aria-label="Spotlight slides">
+                    @for (var index = 0; index < Slides.Count; index++)
+                    {
+                        var slideIndex = index;
+                        <AppNativeButton Type="button"
+                                         Class='@($"discovery-spotlight-carousel__dot {(slideIndex == _activeIndex ? "is-active" : null)}")'
+                                         AriaLabel="@($"Show spotlight {slideIndex + 1} of {Slides.Count}")"
+                                         Title="@($"Show spotlight {slideIndex + 1}")"
+                                         aria-selected="@(slideIndex == _activeIndex ? "true" : "false")"
+                                         role="tab"
+                                         OnClick="@(() => SelectAsync(slideIndex))">
+                            <span class="discovery-spotlight-carousel__dot-indicator"></span>
+                        </AppNativeButton>
+                    }
+                </div>
+
+                <AppNativeButton Type="button"
+                                 Class="discovery-spotlight-carousel__control"
+                                 AriaLabel="Next spotlight"
+                                 Title="Next spotlight"
+                                 OnClick="NextAsync">
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
+                </AppNativeButton>
+
+                <AppNativeButton Type="button"
+                                 Class="discovery-spotlight-carousel__control"
+                                 AriaLabel="@PauseButtonLabel"
+                                 Title="@PauseButtonLabel"
+                                 OnClick="TogglePauseAsync">
+                    <MudIcon Icon="@PauseButtonIcon" />
+                </AppNativeButton>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<DiscoveryHeroViewModel> Items { get; set; } = [];
+    [Parameter] public string AriaLabel { get; set; } = "Featured media";
+
+    private const int MaxSlides = 5;
+    private static readonly TimeSpan RotationInterval = TimeSpan.FromSeconds(8);
+
+    private readonly CancellationTokenSource _disposeCts = new();
+    private int _activeIndex;
+    private bool _initializedMotionPreference;
+    private bool _prefersReducedMotion;
+    private bool _userPaused;
+    private bool _hoverPaused;
+    private bool _focusPaused;
+    private Task? _rotationTask;
+
+    private IReadOnlyList<DiscoveryHeroViewModel> Slides =>
+        Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Title))
+            .Take(MaxSlides)
+            .ToList();
+
+    private bool IsPaused => _prefersReducedMotion || _userPaused || _hoverPaused || _focusPaused || Slides.Count < 2;
+
+    private string PauseButtonLabel => IsPaused ? "Resume spotlight rotation" : "Pause spotlight rotation";
+
+    private string PauseButtonIcon => IsPaused
+        ? Icons.Material.Filled.PlayArrow
+        : Icons.Material.Filled.Pause;
+
+    protected override void OnParametersSet()
+    {
+        if (_activeIndex >= Slides.Count)
+        {
+            _activeIndex = 0;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initializedMotionPreference)
+        {
+            return;
+        }
+
+        _initializedMotionPreference = true;
+        try
+        {
+            _prefersReducedMotion = await JS.InvokeAsync<bool>("tuvimaPrefersReducedMotion");
+        }
+        catch
+        {
+            _prefersReducedMotion = false;
+        }
+
+        _rotationTask = RunRotationAsync(_disposeCts.Token);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RunRotationAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(RotationInterval, token);
+                if (!IsPaused && Slides.Count > 1)
+                {
+                    await InvokeAsync(() =>
+                    {
+                        _activeIndex = (_activeIndex + 1) % Slides.Count;
+                        StateHasChanged();
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private Task PreviousAsync()
+    {
+        _userPaused = true;
+        if (Slides.Count > 1)
+        {
+            _activeIndex = (_activeIndex - 1 + Slides.Count) % Slides.Count;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task NextAsync()
+    {
+        _userPaused = true;
+        if (Slides.Count > 1)
+        {
+            _activeIndex = (_activeIndex + 1) % Slides.Count;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task SelectAsync(int index)
+    {
+        _userPaused = true;
+        if (index >= 0 && index < Slides.Count)
+        {
+            _activeIndex = index;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task TogglePauseAsync()
+    {
+        if (IsPaused)
+        {
+            _userPaused = false;
+            _focusPaused = false;
+            _hoverPaused = false;
+            _prefersReducedMotion = false;
+        }
+        else
+        {
+            _userPaused = true;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void PauseForHover() => _hoverPaused = true;
+
+    private void ResumeFromHover() => _hoverPaused = false;
+
+    private void PauseForFocus() => _focusPaused = true;
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposeCts.Cancel();
+        if (_rotationTask is not null)
+        {
+            try
+            {
+                await _rotationTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        _disposeCts.Dispose();
+    }
+}

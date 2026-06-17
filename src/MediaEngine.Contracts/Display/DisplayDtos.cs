@@ -14,7 +14,10 @@ public sealed record DisplayHeroDto(
     string? Eyebrow,
     DisplayArtworkDto Artwork,
     DisplayProgressDto? Progress,
-    IReadOnlyList<DisplayActionDto> Actions);
+    IReadOnlyList<DisplayActionDto> Actions)
+{
+    public IReadOnlyList<string> Facts { get; init; } = [];
+}
 
 public sealed record DisplayShelfDto(
     string Key,
@@ -48,7 +51,14 @@ public sealed record DisplayCardDto(
     DisplayProgressDto? Progress,
     IReadOnlyList<DisplayActionDto> Actions,
     DisplayCardFlagsDto Flags,
-    DateTimeOffset SortTimestamp);
+    DateTimeOffset SortTimestamp)
+{
+    public IReadOnlyList<DisplayCardBadgeDto> Badges { get; init; } = [];
+}
+
+public sealed record DisplayCardBadgeDto(
+    string Kind,
+    string Label);
 
 public sealed record DisplayArtworkDto(
     string? CoverUrl,

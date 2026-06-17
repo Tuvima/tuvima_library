@@ -378,6 +378,10 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayArtworkDto
   BackgroundHeightPx: System.Int32? | nullability=nullable | accessors=get,init
   AccentColor: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardBadgeDto
+  Kind: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   WorkId: System.Guid? | nullability=nullable | accessors=get,init
@@ -397,6 +401,7 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayActionDto> | nullability=not-null | accessors=get,init
   Flags: MediaEngine.Contracts.Display.DisplayCardFlagsDto | nullability=not-null | accessors=get,init
   SortTimestamp: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Badges: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardBadgeDto> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   IsPlayable: System.Boolean | nullability=not-null | accessors=get,init
@@ -412,6 +417,7 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayHeroDto
   Artwork: MediaEngine.Contracts.Display.DisplayArtworkDto | nullability=not-null | accessors=get,init
   Progress: MediaEngine.Contracts.Display.DisplayProgressDto | nullability=nullable | accessors=get,init
   Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayActionDto> | nullability=not-null | accessors=get,init
+  Facts: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayPageDto
   Key: System.String | nullability=not-null | accessors=get,init

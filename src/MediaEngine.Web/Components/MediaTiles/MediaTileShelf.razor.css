@@ -101,13 +101,13 @@
         background: linear-gradient(270deg, rgba(6, 10, 18, 0.96) 24%, transparent 100%);
     }
 
-    @@media (hover: none) {
+    @media (hover: none) {
         .media-tile-shelf-arrow {
             display: none;
         }
     }
 
-    @@media (max-width: 640px) {
+    @media (max-width: 640px) {
         .media-tile-shelf-header {
             align-items: flex-start;
             flex-direction: column;

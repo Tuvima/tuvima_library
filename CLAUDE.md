@@ -217,7 +217,7 @@ Dark-mode-only cinematic design with an ambient gradient background. The Dashboa
 - `/search` — global search
 - `/settings`, `/settings/{Section}` — Settings shell (review queue lives at `/settings/review`)
 
-Real-time SignalR updates push pipeline progress into every surface. Theming is fixed dark with a golden amber accent (`#C9922E`).
+Real-time SignalR updates push pipeline progress into every surface. Theming is fixed dark with a purple chrome accent (`#8B5CF6`); EPUB reader highlight colors remain reader-specific.
 
 ### 3.5 — Brand Assets
 

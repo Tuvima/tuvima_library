@@ -309,7 +309,7 @@ Global UI defaults applied to all devices and users unless overridden.
 | Field | Type | Description |
 |---|---|---|
 | `theme` | string | Always `"dark"`. The Dashboard is dark-mode-only. |
-| `accent_color` | string | `"#C9922E"` - fixed golden amber accent. Do not change. |
+| `accent_color` | string | `"#8B5CF6"` - fixed purple product chrome accent. EPUB reader highlight colors are configured separately. |
 | `poster_aspect_ratio` | string | `"2:3"` - standard cover art card ratio. |
 | `default_view_mode` | string | `"list"` or `"grid"`. Default media library view mode. |
 

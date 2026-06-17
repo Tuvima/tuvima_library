@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "dark_mode": true,
-  "accent_color": "#EAB308",
+  "accent_color": "#8B5CF6",
   "content_padding": "pa-4",
   "content_max_width": "ExtraLarge",
   "border_radius": 12,

@@ -1,11 +1,14 @@
 using MediaEngine.Contracts.Display;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration;
 
 namespace MediaEngine.Web.Services.MediaTiles;
 
 public sealed class MediaTileComposerService
 {
+    private static readonly StreamingServiceLogoResolver SourceLogos = new();
+
     private readonly IEngineApiClient _api;
 
     public MediaTileComposerService(IEngineApiClient api)
@@ -13,8 +16,8 @@ public sealed class MediaTileComposerService
         _api = api;
     }
 
-    public async Task<DiscoveryPageViewModel> BuildHomeAsync(CancellationToken ct = default) =>
-        FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayHomeAsync(ct), "home"));
+    public async Task<DiscoveryPageViewModel> BuildHomeAsync(Guid? profileId = null, CancellationToken ct = default) =>
+        FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayHomeAsync(profileId, ct), "home"));
 
     public async Task<DiscoveryPageViewModel> BuildReadAsync(CancellationToken ct = default) =>
         FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "read", grouping: "all", ct: ct), "read"));
@@ -37,39 +40,108 @@ public sealed class MediaTileComposerService
             })
             .ToList();
 
-        var heroArtwork = page.Hero?.Artwork;
-        var heroSurfaceKind = heroArtwork is null ? MediaTileSurfaceKind.BannerLandscape : ResolveHeroSurfaceKind(heroArtwork);
-        var heroPreviewSurfaceKind = heroArtwork is null ? MediaTileSurfaceKind.CoverPortrait : ResolvePreviewSurfaceKind(heroArtwork);
+        var hero = page.Hero is null ? null : FromDisplayHero(page.Hero);
 
         return new DiscoveryPageViewModel
         {
             Key = page.Key,
-            AccentColor = "#1CE783",
-            Hero = page.Hero is null ? null : new DiscoveryHeroViewModel
-            {
-                Eyebrow = page.Hero.Eyebrow ?? "From your library",
-                Title = page.Hero.Title,
-                Subtitle = page.Hero.Subtitle,
-                BackgroundImageUrl = FirstNonBlank(page.Hero.Artwork.BackgroundLargeUrl, page.Hero.Artwork.BannerLargeUrl, page.Hero.Artwork.BackgroundMediumUrl, page.Hero.Artwork.BannerMediumUrl),
-                HeroBackgroundImageUrl = FirstNonBlank(page.Hero.Artwork.BackgroundLargeUrl, page.Hero.Artwork.BannerLargeUrl, page.Hero.Artwork.BackgroundMediumUrl, page.Hero.Artwork.BannerMediumUrl),
-                BannerImageUrl = FirstNonBlank(page.Hero.Artwork.BannerLargeUrl, page.Hero.Artwork.BannerMediumUrl),
-                PreviewImageUrl = FirstNonBlank(page.Hero.Artwork.CoverLargeUrl, page.Hero.Artwork.SquareLargeUrl, page.Hero.Artwork.CoverMediumUrl, page.Hero.Artwork.SquareMediumUrl),
-                SurfaceKind = heroSurfaceKind,
-                PreviewSurfaceKind = heroPreviewSurfaceKind,
-                LogoUrl = page.Hero.Artwork.LogoUrl,
-                AccentColor = page.Hero.Artwork.AccentColor ?? "#1CE783",
-                ProgressPct = page.Hero.Progress?.Percent,
-                PrimaryActionLabel = page.Hero.Actions.FirstOrDefault()?.Label ?? "Open",
-                PrimaryNavigationUrl = page.Hero.Actions.FirstOrDefault()?.WebUrl ?? "/",
-                SecondaryActionLabel = "Details",
-                SecondaryNavigationUrl = page.Hero.Actions.Skip(1).FirstOrDefault()?.WebUrl,
-            },
+            AccentColor = "var(--tl-accent-primary)",
+            Hero = hero,
+            Spotlights = BuildSpotlights(page, hero),
             Shelves = shelves,
             Catalog = page.Catalog.Select(FromDisplayCard).ToList(),
             EmptyTitle = "Your home screen is waiting for its first story",
             EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own.",
         };
     }
+
+    private static DiscoveryHeroViewModel FromDisplayHero(DisplayHeroDto hero)
+    {
+        var heroSurfaceKind = ResolveHeroSurfaceKind(hero.Artwork);
+        var heroPreviewSurfaceKind = ResolvePreviewSurfaceKind(hero.Artwork);
+        var primaryAction = hero.Progress?.ResumeAction ?? hero.Actions.FirstOrDefault();
+        var secondaryAction = hero.Actions.Skip(1).FirstOrDefault();
+
+        return new DiscoveryHeroViewModel
+        {
+            Eyebrow = hero.Eyebrow ?? "From your library",
+            Title = hero.Title,
+            Subtitle = hero.Subtitle,
+            BackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundLargeUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerMediumUrl),
+            HeroBackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundLargeUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerMediumUrl),
+            BannerImageUrl = FirstNonBlank(hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
+            PreviewImageUrl = FirstNonBlank(hero.Artwork.CoverLargeUrl, hero.Artwork.SquareLargeUrl, hero.Artwork.CoverMediumUrl, hero.Artwork.SquareMediumUrl),
+            SurfaceKind = heroSurfaceKind,
+            PreviewSurfaceKind = heroPreviewSurfaceKind,
+            LogoUrl = hero.Artwork.LogoUrl,
+            AccentColor = hero.Artwork.AccentColor ?? "var(--tl-accent-primary)",
+            MetaText = string.Join(" / ", hero.Facts),
+            MetaPills = hero.Facts,
+            ProgressPct = hero.Progress?.Percent,
+            PrimaryActionLabel = primaryAction?.Label ?? "Open",
+            PrimaryNavigationUrl = primaryAction?.WebUrl ?? "/",
+            SecondaryActionLabel = "Details",
+            SecondaryNavigationUrl = secondaryAction?.WebUrl,
+        };
+    }
+
+    private static IReadOnlyList<DiscoveryHeroViewModel> BuildSpotlights(DisplayPageDto page, DiscoveryHeroViewModel? hero)
+    {
+        var slides = new List<DiscoveryHeroViewModel>();
+        if (hero is not null)
+        {
+            slides.Add(hero);
+        }
+
+        foreach (var card in SpotlightCards(page))
+        {
+            if (slides.Count >= 5)
+            {
+                break;
+            }
+
+            if (hero is not null
+                && string.Equals(card.Title, hero.Title, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(card.Subtitle, hero.Subtitle, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            slides.Add(FromDisplayHero(new DisplayHeroDto(
+                card.Title,
+                card.Subtitle,
+                EyebrowForCard(card),
+                card.Artwork,
+                card.Progress,
+                card.Actions)
+            {
+                Facts = card.Facts,
+            }));
+        }
+
+        return slides;
+    }
+
+    private static IEnumerable<DisplayCardDto> SpotlightCards(DisplayPageDto page)
+    {
+        var preferredShelf = page.Shelves.FirstOrDefault(shelf =>
+            string.Equals(shelf.Key, "continue", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(shelf.Key, "continue-watching", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(shelf.Key, "continue-reading", StringComparison.OrdinalIgnoreCase));
+
+        return preferredShelf is null
+            ? page.Catalog.Take(5)
+            : preferredShelf.Items.Take(5);
+    }
+
+    private static string EyebrowForCard(DisplayCardDto card) =>
+        card.MediaType switch
+        {
+            "Book" or "Comic" => card.Progress is not null ? "Continue Reading" : "Read",
+            "Audiobook" or "Music" => card.Progress is not null ? "Continue Listening" : "Listen",
+            "Movie" or "TV" => card.Progress is not null ? "Continue Watching" : "Watch",
+            _ => "From your library",
+        };
 
     public static MediaTileViewModel FromDisplayCard(DisplayCardDto card)
     {
@@ -108,6 +180,9 @@ public sealed class MediaTileComposerService
             BannerUrl = card.Artwork.BannerUrl,
             LogoUrl = card.Artwork.LogoUrl,
             MetaText = string.Join(" / ", card.Facts),
+            QualityBadge = BadgeLabel(card.Badges, "quality"),
+            SourceBadgeLabel = BadgeLabel(card.Badges, "source"),
+            SourceLogoUrl = SourceLogos.ResolveLogoPath(BadgeLabel(card.Badges, "source")),
             HoverFacts = card.Facts,
             MediaKind = card.MediaType,
             AccentColor = card.Artwork.AccentColor ?? AccentForBucket(bucket),
@@ -255,6 +330,9 @@ public sealed class MediaTileComposerService
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static string? BadgeLabel(IReadOnlyList<DisplayCardBadgeDto> badges, string kind) =>
+        badges.FirstOrDefault(badge => string.Equals(badge.Kind, kind, StringComparison.OrdinalIgnoreCase))?.Label;
 }
 
 public enum MediaTileBucket

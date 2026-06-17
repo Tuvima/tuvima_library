@@ -12,7 +12,7 @@ tags:
 
 # Tuvima Design System
 
-Design system for **Tuvima Library** - a unified media intelligence platform that organizes books, audiobooks, movies, TV, music, and comics by story rather than by file type. The visual language is **cinematic, minimalist, dark-only**, built around deep-navy surfaces, glassmorphic panels, and a single golden amber accent.
+Design system for **Tuvima Library** - a unified media intelligence platform that organizes books, audiobooks, movies, TV, music, and comics by story rather than by file type. The visual language is **cinematic, minimalist, dark-only**, built around deep-navy surfaces, glassmorphic panels, and a single purple product chrome accent.
 
 ## Sources
 
@@ -68,7 +68,7 @@ The voice is **warm, literary, and a little reverent** - it treats a media colle
 
 ## Visual Foundations
 
-**Palette** - dark-only, cinematic. Deep navy base (`#0B1220 -> #111827`) with soft radial glows of blue (`rgba(59,130,246,.12)`) top-left and cyan (`rgba(14,165,233,.10)`) top-right. Every card is a **glassmorphic** layer over this base: `rgba(255,255,255,0.02)` fill, `rgba(255,255,255,0.06)` border. The single accent is **golden amber** (`#EAB308` bright, `#C9922E` deep) - used for active nav, primary CTAs, in-progress indicators, and nothing else. Media-type accents (books indigo, audiobooks blue, movies pink, TV emerald, music amber, comics orange) are reserved for provider badges and media-type chips, never page chrome.
+**Palette** - dark-only, cinematic. Deep navy base (`#0B1220 -> #111827`) with soft radial glows of blue (`rgba(59,130,246,.12)`) top-left and cyan (`rgba(14,165,233,.10)`) top-right. Every card is a **glassmorphic** layer over this base: `rgba(255,255,255,0.02)` fill, `rgba(255,255,255,0.06)` border. The single product chrome accent is purple (`#8B5CF6`) - used for active nav, primary CTAs, in-progress indicators, and nothing else. Media-type accents (books indigo, audiobooks blue, movies pink, TV emerald, music amber, comics orange) are reserved for provider badges and media-type chips, never page chrome. EPUB reader highlight colors remain reader-specific.
 
 **Typography** - **Montserrat** (variable) is the UI face, set tight (letter-spacing `-0.02em` on headings). Weights used: 400 body, 500 labels, 600 card titles, 700 section headings, 800 page titles / small-caps labels. **Merriweather** serif is scoped to the EPUB reader surface only. **JetBrains Mono** for inline code / technical values. Small-caps metadata labels are a signature: `font-weight: 800; font-size: 10px; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(248,248,248,0.35)`.
 
@@ -76,13 +76,13 @@ The voice is **warm, literary, and a little reverent** - it treats a media colle
 
 **Backgrounds** - the base page uses the fixed navy gradient. Detail pages overlay a **fixed, full-bleed blurred cover image** (`filter: blur(40px) saturate(0.6)`) with a vertical fade into the page background (`transparent -> rgba(6,10,22,1)` by 80%). A **page ambient glow** radial (`ellipse 110% 55% at 50% 0%`) tinted by the hero collection's dominant color washes the viewport at 14% opacity. No patterns, no textures, no illustrations. Just fades, blur, and light.
 
-**Animation** - restrained. Hover/focus transitions `150-200ms` ease. Hero slide enter: `opacity 0 -> 1` + `translateY(6px -> 0)` over `550ms`. Carousel auto-advance every `6s`, pauseable on hover. Dot indicator active: `background: #C9922E; transform: scale(1.35)` with `250ms ease`. Ambient glow crossfade `600ms ease`. No bounces, no springs, no parallax.
+**Animation** - restrained. Hover/focus transitions `150-200ms` ease. Hero slide enter: `opacity 0 -> 1` + `translateY(6px -> 0)` over `550ms`. Carousel auto-advance every `8s` only when reduced motion is not requested; it must pause on hover and keyboard focus and expose pause/resume controls. Dot indicator active: `background: #8B5CF6; transform: scale(1.35)` with `250ms ease`. Ambient glow crossfade `600ms ease`. No bounces, no springs, no parallax.
 
-**Hover states** - surfaces gain `background: rgba(255,255,255,0.05)` (aka `--tv-hover-overlay`). Ghost buttons add a subtle border-color shift. Primary amber CTAs brighten the gradient (`#D4A03C->#B87820` becomes `#DDA840->#C08428`) and strengthen shadow (`0 4px 18px -> 0 6px 24px rgba(185,120,32,0.50)`). Icons lift from 35% to ~88% opacity on hover.
+**Hover states** - surfaces gain `background: rgba(255,255,255,0.05)` (aka `--tv-hover-overlay`). Ghost buttons add a subtle border-color shift. Primary purple CTAs brighten the gradient (`#8B5CF6->#6D28D9` becomes `#A78BFA->#7C3AED`) and strengthen shadow (`0 4px 18px -> 0 6px 24px rgba(139,92,246,0.42)`). Icons lift from 35% to ~88% opacity on hover.
 
 **Press states** - no visible shrink. Amber active overlay (`rgba(234,179,8,0.22)`) applies to active nav, selected toggle items.
 
-**Borders** - almost always `1px solid rgba(255,255,255,0.06)` (inner-card) or `rgba(255,255,255,0.08)` (outer shell). Focus rings on text inputs flip to `rgba(255,255,255,0.8)`. No colored borders except the amber CTA's subtle `1.5px solid rgba(0,0,0,0.15)` inner edge.
+**Borders** - almost always `1px solid rgba(255,255,255,0.06)` (inner-card) or `rgba(255,255,255,0.08)` (outer shell). Focus rings on text inputs flip to `rgba(255,255,255,0.8)`. No colored borders except the purple CTA's subtle `1.5px solid rgba(0,0,0,0.15)` inner edge.
 
 **Shadow system**
 - `--tv-shadow-sm: 0 2px 8px rgba(0,0,0,0.30)` - card rest
@@ -90,8 +90,8 @@ The voice is **warm, literary, and a little reverent** - it treats a media colle
 - `--tv-shadow-md: 0 16px 36px rgba(15,23,42,0.40)` - modals
 - `--tv-shadow-lg: 0 22px 48px rgba(15,23,42,0.60)` - hero
 - `--tv-inset-glow: 0 0 0 1px rgba(255,255,255,0.04) inset` - subtle rim light on glass
-- `--tv-amber-glow: 0 4px 18px rgba(185,120,32,0.30)` - amber CTA rest
-- `--tv-amber-glow-strong: 0 6px 24px rgba(185,120,32,0.50)` - amber CTA hover
+- `--tv-amber-glow: 0 4px 18px rgba(139,92,246,0.28)` - purple CTA rest
+- `--tv-amber-glow-strong: 0 6px 24px rgba(139,92,246,0.42)` - purple CTA hover
 
 **Protection gradients** - used on hero banners to keep text legible against cover art: vertical linear-gradient from `rgba(6,10,22,0.10) 0%` through `0.55 @ 35%`, `0.90 @ 60%`, `1.00 @ 80%`. No capsule/pill backgrounds around hero text - the gradient does the work.
 
@@ -111,7 +111,7 @@ The voice is **warm, literary, and a little reverent** - it treats a media colle
 
 **Corner radii** - `xs 6px  |  sm 8px  |  md 10px  |  lg 12px  |  xl 16px  |  2xl 20px  |  pill 999px`. Cards use `12px` (`--tv-radius-lg`). CTAs use `8px`. Toggles use `14px` outer / `12px` inner. Pills for counts use `999px`.
 
-**Cards** - glassmorphic surfaces. Default: `background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px 24px;`. Accent (featured) variant uses `1px solid rgba(201,146,46,0.2)` amber border and `color: #C9922E` for the title. No drop shadow at rest - shadow shows only on hovered/floating surfaces (hero, modals).
+**Cards** - glassmorphic surfaces. Default: `background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px 24px;`. Accent (featured) variant uses `1px solid rgba(139,92,246,0.24)` purple border and `color: #8B5CF6` for the title. No drop shadow at rest - shadow shows only on hovered/floating surfaces (hero, modals).
 
 ---
 
@@ -124,8 +124,8 @@ The codebase uses **FontAwesome Solid** SVGs served statically from `/icons/font
 - No unicode dingbats as icons. The middle-dot ` | ` is used as a meta separator only.
 - No hand-drawn/custom SVG illustrations. The **Tuvima mark** (the golden spiral) is the only bespoke glyph - used as logo, favicon, and empty-state hero.
 - Default icon size: `16px` in nav / inline, `20px` in buttons, `24-32px` in cards, `80px` in empty states.
-- Default icon color: `rgba(248,248,248,0.55)` muted, `rgba(248,248,248,0.88)` hover. Accent icons on active nav flip to the amber.
-- Provider icons (TMDB, Wikidata, etc.) use their brand colors (`#01B4E4` TMDB, `#339966` Wikidata, `#BA478F` MusicBrainz) - never the UI amber.
+- Default icon color: `rgba(248,248,248,0.55)` muted, `rgba(248,248,248,0.88)` hover. Accent icons on active nav flip to purple.
+- Provider icons (TMDB, Wikidata, etc.) use their brand colors (`#01B4E4` TMDB, `#339966` Wikidata, `#BA478F` MusicBrainz) - never the product chrome accent.
 
 **Copied icons** (in `assets/icons/`): `book-open`, `book-open-reader`, `boxes-stacked`, `cart-shopping`, `chevron-down/left/right`, `circle-info`, `clipboard-check`, `clock`, `film`, `folder-open`, `folder-tree`, `gear`, `headphones`, `house`, `layer-group`, `list-check`, `magnifying-glass`, `microchip`, `music`, `play`, `server`, `share-nodes`, `shield-halved`, `sliders`, `table-list`, `timeline`, `toggle-on`, `triangle-exclamation`, `tv`, `user`, `users`, `wand-magic-sparkles`, `wrench`, `xmark`.
 

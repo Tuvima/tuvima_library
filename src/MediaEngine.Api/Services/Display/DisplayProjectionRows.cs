@@ -51,6 +51,8 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? Narrator { get; set; }
     public string? Director { get; set; }
     public string? Network { get; set; }
+    public string? Source { get; set; }
+    public string? Quality { get; set; }
     public string? ShowName { get; set; }
     public string? SeasonNumber { get; set; }
     public string? EpisodeNumber { get; set; }
@@ -106,6 +108,9 @@ public sealed class DisplayJourneyRow : IDisplayArtworkRow
     public string? SeriesPosition { get; set; }
     public string? ShowName { get; set; }
     public string? Narrator { get; set; }
+    public string? Network { get; set; }
+    public string? Source { get; set; }
+    public string? Quality { get; set; }
     public string? SeasonNumber { get; set; }
     public string? EpisodeNumber { get; set; }
     public string? TrackNumber { get; set; }
@@ -131,6 +136,46 @@ public sealed class DisplayJourneyRow : IDisplayArtworkRow
     public string? BannerState { get; set; }
     public string? BackgroundState { get; set; }
     public string? LogoState { get; set; }
+    public string? CoverWidthPx { get; set; }
+    public string? CoverHeightPx { get; set; }
+    public string? SquareWidthPx { get; set; }
+    public string? SquareHeightPx { get; set; }
+    public string? BannerWidthPx { get; set; }
+    public string? BannerHeightPx { get; set; }
+    public string? BackgroundWidthPx { get; set; }
+    public string? BackgroundHeightPx { get; set; }
+    public string? AccentColor { get; set; }
+}
+
+public sealed class DisplayHomeCollectionRow : IDisplayArtworkRow
+{
+    public Guid CollectionId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Subtitle { get; set; }
+    public string? CollectionType { get; set; }
+    public string? PrimaryLane { get; set; }
+    public int ItemCount { get; set; }
+    public int WatchCount { get; set; }
+    public int ReadCount { get; set; }
+    public int ListenCount { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public string? CoverUrl { get; set; }
+    public string? CoverSmallUrl { get; set; }
+    public string? CoverMediumUrl { get; set; }
+    public string? CoverLargeUrl { get; set; }
+    public string? SquareUrl { get; set; }
+    public string? SquareSmallUrl { get; set; }
+    public string? SquareMediumUrl { get; set; }
+    public string? SquareLargeUrl { get; set; }
+    public string? BannerUrl { get; set; }
+    public string? BannerSmallUrl { get; set; }
+    public string? BannerMediumUrl { get; set; }
+    public string? BannerLargeUrl { get; set; }
+    public string? BackgroundUrl { get; set; }
+    public string? BackgroundSmallUrl { get; set; }
+    public string? BackgroundMediumUrl { get; set; }
+    public string? BackgroundLargeUrl { get; set; }
+    public string? LogoUrl { get; set; }
     public string? CoverWidthPx { get; set; }
     public string? CoverHeightPx { get; set; }
     public string? SquareWidthPx { get; set; }

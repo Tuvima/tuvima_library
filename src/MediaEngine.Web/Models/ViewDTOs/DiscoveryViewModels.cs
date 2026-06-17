@@ -19,6 +19,7 @@ public sealed class DiscoveryHeroViewModel
     public string AccentColor { get; init; } = "var(--tl-accent-primary)";
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
+    public IReadOnlyList<string> MetaPills { get; init; } = [];
     public double? ProgressPct { get; init; }
     public Guid? RepresentativeEntityId { get; init; }
     public MediaTileSurfaceKind SurfaceKind { get; init; } = MediaTileSurfaceKind.BannerLandscape;
@@ -36,7 +37,7 @@ public sealed class DiscoveryHubViewModel
     public string? Description { get; init; }
     public string? ImageUrl { get; init; }
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
-    public string AccentColor { get; init; } = "#1CE783";
+    public string AccentColor { get; init; } = "var(--tl-accent-primary)";
     public string? Badge { get; init; }
     public string? CountLabel { get; init; }
     public string NavigationUrl { get; init; } = "/";
@@ -47,6 +48,7 @@ public sealed class DiscoveryPageViewModel
     public string Key { get; init; } = string.Empty;
     public string AccentColor { get; init; } = "var(--tl-accent-primary)";
     public DiscoveryHeroViewModel? Hero { get; init; }
+    public IReadOnlyList<DiscoveryHeroViewModel> Spotlights { get; init; } = [];
     public IReadOnlyList<DiscoveryHubViewModel> Hubs { get; init; } = [];
     public IReadOnlyList<MediaTileShelfViewModel> Shelves { get; init; } = [];
     public IReadOnlyList<MediaTileViewModel> Catalog { get; init; } = [];

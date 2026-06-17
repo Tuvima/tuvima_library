@@ -470,15 +470,27 @@
         min-height: 1.76rem;
     }
 
-    .layout-shell__search-shell {
-        grid-column: 2;
-        justify-self: stretch;
-        width: 100%;
-        padding-inline: 0;
+    .layout-shell__left-rail {
+        width: auto;
+        overflow: visible;
     }
 
-    ::deep .layout-shell__search {
-        width: 100%;
-        max-width: none;
+    .layout-shell__desktop-nav,
+    .layout-shell__search-shell {
+        display: none;
+    }
+
+    .layout-shell__actions {
+        grid-column: 3;
+        justify-self: end;
+        gap: 0.45rem !important;
+    }
+
+    .layout-shell__account-spacer {
+        display: none;
+    }
+
+    .layout-shell__profile-menu-shell {
+        margin-left: 0;
     }
 }

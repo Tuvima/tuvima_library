@@ -25,7 +25,7 @@ public sealed class UIGlobalSettings
 
     /// <summary>Default accent colour (deep violet).</summary>
     [JsonPropertyName("accent_color")]
-    public string AccentColor { get; set; } = "#EAB308";
+    public string AccentColor { get; set; } = "#8B5CF6";
 
     // ── Layout defaults ────────────────────────────────────────────────
 

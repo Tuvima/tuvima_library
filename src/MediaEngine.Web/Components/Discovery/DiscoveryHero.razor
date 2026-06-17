@@ -39,7 +39,16 @@
                     <div class="discovery-hero-status">@Hero.StatusText</div>
                 }
 
-                @if (ShowMetaRow)
+                @if (DisplayMetaPills.Count > 0)
+                {
+                    <div class="discovery-hero-facts" aria-label="Title facts">
+                        @foreach (var fact in DisplayMetaPills)
+                        {
+                            <span class="discovery-hero-fact">@fact</span>
+                        }
+                    </div>
+                }
+                else if (ShowMetaRow)
                 {
                     <div class="discovery-hero-meta-row">
                         @if (!string.IsNullOrWhiteSpace(HeroMediaIcon))
@@ -152,6 +161,12 @@
     private string HeroMetaDisplay => TrimLeadingMediaKind(Hero.MetaText, HeroMediaKindLabel);
 
     private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HeroMediaIcon) || !string.IsNullOrWhiteSpace(HeroMetaDisplay);
+
+    private IReadOnlyList<string> DisplayMetaPills => Hero.MetaPills
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(5)
+        .ToList();
 
     private IReadOnlyList<string> DisplayChips => Hero.VibeTags
         .Where(value => !string.IsNullOrWhiteSpace(value))

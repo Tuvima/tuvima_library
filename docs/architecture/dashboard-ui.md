@@ -36,15 +36,15 @@ Persistent playback stays in the shell so it survives navigation. Media editing 
 ## Primary surfaces
 
 - `/` is Home/discovery, rendered by `LibraryBrowsePage`.
-- `/read` is the reading lane for books and comics.
-- `/watch` is the movie and TV lane.
+- `/read` is the cinematic reading lane landing page. `/read/books` and `/read/comics` render detailed browse tabs.
+- `/watch` is the cinematic movie and TV lane landing page. `/watch/movies` and `/watch/tv` render detailed browse tabs.
 - `/listen` is the music, audiobook, album, artist, song, and playlist lane.
 - `/search` is cross-library discovery.
 - Detail pages show the selected media item and expose inline edit where appropriate.
 - `/settings/review` is the Review Queue.
 - `/settings` and `/settings/{Section}` are Settings/Admin.
 
-`MediaBrowseShell` provides shared browse behavior for current media lanes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
+`LibraryBrowsePage` and `LaneLandingView` render cinematic spotlight-and-shelf discovery surfaces. `MediaBrowseShell` provides shared detailed browse behavior for current media lane tab routes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
 
 ## Inline editing model
 
