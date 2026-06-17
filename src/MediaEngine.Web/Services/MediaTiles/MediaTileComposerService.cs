@@ -179,6 +179,7 @@ public sealed class MediaTileComposerService
             BackgroundUrl = card.Artwork.BackgroundUrl,
             BannerUrl = card.Artwork.BannerUrl,
             LogoUrl = card.Artwork.LogoUrl,
+            PreviewImages = BuildPreviewImages(card),
             MetaText = string.Join(" / ", card.Facts),
             QualityBadge = BadgeLabel(card.Badges, "quality"),
             SourceBadgeLabel = BadgeLabel(card.Badges, "source"),
@@ -330,6 +331,36 @@ public sealed class MediaTileComposerService
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static IReadOnlyList<string> BuildPreviewImages(DisplayCardDto card)
+    {
+        var candidates = new[]
+        {
+            card.Artwork.CoverSmallUrl,
+            card.Artwork.CoverMediumUrl,
+            card.Artwork.CoverLargeUrl,
+            card.Artwork.SquareSmallUrl,
+            card.Artwork.SquareMediumUrl,
+            card.Artwork.SquareLargeUrl,
+            card.Artwork.BackgroundSmallUrl,
+            card.Artwork.BackgroundMediumUrl,
+            card.Artwork.BackgroundLargeUrl,
+            card.Artwork.BannerSmallUrl,
+            card.Artwork.BannerMediumUrl,
+            card.Artwork.BannerLargeUrl,
+            card.Artwork.CoverUrl,
+            card.Artwork.SquareUrl,
+            card.Artwork.BackgroundUrl,
+            card.Artwork.BannerUrl,
+        };
+
+        return candidates
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(card.Flags.IsCollection ? 5 : 3)
+            .ToList();
+    }
 
     private static string? BadgeLabel(IReadOnlyList<DisplayCardBadgeDto> badges, string kind) =>
         badges.FirstOrDefault(badge => string.Equals(badge.Kind, kind, StringComparison.OrdinalIgnoreCase))?.Label;

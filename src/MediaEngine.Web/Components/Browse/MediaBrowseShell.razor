@@ -35,17 +35,19 @@
                     <div class="browse-shell__title-text">@CurrentTab.Label</div>
                 </div>
 
-                <AppTabs ActivePanelIndex="@ActiveBrowseTabIndex"
-                         ActivePanelIndexChanged="OnBrowseTabChanged"
-                         Rounded="false"
-                         Border="false"
-                         Elevation="0"
-                         Class="browse-shell__tabs">
-                    @foreach (var tab in Preset.Tabs)
-                    {
-                        <MudTabPanel @key="tab.Id" Text="@tab.Label" />
-                    }
-                </AppTabs>
+                <div class="browse-shell__tabs-frame">
+                    <AppTabs ActivePanelIndex="@ActiveBrowseTabIndex"
+                             ActivePanelIndexChanged="OnBrowseTabChanged"
+                             Rounded="false"
+                             Border="false"
+                             Elevation="0"
+                             Class="browse-shell__tabs">
+                        @foreach (var tab in Preset.Tabs)
+                        {
+                            <MudTabPanel @key="tab.Id" Text="@tab.Label" />
+                        }
+                    </AppTabs>
+                </div>
             </div>
 
             <div class="browse-shell__toolbar">
@@ -262,6 +264,10 @@
     private int ActiveBrowseTabIndex => GetSelectedIndex(Preset.Tabs.Select(tab => tab.Id), _activeTabId);
     private bool _isGroupDrilldown => _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType);
     private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
+    private bool IsTvShowsGrouping =>
+        string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(_grouping, "shows", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
     private MediaTileHoverMode GridHoverMode => IsWatchMedia(CurrentTab.MediaType)
@@ -406,8 +412,18 @@
             {
                 var groupsTask = LoadGroupsAsync();
                 await Task.WhenAll(journeyTask, groupsTask);
-                _cards.Clear();
-                _cards.AddRange(_groups.Select(ToGroupCard));
+                if (_groups.Count == 0 && IsTvShowsGrouping && !_loadFailed)
+                {
+                    if (!await LoadDisplayCardsAsync(append))
+                    {
+                        throw new InvalidOperationException("Display API did not return a TV browse page.");
+                    }
+                }
+                else
+                {
+                    _cards.Clear();
+                    _cards.AddRange(_groups.Select(ToGroupCard));
+                }
             }
             else
             {

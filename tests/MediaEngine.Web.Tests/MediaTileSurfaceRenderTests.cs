@@ -84,8 +84,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-portrait.is-cover-portrait"));
         Assert.DoesNotContain("style=", cut.Markup);
-        Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(430px,40vw,560px);", css);
-        Assert.Contains("grid-template-columns:minmax(150px,38%) minmax(220px,1fr)", css);
+        Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(360px,31vw,440px);", css);
+        Assert.Contains("grid-template-columns:minmax(128px,34%) minmax(184px,1fr)", css);
         Assert.Contains("max-height:min(62vh,420px)", css);
         Assert.DoesNotContain("A dreamlike horror comic with mythic scale.", cut.Markup);
         Assert.Empty(cut.FindAll(".media-tile-hover-context-list"));
@@ -120,7 +120,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-banner-popover.is-banner-surface"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-landscape"));
         Assert.DoesNotContain("style=", cut.Markup);
-        Assert.Contains(".media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(360px,28vw,440px);", File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css")));
+        Assert.Contains(".media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(330px,25vw,410px);", File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css")));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-logo"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-fill"));
     }

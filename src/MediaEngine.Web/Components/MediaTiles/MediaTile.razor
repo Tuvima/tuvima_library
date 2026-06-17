@@ -14,14 +14,27 @@
         <div class="media-tile-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenDetails">
             @if (ShowCollectionBanner)
             {
+                @if (!string.IsNullOrWhiteSpace(CardImageUrl))
+                {
+                    <img src="@CardImageUrl"
+                         srcset="@Item.TileImageSrcSet"
+                         sizes="@Item.TileImageSizes"
+                         alt=""
+                         class="media-tile-collection-backdrop @TileImageFitClass"
+                         loading="lazy"
+                         decoding="async" />
+                }
                 <div class="media-tile-collection-wash"></div>
-                <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
-                                    Seed="@CollectionStackSeed"
-                                    Variant="ArtworkStackVariant.Card"
-                                    MaxVisible="4"
-                                    IsDecorative="true"
-                                    Palette="@Item.ArtworkPalette"
-                                    Class="media-tile-artwork-stack media-tile-artwork-stack--collection-tile" />
+                @if (CollectionArtworkStackItems.Count > 0)
+                {
+                    <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
+                                        Seed="@CollectionStackSeed"
+                                        Variant="ArtworkStackVariant.Card"
+                                        MaxVisible="4"
+                                        IsDecorative="true"
+                                        Palette="@Item.ArtworkPalette"
+                                        Class="media-tile-artwork-stack media-tile-artwork-stack--collection-tile" />
+                }
             }
             else if (ShowPreviewStack)
             {
@@ -127,7 +140,7 @@
 
         @if (IsHoverEnabled)
         {
-            <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass}")'
+            <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")}")'
                  >
                 <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
                      @onclick="OpenDetails"
@@ -290,7 +303,7 @@
 
     private bool IsHoverEnabled => EffectiveHoverMode != MediaTileHoverMode.None;
 
-    private bool ShowExpandedHoverBody => EffectiveHoverMode == MediaTileHoverMode.Expanded;
+    private bool ShowExpandedHoverBody => EffectiveHoverMode == MediaTileHoverMode.Expanded && !Item.IsCollection;
 
     private string HoverModeClass => EffectiveHoverMode switch
     {
@@ -372,7 +385,7 @@
     private IReadOnlyList<ArtworkStackItem> CollectionArtworkStackItems =>
         Item.ArtworkStackItems.Count > 0
             ? Item.ArtworkStackItems
-            : PreviewImages.Select((image, index) => new ArtworkStackItem
+            : CollectionStackPreviewImages.Select((image, index) => new ArtworkStackItem
             {
                 Id = $"{Item.Id:D}:{index}",
                 Title = Item.Title,
@@ -380,6 +393,25 @@
                 MediaType = Item.MediaKind,
                 Shape = ArtworkShape.Portrait,
             }).ToList();
+
+    private IReadOnlyList<string> CollectionStackPreviewImages => PreviewImages
+        .Where(IsCollectionStackImage)
+        .Take(4)
+        .ToList();
+
+    private bool IsCollectionStackImage(string image)
+    {
+        var backdropImages = new[]
+        {
+            CardImageUrl,
+            Item.HoverImageUrl,
+            Item.BackgroundUrl,
+            Item.BannerUrl,
+            Item.HeroBackgroundImageUrl,
+        };
+
+        return backdropImages.All(candidate => !string.Equals(candidate, image, StringComparison.OrdinalIgnoreCase));
+    }
 
     private string CollectionStackSeed => Item.CollectionId?.ToString("D") ?? Item.Id.ToString("D");
 
@@ -492,10 +524,17 @@
             return;
         }
 
-        if (firstRender)
+        if (!_hoverRegistered)
         {
-            await JS.InvokeVoidAsync("registerMediaTileHover", CardElement);
-            _hoverRegistered = true;
+            try
+            {
+                await JS.InvokeVoidAsync("registerMediaTileHover", CardElement);
+                _hoverRegistered = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not register media tile hover behavior.");
+            }
         }
 
         if (_expanded != _lastExpandedState)

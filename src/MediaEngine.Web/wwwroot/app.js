@@ -167,21 +167,25 @@ window.positionMediaTileHover = function (cardEl) {
         var hoverLift = parseFloat(computedStyle.getPropertyValue('--media-tile-hover-lift')) || 0;
         var prefersBottomPlacement = panel.classList.contains('is-placement-bottom')
             && window.innerWidth > 700;
+        var isPortraitPanel = panel.classList.contains('is-art-popover')
+            && panel.classList.contains('is-portrait');
+        var isSquarePanel = panel.classList.contains('is-square')
+            || panel.classList.contains('is-cover-square')
+            || panel.classList.contains('is-artist-photo-square');
+        var isLandscapePanel = panel.classList.contains('is-landscape')
+            || panel.classList.contains('is-banner-popover');
         panel.style.width = '';
 
         var panelWidth = panel.offsetWidth;
         var panelHeight = panel.offsetHeight;
         var isSideBySidePortrait = !prefersBottomPlacement
-            && panel.classList.contains('is-art-popover')
-            && panel.classList.contains('is-portrait')
+            && isPortraitPanel
             && window.innerWidth > 700;
-        var panelLeft = cardRect.left;
+        var panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);
         var panelTop = cardRect.top - hoverLift;
 
-        if (prefersBottomPlacement) {
-            panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);
-            panelTop = cardRect.top - hoverLift;
-        } else if (isSideBySidePortrait) {
+        if (isSideBySidePortrait) {
+            panelLeft = cardRect.left;
             var rightCandidate = cardRect.right + gutter;
             var leftCandidate = cardRect.left - panelWidth - gutter;
 
@@ -190,6 +194,11 @@ window.positionMediaTileHover = function (cardEl) {
             } else if (leftCandidate >= gutter) {
                 panelLeft = leftCandidate;
             }
+        } else if (prefersBottomPlacement || isSquarePanel || isLandscapePanel) {
+            panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);
+            panelTop = cardRect.top - hoverLift;
+        } else {
+            panelLeft = cardRect.left;
         }
 
         if (panelLeft < gutter) {

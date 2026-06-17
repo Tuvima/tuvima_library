@@ -108,6 +108,67 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_MapsCollectionArtworkIntoBackdropAndPreviewImages()
+    {
+        var collectionId = Guid.Parse("66666666-1111-1111-1111-666666666666");
+        var action = new DisplayActionDto("openCollection", "Explore", CollectionId: collectionId, WebUrl: $"/collection/{collectionId}");
+        var card = new DisplayCardDto(
+            Id: collectionId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: collectionId,
+            MediaType: "Movie",
+            GroupingType: "movieSeries",
+            Title: "Sci-Fi Favorites",
+            Subtitle: "12 titles",
+            Facts: ["12 titles"],
+            Artwork: new DisplayArtworkDto(
+                CoverUrl: "/cover.jpg",
+                CoverSmallUrl: "/cover-s.jpg",
+                CoverMediumUrl: "/cover-m.jpg",
+                CoverLargeUrl: "/cover-l.jpg",
+                SquareUrl: null,
+                SquareSmallUrl: null,
+                SquareMediumUrl: null,
+                SquareLargeUrl: null,
+                BannerUrl: null,
+                BannerSmallUrl: null,
+                BannerMediumUrl: null,
+                BannerLargeUrl: null,
+                BackgroundUrl: "/background.jpg",
+                BackgroundSmallUrl: "/background-s.jpg",
+                BackgroundMediumUrl: "/background-m.jpg",
+                BackgroundLargeUrl: "/background-l.jpg",
+                LogoUrl: null,
+                CoverWidthPx: 1000,
+                CoverHeightPx: 1500,
+                SquareWidthPx: null,
+                SquareHeightPx: null,
+                BannerWidthPx: null,
+                BannerHeightPx: null,
+                BackgroundWidthPx: 1920,
+                BackgroundHeightPx: 1080,
+                AccentColor: "#60A5FA"),
+            PreferredShape: "landscape",
+            Presentation: "movieSeries",
+            TileTextMode: "coverOnly",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.True(mapped.IsCollection);
+        Assert.Equal(MediaTileShape.Landscape, mapped.Shape);
+        Assert.Equal(MediaTileSurfaceKind.BannerLandscape, mapped.SurfaceKind);
+        Assert.Equal("/background-s.jpg", mapped.TileImageUrl);
+        Assert.Contains("/cover-s.jpg", mapped.PreviewImages);
+        Assert.Contains("/background-s.jpg", mapped.PreviewImages);
+    }
+
+    [Fact]
     public void FromDisplayPage_UsesDisplayHeroAndShelvesWithoutLegacyComposition()
     {
         var workId = Guid.Parse("33333333-3333-3333-3333-333333333333");

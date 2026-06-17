@@ -76,6 +76,29 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
+    public void BrowseShell_FallsBackToDisplayCardsWhenTvShowGroupsAreEmpty()
+    {
+        var source = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
+
+        Assert.Contains("IsTvShowsGrouping", source, StringComparison.Ordinal);
+        Assert.Contains("_groups.Count == 0 && IsTvShowsGrouping", source, StringComparison.Ordinal);
+        Assert.Contains("Display API did not return a TV browse page.", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiscoverySpotlightCarousel_UsesSubtleCounterInsteadOfDotStrip()
+    {
+        var source = Read(@"src\MediaEngine.Web\Components\Discovery\DiscoverySpotlightCarousel.razor");
+        var styles = Read(@"src\MediaEngine.Web\Components\Discovery\DiscoverySpotlightCarousel.razor.css");
+
+        Assert.Contains("discovery-spotlight-carousel__counter", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("discovery-spotlight-carousel__dots", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("discovery-spotlight-carousel__dot", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("discovery-spotlight-carousel__dots", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("discovery-spotlight-carousel__dot", styles, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IngestionDashboard_ExplainsIconMeaningWithSimpleTooltips()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor");

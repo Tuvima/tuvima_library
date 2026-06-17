@@ -282,7 +282,7 @@
         color: var(--tl-text-muted);
     }
 
-    @@media (max-width: 900px) {
+    @media (max-width: 900px) {
         .browse-hero__inner,
         .browse-hero--listen .browse-hero__inner,
         .browse-hero--read .browse-hero__inner {

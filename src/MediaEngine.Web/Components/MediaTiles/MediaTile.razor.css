@@ -1,7 +1,7 @@
-.media-tile { --media-tile-accent:#38bdf8; --media-tile-secondary-accent:#111827; --media-tile-hover-lift:clamp(8px,1.2vw,12px); --media-tile-media-height:clamp(192px,18.4vw,232px); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(320px,24vw,380px); display:flex; flex:0 0 auto; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index var(--tl-motion-duration-fast) var(--tl-motion-ease-standard), transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard); }
-    .media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(430px,40vw,560px); --media-tile-hover-clearance:clamp(286px,32vw,420px); }
-    .media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(360px,28vw,440px); }
-    .media-tile.is-collection-card.is-landscape { width:clamp(380px, 25.8vw, 500px); --media-tile-media-aspect:16 / 7.25; --media-tile-media-height:clamp(170px, 11vw, 218px); --media-tile-hover-panel-width:clamp(400px,32vw,480px); }
+.media-tile { --media-tile-accent:#38bdf8; --media-tile-secondary-accent:#111827; --media-tile-hover-lift:clamp(8px,1.2vw,12px); --media-tile-media-height:clamp(192px,18.4vw,232px); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(300px,22vw,360px); display:flex; flex:0 0 auto; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index var(--tl-motion-duration-fast) var(--tl-motion-ease-standard), transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard); }
+    .media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(360px,31vw,440px); --media-tile-hover-clearance:clamp(258px,28vw,356px); }
+    .media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(330px,25vw,410px); }
+    .media-tile.is-collection-card.is-landscape { width:clamp(380px, 25.8vw, 500px); --media-tile-media-aspect:16 / 7.25; --media-tile-media-height:clamp(170px, 11vw, 218px); --media-tile-hover-panel-width:clamp(330px,24vw,400px); }
     .media-tile.is-square { width:var(--media-tile-media-height); --media-tile-media-aspect:1 / 1; --media-tile-hover-panel-width:clamp(248px,18vw,292px); --media-tile-hover-clearance:clamp(254px,28vw,356px); }
     .media-tile-frame { position:relative; display:flex; flex-direction:column; overflow:visible; width:100%; }
     .media-tile.tl-card-hover--media:hover { transform:none; box-shadow:none !important; }
@@ -42,6 +42,9 @@
     .media-tile-gradient.is-banner-gradient { background:linear-gradient(180deg,rgba(0,0,0,.02) 0%,rgba(2,6,16,.18) 42%,rgba(2,6,16,.88) 100%),linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--media-tile-accent) 18%,transparent) 100%); }
     .media-tile-gradient.is-cover-gradient { background:linear-gradient(180deg,rgba(255,255,255,.02) 0%,rgba(255,255,255,0) 34%,rgba(2,6,16,.42) 100%),linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--media-tile-accent) 12%,transparent) 100%); }
     .media-tile.is-collection-card .media-tile-media { background:var(--art-bg-base-dark, transparent); border:1px solid var(--art-bg-border, rgba(255,255,255,.12)); border-radius:10px; box-shadow:0 22px 54px var(--art-bg-shadow, rgba(0,0,0,.28)), inset 0 0 0 1px rgba(255,255,255,.025); }
+    .media-tile-collection-backdrop { position:absolute; inset:0; width:100%; height:100%; display:block; object-position:center center; filter:saturate(1.05) contrast(1.02); z-index:0; }
+    .media-tile-collection-backdrop.is-fill { object-fit:cover; }
+    .media-tile-collection-backdrop.is-contained { object-fit:contain; background:rgba(2,6,16,.84); }
     .media-tile-collection-wash { position:absolute; inset:0; background:var(--art-bg-gradient, linear-gradient(90deg,var(--art-bg-base-dark, rgba(3,7,13,.88)) 0%,var(--art-bg-base, rgba(3,7,13,.7)) 34%,color-mix(in srgb,var(--art-bg-accent-muted, rgba(3,7,13,.08)) 36%, transparent) 64%,var(--art-bg-overlay, rgba(3,7,13,.28)) 100%)); z-index:1; }
     .media-tile-artwork-stack { position:absolute; inset:0; z-index:2; border-radius:inherit; }
     .media-tile .artwork-stack.media-tile-artwork-stack { position:absolute; width:auto; height:auto; min-height:0; }
@@ -68,23 +71,27 @@
     .media-tile-progress::-webkit-progress-value { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
     .media-tile-progress::-moz-progress-bar { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
     .media-tile-touch-toggle { position:absolute; top:12px; right:12px; width:38px; height:38px; border:none; border-radius:var(--app-radius-md); background:rgba(2,6,16,.62); color:rgba(248,250,252,.94); display:none; align-items:center; justify-content:center; z-index:3; }
-    .media-tile-hover-panel { position:fixed; left:-9999px; top:-9999px; width:min(84vw,var(--media-tile-hover-panel-width, 360px)); max-width:440px; max-height:min(70vh,560px); opacity:0; visibility:hidden; pointer-events:none; z-index:4001; transform:translateY(12px) scale(.982); transform-origin:left top; border:1px solid rgba(255,255,255,.08); border-radius:var(--app-radius-md); background:linear-gradient(180deg,rgba(17,20,29,.96) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 24px 48px rgba(0,0,0,.42); overflow:hidden; backdrop-filter:blur(24px) saturate(142%); transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s; }
-    .media-tile-hover-panel.is-art-popover.is-portrait { display:grid; grid-template-columns:minmax(150px,38%) minmax(220px,1fr); align-items:stretch; max-width:560px; }
+    .media-tile-hover-panel { position:fixed; left:-9999px; top:-9999px; width:min(82vw,var(--media-tile-hover-panel-width, 360px)); max-width:420px; max-height:min(64vh,500px); opacity:0; visibility:hidden; pointer-events:none; z-index:4001; transform:translateY(10px) scale(.984); transform-origin:left top; border:1px solid rgba(255,255,255,.08); border-radius:var(--app-radius-md); background:linear-gradient(180deg,rgba(17,20,29,.96) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 22px 42px rgba(0,0,0,.38); overflow:hidden; backdrop-filter:blur(22px) saturate(136%); transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s; }
+    .media-tile-hover-panel.is-art-popover.is-portrait { display:grid; grid-template-columns:minmax(128px,34%) minmax(184px,1fr); align-items:stretch; max-width:440px; }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(84vw, clamp(248px, 22vw, 320px)); max-width:320px; max-height:min(64vh,460px); }
-    .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square { display:flex; flex-direction:column; width:min(84vw, clamp(228px, 20vw, 292px)); max-width:292px; max-height:min(58vh,400px); }
+    .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square,
+    .media-tile-hover-panel.is-art-popover.is-square { display:flex; flex-direction:column; width:min(82vw, clamp(228px, 18vw, 286px)); max-width:286px; max-height:min(58vh,388px); }
     .media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; box-shadow:var(--tl-shadow-hover-media); }
     .media-tile-hover-panel.is-hover-preview { width:min(84vw,var(--media-tile-hover-panel-width, 360px)); background:rgba(7,10,18,.98); }
     .media-tile-hover-panel.is-hover-preview .media-tile-hover-art { min-height:0; }
+    .media-tile-hover-panel.is-banner-popover.is-landscape { width:min(82vw, clamp(330px,25vw,410px)); max-width:410px; }
+    .media-tile-hover-panel.is-collection-hover { width:min(82vw, clamp(320px,24vw,390px)); max-width:390px; background:rgba(7,10,18,.96); }
     .media-tile-hover-art { position:relative; overflow:hidden; background:radial-gradient(circle at top right,color-mix(in srgb,var(--media-tile-accent) 18%,transparent) 0%,transparent 40%),linear-gradient(180deg,rgba(10,14,24,.94) 0%,rgba(5,8,14,.98) 100%); }
     .media-tile-hover-panel.is-art-popover .media-tile-hover-art { cursor:pointer; }
-    .media-tile-hover-panel.is-banner-popover .media-tile-hover-art { aspect-ratio:16 / 9; min-height:150px; max-height:min(38vh,248px); }
+    .media-tile-hover-panel.is-banner-popover .media-tile-hover-art { aspect-ratio:16 / 9; min-height:132px; max-height:min(34vh,220px); }
+    .media-tile-hover-panel.is-collection-hover .media-tile-hover-art { min-height:132px; max-height:min(30vh,204px); }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-art::after { content:""; position:absolute; inset:auto 0 0 0; height:64%; background:linear-gradient(180deg,rgba(5,8,14,0) 0%,rgba(5,8,14,.92) 100%); }
     .media-tile-hover-panel.is-art-popover .media-tile-hover-art { padding:0; }
     .media-tile-hover-panel.is-art-popover.is-cover-portrait .media-tile-hover-art { aspect-ratio:2 / 3; max-height:min(42vh,390px); }
     .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-art { width:100%; max-height:min(62vh,420px); }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait .media-tile-hover-art { aspect-ratio:2 / 3; max-height:min(34vh,280px); flex:0 1 auto; }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square .media-tile-hover-art { aspect-ratio:1 / 1; max-height:min(32vh,236px); flex:0 1 auto; }
-    .media-tile-hover-panel.is-art-popover.is-cover-square .media-tile-hover-art, .media-tile-hover-panel.is-art-popover.is-artist-photo-square .media-tile-hover-art { aspect-ratio:1 / 1; max-height:min(36vh,292px); }
+    .media-tile-hover-panel.is-art-popover.is-cover-square .media-tile-hover-art, .media-tile-hover-panel.is-art-popover.is-artist-photo-square .media-tile-hover-art { aspect-ratio:1 / 1; max-height:min(34vh,286px); }
     .media-tile-hover-art.is-empty { min-height:168px; }
     .media-tile-hover-image { width:100%; height:100%; display:block; object-position:center center; }
     .media-tile-hover-image.is-fill { object-fit:cover; }

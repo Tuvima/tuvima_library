@@ -27,20 +27,12 @@
                     <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
                 </AppNativeButton>
 
-                <div class="discovery-spotlight-carousel__dots" role="tablist" aria-label="Spotlight slides">
-                    @for (var index = 0; index < Slides.Count; index++)
-                    {
-                        var slideIndex = index;
-                        <AppNativeButton Type="button"
-                                         Class='@($"discovery-spotlight-carousel__dot {(slideIndex == _activeIndex ? "is-active" : null)}")'
-                                         AriaLabel="@($"Show spotlight {slideIndex + 1} of {Slides.Count}")"
-                                         Title="@($"Show spotlight {slideIndex + 1}")"
-                                         aria-selected="@(slideIndex == _activeIndex ? "true" : "false")"
-                                         role="tab"
-                                         OnClick="@(() => SelectAsync(slideIndex))">
-                            <span class="discovery-spotlight-carousel__dot-indicator"></span>
-                        </AppNativeButton>
-                    }
+                <div class="discovery-spotlight-carousel__counter"
+                     aria-live="polite"
+                     aria-label="@($"Spotlight {_activeIndex + 1} of {Slides.Count}")">
+                    <span>@(_activeIndex + 1)</span>
+                    <span aria-hidden="true">/</span>
+                    <span>@Slides.Count</span>
                 </div>
 
                 <AppNativeButton Type="button"
@@ -162,17 +154,6 @@
         if (Slides.Count > 1)
         {
             _activeIndex = (_activeIndex + 1) % Slides.Count;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private Task SelectAsync(int index)
-    {
-        _userPaused = true;
-        if (index >= 0 && index < Slides.Count)
-        {
-            _activeIndex = index;
         }
 
         return Task.CompletedTask;
