@@ -13,13 +13,15 @@ public sealed class DisplayLaneGroupPolicy
                 Title: "Shows & Series",
                 Subtitle: "TV shows and film series grouped by title",
                 SeeAllRoute: "/watch/tv",
-                Enabled: true),
+                Enabled: true,
+                MinimumSeriesItems: 2),
             ["read"] = new(
                 Key: "series-and-reading-lists",
                 Title: "Series & Reading Lists",
                 Subtitle: "Book series, comic runs, and grouped reading",
                 SeeAllRoute: "/read/books?grouping=series",
-                Enabled: true),
+                Enabled: true,
+                MinimumSeriesItems: 2),
         };
 
     private readonly IConfigurationLoader? _configLoader;
@@ -34,7 +36,7 @@ public sealed class DisplayLaneGroupPolicy
         var normalized = DisplayMediaRules.NormalizeLane(lane) ?? lane;
         var fallback = Defaults.TryGetValue(normalized, out var defaultPolicy)
             ? defaultPolicy
-            : new DisplayLaneGroupShelfPolicy($"{normalized}-groups", "Groups", "Grouped titles from your library", $"/{normalized}", true);
+            : new DisplayLaneGroupShelfPolicy($"{normalized}-groups", "Groups", "Grouped titles from your library", $"/{normalized}", true, 2);
 
         var settings = LoadPreferences().LaneGroupDisplay.GetValueOrDefault(normalized);
         if (settings is null)
@@ -47,7 +49,8 @@ public sealed class DisplayLaneGroupPolicy
             Title: FirstNonBlank(settings.Title, fallback.Title)!,
             Subtitle: FirstNonBlank(settings.Subtitle, fallback.Subtitle)!,
             SeeAllRoute: FirstNonBlank(settings.SeeAllRoute, fallback.SeeAllRoute),
-            Enabled: settings.Enabled ?? fallback.Enabled);
+            Enabled: settings.Enabled ?? fallback.Enabled,
+            MinimumSeriesItems: Math.Max(1, settings.MinimumSeriesItems ?? fallback.MinimumSeriesItems));
     }
 
     private LibraryPreferencesSettings LoadPreferences()
@@ -78,4 +81,5 @@ public sealed record DisplayLaneGroupShelfPolicy(
     string Title,
     string Subtitle,
     string? SeeAllRoute,
-    bool Enabled);
+    bool Enabled,
+    int MinimumSeriesItems);

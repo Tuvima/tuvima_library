@@ -19,6 +19,9 @@ public sealed class LibraryLaneGroupDisplaySettings
 
     [JsonPropertyName("see_all_route")]
     public string? SeeAllRoute { get; set; }
+
+    [JsonPropertyName("minimum_series_items")]
+    public int? MinimumSeriesItems { get; set; }
 }
 
 public sealed class LibraryPreferencesSettings
@@ -51,6 +54,7 @@ public sealed class LibraryPreferencesSettings
             Title = "Shows & Series",
             Subtitle = "TV shows and film series grouped by title",
             SeeAllRoute = "/watch/tv",
+            MinimumSeriesItems = 2,
         },
         ["read"] = new()
         {
@@ -59,6 +63,7 @@ public sealed class LibraryPreferencesSettings
             Title = "Series & Reading Lists",
             Subtitle = "Book series, comic runs, and grouped reading",
             SeeAllRoute = "/read/books?grouping=series",
+            MinimumSeriesItems = 2,
         },
     };
 }

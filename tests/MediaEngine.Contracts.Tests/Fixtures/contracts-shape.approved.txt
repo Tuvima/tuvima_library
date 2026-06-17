@@ -664,6 +664,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryLaneGroupDi
   Title: System.String | nullability=nullable | accessors=get,set
   Subtitle: System.String | nullability=nullable | accessors=get,set
   SeeAllRoute: System.String | nullability=nullable | accessors=get,set
+  MinimumSeriesItems: System.Int32? | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryPreferencesSettings
   ShowUnowned: System.Boolean | nullability=not-null | accessors=get,set

@@ -48,6 +48,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? Genre { get; set; }
     public string? Series { get; set; }
     public string? SeriesPosition { get; set; }
+    public string? CollectionTitle { get; set; }
     public string? Narrator { get; set; }
     public string? Director { get; set; }
     public string? Network { get; set; }
@@ -79,6 +80,43 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? BannerState { get; set; }
     public string? BackgroundState { get; set; }
     public string? LogoState { get; set; }
+    public string? CollectionCoverUrl { get; set; }
+    public string? CollectionSquareUrl { get; set; }
+    public string? CollectionBannerUrl { get; set; }
+    public string? CollectionBackgroundUrl { get; set; }
+    public string? CollectionLogoUrl { get; set; }
+    public string? CollectionAccentColor { get; set; }
+    public string? RootCoverUrl { get; set; }
+    public string? RootCoverSmallUrl { get; set; }
+    public string? RootCoverMediumUrl { get; set; }
+    public string? RootCoverLargeUrl { get; set; }
+    public string? RootSquareUrl { get; set; }
+    public string? RootSquareSmallUrl { get; set; }
+    public string? RootSquareMediumUrl { get; set; }
+    public string? RootSquareLargeUrl { get; set; }
+    public string? RootBannerUrl { get; set; }
+    public string? RootBannerSmallUrl { get; set; }
+    public string? RootBannerMediumUrl { get; set; }
+    public string? RootBannerLargeUrl { get; set; }
+    public string? RootBackgroundUrl { get; set; }
+    public string? RootBackgroundSmallUrl { get; set; }
+    public string? RootBackgroundMediumUrl { get; set; }
+    public string? RootBackgroundLargeUrl { get; set; }
+    public string? RootLogoUrl { get; set; }
+    public string? RootCoverState { get; set; }
+    public string? RootSquareState { get; set; }
+    public string? RootBannerState { get; set; }
+    public string? RootBackgroundState { get; set; }
+    public string? RootLogoState { get; set; }
+    public string? RootCoverWidthPx { get; set; }
+    public string? RootCoverHeightPx { get; set; }
+    public string? RootSquareWidthPx { get; set; }
+    public string? RootSquareHeightPx { get; set; }
+    public string? RootBannerWidthPx { get; set; }
+    public string? RootBannerHeightPx { get; set; }
+    public string? RootBackgroundWidthPx { get; set; }
+    public string? RootBackgroundHeightPx { get; set; }
+    public string? RootAccentColor { get; set; }
     public string? CoverWidthPx { get; set; }
     public string? CoverHeightPx { get; set; }
     public string? SquareWidthPx { get; set; }

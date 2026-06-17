@@ -30,6 +30,8 @@ Display responses use platform-neutral DTOs from `MediaEngine.Contracts.Display`
 
 Home composition is placement-aware: the Collections & Lists shelf comes from accessible collection placements at `location=home`, filtered by the active profile when `profileId` is supplied. The composer must not synthesize broad series/franchise cards for Home.
 
+Lane grouping is item-count aware. TV show cards can represent a show with one or more owned episodes, but non-TV/non-music series cards require at least two distinct owned works by default. Operators can tune this with `config/ui/library-preferences.json` under `lane_group_display.*.minimum_series_items`. Grouped show/series cards should prefer collection/root artwork; episode stills are only a fallback when no show-level art exists.
+
 `DisplayProjectionRepository` owns database reads for display projections. It should keep SQL and visibility filtering out of page composition.
 
 `DisplayCardBuilder` owns card, fact, badge, artwork, progress, and action construction. Hero facts should flow from the source card so spotlight and tile metadata stay consistent.

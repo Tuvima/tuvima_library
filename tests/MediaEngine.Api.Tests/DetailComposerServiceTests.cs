@@ -327,6 +327,7 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("claim_key = 'series_position' AND provider_id = @wikidataProviderId", source);
         Assert.Contains("WellKnownProviders.Wikidata.ToString()", source);
+        Assert.Contains("QueryAsync<SequenceRow>", source);
         Assert.Contains("PositionNumber = positionNumber", source);
         Assert.DoesNotContain("PositionNumber = positionNumber ?? index + 1", source);
     }
@@ -341,6 +342,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType)", source);
         Assert.Contains("FROM series_members", source);
         Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, ExtractQid(containerId), detail.WikidataQid, workId, entityType, ct)", source);
+        Assert.Contains("ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct)", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
         Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
         Assert.Contains("BuildOwnedPositionSet(merged)", source);

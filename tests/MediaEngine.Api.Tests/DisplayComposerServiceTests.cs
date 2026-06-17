@@ -189,6 +189,70 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public async Task TvShowCards_UseShowArtworkInsteadOfEpisodeStill()
+    {
+        var collectionId = Guid.Parse("77777777-9999-9999-9999-888888888888");
+        var firstEpisode = Guid.Parse("77777777-aaaa-9999-9999-888888888888");
+        var secondEpisode = Guid.Parse("77777777-bbbb-9999-9999-888888888888");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(firstEpisode, "TV", "Pilot", season: "1", episode: "1", collectionId: collectionId, showName: "Severance", backgroundUrl: "/art/episode-pilot.jpg", rootBackgroundUrl: "/art/severance-show.jpg"),
+                Work(secondEpisode, "TV", "Half Loop", season: "1", episode: "2", collectionId: collectionId, showName: "Severance", backgroundUrl: "/art/episode-half-loop.jpg", rootBackgroundUrl: "/art/severance-show.jpg"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", "TV", "shows", null, 0, 48, includeCatalog: true);
+
+        var card = Assert.Single(page.Catalog);
+        Assert.Equal("Severance", card.Title);
+        Assert.Equal("/art/severance-show.jpg", card.Artwork.BackgroundUrl);
+    }
+
+    [Fact]
+    public async Task LaneSeriesShelves_HideSingleOwnedNonTvCollections()
+    {
+        var movieCollectionId = Guid.Parse("77777777-9999-aaaa-9999-777777777777");
+        var showCollectionId = Guid.Parse("77777777-9999-bbbb-9999-777777777777");
+        var movieId = Guid.Parse("77777777-1111-aaaa-9999-777777777777");
+        var episodeId = Guid.Parse("77777777-2222-bbbb-9999-777777777777");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(movieId, "Movie", "The Matrix", collectionId: movieCollectionId, series: "The Matrix series", collectionTitle: "The Matrix series"),
+                Work(episodeId, "TV", "Pilot", season: "1", episode: "1", collectionId: showCollectionId, showName: "Severance", collectionTitle: "Severance"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
+
+        var groups = page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items;
+        Assert.Contains(groups, card => card.Title == "Severance" && card.Presentation == "tvSeries");
+        Assert.DoesNotContain(groups, card => card.Title == "The Matrix series");
+    }
+
+    [Fact]
+    public async Task ReadSeriesShelf_RequiresDistinctOwnedTitles()
+    {
+        var singleCollectionId = Guid.Parse("77777777-9999-cccc-9999-777777777777");
+        var multiCollectionId = Guid.Parse("77777777-9999-dddd-9999-777777777777");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(Guid.Parse("77777777-1111-cccc-9999-777777777777"), "Book", "Spirited Away", collectionId: singleCollectionId, series: "Studio Ghibli Feature Films", collectionTitle: "Studio Ghibli Feature Films"),
+                Work(Guid.Parse("77777777-1111-dddd-9999-777777777777"), "Book", "Leviathan Wakes", collectionId: multiCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
+                Work(Guid.Parse("77777777-2222-dddd-9999-777777777777"), "Book", "Caliban's War", collectionId: multiCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("read", null, "all", null, 0, 48, includeCatalog: false);
+
+        var groups = page.Shelves.Single(shelf => shelf.Key == "series-and-reading-lists").Items;
+        Assert.Contains(groups, card => card.Title == "The Expanse");
+        Assert.DoesNotContain(groups, card => card.Title == "Studio Ghibli Feature Films");
+    }
+
+    [Fact]
     public async Task WatchCards_PopulateQualityAndSourceBadgesOnlyFromRealData()
     {
         var movieId = Guid.Parse("99999999-1111-1111-1111-999999999999");
@@ -373,7 +437,12 @@ public sealed class DisplayComposerServiceTests
         string? network = null,
         string? source = null,
         string? quality = null,
-        string? showName = null)
+        string? showName = null,
+        string? series = null,
+        string? collectionTitle = null,
+        string? backgroundUrl = null,
+        string? rootBackgroundUrl = null,
+        string? collectionBackgroundUrl = null)
     {
         return new DisplayWorkRow
         {
@@ -389,6 +458,8 @@ public sealed class DisplayComposerServiceTests
             Album = album,
             Year = year,
             Genre = genre,
+            Series = series,
+            CollectionTitle = collectionTitle,
             ShowName = showName,
             Narrator = narrator,
             SeasonNumber = season,
@@ -397,6 +468,9 @@ public sealed class DisplayComposerServiceTests
             Network = network,
             Source = source,
             Quality = quality,
+            BackgroundUrl = backgroundUrl,
+            RootBackgroundUrl = rootBackgroundUrl,
+            CollectionBackgroundUrl = collectionBackgroundUrl,
         };
     }
 

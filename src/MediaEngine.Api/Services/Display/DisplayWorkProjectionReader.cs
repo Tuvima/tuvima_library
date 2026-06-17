@@ -74,6 +74,7 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'issue_number' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'series_position' LIMIT 1)
                 ) AS SeriesPosition,
+                (SELECT display_name FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionTitle,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'narrator' LIMIT 1) AS Narrator,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,
                 COALESCE(
@@ -150,6 +151,43 @@ public sealed class DisplayWorkProjectionReader
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'logo_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'logo_state' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'logo_state' LIMIT 1)) AS LogoState,
+                (SELECT value FROM canonical_values WHERE entity_id = CollectionId AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1) AS CollectionCoverUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = CollectionId AND key IN ('square_url', 'square') LIMIT 1) AS CollectionSquareUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = CollectionId AND key IN ('banner_url', 'banner') LIMIT 1) AS CollectionBannerUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = CollectionId AND key IN ('background_url', 'background', 'hero_url', 'hero') LIMIT 1) AS CollectionBackgroundUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = CollectionId AND key IN ('logo_url', 'logo') LIMIT 1) AS CollectionLogoUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = CollectionId AND key = 'artwork_accent_hex' LIMIT 1) AS CollectionAccentColor,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1) AS RootCoverUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url_s', 'poster_url_s') LIMIT 1) AS RootCoverSmallUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url_m', 'poster_url_m') LIMIT 1) AS RootCoverMediumUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_url_l', 'poster_url_l') LIMIT 1) AS RootCoverLargeUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('square_url', 'square') LIMIT 1) AS RootSquareUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_url_s' LIMIT 1) AS RootSquareSmallUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_url_m' LIMIT 1) AS RootSquareMediumUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_url_l' LIMIT 1) AS RootSquareLargeUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('banner_url', 'banner') LIMIT 1) AS RootBannerUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_url_s' LIMIT 1) AS RootBannerSmallUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_url_m' LIMIT 1) AS RootBannerMediumUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_url_l' LIMIT 1) AS RootBannerLargeUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url', 'background', 'hero_url', 'hero') LIMIT 1) AS RootBackgroundUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url_s', 'hero_url_s') LIMIT 1) AS RootBackgroundSmallUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url_m', 'hero_url_m') LIMIT 1) AS RootBackgroundMediumUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url_l', 'hero_url_l') LIMIT 1) AS RootBackgroundLargeUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('logo_url', 'logo') LIMIT 1) AS RootLogoUrl,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_state' LIMIT 1) AS RootCoverState,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_state' LIMIT 1) AS RootSquareState,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_state' LIMIT 1) AS RootBannerState,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_state' LIMIT 1) AS RootBackgroundState,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'logo_state' LIMIT 1) AS RootLogoState,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_width_px' LIMIT 1) AS RootCoverWidthPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'cover_height_px' LIMIT 1) AS RootCoverHeightPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_width_px' LIMIT 1) AS RootSquareWidthPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_height_px' LIMIT 1) AS RootSquareHeightPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_width_px' LIMIT 1) AS RootBannerWidthPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'banner_height_px' LIMIT 1) AS RootBannerHeightPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_width_px' LIMIT 1) AS RootBackgroundWidthPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'background_height_px' LIMIT 1) AS RootBackgroundHeightPx,
+                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artwork_accent_hex' LIMIT 1) AS RootAccentColor,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('cover_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('cover_width_px', 'episode_still_width_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_width_px', 'episode_still_width_px') LIMIT 1)) AS CoverWidthPx,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('cover_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('cover_height_px', 'episode_still_height_px') LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('cover_height_px', 'episode_still_height_px') LIMIT 1)) AS CoverHeightPx,
                 COALESCE((SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'square_width_px' LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'square_width_px' LIMIT 1), (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'square_width_px' LIMIT 1)) AS SquareWidthPx,
@@ -172,6 +210,11 @@ public sealed class DisplayWorkProjectionReader
             row.BannerUrl = DisplayArtworkUrlResolver.Resolve(row.BannerUrl, row.AssetId, "banner", row.BannerState);
             row.BackgroundUrl = DisplayArtworkUrlResolver.Resolve(row.BackgroundUrl, row.AssetId, "background", row.BackgroundState);
             row.LogoUrl = DisplayArtworkUrlResolver.Resolve(row.LogoUrl, row.AssetId, "logo", row.LogoState);
+            row.RootCoverUrl = DisplayArtworkUrlResolver.Resolve(row.RootCoverUrl, row.AssetId, "cover", row.RootCoverState);
+            row.RootSquareUrl = DisplayArtworkUrlResolver.Resolve(row.RootSquareUrl, row.AssetId, "square", row.RootSquareState);
+            row.RootBannerUrl = DisplayArtworkUrlResolver.Resolve(row.RootBannerUrl, row.AssetId, "banner", row.RootBannerState);
+            row.RootBackgroundUrl = DisplayArtworkUrlResolver.Resolve(row.RootBackgroundUrl, row.AssetId, "background", row.RootBackgroundState);
+            row.RootLogoUrl = DisplayArtworkUrlResolver.Resolve(row.RootLogoUrl, row.AssetId, "logo", row.RootLogoState);
         }
 
         return rows;

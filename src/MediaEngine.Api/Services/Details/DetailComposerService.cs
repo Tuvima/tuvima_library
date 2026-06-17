@@ -955,7 +955,7 @@ public sealed class DetailComposerService
             WHERE w.id = @workId
             GROUP BY w.id, gp.id, p.id;
             """,
-            new { workId = workId.ToString("D") },
+            new { workId },
             cancellationToken: ct));
 
         if (row is null)
@@ -1095,7 +1095,12 @@ public sealed class DetailComposerService
     private async Task<SequencePlacementViewModel?> BuildSequencePlacementAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, string? requestedContainerId, CancellationToken ct)
     {
         var labels = ResolveSequenceLabels(entityType);
-        var availableContainers = ResolveSequenceContainerOptions(detail, entityType);
+        var availableContainers = await ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct);
+        foreach (var option in ResolveSequenceContainerOptions(detail, entityType))
+        {
+            AddSequenceContainerOption(availableContainers, option.ContainerId, option.ContainerTitle, option.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType));
+        }
+
         if (availableContainers.Count == 0)
         {
             var localContainer = await ResolveLocalSequenceContainerOptionAsync(workId, entityType, detail.MediaType, ct);
@@ -1120,7 +1125,7 @@ public sealed class DetailComposerService
         var containerId = ExtractQid(selectedContainer.ContainerId) ?? selectedContainer.ContainerId;
 
         using var conn = _db.CreateConnection();
-        var rawRows = await conn.QueryAsync(new CommandDefinition(
+        var rows = (await conn.QueryAsync<SequenceRow>(new CommandDefinition(
             """
             WITH current_lineage AS (
                 SELECT COALESCE(current_grandparent.id, current_parent.id, current_work.id) AS RootWorkId,
@@ -1130,7 +1135,7 @@ public sealed class DetailComposerService
                 LEFT JOIN works current_grandparent ON current_grandparent.id = current_parent.parent_work_id
                 WHERE current_work.id = @workId
             )
-            SELECT CAST(w.id AS TEXT) AS WorkId,
+            SELECT w.id AS WorkId,
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'issue_title' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'issue_title' LIMIT 1),
@@ -1183,30 +1188,21 @@ public sealed class DetailComposerService
             """,
             new
             {
-                workId = workId.ToString("D"),
+                workId,
                 series = containerTitle,
                 mediaFilter = SeriesMediaFilter(entityType, detail.MediaType),
                 wikidataProviderId = WellKnownProviders.Wikidata.ToString(),
             },
-            cancellationToken: ct));
-        var rows = rawRows.Select(row => new SequenceRow(
-            StringValue(row.WorkId) ?? string.Empty,
-            StringValue(row.Title) ?? "Untitled",
-            StringValue(row.MediaType),
-            StringValue(row.PositionLabel),
-            StringValue(row.SeasonLabel),
-            StringValue(row.EpisodeLabel),
-            StringValue(row.ArtworkUrl))).ToList();
+            cancellationToken: ct))).ToList();
 
         var items = rows.Select(row =>
         {
-            var rowWorkId = Guid.TryParse(row.WorkId, out var parsed) ? parsed : Guid.Empty;
             var positionLabel = ResolveSequencePositionLabel(entityType, row.PositionLabel, row.EpisodeLabel);
             var positionNumber = TryParseSeriesPosition(positionLabel);
             var group = ResolveSequenceGroup(entityType, row.SeasonLabel);
             return new SequenceItemViewModel
             {
-                Id = row.WorkId,
+                Id = row.WorkId.ToString("D"),
                 EntityType = entityType,
                 Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
                 ArtworkUrl = row.ArtworkUrl,
@@ -1215,7 +1211,7 @@ public sealed class DetailComposerService
                 PositionText = FormatSequencePositionText(entityType, positionLabel, positionNumber),
                 GroupKey = group.Key,
                 GroupTitle = group.Title,
-                IsCurrent = rowWorkId == workId,
+                IsCurrent = row.WorkId == workId,
                 IsOwned = true,
                 ProgressState = LibraryProgressState.Unknown,
             };
@@ -1708,6 +1704,40 @@ public sealed class DetailComposerService
             _ => "Other",
         };
 
+    private async Task<List<SequenceContainerOptionViewModel>> ResolveLinkedManifestSequenceContainerOptionsAsync(
+        Guid workId,
+        DetailEntityType entityType,
+        string mediaType,
+        CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var rows = await conn.QueryAsync(new CommandDefinition(
+            """
+            SELECT smi.series_qid AS ContainerId,
+                   CAST(COALESCE(NULLIF(h.series_label, ''), NULLIF(c.display_name, ''), NULLIF(smi.parent_collection_label, ''), smi.series_qid) AS TEXT) AS ContainerTitle,
+                   COUNT(*) AS ItemCount,
+                   MIN(CASE WHEN smi.parsed_ordinal IS NOT NULL OR NULLIF(smi.raw_ordinal, '') IS NOT NULL THEN 0 ELSE 1 END) AS HasOrderingRank
+            FROM series_manifest_items smi
+            LEFT JOIN series_manifest_hydrations h ON h.series_qid = smi.series_qid
+            LEFT JOIN collections c ON c.id = smi.collection_id
+            WHERE smi.linked_work_id = @workId
+              AND NULLIF(smi.series_qid, '') IS NOT NULL
+            GROUP BY smi.series_qid
+            ORDER BY HasOrderingRank, ItemCount DESC, ContainerTitle;
+            """,
+            new { workId },
+            cancellationToken: ct));
+
+        var mediaScope = SeriesMediaFilter(entityType, mediaType);
+        var options = new List<SequenceContainerOptionViewModel>();
+        foreach (var row in rows)
+        {
+            AddSequenceContainerOption(options, StringValue(row.ContainerId), StringValue(row.ContainerTitle), mediaScope);
+        }
+
+        return options;
+    }
+
     private static IReadOnlyList<SequenceContainerOptionViewModel> ResolveSequenceContainerOptions(LibraryItemDetail detail, DetailEntityType entityType)
     {
         var mediaScope = SeriesMediaFilter(entityType, detail.MediaType);
@@ -1776,7 +1806,7 @@ public sealed class DetailComposerService
             CAST((SELECT wikidata_qid FROM collections c WHERE c.id = current.CollectionId LIMIT 1) AS TEXT) AS SeriesQid
             FROM current_lineage current;
             """,
-            new { workId = workId.ToString("D") },
+            new { workId },
             cancellationToken: ct));
 
         var title = StringValue(row?.SeriesTitle);
@@ -5250,14 +5280,16 @@ public sealed class DetailComposerService
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SequenceLabels(string ContainerLabel, string ItemLabel, string ItemPluralLabel, string? GroupLabel);
 
-    private sealed record SequenceRow(
-        string WorkId,
-        string Title,
-        string? MediaType,
-        string? PositionLabel,
-        string? SeasonLabel,
-        string? EpisodeLabel,
-        string? ArtworkUrl);
+    private sealed class SequenceRow
+    {
+        public Guid WorkId { get; init; }
+        public string Title { get; init; } = "Untitled";
+        public string? MediaType { get; init; }
+        public string? PositionLabel { get; init; }
+        public string? SeasonLabel { get; init; }
+        public string? EpisodeLabel { get; init; }
+        public string? ArtworkUrl { get; init; }
+    }
     private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, double? ProgressPercent, bool HasAsset, string? Ownership, bool IsCatalogOnly, string? ArtworkUrl, string? BackgroundUrl)
     {
         public bool IsOwned =>

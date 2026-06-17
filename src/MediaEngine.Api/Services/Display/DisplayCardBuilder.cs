@@ -63,11 +63,11 @@ public sealed class DisplayCardBuilder
         };
     }
 
-    public IReadOnlyList<DisplayCardDto> BuildCollectionCards(IReadOnlyList<DisplayWorkRow> works, string lane) =>
+    public IReadOnlyList<DisplayCardDto> BuildCollectionCards(IReadOnlyList<DisplayWorkRow> works, string lane, int minimumSeriesItems = 2) =>
         works
             .Where(work => work.CollectionId.HasValue)
             .GroupBy(work => work.CollectionId!.Value)
-            .Select(group => ToCollectionCard(group.Key, group.ToList(), lane))
+            .Select(group => ToCollectionCard(group.Key, group.ToList(), lane, minimumSeriesItems))
             .Where(card => card is not null)
             .Cast<DisplayCardDto>()
             .OrderByDescending(card => card.SortTimestamp)
@@ -103,7 +103,7 @@ public sealed class DisplayCardBuilder
             SortTimestamp: row.CreatedAt);
     }
 
-    private DisplayCardDto? ToCollectionCard(Guid collectionId, IReadOnlyList<DisplayWorkRow> works, string lane)
+    private DisplayCardDto? ToCollectionCard(Guid collectionId, IReadOnlyList<DisplayWorkRow> works, string lane, int minimumSeriesItems)
     {
         if (works.Count == 0)
         {
@@ -111,13 +111,21 @@ public sealed class DisplayCardBuilder
         }
 
         var representative = works
-            .OrderByDescending(work => !string.IsNullOrWhiteSpace(work.BackgroundUrl) || !string.IsNullOrWhiteSpace(work.BannerUrl))
+            .OrderByDescending(CollectionArtworkScore)
+            .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.BackgroundUrl) || !string.IsNullOrWhiteSpace(work.BannerUrl))
             .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.CoverUrl) || !string.IsNullOrWhiteSpace(work.SquareUrl))
             .ThenByDescending(work => work.CreatedAt)
             .First();
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(representative.MediaType);
-        var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
+        if (!ShouldRenderCollectionCard(mediaKind, works, minimumSeriesItems))
+        {
+            return null;
+        }
+
+        var title = FirstNonBlank(representative.CollectionTitle, representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
         var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind, title));
+        var artwork = CollectionArtworkFor(representative);
+        var presentation = CollectionPresentation(lane, mediaKind);
 
         return new DisplayCardDto(
             Id: collectionId,
@@ -129,9 +137,9 @@ public sealed class DisplayCardBuilder
             Title: title,
             Subtitle: CollectionSubtitle(mediaKind, works),
             Facts: CollectionFacts(mediaKind, works, representative.Genre),
-            Artwork: ArtworkFor(representative),
-            PreferredShape: CollectionShape(lane, mediaKind, representative),
-            Presentation: CollectionPresentation(lane, mediaKind),
+            Artwork: artwork,
+            PreferredShape: CollectionShape(lane, mediaKind, representative.MediaType, artwork),
+            Presentation: presentation,
             TileTextMode: "caption",
             PreviewPlacement: "smart",
             Progress: null,
@@ -234,6 +242,47 @@ public sealed class DisplayCardBuilder
             ParseInt(row.BackgroundHeightPx),
             row.AccentColor);
 
+    private static DisplayArtworkDto CollectionArtworkFor(DisplayWorkRow representative)
+    {
+        var collectionCover = representative.CollectionCoverUrl;
+        var collectionSquare = representative.CollectionSquareUrl;
+        var collectionBanner = representative.CollectionBannerUrl;
+        var collectionBackground = representative.CollectionBackgroundUrl;
+        var collectionLogo = representative.CollectionLogoUrl;
+
+        var row = new ArtworkProjection
+        {
+            CoverUrl = FirstNonBlank(collectionCover, representative.RootCoverUrl, representative.CoverUrl),
+            CoverSmallUrl = FirstNonBlank(collectionCover, representative.RootCoverSmallUrl, representative.CoverSmallUrl),
+            CoverMediumUrl = FirstNonBlank(collectionCover, representative.RootCoverMediumUrl, representative.CoverMediumUrl),
+            CoverLargeUrl = FirstNonBlank(collectionCover, representative.RootCoverLargeUrl, representative.CoverLargeUrl),
+            SquareUrl = FirstNonBlank(collectionSquare, representative.RootSquareUrl, representative.SquareUrl),
+            SquareSmallUrl = FirstNonBlank(collectionSquare, representative.RootSquareSmallUrl, representative.SquareSmallUrl),
+            SquareMediumUrl = FirstNonBlank(collectionSquare, representative.RootSquareMediumUrl, representative.SquareMediumUrl),
+            SquareLargeUrl = FirstNonBlank(collectionSquare, representative.RootSquareLargeUrl, representative.SquareLargeUrl),
+            BannerUrl = FirstNonBlank(collectionBanner, representative.RootBannerUrl, collectionBackground, representative.RootBackgroundUrl, representative.BannerUrl),
+            BannerSmallUrl = FirstNonBlank(collectionBanner, representative.RootBannerSmallUrl, collectionBackground, representative.RootBackgroundSmallUrl, representative.BannerSmallUrl),
+            BannerMediumUrl = FirstNonBlank(collectionBanner, representative.RootBannerMediumUrl, collectionBackground, representative.RootBackgroundMediumUrl, representative.BannerMediumUrl),
+            BannerLargeUrl = FirstNonBlank(collectionBanner, representative.RootBannerLargeUrl, collectionBackground, representative.RootBackgroundLargeUrl, representative.BannerLargeUrl),
+            BackgroundUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundUrl, collectionBanner, representative.RootBannerUrl, representative.BackgroundUrl),
+            BackgroundSmallUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundSmallUrl, collectionBanner, representative.RootBannerSmallUrl, representative.BackgroundSmallUrl),
+            BackgroundMediumUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundMediumUrl, collectionBanner, representative.RootBannerMediumUrl, representative.BackgroundMediumUrl),
+            BackgroundLargeUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundLargeUrl, collectionBanner, representative.RootBannerLargeUrl, representative.BackgroundLargeUrl),
+            LogoUrl = FirstNonBlank(collectionLogo, representative.RootLogoUrl, representative.LogoUrl),
+            CoverWidthPx = representative.RootCoverWidthPx ?? representative.CoverWidthPx,
+            CoverHeightPx = representative.RootCoverHeightPx ?? representative.CoverHeightPx,
+            SquareWidthPx = representative.RootSquareWidthPx ?? representative.SquareWidthPx,
+            SquareHeightPx = representative.RootSquareHeightPx ?? representative.SquareHeightPx,
+            BannerWidthPx = representative.RootBannerWidthPx ?? representative.BannerWidthPx,
+            BannerHeightPx = representative.RootBannerHeightPx ?? representative.BannerHeightPx,
+            BackgroundWidthPx = representative.RootBackgroundWidthPx ?? representative.BackgroundWidthPx,
+            BackgroundHeightPx = representative.RootBackgroundHeightPx ?? representative.BackgroundHeightPx,
+            AccentColor = FirstNonBlank(representative.CollectionAccentColor, representative.RootAccentColor, representative.AccentColor),
+        };
+
+        return ArtworkFor(row);
+    }
+
     private static IReadOnlyList<string> BuildFacts(string mediaKind, string title, string? year, string? genre, string? author, string? artist, string? narrator, string? series, string? seriesPosition, string? showName, string? season, string? episode, string? track, string? album)
         => DisplayFactBuilder.Build(mediaKind, title, year, genre, author, artist, narrator, series, seriesPosition, showName, season, episode, track, album);
 
@@ -271,14 +320,14 @@ public sealed class DisplayCardBuilder
         _ => "default",
     };
 
-    private static string CollectionShape(string lane, string mediaKind, DisplayWorkRow representative)
+    private static string CollectionShape(string lane, string mediaKind, string mediaType, DisplayArtworkDto artwork)
     {
         if (lane == "listen" || mediaKind is "Music" or "Audiobook")
         {
             return "square";
         }
 
-        return PreferredShape(representative.MediaType, representative.BackgroundUrl, representative.BannerUrl, representative.SquareUrl);
+        return PreferredShape(mediaType, artwork.BackgroundUrl, artwork.BannerUrl, artwork.SquareUrl);
     }
 
     private static string CollectionPresentation(string lane, string mediaKind) => mediaKind switch
@@ -371,6 +420,50 @@ public sealed class DisplayCardBuilder
 
         var threshold = DateTimeOffset.UtcNow.AddDays(-30);
         return works.Any(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "TV" && work.CreatedAt >= threshold);
+    }
+
+    private static bool ShouldRenderCollectionCard(string mediaKind, IReadOnlyList<DisplayWorkRow> works, int minimumSeriesItems)
+    {
+        if (mediaKind is "TV" or "Music")
+        {
+            return true;
+        }
+
+        return DistinctOwnedSeriesMemberCount(works) >= Math.Max(2, minimumSeriesItems);
+    }
+
+    private static int DistinctOwnedSeriesMemberCount(IReadOnlyList<DisplayWorkRow> works) =>
+        works
+            .Select(work => FirstNonBlank(work.IdentityQid, work.Title))
+            .Select(NormalizeSeriesMemberKey)
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static int CollectionArtworkScore(DisplayWorkRow work)
+    {
+        var score = 0;
+        if (!string.IsNullOrWhiteSpace(work.CollectionBackgroundUrl) || !string.IsNullOrWhiteSpace(work.CollectionBannerUrl))
+        {
+            score += 8;
+        }
+
+        if (!string.IsNullOrWhiteSpace(work.RootBackgroundUrl) || !string.IsNullOrWhiteSpace(work.RootBannerUrl))
+        {
+            score += 4;
+        }
+
+        if (!string.IsNullOrWhiteSpace(work.CollectionCoverUrl) || !string.IsNullOrWhiteSpace(work.CollectionSquareUrl))
+        {
+            score += 2;
+        }
+
+        if (!string.IsNullOrWhiteSpace(work.RootCoverUrl) || !string.IsNullOrWhiteSpace(work.RootSquareUrl))
+        {
+            score += 1;
+        }
+
+        return score;
     }
 
     private static string CollectionActionKind(string mediaKind) => mediaKind switch
@@ -517,6 +610,17 @@ public sealed class DisplayCardBuilder
     private static string NormalizeOrdinalTitle(string value)
         => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
+    private static string? NormalizeSeriesMemberKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var chars = value.Trim().ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray();
+        return chars.Length == 0 ? null : new string(chars);
+    }
+
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
@@ -536,4 +640,34 @@ public sealed class DisplayCardBuilder
 
     private static int? ParseInt(string? value) =>
         int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;
+
+    private sealed class ArtworkProjection : IDisplayArtworkRow
+    {
+        public string? CoverUrl { get; init; }
+        public string? CoverSmallUrl { get; init; }
+        public string? CoverMediumUrl { get; init; }
+        public string? CoverLargeUrl { get; init; }
+        public string? SquareUrl { get; init; }
+        public string? SquareSmallUrl { get; init; }
+        public string? SquareMediumUrl { get; init; }
+        public string? SquareLargeUrl { get; init; }
+        public string? BannerUrl { get; init; }
+        public string? BannerSmallUrl { get; init; }
+        public string? BannerMediumUrl { get; init; }
+        public string? BannerLargeUrl { get; init; }
+        public string? BackgroundUrl { get; init; }
+        public string? BackgroundSmallUrl { get; init; }
+        public string? BackgroundMediumUrl { get; init; }
+        public string? BackgroundLargeUrl { get; init; }
+        public string? LogoUrl { get; init; }
+        public string? CoverWidthPx { get; init; }
+        public string? CoverHeightPx { get; init; }
+        public string? SquareWidthPx { get; init; }
+        public string? SquareHeightPx { get; init; }
+        public string? BannerWidthPx { get; init; }
+        public string? BannerHeightPx { get; init; }
+        public string? BackgroundWidthPx { get; init; }
+        public string? BackgroundHeightPx { get; init; }
+        public string? AccentColor { get; init; }
+    }
 }
