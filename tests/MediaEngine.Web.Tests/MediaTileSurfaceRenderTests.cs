@@ -147,6 +147,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             TileImageUrl = "/art/severance-bg.jpg",
             HoverImageUrl = "/art/severance-bg.jpg",
             LogoUrl = "/art/severance-logo.png",
+            PreviewImages = ["/art/severance-poster.jpg", "/art/severance-bg.jpg"],
             NavigationUrl = "/watch/tv/show/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
             PrimaryNavigationUrl = "/watch/tv/show/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
             PrimaryActionLabel = "Open Show",
@@ -156,6 +157,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.NotEmpty(cut.FindAll(".media-tile-logo"));
+        Assert.Empty(cut.FindAll(".media-tile-artwork-stack"));
         Assert.Empty(cut.FindAll(".media-tile-collection-title"));
         Assert.Empty(cut.FindAll(".media-tile-caption"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-body"));

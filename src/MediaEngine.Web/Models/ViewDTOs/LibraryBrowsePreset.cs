@@ -30,6 +30,7 @@ public sealed record LibraryBrowsePreset
     public required string RouteBase { get; init; }
     public required string Title { get; init; }
     public required BrowseHeroVariant HeroVariant { get; init; }
+    public bool UseExplicitDefaultTabRoute { get; init; }
     public IReadOnlyList<BrowseTabPreset> Tabs { get; init; } = [];
 }
 

@@ -25,7 +25,7 @@
                          decoding="async" />
                 }
                 <div class="media-tile-collection-wash"></div>
-                @if (CollectionArtworkStackItems.Count > 0)
+                @if (ShowCollectionArtworkStack)
                 {
                     <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
                                         Seed="@CollectionStackSeed"
@@ -359,6 +359,10 @@
     };
 
     private bool ShowCollectionBanner => Item.IsCollection && Item.SurfaceKind == MediaTileSurfaceKind.BannerLandscape;
+
+    private bool ShowCollectionArtworkStack => ShowCollectionBanner
+        && Item.Presentation is not MediaTilePresentation.TvSeries
+        && CollectionArtworkStackItems.Count > 0;
 
     private bool ShowMediaKindBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(MediaKindIcon);
 

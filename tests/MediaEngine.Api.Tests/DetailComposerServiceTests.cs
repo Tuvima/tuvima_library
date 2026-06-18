@@ -338,14 +338,21 @@ public sealed class DetailComposerServiceTests
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
         Assert.Contains("series_qid", source);
-        Assert.Contains("GetItemsBySeriesQidAsync(seriesQid, ct)", source);
+        Assert.Contains("LoadManifestItemsForSequenceContainerAsync(normalizedContainerId, ct)", source);
+        Assert.Contains("GetItemsBySeriesQidAsync(containerId, ct)", source);
+        Assert.Contains("WHERE parent_collection_qid = @containerId", source);
         Assert.Contains("MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType)", source);
         Assert.Contains("FROM series_members", source);
-        Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, ExtractQid(containerId), detail.WikidataQid, workId, entityType, ct)", source);
+        Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, containerId, detail.WikidataQid, workId, entityType, ct)", source);
         Assert.Contains("ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct)", source);
+        Assert.Contains("smi.parent_collection_qid AS ContainerId", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
         Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
         Assert.Contains("BuildOwnedPositionSet(merged)", source);
+        Assert.Contains("BuildManifestDisplayPositions(manifestItems)", source);
+        Assert.Contains("SequenceEqual(Enumerable.Range(1, sourcePositions.Count))", source);
+        Assert.Contains("NormalizeContiguousSequenceDisplayPositions(items, entityType)", source);
+        Assert.Contains("positions.SequenceEqual(Enumerable.Range(min, positions.Count))", source);
         Assert.Contains("BuildManifestMergeKey", source);
         Assert.DoesNotContain("if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))", source);
         Assert.Contains("Missing from library", source);
@@ -405,6 +412,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("AddCreditLine(lines, \"Author\", CreditGroupType.Authors, CreditGroupType.Writers)", heroSource);
         Assert.Contains("AddCreditLine(lines, \"Illustrator\", CreditGroupType.Illustrators, CreditGroupType.CreativeTeam)", heroSource);
         Assert.Contains("BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name)", source);
+        Assert.Contains("Subtitle = BuildPersonMediaCreditSubtitle(c)", source);
+        Assert.Contains("FirstNonBlank(characterSummary, credit.Role)", source);
         Assert.Contains("ShouldShowContributorGroup(entityType, group)", source);
         Assert.Contains("return group.GroupType == CreditGroupType.Cast;", source);
         Assert.Contains("Title = \"Actors\"", source);

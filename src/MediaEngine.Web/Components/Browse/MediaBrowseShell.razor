@@ -2,7 +2,6 @@
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
-@using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.MediaTiles
@@ -22,11 +21,6 @@
 <BrowseShellStyles />
 
 <div class="browse-shell">
-    @if (_hero is not null)
-    {
-        <MediaBrowseHero Hero="_hero" />
-    }
-
     <div class="browse-shell__toolbar-anchor">
         <div class="browse-shell__toolbar-panel">
             <div class="browse-shell__tab-row">
@@ -51,6 +45,17 @@
             </div>
 
             <div class="browse-shell__toolbar">
+                <AppTextField T="string"
+                              @bind-Value="_searchText"
+                              Placeholder="Search your library"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                              Immediate="true"
+                              DebounceInterval="250"
+                              OnDebounceIntervalElapsed="OnSearchChanged"
+                              Class="browse-shell__search" />
+
                 @if (CurrentTab.GroupingOptions.Count > 1)
                 {
                     <MudChipSet T="string"
@@ -69,17 +74,6 @@
                         }
                     </MudChipSet>
                 }
-
-                <AppTextField T="string"
-                              @bind-Value="_searchText"
-                              Placeholder="Search your library"
-                              Variant="Variant.Outlined"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Outlined.Search"
-                              Immediate="true"
-                              DebounceInterval="250"
-                              OnDebounceIntervalElapsed="OnSearchChanged"
-                              Class="browse-shell__search" />
 
                 <div class="browse-shell__controls">
                     @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
@@ -108,23 +102,26 @@
 
                     @if (SupportsLayoutToggle)
                     {
-                        <MudChipSet T="string"
-                                    SelectedValue="@_layout.ToString()"
-                                    SelectedValueChanged="OnLayoutChanged"
-                                    Class="browse-shell__layout-toggle">
-                            <AppChip T="string"
-                                     Value="@LibraryLayoutMode.Card.ToString()"
-                                     Icon="@Icons.Material.Outlined.GridView"
-                                     Variant="Variant.Text">
-                                Cards
-                            </AppChip>
-                            <AppChip T="string"
-                                     Value="@LibraryLayoutMode.List.ToString()"
-                                     Icon="@Icons.Material.Outlined.ViewList"
-                                     Variant="Variant.Text">
-                                List
-                            </AppChip>
-                        </MudChipSet>
+                        <div class="browse-shell__layout-toggle" role="group" aria-label="View mode">
+                            <AppNativeButton Type="button"
+                                             Class="@LayoutToggleClass(LibraryLayoutMode.Card)"
+                                             AriaLabel="Show cards"
+                                             Title="Show cards"
+                                             aria-pressed="@(_layout == LibraryLayoutMode.Card ? "true" : "false")"
+                                             OnClick="@(_ => SwitchLayoutAsync(LibraryLayoutMode.Card))">
+                                <MudIcon Icon="@Icons.Material.Outlined.GridView" />
+                                <span>Cards</span>
+                            </AppNativeButton>
+                            <AppNativeButton Type="button"
+                                             Class="@LayoutToggleClass(LibraryLayoutMode.List)"
+                                             AriaLabel="Show list"
+                                             Title="Show list"
+                                             aria-pressed="@(_layout == LibraryLayoutMode.List ? "true" : "false")"
+                                             OnClick="@(_ => SwitchLayoutAsync(LibraryLayoutMode.List))">
+                                <MudIcon Icon="@Icons.Material.Outlined.ViewList" />
+                                <span>List</span>
+                            </AppNativeButton>
+                        </div>
                     }
                 </div>
             </div>
@@ -146,15 +143,17 @@
     }
     else if (UseListLayout)
     {
-        <LibraryConfigurableTable Columns="@ActiveColumns"
-                                  VisibleColumnKeys="@VisibleColumnKeys"
-                                  Items="@ActiveTableItems"
-                                  Loading="@_loading"
-                                  PosterSize="56"
-                                  SelectedItems="@_selectedItems"
-                                  SelectedItemsChanged="OnSelectionChanged"
-                                  OnEditClicked="OpenItemEditorAsync"
-                                  OnRowClicked="HandleTableRowClicked" />
+        <div class="browse-shell__list">
+            <LibraryConfigurableTable Columns="@ActiveColumns"
+                                      VisibleColumnKeys="@VisibleColumnKeys"
+                                      Items="@ActiveTableItems"
+                                      Loading="@_loading"
+                                      PosterSize="56"
+                                      SelectedItems="@_selectedItems"
+                                      SelectedItemsChanged="OnSelectionChanged"
+                                      OnEditClicked="OpenItemEditorAsync"
+                                      OnRowClicked="HandleTableRowClicked" />
+        </div>
     }
     else if (_cards.Count == 0)
     {
@@ -217,7 +216,6 @@
 
     private List<LibraryItemViewModel> _items = [];
     private List<ContentGroupViewModel> _groups = [];
-    private BrowseHeroViewModel? _hero;
 
     private BrowseTabPreset CurrentTab =>
         Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
@@ -260,13 +258,8 @@
 
     private Task OnGroupingChanged(string grouping) => SwitchGroupingAsync(grouping);
 
-    private Task OnLayoutChanged(string layout)
-    {
-        var mode = string.Equals(layout, LibraryLayoutMode.List.ToString(), StringComparison.OrdinalIgnoreCase)
-            ? LibraryLayoutMode.List
-            : LibraryLayoutMode.Card;
-        return SwitchLayoutAsync(mode);
-    }
+    private string LayoutToggleClass(LibraryLayoutMode mode) =>
+        $"browse-shell__layout-button {(_layout == mode ? "is-active" : string.Empty)}";
 
     private List<LibraryColumnDef> ActiveColumns =>
         IsContainerGrouping
@@ -348,13 +341,10 @@
 
         try
         {
-            var journeyTask = ApiClient.GetJourneyAsync(limit: 24);
-
             if (IsContainerGrouping)
             {
                 if (IsTvShowsGrouping && !UseListLayout)
                 {
-                    await journeyTask;
                     if (!await LoadDisplayCardsAsync(append))
                     {
                         throw new InvalidOperationException("Display API did not return a TV browse page.");
@@ -362,8 +352,7 @@
                 }
                 else
                 {
-                    var groupsTask = LoadGroupsAsync();
-                    await Task.WhenAll(journeyTask, groupsTask);
+                    await LoadGroupsAsync();
                     _cards.Clear();
                     _cards.AddRange(_groups.Select(ToGroupCard));
                 }
@@ -376,17 +365,12 @@
                     {
                         throw new InvalidOperationException("Display API did not return a browse page.");
                     }
-
-                    await journeyTask;
                 }
                 else
                 {
-                    var itemsTask = LoadItemsAsync(append);
-                    await Task.WhenAll(journeyTask, itemsTask);
+                    await LoadItemsAsync(append);
                 }
             }
-
-            _hero ??= BuildHero(journeyTask.Result);
         }
         catch (Exception ex)
         {
@@ -444,7 +428,6 @@
         _items = [];
         _groups = [];
         _hasMore = page.Catalog.Count >= PageSize;
-        _hero = BuildDisplayHero(page.Hero);
         return true;
     }
 
@@ -553,147 +536,6 @@
             "creator" => source.OrderBy(card => card.Creator ?? card.Subtitle ?? card.Title, StringComparer.OrdinalIgnoreCase),
             "year" => source.OrderByDescending(card => card.SortYear).ThenBy(card => card.Title, StringComparer.OrdinalIgnoreCase),
             _ => source.OrderByDescending(card => card.SortTimestamp),
-        };
-    }
-
-    private BrowseHeroViewModel? BuildDisplayHero(DisplayHeroDto? hero)
-    {
-        if (hero is null)
-        {
-            return null;
-        }
-
-        var primaryAction = hero.Progress?.ResumeAction ?? hero.Actions.FirstOrDefault();
-        var secondaryAction = hero.Actions.Skip(1).FirstOrDefault() ?? hero.Actions.FirstOrDefault();
-        return new BrowseHeroViewModel
-        {
-            Variant = Preset.HeroVariant,
-            Eyebrow = hero.Eyebrow ?? "From your library",
-            Title = hero.Title,
-            Subtitle = hero.Subtitle,
-            Description = null,
-            MetaLine = null,
-            SupportingLine = hero.Progress?.Label,
-            CoverUrl = hero.Artwork.CoverUrl ?? hero.Artwork.SquareUrl,
-            CoverAspectRatioCss = BrowseArtworkRules.ResolveArtworkAspectRatio(hero.Artwork.CoverUrl, hero.Artwork.CoverWidthPx, hero.Artwork.CoverHeightPx, hero.Artwork.SquareWidthPx, hero.Artwork.SquareHeightPx),
-            BackgroundUrl = BrowseArtworkRules.ResolveWideArtwork(hero.Artwork.BackgroundUrl, hero.Artwork.BannerUrl),
-            ProgressPct = hero.Progress?.Percent,
-            PrimaryActionLabel = primaryAction?.Label ?? "Open",
-            SecondaryActionLabel = secondaryAction is null ? null : "Details",
-            PrimaryNavigationUrl = primaryAction?.WebUrl ?? "/",
-            SecondaryNavigationUrl = secondaryAction?.WebUrl,
-        };
-    }
-
-    private BrowseHeroViewModel? BuildHero(IReadOnlyList<JourneyItemViewModel> journey)
-    {
-        var matchingJourney = journey
-            .Where(item => string.Equals(item.MediaType, CurrentTab.MediaType, StringComparison.OrdinalIgnoreCase))
-            .Where(item => item.ProgressPct is > 0 and < 99.5)
-            .OrderByDescending(item => item.LastAccessed)
-            .FirstOrDefault();
-
-        if (matchingJourney is not null)
-        {
-            return BuildJourneyHero(matchingJourney);
-        }
-
-        if (IsContainerGrouping && _groups.Count > 0)
-        {
-            var preferred = PreferWideArt(_groups, group => BrowseArtworkRules.ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl));
-            var pick = PickStable(preferred, _groups.Select(group => group.DisplayName));
-            return BuildGroupHero(pick);
-        }
-
-        if (_items.Count > 0)
-        {
-            var preferred = PreferWideArt(_items, item => BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl));
-            var pick = PickStable(preferred, _items.Select(item => item.EntityId.ToString("N")));
-            return BuildItemHero(pick);
-        }
-
-        return null;
-    }
-
-    private BrowseHeroViewModel BuildJourneyHero(JourneyItemViewModel item)
-    {
-        var primaryUrl = BuildJourneyPrimaryUrl(item);
-        var secondaryUrl = MediaNavigation.ForJourney(item);
-        var backgroundUrl = BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
-        var listenTitle = Preset.HeroVariant == BrowseHeroVariant.Listen && !string.IsNullOrWhiteSpace(item.CollectionDisplayName)
-            ? item.CollectionDisplayName!
-            : item.Title;
-        var supporting = Preset.HeroVariant == BrowseHeroVariant.Listen
-            ? !string.IsNullOrWhiteSpace(item.CollectionDisplayName) && !string.Equals(item.CollectionDisplayName, item.Title, StringComparison.OrdinalIgnoreCase)
-                ? $"Continue with {item.Title}"
-                : item.ActionLabel
-            : item.ActionLabel;
-
-        return new BrowseHeroViewModel
-        {
-            Variant = Preset.HeroVariant,
-            Eyebrow = item.ActionVerb,
-            Title = listenTitle,
-            Subtitle = item.CollectionDisplayName ?? item.Author ?? item.Series,
-            Description = item.Description,
-            MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.Series, item.ProgressDisplay),
-            SupportingLine = supporting,
-            CoverUrl = item.CoverUrl,
-            CoverAspectRatioCss = BrowseArtworkRules.ResolveArtworkAspectRatio(item.CoverUrl, item.CoverWidthPx, item.CoverHeightPx),
-            BackgroundUrl = backgroundUrl,
-            ProgressPct = item.ProgressPct,
-            PrimaryActionLabel = item.ActionVerb,
-            SecondaryActionLabel = "Details",
-            PrimaryNavigationUrl = primaryUrl,
-            SecondaryNavigationUrl = secondaryUrl,
-        };
-    }
-
-    private BrowseHeroViewModel BuildItemHero(LibraryItemViewModel item)
-    {
-        var backgroundUrl = BrowseArtworkRules.ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
-        return new BrowseHeroViewModel
-        {
-            Variant = Preset.HeroVariant,
-            Eyebrow = "From your library",
-            Title = item.Title,
-            Subtitle = item.Creator ?? item.ContextLabel,
-            Description = BuildItemDescription(item),
-            MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.ContextLabel, item.Year),
-            SupportingLine = item.Runtime ?? item.Duration ?? item.Specs,
-            CoverUrl = item.CoverUrl,
-            CoverAspectRatioCss = Preset.HeroVariant == BrowseHeroVariant.Listen ? "1 / 1" : "2 / 3",
-            BackgroundUrl = backgroundUrl,
-            PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open album" : "Open",
-            SecondaryActionLabel = "Details",
-            PrimaryNavigationUrl = MediaNavigation.ForLibraryItem(item),
-            SecondaryNavigationUrl = MediaNavigation.ForLibraryItem(item),
-        };
-    }
-
-    private BrowseHeroViewModel BuildGroupHero(ContentGroupViewModel group)
-    {
-        var navigationUrl = BuildGroupNavigationUrl(group);
-        return new BrowseHeroViewModel
-        {
-            Variant = Preset.HeroVariant,
-            Eyebrow = "Pick something",
-            Title = group.DisplayName,
-            Subtitle = group.Creator ?? group.Network ?? FormatMediaLabel(group.PrimaryMediaType),
-            Description = BuildGroupDescription(group),
-            MetaLine = JoinParts(FormatMediaLabel(group.PrimaryMediaType), group.Year, $"{group.WorkCount} items"),
-            SupportingLine = group.SeasonCount is > 0
-                ? $"{group.SeasonCount.Value} seasons"
-                : group.AlbumCount is > 0
-                    ? $"{group.AlbumCount.Value} albums"
-                    : null,
-            CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            CoverAspectRatioCss = BrowseArtworkRules.ResolveArtworkAspectRatio(group.ArtistPhotoUrl ?? group.CoverUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx),
-            BackgroundUrl = BrowseArtworkRules.ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl),
-            PrimaryActionLabel = "Explore",
-            SecondaryActionLabel = "Open",
-            PrimaryNavigationUrl = navigationUrl,
-            SecondaryNavigationUrl = navigationUrl,
         };
     }
 
@@ -854,7 +696,8 @@
         }
 
         _layout = layout;
-        await NavigateAndReloadAsync(reloadData: false);
+        _selectedItems.Clear();
+        await NavigateAndReloadAsync(reloadData: true);
     }
 
     private async Task OnSearchChanged(string _)
@@ -1064,6 +907,7 @@
     {
         var defaultTab = Preset.Tabs[0].Id;
         var path = string.Equals(_activeTabId, defaultTab, StringComparison.OrdinalIgnoreCase)
+                   && !Preset.UseExplicitDefaultTabRoute
             ? Preset.RouteBase
             : $"{Preset.RouteBase}/{_activeTabId}";
 
@@ -1119,39 +963,8 @@
     {
     }
 
-    private string BuildJourneyPrimaryUrl(JourneyItemViewModel item)
-    {
-        var mediaType = item.MediaType.ToLowerInvariant();
-        if ((mediaType.Contains("book") || mediaType.Contains("comic") || mediaType.Contains("epub"))
-            && !mediaType.Contains("audio"))
-        {
-            var url = $"/read/{item.AssetId}";
-            if (item.CollectionId.HasValue)
-            {
-                url += $"?returnCollectionId={item.CollectionId.Value}";
-            }
-            return url;
-        }
-
-        return MediaNavigation.ForJourney(item);
-    }
-
     private IEnumerable<(string Value, string Label)> GetSortOptions() =>
         BrowseQueryBuilder.GetSortOptions(_activeTabId, _grouping);
-
-    private static T PickStable<T>(IReadOnlyList<T> candidates, IEnumerable<string> candidateKeys)
-    {
-        var joined = string.Join("|", candidateKeys);
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(joined));
-        var index = BitConverter.ToUInt32(hash, 0) % (uint)candidates.Count;
-        return candidates[(int)index];
-    }
-
-    private List<T> PreferWideArt<T>(IReadOnlyList<T> source, Func<T, string?> artSelector)
-    {
-        var withArtwork = source.Where(item => !string.IsNullOrWhiteSpace(artSelector(item))).ToList();
-        return withArtwork.Count > 0 ? withArtwork : source.ToList();
-    }
 
     private static Guid GenerateDeterministicGuid(string value)
     {
@@ -1252,19 +1065,6 @@
     private static bool IsPlayableMedia(string? mediaType) =>
         IsWatchMedia(mediaType) || IsListenMedia(mediaType);
 
-    private static string BuildItemDescription(LibraryItemViewModel item)
-    {
-        var parts = new[]
-        {
-            item.ContextLabel,
-            item.Creator,
-            item.Runtime ?? item.Duration,
-            item.Specs,
-        }.Where(part => !string.IsNullOrWhiteSpace(part));
-
-        return string.Join(" - ", parts);
-    }
-
     private static string BuildGroupDescription(ContentGroupViewModel group)
     {
         var parts = new[]
@@ -1278,9 +1078,6 @@
 
         return string.Join("  -  ", parts);
     }
-
-    private static string JoinParts(params string?[] parts) =>
-        string.Join(" - ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private static string AccentForMedia(string? mediaType) => mediaType switch
     {

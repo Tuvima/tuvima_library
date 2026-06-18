@@ -780,7 +780,8 @@
 
 ::deep .tl-person-about-panel,
 ::deep .tl-person-library-panel {
-    min-height: 100%;
+    min-height: 0;
+    align-self: start;
 }
 
 ::deep .tl-person-biography {
@@ -798,6 +799,7 @@
 ::deep .tl-person-library-panel {
     display: grid;
     gap: 1.25rem;
+    align-content: start;
 }
 
 ::deep .tl-person-library-header {

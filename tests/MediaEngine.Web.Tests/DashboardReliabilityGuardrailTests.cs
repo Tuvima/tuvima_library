@@ -66,13 +66,38 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
-    public void BrowseShell_KeepsHeroWhileReloading()
+    public void BrowseShell_DetailedRoutesDoNotRenderHero()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
         var normalized = source.ReplaceLineEndings("\n");
 
-        Assert.DoesNotContain("_hero = null;", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<MediaBrowseHero", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("BrowseHeroViewModel? _hero", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetJourneyAsync(limit: 24)", source, StringComparison.Ordinal);
         Assert.Contains("if (!_hasLoadedOnce)\n            StateHasChanged();", normalized, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BrowseShell_ReloadsWhenLayoutModeChanges()
+    {
+        var source = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
+
+        Assert.Contains("LayoutToggleClass(LibraryLayoutMode.Card)", source, StringComparison.Ordinal);
+        Assert.Contains("LayoutToggleClass(LibraryLayoutMode.List)", source, StringComparison.Ordinal);
+        Assert.Contains("await NavigateAndReloadAsync(reloadData: true);", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("await NavigateAndReloadAsync(reloadData: false);", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WatchAndReadDefaultTabsKeepExplicitBrowseRoutes()
+    {
+        var browseShell = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
+        var watchPage = Read(@"src\MediaEngine.Web\Components\Pages\WatchPage.razor");
+        var readPage = Read(@"src\MediaEngine.Web\Components\Pages\ReadPage.razor");
+
+        Assert.Contains("&& !Preset.UseExplicitDefaultTabRoute", browseShell, StringComparison.Ordinal);
+        Assert.Contains("UseExplicitDefaultTabRoute = true", watchPage, StringComparison.Ordinal);
+        Assert.Contains("UseExplicitDefaultTabRoute = true", readPage, StringComparison.Ordinal);
     }
 
     [Fact]
