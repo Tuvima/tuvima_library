@@ -3,6 +3,7 @@ using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 using MediaEngine.Processors.Processors;
+using System.IO.Compression;
 using System.Text;
 
 namespace MediaEngine.Processors.Tests;
@@ -116,6 +117,83 @@ public class VideoProcessorTests
         0x69, 0x73, 0x6F, 0x6D,
         0x00, 0x00, 0x02, 0x00,
     ];
+}
+
+public class ComicProcessorTests
+{
+    [Fact]
+    public async Task ProcessAsync_ExtractsFirstPageAsIssueCover()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"comic_processor_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var issueOne = Path.Combine(dir, "Saga 001.cbz");
+        var issueTwo = Path.Combine(dir, "Saga 002.cbz");
+        var coverOne = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02, 0xFF, 0xD9 };
+        var coverTwo = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x03, 0x04, 0xFF, 0xD9 };
+
+        try
+        {
+            CreateComicArchive(issueOne, "Saga Chapter One", "Saga", 1, coverOne);
+            CreateComicArchive(issueTwo, "Saga Chapter Two", "Saga", 2, coverTwo);
+
+            var processor = new ComicProcessor();
+            var resultOne = await processor.ProcessAsync(issueOne);
+            var resultTwo = await processor.ProcessAsync(issueTwo);
+
+            Assert.Equal("image/jpeg", resultOne.CoverImageMimeType);
+            Assert.Equal("image/jpeg", resultTwo.CoverImageMimeType);
+            Assert.Equal(coverOne, resultOne.CoverImage);
+            Assert.Equal(coverTwo, resultTwo.CoverImage);
+            Assert.NotEqual(resultOne.CoverImage, resultTwo.CoverImage);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(dir);
+        }
+    }
+
+    private static void CreateComicArchive(string path, string title, string series, int number, byte[] cover)
+    {
+        using var file = File.Create(path);
+        using var archive = new ZipArchive(file, ZipArchiveMode.Create, leaveOpen: false);
+
+        var page = archive.CreateEntry("page_001.jpg", CompressionLevel.NoCompression);
+        using (var pageStream = page.Open())
+            pageStream.Write(cover);
+
+        var info = archive.CreateEntry("ComicInfo.xml", CompressionLevel.Fastest);
+        using var writer = new StreamWriter(info.Open(), Encoding.UTF8);
+        writer.Write($"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <ComicInfo>
+              <Title>{title}</Title>
+              <Series>{series}</Series>
+              <Number>{number}</Number>
+              <PageCount>1</PageCount>
+            </ComicInfo>
+            """);
+    }
+
+    private static void DeleteDirectoryWithRetry(string dir)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                if (Directory.Exists(dir))
+                    Directory.Delete(dir, recursive: true);
+                return;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                Thread.Sleep(100);
+            }
+            catch (UnauthorizedAccessException) when (attempt < 4)
+            {
+                Thread.Sleep(100);
+            }
+        }
+    }
 }
 
 public class MediaProcessorRouterTests : IDisposable

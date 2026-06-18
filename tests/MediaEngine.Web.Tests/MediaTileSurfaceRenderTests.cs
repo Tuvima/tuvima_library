@@ -44,7 +44,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-cover-square"));
         Assert.DoesNotContain("style=", cut.Markup);
-        Assert.Contains(".media-tile.is-square { width:var(--media-tile-media-height); --media-tile-media-aspect:1 / 1; --media-tile-hover-panel-width:clamp(248px,18vw,292px);", css);
+        Assert.Contains(".media-tile.is-square { width:var(--media-tile-media-height); --media-tile-media-aspect:1 / 1; --media-tile-hover-panel-width:clamp(320px,24vw,400px);", css);
         Assert.Contains("flex:0 0 auto", css);
         Assert.Contains("aspect-ratio:var(--media-tile-media-aspect)", css);
         Assert.Contains(".media-tile-image.is-contained { object-fit:contain; padding:0; background:transparent; }", css);
@@ -86,8 +86,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-portrait.is-cover-portrait"));
         Assert.DoesNotContain("style=", cut.Markup);
-        Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(360px,31vw,440px);", css);
-        Assert.Contains("grid-template-columns:minmax(128px,34%) minmax(184px,1fr)", css);
+        Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(420px,34vw,520px);", css);
+        Assert.Contains("grid-template-columns:minmax(142px,38%) minmax(214px,1fr)", css);
         Assert.Contains("max-height:min(62vh,420px)", css);
         Assert.DoesNotContain("A dreamlike horror comic with mythic scale.", cut.Markup);
         Assert.Empty(cut.FindAll(".media-tile-hover-context-list"));

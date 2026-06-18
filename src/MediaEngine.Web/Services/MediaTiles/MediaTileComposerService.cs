@@ -198,7 +198,7 @@ public sealed class MediaTileComposerService
             Presentation = presentation,
             SurfaceKind = surface.SurfaceKind,
             HoverLayout = surface.HoverLayout,
-            HoverMode = (bucket is MediaTileBucket.Movie or MediaTileBucket.Tv) || isTypedGroup ? MediaTileHoverMode.Expanded : MediaTileHoverMode.Preview,
+            HoverMode = SupportsExpandedHover(bucket, isTypedGroup) ? MediaTileHoverMode.Expanded : MediaTileHoverMode.Preview,
             TileTextMode = string.Equals(card.TileTextMode, "coverOnly", StringComparison.OrdinalIgnoreCase)
                 ? MediaTileTextMode.CoverOnly
                 : MediaTileTextMode.Caption,
@@ -280,6 +280,15 @@ public sealed class MediaTileComposerService
         MediaTileBucket.Music => "var(--tl-media-audio)",
         _ => "var(--tl-accent-primary)",
     };
+
+    private static bool SupportsExpandedHover(MediaTileBucket bucket, bool isTypedGroup) =>
+        isTypedGroup
+        || bucket is MediaTileBucket.Movie
+            or MediaTileBucket.Tv
+            or MediaTileBucket.Book
+            or MediaTileBucket.Comic
+            or MediaTileBucket.Audiobook
+            or MediaTileBucket.Music;
 
     private static MediaTileSurfaceKind ResolveHeroSurfaceKind(DisplayArtworkDto artwork)
     {

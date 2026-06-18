@@ -444,7 +444,16 @@ public static class StreamEndpoints
         Guid? fallbackOwnerEntityId = null)
     {
         var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
-        return lineage?.TargetForParentScope ?? fallbackOwnerEntityId ?? assetId;
+        if (lineage is null)
+            return fallbackOwnerEntityId ?? assetId;
+
+        return lineage.MediaType switch
+        {
+            MediaEngine.Domain.Enums.MediaType.Books
+                or MediaEngine.Domain.Enums.MediaType.Audiobooks
+                or MediaEngine.Domain.Enums.MediaType.Comics => lineage.TargetForSelfScope,
+            _ => lineage.TargetForParentScope,
+        };
     }
 
     private static async Task EnsureArtworkRenditionsAsync(

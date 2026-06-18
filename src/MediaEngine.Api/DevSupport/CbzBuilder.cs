@@ -1,5 +1,7 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
+using SkiaSharp;
 
 namespace MediaEngine.Api.DevSupport;
 
@@ -31,13 +33,13 @@ public static class CbzBuilder
         using var stream = new MemoryStream();
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
         {
-            // 1. Add dummy JPEG pages (minimal valid JPEG: SOI + EOI markers)
-            byte[] minimalJpeg = [0xFF, 0xD8, 0xFF, 0xD9]; // SOI + EOI
+            // 1. Add deterministic issue-specific JPEG pages. The first page
+            // becomes the local comic cover when provider artwork is absent.
             for (int i = 1; i <= pageCount; i++)
             {
                 var entry = archive.CreateEntry($"page_{i:D3}.jpg", CompressionLevel.Fastest);
                 using var entryStream = entry.Open();
-                entryStream.Write(minimalJpeg);
+                entryStream.Write(CreatePageJpeg(title, series, number, i));
             }
 
             // 2. Add ComicInfo.xml with metadata
@@ -90,4 +92,55 @@ public static class CbzBuilder
              .Replace("<", "&lt;")
              .Replace(">", "&gt;")
              .Replace("\"", "&quot;");
+
+    private static byte[] CreatePageJpeg(string title, string? series, int? number, int pageIndex)
+    {
+        var seed = SHA256.HashData(Encoding.UTF8.GetBytes($"{series}|{title}|{number}|{pageIndex}"));
+        var primary = ColorFromSeed(seed, 0, 74);
+        var secondary = ColorFromSeed(seed, 3, 122);
+        var accent = ColorFromSeed(seed, 6, 182);
+
+        using var surface = SKSurface.Create(new SKImageInfo(640, 960, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(primary);
+
+        using var paint = new SKPaint { IsAntialias = true };
+        paint.Color = secondary;
+        canvas.DrawRect(new SKRect(0, 0, 640, 960), paint);
+
+        paint.Color = primary.WithAlpha(230);
+        canvas.DrawRect(new SKRect(0, 0, 640, 590), paint);
+
+        paint.Color = accent.WithAlpha(222);
+        for (var i = 0; i < 7; i++)
+        {
+            var left = -220 + (i * 142) + (seed[(i + 9) % seed.Length] % 34);
+            canvas.DrawRect(new SKRect(left, 650, left + 98, 1040), paint);
+        }
+
+        paint.Color = SKColors.White.WithAlpha(238);
+        var issueBars = Math.Clamp(number ?? pageIndex, 1, 12);
+        for (var i = 0; i < issueBars; i++)
+        {
+            var x = 72 + (i * 36);
+            canvas.DrawRoundRect(new SKRect(x, 96, x + 22, 232), 11, 11, paint);
+        }
+
+        paint.Color = SKColors.Black.WithAlpha(84);
+        canvas.DrawRect(new SKRect(0, 0, 640, 960), paint);
+
+        using var image = surface.Snapshot();
+        using var data = image.Encode(SKEncodedImageFormat.Jpeg, 88);
+        using var output = new MemoryStream();
+        data.SaveTo(output);
+        return output.ToArray();
+    }
+
+    private static SKColor ColorFromSeed(byte[] seed, int offset, byte floor)
+    {
+        var r = (byte)Math.Max(floor, seed[offset]);
+        var g = (byte)Math.Max(floor, seed[offset + 1]);
+        var b = (byte)Math.Max(floor, seed[offset + 2]);
+        return new SKColor(r, g, b);
+    }
 }

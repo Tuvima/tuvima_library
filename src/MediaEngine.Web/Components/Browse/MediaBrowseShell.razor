@@ -229,9 +229,7 @@
         && string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
-    private MediaTileHoverMode GridHoverMode => IsWatchMedia(CurrentTab.MediaType)
-        ? MediaTileHoverMode.Expanded
-        : MediaTileHoverMode.Preview;
+    private MediaTileHoverMode? GridHoverMode => null;
     private string EmptyStateTitle =>
         !string.IsNullOrWhiteSpace(_searchText)
             ? "No matches found"

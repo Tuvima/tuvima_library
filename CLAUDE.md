@@ -56,7 +56,7 @@ Tuvima is a unified media intelligence platform that runs entirely on the user's
 
 A **Universe** is a creative world — the books, films, audiobooks, comics, and music that belong together because their metadata says so. A **Series** is a sub-grouping within a Universe — a specific sequence or collection of related works.
 
-Current product rule: a Series is the lane-level shelf shown in Read, Watch, or Listen. A broader Universe/Collection is shown on `/collections` only when a shared series/franchise/universe relationship connects multiple shelves. TV shows may appear as show cards with one or more owned episodes, but non-TV/non-music series cards require at least two distinct owned works by default (`lane_group_display.*.minimum_series_items`). A single owned movie/book/audiobook remains a normal item tile, and a lane shelf such as owning multiple Matrix films stays in Watch without duplicating itself as a top-level Collection. Multiple formats of one work are variants, not collection triggers. Internal collection IDs may back a lane group, but user-facing surfaces must name and route by the group type: a TV show is a show, a book sequence is a series, and a curated rollup is a collection/list.
+Current product rule: a Series is the lane-level shelf shown in Read, Watch, or Listen. A broader Universe/Collection is shown on `/collections` only when a shared series/franchise/universe relationship connects multiple shelves. TV shows may appear as show cards with one or more owned episodes, but non-TV/non-music series cards require at least two distinct owned works by default (`lane_group_display.*.minimum_series_items`). A single owned movie/book/audiobook remains a normal item tile in its respective lane; audiobooks belong in Listen, not Read. A lane shelf such as owning multiple Matrix films stays in Watch without duplicating itself as a top-level Collection. Multiple formats of one work are variants, not collection triggers. Internal collection IDs may back a lane group, but user-facing surfaces must name and route by the group type: a TV show is a show, a book sequence is a series, and a curated rollup is a collection/list.
 
 Matching is automatic: when the Engine discovers that a novel, its film adaptation, and an audiobook share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into the same Universe. Users browse by creative world, not by file type.
 
@@ -208,7 +208,7 @@ Every endpoint requires authentication except `/system/status` and localhost (wh
 Dark-mode-only cinematic design with an ambient gradient background. The Dashboard is a set of dedicated surfaces rather than one command page:
 
 - `/` — **LibraryBrowsePage** (home / discovery landing)
-- `/read`, `/read/{Tab}` — ReadPage (books + audiobooks)
+- `/read`, `/read/{Tab}` — ReadPage (books + comics)
 - `/watch`, `/watch/{Tab}`, `/watch/movie/{WorkId}`, `/watch/tv/show/{CollectionId}/...`, `/watch/player/{AssetId}` — Watch surfaces
 - `/listen`, `/listen/music/...`, `/listen/audiobooks`, `/listen/audiobook/{WorkId}` — Listen surfaces
 - `/collections`, `/collection/{Id}` — Collections browse + detail
@@ -628,7 +628,7 @@ Reusable visual components, organised by feature slice.
 | Route | Page | Purpose |
 |---|---|---|
 | `/` | `LibraryBrowsePage.razor` | Home — discovery landing |
-| `/read`, `/read/{Tab}` | `ReadPage.razor` | Books + audiobooks browse |
+| `/read`, `/read/{Tab}` | `ReadPage.razor` | Books + comics browse |
 | `/read/{AssetId:guid}` | `EpubReader.razor` | In-browser EPUB reader |
 | `/watch`, `/watch/{Tab}` | `WatchPage.razor` | Movies + TV browse |
 | `/watch/movie/{WorkId:guid}` | `WatchMoviePage.razor` | Movie detail |

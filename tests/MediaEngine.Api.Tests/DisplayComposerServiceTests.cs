@@ -43,7 +43,7 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
-    public async Task ReadLane_ComposesBottomPreviewAndCompactBookFacts()
+    public async Task ReadLane_ComposesBooksAndComicsWithoutAudiobooks()
     {
         var bookId = Guid.Parse("33333333-3333-3333-3333-333333333333");
         var comicId = Guid.Parse("44444444-4444-4444-4444-444444444444");
@@ -67,20 +67,20 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("/read/books", page.Shelves.Single(shelf => shelf.Key == "recently-added").SeeAllRoute);
 
         var continueCard = page.Shelves.Single(shelf => shelf.Key == "continue-reading").Items.Single();
-        Assert.Equal("bottom", continueCard.PreviewPlacement);
+        Assert.Equal("smart", continueCard.PreviewPlacement);
         Assert.Equal("Continue Reading", continueCard.Actions[0].Label);
         Assert.Equal(["Frank Herbert", "Science Fiction", "Adventure"], continueCard.Facts);
 
         var catalogCard = page.Catalog.Single(card => card.Title == "Dune");
-        Assert.Equal("bottom", catalogCard.PreviewPlacement);
+        Assert.Equal("smart", catalogCard.PreviewPlacement);
         Assert.Equal(31, catalogCard.Progress?.Percent);
 
-        Assert.Equal("bottom", page.Catalog.Single(card => card.Title == "Saga").PreviewPlacement);
-        Assert.Equal("bottom", page.Catalog.Single(card => card.Title == "Project Hail Mary").PreviewPlacement);
+        Assert.Equal("smart", page.Catalog.Single(card => card.Title == "Saga").PreviewPlacement);
+        Assert.DoesNotContain(page.Catalog, card => card.Title == "Project Hail Mary");
     }
 
     [Fact]
-    public async Task ReadLane_CollapsesBookAndAudiobookVariantsWithSameQid()
+    public async Task ReadLane_ExcludesAudiobookVariantsWithSameQid()
     {
         var bookId = Guid.Parse("33333333-aaaa-3333-3333-333333333333");
         var audiobookId = Guid.Parse("33333333-bbbb-3333-3333-333333333333");
@@ -97,6 +97,9 @@ public sealed class DisplayComposerServiceTests
         var catalogCard = Assert.Single(page.Catalog);
         Assert.Equal(bookId, catalogCard.WorkId);
         Assert.Equal("Harry Potter and the Philosopher's Stone", catalogCard.Title);
+
+        var listenPage = await composer.BuildBrowseAsync("listen", null, "all", null, 0, 48);
+        Assert.Contains(listenPage.Catalog, card => card.WorkId == audiobookId && card.MediaType == "Audiobook");
     }
 
     [Fact]

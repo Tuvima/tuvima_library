@@ -108,22 +108,29 @@ public sealed class ComicProcessor : IMediaProcessor
         // Container label — authoritative.
         claims.Add(Claim("container", container == ComicContainer.Cbz ? "CBZ" : "CBR", 1.0));
 
-        // Page count — CBZ only.
+        byte[]? coverImage = null;
+        string? coverImageMimeType = null;
+
+        // Page count — CBZ/CBR archives only.
         if (container is ComicContainer.Cbz or ComicContainer.Cbr)
         {
-            int? pageCount = CountPages(filePath);
+            int? pageCount = CountPages(filePath, container);
             if (pageCount.HasValue)
                 claims.Add(Claim("page_count", pageCount.Value.ToString(), 1.0));
 
+            (coverImage, coverImageMimeType) = ExtractFirstPageImage(filePath, container);
+
             // ComicInfo.xml — standard metadata embedded in CBZ archives.
-            ParseComicInfoXml(filePath, claims);
+            ParseComicInfoXml(filePath, container, claims);
         }
 
         return Task.FromResult(new ProcessorResult
         {
-            FilePath     = filePath,
-            DetectedType = MediaType.Comics,
-            Claims       = claims,
+            FilePath           = filePath,
+            DetectedType       = MediaType.Comics,
+            Claims             = claims,
+            CoverImage         = coverImage,
+            CoverImageMimeType = coverImageMimeType,
         });
     }
 
@@ -189,10 +196,17 @@ public sealed class ComicProcessor : IMediaProcessor
     // Page counting (CBZ)
     // -------------------------------------------------------------------------
 
-    private static int? CountPages(string filePath)
+    private static int? CountPages(string filePath, ComicContainer container)
     {
         try
         {
+            if (container == ComicContainer.Cbz)
+            {
+                using var zip = ZipFile.OpenRead(filePath);
+                var zipCount = zip.Entries.Count(IsImageEntry);
+                return zipCount > 0 ? zipCount : null;
+            }
+
             using var archive = ArchiveFactory.OpenArchive(filePath, new SharpCompressReaderOptions());
             int count = archive.Entries.Count(IsImageEntry);
             return count > 0 ? count : null;
@@ -217,6 +231,65 @@ public sealed class ComicProcessor : IMediaProcessor
         return ImageExtensions.Contains(ext);
     }
 
+    private static (byte[]? Bytes, string? MimeType) ExtractFirstPageImage(string filePath, ComicContainer container)
+    {
+        try
+        {
+            if (container == ComicContainer.Cbz)
+            {
+                using var zip = ZipFile.OpenRead(filePath);
+                var firstZipImage = zip.Entries
+                    .Where(IsImageEntry)
+                    .OrderBy(e => e.FullName, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+
+                if (firstZipImage is null)
+                    return (null, null);
+
+                using var zipStream = firstZipImage.Open();
+                using var zipBuffer = new MemoryStream();
+                zipStream.CopyTo(zipBuffer);
+                var zipBytes = zipBuffer.ToArray();
+                return zipBytes.Length > 0
+                    ? (zipBytes, MimeTypeForImageEntry(firstZipImage.FullName))
+                    : (null, null);
+            }
+
+            using var archive = ArchiveFactory.OpenArchive(filePath, new SharpCompressReaderOptions());
+            var firstImage = archive.Entries
+                .Where(IsImageEntry)
+                .OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+
+            if (firstImage is null)
+                return (null, null);
+
+            using var stream = firstImage.OpenEntryStream();
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+            var bytes = buffer.ToArray();
+            return bytes.Length > 0
+                ? (bytes, MimeTypeForImageEntry(firstImage.Key))
+                : (null, null);
+        }
+        catch (InvalidDataException) { return (null, null); }
+        catch (IOException)          { return (null, null); }
+        catch (SharpCompress.Common.ArchiveException) { return (null, null); }
+    }
+
+    private static string MimeTypeForImageEntry(string? entryKey)
+    {
+        var extension = Path.GetExtension(entryKey ?? string.Empty);
+        return extension.ToLowerInvariant() switch
+        {
+            ".png"  => "image/png",
+            ".gif"  => "image/gif",
+            ".webp" => "image/webp",
+            ".avif" => "image/avif",
+            _       => "image/jpeg",
+        };
+    }
+
     // -------------------------------------------------------------------------
     // ComicInfo.xml parsing (CBZ)
     // -------------------------------------------------------------------------
@@ -226,10 +299,23 @@ public sealed class ComicProcessor : IMediaProcessor
     /// and extracts metadata claims from its standard elements.
     /// A malformed or missing ComicInfo.xml is silently ignored.
     /// </summary>
-    private static void ParseComicInfoXml(string filePath, List<ExtractedClaim> claims)
+    private static void ParseComicInfoXml(string filePath, ComicContainer container, List<ExtractedClaim> claims)
     {
         try
         {
+            if (container == ComicContainer.Cbz)
+            {
+                using var zip = ZipFile.OpenRead(filePath);
+                var zipEntry = zip.Entries
+                    .FirstOrDefault(e => !e.FullName.EndsWith('/')
+                                         && string.Equals(Path.GetFileName(e.FullName), "ComicInfo.xml", StringComparison.OrdinalIgnoreCase));
+                if (zipEntry is null) return;
+
+                using var zipStream = zipEntry.Open();
+                ParseComicInfoXml(zipStream, claims);
+                return;
+            }
+
             using var archive = ArchiveFactory.OpenArchive(filePath, new SharpCompressReaderOptions());
 
             var comicInfoEntry = archive.Entries
@@ -239,25 +325,30 @@ public sealed class ComicProcessor : IMediaProcessor
             if (comicInfoEntry is null) return;
 
             using var stream = comicInfoEntry.OpenEntryStream();
-            var doc = XDocument.Load(stream);
-            var root = doc.Root;
-            if (root is null) return;
-
-            AddClaimIfPresent(root, "Title",     "title",           0.8, claims);
-            AddClaimIfPresent(root, "Writer",    "author",          0.8, claims);
-            AddClaimIfPresent(root, "Penciller", "illustrator",     0.8, claims);
-            AddClaimIfPresent(root, "Genre",     "genre",           0.7, claims);
-            AddClaimIfPresent(root, "Summary",   "description",     0.7, claims);
-            AddClaimIfPresent(root, "Year",      "year",            0.8, claims);
-            AddClaimIfPresent(root, "Publisher", "publisher",       0.7, claims);
-            AddClaimIfPresent(root, "Series",    "series",          0.8, claims);
-            AddClaimIfPresent(root, "Number",    "series_position", 0.8, claims);
-            AddClaimIfPresent(root, "PageCount", "page_count",      0.9, claims);
+            ParseComicInfoXml(stream, claims);
         }
         catch (InvalidDataException) { /* corrupt ZIP — already handled by earlier steps */ }
         catch (IOException)          { /* file access issue */ }
         catch (SharpCompress.Common.ArchiveException) { /* unsupported/corrupt archive */ }
         catch (System.Xml.XmlException) { /* malformed XML — skip silently */ }
+    }
+
+    private static void ParseComicInfoXml(Stream stream, List<ExtractedClaim> claims)
+    {
+        var doc = XDocument.Load(stream);
+        var root = doc.Root;
+        if (root is null) return;
+
+        AddClaimIfPresent(root, "Title",     "title",           0.8, claims);
+        AddClaimIfPresent(root, "Writer",    "author",          0.8, claims);
+        AddClaimIfPresent(root, "Penciller", "illustrator",     0.8, claims);
+        AddClaimIfPresent(root, "Genre",     "genre",           0.7, claims);
+        AddClaimIfPresent(root, "Summary",   "description",     0.7, claims);
+        AddClaimIfPresent(root, "Year",      "year",            0.8, claims);
+        AddClaimIfPresent(root, "Publisher", "publisher",       0.7, claims);
+        AddClaimIfPresent(root, "Series",    "series",          0.8, claims);
+        AddClaimIfPresent(root, "Number",    "series_position", 0.8, claims);
+        AddClaimIfPresent(root, "PageCount", "page_count",      0.9, claims);
     }
 
     /// <summary>

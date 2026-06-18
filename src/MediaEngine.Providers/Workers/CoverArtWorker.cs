@@ -68,7 +68,7 @@ public sealed class CoverArtWorker
         // Find cover URL from the asset's own canonicals.
         var coverUrl = FindCoverUrl(canonicals);
 
-        // Parent-scope fallback. For TV / Movies / Music / Comics,
+        // Parent-scope fallback. For TV / Movies / Music,
         // ClaimScopeCatalog routes `cover` and `cover_url` to ClaimScope.Parent,
         // so the retail provider's cover URL lands on the parent Work id
         // (album / show / movie Work) — not the media asset id. Without this
@@ -118,7 +118,7 @@ public sealed class CoverArtWorker
 
         // Look up the asset's current file path. The lookup is cheap (single
         // row by id) and is the gate that decides "per-file" vs "legacy".
-        var ownerEntityId = lineage?.TargetForParentScope ?? entityId;
+        var ownerEntityId = ResolveCoverOwnerEntityId(entityId, lineage);
         var existingCoverVariant = await FindExistingCoverVariantAsync(ownerEntityId, coverUrl, ct);
         var coverVariantId = existingCoverVariant?.Id ?? Guid.NewGuid();
         var coverExtension = InferImageExtension(coverUrl, "CoverArt");
@@ -309,6 +309,18 @@ public sealed class CoverArtWorker
             return "provider";
 
         return "existing";
+    }
+
+    private static Guid ResolveCoverOwnerEntityId(Guid entityId, WorkLineage? lineage)
+    {
+        if (lineage is null)
+            return entityId;
+
+        return lineage.MediaType switch
+        {
+            MediaType.Books or MediaType.Audiobooks or MediaType.Comics => lineage.TargetForSelfScope,
+            _ => lineage.TargetForParentScope,
+        };
     }
 
     private async Task<EntityAsset?> EnsureCoverVariantAsync(

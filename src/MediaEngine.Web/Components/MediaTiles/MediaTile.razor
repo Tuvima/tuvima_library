@@ -467,9 +467,9 @@
         .Take(4)
         .ToList();
 
-    private bool UseCompactHover => CompactHoverFacts.Count > 0 && !SupportsRichGroupHover;
+    private bool UseCompactHover => EffectiveHoverMode == MediaTileHoverMode.Preview && CompactHoverFacts.Count > 0 && !SupportsRichGroupHover;
 
-    private bool ShowRichHoverFacts => SupportsRichGroupHover && CompactHoverFacts.Count > 0;
+    private bool ShowRichHoverFacts => EffectiveHoverMode == MediaTileHoverMode.Expanded && CompactHoverFacts.Count > 0;
 
     private string PrimaryIcon => Item.MediaKind switch
     {

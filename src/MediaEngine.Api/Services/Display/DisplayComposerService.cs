@@ -559,7 +559,7 @@ public sealed class DisplayComposerService
     private static string SubtitleForLane(string lane) => lane switch
     {
         "watch" => "Movies and shows from your local library",
-        "read" => "Books, comics, and audiobooks from your local library",
+        "read" => "Books and comics from your local library",
         "listen" => "Music and audiobooks from your local library",
         _ => "Browse your local library",
     };

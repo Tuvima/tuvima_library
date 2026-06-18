@@ -1489,7 +1489,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             try
             {
-                var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, ct).ConfigureAwait(false);
+                var ownerEntityId = await ResolveEmbeddedCoverOwnerEntityIdAsync(assetId, ct).ConfigureAwait(false);
                 var existingAssets = await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), "CoverArt", ct)
                     .ConfigureAwait(false);
                 var preferredUserOverride = existingAssets.FirstOrDefault(asset => asset.IsPreferred && asset.IsUserOverride);
@@ -3754,6 +3754,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
         return lineage?.TargetForParentScope ?? assetId;
+    }
+
+    private async Task<Guid> ResolveEmbeddedCoverOwnerEntityIdAsync(Guid assetId, CancellationToken ct)
+    {
+        if (_workRepo is null)
+            return assetId;
+
+        var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
+        if (lineage is null)
+            return assetId;
+
+        return lineage.MediaType switch
+        {
+            MediaType.Books or MediaType.Audiobooks or MediaType.Comics => lineage.TargetForSelfScope,
+            _ => lineage.TargetForParentScope,
+        };
     }
 
     private static string InferArtworkExtension(string? contentType) =>

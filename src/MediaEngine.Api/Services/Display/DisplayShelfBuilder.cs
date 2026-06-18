@@ -22,7 +22,7 @@ public sealed class DisplayShelfBuilder
         var take = Math.Max(1, shelfLimit);
         var shelves = new List<DisplayShelfDto>();
         var groupShelf = _groupPolicy.GetShelf("read");
-        AddShelf(shelves, "continue-reading", "Continue reading", "Books, comics, and audiobooks already in motion",
+        AddShelf(shelves, "continue-reading", "Continue reading", "Books and comics already in motion",
             journey.Take(take).Select(item => _cards.FromJourney(item, "read")).ToList(), "/read/books");
         if (groupShelf.Enabled)
         {
@@ -30,7 +30,7 @@ public sealed class DisplayShelfBuilder
                 _cards.BuildCollectionCards(works, "read", groupShelf.MinimumSeriesItems).Take(take).ToList(), groupShelf.SeeAllRoute);
         }
 
-        AddShelf(shelves, "recently-added", "Recently added to read", "Fresh pages ready to pick up",
+        AddShelf(shelves, "recently-added", "Recently added to read", "Fresh pages and issues ready to pick up",
             works.Take(take).Select(work => _cards.FromWork(work, "read", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), "/read/books");
 
         var authorShelves = works

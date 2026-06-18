@@ -107,6 +107,40 @@ public sealed class MediaTileComposerServiceTests
         Assert.Contains("max", mapped.SourceLogoUrl, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("Book")]
+    [InlineData("Comic")]
+    [InlineData("Audiobook")]
+    [InlineData("Music")]
+    public void FromDisplayCard_MapsReadableAndAudioTilesToExpandedHover(string mediaType)
+    {
+        var workId = Guid.Parse("44444444-9999-1111-1111-444444444444");
+        var action = new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/details/{workId}");
+        var card = new DisplayCardDto(
+            Id: workId,
+            WorkId: workId,
+            AssetId: null,
+            CollectionId: null,
+            MediaType: mediaType,
+            GroupingType: "work",
+            Title: "Hover Candidate",
+            Subtitle: "Creator",
+            Facts: ["Creator", "Genre"],
+            Artwork: EmptyArtwork("#5DCAA5"),
+            PreferredShape: mediaType is "Audiobook" or "Music" ? "square" : "portrait",
+            Presentation: mediaType.ToLowerInvariant(),
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(mediaType is "Audiobook" or "Music", mediaType is "Book" or "Comic", true, false, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.Equal(MediaTileHoverMode.Expanded, mapped.HoverMode);
+    }
+
     [Fact]
     public void FromDisplayCard_MapsCollectionArtworkIntoBackdropAndPreviewImages()
     {
