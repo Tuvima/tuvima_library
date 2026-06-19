@@ -88,8 +88,8 @@
         scroll-padding-inline: 10px;
         padding: calc(var(--media-tile-hover-lift) + 8px) 10px 12px;
         overscroll-behavior-x: contain;
-        overscroll-behavior-y: none;
-        touch-action: pan-x;
+        overscroll-behavior-y: auto;
+        touch-action: pan-x pan-y;
         scrollbar-width: none;
         -ms-overflow-style: none;
     }
@@ -107,13 +107,13 @@
 
     .media-tile-shelf-scroll.is-row-scroll-guarded {
         overscroll-behavior-x: contain;
-        overscroll-behavior-y: none;
+        overscroll-behavior-y: auto;
     }
 
     .media-tile-shelf-scroll.is-hover-scroll-locked {
         overflow-y: clip;
         overscroll-behavior-x: contain;
-        overscroll-behavior-y: none;
+        overscroll-behavior-y: auto;
     }
 
     .media-tile-shelf-scroll::-webkit-scrollbar {

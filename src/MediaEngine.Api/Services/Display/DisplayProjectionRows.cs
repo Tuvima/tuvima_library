@@ -41,6 +41,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? IdentityQid { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public string? Author { get; set; }
     public string? Artist { get; set; }
     public string? Album { get; set; }
@@ -137,6 +138,7 @@ public sealed class DisplayJourneyRow : IDisplayArtworkRow
     public double ProgressPct { get; set; }
     public DateTimeOffset LastAccessed { get; set; }
     public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public string? Author { get; set; }
     public string? Artist { get; set; }
     public string? Album { get; set; }

@@ -145,7 +145,8 @@
     @if (IsHoverEnabled)
     {
         <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")}")'
-             >
+             @onclick="OpenDetails"
+             @onclick:stopPropagation="true">
             <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
                  @onclick="OpenDetails"
                  @onclick:stopPropagation="true">
@@ -180,6 +181,7 @@
                         <div class="media-tile-hover-actions-left">
                             <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-primary" AriaLabel="@Item.PrimaryActionLabel" Title="@Item.PrimaryActionLabel" OnClick="OpenPrimary" StopPropagation="true">
                                 <MudIcon Icon="@PrimaryIcon" />
+                                <span class="media-tile-primary-action-label">@PrimaryActionDisplayLabel</span>
                             </AppNativeButton>
 
                             @if (Item.CanAddToCollection)
@@ -202,7 +204,7 @@
                     {
                         <div class="media-tile-hover-heading">
                             <div class="media-tile-hover-title">@Item.Title</div>
-                            @if (!UseCompactHover && !string.IsNullOrWhiteSpace(DisplaySubtitle))
+                            @if (ShowHoverSubtitle)
                             {
                                 <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
                             }
@@ -237,18 +239,7 @@
                     @if (!UseCompactHover && ShowMetaRow)
                     {
                         <div class="media-tile-hover-meta-row">
-                            @if (!HideMediaKindBadge && !string.IsNullOrWhiteSpace(MediaKindIcon))
-                            {
-                                <span class="media-tile-meta-icon" title="@MediaKindLabel">
-                                    <MudIcon Icon="@MediaKindIcon" />
-                                    <span class="media-tile-visually-hidden">@MediaKindLabel</span>
-                                </span>
-                            }
-
-                            @if (!string.IsNullOrWhiteSpace(HoverMetaDisplay))
-                            {
-                                <div class="media-tile-hover-meta">@HoverMetaDisplay</div>
-                            }
+                            <div class="media-tile-hover-meta">@HoverMetaDisplay</div>
                         </div>
                     }
 
@@ -449,19 +440,36 @@
         .Take(3)
         .ToList();
 
-    private string? DisplaySummary => Item.Tldr ?? Item.Description;
+    private string? DisplaySummary => NormalizeHoverDescription(Item.Description);
+
+    private static string? NormalizeHoverDescription(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return null;
+        }
+
+        var value = string.Join(' ', description.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var wordCount = value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+        return value.Length <= 120 && wordCount <= 18 ? value : null;
+    }
 
     private string TileImageFitClass => Item.TileImageFitMode == MediaTileImageFitMode.Contain ? "is-contained" : "is-fill";
 
     private string HoverImageFitClass => Item.HoverImageFitMode == MediaTileImageFitMode.Contain ? "is-contained" : "is-fill";
 
-    private bool ShowHoverContextLines => (Item.HoverLayout == MediaTileHoverLayout.BannerPopover || SupportsRichGroupHover) && Item.ContextLines.Count > 0;
+    private bool ShowHoverContextLines => EffectiveHoverMode == MediaTileHoverMode.Expanded && Item.ContextLines.Count > 0;
 
-    private bool ShowHoverDescription => (Item.HoverLayout == MediaTileHoverLayout.BannerPopover || SupportsRichGroupHover) && !string.IsNullOrWhiteSpace(DisplaySummary);
+    private bool ShowHoverDescription => EffectiveHoverMode == MediaTileHoverMode.Expanded && !string.IsNullOrWhiteSpace(DisplaySummary);
 
     private bool ShowCaption => Item.TileTextMode != MediaTileTextMode.CoverOnly && !ShowTileLogo;
 
     private bool ShowHoverHeading => !(Item.IsCollection && ShowHoverLogo);
+
+    private bool ShowHoverSubtitle =>
+        !UseCompactHover
+        && !string.IsNullOrWhiteSpace(DisplaySubtitle)
+        && !CompactHoverFacts.Any(fact => string.Equals(fact, DisplaySubtitle, StringComparison.OrdinalIgnoreCase));
 
     private IReadOnlyList<string> CompactHoverFacts => Item.HoverFacts
         .Where(fact => !string.IsNullOrWhiteSpace(fact))
@@ -478,6 +486,35 @@
         "Movie" or "TV" or "Music" or "Audiobook" => Icons.Material.Filled.PlayArrow,
         _ => Icons.Material.Filled.AutoStories,
     };
+
+    private string PrimaryActionDisplayLabel
+    {
+        get
+        {
+            var label = Item.PrimaryActionLabel;
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                return "Open";
+            }
+
+            if (label.Equals("Continue Reading", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Read";
+            }
+
+            if (label.Equals("Continue Watching", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Watch";
+            }
+
+            if (label.Equals("Continue Listening", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Listen";
+            }
+
+            return label;
+        }
+    }
 
     private string FallbackIcon => Item.Presentation switch
     {
@@ -536,11 +573,16 @@
                 parts.RemoveAt(0);
             }
 
+            parts = parts
+                .Where(part => !string.Equals(part, DisplaySubtitle, StringComparison.OrdinalIgnoreCase))
+                .Where(part => !CompactHoverFacts.Any(fact => string.Equals(fact, part, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
             return string.Join(" / ", parts);
         }
     }
 
-    private bool ShowMetaRow => (!HideMediaKindBadge && !string.IsNullOrWhiteSpace(MediaKindIcon)) || !string.IsNullOrWhiteSpace(HoverMetaDisplay);
+    private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HoverMetaDisplay);
 
     protected override void OnParametersSet() => _hoverImageIndex = 0;
 

@@ -67,7 +67,7 @@
                             <AppChip T="string"
                                      @key="option.Value"
                                      Value="@option.Value"
-                                     Icon="@option.Icon"
+                                     Class="@GroupingChipClass(option.Value)"
                                      Variant="Variant.Text">
                                 @option.Label
                             </AppChip>
@@ -177,6 +177,8 @@
         <MediaTileGrid Items="@_cards"
                        HoverMode="@GridHoverMode"
                        OnEditClicked="OpenCardEditorAsync"
+                       HideMediaKindBadges="true"
+                       HideSourceBadges="true"
                        Class="browse-shell__grid" />
     }
 
@@ -258,6 +260,9 @@
 
     private string LayoutToggleClass(LibraryLayoutMode mode) =>
         $"browse-shell__layout-button {(_layout == mode ? "is-active" : string.Empty)}";
+
+    private string GroupingChipClass(string value) =>
+        $"browse-shell__grouping-chip {(string.Equals(_grouping, value, StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)}";
 
     private List<LibraryColumnDef> ActiveColumns =>
         IsContainerGrouping

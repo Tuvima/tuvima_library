@@ -258,30 +258,44 @@ public sealed class DetailComposerService
             new { collectionId = GuidSql.ToBlob(collectionId) },
             cancellationToken: ct));
 
-        if (rawRow is null)
+        var hasCollectionRow = rawRow is not null;
+        var row = hasCollectionRow
+            ? new CollectionDetailRow(
+                Guid.Parse(StringValue(rawRow!.Id) ?? collectionId.ToString("D")),
+                StringValue(rawRow.DisplayName),
+                StringValue(rawRow.WikidataQid),
+                StringValue(rawRow.Description),
+                StringValue(rawRow.Tagline),
+                StringValue(rawRow.CoverUrl),
+                StringValue(rawRow.BackgroundUrl),
+                StringValue(rawRow.BannerUrl),
+                StringValue(rawRow.LogoUrl),
+                StringValue(rawRow.HeroBrandLabel),
+                StringValue(rawRow.HeroBrandImageUrl))
+            : entityType == DetailEntityType.TvShow
+                ? await LoadTvShowRootDetailRowAsync(collectionId, ct)
+                : null;
+
+        if (row is null)
         {
             return null;
         }
 
-        var row = new CollectionDetailRow(
-            Guid.Parse(StringValue(rawRow.Id) ?? collectionId.ToString("D")),
-            StringValue(rawRow.DisplayName),
-            StringValue(rawRow.WikidataQid),
-            StringValue(rawRow.Description),
-            StringValue(rawRow.Tagline),
-            StringValue(rawRow.CoverUrl),
-            StringValue(rawRow.BackgroundUrl),
-            StringValue(rawRow.BannerUrl),
-            StringValue(rawRow.LogoUrl),
-            StringValue(rawRow.HeroBrandLabel),
-            StringValue(rawRow.HeroBrandImageUrl));
-
-        var collectionValues = await LoadCanonicalMapAsync(collectionId, ct);
-        var rootWorkId = await LoadCollectionRootWorkIdAsync(
-            collectionId,
-            requireRootWithChildren: entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum or DetailEntityType.MovieSeries or DetailEntityType.BookSeries or DetailEntityType.ComicSeries,
-            ct);
+        var collectionValues = hasCollectionRow
+            ? await LoadCanonicalMapAsync(collectionId, ct)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var rootWorkId = hasCollectionRow
+            ? await LoadCollectionRootWorkIdAsync(
+                collectionId,
+                requireRootWithChildren: entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum or DetailEntityType.MovieSeries or DetailEntityType.BookSeries or DetailEntityType.ComicSeries,
+                ct)
+            : collectionId;
         var works = await LoadCollectionWorksAsync(collectionId, rootWorkId, ct);
+        if (!hasCollectionRow && entityType == DetailEntityType.TvShow && works.Count == 0)
+        {
+            return null;
+        }
+
         if (entityType == DetailEntityType.Collection)
         {
             entityType = InferCollectionEntityType(works);
@@ -374,6 +388,66 @@ public sealed class DetailComposerService
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
         };
+    }
+
+    private async Task<CollectionDetailRow?> LoadTvShowRootDetailRowAsync(Guid rootWorkId, CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var rawRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
+            """
+            SELECT w.id AS Id,
+                   COALESCE(
+                       (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key = 'show_name' LIMIT 1),
+                       (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key = 'title' LIMIT 1),
+                       'TV Show') AS DisplayName,
+                   COALESCE(NULLIF(w.wikidata_qid, ''), (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key = 'wikidata_qid' LIMIT 1)) AS WikidataQid,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('description', 'overview') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS Description,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key = 'tagline' AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS Tagline,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover', 'poster_url', 'poster') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS CoverUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('background_url', 'background', 'hero_url', 'hero') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS BackgroundUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('banner_url', 'banner', 'hero_url', 'hero') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS BannerUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('logo_url', 'logo') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS LogoUrl,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('network', 'studio', 'broadcaster') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS HeroBrandLabel,
+                   (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('network_logo_url', 'network_logo', 'studio_logo_url', 'broadcaster_logo_url') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS HeroBrandImageUrl
+            FROM works w
+            WHERE w.id = @rootWorkId
+              AND (
+                  LOWER(w.media_type) IN ('tv', 'television', 'tv show', 'tv shows')
+                  OR EXISTS (
+                      SELECT 1
+                      FROM works child
+                      WHERE child.parent_work_id = w.id
+                        AND LOWER(child.media_type) IN ('tv', 'television', 'tv show', 'tv shows')
+                      LIMIT 1
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM works season
+                      INNER JOIN works episode ON episode.parent_work_id = season.id
+                      WHERE season.parent_work_id = w.id
+                        AND LOWER(episode.media_type) IN ('tv', 'television', 'tv show', 'tv shows')
+                      LIMIT 1
+                  )
+              )
+            LIMIT 1;
+            """,
+            new { rootWorkId = GuidSql.ToBlob(rootWorkId) },
+            cancellationToken: ct));
+
+        return rawRow is null
+            ? null
+            : new CollectionDetailRow(
+                Guid.Parse(StringValue(rawRow.Id) ?? rootWorkId.ToString("D")),
+                StringValue(rawRow.DisplayName),
+                StringValue(rawRow.WikidataQid),
+                StringValue(rawRow.Description),
+                StringValue(rawRow.Tagline),
+                StringValue(rawRow.CoverUrl),
+                StringValue(rawRow.BackgroundUrl),
+                StringValue(rawRow.BannerUrl),
+                StringValue(rawRow.LogoUrl),
+                StringValue(rawRow.HeroBrandLabel),
+                StringValue(rawRow.HeroBrandImageUrl));
     }
 
     private async Task<DetailPageViewModel?> BuildPersonAsync(

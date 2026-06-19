@@ -57,7 +57,10 @@ public sealed class MediaTileComposerServiceTests
             Progress: new DisplayProgressDto(32, "32%", DateTimeOffset.Parse("2026-04-24T12:00:00Z"), resumeAction),
             Actions: [resumeAction, new DisplayActionDto("openWork", "Details", WorkId: workId, WebUrl: $"/book/{workId}")],
             Flags: new DisplayCardFlagsDto(IsPlayable: false, IsReadable: true, CanAddToCollection: true, IsCollection: false, IsFavorite: false),
-            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
+        {
+            Description = "1965 science fiction novel",
+        };
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
 
@@ -68,6 +71,7 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s", mapped.TileImageUrl);
         Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s 320w, http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=m 960w", mapped.TileImageSrcSet);
         Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=m", mapped.HoverImageUrl);
+        Assert.Equal("1965 science fiction novel", mapped.Description);
         Assert.Equal($"/read/{assetId}", mapped.PrimaryNavigationUrl);
         Assert.Equal("Continue Reading", mapped.PrimaryActionLabel);
     }

@@ -63,6 +63,11 @@ public sealed class DisplayWorkProjectionReader
                          (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'title' LIMIT 1),
                          (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'title' LIMIT 1),
                          'Untitled') AS Title,
+                COALESCE(
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = WorkId AND key = 'short_description' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = RootWorkId AND key = 'short_description' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = AssetId AND key = 'short_description' LIMIT 1)
+                ) AS Description,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('author', 'creator') LIMIT 1) AS Author,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artist' LIMIT 1) AS Artist,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'album' LIMIT 1) AS Album,

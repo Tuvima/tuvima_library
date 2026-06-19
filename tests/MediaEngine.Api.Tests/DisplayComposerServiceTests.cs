@@ -9,11 +9,12 @@ public sealed class DisplayComposerServiceTests
     {
         var movieId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var tvId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var tvRootId = Guid.Parse("22222222-bbbb-2222-2222-222222222222");
         var tvCollectionId = Guid.Parse("22222222-aaaa-2222-2222-222222222222");
         var repository = new StubDisplayProjectionRepository(
             [
                 Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction; Drama"),
-                Work(tvId, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: tvCollectionId, showName: "Breaking Bad"),
+                Work(tvId, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: tvCollectionId, showName: "Breaking Bad", rootWorkId: tvRootId),
             ],
             [
                 Journey(movieId, "Movie", "Arrival", progressPct: 42, year: "2016", genre: "Science Fiction; Drama"),
@@ -39,7 +40,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("Breaking Bad", showCard.Title);
         Assert.Equal("1 season", showCard.Subtitle);
         Assert.Equal("Open Show", showCard.Actions[0].Label);
-        Assert.Equal($"/watch/tv/show/{tvCollectionId:D}", showCard.Actions[0].WebUrl);
+        Assert.Equal($"/watch/tv/show/{tvRootId:D}", showCard.Actions[0].WebUrl);
     }
 
     [Fact]
@@ -168,12 +169,13 @@ public sealed class DisplayComposerServiceTests
     public async Task TvShowsBrowse_ReturnsShowCardsInsteadOfEpisodeCards()
     {
         var collectionId = Guid.Parse("77777777-9999-9999-9999-777777777777");
+        var showRootId = Guid.Parse("77777777-cccc-9999-9999-777777777777");
         var firstEpisode = Guid.Parse("77777777-aaaa-9999-9999-777777777777");
         var secondEpisode = Guid.Parse("77777777-bbbb-9999-9999-777777777777");
         var repository = new StubDisplayProjectionRepository(
             [
-                Work(firstEpisode, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: collectionId, showName: "Breaking Bad"),
-                Work(secondEpisode, "TV", "Cat's in the Bag...", year: "2008", genre: "Crime", season: "1", episode: "2", collectionId: collectionId, showName: "Breaking Bad"),
+                Work(firstEpisode, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: collectionId, showName: "Breaking Bad", rootWorkId: showRootId),
+                Work(secondEpisode, "TV", "Cat's in the Bag...", year: "2008", genre: "Crime", season: "1", episode: "2", collectionId: collectionId, showName: "Breaking Bad", rootWorkId: showRootId),
             ],
             []);
         var composer = CreateComposer(repository);
@@ -181,13 +183,14 @@ public sealed class DisplayComposerServiceTests
         var page = await composer.BuildBrowseAsync("watch", "TV", "shows", null, 0, 48, includeCatalog: true);
 
         var card = Assert.Single(page.Catalog);
-        Assert.Equal(collectionId, card.Id);
+        Assert.Equal(showRootId, card.Id);
         Assert.Null(card.WorkId);
+        Assert.Null(card.CollectionId);
         Assert.Equal("Breaking Bad", card.Title);
         Assert.Equal("1 season", card.Subtitle);
         Assert.Equal("tvSeries", card.Presentation);
         Assert.Equal("Open Show", card.Actions[0].Label);
-        Assert.Equal($"/watch/tv/show/{collectionId:D}", card.Actions[0].WebUrl);
+        Assert.Equal($"/watch/tv/show/{showRootId:D}", card.Actions[0].WebUrl);
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Pilot");
     }
 
@@ -195,12 +198,13 @@ public sealed class DisplayComposerServiceTests
     public async Task TvShowCards_UseShowArtworkInsteadOfEpisodeStill()
     {
         var collectionId = Guid.Parse("77777777-9999-9999-9999-888888888888");
+        var showRootId = Guid.Parse("77777777-cccc-9999-9999-888888888888");
         var firstEpisode = Guid.Parse("77777777-aaaa-9999-9999-888888888888");
         var secondEpisode = Guid.Parse("77777777-bbbb-9999-9999-888888888888");
         var repository = new StubDisplayProjectionRepository(
             [
-                Work(firstEpisode, "TV", "Pilot", season: "1", episode: "1", collectionId: collectionId, showName: "Severance", backgroundUrl: "/art/episode-pilot.jpg", rootBackgroundUrl: "/art/severance-show.jpg"),
-                Work(secondEpisode, "TV", "Half Loop", season: "1", episode: "2", collectionId: collectionId, showName: "Severance", backgroundUrl: "/art/episode-half-loop.jpg", rootBackgroundUrl: "/art/severance-show.jpg"),
+                Work(firstEpisode, "TV", "Pilot", season: "1", episode: "1", collectionId: collectionId, showName: "Severance", backgroundUrl: "/art/episode-pilot.jpg", rootBackgroundUrl: "/art/severance-show.jpg", rootWorkId: showRootId),
+                Work(secondEpisode, "TV", "Half Loop", season: "1", episode: "2", collectionId: collectionId, showName: "Severance", backgroundUrl: "/art/episode-half-loop.jpg", rootBackgroundUrl: "/art/severance-show.jpg", rootWorkId: showRootId),
             ],
             []);
         var composer = CreateComposer(repository);
@@ -217,12 +221,13 @@ public sealed class DisplayComposerServiceTests
     {
         var movieCollectionId = Guid.Parse("77777777-9999-aaaa-9999-777777777777");
         var showCollectionId = Guid.Parse("77777777-9999-bbbb-9999-777777777777");
+        var showRootId = Guid.Parse("77777777-9999-eeee-9999-777777777777");
         var movieId = Guid.Parse("77777777-1111-aaaa-9999-777777777777");
         var episodeId = Guid.Parse("77777777-2222-bbbb-9999-777777777777");
         var repository = new StubDisplayProjectionRepository(
             [
                 Work(movieId, "Movie", "The Matrix", collectionId: movieCollectionId, series: "The Matrix series", collectionTitle: "The Matrix series"),
-                Work(episodeId, "TV", "Pilot", season: "1", episode: "1", collectionId: showCollectionId, showName: "Severance", collectionTitle: "Severance"),
+                Work(episodeId, "TV", "Pilot", season: "1", episode: "1", collectionId: showCollectionId, showName: "Severance", collectionTitle: "Severance", rootWorkId: showRootId),
             ],
             []);
         var composer = CreateComposer(repository);
@@ -232,6 +237,31 @@ public sealed class DisplayComposerServiceTests
         var groups = page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items;
         Assert.Contains(groups, card => card.Title == "Severance" && card.Presentation == "tvSeries");
         Assert.DoesNotContain(groups, card => card.Title == "The Matrix series");
+    }
+
+    [Fact]
+    public async Task WatchSeriesShelf_UsesTvRootInsteadOfSharedBookCollection()
+    {
+        var sharedCollectionId = Guid.Parse("77777777-9999-fafa-9999-777777777777");
+        var showRootId = Guid.Parse("77777777-9999-fbfb-9999-777777777777");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(Guid.Parse("77777777-1111-fafa-9999-777777777777"), "Book", "Leviathan Wakes", collectionId: sharedCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
+                Work(Guid.Parse("77777777-2222-fafa-9999-777777777777"), "Book", "Caliban's War", collectionId: sharedCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
+                Work(Guid.Parse("77777777-3333-fafa-9999-777777777777"), "TV", "Dulcinea", season: "1", episode: "1", collectionId: sharedCollectionId, showName: "The Expanse", collectionTitle: "The Expanse", rootBackgroundUrl: "/art/expanse-show.jpg", rootWorkId: showRootId),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
+
+        var card = Assert.Single(page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items, item => item.Title == "The Expanse");
+        Assert.Equal("TV", card.MediaType);
+        Assert.Equal("tvSeries", card.Presentation);
+        Assert.Null(card.CollectionId);
+        Assert.Equal("/art/expanse-show.jpg", card.Artwork.BackgroundUrl);
+        Assert.Equal($"/watch/tv/show/{showRootId:D}", card.Actions[0].WebUrl);
+        Assert.DoesNotContain("/details/bookseries", card.Actions[0].WebUrl, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -445,7 +475,8 @@ public sealed class DisplayComposerServiceTests
         string? collectionTitle = null,
         string? backgroundUrl = null,
         string? rootBackgroundUrl = null,
-        string? collectionBackgroundUrl = null)
+        string? collectionBackgroundUrl = null,
+        Guid? rootWorkId = null)
     {
         return new DisplayWorkRow
         {
@@ -454,6 +485,7 @@ public sealed class DisplayComposerServiceTests
             CollectionId = collectionId,
             IdentityQid = identityQid,
             MediaType = mediaType,
+            RootWorkId = rootWorkId ?? workId,
             CreatedAt = DateTimeOffset.Parse("2026-04-24T12:00:00Z"),
             Title = title,
             Author = author,

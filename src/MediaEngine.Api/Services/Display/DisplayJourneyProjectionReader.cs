@@ -24,6 +24,11 @@ public sealed class DisplayJourneyProjectionReader
                 us.progress_pct AS ProgressPct,
                 us.last_accessed AS LastAccessed,
                 COALESCE(cv_issue_title_a.value, cv_issue_title_w.value, cv_title_a.value, cv_title_w.value, 'Untitled') AS Title,
+                COALESCE(
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key = 'short_description' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'short_description' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = ma.id AND key = 'short_description' LIMIT 1)
+                ) AS Description,
                 cv_author_w.value AS Author,
                 cv_artist_w.value AS Artist,
                 cv_album_w.value AS Album,

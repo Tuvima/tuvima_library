@@ -53,6 +53,7 @@ public sealed record DisplayCardDto(
     DisplayCardFlagsDto Flags,
     DateTimeOffset SortTimestamp)
 {
+    public string? Description { get; init; }
     public IReadOnlyList<DisplayCardBadgeDto> Badges { get; init; } = [];
 }
 

@@ -1,5 +1,5 @@
 .media-tile { --media-tile-accent:#38bdf8; --media-tile-secondary-accent:#111827; --media-tile-hover-lift:clamp(8px,1.2vw,12px); --media-tile-media-height:clamp(192px,18.4vw,232px); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(300px,22vw,360px); display:flex; flex:0 0 auto; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index var(--tl-motion-duration-fast) var(--tl-motion-ease-standard), transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard); }
-    .media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(420px,34vw,520px); --media-tile-hover-clearance:clamp(258px,28vw,356px); }
+    .media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(212px,16vw,236px); --media-tile-hover-clearance:clamp(172px,18vw,236px); }
     .media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(330px,25vw,410px); }
     .media-tile.is-collection-card.is-landscape { width:clamp(380px, 25.8vw, 500px); --media-tile-media-aspect:16 / 7.25; --media-tile-media-height:clamp(170px, 11vw, 218px); --media-tile-hover-panel-width:clamp(330px,24vw,400px); }
     .media-tile.is-square { width:var(--media-tile-media-height); --media-tile-media-aspect:1 / 1; --media-tile-hover-panel-width:clamp(320px,24vw,400px); --media-tile-hover-clearance:clamp(254px,28vw,356px); }
@@ -71,12 +71,12 @@
     .media-tile-progress::-webkit-progress-value { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
     .media-tile-progress::-moz-progress-bar { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
     .media-tile-touch-toggle, ::deep .media-tile-touch-toggle { position:absolute; top:12px; right:12px; width:38px; height:38px; border:none; border-radius:var(--app-radius-md); background:rgba(2,6,16,.62); color:rgba(248,250,252,.94); display:none; align-items:center; justify-content:center; z-index:3; }
-    .media-tile-hover-panel { position:absolute; left:var(--media-tile-hover-left, 0px); top:var(--media-tile-hover-top, 0px); width:min(calc(100vw - 32px),var(--media-tile-hover-panel-width, 360px)); max-width:420px; max-height:min(64vh,500px); opacity:0; visibility:hidden; pointer-events:none; z-index:80; transform:translateY(10px) scale(.984); transform-origin:center top; border:1px solid rgba(255,255,255,.08); border-radius:var(--app-radius-md); background:linear-gradient(180deg,rgba(17,20,29,.96) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 22px 42px rgba(0,0,0,.38); overflow:hidden; backdrop-filter:blur(22px) saturate(136%); transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s; }
-    .media-tile-hover-panel.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(248px, 22vw, 320px)); max-width:320px; max-height:min(64vh,460px); }
-    .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(248px, 22vw, 320px)); max-width:320px; max-height:min(64vh,460px); }
+    .media-tile-hover-panel { position:absolute; left:var(--media-tile-hover-left, 0px); top:var(--media-tile-hover-top, 0px); width:min(calc(100vw - 32px),var(--media-tile-hover-panel-width, 360px)); max-width:420px; max-height:min(64vh,500px); opacity:0; visibility:hidden; pointer-events:none; z-index:80; transform:translateY(16px) scale(.94); transform-origin:center top; border:1px solid color-mix(in srgb,var(--media-tile-accent) 34%,rgba(255,255,255,.12)); border-radius:14px; background:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--media-tile-accent) 18%,transparent) 0%,transparent 42%),linear-gradient(180deg,rgba(18,23,34,.97) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 28px 70px rgba(0,0,0,.52),0 0 0 1px rgba(255,255,255,.035),0 0 42px color-mix(in srgb,var(--media-tile-accent) 20%,transparent); overflow:hidden; backdrop-filter:blur(24px) saturate(142%); cursor:pointer; will-change:transform,opacity; transition:opacity .34s cubic-bezier(.2,.8,.2,1),transform .38s cubic-bezier(.2,.8,.2,1),visibility 0s linear .38s; }
+    .media-tile-hover-panel.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(212px, 16vw, 236px)); max-width:236px; max-height:min(72vh,560px); }
+    .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(212px, 16vw, 236px)); max-width:236px; max-height:min(72vh,560px); }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square,
     .media-tile-hover-panel.is-art-popover.is-square { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(276px, 22vw, 340px)); max-width:340px; max-height:min(66vh,460px); }
-    .media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; box-shadow:var(--tl-shadow-hover-media); }
+    .media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; }
     .media-tile:not(.is-hover-js-enabled):hover .media-tile-hover-panel,
     .media-tile:not(.is-hover-js-enabled):focus-within .media-tile-hover-panel,
     .media-tile:not(.is-hover-js-enabled).is-expanded .media-tile-hover-panel,
@@ -86,22 +86,22 @@
     .media-tile-hover-panel.is-banner-popover.is-landscape { width:var(--media-tile-hover-anchor-width, 100%); max-width:var(--media-tile-hover-anchor-width, 100%); }
     .media-tile-hover-panel.is-collection-hover { width:min(calc(100vw - 32px), clamp(300px,23vw,360px)); max-width:360px; background:rgba(7,10,18,.96); }
     .media-tile-hover-panel.is-collection-hover.is-banner-popover.is-landscape { width:var(--media-tile-hover-anchor-width, 100%); max-width:var(--media-tile-hover-anchor-width, 100%); }
-    .media-tile-hover-panel.is-collection-hover.is-art-popover.is-portrait { width:min(calc(100vw - 32px), clamp(248px,22vw,320px)); max-width:320px; }
+    .media-tile-hover-panel.is-collection-hover.is-art-popover.is-portrait { width:min(calc(100vw - 32px), clamp(212px,16vw,236px)); max-width:236px; }
     .media-tile-hover-panel.is-collection-hover.is-art-popover.is-square { width:min(calc(100vw - 32px), clamp(276px,22vw,340px)); max-width:340px; }
     .media-tile-hover-panel.is-viewport-mounted { position:fixed; max-height:min(var(--media-tile-hover-max-height, 64vh), 500px); }
-    .media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait,
+    .media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait { max-height:min(var(--media-tile-hover-max-height, 72vh), 560px); }
     .media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-square { max-height:min(var(--media-tile-hover-max-height, 64vh), 460px); }
     .media-tile-hover-art { position:relative; overflow:hidden; background:radial-gradient(circle at top right,color-mix(in srgb,var(--media-tile-accent) 18%,transparent) 0%,transparent 40%),linear-gradient(180deg,rgba(10,14,24,.94) 0%,rgba(5,8,14,.98) 100%); }
     .media-tile-hover-panel.is-art-popover .media-tile-hover-art { cursor:default; pointer-events:none; }
-    .media-tile-hover-panel.is-banner-popover .media-tile-hover-art { width:100%; aspect-ratio:16 / 9; min-height:132px; max-height:none; }
+    .media-tile-hover-panel.is-banner-popover .media-tile-hover-art { width:100%; aspect-ratio:16 / 9; min-height:146px; max-height:none; }
     .media-tile-hover-panel.is-collection-hover .media-tile-hover-art { min-height:132px; max-height:min(30vh,204px); }
     .media-tile-hover-panel.is-collection-hover.is-banner-popover .media-tile-hover-art { min-height:188px; max-height:min(38vh,300px); }
-    .media-tile-hover-panel.is-collection-hover.is-art-popover.is-portrait .media-tile-hover-art { min-height:260px; max-height:min(62vh,460px); }
+    .media-tile-hover-panel.is-collection-hover.is-art-popover.is-portrait .media-tile-hover-art { min-height:0; max-height:min(46vh,354px); }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-art::after { content:""; position:absolute; inset:auto 0 0 0; height:64%; background:linear-gradient(180deg,rgba(5,8,14,0) 0%,rgba(5,8,14,.92) 100%); }
     .media-tile-hover-panel.is-art-popover .media-tile-hover-art { padding:0; }
-    .media-tile-hover-panel.is-art-popover.is-cover-portrait .media-tile-hover-art { aspect-ratio:2 / 3; max-height:min(42vh,390px); }
-    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-art { width:100%; max-height:min(62vh,420px); }
-    .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait .media-tile-hover-art { aspect-ratio:2 / 3; max-height:min(34vh,280px); flex:0 1 auto; }
+    .media-tile-hover-panel.is-art-popover.is-cover-portrait .media-tile-hover-art { aspect-ratio:2 / 3; max-height:min(44vh,354px); }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-art { width:100%; max-height:min(46vh,354px); }
+    .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait .media-tile-hover-art { aspect-ratio:2 / 3; max-height:min(40vh,354px); flex:0 1 auto; }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square .media-tile-hover-art { aspect-ratio:1 / 1; max-height:min(32vh,236px); flex:0 1 auto; }
     .media-tile-hover-panel.is-art-popover.is-cover-square .media-tile-hover-art, .media-tile-hover-panel.is-art-popover.is-artist-photo-square .media-tile-hover-art { aspect-ratio:1 / 1; max-height:min(34vh,286px); }
     .media-tile-hover-panel.is-viewport-mounted.is-art-popover .media-tile-hover-art { flex:1 1 auto; min-height:0; max-height:var(--media-tile-hover-art-max-height, min(34vh,286px)); }
@@ -110,25 +110,35 @@
     .media-tile-hover-image.is-fill { object-fit:cover; }
     .media-tile-hover-image.is-contained { object-fit:contain; }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-image { width:100%; height:100%; object-fit:cover; transform:scale(1.035); transform-origin:center center; }
-    .media-tile-hover-body { position:relative; z-index:2; padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px; }
+    .media-tile-hover-body { position:relative; z-index:2; padding:14px 16px 16px; display:flex; flex-direction:column; gap:10px; }
+    .media-tile-hover-panel.is-banner-popover .media-tile-hover-body { padding:14px 16px 16px; gap:10px; background:linear-gradient(180deg,rgba(15,18,27,.98) 0%,rgba(7,10,18,.995) 100%); }
     .media-tile-hover-panel.is-collection-hover .media-tile-hover-body { padding:14px 16px 16px; gap:9px; }
-    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-body { justify-content:center; min-width:0; }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-body { justify-content:flex-start; min-width:0; padding:10px 12px 12px; gap:7px; }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait .media-tile-hover-body,
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square .media-tile-hover-body { justify-content:flex-start; flex:0 0 auto; padding:8px 10px 10px; gap:5px; }
     .media-tile-hover-actions, .media-tile-hover-meta-row { position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .media-tile-hover-actions, .media-tile-icon-button, ::deep .media-tile-icon-button { pointer-events:auto; }
     .media-tile-hover-actions-left, .media-tile-hover-chips { display:flex; align-items:center; gap:10px; }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-actions-left { flex-wrap:wrap; gap:8px; }
     .media-tile-hover-chips { flex-wrap:wrap; margin-top:2px; gap:8px; }
-    .media-tile-icon-button, ::deep .media-tile-icon-button { width:36px; height:36px; border:1px solid rgba(255,255,255,.14); border-radius:var(--app-radius-md); background:rgba(255,255,255,.04); color:rgba(248,250,252,.94); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+    .media-tile-icon-button, ::deep .media-tile-icon-button { width:42px; min-width:42px; height:42px; border:1px solid rgba(255,255,255,.16); border-radius:12px; background:rgba(255,255,255,.055); color:rgba(248,250,252,.94); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .22s ease,background .22s ease; }
     .media-tile-icon-button:hover, ::deep .media-tile-icon-button:hover { transform:translateY(-1px); border-color:rgba(255,255,255,.24); background:rgba(255,255,255,.08); }
     .media-tile-icon-button-primary, ::deep .media-tile-icon-button-primary { background:color-mix(in srgb,var(--media-tile-accent) 22%,rgba(255,255,255,.06)); border-color:color-mix(in srgb,var(--media-tile-accent) 44%,rgba(255,255,255,.16)); }
+    .media-tile-primary-action-label { display:none; font-family:var(--app-font-sans, 'Nunito', sans-serif); font-size:.94rem; font-weight:850; line-height:1; white-space:nowrap; }
+    .media-tile-hover-panel.is-art-popover .media-tile-icon-button-primary,
+    .media-tile-hover-panel.is-art-popover ::deep .media-tile-icon-button-primary { width:auto; min-width:102px; padding:0 14px; gap:8px; justify-content:center; }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-icon-button-primary,
+    .media-tile-hover-panel.is-art-popover.is-portrait ::deep .media-tile-icon-button-primary { min-width:96px; }
+    .media-tile-hover-panel.is-art-popover .media-tile-primary-action-label { display:inline; }
     .media-tile-hover-heading, .media-tile-caption, .media-tile-hover-context-list { display:flex; flex-direction:column; gap:4px; }
     .media-tile-hover-context-list { gap:6px; }
     .media-tile-hover-title, .media-tile-title { font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight:800; line-height:1.25; color:rgba(248,250,252,.98); }
-    .media-tile-hover-title { font-size:.98rem; }
+    .media-tile-hover-title { font-size:1.02rem; }
+    .media-tile-hover-panel.is-art-popover .media-tile-hover-title { font-size:1.02rem; line-height:1.16; font-weight:900; }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-title { font-size:.9rem; line-height:1.18; }
     .media-tile-title { font-size:.94rem; }
     .media-tile-hover-subtitle, .media-tile-subtitle, .media-tile-hover-context, .media-tile-hover-description, .media-tile-hover-status, .media-tile-hover-meta, .media-tile-chip, .media-tile-hover-fact { font-family: var(--app-font-sans, 'Nunito', sans-serif); }
-    .media-tile-hover-subtitle { font-size:.8rem; font-weight:600; line-height:1.45; color:rgba(203,213,225,.78); }
+    .media-tile-hover-subtitle { font-size:.84rem; font-weight:700; line-height:1.42; color:color-mix(in srgb,var(--media-tile-accent) 72%,rgba(248,250,252,.82)); }
     .media-tile-subtitle { font-size:.82rem; line-height:1.45; color:rgba(148,163,184,.84); }
     .media-tile-hover-status { font-size:.78rem; font-weight:700; color:color-mix(in srgb,var(--media-tile-accent) 78%,white 12%); }
     .media-tile-hover-progress { display:flex; align-items:center; gap:10px; color:rgba(226,232,240,.76); font-family:var(--app-font-sans, 'Nunito', sans-serif); font-size:.76rem; font-weight:800; }
@@ -136,14 +146,13 @@
     .media-tile-hover-progress-track::-webkit-progress-bar { background:rgba(255,255,255,.16); border-radius:inherit; }
     .media-tile-hover-progress-track::-webkit-progress-value { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
     .media-tile-hover-progress-track::-moz-progress-bar { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
-    .media-tile-meta-icon { width:30px; height:30px; border-radius:var(--app-radius-md); display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); color:rgba(248,250,252,.9); }
     .media-tile-hover-meta { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(226,232,240,.78); flex:1; }
     .media-tile-hover-context { font-size:.78rem; line-height:1.45; color:rgba(226,232,240,.76); }
     .media-tile-hover-facts { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
     .media-tile-hover-fact { font-size:.76rem; line-height:1.25; font-weight:700; color:rgba(226,232,240,.82); }
     .media-tile-hover-fact:not(:last-child)::after { content:""; display:inline-block; width:4px; height:4px; margin-left:7px; vertical-align:middle; border-radius:50%; background:rgba(226,232,240,.36); }
-    .media-tile-chip { padding:5px 10px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-size:.72rem; color:rgba(248,250,252,.84); }
-    .media-tile-hover-description { margin:0; font-size:.76rem; line-height:1.42; color:rgba(226,232,240,.72); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+    .media-tile-chip { padding:5px 10px; border-radius:999px; background:rgba(255,255,255,.065); border:1px solid rgba(255,255,255,.12); font-size:.74rem; color:rgba(248,250,252,.84); }
+    .media-tile-hover-description { margin:0; font-size:.82rem; line-height:1.5; color:rgba(226,232,240,.76); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
     .media-tile-hover-panel.is-placement-bottom .media-tile-hover-title { font-size:.9rem; }
     .media-tile-hover-panel.is-placement-bottom .media-tile-hover-subtitle { font-size:.76rem; line-height:1.35; }
     .media-tile-hover-panel.is-placement-bottom .media-tile-hover-facts { gap:5px; }

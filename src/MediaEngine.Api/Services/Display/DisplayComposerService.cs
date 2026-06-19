@@ -156,7 +156,7 @@ public sealed class DisplayComposerService
 
         if (ShouldReturnTvShowGroups(normalizedLane, mediaType, grouping))
         {
-            var showCards = _cards.BuildCollectionCards(filteredWorks, "watch");
+            var showCards = _cards.BuildTvShowCards(filteredWorks);
             if (showCards.Count > 0)
             {
                 var pagedShowCards = showCards

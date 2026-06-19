@@ -4148,6 +4148,27 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     font-weight: 700;
 }
 
+.app-chip.browse-shell__grouping-chip {
+    min-height: 28px;
+    padding: 0 12px;
+    border-radius: 999px;
+    align-items: center;
+    justify-content: center;
+    border-color: rgba(148, 163, 184, 0.24);
+    color: var(--tl-text-secondary);
+    background: rgba(7, 12, 27, 0.56);
+    font-size: 0.82rem;
+    font-weight: 850;
+    line-height: 1;
+    box-sizing: border-box;
+}
+
+.app-chip.browse-shell__grouping-chip.is-active {
+    color: var(--tl-text-primary);
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 42%, rgba(148, 163, 184, 0.22));
+    background: color-mix(in srgb, var(--tl-accent-primary) 18%, rgba(7, 12, 27, 0.72));
+}
+
 .app-chip--clickable {
     cursor: pointer;
 }

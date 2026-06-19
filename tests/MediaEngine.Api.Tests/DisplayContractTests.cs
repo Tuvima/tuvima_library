@@ -58,6 +58,7 @@ public sealed class DisplayContractTests
             Flags: new DisplayCardFlagsDto(IsPlayable: true, IsReadable: false, CanAddToCollection: true, IsCollection: false, IsFavorite: false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
         {
+            Description = "2016 science fiction film",
             Badges = [new DisplayCardBadgeDto("quality", "4K"), new DisplayCardBadgeDto("source", "Max")],
         };
 
@@ -85,6 +86,7 @@ public sealed class DisplayContractTests
         Assert.Contains("\"progress\":{\"percent\":42", json, StringComparison.Ordinal);
         Assert.Contains("\"actions\":[{\"type\":\"playAsset\",\"label\":\"Play\"", json, StringComparison.Ordinal);
         Assert.Contains("\"facts\":[\"2016\",\"Science Fiction\"]", json, StringComparison.Ordinal);
+        Assert.Contains("\"description\":\"2016 science fiction film\"", json, StringComparison.Ordinal);
         Assert.Contains("\"badges\":[{\"kind\":\"quality\",\"label\":\"4K\"}", json, StringComparison.Ordinal);
         Assert.Contains("\"flags\":{\"isPlayable\":true", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"WorkId\"", json, StringComparison.Ordinal);

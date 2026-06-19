@@ -30,6 +30,7 @@ public sealed class DisplayCardBuilder
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.CreatedAt)
         {
+            Description = row.Description,
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
         };
     }
@@ -59,6 +60,7 @@ public sealed class DisplayCardBuilder
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.LastAccessed)
         {
+            Description = row.Description,
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
         };
     }
@@ -68,6 +70,22 @@ public sealed class DisplayCardBuilder
             .Where(work => work.CollectionId.HasValue)
             .GroupBy(work => work.CollectionId!.Value)
             .Select(group => ToCollectionCard(group.Key, group.ToList(), lane, minimumSeriesItems))
+            .Where(card => card is not null)
+            .Cast<DisplayCardDto>()
+            .OrderByDescending(card => card.SortTimestamp)
+            .ToList();
+
+    public IReadOnlyList<DisplayCardDto> BuildWatchGroupCards(IReadOnlyList<DisplayWorkRow> works, int minimumSeriesItems = 2) =>
+        BuildTvShowCards(works)
+            .Concat(BuildMovieSeriesCards(works, minimumSeriesItems))
+            .OrderByDescending(card => card.SortTimestamp)
+            .ToList();
+
+    public IReadOnlyList<DisplayCardDto> BuildTvShowCards(IReadOnlyList<DisplayWorkRow> works) =>
+        works
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "TV")
+            .GroupBy(TvShowGroupId)
+            .Select(group => ToTvShowCard(group.Key, group.ToList()))
             .Where(card => card is not null)
             .Cast<DisplayCardDto>()
             .OrderByDescending(card => card.SortTimestamp)
@@ -145,7 +163,61 @@ public sealed class DisplayCardBuilder
             Progress: null,
             Actions: [action],
             Flags: FlagsFor(representative.MediaType, isCollection: true),
-            SortTimestamp: works.Max(work => work.CreatedAt));
+            SortTimestamp: works.Max(work => work.CreatedAt))
+        {
+            Description = representative.Description,
+        };
+    }
+
+    private IReadOnlyList<DisplayCardDto> BuildMovieSeriesCards(IReadOnlyList<DisplayWorkRow> works, int minimumSeriesItems) =>
+        works
+            .Where(work => work.CollectionId.HasValue && DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Movie")
+            .GroupBy(work => work.CollectionId!.Value)
+            .Select(group => ToCollectionCard(group.Key, group.ToList(), "watch", minimumSeriesItems))
+            .Where(card => card is not null)
+            .Cast<DisplayCardDto>()
+            .ToList();
+
+    private DisplayCardDto? ToTvShowCard(Guid showRootWorkId, IReadOnlyList<DisplayWorkRow> works)
+    {
+        if (works.Count == 0)
+        {
+            return null;
+        }
+
+        var representative = works
+            .OrderByDescending(RootArtworkScore)
+            .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.RootBackgroundUrl) || !string.IsNullOrWhiteSpace(work.RootBannerUrl))
+            .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.BackgroundUrl) || !string.IsNullOrWhiteSpace(work.BannerUrl))
+            .ThenByDescending(work => work.CreatedAt)
+            .First();
+        var artwork = RootArtworkFor(representative);
+        var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Title, representative.CollectionTitle) ?? "TV Show";
+        var action = new DisplayActionDto("openShow", "Open Show", showRootWorkId, null, null, $"/watch/tv/show/{showRootWorkId:D}");
+
+        return new DisplayCardDto(
+            Id: showRootWorkId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: null,
+            MediaType: "TV",
+            GroupingType: "tvSeries",
+            Title: title,
+            Subtitle: CollectionSubtitle("TV", works),
+            Facts: CollectionFacts("TV", works, representative.Genre),
+            Artwork: artwork,
+            PreferredShape: PreferredShape("TV", artwork.BackgroundUrl, artwork.BannerUrl, artwork.SquareUrl),
+            Presentation: "tvSeries",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: FlagsFor("TV", isCollection: true),
+            SortTimestamp: works.Max(work => work.CreatedAt))
+        {
+            Description = representative.Description,
+            Badges = BuildBadges("TV", representative.Quality, FirstNonBlank(representative.Network, representative.Source)),
+        };
     }
 
     private static DisplayProgressDto ToProgress(DisplayJourneyRow row, DisplayActionDto resumeAction) =>
@@ -278,6 +350,41 @@ public sealed class DisplayCardBuilder
             BackgroundWidthPx = representative.RootBackgroundWidthPx ?? representative.BackgroundWidthPx,
             BackgroundHeightPx = representative.RootBackgroundHeightPx ?? representative.BackgroundHeightPx,
             AccentColor = FirstNonBlank(representative.CollectionAccentColor, representative.RootAccentColor, representative.AccentColor),
+        };
+
+        return ArtworkFor(row);
+    }
+
+    private static DisplayArtworkDto RootArtworkFor(DisplayWorkRow representative)
+    {
+        var row = new ArtworkProjection
+        {
+            CoverUrl = FirstNonBlank(representative.RootCoverUrl, representative.CoverUrl),
+            CoverSmallUrl = FirstNonBlank(representative.RootCoverSmallUrl, representative.CoverSmallUrl),
+            CoverMediumUrl = FirstNonBlank(representative.RootCoverMediumUrl, representative.CoverMediumUrl),
+            CoverLargeUrl = FirstNonBlank(representative.RootCoverLargeUrl, representative.CoverLargeUrl),
+            SquareUrl = FirstNonBlank(representative.RootSquareUrl, representative.SquareUrl),
+            SquareSmallUrl = FirstNonBlank(representative.RootSquareSmallUrl, representative.SquareSmallUrl),
+            SquareMediumUrl = FirstNonBlank(representative.RootSquareMediumUrl, representative.SquareMediumUrl),
+            SquareLargeUrl = FirstNonBlank(representative.RootSquareLargeUrl, representative.SquareLargeUrl),
+            BannerUrl = FirstNonBlank(representative.RootBannerUrl, representative.RootBackgroundUrl, representative.BannerUrl),
+            BannerSmallUrl = FirstNonBlank(representative.RootBannerSmallUrl, representative.RootBackgroundSmallUrl, representative.BannerSmallUrl),
+            BannerMediumUrl = FirstNonBlank(representative.RootBannerMediumUrl, representative.RootBackgroundMediumUrl, representative.BannerMediumUrl),
+            BannerLargeUrl = FirstNonBlank(representative.RootBannerLargeUrl, representative.RootBackgroundLargeUrl, representative.BannerLargeUrl),
+            BackgroundUrl = FirstNonBlank(representative.RootBackgroundUrl, representative.RootBannerUrl, representative.BackgroundUrl),
+            BackgroundSmallUrl = FirstNonBlank(representative.RootBackgroundSmallUrl, representative.RootBannerSmallUrl, representative.BackgroundSmallUrl),
+            BackgroundMediumUrl = FirstNonBlank(representative.RootBackgroundMediumUrl, representative.RootBannerMediumUrl, representative.BackgroundMediumUrl),
+            BackgroundLargeUrl = FirstNonBlank(representative.RootBackgroundLargeUrl, representative.RootBannerLargeUrl, representative.BackgroundLargeUrl),
+            LogoUrl = FirstNonBlank(representative.RootLogoUrl, representative.LogoUrl),
+            CoverWidthPx = representative.RootCoverWidthPx ?? representative.CoverWidthPx,
+            CoverHeightPx = representative.RootCoverHeightPx ?? representative.CoverHeightPx,
+            SquareWidthPx = representative.RootSquareWidthPx ?? representative.SquareWidthPx,
+            SquareHeightPx = representative.RootSquareHeightPx ?? representative.SquareHeightPx,
+            BannerWidthPx = representative.RootBannerWidthPx ?? representative.BannerWidthPx,
+            BannerHeightPx = representative.RootBannerHeightPx ?? representative.BannerHeightPx,
+            BackgroundWidthPx = representative.RootBackgroundWidthPx ?? representative.BackgroundWidthPx,
+            BackgroundHeightPx = representative.RootBackgroundHeightPx ?? representative.BackgroundHeightPx,
+            AccentColor = FirstNonBlank(representative.RootAccentColor, representative.AccentColor),
         };
 
         return ArtworkFor(row);
@@ -464,6 +571,42 @@ public sealed class DisplayCardBuilder
         }
 
         return score;
+    }
+
+    private static int RootArtworkScore(DisplayWorkRow work)
+    {
+        var score = 0;
+        if (!string.IsNullOrWhiteSpace(work.RootBackgroundUrl) || !string.IsNullOrWhiteSpace(work.RootBannerUrl))
+        {
+            score += 8;
+        }
+
+        if (!string.IsNullOrWhiteSpace(work.RootCoverUrl) || !string.IsNullOrWhiteSpace(work.RootSquareUrl))
+        {
+            score += 4;
+        }
+
+        if (!string.IsNullOrWhiteSpace(work.BackgroundUrl) || !string.IsNullOrWhiteSpace(work.BannerUrl))
+        {
+            score += 2;
+        }
+
+        if (!string.IsNullOrWhiteSpace(work.CoverUrl) || !string.IsNullOrWhiteSpace(work.SquareUrl))
+        {
+            score += 1;
+        }
+
+        return score;
+    }
+
+    private static Guid TvShowGroupId(DisplayWorkRow work)
+    {
+        if (work.RootWorkId != Guid.Empty)
+        {
+            return work.RootWorkId;
+        }
+
+        return work.CollectionId ?? work.WorkId;
     }
 
     private static string CollectionActionKind(string mediaKind) => mediaKind switch

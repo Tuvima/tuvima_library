@@ -182,6 +182,7 @@ public sealed class MediaTileComposerService
             CollectionId = card.CollectionId,
             Title = card.Title,
             Subtitle = card.Subtitle,
+            Description = card.Description,
             CoverUrl = card.Artwork.CoverUrl,
             BackgroundUrl = card.Artwork.BackgroundUrl,
             BannerUrl = card.Artwork.BannerUrl,

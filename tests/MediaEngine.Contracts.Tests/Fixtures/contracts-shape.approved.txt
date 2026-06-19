@@ -401,6 +401,7 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayActionDto> | nullability=not-null | accessors=get,init
   Flags: MediaEngine.Contracts.Display.DisplayCardFlagsDto | nullability=not-null | accessors=get,init
   SortTimestamp: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
   Badges: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardBadgeDto> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto

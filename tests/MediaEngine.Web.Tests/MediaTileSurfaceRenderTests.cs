@@ -43,6 +43,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
         var shelfCss = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTileShelf.razor.css"));
         var shelfRazor = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTileShelf.razor"));
+        var gridRazor = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTileGrid.razor"));
         var tileRazor = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor"));
         var appCss = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.css"));
         var appJs = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.js"));
@@ -62,7 +63,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("--media-tile-hover-max-height", css);
         Assert.Contains("--media-tile-hover-art-max-height", css);
         Assert.Contains(".media-tile-hover-actions, .media-tile-icon-button, ::deep .media-tile-icon-button { pointer-events:auto; }", css);
-        Assert.Contains(".media-tile-icon-button, ::deep .media-tile-icon-button { width:36px; height:36px;", css);
+        Assert.Contains(".media-tile-icon-button, ::deep .media-tile-icon-button { width:42px; min-width:42px; height:42px;", css);
         Assert.Contains(".media-tile-shelf:has(.media-tile.is-hover-active),", appCss);
         Assert.Contains("window.getMediaTileHoverHost()", appJs);
         Assert.Contains("panel.classList.add('is-viewport-mounted')", appJs);
@@ -70,6 +71,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("window.lockMediaTileHoverRowScroll(cardEl)", appJs);
         Assert.Contains("is-hover-scroll-locked", appJs);
         Assert.Contains("panel.addEventListener('wheel', panel.__mediaTileHoverWheelBlock, { passive: false });", appJs);
+        Assert.Contains("window.isVerticalMediaTileWheel = function (event)", appJs);
+        Assert.Contains("if (window.isVerticalMediaTileWheel(event))", appJs);
         Assert.DoesNotContain("mostlyHorizontal", appJs);
         Assert.Contains("var stableLeft = el.__swimlaneStableScrollLeft || 0;", appJs);
         Assert.Contains("if (Math.abs(el.scrollLeft - stableLeft) > 1)", appJs);
@@ -86,8 +89,11 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("unregisterMediaTileShelfScrollGuard", shelfRazor);
         Assert.Contains("HideMediaKindBadge=\"@HideMediaKindBadges\"", shelfRazor);
         Assert.Contains("HideSourceBadge=\"@HideSourceBadges\"", shelfRazor);
+        Assert.Contains("HideMediaKindBadge=\"@HideMediaKindBadges\"", gridRazor);
+        Assert.Contains("HideSourceBadge=\"@HideSourceBadges\"", gridRazor);
         Assert.Contains("!HideMediaKindBadge && !ShowCollectionBanner", tileRazor);
-        Assert.Contains("!HideMediaKindBadge && !string.IsNullOrWhiteSpace(MediaKindIcon)", tileRazor);
+        Assert.Contains("private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HoverMetaDisplay);", tileRazor);
+        Assert.DoesNotContain("media-tile-meta-icon", tileRazor);
         Assert.Contains("!HideSourceBadge && !ShowCollectionBanner", tileRazor);
         Assert.Contains("--media-tile-shelf-visible-width: 100%;", shelfCss);
         Assert.Contains("grid-template-columns: var(--media-tile-shelf-arrow-rail) minmax(0, 1fr) var(--media-tile-shelf-arrow-rail);", shelfCss);
@@ -106,10 +112,17 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains(".media-tile-shelf-scroll.is-row-scroll-guarded", shelfCss);
         Assert.Contains("overflow-x: auto", shelfCss);
         Assert.Contains("overflow-y: clip", shelfCss);
-        Assert.Contains("overscroll-behavior-y: none", shelfCss);
-        Assert.Contains("touch-action: pan-x", shelfCss);
+        Assert.Contains("overscroll-behavior-y: auto", shelfCss);
+        Assert.Contains("touch-action: pan-x pan-y", shelfCss);
         Assert.Contains("scroll-snap-type: x mandatory", shelfCss);
         Assert.Contains("--media-tile-hover-anchor-width", appJs);
+        Assert.Contains("var panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);", appJs);
+        Assert.Contains("panel.classList.add('is-visible');", appJs);
+        Assert.Contains("hoverImage.addEventListener('load', panel.__mediaTileHoverImageLoad, { once: true });", appJs);
+        Assert.Contains("window.correctMediaTileHoverViewport", appJs);
+        Assert.Contains("window.scheduleMediaTileHoverViewportCorrection(cardEl);", appJs);
+        Assert.Contains("window.positionMediaTileHover(cardEl);", appJs);
+        Assert.Contains("}, 340);", appJs);
         Assert.DoesNotContain("overflow:hidden auto", css);
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-contained"));
         Assert.Equal(2, cut.FindAll(".media-tile-chip").Count);
@@ -146,9 +159,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-portrait.is-cover-portrait"));
         Assert.DoesNotContain("style=", cut.Markup);
-        Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(420px,34vw,520px);", css);
-        Assert.Contains(".media-tile-hover-panel.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(248px, 22vw, 320px));", css);
-        Assert.Contains("max-height:min(64vh,460px)", css);
+        Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(212px,16vw,236px);", css);
+        Assert.Contains(".media-tile-hover-panel.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(212px, 16vw, 236px));", css);
+        Assert.Contains("max-height:min(72vh,560px)", css);
         Assert.DoesNotContain("A dreamlike horror comic with mythic scale.", cut.Markup);
         Assert.Empty(cut.FindAll(".media-tile-hover-context-list"));
         Assert.Empty(cut.FindAll("button[aria-label='Details']"));
@@ -185,7 +198,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
         Assert.Contains(".media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(330px,25vw,410px);", css);
         Assert.Contains(".media-tile-hover-panel.is-banner-popover.is-landscape { width:var(--media-tile-hover-anchor-width, 100%); max-width:var(--media-tile-hover-anchor-width, 100%); }", css);
-        Assert.Contains(".media-tile-hover-panel.is-banner-popover .media-tile-hover-art { width:100%; aspect-ratio:16 / 9; min-height:132px; max-height:none; }", css);
+        Assert.Contains(".media-tile-hover-panel.is-banner-popover .media-tile-hover-art { width:100%; aspect-ratio:16 / 9; min-height:146px; max-height:none; }", css);
         Assert.Contains(".media-tile-hover-panel.is-banner-popover .media-tile-hover-image { width:100%; height:100%; object-fit:cover; transform:scale(1.035);", css);
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-logo"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-fill"));
@@ -239,7 +252,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             CollectionId = Guid.NewGuid(),
             Title = "The Expanse",
             Subtitle = "9 titles",
-            Description = "A long-running space opera series.",
+            Description = "science fiction book series",
             HoverFacts = ["9 titles", "Science Fiction"],
             Genres = ["Science Fiction", "Space Opera"],
             MediaKind = "Book",
@@ -263,7 +276,33 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-body"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Open Series']"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-title"));
-        Assert.Contains("A long-running space opera series.", cut.Markup);
+        Assert.Contains("science fiction book series", cut.Markup);
+    }
+
+    [Fact]
+    public void MediaTile_HoverDescriptionOnlyRendersCompactOneLineDescriptors()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Breaking Bad",
+            Description = "Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness.",
+            MediaKind = "TV",
+            Shape = MediaTileShape.Landscape,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/breaking-bad.jpg",
+            HoverImageUrl = "/art/breaking-bad.jpg",
+            NavigationUrl = "/watch/tv/show/breaking-bad",
+            PrimaryNavigationUrl = "/watch/tv/show/breaking-bad",
+            PrimaryActionLabel = "Open Show",
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.Empty(cut.FindAll(".media-tile-hover-description"));
+        Assert.DoesNotContain("Walter White", cut.Markup);
     }
 
     [Fact]
@@ -293,6 +332,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.EndsWith("/read/books/work/project-hail-mary", navigation.Uri, StringComparison.Ordinal);
 
         cut.Find(".media-tile-hover-art").Click();
+        Assert.EndsWith("/read/books/work/project-hail-mary", navigation.Uri, StringComparison.Ordinal);
+
+        cut.Find(".media-tile-hover-panel").Click();
         Assert.EndsWith("/read/books/work/project-hail-mary", navigation.Uri, StringComparison.Ordinal);
 
         cut.Find("button[aria-label='Read']").Click();

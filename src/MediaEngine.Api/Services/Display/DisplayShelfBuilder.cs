@@ -64,7 +64,7 @@ public sealed class DisplayShelfBuilder
         if (groupShelf.Enabled)
         {
             AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,
-                _cards.BuildCollectionCards(works, "watch", groupShelf.MinimumSeriesItems).Take(take).ToList(), groupShelf.SeeAllRoute);
+                _cards.BuildWatchGroupCards(works, groupShelf.MinimumSeriesItems).Take(take).ToList(), groupShelf.SeeAllRoute);
         }
 
         AddShelf(shelves, "movies", "Movies in your library", "Feature films ready to play",
