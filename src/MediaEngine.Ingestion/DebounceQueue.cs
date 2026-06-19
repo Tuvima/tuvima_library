@@ -56,6 +56,8 @@ public sealed class DebounceQueue : IDisposable
     private readonly ConcurrentDictionary<string, CancellationTokenSource>
         _timers = new(StringComparer.OrdinalIgnoreCase);
 
+    private int _disposed;
+
     // -------------------------------------------------------------------------
     // Construction
     // -------------------------------------------------------------------------
@@ -93,7 +95,7 @@ public sealed class DebounceQueue : IDisposable
     /// <exception cref="ObjectDisposedException">Thrown after <see cref="Dispose"/>.</exception>
     public void Enqueue(FileEvent fileEvent)
     {
-        ObjectDisposedException.ThrowIf(_shutdownCts.IsCancellationRequested, this);
+        ObjectDisposedException.ThrowIf(_disposed != 0 || _shutdownCts.IsCancellationRequested, this);
         ArgumentNullException.ThrowIfNull(fileEvent);
 
         var key = NormalizePath(fileEvent.Path);
@@ -128,16 +130,20 @@ public sealed class DebounceQueue : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
         _shutdownCts.Cancel();
 
         // Cancel all outstanding settle/probe tasks.
-        foreach (var cts in _timers.Values)
+        foreach (var entry in _timers)
         {
-            cts.Cancel();
-            cts.Dispose();
+            if (_timers.TryRemove(entry.Key, out var cts))
+            {
+                CancelAndDispose(cts);
+            }
         }
 
-        _timers.Clear();
         _latestEvents.Clear();
 
         _channel.Writer.TryComplete();
@@ -343,9 +349,22 @@ public sealed class DebounceQueue : IDisposable
     {
         if (_timers.TryRemove(key, out var oldCts))
         {
-            oldCts.Cancel();
-            oldCts.Dispose();
+            CancelAndDispose(oldCts);
         }
+    }
+
+    private static void CancelAndDispose(CancellationTokenSource cts)
+    {
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        cts.Dispose();
     }
 
     private void CleanupEntry(string key)

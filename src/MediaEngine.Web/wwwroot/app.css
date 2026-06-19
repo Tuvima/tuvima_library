@@ -4905,4 +4905,10 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     }
 }
 
+.media-tile-shelf:has(.media-tile:hover),
+.media-tile-shelf:has(.media-tile.is-hover-active),
+.media-tile-shelf:focus-within {
+    z-index: 30;
+}
+
 /* -- End inline-style utility classes ---------------------------------- */

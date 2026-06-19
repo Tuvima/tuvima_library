@@ -40,7 +40,9 @@
         <div class="lane-landing__shelves">
             @foreach (var shelf in Page.Shelves)
             {
-                <MediaTileShelf Shelf="@shelf" />
+                <MediaTileShelf Shelf="@shelf"
+                                HideMediaKindBadges="@HideMediaKindBadges"
+                                HideSourceBadges="@HideSourceBadges" />
             }
         </div>
     </div>
@@ -51,4 +53,6 @@
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter] public string? Subtitle { get; set; }
     [Parameter, EditorRequired] public string BrowseAllRoute { get; set; } = "/";
+    [Parameter] public bool HideMediaKindBadges { get; set; }
+    [Parameter] public bool HideSourceBadges { get; set; }
 }

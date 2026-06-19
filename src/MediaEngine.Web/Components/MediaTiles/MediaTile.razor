@@ -140,146 +140,146 @@
                 </AppNativeButton>
             }
         </div>
+    </div>
 
-        @if (IsHoverEnabled)
-        {
-            <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")}")'
-                 >
-                <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
-                     @onclick="OpenDetails"
-                     @onclick:stopPropagation="true">
-                    @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
-                    {
-                        <img src="@ActiveHoverImageUrl"
-                             srcset="@Item.HoverImageSrcSet"
-                             sizes="@Item.HoverImageSizes"
-                             alt="@Item.Title"
-                             class="media-tile-hover-image @HoverImageFitClass"
-                             loading="lazy"
-                             decoding="async"
-                             @onerror="HandleHoverImageError" />
-                    }
-                    else
-                    {
-                        <div class="media-tile-hover-fallback">
-                            <MudIcon Icon="@FallbackIcon" />
-                        </div>
-                    }
-
-                    @if (ShowHoverLogo)
-                    {
-                        <img src="@Item.LogoUrl" alt="@Item.Title" class="media-tile-hover-logo" />
-                    }
-                </div>
-
-                @if (ShowExpandedHoverBody)
+    @if (IsHoverEnabled)
+    {
+        <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")}")'
+             >
+            <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
+                 @onclick="OpenDetails"
+                 @onclick:stopPropagation="true">
+                @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
                 {
-                    <div class="media-tile-hover-body">
-                        <div class="media-tile-hover-actions">
-                            <div class="media-tile-hover-actions-left">
-                                <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-primary" AriaLabel="@Item.PrimaryActionLabel" Title="@Item.PrimaryActionLabel" OnClick="OpenPrimary" StopPropagation="true">
-                                    <MudIcon Icon="@PrimaryIcon" />
-                                </AppNativeButton>
-
-                                @if (Item.CanAddToCollection)
-                                {
-                                    <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Add to collection" Title="Add to collection" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                    </AppNativeButton>
-                                }
-
-                                @if (CanEdit)
-                                {
-                                    <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Edit metadata" Title="Edit metadata" OnClick="OpenEditorAsync" StopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Edit" />
-                                    </AppNativeButton>
-                                }
-                            </div>
-                        </div>
-
-                        @if (ShowHoverHeading)
-                        {
-                            <div class="media-tile-hover-heading">
-                                <div class="media-tile-hover-title">@Item.Title</div>
-                                @if (!UseCompactHover && !string.IsNullOrWhiteSpace(DisplaySubtitle))
-                                {
-                                    <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
-                                }
-                            </div>
-                        }
-
-                        @if (UseCompactHover || ShowRichHoverFacts)
-                        {
-                            <div class="media-tile-hover-facts">
-                                @foreach (var fact in CompactHoverFacts)
-                                {
-                                    <span class="media-tile-hover-fact">@fact</span>
-                                }
-                            </div>
-                        }
-
-                        @if (Item.ProgressPct is > 0)
-                        {
-                            <div class="media-tile-hover-progress" aria-label="@ProgressLabel">
-                                <progress class="media-tile-hover-progress-track"
-                                          value="@Math.Min(100, Item.ProgressPct.Value)"
-                                          max="100"></progress>
-                                <span>@ProgressLabel</span>
-                            </div>
-                        }
-
-                        @if (!UseCompactHover && !string.IsNullOrWhiteSpace(Item.StatusText))
-                        {
-                            <div class="media-tile-hover-status">@Item.StatusText</div>
-                        }
-
-                        @if (!UseCompactHover && ShowMetaRow)
-                        {
-                            <div class="media-tile-hover-meta-row">
-                                @if (!string.IsNullOrWhiteSpace(MediaKindIcon))
-                                {
-                                    <span class="media-tile-meta-icon" title="@MediaKindLabel">
-                                        <MudIcon Icon="@MediaKindIcon" />
-                                        <span class="media-tile-visually-hidden">@MediaKindLabel</span>
-                                    </span>
-                                }
-
-                                @if (!string.IsNullOrWhiteSpace(HoverMetaDisplay))
-                                {
-                                    <div class="media-tile-hover-meta">@HoverMetaDisplay</div>
-                                }
-                            </div>
-                        }
-
-                        @if (!UseCompactHover && ShowHoverContextLines)
-                        {
-                            <div class="media-tile-hover-context-list">
-                                @foreach (var line in Item.ContextLines)
-                                {
-                                    <div class="media-tile-hover-context">@line</div>
-                                }
-                            </div>
-                        }
-
-                        @if (!UseCompactHover && DisplayChips.Count > 0)
-                        {
-                            <div class="media-tile-hover-chips">
-                                @foreach (var chip in DisplayChips)
-                                {
-                                    <span class="media-tile-chip">@chip</span>
-                                }
-                            </div>
-                        }
-
-                        @if (!UseCompactHover && ShowHoverDescription)
-                        {
-                            <p class="media-tile-hover-description">@DisplaySummary</p>
-                        }
+                    <img src="@ActiveHoverImageUrl"
+                         srcset="@Item.HoverImageSrcSet"
+                         sizes="@Item.HoverImageSizes"
+                         alt="@Item.Title"
+                         class="media-tile-hover-image @HoverImageFitClass"
+                         loading="lazy"
+                         decoding="async"
+                         @onerror="HandleHoverImageError" />
+                }
+                else
+                {
+                    <div class="media-tile-hover-fallback">
+                        <MudIcon Icon="@FallbackIcon" />
                     </div>
                 }
+
+                @if (ShowHoverLogo)
+                {
+                    <img src="@Item.LogoUrl" alt="@Item.Title" class="media-tile-hover-logo" />
+                }
             </div>
-        }
-    </div>
+
+            @if (ShowExpandedHoverBody)
+            {
+                <div class="media-tile-hover-body">
+                    <div class="media-tile-hover-actions">
+                        <div class="media-tile-hover-actions-left">
+                            <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-primary" AriaLabel="@Item.PrimaryActionLabel" Title="@Item.PrimaryActionLabel" OnClick="OpenPrimary" StopPropagation="true">
+                                <MudIcon Icon="@PrimaryIcon" />
+                            </AppNativeButton>
+
+                            @if (Item.CanAddToCollection)
+                            {
+                                <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Add to collection" Title="Add to collection" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Add" />
+                                </AppNativeButton>
+                            }
+
+                            @if (CanEdit)
+                            {
+                                <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Edit metadata" Title="Edit metadata" OnClick="OpenEditorAsync" StopPropagation="true">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Edit" />
+                                </AppNativeButton>
+                            }
+                        </div>
+                    </div>
+
+                    @if (ShowHoverHeading)
+                    {
+                        <div class="media-tile-hover-heading">
+                            <div class="media-tile-hover-title">@Item.Title</div>
+                            @if (!UseCompactHover && !string.IsNullOrWhiteSpace(DisplaySubtitle))
+                            {
+                                <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
+                            }
+                        </div>
+                    }
+
+                    @if (UseCompactHover || ShowRichHoverFacts)
+                    {
+                        <div class="media-tile-hover-facts">
+                            @foreach (var fact in CompactHoverFacts)
+                            {
+                                <span class="media-tile-hover-fact">@fact</span>
+                            }
+                        </div>
+                    }
+
+                    @if (Item.ProgressPct is > 0)
+                    {
+                        <div class="media-tile-hover-progress" aria-label="@ProgressLabel">
+                            <progress class="media-tile-hover-progress-track"
+                                      value="@Math.Min(100, Item.ProgressPct.Value)"
+                                      max="100"></progress>
+                            <span>@ProgressLabel</span>
+                        </div>
+                    }
+
+                    @if (!UseCompactHover && !string.IsNullOrWhiteSpace(Item.StatusText))
+                    {
+                        <div class="media-tile-hover-status">@Item.StatusText</div>
+                    }
+
+                    @if (!UseCompactHover && ShowMetaRow)
+                    {
+                        <div class="media-tile-hover-meta-row">
+                            @if (!HideMediaKindBadge && !string.IsNullOrWhiteSpace(MediaKindIcon))
+                            {
+                                <span class="media-tile-meta-icon" title="@MediaKindLabel">
+                                    <MudIcon Icon="@MediaKindIcon" />
+                                    <span class="media-tile-visually-hidden">@MediaKindLabel</span>
+                                </span>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(HoverMetaDisplay))
+                            {
+                                <div class="media-tile-hover-meta">@HoverMetaDisplay</div>
+                            }
+                        </div>
+                    }
+
+                    @if (!UseCompactHover && ShowHoverContextLines)
+                    {
+                        <div class="media-tile-hover-context-list">
+                            @foreach (var line in Item.ContextLines)
+                            {
+                                <div class="media-tile-hover-context">@line</div>
+                            }
+                        </div>
+                    }
+
+                    @if (!UseCompactHover && DisplayChips.Count > 0)
+                    {
+                        <div class="media-tile-hover-chips">
+                            @foreach (var chip in DisplayChips)
+                            {
+                                <span class="media-tile-chip">@chip</span>
+                            }
+                        </div>
+                    }
+
+                    @if (!UseCompactHover && ShowHoverDescription)
+                    {
+                        <p class="media-tile-hover-description">@DisplaySummary</p>
+                    }
+                </div>
+            }
+        </div>
+    }
 
     @if (ShowCaption)
     {
@@ -297,6 +297,8 @@
     [Parameter, EditorRequired] public MediaTileViewModel Item { get; set; } = default!;
     [Parameter] public EventCallback<MediaTileViewModel> OnEditClicked { get; set; }
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
+    [Parameter] public bool HideMediaKindBadge { get; set; }
+    [Parameter] public bool HideSourceBadge { get; set; }
 
     private bool _expanded;
     private bool _hoverRegistered;
@@ -364,11 +366,11 @@
         && Item.Presentation is not MediaTilePresentation.TvSeries
         && CollectionArtworkStackItems.Count > 0;
 
-    private bool ShowMediaKindBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(MediaKindIcon);
+    private bool ShowMediaKindBadge => !HideMediaKindBadge && !ShowCollectionBanner && !string.IsNullOrWhiteSpace(MediaKindIcon);
 
     private bool ShowQualityBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(Item.QualityBadge);
 
-    private bool ShowSourceBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(Item.SourceBadgeLabel);
+    private bool ShowSourceBadge => !HideSourceBadge && !ShowCollectionBanner && !string.IsNullOrWhiteSpace(Item.SourceBadgeLabel);
 
     private bool ShowPreviewStack => !ShowCollectionBanner && string.IsNullOrWhiteSpace(CardImageUrl) && PreviewImages.Count > 0;
 
@@ -538,7 +540,7 @@
         }
     }
 
-    private bool ShowMetaRow => !string.IsNullOrWhiteSpace(MediaKindIcon) || !string.IsNullOrWhiteSpace(HoverMetaDisplay);
+    private bool ShowMetaRow => (!HideMediaKindBadge && !string.IsNullOrWhiteSpace(MediaKindIcon)) || !string.IsNullOrWhiteSpace(HoverMetaDisplay);
 
     protected override void OnParametersSet() => _hoverImageIndex = 0;
 

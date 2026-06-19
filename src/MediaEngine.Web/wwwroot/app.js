@@ -115,10 +115,79 @@ window.scrollSwimlane = function (el, direction) {
  */
 window.getSwimlaneScrollState = function (el) {
     if (!el) return { atStart: true, atEnd: true };
+    if (el.classList && el.classList.contains('media-tile-shelf-scroll') && window.updateMediaTileShelfVisibleWidth) {
+        window.updateMediaTileShelfVisibleWidth(el);
+    }
+
+    var tolerance = 4;
     return {
-        atStart: el.scrollLeft <= 1,
-        atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+        atStart: el.scrollLeft <= tolerance,
+        atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - tolerance
     };
+};
+
+window.getSwimlaneSnapTargets = function (el) {
+    if (!el) return [];
+
+    var maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    var containerRect = el.getBoundingClientRect();
+    var currentLeft = el.scrollLeft;
+    var targets = [0, maxScroll];
+
+    Array.prototype.forEach.call(el.children || [], function (child) {
+        if (!child || child.offsetWidth <= 0) return;
+
+        var childRect = child.getBoundingClientRect();
+        var target = currentLeft + childRect.left - containerRect.left;
+        target = Math.min(Math.max(target, 0), maxScroll);
+        targets.push(Math.round(target));
+    });
+
+    return targets
+        .filter(function (target, index, list) {
+            return list.indexOf(target) === index;
+        })
+        .sort(function (a, b) { return a - b; });
+};
+
+window.getSwimlaneSnapTarget = function (el, direction) {
+    if (!el) return 0;
+
+    var targets = window.getSwimlaneSnapTargets(el);
+    var currentLeft = el.scrollLeft;
+    var maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    var amount = el.clientWidth * 0.75;
+    var tolerance = 4;
+
+    if (targets.length === 0) {
+        return Math.min(Math.max(currentLeft + (direction === 'left' ? -amount : amount), 0), maxScroll);
+    }
+
+    if (direction === 'left') {
+        var desiredLeft = currentLeft - amount;
+        var leftCandidates = targets.filter(function (target) {
+            return target < currentLeft - tolerance;
+        });
+        var firstLeftCandidateInPage = leftCandidates.find(function (target) {
+            return target >= desiredLeft - tolerance;
+        });
+
+        return firstLeftCandidateInPage !== undefined
+            ? firstLeftCandidateInPage
+            : (leftCandidates.length > 0 ? leftCandidates[leftCandidates.length - 1] : 0);
+    }
+
+    var desiredRight = currentLeft + amount;
+    var rightCandidates = targets.filter(function (target) {
+        return target > currentLeft + tolerance;
+    });
+    var lastRightCandidateInPage = rightCandidates.filter(function (target) {
+        return target <= desiredRight + tolerance;
+    }).pop();
+
+    return lastRightCandidateInPage !== undefined
+        ? lastRightCandidateInPage
+        : (rightCandidates.length > 0 ? rightCandidates[0] : maxScroll);
 };
 
 /**
@@ -130,22 +199,192 @@ window.getSwimlaneScrollState = function (el) {
  */
 window.scrollSwimlaneEx = function (el, direction) {
     if (!el) return Promise.resolve({ atStart: true, atEnd: true });
-    var amount = el.clientWidth * 0.75;
-    el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    if (el.classList && el.classList.contains('media-tile-shelf-scroll') && window.updateMediaTileShelfVisibleWidth) {
+        window.updateMediaTileShelfVisibleWidth(el);
+    }
+
+    var target = window.getSwimlaneSnapTarget(el, direction);
+    el.__swimlaneAllowScroll = true;
+    el.scrollTo({ left: target, behavior: 'smooth' });
     return new Promise(function (resolve) {
         setTimeout(function () {
+            el.scrollLeft = target;
+            el.__swimlaneStableScrollLeft = el.scrollLeft;
+            el.__swimlaneAllowScroll = false;
             resolve({
-                atStart: el.scrollLeft <= 1,
-                atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+                atStart: el.scrollLeft <= 4,
+                atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4
             });
         }, 420); // wait for smooth-scroll animation to settle
     });
 };
 
+window.updateMediaTileShelfVisibleWidth = function (el) {
+    if (!el) return;
+
+    var track = el.closest ? el.closest('.media-tile-shelf-track') : el.parentElement;
+    var viewport = el.parentElement && el.parentElement.classList && el.parentElement.classList.contains('media-tile-shelf-window')
+        ? el.parentElement
+        : track;
+    var availableWidth = viewport ? viewport.clientWidth : el.clientWidth;
+    var items = Array.prototype.filter.call(el.children || [], function (child) {
+        return child && child.offsetWidth > 0;
+    });
+
+    if (!availableWidth || items.length === 0) {
+        return;
+    }
+
+    var firstRect = items[0].getBoundingClientRect();
+    var itemWidth = firstRect.width || items[0].offsetWidth;
+    if (!itemWidth) {
+        return;
+    }
+
+    var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    var rawGap = style ? parseFloat(style.columnGap || style.gap || '0') : 0;
+    var paddingLeft = style ? parseFloat(style.paddingLeft || '0') : 0;
+    var paddingRight = style ? parseFloat(style.paddingRight || '0') : 0;
+    var gap = Number.isFinite(rawGap) ? rawGap : 0;
+    paddingLeft = Number.isFinite(paddingLeft) ? paddingLeft : 0;
+    paddingRight = Number.isFinite(paddingRight) ? paddingRight : 0;
+
+    var contentWidth = Math.max(1, availableWidth - paddingLeft - paddingRight);
+    var step = itemWidth + gap;
+    var totalWidth = paddingLeft + paddingRight + (items.length * itemWidth) + (Math.max(0, items.length - 1) * gap);
+    var visibleWidth = availableWidth;
+
+    if (totalWidth > availableWidth + 1 && step > 0) {
+        var visibleCount = Math.max(1, Math.floor((contentWidth + gap) / step));
+        visibleCount = Math.min(visibleCount, items.length);
+        visibleWidth = paddingLeft + paddingRight + (visibleCount * itemWidth) + (Math.max(0, visibleCount - 1) * gap);
+
+        while (visibleCount > 1 && visibleWidth > availableWidth + 0.5) {
+            visibleCount -= 1;
+            visibleWidth = paddingLeft + paddingRight + (visibleCount * itemWidth) + (Math.max(0, visibleCount - 1) * gap);
+        }
+    }
+
+    visibleWidth = Math.max(Math.min(availableWidth, visibleWidth), Math.min(availableWidth, itemWidth + paddingLeft + paddingRight));
+
+    var roundedVisibleWidth = Math.round(visibleWidth);
+    var arrowOffset = Math.max(0, Math.round(availableWidth - roundedVisibleWidth));
+    var visibleWidthValue = roundedVisibleWidth + 'px';
+    var arrowOffsetValue = arrowOffset + 'px';
+
+    el.style.setProperty('--media-tile-shelf-visible-width', visibleWidthValue);
+    el.style.setProperty('--media-tile-shelf-arrow-offset', arrowOffsetValue);
+
+    if (track) {
+        track.style.setProperty('--media-tile-shelf-visible-width', visibleWidthValue);
+        track.style.setProperty('--media-tile-shelf-arrow-offset', arrowOffsetValue);
+    }
+
+    var maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    if (el.scrollLeft > maxScroll) {
+        el.scrollLeft = maxScroll;
+    }
+
+    if (el.__swimlaneStableScrollLeft !== undefined) {
+        el.__swimlaneStableScrollLeft = Math.min(el.__swimlaneStableScrollLeft, maxScroll);
+    }
+};
+
+window.registerMediaTileShelfScrollGuard = function (el) {
+    if (!el || el.__mediaTileShelfScrollGuard) return;
+
+    var isFinePointer = function () {
+        return !window.matchMedia || window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    };
+
+    var restoreStablePosition = function () {
+        if (!isFinePointer()) return;
+
+        if (!el.__swimlaneAllowScroll && !el.__mediaTileHoverScrollLock) {
+            var stableLeft = el.__swimlaneStableScrollLeft || 0;
+            if (Math.abs(el.scrollLeft - stableLeft) > 1) {
+                el.scrollLeft = stableLeft;
+            }
+        }
+
+        if (Math.abs((el.scrollTop || 0)) > 1) {
+            el.scrollTop = 0;
+        }
+    };
+
+    var onWheel = function (event) {
+        if (!isFinePointer()) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        window.requestAnimationFrame(restoreStablePosition);
+    };
+
+    var onScroll = function () {
+        window.requestAnimationFrame(restoreStablePosition);
+    };
+
+    var onResize = function () {
+        if (el.__mediaTileShelfResizeFrame) {
+            window.cancelAnimationFrame(el.__mediaTileShelfResizeFrame);
+        }
+
+        el.__mediaTileShelfResizeFrame = window.requestAnimationFrame(function () {
+            el.__mediaTileShelfResizeFrame = null;
+            window.updateMediaTileShelfVisibleWidth(el);
+            restoreStablePosition();
+        });
+    };
+
+    window.updateMediaTileShelfVisibleWidth(el);
+    el.__swimlaneStableScrollLeft = el.scrollLeft;
+    el.__mediaTileShelfScrollGuard = {
+        onWheel: onWheel,
+        onScroll: onScroll,
+        onResize: onResize
+    };
+    el.classList.add('is-row-scroll-guarded');
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+};
+
+window.unregisterMediaTileShelfScrollGuard = function (el) {
+    if (!el || !el.__mediaTileShelfScrollGuard) return;
+
+    el.removeEventListener('wheel', el.__mediaTileShelfScrollGuard.onWheel);
+    el.removeEventListener('scroll', el.__mediaTileShelfScrollGuard.onScroll);
+    window.removeEventListener('resize', el.__mediaTileShelfScrollGuard.onResize);
+
+    if (el.__mediaTileShelfResizeFrame) {
+        window.cancelAnimationFrame(el.__mediaTileShelfResizeFrame);
+        el.__mediaTileShelfResizeFrame = null;
+    }
+
+    var track = el.closest ? el.closest('.media-tile-shelf-track') : el.parentElement;
+    if (track) {
+        track.style.removeProperty('--media-tile-shelf-visible-width');
+        track.style.removeProperty('--media-tile-shelf-arrow-offset');
+    }
+
+    el.style.removeProperty('--media-tile-shelf-visible-width');
+    el.style.removeProperty('--media-tile-shelf-arrow-offset');
+    el.classList.remove('is-row-scroll-guarded');
+    el.__mediaTileShelfScrollGuard = null;
+    el.__swimlaneAllowScroll = false;
+};
+
 // -- Media tile hover positioning ------------------------------------
 
 window.getMediaTileHoverHost = function () {
-    return document.getElementById('media-tile-hover-host') || document.body;
+    var host = document.getElementById('media-tile-hover-host');
+    if (host) return host;
+
+    host = document.createElement('div');
+    host.id = 'media-tile-hover-host';
+    host.className = 'media-tile-hover-host';
+    document.body.appendChild(host);
+    return host;
 };
 
 window.positionMediaTileHover = function (cardEl) {
@@ -161,67 +400,55 @@ window.positionMediaTileHover = function (cardEl) {
         var panel = cardEl.__mediaTileHoverPanel || cardEl.querySelector('.media-tile-hover-panel');
         if (!panel) return;
 
-        var cardRect = cardEl.getBoundingClientRect();
+        var frame = cardEl.querySelector('.media-tile-frame') || cardEl;
+        var cardRect = frame.getBoundingClientRect();
+        var viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+        var viewportHeight = document.documentElement.clientHeight || window.innerHeight;
         var gutter = 12;
-        var computedStyle = window.getComputedStyle(cardEl);
-        var hoverLift = parseFloat(computedStyle.getPropertyValue('--media-tile-hover-lift')) || 0;
-        var prefersBottomPlacement = panel.classList.contains('is-placement-bottom')
-            && window.innerWidth > 700;
-        var isPortraitPanel = panel.classList.contains('is-art-popover')
-            && panel.classList.contains('is-portrait');
-        var isSquarePanel = panel.classList.contains('is-square')
-            || panel.classList.contains('is-cover-square')
-            || panel.classList.contains('is-artist-photo-square');
-        var isLandscapePanel = panel.classList.contains('is-landscape')
-            || panel.classList.contains('is-banner-popover');
-        panel.style.width = '';
+        panel.style.removeProperty('--media-tile-hover-left');
+        panel.style.removeProperty('--media-tile-hover-top');
+        panel.style.removeProperty('--media-tile-hover-max-height');
+        panel.style.removeProperty('--media-tile-hover-art-max-height');
+        panel.style.setProperty('--media-tile-hover-anchor-width', Math.round(cardRect.width) + 'px');
+        panel.style.setProperty('--media-tile-hover-max-height', Math.max(180, viewportHeight - (gutter * 2)) + 'px');
+        panel.style.left = '';
+        panel.style.top = '';
 
-        var panelWidth = panel.offsetWidth;
-        var panelHeight = panel.offsetHeight;
-        var isSideBySidePortrait = !prefersBottomPlacement
-            && isPortraitPanel
-            && window.innerWidth > 700;
-        var panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);
-        var panelTop = cardRect.top - hoverLift;
+        var body = panel.querySelector('.media-tile-hover-body');
+        var bodyHeight = body ? body.getBoundingClientRect().height : 0;
+        panel.style.setProperty('--media-tile-hover-art-max-height', Math.max(96, viewportHeight - (gutter * 2) - bodyHeight) + 'px');
 
-        if (isSideBySidePortrait) {
-            panelLeft = cardRect.left;
-            var rightCandidate = cardRect.right + gutter;
-            var leftCandidate = cardRect.left - panelWidth - gutter;
+        var panelRect = panel.getBoundingClientRect();
+        var panelWidth = panelRect.width || panel.offsetWidth;
+        var panelHeight = panelRect.height || panel.offsetHeight;
+        if (!panelWidth) {
+            panelWidth = cardRect.width;
+        }
+        if (!panelHeight) {
+            panelHeight = cardRect.height;
+        }
 
-            if (rightCandidate + panelWidth <= window.innerWidth - gutter) {
-                panelLeft = rightCandidate;
-            } else if (leftCandidate >= gutter) {
-                panelLeft = leftCandidate;
-            }
-        } else if (prefersBottomPlacement || isSquarePanel || isLandscapePanel) {
-            panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);
-            panelTop = cardRect.top - hoverLift;
+        var panelLeft = cardRect.left;
+
+        var minLeft = gutter;
+        var maxLeft = viewportWidth - gutter - panelWidth;
+        if (maxLeft < minLeft) {
+            panelLeft = minLeft;
         } else {
-            panelLeft = cardRect.left;
+            panelLeft = Math.min(Math.max(panelLeft, minLeft), maxLeft);
         }
 
-        if (panelLeft < gutter) {
-            panelLeft = gutter;
+        var panelTop = cardRect.top;
+        var minTop = gutter;
+        var maxTop = viewportHeight - gutter - panelHeight;
+        if (maxTop < minTop) {
+            panelTop = minTop;
+        } else {
+            panelTop = Math.min(Math.max(panelTop, minTop), maxTop);
         }
 
-        var overflowRight = panelLeft + panelWidth - (window.innerWidth - gutter);
-        if (overflowRight > 0) {
-            panelLeft -= overflowRight;
-        }
-
-        var overflowBottom = panelTop + panelHeight - (window.innerHeight - gutter);
-        if (overflowBottom > 0) {
-            panelTop -= overflowBottom;
-        }
-
-        var overflowTop = panelTop - gutter;
-        if (overflowTop < 0) {
-            panelTop += Math.abs(overflowTop);
-        }
-
-        panel.style.left = panelLeft + 'px';
-        panel.style.top = panelTop + 'px';
+        panel.style.setProperty('--media-tile-hover-left', Math.round(panelLeft) + 'px');
+        panel.style.setProperty('--media-tile-hover-top', Math.round(panelTop) + 'px');
 
         if (cardEl.__mediaTileHoverNeedsReposition) {
             cardEl.__mediaTileHoverNeedsReposition = false;
@@ -233,22 +460,23 @@ window.positionMediaTileHover = function (cardEl) {
 window.mountMediaTileHover = function (cardEl) {
     if (!cardEl) return null;
 
-    var panel = cardEl.querySelector('.media-tile-hover-panel');
+    var panel = cardEl.__mediaTileHoverPanel || cardEl.querySelector('.media-tile-hover-panel');
     if (!panel) return null;
 
     if (!panel.__mediaTileHoverOriginalParent) {
         panel.__mediaTileHoverOriginalParent = panel.parentElement;
     }
 
-    if (!panel.__mediaTileHoverOriginalNextSibling) {
+    if (!Object.prototype.hasOwnProperty.call(panel, '__mediaTileHoverOriginalNextSibling')) {
         panel.__mediaTileHoverOriginalNextSibling = panel.nextSibling;
     }
 
-    var host = window.getMediaTileHoverHost();
-    if (panel.parentElement !== host) {
-        host.appendChild(panel);
+    var mountParent = window.getMediaTileHoverHost();
+    if (mountParent && panel.parentElement !== mountParent) {
+        mountParent.appendChild(panel);
     }
 
+    panel.classList.add('is-viewport-mounted');
     return panel;
 };
 
@@ -266,6 +494,110 @@ window.restoreMediaTileHover = function (cardEl) {
     } else {
         originalParent.appendChild(panel);
     }
+
+    panel.classList.remove('is-viewport-mounted');
+};
+
+window.lockMediaTileHoverRowScroll = function (cardEl) {
+    if (!cardEl) return;
+
+    var scrollEl = cardEl.closest('.media-tile-shelf-scroll');
+    if (!scrollEl) return;
+
+    cardEl.__mediaTileHoverScrollElement = scrollEl;
+
+    if (!scrollEl.__mediaTileHoverScrollLock) {
+        scrollEl.__mediaTileHoverScrollLock = {
+            owner: cardEl,
+            left: scrollEl.scrollLeft,
+            top: scrollEl.scrollTop || 0
+        };
+
+        var restore = function () {
+            var lock = scrollEl.__mediaTileHoverScrollLock;
+            if (!lock) return;
+            if (scrollEl.__swimlaneAllowScroll) return;
+
+            if (scrollEl.scrollLeft !== lock.left) {
+                scrollEl.scrollLeft = lock.left;
+            }
+
+            if ((scrollEl.scrollTop || 0) !== lock.top) {
+                scrollEl.scrollTop = lock.top;
+            }
+        };
+
+        var blockWheel = function (event) {
+            var lock = scrollEl.__mediaTileHoverScrollLock;
+            if (!lock) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            window.requestAnimationFrame(restore);
+        };
+
+        scrollEl.__mediaTileHoverScrollRestore = restore;
+        scrollEl.__mediaTileHoverWheelBlock = blockWheel;
+        scrollEl.addEventListener('scroll', restore, { passive: true });
+        scrollEl.addEventListener('wheel', blockWheel, { passive: false });
+    } else {
+        scrollEl.__mediaTileHoverScrollLock.owner = cardEl;
+        scrollEl.__mediaTileHoverScrollLock.left = scrollEl.scrollLeft;
+        scrollEl.__mediaTileHoverScrollLock.top = scrollEl.scrollTop || 0;
+    }
+
+    scrollEl.classList.add('is-hover-scroll-locked');
+
+    var panel = cardEl.__mediaTileHoverPanel || cardEl.querySelector('.media-tile-hover-panel');
+    if (panel && !panel.__mediaTileHoverWheelBlock) {
+        panel.__mediaTileHoverWheelBlock = function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            var lock = scrollEl.__mediaTileHoverScrollLock;
+            if (lock) {
+                window.requestAnimationFrame(function () {
+                    if (scrollEl.scrollLeft !== lock.left && !scrollEl.__swimlaneAllowScroll) {
+                        scrollEl.scrollLeft = lock.left;
+                    }
+
+                    if ((scrollEl.scrollTop || 0) !== lock.top) {
+                        scrollEl.scrollTop = lock.top;
+                    }
+                });
+            }
+        };
+        panel.addEventListener('wheel', panel.__mediaTileHoverWheelBlock, { passive: false });
+    }
+};
+
+window.unlockMediaTileHoverRowScroll = function (cardEl) {
+    if (!cardEl) return;
+
+    var scrollEl = cardEl.__mediaTileHoverScrollElement;
+    if (!scrollEl || !scrollEl.__mediaTileHoverScrollLock) return;
+
+    if (scrollEl.__mediaTileHoverScrollLock.owner !== cardEl) return;
+
+    if (scrollEl.__mediaTileHoverScrollRestore) {
+        scrollEl.removeEventListener('scroll', scrollEl.__mediaTileHoverScrollRestore);
+    }
+    if (scrollEl.__mediaTileHoverWheelBlock) {
+        scrollEl.removeEventListener('wheel', scrollEl.__mediaTileHoverWheelBlock);
+    }
+
+    var panel = cardEl.__mediaTileHoverPanel || cardEl.querySelector('.media-tile-hover-panel');
+    if (panel && panel.__mediaTileHoverWheelBlock) {
+        panel.removeEventListener('wheel', panel.__mediaTileHoverWheelBlock);
+        panel.__mediaTileHoverWheelBlock = null;
+    }
+
+    scrollEl.classList.remove('is-hover-scroll-locked');
+    scrollEl.__mediaTileHoverScrollLock = null;
+    scrollEl.__mediaTileHoverScrollRestore = null;
+    scrollEl.__mediaTileHoverWheelBlock = null;
+    cardEl.__mediaTileHoverScrollElement = null;
 };
 
 window.showMediaTileHover = function (cardEl) {
@@ -282,6 +614,7 @@ window.showMediaTileHover = function (cardEl) {
     }
 
     cardEl.classList.add('is-hover-active');
+    window.lockMediaTileHoverRowScroll(cardEl);
     panel.classList.add('is-visible');
     window.positionMediaTileHover(cardEl);
 };
@@ -291,6 +624,7 @@ window.clearMediaTileHover = function (cardEl) {
 
     var panel = cardEl.__mediaTileHoverPanel || cardEl.querySelector('.media-tile-hover-panel');
     cardEl.classList.remove('is-hover-active');
+    window.unlockMediaTileHoverRowScroll(cardEl);
 
     if (cardEl.__mediaTileShowTimer) {
         window.clearTimeout(cardEl.__mediaTileShowTimer);
@@ -300,12 +634,17 @@ window.clearMediaTileHover = function (cardEl) {
     if (!panel) return;
 
     panel.classList.remove('is-visible');
-    panel.style.left = '-9999px';
-    panel.style.top = '-9999px';
+    panel.style.removeProperty('--media-tile-hover-left');
+    panel.style.removeProperty('--media-tile-hover-top');
+    panel.style.removeProperty('--media-tile-hover-anchor-width');
+    panel.style.removeProperty('--media-tile-hover-max-height');
+    panel.style.removeProperty('--media-tile-hover-art-max-height');
+    panel.style.left = '';
+    panel.style.top = '';
 
     if (!cardEl.__mediaTilePinned) {
         window.setTimeout(function () {
-            if (!panel.classList.contains('is-visible') && panel.parentElement === window.getMediaTileHoverHost()) {
+            if (!panel.classList.contains('is-visible') && panel.parentElement !== panel.__mediaTileHoverOriginalParent) {
                 window.restoreMediaTileHover(cardEl);
             }
         }, 180);
@@ -328,6 +667,8 @@ window.setMediaTileHoverExpanded = function (cardEl, expanded) {
 window.registerMediaTileHover = function (cardEl) {
     if (!cardEl || cardEl.__mediaTileHoverRegistered) return;
 
+    cardEl.classList.add('is-hover-js-enabled');
+
     var show = function () {
         if (cardEl.__mediaTileHideTimer) {
             window.clearTimeout(cardEl.__mediaTileHideTimer);
@@ -344,8 +685,26 @@ window.registerMediaTileHover = function (cardEl) {
         }, 260);
     };
 
-    var scheduleHide = function () {
+    var isWithinHoverSurface = function (target) {
+        if (!target) return false;
+
+        var activePanel = cardEl.__mediaTileHoverPanel || panel;
+        return cardEl.contains(target) || (activePanel && activePanel.contains(target));
+    };
+
+    var isHoverSurfaceStillActive = function () {
+        var activePanel = cardEl.__mediaTileHoverPanel || panel;
+        var activeElement = document.activeElement;
+
+        return (cardEl.matches && cardEl.matches(':hover'))
+            || (activePanel && activePanel.matches && activePanel.matches(':hover'))
+            || isWithinHoverSurface(activeElement);
+    };
+
+    var scheduleHide = function (event) {
         if (cardEl.__mediaTilePinned) return;
+        if (event && isWithinHoverSurface(event.relatedTarget)) return;
+
         if (cardEl.__mediaTileShowTimer) {
             window.clearTimeout(cardEl.__mediaTileShowTimer);
             cardEl.__mediaTileShowTimer = null;
@@ -356,6 +715,10 @@ window.registerMediaTileHover = function (cardEl) {
         }
 
         cardEl.__mediaTileHideTimer = window.setTimeout(function () {
+            if (isHoverSurfaceStillActive()) {
+                return;
+            }
+
             window.clearMediaTileHover(cardEl);
         }, 80);
     };
@@ -440,6 +803,7 @@ window.unregisterMediaTileHover = function (cardEl) {
     }
 
     cardEl.__mediaTilePinned = false;
+    cardEl.classList.remove('is-hover-js-enabled');
     window.clearMediaTileHover(cardEl);
     window.restoreMediaTileHover(cardEl);
 

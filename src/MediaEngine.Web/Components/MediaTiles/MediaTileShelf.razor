@@ -1,5 +1,7 @@
 @namespace MediaEngine.Web.Components.MediaTiles
 @inject IJSRuntime JS
+@inject ILogger<MediaTileShelf> Logger
+@implements IAsyncDisposable
 
 @if (Shelf.Items.Count > 0)
 {
@@ -20,30 +22,39 @@
         </div>
 
         <div class="media-tile-shelf-track">
-            @if (Shelf.Items.Count > 1 && !_atStart)
-            {
-                <AppIconButton Icon="@Icons.Material.Filled.ChevronLeft"
-                               Color="Color.Inherit"
-                               Class="media-tile-shelf-arrow media-tile-shelf-arrow-left"
-                               aria-label="Scroll left"
-                               OnClick="ScrollLeftAsync" />
-            }
-
-            <div class="media-tile-shelf-scroll" @ref="_scrollRef">
-                @foreach (var item in Shelf.Items)
+            <div class="media-tile-shelf-arrow-slot media-tile-shelf-arrow-slot-left">
+                @if (Shelf.Items.Count > 1 && !_atStart)
                 {
-                    <MediaTile Item="@item" HoverMode="@HoverMode" />
+                    <AppIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                   Color="Color.Inherit"
+                                   Class="media-tile-shelf-arrow media-tile-shelf-arrow-left"
+                                   aria-label="Scroll left"
+                                   OnClick="ScrollLeftAsync" />
                 }
             </div>
 
-            @if (Shelf.Items.Count > 1 && !_atEnd)
-            {
-                <AppIconButton Icon="@Icons.Material.Filled.ChevronRight"
-                               Color="Color.Inherit"
-                               Class="media-tile-shelf-arrow media-tile-shelf-arrow-right"
-                               aria-label="Scroll right"
-                               OnClick="ScrollRightAsync" />
-            }
+            <div class="media-tile-shelf-window">
+                <div class="media-tile-shelf-scroll" @ref="_scrollRef">
+                    @foreach (var item in Shelf.Items)
+                    {
+                        <MediaTile Item="@item"
+                                   HoverMode="@HoverMode"
+                                   HideMediaKindBadge="@HideMediaKindBadges"
+                                   HideSourceBadge="@HideSourceBadges" />
+                    }
+                </div>
+            </div>
+
+            <div class="media-tile-shelf-arrow-slot media-tile-shelf-arrow-slot-right">
+                @if (Shelf.Items.Count > 1 && !_atEnd)
+                {
+                    <AppIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                   Color="Color.Inherit"
+                                   Class="media-tile-shelf-arrow media-tile-shelf-arrow-right"
+                                   aria-label="Scroll right"
+                                   OnClick="ScrollRightAsync" />
+                }
+            </div>
         </div>
     </section>
 }
@@ -51,10 +62,13 @@
 @code {
     [Parameter, EditorRequired] public MediaTileShelfViewModel Shelf { get; set; } = default!;
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
+    [Parameter] public bool HideMediaKindBadges { get; set; }
+    [Parameter] public bool HideSourceBadges { get; set; }
 
     private ElementReference _scrollRef;
     private bool _atStart = true;
     private bool _atEnd;
+    private bool _scrollGuardRegistered;
 
     private string RowClass => Shelf.Items.FirstOrDefault()?.Shape switch
     {
@@ -80,8 +94,27 @@
 
             if (firstRender)
             {
+                await RegisterScrollGuardAsync();
                 await InvokeAsync(StateHasChanged);
             }
+        }
+    }
+
+    private async Task RegisterScrollGuardAsync()
+    {
+        if (_scrollGuardRegistered)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("registerMediaTileShelfScrollGuard", _scrollRef);
+            _scrollGuardRegistered = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not register media tile shelf scroll guard.");
         }
     }
 
@@ -103,5 +136,22 @@
     {
         public bool AtStart { get; set; }
         public bool AtEnd { get; set; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_scrollGuardRegistered)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("unregisterMediaTileShelfScrollGuard", _scrollRef);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not unregister media tile shelf scroll guard.");
+        }
     }
 }

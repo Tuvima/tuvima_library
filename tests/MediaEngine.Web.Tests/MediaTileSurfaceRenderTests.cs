@@ -41,15 +41,75 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
+        var shelfCss = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTileShelf.razor.css"));
+        var shelfRazor = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTileShelf.razor"));
+        var tileRazor = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor"));
+        var appCss = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.css"));
+        var appJs = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.js"));
 
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-cover-square"));
+        Assert.Null(cut.Find(".media-tile-hover-panel").Closest(".media-tile-frame"));
+        Assert.NotNull(cut.Find(".media-tile-hover-panel").Closest(".media-tile"));
         Assert.DoesNotContain("style=", cut.Markup);
         Assert.Contains(".media-tile.is-square { width:var(--media-tile-media-height); --media-tile-media-aspect:1 / 1; --media-tile-hover-panel-width:clamp(320px,24vw,400px);", css);
         Assert.Contains("flex:0 0 auto", css);
         Assert.Contains("aspect-ratio:var(--media-tile-media-aspect)", css);
         Assert.Contains(".media-tile-image.is-contained { object-fit:contain; padding:0; background:transparent; }", css);
-        Assert.Contains(".media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:none;", css);
-        Assert.Contains(".media-tile-hover-actions, .media-tile-icon-button { pointer-events:auto; }", css);
+        Assert.Contains(".media-tile-hover-panel { position:absolute; left:var(--media-tile-hover-left, 0px); top:var(--media-tile-hover-top, 0px);", css);
+        Assert.Contains(".media-tile-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto;", css);
+        Assert.Contains(".media-tile:not(.is-hover-js-enabled):hover .media-tile-hover-panel,", css);
+        Assert.Contains(".media-tile-hover-panel.is-viewport-mounted { position:fixed;", css);
+        Assert.Contains("--media-tile-hover-max-height", css);
+        Assert.Contains("--media-tile-hover-art-max-height", css);
+        Assert.Contains(".media-tile-hover-actions, .media-tile-icon-button, ::deep .media-tile-icon-button { pointer-events:auto; }", css);
+        Assert.Contains(".media-tile-icon-button, ::deep .media-tile-icon-button { width:36px; height:36px;", css);
+        Assert.Contains(".media-tile-shelf:has(.media-tile.is-hover-active),", appCss);
+        Assert.Contains("window.getMediaTileHoverHost()", appJs);
+        Assert.Contains("panel.classList.add('is-viewport-mounted')", appJs);
+        Assert.DoesNotContain("cardEl.closest('.media-tile-shelf-track')", appJs);
+        Assert.Contains("window.lockMediaTileHoverRowScroll(cardEl)", appJs);
+        Assert.Contains("is-hover-scroll-locked", appJs);
+        Assert.Contains("panel.addEventListener('wheel', panel.__mediaTileHoverWheelBlock, { passive: false });", appJs);
+        Assert.DoesNotContain("mostlyHorizontal", appJs);
+        Assert.Contains("var stableLeft = el.__swimlaneStableScrollLeft || 0;", appJs);
+        Assert.Contains("if (Math.abs(el.scrollLeft - stableLeft) > 1)", appJs);
+        Assert.Contains("event.preventDefault();", appJs);
+        Assert.Contains("window.registerMediaTileShelfScrollGuard", appJs);
+        Assert.Contains("window.updateMediaTileShelfVisibleWidth", appJs);
+        Assert.Contains("window.addEventListener('resize', onResize, { passive: true });", appJs);
+        Assert.Contains("track.style.setProperty('--media-tile-shelf-visible-width'", appJs);
+        Assert.Contains("track.style.setProperty('--media-tile-shelf-arrow-offset'", appJs);
+        Assert.Contains("window.getSwimlaneSnapTarget", appJs);
+        Assert.Contains("el.scrollTo({ left: target, behavior: 'smooth' });", appJs);
+        Assert.DoesNotContain("el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });", appJs);
+        Assert.Contains("registerMediaTileShelfScrollGuard", shelfRazor);
+        Assert.Contains("unregisterMediaTileShelfScrollGuard", shelfRazor);
+        Assert.Contains("HideMediaKindBadge=\"@HideMediaKindBadges\"", shelfRazor);
+        Assert.Contains("HideSourceBadge=\"@HideSourceBadges\"", shelfRazor);
+        Assert.Contains("!HideMediaKindBadge && !ShowCollectionBanner", tileRazor);
+        Assert.Contains("!HideMediaKindBadge && !string.IsNullOrWhiteSpace(MediaKindIcon)", tileRazor);
+        Assert.Contains("!HideSourceBadge && !ShowCollectionBanner", tileRazor);
+        Assert.Contains("--media-tile-shelf-visible-width: 100%;", shelfCss);
+        Assert.Contains("grid-template-columns: var(--media-tile-shelf-arrow-rail) minmax(0, 1fr) var(--media-tile-shelf-arrow-rail);", shelfCss);
+        Assert.Contains(".media-tile-shelf-window", shelfCss);
+        Assert.Contains("overflow: hidden;", shelfCss);
+        Assert.Contains(".media-tile-shelf-arrow-slot", shelfCss);
+        Assert.Contains("width: min(100%, var(--media-tile-shelf-visible-width));", shelfCss);
+        Assert.Contains("::deep .media-tile-shelf-arrow {", shelfCss);
+        Assert.Contains("position: relative;", shelfCss);
+        Assert.Contains(".media-tile-shelf-track:hover ::deep .media-tile-shelf-arrow", shelfCss);
+        Assert.Contains("opacity: 0.88", shelfCss);
+        Assert.Contains("width: 52px !important", shelfCss);
+        Assert.Contains("background: rgba(8, 12, 24, 0.82) !important", shelfCss);
+        Assert.Contains("margin-left: 6px;", shelfCss);
+        Assert.Contains(".media-tile-shelf-scroll.is-hover-scroll-locked", shelfCss);
+        Assert.Contains(".media-tile-shelf-scroll.is-row-scroll-guarded", shelfCss);
+        Assert.Contains("overflow-x: auto", shelfCss);
+        Assert.Contains("overflow-y: clip", shelfCss);
+        Assert.Contains("overscroll-behavior-y: none", shelfCss);
+        Assert.Contains("touch-action: pan-x", shelfCss);
+        Assert.Contains("scroll-snap-type: x mandatory", shelfCss);
+        Assert.Contains("--media-tile-hover-anchor-width", appJs);
         Assert.DoesNotContain("overflow:hidden auto", css);
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-contained"));
         Assert.Equal(2, cut.FindAll(".media-tile-chip").Count);
@@ -59,7 +119,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void MediaTile_PortraitPopoverUsesSideBySidePreview()
+    public void MediaTile_PortraitPopoverUsesAnchoredPreview()
     {
         var item = new MediaTileViewModel
         {
@@ -87,8 +147,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-art-popover.is-portrait.is-cover-portrait"));
         Assert.DoesNotContain("style=", cut.Markup);
         Assert.Contains(".media-tile.is-portrait { width:calc(var(--media-tile-media-height) * 2 / 3); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(420px,34vw,520px);", css);
-        Assert.Contains("grid-template-columns:minmax(142px,38%) minmax(214px,1fr)", css);
-        Assert.Contains("max-height:min(62vh,420px)", css);
+        Assert.Contains(".media-tile-hover-panel.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(248px, 22vw, 320px));", css);
+        Assert.Contains("max-height:min(64vh,460px)", css);
         Assert.DoesNotContain("A dreamlike horror comic with mythic scale.", cut.Markup);
         Assert.Empty(cut.FindAll(".media-tile-hover-context-list"));
         Assert.Empty(cut.FindAll("button[aria-label='Details']"));
@@ -122,7 +182,11 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-banner-popover.is-banner-surface"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-landscape"));
         Assert.DoesNotContain("style=", cut.Markup);
-        Assert.Contains(".media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(330px,25vw,410px);", File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css")));
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
+        Assert.Contains(".media-tile.is-landscape { width:calc(var(--media-tile-media-height) * 16 / 9); --media-tile-media-aspect:16 / 9; --media-tile-hover-panel-width:clamp(330px,25vw,410px);", css);
+        Assert.Contains(".media-tile-hover-panel.is-banner-popover.is-landscape { width:var(--media-tile-hover-anchor-width, 100%); max-width:var(--media-tile-hover-anchor-width, 100%); }", css);
+        Assert.Contains(".media-tile-hover-panel.is-banner-popover .media-tile-hover-art { width:100%; aspect-ratio:16 / 9; min-height:132px; max-height:none; }", css);
+        Assert.Contains(".media-tile-hover-panel.is-banner-popover .media-tile-hover-image { width:100%; height:100%; object-fit:cover; transform:scale(1.035);", css);
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-logo"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-fill"));
     }
@@ -261,6 +325,37 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         cut.Find(".media-tile").TriggerEvent("onkeydown", new KeyboardEventArgs { Key = "Enter" });
 
         Assert.EndsWith("/read/books/work/dune", navigation.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MediaTile_CanHideLaneRedundantBadges()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Blade Runner 2049",
+            Subtitle = "Warner Bros.",
+            MediaKind = "Movie",
+            MetaText = "Movie / 1994",
+            SourceBadgeLabel = "Warner Bros.",
+            Shape = MediaTileShape.Landscape,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/blade-runner.jpg",
+            HoverImageUrl = "/art/blade-runner.jpg",
+            NavigationUrl = "/watch/movies",
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters
+            .Add(component => component.Item, item)
+            .Add(component => component.HideMediaKindBadge, true)
+            .Add(component => component.HideSourceBadge, true));
+
+        Assert.Empty(cut.FindAll(".media-tile-badge"));
+        Assert.Empty(cut.FindAll(".media-tile-source-badge"));
+        Assert.Empty(cut.FindAll(".media-tile-meta-icon"));
+        Assert.Contains("1994", cut.Markup);
     }
 
     [Fact]
