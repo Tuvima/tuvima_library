@@ -174,6 +174,14 @@ public sealed class MediaTileComposerService
                 new MediaTileArtworkVariant(ArtworkRole.Square, card.Artwork.SquareSmallUrl, card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
                 new MediaTileArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverSmallUrl, card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
             ]);
+        var artworkStackItems = BuildArtworkStackItems(card);
+        var useOrderedSeriesStack = UsesOrderedSeriesStack(presentation, artworkStackItems);
+        var seriesBackdropUrl = useOrderedSeriesStack
+            ? FirstNonBlank(card.Artwork.BackgroundSmallUrl, card.Artwork.BannerSmallUrl, card.Artwork.BackgroundMediumUrl, card.Artwork.BannerMediumUrl, card.Artwork.BackgroundUrl, card.Artwork.BannerUrl)
+            : null;
+        var tileShape = useOrderedSeriesStack ? MediaTileShape.Landscape : surface.Shape;
+        var surfaceKind = useOrderedSeriesStack ? MediaTileSurfaceKind.BannerLandscape : surface.SurfaceKind;
+        var hoverLayout = useOrderedSeriesStack ? MediaTileHoverLayout.BannerPopover : surface.HoverLayout;
 
         return new MediaTileViewModel
         {
@@ -187,7 +195,9 @@ public sealed class MediaTileComposerService
             BackgroundUrl = card.Artwork.BackgroundUrl,
             BannerUrl = card.Artwork.BannerUrl,
             LogoUrl = card.Artwork.LogoUrl,
-            PreviewImages = BuildPreviewImages(card),
+            PreviewImages = BuildPreviewImages(card, artworkStackItems),
+            ArtworkStackItems = artworkStackItems,
+            PreviewTotalCount = card.PreviewTotalCount,
             MetaText = string.Join(" / ", card.Facts),
             QualityBadge = BadgeLabel(card.Badges, "quality"),
             SourceBadgeLabel = BadgeLabel(card.Badges, "source"),
@@ -195,10 +205,10 @@ public sealed class MediaTileComposerService
             HoverFacts = card.Facts,
             MediaKind = card.MediaType,
             AccentColor = card.Artwork.AccentColor ?? AccentForBucket(bucket),
-            Shape = surface.Shape,
+            Shape = tileShape,
             Presentation = presentation,
-            SurfaceKind = surface.SurfaceKind,
-            HoverLayout = surface.HoverLayout,
+            SurfaceKind = surfaceKind,
+            HoverLayout = hoverLayout,
             HoverMode = SupportsExpandedHover(bucket, isTypedGroup) ? MediaTileHoverMode.Expanded : MediaTileHoverMode.Preview,
             TileTextMode = string.Equals(card.TileTextMode, "coverOnly", StringComparison.OrdinalIgnoreCase)
                 ? MediaTileTextMode.CoverOnly
@@ -206,8 +216,8 @@ public sealed class MediaTileComposerService
             PreviewPlacement = string.Equals(card.PreviewPlacement, "bottom", StringComparison.OrdinalIgnoreCase)
                 ? MediaTilePreviewPlacement.Bottom
                 : MediaTilePreviewPlacement.Smart,
-            TileImageUrl = surface.TileImageUrl,
-            TileImageSrcSet = surface.TileImageSrcSet,
+            TileImageUrl = seriesBackdropUrl ?? surface.TileImageUrl,
+            TileImageSrcSet = useOrderedSeriesStack ? null : surface.TileImageSrcSet,
             HoverImageUrl = surface.HoverImageUrl,
             HoverImageSrcSet = surface.HoverImageSrcSet,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
@@ -349,9 +359,37 @@ public sealed class MediaTileComposerService
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-    private static IReadOnlyList<string> BuildPreviewImages(DisplayCardDto card)
+    private static IReadOnlyList<ArtworkStackItem> BuildArtworkStackItems(DisplayCardDto card) =>
+        card.PreviewItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .Select(item => new ArtworkStackItem
+            {
+                Id = item.WorkId?.ToString("D") ?? item.AssetId?.ToString("D") ?? item.ImageUrl,
+                Title = item.Title,
+                ImageUrl = item.ImageUrl,
+                MediaType = card.MediaType,
+                Shape = ToArtworkShape(item.Shape),
+                Position = item.Position,
+            })
+            .ToList();
+
+    private static ArtworkShape ToArtworkShape(string? shape) =>
+        shape?.Trim().ToLowerInvariant() switch
+        {
+            "square" => ArtworkShape.Square,
+            "wide" or "landscape" => ArtworkShape.Wide,
+            _ => ArtworkShape.Portrait,
+        };
+
+    private static bool UsesOrderedSeriesStack(MediaTilePresentation presentation, IReadOnlyList<ArtworkStackItem> artworkStackItems) =>
+        artworkStackItems.Count > 0
+        && presentation is MediaTilePresentation.BookSeries
+            or MediaTilePresentation.ComicSeries
+            or MediaTilePresentation.MovieSeries;
+
+    private static IReadOnlyList<string> BuildPreviewImages(DisplayCardDto card, IReadOnlyList<ArtworkStackItem> artworkStackItems)
     {
-        var candidates = new[]
+        var candidates = artworkStackItems.Select(item => item.ImageUrl).Concat(new[]
         {
             card.Artwork.CoverSmallUrl,
             card.Artwork.CoverMediumUrl,
@@ -369,7 +407,7 @@ public sealed class MediaTileComposerService
             card.Artwork.SquareUrl,
             card.Artwork.BackgroundUrl,
             card.Artwork.BannerUrl,
-        };
+        });
 
         return candidates
             .Where(value => !string.IsNullOrWhiteSpace(value))

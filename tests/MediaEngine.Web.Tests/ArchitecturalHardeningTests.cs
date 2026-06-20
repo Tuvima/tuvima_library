@@ -1,6 +1,8 @@
 using System.Net;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Integration.Clients;
@@ -76,6 +78,70 @@ public sealed class ArchitecturalHardeningTests
         var provider = Assert.Single(catalogue);
         Assert.Equal("open_library", provider.Name);
         Assert.Equal("Open Library", provider.DisplayName);
+    }
+
+    [Fact]
+    public async Task EngineApiClient_NormalizesDisplayPreviewItemArtworkUrls()
+    {
+        var workId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var card = new DisplayCardDto(
+            Id: workId,
+            WorkId: workId,
+            AssetId: null,
+            CollectionId: null,
+            MediaType: "Book",
+            GroupingType: "work",
+            Title: "Foundation",
+            Subtitle: null,
+            Facts: [],
+            Artwork: EmptyDisplayArtwork(),
+            PreferredShape: "portrait",
+            Presentation: "book",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [],
+            Flags: new DisplayCardFlagsDto(false, true, false, false, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-06-01T12:00:00Z"))
+        {
+            PreviewItems =
+            [
+                new DisplayCardPreviewItemDto(
+                    WorkId: workId,
+                    AssetId: null,
+                    Title: "Foundation",
+                    ImageUrl: "/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
+                    Shape: "portrait",
+                    Position: "1"),
+            ],
+        };
+        var page = new DisplayPageDto(
+            Key: "read",
+            Title: "Read",
+            Subtitle: null,
+            Hero: null,
+            Shelves: [new DisplayShelfDto("series", "Series", null, [card], null)],
+            Catalog: [card]);
+
+        using var httpClient = CreateHttpClient(request =>
+        {
+            Assert.StartsWith("http://localhost:61495/api/v1/display/browse", request.RequestUri!.ToString(), StringComparison.Ordinal);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(page, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Encoding.UTF8, "application/json"),
+            };
+        });
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var result = await client.GetDisplayBrowseAsync(lane: "read", includeCatalog: true);
+
+        Assert.NotNull(result);
+        Assert.Equal(
+            "http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
+            result.Catalog.Single().PreviewItems.Single().ImageUrl);
+        Assert.Equal(
+            "http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
+            result.Shelves.Single().Items.Single().PreviewItems.Single().ImageUrl);
     }
 
     [Fact]
@@ -164,6 +230,35 @@ public sealed class ArchitecturalHardeningTests
         {
             BaseAddress = new Uri("http://localhost:61495"),
         };
+
+    private static DisplayArtworkDto EmptyDisplayArtwork() =>
+        new(
+            CoverUrl: null,
+            CoverSmallUrl: null,
+            CoverMediumUrl: null,
+            CoverLargeUrl: null,
+            SquareUrl: null,
+            SquareSmallUrl: null,
+            SquareMediumUrl: null,
+            SquareLargeUrl: null,
+            BannerUrl: null,
+            BannerSmallUrl: null,
+            BannerMediumUrl: null,
+            BannerLargeUrl: null,
+            BackgroundUrl: null,
+            BackgroundSmallUrl: null,
+            BackgroundMediumUrl: null,
+            BackgroundLargeUrl: null,
+            LogoUrl: null,
+            CoverWidthPx: null,
+            CoverHeightPx: null,
+            SquareWidthPx: null,
+            SquareHeightPx: null,
+            BannerWidthPx: null,
+            BannerHeightPx: null,
+            BackgroundWidthPx: null,
+            BackgroundHeightPx: null,
+            AccentColor: null);
 
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
     {

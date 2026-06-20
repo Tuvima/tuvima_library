@@ -32,6 +32,8 @@ Home composition is placement-aware: the Collections & Lists shelf comes from ac
 
 Lane grouping is item-count aware. TV show cards can represent a show with one or more owned episodes, but non-TV/non-music series cards require at least two distinct owned works by default. Operators can tune this with `config/ui/library-preferences.json` under `lane_group_display.*.minimum_series_items`. Grouped show/series cards should prefer collection/root artwork; episode stills are only a fallback when no show-level art exists.
 
+Ordered series cards use `DisplayCardDto.PreviewItems` and `PreviewTotalCount` to expose the first owned works in display order. Clients should render those previews as an ordered strip with visible positions and should preserve order. Broader curated collections can still use decorative/randomized stacks because they are not sequence previews.
+
 `DisplayProjectionRepository` owns database reads for display projections. It should keep SQL and visibility filtering out of page composition.
 
 `DisplayCardBuilder` owns card, fact, badge, artwork, progress, and action construction. Hero facts should flow from the source card so spotlight and tile metadata stay consistent.

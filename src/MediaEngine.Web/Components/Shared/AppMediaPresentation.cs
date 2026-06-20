@@ -37,6 +37,21 @@ public static class AppMediaPresentation
         };
     }
 
+    public static string IconKeyFor(string? mediaType)
+    {
+        var label = LabelFor(mediaType);
+        return label switch
+        {
+            "Audiobook" or "Audio" => AppIcons.Audiobook,
+            "Book" => AppIcons.Book,
+            "Comic" => AppIcons.Comic,
+            "Movie" or "Video" => AppIcons.Movie,
+            "TV" => AppIcons.Television,
+            "Music" => AppIcons.Music,
+            _ => AppIcons.Library,
+        };
+    }
+
     public static string AccentFor(string? mediaType)
     {
         var label = LabelFor(mediaType);

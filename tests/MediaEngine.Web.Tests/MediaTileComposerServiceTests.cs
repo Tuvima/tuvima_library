@@ -240,6 +240,81 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_MapsOrderedSeriesPreviewItemsToLandscapeStack()
+    {
+        var collectionId = Guid.Parse("66666666-3333-3333-3333-666666666666");
+        var workId = Guid.Parse("77777777-3333-3333-3333-777777777777");
+        var action = new DisplayActionDto("openSeries", "Open Series", CollectionId: collectionId, WebUrl: $"/details/bookseries/{collectionId}");
+        var card = new DisplayCardDto(
+            Id: collectionId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: collectionId,
+            MediaType: "Book",
+            GroupingType: "bookSeries",
+            Title: "Foundation Series",
+            Subtitle: "6 titles",
+            Facts: ["6 titles", "Science Fiction"],
+            Artwork: new DisplayArtworkDto(
+                CoverUrl: null,
+                CoverSmallUrl: null,
+                CoverMediumUrl: null,
+                CoverLargeUrl: null,
+                SquareUrl: null,
+                SquareSmallUrl: null,
+                SquareMediumUrl: null,
+                SquareLargeUrl: null,
+                BannerUrl: null,
+                BannerSmallUrl: null,
+                BannerMediumUrl: null,
+                BannerLargeUrl: null,
+                BackgroundUrl: "/art/foundation-bg.jpg",
+                BackgroundSmallUrl: "/art/foundation-bg-s.jpg",
+                BackgroundMediumUrl: "/art/foundation-bg-m.jpg",
+                BackgroundLargeUrl: "/art/foundation-bg-l.jpg",
+                LogoUrl: null,
+                CoverWidthPx: null,
+                CoverHeightPx: null,
+                SquareWidthPx: null,
+                SquareHeightPx: null,
+                BannerWidthPx: null,
+                BannerHeightPx: null,
+                BackgroundWidthPx: 1920,
+                BackgroundHeightPx: 1080,
+                AccentColor: "#5DCAA5"),
+            PreferredShape: "portrait",
+            Presentation: "bookSeries",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(false, true, false, true, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
+        {
+            PreviewItems =
+            [
+                new DisplayCardPreviewItemDto(workId, null, "Foundation", "/covers/1-s.jpg", "portrait", "1"),
+                new DisplayCardPreviewItemDto(Guid.NewGuid(), null, "Foundation and Empire", "/covers/2-s.jpg", "portrait", "2"),
+                new DisplayCardPreviewItemDto(Guid.NewGuid(), null, "Second Foundation", "/covers/3-s.jpg", "portrait", "3"),
+                new DisplayCardPreviewItemDto(Guid.NewGuid(), null, "Foundation's Edge", "/covers/4-s.jpg", "portrait", "4"),
+            ],
+            PreviewTotalCount = 6,
+        };
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.True(mapped.IsCollection);
+        Assert.Equal(MediaTileShape.Landscape, mapped.Shape);
+        Assert.Equal(MediaTileSurfaceKind.BannerLandscape, mapped.SurfaceKind);
+        Assert.Equal(MediaTileHoverLayout.BannerPopover, mapped.HoverLayout);
+        Assert.Equal("/art/foundation-bg-s.jpg", mapped.TileImageUrl);
+        Assert.Null(mapped.TileImageSrcSet);
+        Assert.Equal(6, mapped.PreviewTotalCount);
+        Assert.Equal(["1", "2", "3", "4"], mapped.ArtworkStackItems.Select(item => item.Position));
+        Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg"], mapped.ArtworkStackItems.Select(item => item.ImageUrl));
+    }
+
+    [Fact]
     public void FromDisplayPage_UsesDisplayHeroAndShelvesWithoutLegacyComposition()
     {
         var workId = Guid.Parse("33333333-3333-3333-3333-333333333333");

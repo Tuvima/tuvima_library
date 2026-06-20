@@ -280,6 +280,47 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTile_OrderedSeriesCollectionUsesSeriesStripAndOverflowLabel()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "Foundation Series",
+            Subtitle = "6 titles",
+            MediaKind = "Book",
+            AccentColor = "#5DCAA5",
+            Shape = MediaTileShape.Landscape,
+            Presentation = MediaTilePresentation.BookSeries,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/foundation-bg.jpg",
+            HoverImageUrl = "/art/foundation-bg.jpg",
+            NavigationUrl = "/details/bookseries/foundation",
+            PrimaryNavigationUrl = "/details/bookseries/foundation",
+            PrimaryActionLabel = "Open Series",
+            IsCollection = true,
+            PreviewTotalCount = 6,
+            ArtworkStackItems =
+            [
+                new ArtworkStackItem { Id = "1", Title = "Foundation", ImageUrl = "/covers/1.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait, Position = "1" },
+                new ArtworkStackItem { Id = "2", Title = "Foundation and Empire", ImageUrl = "/covers/2.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait, Position = "2" },
+                new ArtworkStackItem { Id = "3", Title = "Second Foundation", ImageUrl = "/covers/3.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait, Position = "3" },
+                new ArtworkStackItem { Id = "4", Title = "Foundation's Edge", ImageUrl = "/covers/4.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait, Position = "4" },
+            ],
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.NotEmpty(cut.FindAll(".media-tile.is-ordered-series-card"));
+        Assert.NotEmpty(cut.FindAll(".artwork-stack--seriesstrip"));
+        Assert.Equal(4, cut.FindAll(".artwork-stack__position").Count);
+        Assert.NotEmpty(cut.FindAll(".media-tile-collection-kind-icon"));
+        Assert.Contains("+2 more", cut.Markup);
+    }
+
+    [Fact]
     public void MediaTile_HoverDescriptionOnlyRendersCompactOneLineDescriptors()
     {
         var item = new MediaTileViewModel

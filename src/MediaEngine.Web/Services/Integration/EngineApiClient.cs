@@ -4655,7 +4655,14 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     private DisplayCardDto NormalizeDisplayCard(DisplayCardDto card) =>
-        card with { Artwork = NormalizeDisplayArtwork(card.Artwork) };
+        card with
+        {
+            Artwork = NormalizeDisplayArtwork(card.Artwork),
+            PreviewItems = card.PreviewItems.Select(NormalizeDisplayPreviewItem).ToList(),
+        };
+
+    private DisplayCardPreviewItemDto NormalizeDisplayPreviewItem(DisplayCardPreviewItemDto item) =>
+        item with { ImageUrl = AbsoluteUrl(item.ImageUrl) };
 
     private DisplayShelfDto NormalizeDisplayShelf(DisplayShelfDto shelf) =>
         shelf with { Items = shelf.Items.Select(NormalizeDisplayCard).ToList() };

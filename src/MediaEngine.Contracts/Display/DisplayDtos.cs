@@ -55,11 +55,21 @@ public sealed record DisplayCardDto(
 {
     public string? Description { get; init; }
     public IReadOnlyList<DisplayCardBadgeDto> Badges { get; init; } = [];
+    public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; init; } = [];
+    public int? PreviewTotalCount { get; init; }
 }
 
 public sealed record DisplayCardBadgeDto(
     string Kind,
     string Label);
+
+public sealed record DisplayCardPreviewItemDto(
+    Guid? WorkId,
+    Guid? AssetId,
+    string Title,
+    string ImageUrl,
+    string Shape,
+    string? Position);
 
 public sealed record DisplayArtworkDto(
     string? CoverUrl,

@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediaEngine.Contracts.Display;
 
 namespace MediaEngine.Api.Services.Display;
@@ -144,6 +145,7 @@ public sealed class DisplayCardBuilder
         var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind, title));
         var artwork = CollectionArtworkFor(representative);
         var presentation = CollectionPresentation(lane, mediaKind);
+        var previewItems = BuildSeriesPreviewItems(mediaKind, works);
 
         return new DisplayCardDto(
             Id: collectionId,
@@ -166,6 +168,8 @@ public sealed class DisplayCardBuilder
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
             Description = representative.Description,
+            PreviewItems = previewItems,
+            PreviewTotalCount = previewItems.Count > 0 ? DistinctOwnedSeriesMemberCount(works) : null,
         };
     }
 
@@ -499,6 +503,114 @@ public sealed class DisplayCardBuilder
         return $"{count} {noun}";
     }
 
+    private static IReadOnlyList<DisplayCardPreviewItemDto> BuildSeriesPreviewItems(string mediaKind, IReadOnlyList<DisplayWorkRow> works)
+    {
+        if (mediaKind is not ("Book" or "Comic" or "Movie"))
+        {
+            return [];
+        }
+
+        return works
+            .Select(work => new
+            {
+                Work = work,
+                ImageUrl = SeriesPreviewImage(work),
+                SortPosition = ParseSeriesPosition(work.SeriesPosition),
+                DisplayTitle = DisplayTitleFor(mediaKind, work.Title, work.Series, work.SeriesPosition),
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .GroupBy(item => item.Work.WorkId)
+            .Select(group => group.First())
+            .OrderBy(item => item.SortPosition is null)
+            .ThenBy(item => item.SortPosition ?? double.MaxValue)
+            .ThenBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Work.CreatedAt)
+            .Take(4)
+            .Select(item => new DisplayCardPreviewItemDto(
+                item.Work.WorkId,
+                item.Work.AssetId,
+                item.DisplayTitle,
+                item.ImageUrl!,
+                SeriesPreviewShape(item.Work, item.ImageUrl),
+                item.Work.SeriesPosition))
+            .ToList();
+    }
+
+    private static string? SeriesPreviewImage(DisplayWorkRow work) =>
+        FirstNonBlank(
+            work.CoverSmallUrl,
+            work.CoverMediumUrl,
+            work.CoverLargeUrl,
+            work.CoverUrl,
+            work.SquareSmallUrl,
+            work.SquareMediumUrl,
+            work.SquareLargeUrl,
+            work.SquareUrl);
+
+    private static string SeriesPreviewShape(DisplayWorkRow work, string? imageUrl)
+    {
+        if (MatchesAny(imageUrl, work.SquareUrl, work.SquareSmallUrl, work.SquareMediumUrl, work.SquareLargeUrl))
+        {
+            return "square";
+        }
+
+        var width = ParseInt(work.CoverWidthPx);
+        var height = ParseInt(work.CoverHeightPx);
+        if (width is > 0 && height is > 0)
+        {
+            var ratio = width.Value / (double)height.Value;
+            if (ratio >= 1.32)
+            {
+                return "wide";
+            }
+
+            if (ratio >= 0.86)
+            {
+                return "square";
+            }
+        }
+
+        return "portrait";
+    }
+
+    private static double? ParseSeriesPosition(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var started = false;
+        var seenDecimal = false;
+        var chars = new List<char>();
+        foreach (var character in value.Trim())
+        {
+            if (char.IsDigit(character))
+            {
+                started = true;
+                chars.Add(character);
+                continue;
+            }
+
+            if (character == '.' && started && !seenDecimal)
+            {
+                seenDecimal = true;
+                chars.Add(character);
+                continue;
+            }
+
+            if (started)
+            {
+                break;
+            }
+        }
+
+        return chars.Count > 0
+            && double.TryParse(new string(chars.ToArray()), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : null;
+    }
+
     private static string CollectionSubtitle(string mediaKind, IReadOnlyList<DisplayWorkRow> works)
     {
         if (mediaKind == "TV")
@@ -766,6 +878,10 @@ public sealed class DisplayCardBuilder
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static bool MatchesAny(string? value, params string?[] candidates) =>
+        !string.IsNullOrWhiteSpace(value)
+        && candidates.Any(candidate => string.Equals(candidate, value, StringComparison.OrdinalIgnoreCase));
 
     private static void AddFact(List<string> facts, string? value)
     {

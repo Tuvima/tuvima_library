@@ -24,6 +24,10 @@
                     <img src="@slot.item.ImageUrl"
                          alt="@(IsDecorative ? string.Empty : slot.item.Title)"
                          loading="lazy" />
+                    @if (ShowPositionBadge(slot.item))
+                    {
+                        <span class="artwork-stack__position" aria-hidden="true">@slot.item.Position</span>
+                    }
                 </div>
             }
         }
@@ -39,6 +43,7 @@
     [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public bool PreferShapeBalancedLayout { get; set; } = true;
+    [Parameter] public bool PreserveOrder { get; set; }
     [Parameter] public MediaEngine.Domain.Models.ArtworkPalette? Palette { get; set; }
 
     private string? StackStyle => Palette?.CssVariableStyle;
@@ -48,7 +53,7 @@
         get
         {
             var maxVisible = Math.Clamp(MaxVisible ?? DefaultVisibleCount, 1, 7);
-            return Items
+            var artwork = Items
                 .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
                 .Select(item => new ArtworkStackItem
                 {
@@ -57,10 +62,15 @@
                     ImageUrl = item.ImageUrl,
                     MediaType = item.MediaType,
                     Shape = item.Shape,
-                })
-                .OrderBy(item => StableHash($"{Seed}|{item.Id}|{item.ImageUrl}"))
-                .Take(maxVisible)
-                .ToList();
+                    Position = item.Position,
+                });
+
+            if (!PreserveOrder)
+            {
+                artwork = artwork.OrderBy(item => StableHash($"{Seed}|{item.Id}|{item.ImageUrl}"));
+            }
+
+            return artwork.Take(maxVisible).ToList();
         }
     }
 
@@ -68,6 +78,7 @@
     {
         ArtworkStackVariant.Compact => 3,
         ArtworkStackVariant.Card => 4,
+        ArtworkStackVariant.SeriesStrip => 4,
         ArtworkStackVariant.Hero => 5,
         ArtworkStackVariant.Dense => 5,
         _ => 4,
@@ -102,6 +113,9 @@
     private StackSlot ResolveSlot(int index, ArtworkShape shape)
     {
         var count = VisibleArtwork.Count;
+        if (Variant == ArtworkStackVariant.SeriesStrip)
+            return ResolveSeriesStripSlot(index, count, shape);
+
         if (count == 1)
             return new("38%", "50%", "50%", "0deg", "1", 5);
 
@@ -150,6 +164,40 @@
         {
             Width = shape == ArtworkShape.Wide ? "38%" : slots[Math.Min(index, slots.Length - 1)].Width,
         };
+    }
+
+    private static StackSlot ResolveSeriesStripSlot(int index, int count, ArtworkShape shape)
+    {
+        StackSlot[] slots = count switch
+        {
+            <= 1 =>
+            [
+                new StackSlot("34%", "38%", "48%", "0deg", "1.04", 5),
+            ],
+            2 =>
+            [
+                new StackSlot("36%", "36%", "49%", "0deg", "1.05", 5),
+                new StackSlot("31%", "63%", "51%", "3deg", ".95", 4),
+            ],
+            3 =>
+            [
+                new StackSlot("36%", "30%", "49%", "0deg", "1.05", 6),
+                new StackSlot("31%", "55%", "51%", "2deg", ".96", 5),
+                new StackSlot("29%", "76%", "53%", "4deg", ".9", 4),
+            ],
+            _ =>
+            [
+                new StackSlot("35%", "25%", "49%", "0deg", "1.06", 7),
+                new StackSlot("30%", "49%", "50%", "2deg", ".97", 6),
+                new StackSlot("28%", "69%", "52%", "4deg", ".9", 5),
+                new StackSlot("26%", "86%", "54%", "6deg", ".84", 4),
+            ],
+        };
+
+        var slot = slots[Math.Min(index, slots.Length - 1)];
+        return shape == ArtworkShape.Wide
+            ? slot with { Width = "42%" }
+            : slot;
     }
 
     private static StackSlot ResolveSquareSlot(int index, int count)
@@ -228,6 +276,10 @@
         ArtworkShape.Wide => "wide",
         _ => "portrait",
     };
+
+    private bool ShowPositionBadge(ArtworkStackItem item) =>
+        Variant == ArtworkStackVariant.SeriesStrip
+        && !string.IsNullOrWhiteSpace(item.Position);
 
     private static int StableHash(string value)
     {
@@ -330,6 +382,29 @@
         display: block;
     }
 
+    .artwork-stack__position {
+        position: absolute;
+        left: .42rem;
+        bottom: .42rem;
+        z-index: 2;
+        min-width: 1.45rem;
+        height: 1.45rem;
+        padding: 0 .38rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+        font-size: .68rem;
+        font-weight: 900;
+        line-height: 1;
+        color: rgba(248, 250, 252, .96);
+        background: rgba(2, 6, 16, .72);
+        border: 1px solid rgba(255, 255, 255, .16);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, .34);
+        backdrop-filter: blur(10px);
+    }
+
     .artwork-stack__placeholder {
         position: absolute;
         left: 50%;
@@ -359,6 +434,10 @@
         --artwork-radius: .62rem;
     }
 
+    .artwork-stack--seriesstrip .artwork-stack__item {
+        --artwork-radius: clamp(.5rem, .7vw, .72rem);
+    }
+
     .artwork-stack--hero .artwork-stack__item {
         --artwork-radius: clamp(.75rem, 1.1vw, 1rem);
         top: calc(var(--top) - 5%);
@@ -381,7 +460,8 @@
     }
 
     .artwork-stack--card .artwork-stack__item,
-    .artwork-stack--compact .artwork-stack__item {
+    .artwork-stack--compact .artwork-stack__item,
+    .artwork-stack--seriesstrip .artwork-stack__item {
         left: min(96%, calc(var(--left) + 18%));
     }
 

@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.MediaTiles
+@using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Models.ViewDTOs
 @inject NavigationManager Nav
 @inject IDialogService DialogService
@@ -6,7 +7,7 @@
 @inject ILogger<MediaTile> Logger
 @implements IAsyncDisposable
 
-<div class='@($"media-tile tl-card-hover--media {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(_expanded ? "is-expanded" : "")}")'
+<div class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")}")'
      @ref="_cardRef"
      tabindex="0"
      @onkeydown="@HandleKeyDown">
@@ -29,11 +30,12 @@
                 {
                     <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
                                         Seed="@CollectionStackSeed"
-                                        Variant="ArtworkStackVariant.Card"
+                                        Variant="@(UsesOrderedSeriesStack ? ArtworkStackVariant.SeriesStrip : ArtworkStackVariant.Card)"
                                         MaxVisible="4"
                                         IsDecorative="true"
+                                        PreserveOrder="@UsesOrderedSeriesStack"
                                         Palette="@Item.ArtworkPalette"
-                                        Class="media-tile-artwork-stack media-tile-artwork-stack--collection-tile" />
+                                        Class="@ArtworkStackClass" />
                 }
             }
             else if (ShowPreviewStack)
@@ -77,7 +79,7 @@
             @if (ShowMediaKindBadge)
             {
                 <div class="media-tile-badge" title="@MediaKindLabel">
-                    <MudIcon Icon="@MediaKindIcon" />
+                    <MudIcon Icon="@MediaKindMudIcon" />
                     <span class="media-tile-visually-hidden">@MediaKindLabel</span>
                 </div>
             }
@@ -114,9 +116,26 @@
             @if (ShowCollectionBanner && (ShowCollectionTitleOverlay || CollectionMediaCounts.Count > 0))
             {
                 <div class="media-tile-collection-copy">
+                    @if (ShowCollectionMediaIcon)
+                    {
+                        <MudIcon Icon="@MediaKindMudIcon"
+                                 Class="media-tile-collection-kind-icon"
+                                 title="@MediaKindLabel"
+                                 aria-label="@MediaKindLabel" />
+                    }
                     @if (ShowCollectionTitleOverlay)
                     {
                         <div class="media-tile-collection-title">@Item.Title</div>
+                    }
+                    @if (ShowCollectionSubtitle)
+                    {
+                        <div class="media-tile-collection-subtitle">
+                            <span>@Item.Subtitle</span>
+                            @if (!string.IsNullOrWhiteSpace(SeriesOverflowLabel))
+                            {
+                                <span>@SeriesOverflowLabel</span>
+                            }
+                        </div>
                     }
                     @if (CollectionMediaCounts.Count > 0)
                     {
@@ -180,7 +199,7 @@
                     <div class="media-tile-hover-actions">
                         <div class="media-tile-hover-actions-left">
                             <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-primary" AriaLabel="@Item.PrimaryActionLabel" Title="@Item.PrimaryActionLabel" OnClick="OpenPrimary" StopPropagation="true">
-                                <MudIcon Icon="@PrimaryIcon" />
+                                <MudIcon Icon="@PrimaryMudIcon" />
                                 <span class="media-tile-primary-action-label">@PrimaryActionDisplayLabel</span>
                             </AppNativeButton>
 
@@ -327,6 +346,16 @@
         _ => "is-portrait",
     };
 
+    private string MediaKindClass => MediaKindLabel switch
+    {
+        "Book" => "is-media-book",
+        "Comic" => "is-media-comic",
+        "Audiobook" or "Music" => "is-media-audio",
+        "Movie" => "is-media-movie",
+        "TV" => "is-media-tv",
+        _ => "is-media-default",
+    };
+
     private string PresentationClass => Item.Presentation switch
     {
         MediaTilePresentation.TvSeries => "is-tv-series",
@@ -353,11 +382,21 @@
 
     private bool ShowCollectionBanner => Item.IsCollection && Item.SurfaceKind == MediaTileSurfaceKind.BannerLandscape;
 
+    private bool UsesOrderedSeriesStack =>
+        Item.ArtworkStackItems.Count > 0
+        && Item.Presentation is MediaTilePresentation.BookSeries
+            or MediaTilePresentation.ComicSeries
+            or MediaTilePresentation.MovieSeries;
+
     private bool ShowCollectionArtworkStack => ShowCollectionBanner
         && Item.Presentation is not MediaTilePresentation.TvSeries
         && CollectionArtworkStackItems.Count > 0;
 
-    private bool ShowMediaKindBadge => !HideMediaKindBadge && !ShowCollectionBanner && !string.IsNullOrWhiteSpace(MediaKindIcon);
+    private string ArtworkStackClass => UsesOrderedSeriesStack
+        ? "media-tile-artwork-stack media-tile-artwork-stack--collection-tile media-tile-artwork-stack--series-tile"
+        : "media-tile-artwork-stack media-tile-artwork-stack--collection-tile";
+
+    private bool ShowMediaKindBadge => !HideMediaKindBadge && !ShowCollectionBanner && !string.IsNullOrWhiteSpace(MediaKindMudIcon);
 
     private bool ShowQualityBadge => !ShowCollectionBanner && !string.IsNullOrWhiteSpace(Item.QualityBadge);
 
@@ -406,6 +445,7 @@
                 ImageUrl = image,
                 MediaType = Item.MediaKind,
                 Shape = ArtworkShape.Portrait,
+                Position = null,
             }).ToList();
 
     private IReadOnlyList<string> CollectionStackPreviewImages => PreviewImages
@@ -433,6 +473,28 @@
         .Where(count => count.Count > 0)
         .Take(4)
         .ToList();
+
+    private bool ShowCollectionMediaIcon =>
+        UsesOrderedSeriesStack
+        && !string.IsNullOrWhiteSpace(MediaKindMudIcon);
+
+    private bool ShowCollectionSubtitle =>
+        UsesOrderedSeriesStack
+        && !string.IsNullOrWhiteSpace(Item.Subtitle);
+
+    private string? SeriesOverflowLabel
+    {
+        get
+        {
+            if (!UsesOrderedSeriesStack || Item.PreviewTotalCount is not > 0)
+            {
+                return null;
+            }
+
+            var overflow = Item.PreviewTotalCount.Value - CollectionArtworkStackItems.Count;
+            return overflow > 0 ? $"+{overflow} more" : null;
+        }
+    }
 
     private IReadOnlyList<string> DisplayChips => (Item.VibeTags.Count > 0 ? Item.VibeTags : Item.Genres)
         .Where(chip => !string.IsNullOrWhiteSpace(chip))
@@ -481,10 +543,12 @@
 
     private bool ShowRichHoverFacts => EffectiveHoverMode == MediaTileHoverMode.Expanded && CompactHoverFacts.Count > 0;
 
-    private string PrimaryIcon => Item.MediaKind switch
+    private string PrimaryMudIcon => Item.MediaKind switch
     {
-        "Movie" or "TV" or "Music" or "Audiobook" => Icons.Material.Filled.PlayArrow,
-        _ => Icons.Material.Filled.AutoStories,
+        "Movie" or "TV" => Icons.Material.Filled.PlayArrow,
+        "Music" or "Audiobook" => Icons.Material.Filled.GraphicEq,
+        "Comic" or "Book" => Icons.Material.Filled.MenuBook,
+        _ => Icons.Material.Filled.PlayArrow,
     };
 
     private string PrimaryActionDisplayLabel
@@ -543,15 +607,15 @@
         _ => string.IsNullOrWhiteSpace(Item.MediaKind) ? "Media" : Item.MediaKind,
     };
 
-    private string MediaKindIcon => MediaKindLabel switch
+    private string MediaKindMudIcon => MediaKindLabel switch
     {
-        "Movie" => Icons.Material.Filled.Movie,
-        "TV" => Icons.Material.Filled.LiveTv,
-        "Music" => Icons.Material.Filled.MusicNote,
-        "Audiobook" => Icons.Material.Filled.Headphones,
-        "Comic" => Icons.Material.Filled.AutoStories,
-        "Book" => Icons.Material.Filled.MenuBook,
-        _ => Icons.Material.Filled.Theaters,
+        "Movie" => Icons.Material.Outlined.Movie,
+        "TV" => Icons.Material.Outlined.LiveTv,
+        "Music" => Icons.Material.Outlined.Album,
+        "Audiobook" => Icons.Material.Outlined.Headphones,
+        "Comic" => Icons.Material.Outlined.AutoStories,
+        "Book" => Icons.Material.Outlined.MenuBook,
+        _ => Icons.Material.Outlined.LibraryBooks,
     };
 
     private string DisplaySubtitle => Item.Subtitle ?? Item.Creator ?? string.Empty;

@@ -11,6 +11,11 @@ public static class AppIcons
     public const string Read = "read";
     public const string Watch = "watch";
     public const string Listen = "listen";
+    public const string Book = "book";
+    public const string Comic = "comic";
+    public const string Movie = "movie";
+    public const string Television = "television";
+    public const string Audiobook = "audiobook";
     public const string Review = "review";
     public const string Collections = "collections";
     public const string Settings = "settings";
@@ -37,5 +42,4 @@ public static class AppIcons
     public const string Table = "table";
     public const string FolderTree = "folder-tree";
     public const string Music = "music";
-    public const string Television = "television";
 }

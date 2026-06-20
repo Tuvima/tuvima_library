@@ -128,6 +128,17 @@ public sealed class ContractJsonRoundTripTests
         {
             Description = "2016 science fiction film",
             Badges = [new DisplayCardBadgeDto("quality", "4K"), new DisplayCardBadgeDto("source", "Max")],
+            PreviewItems =
+            [
+                new DisplayCardPreviewItemDto(
+                    WorkId: workId,
+                    AssetId: assetId,
+                    Title: "Arrival",
+                    ImageUrl: "/cover-s.jpg",
+                    Shape: "portrait",
+                    Position: "1"),
+            ],
+            PreviewTotalCount = 3,
         };
         var hero = new DisplayHeroDto("Arrival", "2016", "Featured", card.Artwork, card.Progress, card.Actions)
         {
@@ -145,8 +156,13 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal("2016 science fiction film", roundTrip.Catalog[0].Description);
         Assert.Equal(card.Actions[0].Type, roundTrip.Catalog[0].Actions[0].Type);
         Assert.Equal("4K", roundTrip.Catalog[0].Badges.Single(badge => badge.Kind == "quality").Label);
+        Assert.Equal("Arrival", roundTrip.Catalog[0].PreviewItems.Single().Title);
+        Assert.Equal("1", roundTrip.Catalog[0].PreviewItems.Single().Position);
+        Assert.Equal(3, roundTrip.Catalog[0].PreviewTotalCount);
         Assert.Contains("\"workId\":\"11111111-1111-1111-1111-111111111111\"", json, StringComparison.Ordinal);
         Assert.Contains("\"badges\":[{\"kind\":\"quality\",\"label\":\"4K\"}", json, StringComparison.Ordinal);
+        Assert.Contains("\"previewItems\":[{\"workId\":\"11111111-1111-1111-1111-111111111111\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"previewTotalCount\":3", json, StringComparison.Ordinal);
         Assert.Contains("\"description\":\"2016 science fiction film\"", json, StringComparison.Ordinal);
         Assert.Contains("\"facts\":[\"PG-13\",\"116 min\"]", json, StringComparison.Ordinal);
     }

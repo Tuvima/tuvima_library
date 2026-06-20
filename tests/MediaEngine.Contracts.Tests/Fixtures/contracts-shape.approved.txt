@@ -403,6 +403,8 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   SortTimestamp: System.DateTimeOffset | nullability=not-null | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
   Badges: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardBadgeDto> | nullability=not-null | accessors=get,init
+  PreviewItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardPreviewItemDto> | nullability=not-null | accessors=get,init
+  PreviewTotalCount: System.Int32? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   IsPlayable: System.Boolean | nullability=not-null | accessors=get,init
@@ -410,6 +412,14 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   CanAddToCollection: System.Boolean | nullability=not-null | accessors=get,init
   IsCollection: System.Boolean | nullability=not-null | accessors=get,init
   IsFavorite: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardPreviewItemDto
+  WorkId: System.Guid? | nullability=nullable | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  ImageUrl: System.String | nullability=not-null | accessors=get,init
+  Shape: System.String | nullability=not-null | accessors=get,init
+  Position: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayHeroDto
   Title: System.String | nullability=not-null | accessors=get,init

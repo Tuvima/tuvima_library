@@ -15,6 +15,11 @@ public static class AppIconCatalog
             [AppIcons.Read] = Solid("book-open-reader"),
             [AppIcons.Watch] = Solid("film"),
             [AppIcons.Listen] = Solid("headphones"),
+            [AppIcons.Book] = Solid("book-open-reader"),
+            [AppIcons.Comic] = Solid("book-open"),
+            [AppIcons.Movie] = Solid("film"),
+            [AppIcons.Television] = Solid("tv"),
+            [AppIcons.Audiobook] = Solid("headphones"),
             [AppIcons.Review] = Solid("clipboard-check"),
             [AppIcons.Collections] = Solid("boxes-stacked"),
             [AppIcons.Settings] = Solid("gear"),
@@ -41,7 +46,6 @@ public static class AppIconCatalog
             [AppIcons.Table] = Solid("table-list"),
             [AppIcons.FolderTree] = Solid("folder-tree"),
             [AppIcons.Music] = Solid("music"),
-            [AppIcons.Television] = Solid("tv"),
         };
 
     public static bool TryResolve(string? key, out AppIconDescriptor icon)

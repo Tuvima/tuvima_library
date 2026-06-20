@@ -77,6 +77,7 @@ public sealed class MediaTileViewModel
     public string? LogoUrl { get; init; }
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
     public IReadOnlyList<ArtworkStackItem> ArtworkStackItems { get; init; } = [];
+    public int? PreviewTotalCount { get; init; }
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public string? QualityBadge { get; init; }

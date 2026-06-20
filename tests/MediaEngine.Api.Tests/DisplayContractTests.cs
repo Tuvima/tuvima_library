@@ -60,6 +60,17 @@ public sealed class DisplayContractTests
         {
             Description = "2016 science fiction film",
             Badges = [new DisplayCardBadgeDto("quality", "4K"), new DisplayCardBadgeDto("source", "Max")],
+            PreviewItems =
+            [
+                new DisplayCardPreviewItemDto(
+                    WorkId: workId,
+                    AssetId: assetId,
+                    Title: "Arrival",
+                    ImageUrl: "/stream/artwork/22222222-2222-2222-2222-222222222222?size=s",
+                    Shape: "portrait",
+                    Position: "1"),
+            ],
+            PreviewTotalCount = 3,
         };
 
         var page = new DisplayPageDto(
@@ -88,6 +99,8 @@ public sealed class DisplayContractTests
         Assert.Contains("\"facts\":[\"2016\",\"Science Fiction\"]", json, StringComparison.Ordinal);
         Assert.Contains("\"description\":\"2016 science fiction film\"", json, StringComparison.Ordinal);
         Assert.Contains("\"badges\":[{\"kind\":\"quality\",\"label\":\"4K\"}", json, StringComparison.Ordinal);
+        Assert.Contains("\"previewItems\":[{\"workId\":\"11111111-1111-1111-1111-111111111111\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"previewTotalCount\":3", json, StringComparison.Ordinal);
         Assert.Contains("\"flags\":{\"isPlayable\":true", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"WorkId\"", json, StringComparison.Ordinal);
     }

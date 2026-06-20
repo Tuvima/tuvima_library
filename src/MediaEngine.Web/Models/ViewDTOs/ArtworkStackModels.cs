@@ -7,6 +7,7 @@ public sealed class ArtworkStackItem
     public string ImageUrl { get; init; } = string.Empty;
     public string MediaType { get; init; } = string.Empty;
     public ArtworkShape Shape { get; init; } = ArtworkShape.Portrait;
+    public string? Position { get; init; }
 }
 
 public enum ArtworkShape
@@ -20,6 +21,7 @@ public enum ArtworkStackVariant
 {
     Compact,
     Card,
+    SeriesStrip,
     Hero,
     Dense,
 }

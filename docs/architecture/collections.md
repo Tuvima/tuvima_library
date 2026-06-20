@@ -159,7 +159,7 @@ Query-resolved collections store their predicates in the `rule_json` column. Mat
 
 ## ContentGroup Collections - Finalized During Readiness
 
-ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic volumes, audiobook series, and movie series. They are materialized during the ingestion/readiness path so Read, Watch, and Listen can show lane shelves before every broader Wikidata relationship has been hydrated. Display rules are stricter than storage rules: TV shows may show with one owned episode, while non-TV/non-music series cards require at least two distinct owned works by default and use collection/root artwork before item-level artwork.
+ContentGroup collections represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic volumes, audiobook series, and movie series. They are materialized during the ingestion/readiness path so Read, Watch, and Listen can show lane shelves before every broader Wikidata relationship has been hydrated. Display rules are stricter than storage rules: TV shows may show with one owned episode, while non-TV/non-music series cards require at least two distinct owned works by default and use collection/root artwork before item-level artwork. Book, comic, and movie series cards expose an ordered preview of owned works; curated collections and broader rollups can use decorative stacks, but sequence cards must preserve order.
 
 When a file is ingested:
 1. Processors and retail providers extract grouping metadata such as show name, album name, series name, Comic Vine series/volume facts, or TMDB `belongs_to_collection`.
