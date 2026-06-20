@@ -163,7 +163,7 @@
 
     @if (IsHoverEnabled)
     {
-        <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")}")'
+        <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}")'
              @onclick="OpenDetails"
              @onclick:stopPropagation="true">
             <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
@@ -190,6 +190,19 @@
                 @if (ShowHoverLogo)
                 {
                     <img src="@Item.LogoUrl" alt="@Item.Title" class="media-tile-hover-logo" />
+                }
+
+                @if (ShowHoverSeriesStack)
+                {
+                    <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
+                                        Seed="@CollectionStackSeed"
+                                        Variant="ArtworkStackVariant.SeriesStrip"
+                                        MaxVisible="4"
+                                        IsDecorative="false"
+                                        AriaLabel="@($"{Item.Title} series preview")"
+                                        PreserveOrder="true"
+                                        Palette="@Item.ArtworkPalette"
+                                        Class="media-tile-hover-series-stack" />
                 }
             </div>
 
@@ -392,6 +405,8 @@
         && Item.Presentation is not MediaTilePresentation.TvSeries
         && CollectionArtworkStackItems.Count > 0;
 
+    private bool ShowHoverSeriesStack => UsesOrderedSeriesStack && CollectionArtworkStackItems.Count > 0;
+
     private string ArtworkStackClass => UsesOrderedSeriesStack
         ? "media-tile-artwork-stack media-tile-artwork-stack--collection-tile media-tile-artwork-stack--series-tile"
         : "media-tile-artwork-stack media-tile-artwork-stack--collection-tile";
@@ -533,9 +548,13 @@
         && !string.IsNullOrWhiteSpace(DisplaySubtitle)
         && !CompactHoverFacts.Any(fact => string.Equals(fact, DisplaySubtitle, StringComparison.OrdinalIgnoreCase));
 
-    private IReadOnlyList<string> CompactHoverFacts => Item.HoverFacts
+    private IReadOnlyList<string> RawHoverFacts => Item.HoverFacts
         .Where(fact => !string.IsNullOrWhiteSpace(fact))
         .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private IReadOnlyList<string> CompactHoverFacts => RawHoverFacts
+        .Where(fact => !DuplicatesHoverSubtitle(fact))
         .Take(4)
         .ToList();
 
@@ -639,6 +658,8 @@
 
             parts = parts
                 .Where(part => !string.Equals(part, DisplaySubtitle, StringComparison.OrdinalIgnoreCase))
+                .Where(part => !DuplicatesHoverSubtitle(part))
+                .Where(part => !RawHoverFacts.Any(fact => string.Equals(fact, part, StringComparison.OrdinalIgnoreCase)))
                 .Where(part => !CompactHoverFacts.Any(fact => string.Equals(fact, part, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
@@ -647,6 +668,38 @@
     }
 
     private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HoverMetaDisplay);
+
+    private bool DuplicatesHoverSubtitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || string.IsNullOrWhiteSpace(DisplaySubtitle))
+        {
+            return false;
+        }
+
+        var normalizedValue = NormalizeComparableText(value);
+        var normalizedSubtitle = NormalizeComparableText(DisplaySubtitle);
+        if (normalizedValue.Length == 0 || normalizedSubtitle.Length == 0)
+        {
+            return false;
+        }
+
+        if (string.Equals(normalizedValue, normalizedSubtitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return normalizedValue.Length >= 4
+            && normalizedSubtitle.Contains(normalizedValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeComparableText(string value)
+    {
+        var chars = value.Trim().ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+            .ToArray();
+
+        return string.Join(' ', new string(chars).Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
 
     protected override void OnParametersSet() => _hoverImageIndex = 0;
 

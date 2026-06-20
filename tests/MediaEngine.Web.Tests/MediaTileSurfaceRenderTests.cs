@@ -315,9 +315,43 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll(".media-tile.is-ordered-series-card"));
         Assert.NotEmpty(cut.FindAll(".artwork-stack--seriesstrip"));
-        Assert.Equal(4, cut.FindAll(".artwork-stack__position").Count);
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-panel.is-ordered-series-hover"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-series-stack"));
+        Assert.Equal(4, cut.FindAll(".media-tile-artwork-stack--series-tile .artwork-stack__position").Count);
+        Assert.Equal(4, cut.FindAll(".media-tile-hover-series-stack .artwork-stack__position").Count);
         Assert.NotEmpty(cut.FindAll(".media-tile-collection-kind-icon"));
         Assert.Contains("+2 more", cut.Markup);
+    }
+
+    [Fact]
+    public void MediaTile_ComicHoverDoesNotRepeatSubtitleFactsInMeta()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            WorkId = Guid.NewGuid(),
+            Title = "Saga Chapter One",
+            Subtitle = "Saga - Issue #1",
+            MediaKind = "Comic",
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/saga-1.jpg",
+            HoverImageUrl = "/art/saga-1.jpg",
+            HoverFacts = ["Saga", "Issue #1", "Science Fiction"],
+            MetaText = "Saga / Issue #1 / Science Fiction",
+            NavigationUrl = "/book/saga-1?mode=read",
+            PrimaryNavigationUrl = "/book/saga-1?mode=read",
+            PrimaryActionLabel = "Read",
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.Contains("Saga - Issue #1", cut.Markup);
+        var hoverFact = Assert.Single(cut.FindAll(".media-tile-hover-fact"));
+        Assert.Contains("Science Fiction", hoverFact.TextContent);
+        Assert.Empty(cut.FindAll(".media-tile-hover-meta-row"));
     }
 
     [Fact]

@@ -111,6 +111,7 @@
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-art { width:100%; aspect-ratio:16 / 9; min-height:146px; max-height:none; }
     .media-tile-hover-panel.is-collection-hover .media-tile-hover-art { min-height:132px; max-height:min(30vh,204px); }
     .media-tile-hover-panel.is-collection-hover.is-banner-popover .media-tile-hover-art { min-height:188px; max-height:min(38vh,300px); }
+    .media-tile-hover-panel.is-ordered-series-hover.is-banner-popover .media-tile-hover-art { min-height:206px; }
     .media-tile-hover-panel.is-collection-hover.is-art-popover.is-portrait .media-tile-hover-art { min-height:0; max-height:min(46vh,354px); }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-art::after { content:""; position:absolute; inset:auto 0 0 0; height:64%; background:linear-gradient(180deg,rgba(5,8,14,0) 0%,rgba(5,8,14,.92) 100%); }
     .media-tile-hover-panel.is-art-popover .media-tile-hover-art { padding:0; }
@@ -125,6 +126,10 @@
     .media-tile-hover-image.is-fill { object-fit:cover; }
     .media-tile-hover-image.is-contained { object-fit:contain; }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-image { width:100%; height:100%; object-fit:cover; transform:scale(1.035); transform-origin:center center; }
+    .media-tile-hover-panel.is-ordered-series-hover .media-tile-hover-image { opacity:.34; filter:saturate(.82) contrast(.94); transform:scale(1.06); }
+    .media-tile-hover-series-stack,
+    ::deep .media-tile-hover-series-stack { position:absolute; inset:14px 14px 16px; z-index:2; border-radius:12px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
+    .media-tile-hover-panel.is-ordered-series-hover .media-tile-hover-art::after { z-index:3; height:36%; }
     .media-tile-hover-body { position:relative; z-index:2; padding:14px 16px 16px; display:flex; flex-direction:column; gap:10px; }
     .media-tile-hover-panel.is-banner-popover .media-tile-hover-body { padding:14px 16px 16px; gap:10px; background:linear-gradient(180deg,rgba(15,18,27,.98) 0%,rgba(7,10,18,.995) 100%); }
     .media-tile-hover-panel.is-collection-hover .media-tile-hover-body { padding:14px 16px 16px; gap:9px; }
