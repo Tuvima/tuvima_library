@@ -342,6 +342,8 @@ public sealed class DetailComposerService
         var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
         var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
+        var manifest = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
+        var displayWorks = MergeCollectionManifestPlaceholders(entityType, works, manifest);
         var artwork = BuildArtwork(
             entityType,
             collectionBackdrop,
@@ -363,7 +365,7 @@ public sealed class DetailComposerService
             PresentationContext = context,
             EditorTarget = BuildCollectionEditorTarget(collectionId, entityType, rootWorkId),
             Title = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values),
-            Subtitle = BuildCollectionSubtitle(entityType, works, values),
+            Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
             Tagline = heroSummary,
             Description = longDescription,
             DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
@@ -373,7 +375,7 @@ public sealed class DetailComposerService
                 FirstNonBlank(row.HeroBrandLabel, GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
                 FirstNonBlank(row.HeroBrandImageUrl, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
             Progress = heroProgress,
-            Metadata = BuildCollectionMetadata(entityType, works, values),
+            Metadata = BuildCollectionMetadata(entityType, displayWorks, values),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress),
             SecondaryActions = BuildSecondaryActions(collectionId, entityType),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
@@ -383,7 +385,7 @@ public sealed class DetailComposerService
             PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = relationships,
             Tabs = BuildTabs(entityType, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
-            MediaGroups = BuildCollectionMediaGroups(entityType, works),
+            MediaGroups = BuildCollectionMediaGroups(entityType, displayWorks),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -3864,6 +3866,101 @@ public sealed class DetailComposerService
         };
     }
 
+    private static IReadOnlyList<CollectionWorkSummary> MergeCollectionManifestPlaceholders(
+        DetailEntityType entityType,
+        IReadOnlyList<CollectionWorkSummary> works,
+        SeriesManifestViewDto? manifest)
+    {
+        if (manifest?.Items.Count is not > 0 || entityType is not (DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries))
+        {
+            return works;
+        }
+
+        var byId = works
+            .Where(work => Guid.TryParse(work.Id, out _))
+            .ToDictionary(work => work.Id, StringComparer.OrdinalIgnoreCase);
+        var byTitle = works
+            .GroupBy(work => NormalizeSeriesTitle(work.Title), StringComparer.OrdinalIgnoreCase)
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToDictionary(group => group.Key!, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var consumed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<CollectionWorkSummary>();
+
+        foreach (var item in manifest.Items.OrderBy(ManifestItemSortOrder).ThenBy(item => item.ItemLabel ?? item.ItemQid, StringComparer.OrdinalIgnoreCase))
+        {
+            var linkedId = item.LinkedWorkId?.ToString("D");
+            if (!string.IsNullOrWhiteSpace(linkedId) && byId.TryGetValue(linkedId, out var linkedWork))
+            {
+                if (consumed.Add(linkedWork.Id))
+                {
+                    result.Add(linkedWork);
+                }
+
+                continue;
+            }
+
+            var titleKey = NormalizeSeriesTitle(item.ItemLabel);
+            if (!string.IsNullOrWhiteSpace(titleKey) && byTitle.TryGetValue(titleKey, out var titledWork) && consumed.Add(titledWork.Id))
+            {
+                result.Add(titledWork);
+                continue;
+            }
+
+            result.Add(CreateMissingManifestWork(entityType, item));
+        }
+
+        result.AddRange(works.Where(work => consumed.Add(work.Id)));
+        return result;
+    }
+
+    private static double ManifestItemSortOrder(SeriesManifestItemDto item) =>
+        item.SortOrder ?? item.ParsedOrdinal ?? double.MaxValue;
+
+    private static CollectionWorkSummary CreateMissingManifestWork(DetailEntityType entityType, SeriesManifestItemDto item)
+    {
+        var qid = NormalizeQid(item.ItemQid) ?? item.ItemQid;
+        return new CollectionWorkSummary(
+            $"missing-{qid}",
+            ManifestPlaceholderMediaType(entityType, item.MediaType),
+            item.SortOrder is { } sortOrder ? (int)Math.Round(sortOrder, MidpointRounding.AwayFromZero) : null,
+            FirstNonBlank(item.ItemLabel, item.ItemQid, "Missing from library"),
+            item.ItemDescription,
+            null,
+            null,
+            null,
+            null,
+            PublicationYear(item.PublicationDate),
+            null,
+            false,
+            null,
+            null,
+            false,
+            "Missing",
+            true,
+            null,
+            null);
+    }
+
+    private static string ManifestPlaceholderMediaType(DetailEntityType entityType, string? mediaType) =>
+        FirstNonBlank(mediaType, entityType switch
+        {
+            DetailEntityType.ComicSeries => "Comic",
+            DetailEntityType.MovieSeries => "Movie",
+            DetailEntityType.BookSeries => "Book",
+            _ => "Unknown",
+        });
+
+    private static string? PublicationYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var year = value.Trim();
+        return year.Length >= 4 && year.Take(4).All(char.IsDigit) ? year[..4] : year;
+    }
+
     private static IReadOnlyList<MediaGroupingViewModel> BuildCollectionMediaGroups(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
     {
         if (entityType == DetailEntityType.TvShow)
@@ -4066,7 +4163,7 @@ public sealed class DetailComposerService
                 .ToList();
         }
 
-        return [new MetadataPill { Label = FormatEntityType(entityType), Kind = "type" }, new MetadataPill { Label = $"{works.Count} item{(works.Count == 1 ? "" : "s")}", Kind = "count" }];
+        return [new MetadataPill { Label = FormatEntityType(entityType), Kind = "type" }, new MetadataPill { Label = OwnedCollectionCountLabel(entityType, works), Kind = "count" }];
     }
 
     private static IReadOnlyList<DetailAction> BuildCollectionActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, ProgressViewModel? heroProgress)
@@ -4555,12 +4652,31 @@ public sealed class DetailComposerService
 
         if (entityType == DetailEntityType.ComicSeries)
         {
-            return $"Comic Volume - {works.Count} issue{(works.Count == 1 ? "" : "s")}";
+            return $"Comic Volume - {OwnedCollectionCountLabel(entityType, works)}";
         }
 
         var types = works.Select(w => FormatEntityType(InferMediaItemEntityType(w))).Distinct(StringComparer.OrdinalIgnoreCase).Take(3);
-        return $"{FormatEntityType(entityType)} • {works.Count} item{(works.Count == 1 ? "" : "s")} • {string.Join(", ", types)}";
+        return $"{FormatEntityType(entityType)} • {OwnedCollectionCountLabel(entityType, works)} • {string.Join(", ", types)}";
     }
+
+    private static string OwnedCollectionCountLabel(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
+    {
+        var ownedCount = works.Count(work => work.IsOwned);
+        var totalCount = works.Count;
+        var noun = CollectionItemNoun(entityType, totalCount);
+
+        return totalCount > ownedCount
+            ? $"{ownedCount} of {totalCount} {noun} owned"
+            : $"{ownedCount} owned {noun}";
+    }
+
+    private static string CollectionItemNoun(DetailEntityType entityType, int count) =>
+        entityType switch
+        {
+            DetailEntityType.ComicSeries => count == 1 ? "issue" : "issues",
+            DetailEntityType.MusicAlbum => count == 1 ? "track" : "tracks",
+            _ => count == 1 ? "item" : "items",
+        };
 
     private static IReadOnlyList<CreditGroupViewModel> BuildPersonCreditGroups(IReadOnlyList<MediaEngine.Api.Models.PersonLibraryCreditDto> credits, DetailPresentationContext context)
         => credits

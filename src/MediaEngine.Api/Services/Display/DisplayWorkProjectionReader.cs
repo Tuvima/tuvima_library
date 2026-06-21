@@ -80,6 +80,7 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'series_position' LIMIT 1)
                 ) AS SeriesPosition,
                 (SELECT display_name FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionTitle,
+                (SELECT COUNT(*) FROM series_manifest_items WHERE collection_id = CollectionId) AS CollectionManifestTotalCount,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'narrator' LIMIT 1) AS Narrator,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,
                 COALESCE(

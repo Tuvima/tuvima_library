@@ -50,6 +50,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? Series { get; set; }
     public string? SeriesPosition { get; set; }
     public string? CollectionTitle { get; set; }
+    public int CollectionManifestTotalCount { get; set; }
     public string? Narrator { get; set; }
     public string? Director { get; set; }
     public string? Network { get; set; }

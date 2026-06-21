@@ -146,6 +146,8 @@ public sealed class DisplayCardBuilder
         var artwork = CollectionArtworkFor(representative);
         var presentation = CollectionPresentation(lane, mediaKind);
         var previewItems = BuildSeriesPreviewItems(mediaKind, works);
+        var ownedCount = DistinctOwnedSeriesMemberCount(works);
+        var knownTotalCount = KnownSeriesMemberCount(works, ownedCount);
 
         return new DisplayCardDto(
             Id: collectionId,
@@ -155,8 +157,8 @@ public sealed class DisplayCardBuilder
             MediaType: mediaKind,
             GroupingType: CollectionPresentation(lane, mediaKind),
             Title: title,
-            Subtitle: CollectionSubtitle(mediaKind, works),
-            Facts: CollectionFacts(mediaKind, works, representative.Genre),
+            Subtitle: CollectionSubtitle(mediaKind, works, ownedCount, knownTotalCount),
+            Facts: CollectionFacts(mediaKind, works, representative.Genre, ownedCount, knownTotalCount),
             Artwork: artwork,
             PreferredShape: CollectionShape(lane, mediaKind, representative.MediaType, artwork),
             Presentation: presentation,
@@ -169,7 +171,7 @@ public sealed class DisplayCardBuilder
         {
             Description = representative.Description,
             PreviewItems = previewItems,
-            PreviewTotalCount = previewItems.Count > 0 ? DistinctOwnedSeriesMemberCount(works) : null,
+            PreviewTotalCount = previewItems.Count > 0 ? knownTotalCount ?? ownedCount : null,
         };
     }
 
@@ -453,7 +455,12 @@ public sealed class DisplayCardBuilder
         _ => "default",
     };
 
-    private static IReadOnlyList<string> CollectionFacts(string mediaKind, IReadOnlyList<DisplayWorkRow> works, string? genre)
+    private static IReadOnlyList<string> CollectionFacts(
+        string mediaKind,
+        IReadOnlyList<DisplayWorkRow> works,
+        string? genre,
+        int? ownedCount = null,
+        int? knownTotalCount = null)
     {
         var facts = new List<string>();
         if (mediaKind == "TV" && HasRecentlyAddedEpisodes(works))
@@ -461,7 +468,7 @@ public sealed class DisplayCardBuilder
             AddFact(facts, "New episodes added");
         }
 
-        AddFact(facts, CollectionSubtitle(mediaKind, works));
+        AddFact(facts, CollectionSubtitle(mediaKind, works, ownedCount, knownTotalCount));
         facts.AddRange(DisplayMediaRules.SplitValues(genre).Where(value => !string.Equals(value, mediaKind, StringComparison.OrdinalIgnoreCase)).Take(2));
         return facts;
     }
@@ -611,7 +618,11 @@ public sealed class DisplayCardBuilder
                 : null;
     }
 
-    private static string CollectionSubtitle(string mediaKind, IReadOnlyList<DisplayWorkRow> works)
+    private static string CollectionSubtitle(
+        string mediaKind,
+        IReadOnlyList<DisplayWorkRow> works,
+        int? ownedCount = null,
+        int? knownTotalCount = null)
     {
         if (mediaKind == "TV")
         {
@@ -625,6 +636,11 @@ public sealed class DisplayCardBuilder
             {
                 return seasonCount == 1 ? "1 season" : $"{seasonCount} seasons";
             }
+        }
+
+        if (mediaKind is "Book" or "Comic" or "Movie" or "Audiobook")
+        {
+            return OwnedSeriesCountLabel(mediaKind, ownedCount ?? DistinctOwnedSeriesMemberCount(works), knownTotalCount);
         }
 
         return CollectionCountLabel(mediaKind, works.Count);
@@ -658,6 +674,25 @@ public sealed class DisplayCardBuilder
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
+
+    private static int? KnownSeriesMemberCount(IReadOnlyList<DisplayWorkRow> works, int ownedCount)
+    {
+        var manifestTotal = works.Max(work => work.CollectionManifestTotalCount);
+        return manifestTotal > ownedCount ? manifestTotal : null;
+    }
+
+    private static string OwnedSeriesCountLabel(string mediaKind, int ownedCount, int? knownTotalCount)
+    {
+        var noun = mediaKind switch
+        {
+            "Comic" => knownTotalCount is > 1 ? "issues" : ownedCount == 1 ? "issue" : "issues",
+            _ => knownTotalCount is > 1 ? "titles" : ownedCount == 1 ? "title" : "titles",
+        };
+
+        return knownTotalCount is > 0
+            ? $"{ownedCount} of {knownTotalCount.Value} {noun} owned"
+            : $"{ownedCount} owned {noun}";
+    }
 
     private static int CollectionArtworkScore(DisplayWorkRow work)
     {

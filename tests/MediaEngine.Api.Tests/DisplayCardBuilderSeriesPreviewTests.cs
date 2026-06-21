@@ -23,10 +23,33 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             .Single();
 
         Assert.Equal("bookSeries", card.Presentation);
+        Assert.Equal("5 owned titles", card.Subtitle);
+        Assert.Equal(["5 owned titles"], card.Facts);
         Assert.Equal(5, card.PreviewTotalCount);
         Assert.Equal(["Book One", "Book Two", "Book Three", "Book Four"], card.PreviewItems.Select(item => item.Title));
         Assert.Equal(["1", "2", "3", "4"], card.PreviewItems.Select(item => item.Position));
         Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
+    }
+
+    [Fact]
+    public void BuildCollectionCards_UsesManifestTotalForKnownSeriesSize()
+    {
+        var collectionId = Guid.Parse("44444444-2222-3333-4444-555555555555");
+        var createdAt = DateTimeOffset.Parse("2026-06-01T12:00:00Z");
+        var works = new[]
+        {
+            CreateWork(collectionId, "Comic", "The Sandman: Sleep of the Just", "1", "/covers/sandman-1.jpg", createdAt.AddMinutes(1), manifestTotalCount: 75),
+            CreateWork(collectionId, "Comic", "The Sandman: Imperfect Hosts", "2", "/covers/sandman-2.jpg", createdAt.AddMinutes(2), manifestTotalCount: 75),
+        };
+
+        var card = new DisplayCardBuilder()
+            .BuildCollectionCards(works, "read", minimumSeriesItems: 2)
+            .Single();
+
+        Assert.Equal("comicSeries", card.Presentation);
+        Assert.Equal("2 of 75 issues owned", card.Subtitle);
+        Assert.Equal(["2 of 75 issues owned"], card.Facts);
+        Assert.Equal(75, card.PreviewTotalCount);
     }
 
     [Fact]
@@ -68,7 +91,8 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         string title,
         string position,
         string coverSmallUrl,
-        DateTimeOffset createdAt) =>
+        DateTimeOffset createdAt,
+        int manifestTotalCount = 0) =>
         new()
         {
             WorkId = Guid.NewGuid(),
@@ -80,6 +104,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             Series = "Foundation Series",
             SeriesPosition = position,
             CollectionTitle = "Foundation Series",
+            CollectionManifestTotalCount = manifestTotalCount,
             CoverSmallUrl = coverSmallUrl,
             CoverWidthPx = "1000",
             CoverHeightPx = "1500",
