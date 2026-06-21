@@ -346,6 +346,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, containerId, detail.WikidataQid, workId, entityType, ct)", source);
         Assert.Contains("ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct)", source);
         Assert.Contains("smi.parent_collection_qid AS ContainerId", source);
+        Assert.Contains("IsParentSequenceContainer(scopedManifestItems, normalizedContainerId)", source);
+        Assert.Contains("items.Count <= 1 && !hasExplicitSequenceEvidence", source);
         Assert.Contains("TotalKnownItems = items.Count", source);
         Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
         Assert.Contains("BuildOwnedPositionSet(merged)", source);
@@ -430,6 +432,28 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_RelationshipChipRoutesOnlyUseKnownDestinations()
+    {
+        Assert.Equal("/universe/Q12345/explore", InvokePrivateString("BuildUniverseExploreRoute", "Q12345"));
+        Assert.Equal("/universe/Q12345/explore", InvokePrivateString("BuildUniverseExploreRoute", "https://www.wikidata.org/wiki/Q12345"));
+        Assert.Null(InvokePrivateString("BuildUniverseExploreRoute", "Sony Pictures"));
+
+        var containerId = Guid.NewGuid();
+        var sequence = new SequencePlacementViewModel
+        {
+            ContainerId = containerId.ToString("D"),
+            CurrentItem = new SequenceItemViewModel { EntityType = DetailEntityType.Movie },
+        };
+
+        Assert.Equal($"/details/movieseries/{containerId:D}?context=watch", InvokePrivateString("BuildSequenceContainerRoute", sequence));
+        Assert.Null(InvokePrivateString("BuildSequenceContainerRoute", new SequencePlacementViewModel
+        {
+            ContainerId = "Q999",
+            CurrentItem = new SequenceItemViewModel { EntityType = DetailEntityType.Movie },
+        }));
+    }
+
+    [Fact]
     public void PersonEndpoints_DownloadsRemotePortraitsButDoesNotRedirectToRemoteImages()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Endpoints/PersonEndpoints.cs"));
@@ -439,6 +463,16 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("InferImageExtension(person.HeadshotUrl, contentType)", source);
         Assert.Contains("return Results.File(bytes, contentType ?? GetImageMimeType(localPath), Path.GetFileName(localPath))", source);
         Assert.DoesNotContain("Results.Redirect(remoteUri.ToString())", source);
+    }
+
+    private static string? InvokePrivateString(string methodName, params object?[] args)
+    {
+        var method = typeof(DetailComposerService).GetMethod(
+            methodName,
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        Assert.NotNull(method);
+        return (string?)method!.Invoke(null, args);
     }
 
     private static string FindRepoRoot()

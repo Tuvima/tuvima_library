@@ -29,6 +29,10 @@ public sealed class WikidataSeriesManifestHydrationService
         WriteIndented = false,
     };
 
+    private const int ManifestMaxDepth = 2;
+    private const int ManifestMaxItems = 500;
+    private const string ManifestScopeFilter = "media-and-edition-filtered";
+
     public WikidataSeriesManifestHydrationService(
         WikidataReconciler reconciler,
         ISeriesManifestRepository manifestRepo,
@@ -79,11 +83,13 @@ public sealed class WikidataSeriesManifestHydrationService
         try
         {
             var ttlDays = Math.Max(1, _configLoader.LoadHydration().SeriesManifestRefreshDays);
+            var language = NormalizeLanguage(_configLoader.LoadCore().Language.Metadata);
+            var now = DateTimeOffset.UtcNow;
             var cachedHydration = await _manifestRepo.GetHydrationAsync(seriesQid, ct).ConfigureAwait(false);
 
             if (cachedHydration is not null
                 && IsCachedHydrationCurrent(cachedHydration)
-                && DateTimeOffset.UtcNow - cachedHydration.LastHydratedAt < TimeSpan.FromDays(ttlDays))
+                && now - cachedHydration.LastHydratedAt < TimeSpan.FromDays(ttlDays))
             {
                 var cachedItems = await _manifestRepo.GetItemsBySeriesQidAsync(seriesQid, ct).ConfigureAwait(false);
                 if (cachedItems.Count > 0
@@ -104,29 +110,29 @@ public sealed class WikidataSeriesManifestHydrationService
                         "Series manifest cache hit for {SeriesQid}; relinked {Count} cached rows",
                         seriesQid,
                         relinked.Count);
+
+                    await HydrateParentCollectionManifestsAsync(
+                        context,
+                        relinked,
+                        seriesQid,
+                        language,
+                        now,
+                        ttlDays,
+                        ct).ConfigureAwait(false);
+
                     return;
                 }
             }
 
-            var language = NormalizeLanguage(_configLoader.LoadCore().Language.Metadata);
-            var manifest = await _reconciler.Series.GetManifestAsync(new SeriesManifestRequest
-            {
-                SeriesQid = seriesQid,
-                Language = language,
-                IncludeCollections = true,
-                ExpandCollections = true,
-                IncludePublicationDate = true,
-                IncludeDescriptions = true,
-                MaxDepth = 2,
-                MaxItems = 500,
-            }, ct).ConfigureAwait(false);
+            var manifest = await _reconciler.Series.GetManifestAsync(
+                CreateManifestRequest(seriesQid, language),
+                ct).ConfigureAwait(false);
 
             var collection = await UpsertCollectionAsync(
                 manifest.SeriesQid,
                 FirstNonBlank(manifest.SeriesLabel, seriesLabel, context.SeriesHint, manifest.SeriesQid),
                 ct).ConfigureAwait(false);
 
-            var now = DateTimeOffset.UtcNow;
             var scopedItems = FilterManifestItems(manifest.Items, context, manifest.SeriesQid).ToList();
             var itemRecords = NormalizeManifestItems(scopedItems)
                 .Select(item => ToRecord(collection.Id, manifest.SeriesQid, context.MediaType, item.Item, item.SortOrder, now))
@@ -176,9 +182,9 @@ public sealed class WikidataSeriesManifestHydrationService
                     expandCollections = true,
                     includePublicationDate = true,
                     includeDescriptions = true,
-                    scopeFilter = "media-and-edition-filtered",
-                    maxDepth = 2,
-                    maxItems = 500,
+                    scopeFilter = ManifestScopeFilter,
+                    maxDepth = ManifestMaxDepth,
+                    maxItems = ManifestMaxItems,
                     completeness = manifest.Completeness.ToString(),
                 }, JsonOptions),
                 LastHydratedAt = now,
@@ -194,6 +200,15 @@ public sealed class WikidataSeriesManifestHydrationService
                 manifest.SeriesQid,
                 manifest.SeriesLabel ?? seriesLabel,
                 itemRecords.Count);
+
+            await HydrateParentCollectionManifestsAsync(
+                context,
+                itemRecords,
+                manifest.SeriesQid,
+                language,
+                now,
+                ttlDays,
+                ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -204,6 +219,161 @@ public sealed class WikidataSeriesManifestHydrationService
                 context.Title);
         }
     }
+
+    private async Task HydrateParentCollectionManifestsAsync(
+        SeriesManifestHydrationContext context,
+        IReadOnlyList<SeriesManifestItemRecord> childManifestItems,
+        string childSeriesQid,
+        string language,
+        DateTimeOffset now,
+        int ttlDays,
+        CancellationToken ct)
+    {
+        var currentWorkItems = childManifestItems
+            .Where(item => IsCurrentWorkManifestItem(item, context))
+            .ToList();
+
+        foreach (var parent in ResolveParentCollectionManifestCandidates(currentWorkItems, childSeriesQid))
+        {
+            try
+            {
+                await HydrateParentCollectionManifestAsync(
+                    context,
+                    parent,
+                    childSeriesQid,
+                    language,
+                    now,
+                    ttlDays,
+                    ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Parent collection manifest hydration failed for {ParentQid} from series {SeriesQid}; ingestion will continue",
+                    parent.Qid,
+                    childSeriesQid);
+            }
+        }
+    }
+
+    private async Task HydrateParentCollectionManifestAsync(
+        SeriesManifestHydrationContext context,
+        ParentCollectionManifestCandidate parent,
+        string childSeriesQid,
+        string language,
+        DateTimeOffset now,
+        int ttlDays,
+        CancellationToken ct)
+    {
+        var cachedHydration = await _manifestRepo.GetHydrationAsync(parent.Qid, ct).ConfigureAwait(false);
+        if (cachedHydration is not null
+            && IsCachedHydrationCurrent(cachedHydration)
+            && now - cachedHydration.LastHydratedAt < TimeSpan.FromDays(ttlDays))
+        {
+            var cachedItems = await _manifestRepo.GetItemsBySeriesQidAsync(parent.Qid, ct).ConfigureAwait(false);
+            if (cachedItems.Count > 0
+                && cachedItems.Any(i => string.Equals(i.ItemQid, context.ResolvedWorkQid, StringComparison.OrdinalIgnoreCase)))
+            {
+                var relinked = await RelinkItemsAsync(
+                    cachedHydration.CollectionId,
+                    cachedItems,
+                    context,
+                    ct).ConfigureAwait(false);
+
+                await _manifestRepo.UpsertManifestAsync(cachedHydration.WithUpdatedTimestamp(), relinked, ct)
+                    .ConfigureAwait(false);
+                await _manifestRepo.LinkOwnedWorksAsync(cachedHydration.CollectionId, relinked, ct)
+                    .ConfigureAwait(false);
+                return;
+            }
+        }
+
+        var manifest = await _reconciler.Series.GetManifestAsync(
+            CreateManifestRequest(parent.Qid, language),
+            ct).ConfigureAwait(false);
+
+        var collection = await UpsertCollectionAsync(
+            manifest.SeriesQid,
+            FirstNonBlank(manifest.SeriesLabel, parent.Label, manifest.SeriesQid),
+            ct).ConfigureAwait(false);
+
+        var scopedItems = FilterManifestItems(manifest.Items, context, manifest.SeriesQid).ToList();
+        var itemRecords = NormalizeManifestItems(scopedItems)
+            .Select(item => ToRecord(collection.Id, manifest.SeriesQid, context.MediaType, item.Item, item.SortOrder, now))
+            .ToList();
+
+        itemRecords = await RelinkItemsAsync(collection.Id, itemRecords, context, ct)
+            .ConfigureAwait(false);
+
+        var warningDtos = BuildWarningDiagnostics(
+            manifest.Warnings,
+            manifest.SeriesQid,
+            context.ResolvedWorkQid,
+            resolvedWorkPresentInManifest: itemRecords.Count == 0
+                || itemRecords.Any(i => string.Equals(i.ItemQid, context.ResolvedWorkQid, StringComparison.OrdinalIgnoreCase)));
+
+        var itemQids = itemRecords
+            .Select(i => i.ItemQid)
+            .OrderBy(q => q, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var manifestJson = JsonSerializer.Serialize(manifest, JsonOptions);
+        var hydration = new SeriesManifestHydration
+        {
+            SeriesQid = manifest.SeriesQid,
+            CollectionId = collection.Id,
+            SeriesLabel = manifest.SeriesLabel ?? parent.Label,
+            ManifestVersion = typeof(SeriesManifestRequest).Assembly.GetName().Version?.ToString(),
+            ManifestHash = Hash(manifestJson),
+            KnownItemQidsHash = Hash(string.Join('\n', itemQids)),
+            WarningsJson = JsonSerializer.Serialize(warningDtos, JsonOptions),
+            ApiMetadataJson = JsonSerializer.Serialize(new
+            {
+                language,
+                includeCollections = true,
+                expandCollections = true,
+                includePublicationDate = true,
+                includeDescriptions = true,
+                scopeFilter = ManifestScopeFilter,
+                sourceSeriesQid = childSeriesQid,
+                parentCollectionHydration = true,
+                maxDepth = ManifestMaxDepth,
+                maxItems = ManifestMaxItems,
+                completeness = manifest.Completeness.ToString(),
+            }, JsonOptions),
+            LastHydratedAt = now,
+            CreatedAt = cachedHydration?.CreatedAt ?? now,
+            UpdatedAt = now,
+        };
+
+        await _manifestRepo.UpsertManifestAsync(hydration, itemRecords, ct).ConfigureAwait(false);
+        await _manifestRepo.LinkOwnedWorksAsync(collection.Id, itemRecords, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Hydrated Wikidata parent collection manifest {SeriesQid} ({SeriesLabel}) from series {ChildSeriesQid} with {Count} named items",
+            manifest.SeriesQid,
+            manifest.SeriesLabel ?? parent.Label,
+            childSeriesQid,
+            itemRecords.Count);
+    }
+
+    private static SeriesManifestRequest CreateManifestRequest(string seriesQid, string language) => new()
+    {
+        SeriesQid = seriesQid,
+        Language = language,
+        IncludeCollections = true,
+        ExpandCollections = true,
+        IncludePublicationDate = true,
+        IncludeDescriptions = true,
+        MaxDepth = ManifestMaxDepth,
+        MaxItems = ManifestMaxItems,
+    };
+
+    private static bool IsCurrentWorkManifestItem(
+        SeriesManifestItemRecord item,
+        SeriesManifestHydrationContext context)
+        => string.Equals(item.ItemQid, context.ResolvedWorkQid, StringComparison.OrdinalIgnoreCase)
+            || (context.WorkId.HasValue && item.LinkedWorkId == context.WorkId.Value);
 
     private async Task<(string? Qid, string? Label)> ResolveSeriesQidAsync(
         SeriesManifestHydrationContext context,
@@ -433,6 +603,34 @@ public sealed class WikidataSeriesManifestHydrationService
             .ToList();
     }
 
+    internal static IReadOnlyList<ParentCollectionManifestCandidate> ResolveParentCollectionManifestCandidates(
+        IReadOnlyList<SeriesManifestItemRecord> childManifestItems,
+        string childSeriesQid)
+    {
+        var candidates = new Dictionary<string, ParentCollectionManifestCandidate>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in childManifestItems)
+        {
+            var parentQid = item.ParentCollectionQid?.Trim();
+            if (string.IsNullOrWhiteSpace(parentQid)
+                || string.Equals(parentQid, childSeriesQid, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (candidates.TryGetValue(parentQid, out var existing)
+                && !string.IsNullOrWhiteSpace(existing.Label))
+            {
+                continue;
+            }
+
+            candidates[parentQid] = new ParentCollectionManifestCandidate(
+                parentQid,
+                string.IsNullOrWhiteSpace(item.ParentCollectionLabel) ? existing?.Label : item.ParentCollectionLabel);
+        }
+
+        return candidates.Values.ToList();
+    }
+
     internal static IReadOnlyList<SeriesManifestWarningDto> BuildWarningDiagnostics(
         IReadOnlyList<SeriesManifestWarning> warnings,
         string seriesQid,
@@ -468,7 +666,7 @@ public sealed class WikidataSeriesManifestHydrationService
         {
             using var document = JsonDocument.Parse(hydration.ApiMetadataJson);
             return document.RootElement.TryGetProperty("scopeFilter", out var value)
-                && string.Equals(value.GetString(), "media-and-edition-filtered", StringComparison.OrdinalIgnoreCase);
+                && string.Equals(value.GetString(), ManifestScopeFilter, StringComparison.OrdinalIgnoreCase);
         }
         catch (JsonException)
         {
@@ -628,6 +826,8 @@ public sealed class WikidataSeriesManifestHydrationService
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
     internal sealed record OrderedSeriesManifestItem(SeriesManifestItem Item, int SortOrder);
+
+    internal sealed record ParentCollectionManifestCandidate(string Qid, string? Label);
 }
 
 internal static class SeriesManifestRecordExtensions

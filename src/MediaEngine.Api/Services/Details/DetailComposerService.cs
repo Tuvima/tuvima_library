@@ -550,9 +550,20 @@ public sealed class DetailComposerService
 
         var portrait = portraits.Select(p => ApiImageUrls.BuildCharacterPortraitUrl(p.Id, p.LocalImagePath, p.ImageUrl)).FirstOrDefault();
         var artwork = BuildArtwork(DetailEntityType.Character, null, null, null, null, portrait ?? row.ImageUrl, new Dictionary<string, string>(), [], 0, null);
+        var universeQid = ExtractQid(row.UniverseQid);
         IReadOnlyList<RelationshipGroup> relationships = string.IsNullOrWhiteSpace(row.UniverseQid)
             ? []
-            : [new RelationshipGroup { Title = "Universe", Items = [new RelatedEntityChip { Id = row.UniverseQid!, EntityType = RelatedEntityType.Universe, Label = row.UniverseLabel ?? row.UniverseQid! }] }];
+            : [new RelationshipGroup
+            {
+                Title = "Universe",
+                Items = [new RelatedEntityChip
+                {
+                    Id = universeQid ?? row.UniverseQid!,
+                    EntityType = RelatedEntityType.Universe,
+                    Label = row.UniverseLabel ?? row.UniverseQid!,
+                    Route = BuildUniverseExploreRoute(universeQid),
+                }],
+            }];
 
         return new DetailPageViewModel
         {
@@ -1177,6 +1188,7 @@ public sealed class DetailComposerService
             AddSequenceContainerOption(availableContainers, option.ContainerId, option.ContainerTitle, option.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType));
         }
 
+        var hasExplicitSequenceEvidence = availableContainers.Count > 0;
         if (availableContainers.Count == 0)
         {
             var localContainer = await ResolveLocalSequenceContainerOptionAsync(workId, entityType, detail.MediaType, ct);
@@ -1320,7 +1332,7 @@ public sealed class DetailComposerService
         items = NormalizeSequenceItems(items, entityType);
         items = SortSequenceItems(items);
         items = NormalizeContiguousSequenceDisplayPositions(items, entityType);
-        if (items.Count <= 1)
+        if (items.Count <= 1 && !hasExplicitSequenceEvidence)
         {
             return null;
         }
@@ -1932,7 +1944,9 @@ public sealed class DetailComposerService
             .Where(item => IsManifestItemInMediaScope(item, entityType))
             .ToList();
         var connectedManifestItems = BuildConnectedManifestSubset(scopedManifestItems, currentWorkQid);
-        if (connectedManifestItems.Count > 1 && IsWatchEntityType(entityType))
+        if (connectedManifestItems.Count > 1
+            && IsWatchEntityType(entityType)
+            && !IsParentSequenceContainer(scopedManifestItems, normalizedContainerId))
         {
             scopedManifestItems = connectedManifestItems;
         }
@@ -1944,6 +1958,11 @@ public sealed class DetailComposerService
 
         return await MergeLegacySequenceMemberPlaceholdersAsync(items, normalizedContainerId, entityType, ct);
     }
+
+    private static bool IsParentSequenceContainer(IReadOnlyList<SeriesManifestItemRecord> manifestItems, string containerId)
+        => manifestItems.Any(item =>
+            SequenceContainerIdEquals(item.ParentCollectionQid, containerId)
+            && !SequenceContainerIdEquals(item.SeriesQid, containerId));
 
     private async Task<IReadOnlyList<SeriesManifestItemRecord>> LoadManifestItemsForSequenceContainerAsync(
         string containerId,
@@ -3826,21 +3845,72 @@ public sealed class DetailComposerService
             groups.Add(new RelationshipGroup
             {
                 Title = sequence.ContainerLabel,
-                Items = [new RelatedEntityChip { Id = sequence.ContainerId, EntityType = RelatedEntityType.Series, Label = sequence.ContainerTitle }],
+                Items = [new RelatedEntityChip
+                {
+                    Id = sequence.ContainerId,
+                    EntityType = RelatedEntityType.Series,
+                    Label = sequence.ContainerTitle,
+                    Route = BuildSequenceContainerRoute(sequence),
+                }],
             });
         }
 
+        var universeQid = ExtractQid(detail.UniverseSummary?.UniverseQid);
         if (!string.IsNullOrWhiteSpace(detail.UniverseSummary?.UniverseName))
         {
             groups.Add(new RelationshipGroup
             {
                 Title = "Universe",
-                Items = [new RelatedEntityChip { Id = detail.UniverseSummary.UniverseQid ?? detail.UniverseSummary.UniverseName!, EntityType = RelatedEntityType.Universe, Label = detail.UniverseSummary.UniverseName! }],
+                Items = [new RelatedEntityChip
+                {
+                    Id = universeQid ?? detail.UniverseSummary.UniverseName!,
+                    EntityType = RelatedEntityType.Universe,
+                    Label = detail.UniverseSummary.UniverseName!,
+                    Route = BuildUniverseExploreRoute(universeQid),
+                }],
             });
         }
 
         return groups;
     }
+
+    private static string? BuildSequenceContainerRoute(SequencePlacementViewModel sequence)
+    {
+        if (!Guid.TryParse(sequence.ContainerId, out var id))
+        {
+            return null;
+        }
+
+        var entityType = sequence.CurrentItem.EntityType switch
+        {
+            DetailEntityType.Movie => DetailEntityType.MovieSeries,
+            DetailEntityType.TvEpisode or DetailEntityType.TvSeason => DetailEntityType.TvShow,
+            DetailEntityType.ComicIssue => DetailEntityType.ComicSeries,
+            DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work => DetailEntityType.BookSeries,
+            _ => (DetailEntityType?)null,
+        };
+
+        return entityType is null
+            ? null
+            : $"/details/{ToDetailRouteEntityType(entityType.Value)}/{id:D}?context={DetailContextKey(entityType.Value)}";
+    }
+
+    private static string? BuildUniverseExploreRoute(string? qid)
+    {
+        var normalizedQid = ExtractQid(qid);
+        return IsWikidataQid(normalizedQid) ? $"/universe/{normalizedQid}/explore" : null;
+    }
+
+    private static string ToDetailRouteEntityType(DetailEntityType entityType)
+        => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
+
+    private static string DetailContextKey(DetailEntityType entityType) => entityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries or DetailEntityType.Work => "read",
+        _ => "default",
+    };
 
     private static bool HasUniverseRelationship(IReadOnlyList<RelationshipGroup> relationships) =>
         relationships.Any(group =>
@@ -5566,6 +5636,14 @@ public sealed class DetailComposerService
         }
 
         return string.IsNullOrWhiteSpace(qid) ? null : qid;
+    }
+
+    private static bool IsWikidataQid(string? value)
+    {
+        var qid = ExtractQid(value);
+        return qid is { Length: > 1 }
+            && qid[0] == 'Q'
+            && qid.Skip(1).All(char.IsDigit);
     }
 
     private static string? NormalizeSequenceContainerId(string? value)

@@ -25,7 +25,7 @@
                 <div class="tl-series-selector">
                     @foreach (var option in Placement.AvailableContainers)
                     {
-                        <AppNativeButton Type="button" Class='@($"tl-series-selector__option {(option.IsSelected ? " is-selected" : null)}")' Disabled="@option.IsSelected" OnClick="() => SelectContainerAsync(option)">
+                        <AppNativeButton Type="button" Class='@($"tl-series-selector__option {(option.IsSelected ? " is-selected" : null)}")' OnClick="() => SelectContainerAsync(option)">
                             @option.ContainerTitle
                         </AppNativeButton>
                     }
@@ -252,9 +252,7 @@
         => _windowCenterIndex = Math.Min(Math.Max(0, ActiveItems.Count - 1), _windowCenterIndex + Math.Max(1, VisibleCount - 2));
 
     private Task SelectContainerAsync(SequenceContainerOptionViewModel option)
-    {
-        return option.IsSelected ? Task.CompletedTask : OnContainerSelected.InvokeAsync(option);
-    }
+        => OnContainerSelected.InvokeAsync(option);
 
     private async Task SetDefaultSequenceAsync()
     {

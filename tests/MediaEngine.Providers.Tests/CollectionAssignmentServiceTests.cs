@@ -1,4 +1,5 @@
 using MediaEngine.Providers.Services;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using Tuvima.Wikidata;
 
@@ -152,6 +153,59 @@ public sealed class CollectionAssignmentServiceTests
 
         Assert.Equal(["Q1", "Q2", "Q3"], normalized.Select(item => item.Item.Qid));
         Assert.Equal([1, 2, 3], normalized.Select(item => item.SortOrder));
+    }
+
+    [Fact]
+    public void SeriesManifestHydration_ExpandsParentCollectionManifests()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\WikidataSeriesManifestHydrationService.cs"));
+        var normalizedSource = source.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("relinked,\n                        seriesQid", normalizedSource, StringComparison.Ordinal);
+        Assert.Contains("itemRecords,\n                manifest.SeriesQid", normalizedSource, StringComparison.Ordinal);
+        Assert.Contains(".Where(item => IsCurrentWorkManifestItem(item, context))", source, StringComparison.Ordinal);
+        Assert.Contains("CreateManifestRequest(parent.Qid, language)", source, StringComparison.Ordinal);
+        Assert.Contains("sourceSeriesQid = childSeriesQid", source, StringComparison.Ordinal);
+        Assert.Contains("parentCollectionHydration = true", source, StringComparison.Ordinal);
+
+        var candidates = WikidataSeriesManifestHydrationService.ResolveParentCollectionManifestCandidates(
+        [
+            new SeriesManifestItemRecord
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = Guid.NewGuid(),
+                SeriesQid = "QSpiderVerse",
+                ItemQid = "Q1",
+                ParentCollectionQid = "QSonyPicturesAnimation",
+                ParentCollectionLabel = "List of Sony Pictures Animation productions",
+                OrderSource = "None",
+            },
+            new SeriesManifestItemRecord
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = Guid.NewGuid(),
+                SeriesQid = "QSpiderVerse",
+                ItemQid = "Q2",
+                ParentCollectionQid = "QSonyPicturesAnimation",
+                ParentCollectionLabel = null,
+                OrderSource = "None",
+            },
+            new SeriesManifestItemRecord
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = Guid.NewGuid(),
+                SeriesQid = "QSpiderVerse",
+                ItemQid = "Q3",
+                ParentCollectionQid = "QSpiderVerse",
+                ParentCollectionLabel = "Spider-Verse",
+                OrderSource = "None",
+            },
+        ],
+        "QSpiderVerse");
+
+        var candidate = Assert.Single(candidates);
+        Assert.Equal("QSonyPicturesAnimation", candidate.Qid);
+        Assert.Equal("List of Sony Pictures Animation productions", candidate.Label);
     }
 
     [Fact]

@@ -1,9 +1,18 @@
 ﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<AppNativeButton Type="button" Class="tl-related-chip">
-    <span>@Chip.Label</span>
-</AppNativeButton>
+@if (!string.IsNullOrWhiteSpace(Chip.Route))
+{
+    <a class="tl-related-chip tl-related-chip--link" href="@Chip.Route">
+        <span>@Chip.Label</span>
+    </a>
+}
+else
+{
+    <span class="tl-related-chip tl-related-chip--static" aria-disabled="true">
+        <span>@Chip.Label</span>
+    </span>
+}
 
 @code {
     [Parameter, EditorRequired] public MediaEngine.Contracts.Details.RelatedEntityChip Chip { get; set; } = default!;

@@ -397,6 +397,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-position-summary", source);
         Assert.Contains("tl-series-position-summary__donut", source);
         Assert.Contains("tl-series-position-summary__center", source);
+        Assert.Contains("OnClick=\"() => SelectContainerAsync(option)\"", source);
+        Assert.Contains("=> OnContainerSelected.InvokeAsync(option)", source);
+        Assert.DoesNotContain("Disabled=\"@option.IsSelected\"", source);
         Assert.DoesNotContain("Current position", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("tl-series-item__current-badge", source);
         Assert.Contains("tl-series-item__node", source);

@@ -1243,6 +1243,55 @@
     color: #fff8eb;
 }
 
+::deep .tl-related-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.85rem;
+}
+
+::deep .tl-related-group > span:first-child {
+    flex: 0 0 7.5rem;
+    color: rgba(246, 240, 232, 0.66);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+::deep .tl-related-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    max-width: min(100%, 24rem);
+    padding: 0.35rem 0.75rem;
+    border: 1px solid rgba(246, 240, 232, 0.18);
+    border-radius: 0.5rem;
+    background: rgba(246, 240, 232, 0.08);
+    color: #f6f0e8;
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+}
+
+::deep .tl-related-chip > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+::deep .tl-related-chip--link:hover,
+::deep .tl-related-chip--link:focus-visible {
+    border-color: rgba(220, 165, 62, 0.64);
+    background: rgba(220, 165, 62, 0.17);
+    color: #fff8eb;
+}
+
+::deep .tl-related-chip--static {
+    color: rgba(246, 240, 232, 0.68);
+    cursor: default;
+}
+
 ::deep .tl-horizontal-strip,
 ::deep .tl-credit-strip,
 ::deep .tl-character-strip,
