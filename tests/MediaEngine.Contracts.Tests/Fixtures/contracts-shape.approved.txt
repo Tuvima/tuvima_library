@@ -66,6 +66,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailAction
   IsAdminOnly: System.Boolean | nullability=not-null | accessors=get,init
   IsDisabled: System.Boolean | nullability=not-null | accessors=get,init
   IsStub: System.Boolean | nullability=not-null | accessors=get,init
+  IsSelected: System.Boolean | nullability=not-null | accessors=get,set
   DisplayStyle: System.String | nullability=nullable | accessors=get,init
   Children: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
 

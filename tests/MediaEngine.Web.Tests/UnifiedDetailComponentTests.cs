@@ -161,16 +161,13 @@ public sealed class UnifiedDetailComponentTests
         var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.Contains("tl-reaction-menu", source);
-        Assert.Contains("tl-detail-reaction-button", source);
-        Assert.Contains("tl-detail-watch-secondary tl-detail-watch-secondary--icon tl-detail-reaction-button", source);
-        Assert.Contains("OrderedReactionChildren", source);
-        Assert.Contains("\"reaction-dislike\" => 0", source);
-        Assert.Contains("\"reaction-like\" => 1", source);
         Assert.Contains("tl-detail-premium-action", source);
         Assert.Contains("tl-detail-action--secondary-button", source);
         Assert.Contains("tl-detail-actions--watch", source);
         Assert.Contains("tl-detail-watch-secondary", source);
+        Assert.Contains("VisibleSecondaryActions", source);
+        Assert.Contains("favorite_filled", source);
+        Assert.Contains("Icons.Material.Filled.Favorite", source);
         Assert.Contains("UsePrimaryHeroChrome && action.Key == \"read-listen\"", source);
         Assert.Contains("UsePrimaryHeroChrome && action.Key == \"add-to-collection\"", source);
         Assert.Contains("read-listen", composer);
@@ -183,13 +180,15 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Label = \"Watchlist\"", composer);
         Assert.Contains("=> \"Want to Read\"", composer);
         Assert.Contains("=> \"Want to Listen\"", composer);
-        Assert.Contains("BuildReactionAction", composer);
+        Assert.Contains("BuildFavoriteAction", composer);
+        Assert.DoesNotContain("BuildReactionAction", composer);
+        Assert.DoesNotContain("reaction-menu", composer);
         Assert.Contains("border-radius: 0.5rem", styles);
-        Assert.Contains("tl-detail-reaction-button", styles);
         Assert.Contains("border-radius: 0.75rem", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-genre-chip", styles);
         Assert.Contains("tl-detail-hero--fallback-surface:not(.tl-detail-hero--watch) .tl-detail-genre-chip", styles);
         Assert.Contains(".tl-detail-actions--watch .tl-detail-action--primary", styles);
+        Assert.Contains(".tl-detail-watch-secondary.is-selected", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch)", styles);
         Assert.Contains("tl-detail-hero-credit-stack--audiobook", styles);
@@ -204,14 +203,16 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void DetailPage_WiresReadAndReactionHeroActions()
+    public void DetailPage_WiresReadAndFavoriteHeroActions()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
 
         Assert.Contains("ResolveWorkToAssetAsync", source);
         Assert.Contains("Nav.NavigateTo($\"/read/{assetId.Value:D}\")", source);
-        Assert.Contains("MediaReactionService Reactions", source);
-        Assert.Contains("SetReactionAsync(action.Key == \"like\" ? MediaReaction.Like : MediaReaction.Dislike)", source);
+        Assert.Contains("FavoriteService Favorites", source);
+        Assert.Contains("ToggleFavoriteAsync(action)", source);
+        Assert.DoesNotContain("MediaReactionService Reactions", source);
+        Assert.DoesNotContain("SetReactionAsync(action.Key == \"like\"", source);
     }
 
     [Fact]
@@ -323,6 +324,7 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("OverflowActions=\"Model.OverflowActions\"", hero);
         Assert.Contains("OverflowActionMenu", actions);
+        Assert.Contains("VisibleSecondaryActions", actions);
         Assert.Contains("class=\"tl-detail-overflow-popover\"", menu);
         Assert.Contains("OnClick=\"ToggleMenu\"", menu);
         Assert.Contains("aria-expanded=\"@_isOpen\"", menu);
@@ -331,8 +333,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Disabled=\"@action.IsDisabled\"", menuItems);
         Assert.DoesNotContain("MudMenuItem", menuItems);
         Assert.Contains("action.Key is \"edit-media\" or \"edit\"", detailPage);
-        Assert.Contains("action.Key == \"details\"", detailPage);
-        Assert.Contains("SetActiveTabAsync(\"details\")", detailPage);
+        Assert.DoesNotContain("OverflowActions.Concat([InlineEditAction])", actions);
         Assert.Contains(".tl-detail-overflow-popover", appStyles);
         Assert.Contains(".tl-detail-overflow-item", appStyles);
         Assert.Contains("border: 0;", appStyles);

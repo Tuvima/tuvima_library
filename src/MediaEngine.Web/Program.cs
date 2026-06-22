@@ -181,6 +181,7 @@ builder.Services.AddScoped<MediaEditorLauncherService>();
 builder.Services.AddScoped<CollectionEditorLauncherService>();
 builder.Services.AddScoped<MediaTileComposerService>();
 builder.Services.AddScoped<WatchlistService>();
+builder.Services.AddScoped<FavoriteService>();
 builder.Services.AddScoped<MediaReactionService>();
 builder.Services.AddScoped<ListenPlaybackService>();
 builder.Services.AddScoped<ListenPageState>();

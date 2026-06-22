@@ -19,6 +19,7 @@ public static class DetailEndpoints
             Guid id,
             string? context,
             string? containerId,
+            Guid? profileId,
             DetailComposerService composer,
             CancellationToken ct) =>
         {
@@ -26,7 +27,7 @@ public static class DetailEndpoints
                 return Results.BadRequest(new { message = $"Unsupported detail entity type '{entityType}'." });
 
             var presentationContext = DetailComposerService.ParseContext(context);
-            var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId);
+            var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId, profileId);
             return detail is null ? Results.NotFound() : Results.Ok(detail);
         })
         .WithName("GetDetailPage")

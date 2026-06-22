@@ -9,7 +9,7 @@
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject IDialogService DialogService
-@inject MediaReactionService Reactions
+@inject FavoriteService Favorites
 @inject ListenPlaybackService Playback
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
@@ -132,7 +132,8 @@
         if (Model is null || string.IsNullOrWhiteSpace(option.ContainerId) || !Guid.TryParse(Model.Id, out var id))
             return;
 
-        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, id, Model.PresentationContext, option.ContainerId);
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, id, Model.PresentationContext, option.ContainerId, profile?.Id);
         if (updated is not null)
             Model = updated;
     }
@@ -157,6 +158,12 @@
             return;
         }
 
+        if (action.Key == "favorite")
+        {
+            await ToggleFavoriteAsync(action);
+            return;
+        }
+
         if (action.Key == "details")
         {
             await SetActiveTabAsync("details");
@@ -174,12 +181,6 @@
         if (!string.IsNullOrWhiteSpace(action.Route))
         {
             Nav.NavigateTo(action.Route);
-            return;
-        }
-
-        if (action.Key is "like" or "dislike")
-        {
-            await SetReactionAsync(action.Key == "like" ? MediaReaction.Like : MediaReaction.Dislike);
             return;
         }
 
@@ -314,7 +315,8 @@
         if (Model is null || !Guid.TryParse(Model.Id, out var entityId))
             return;
 
-        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext);
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext, profileId: profile?.Id);
         if (updated is not null)
         {
             Model = updated;
@@ -356,7 +358,8 @@
         if (Model is null || !Guid.TryParse(Model.Id, out var entityId))
             return;
 
-        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext);
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext, profileId: profile?.Id);
         if (updated is not null)
         {
             Model = updated;
@@ -388,13 +391,57 @@
         await OnActionSelected.InvokeAsync(action);
     }
 
-    private async Task SetReactionAsync(MediaReaction reaction)
+    private async Task ToggleFavoriteAsync(DetailAction action)
     {
-        if (Model is null || !Guid.TryParse(Model.Id, out var workId))
+        if (Model is null)
             return;
 
         var profile = await Orchestrator.GetActiveProfileAsync();
-        await Reactions.SetReactionAsync(workId, reaction, profile?.Id);
+        if (!TryResolveFavoriteWorkId(out var workId))
+        {
+            Snackbar.Add("This item cannot be added to favorites yet.", Severity.Warning);
+            return;
+        }
+
+        var membership = await Favorites.ToggleAsync(workId, profile?.Id);
+        if (membership is null)
+        {
+            Snackbar.Add("Favorites require an active profile.", Severity.Warning);
+            return;
+        }
+
+        SetFavoriteSelection(Model.PrimaryActions, membership.IsFavorite);
+        SetFavoriteSelection(Model.SecondaryActions, membership.IsFavorite);
+        SetFavoriteSelection(Model.OverflowActions, membership.IsFavorite);
+        action.IsSelected = membership.IsFavorite;
+        StateHasChanged();
+        await OnActionSelected.InvokeAsync(action);
+    }
+
+    private bool TryResolveFavoriteWorkId(out Guid workId)
+    {
+        workId = Guid.Empty;
+        var target = Model?.EditorTarget;
+        if (target is not null)
+        {
+            return !string.Equals(target.EntityKind, "Collection", StringComparison.OrdinalIgnoreCase)
+                && Guid.TryParse(target.EntityId, out workId);
+        }
+
+        return Model is not null
+            && Model.EntityType is not DetailEntityType.Collection
+            && Guid.TryParse(Model.Id, out workId);
+    }
+
+    private static void SetFavoriteSelection(IEnumerable<DetailAction> actions, bool isFavorite)
+    {
+        foreach (var item in actions)
+        {
+            if (item.Key == "favorite")
+                item.IsSelected = isFavorite;
+
+            SetFavoriteSelection(item.Children, isFavorite);
+        }
     }
 
     private async Task PlayAlbumAsync(bool shuffle)

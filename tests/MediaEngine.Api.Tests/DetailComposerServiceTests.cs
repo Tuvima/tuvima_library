@@ -148,7 +148,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void DetailComposer_SourceKeepsMovieTabsOnCombinedOverviewAndAddsOverflowMenu()
+    public void DetailComposer_SourceKeepsMovieTabsOnCombinedOverviewAndUsesDirectEdit()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
@@ -166,7 +166,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
-        Assert.Contains("sync-settings", source);
+        Assert.DoesNotContain("sync-settings", source);
+        Assert.Contains("BuildOverflowActions(workId, entityType, isAdminView)", source);
     }
 
     [Fact]
@@ -234,6 +235,13 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", source);
         Assert.Contains("IsStub = true", source);
         Assert.Contains("Label = \"Watchlist\"", source);
+        Assert.Contains("BuildFavoriteAction", source);
+        Assert.Contains("Key = \"favorite\"", source);
+        Assert.Contains("Icon = isSelected ? \"favorite_filled\" : \"favorite\"", source);
+        Assert.DoesNotContain("BuildReactionAction", source);
+        Assert.DoesNotContain("reaction-menu", source);
+        Assert.DoesNotContain("Thumbs up", source);
+        Assert.DoesNotContain("Thumbs down", source);
         Assert.Contains("return actions;", source);
         Assert.DoesNotContain("&& SupportsWatchParty(entityType)", source);
     }

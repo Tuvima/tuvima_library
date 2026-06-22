@@ -134,6 +134,7 @@ public interface IEngineApiClient
         Guid id,
         DetailPresentationContext context = DetailPresentationContext.Default,
         string? containerId = null,
+        Guid? profileId = null,
         CancellationToken ct = default);
 
     Task<bool> SetDefaultSequenceAsync(

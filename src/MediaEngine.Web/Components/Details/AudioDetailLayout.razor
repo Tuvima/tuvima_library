@@ -9,7 +9,6 @@
         }
         <div class="tl-audio-detail__shade"></div>
         <div class="tl-audio-detail__copy">
-            <div class="tl-detail-hero__eyebrow">@AudioTypeLabel</div>
             <h1>@Model.Title</h1>
 
             @if (!string.IsNullOrWhiteSpace(PrimaryCreditLine))
@@ -35,7 +34,7 @@
                            SecondaryActions="Model.SecondaryActions"
                            OverflowActions="Model.OverflowActions"
                            InlineEditAction="InlineEditAction"
-                           UsePrimaryHeroChrome="false"
+                           UsePrimaryHeroChrome="true"
                            OnActionSelected="OnActionSelected" />
 
             <HeroProgressBlock Progress="Model.Progress" />
@@ -113,8 +112,6 @@
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
 
     private string? ArtworkUrl => Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.HeroArtwork.Url;
-
-    private string AudioTypeLabel => Model.EntityType == DetailEntityType.MusicAlbum ? "Album" : "Audiobook";
 
     private string FallbackIcon => Model.EntityType == DetailEntityType.MusicAlbum
         ? Icons.Material.Outlined.Album

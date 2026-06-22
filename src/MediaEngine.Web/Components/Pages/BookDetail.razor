@@ -3,6 +3,7 @@
 @using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 
 @namespace MediaEngine.Web.Components.Pages
@@ -52,7 +53,8 @@ else
             : DetailPresentationContext.Read;
 
         // Work is the preferred read route because it can collapse ebook + audiobook into one canonical detail page.
-        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.Work, Id, context);
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.Work, Id, context, profileId: profile?.Id);
         ApplyDetailTabRoute();
         _loading = false;
     }

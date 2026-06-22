@@ -32,6 +32,7 @@ public partial class ListenPage
     [Inject] private IEngineApiClient ApiClient { get; set; } = default!;
     [Inject] private UIOrchestratorService Orchestrator { get; set; } = default!;
     [Inject] private ListenPlaybackService Playback { get; set; } = default!;
+    [Inject] private FavoriteService Favorites { get; set; } = default!;
     [Inject] private MediaReactionService Reactions { get; set; } = default!;
     [Inject] private MediaEditorLauncherService MediaEditorLauncher { get; set; } = default!;
     [Inject] private CollectionEditorLauncherService CollectionEditorLauncher { get; set; } = default!;
@@ -264,7 +265,7 @@ public partial class ListenPage
         ? PlaylistKey.ToLowerInvariant() switch
         {
             "all-music" => "Every song in your library in one utility view.",
-            "favorite-songs" => "Profile-specific positive reactions rendered as a smart playlist.",
+            "favorite-songs" => "Songs saved to this profile's Favorites.",
             "recently-added" => "Fresh music sorted by arrival time.",
             _ => null,
         }
@@ -465,7 +466,7 @@ public partial class ListenPage
             _managedCollections.Clear();
             _managedCollections.AddRange(collectionsTask.Result);
 
-            _favoriteWorkIds = (await Reactions.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
+            _favoriteWorkIds = (await Favorites.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
             _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
             _musicHomePage = MediaTileComposerService.FromDisplayPage(
                 musicHomeTask.Result ?? throw new InvalidOperationException("Display API did not return the music home page."));
@@ -481,7 +482,8 @@ public partial class ListenPage
                 _audioDetail = await ApiClient.GetDetailPageAsync(
                     DetailEntityType.Audiobook,
                     WorkId.Value,
-                    DetailPresentationContext.Listen);
+                    DetailPresentationContext.Listen,
+                    profileId: _activeProfileId);
             }
 
             if (CollectionId.HasValue && IsPlaylistSurface)
@@ -1135,7 +1137,7 @@ public partial class ListenPage
         return await ApiClient.GetCollectionGroupDetailAsync(CollectionId.Value);
     }
 
-    private static DetailPageViewModel? BuildAlbumDetailModel(CollectionGroupDetailViewModel? detail)
+    private DetailPageViewModel? BuildAlbumDetailModel(CollectionGroupDetailViewModel? detail)
     {
         if (detail is null)
         {
@@ -1233,12 +1235,18 @@ public partial class ListenPage
             SecondaryActions =
             [
                 new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle", DisplayStyle = "icon" },
-                new DetailAction { Key = "save", Label = "Save", Icon = "playlist_add", DisplayStyle = "icon" },
+                new DetailAction { Key = "add-to-collection", Label = "Add", Icon = "add", Tooltip = "Add to playlist", DisplayStyle = "icon" },
+                new DetailAction
+                {
+                    Key = "favorite",
+                    Label = _favoriteWorkIds.Contains(id) ? "Favorited" : "Favorite",
+                    Icon = _favoriteWorkIds.Contains(id) ? "favorite_filled" : "favorite",
+                    Tooltip = _favoriteWorkIds.Contains(id) ? "Remove from favorites" : "Add to favorites",
+                    DisplayStyle = "icon",
+                    IsSelected = _favoriteWorkIds.Contains(id),
+                },
             ],
-            OverflowActions =
-            [
-                new DetailAction { Key = "details", Label = "Details", Icon = "info" },
-            ],
+            OverflowActions = [],
             ContributorGroups = contributors,
             PreviewContributors = contributors.SelectMany(group => group.Credits).Take(3).ToList(),
             Tabs =
@@ -1271,10 +1279,7 @@ public partial class ListenPage
 
     private static IReadOnlyList<MetadataPill> BuildAlbumDetailMetadata(CollectionGroupDetailViewModel detail, int trackCount)
     {
-        var values = new List<MetadataPill>
-        {
-            new() { Label = "Album", Kind = "type" },
-        };
+        var values = new List<MetadataPill>();
 
         AddMetadata(values, FirstNonBlankOrNull(detail.YearRange, detail.ReleaseDate), "year");
         AddMetadata(values, Pluralize(trackCount > 0 ? trackCount : detail.TotalItems, "track"), "track_count");
@@ -1498,8 +1503,7 @@ public partial class ListenPage
 
     private async Task ToggleFavoriteAsync(WorkViewModel work)
     {
-        var nextReaction = _favoriteWorkIds.Contains(work.Id) ? MediaReaction.Neutral : MediaReaction.Like;
-        await Reactions.SetReactionAsync(work.Id, nextReaction, _activeProfileId);
+        await Favorites.ToggleAsync(work.Id, _activeProfileId);
         await RefreshReactionStateAsync();
     }
 
@@ -1620,7 +1624,7 @@ public partial class ListenPage
 
     private async Task RefreshReactionStateAsync()
     {
-        _favoriteWorkIds = (await Reactions.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
+        _favoriteWorkIds = (await Favorites.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
         _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
         StateHasChanged();
     }

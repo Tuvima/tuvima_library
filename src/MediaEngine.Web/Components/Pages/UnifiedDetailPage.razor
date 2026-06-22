@@ -3,6 +3,7 @@
 @using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 
 @namespace MediaEngine.Web.Components.Pages
@@ -54,7 +55,8 @@ else
         }
 
         var context = ParseContext(Context);
-        _detail = await ApiClient.GetDetailPageAsync(entityType, Id, context);
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        _detail = await ApiClient.GetDetailPageAsync(entityType, Id, context, profileId: profile?.Id);
         ApplyDetailTabRoute();
         _loading = false;
     }

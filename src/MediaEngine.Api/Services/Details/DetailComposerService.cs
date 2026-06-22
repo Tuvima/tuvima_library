@@ -58,18 +58,20 @@ public sealed class DetailComposerService
         Guid id,
         DetailPresentationContext context,
         CancellationToken ct = default,
-        string? selectedContainerId = null)
+        string? selectedContainerId = null,
+        Guid? profileId = null)
     {
         var isAdminView = context is DetailPresentationContext.Admin;
+        var favoriteWorkIds = await LoadFavoriteWorkIdsAsync(profileId, ct);
 
         return entityType switch
         {
             DetailEntityType.Person or DetailEntityType.MusicArtist => await BuildPersonAsync(id, entityType, context, isAdminView, ct),
             DetailEntityType.Collection or DetailEntityType.TvShow or DetailEntityType.MovieSeries or DetailEntityType.BookSeries
-                or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(id, entityType, context, isAdminView, ct),
+                or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(id, entityType, context, isAdminView, favoriteWorkIds, ct),
             DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, ct),
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, ct),
-            _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedContainerId, ct),
+            _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedContainerId, favoriteWorkIds, ct),
         };
     }
 
@@ -134,6 +136,7 @@ public sealed class DetailComposerService
         DetailPresentationContext context,
         bool isAdminView,
         string? selectedContainerId,
+        IReadOnlySet<Guid> favoriteWorkIds,
         CancellationToken ct)
     {
         var detail = await _libraryItems.GetDetailAsync(workId, ct);
@@ -222,7 +225,7 @@ public sealed class DetailComposerService
             SequencePlacement = sequencePlacement,
             Metadata = BuildMetadataPills(detail, entityType, values, ownedFormats),
             PrimaryActions = BuildPrimaryActions(workId, entityType, context, ownedFormats, heroProgress),
-            SecondaryActions = BuildSecondaryActions(workId, entityType, ownedFormats),
+            SecondaryActions = BuildSecondaryActions(workId, entityType, favoriteWorkIds.Contains(workId), ownedFormats),
             OverflowActions = BuildOverflowActions(workId, entityType, isAdminView),
             ContributorGroups = contributorGroups,
             PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
@@ -242,6 +245,7 @@ public sealed class DetailComposerService
         DetailEntityType entityType,
         DetailPresentationContext context,
         bool isAdminView,
+        IReadOnlySet<Guid> favoriteWorkIds,
         CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
@@ -384,7 +388,7 @@ public sealed class DetailComposerService
             Progress = heroProgress,
             Metadata = BuildCollectionMetadata(entityType, displayWorks, values),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress),
-            SecondaryActions = BuildSecondaryActions(collectionId, entityType),
+            SecondaryActions = BuildSecondaryActions(rootWorkId ?? collectionId, entityType, rootWorkId.HasValue && favoriteWorkIds.Contains(rootWorkId.Value)),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
             ContributorGroups = contributorGroups,
             PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
@@ -3277,12 +3281,41 @@ public sealed class DetailComposerService
         };
     }
 
-    private static IReadOnlyList<DetailAction> BuildSecondaryActions(Guid id, DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel>? formats = null)
+    private async Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct)
+    {
+        if (!profileId.HasValue)
+        {
+            return new HashSet<Guid>();
+        }
+
+        using var conn = _db.CreateConnection();
+        var rows = await conn.QueryAsync<object>(new CommandDefinition(
+            """
+            SELECT ci.work_id
+            FROM collection_items ci
+            INNER JOIN collections c ON c.id = ci.collection_id
+            WHERE c.scope = 'user'
+              AND c.profile_id = @ProfileId
+              AND c.collection_type = 'Playlist'
+              AND c.resolution = 'materialized'
+              AND c.display_name = 'Favorites'
+              AND c.is_enabled = 1;
+            """,
+            new { ProfileId = GuidSql.ToBlob(profileId.Value) },
+            cancellationToken: ct));
+
+        return rows
+            .Select(StringValue)
+            .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .ToHashSet();
+    }
+
+    private static IReadOnlyList<DetailAction> BuildSecondaryActions(Guid id, DetailEntityType entityType, bool isFavorite, IReadOnlyList<OwnedFormatViewModel>? formats = null)
     {
         var actions = new List<DetailAction>();
 
         var hasReadListenCompanion = HasReadListenCompanion(entityType, formats ?? []);
-        var isReadableEntity = IsReadableEntity(entityType);
 
         if (hasReadListenCompanion)
         {
@@ -3311,7 +3344,6 @@ public sealed class DetailComposerService
                 IsStub = true,
                 DisplayStyle = "icon",
             });
-            actions.Add(BuildReactionAction());
             actions.Add(new DetailAction
             {
                 Key = "add-to-collection",
@@ -3320,6 +3352,7 @@ public sealed class DetailComposerService
                 Tooltip = "Add to watchlist",
                 DisplayStyle = "icon",
             });
+            actions.Add(BuildFavoriteAction(isFavorite));
 
             return actions;
         }
@@ -3336,58 +3369,51 @@ public sealed class DetailComposerService
             });
             actions.Add(new DetailAction
             {
-                Key = "save",
-                Label = "Save",
-                Icon = "playlist_add",
-                Tooltip = "Save album",
+                Key = "add-to-collection",
+                Label = "Add",
+                Icon = "add",
+                Tooltip = "Add to playlist",
                 DisplayStyle = "icon",
             });
+            actions.Add(BuildFavoriteAction(isFavorite));
             return actions;
         }
 
-        actions.Add(new DetailAction
+        if (CanFavoriteEntity(entityType))
         {
-            Key = "add-to-collection",
-            Label = entityType switch
+            actions.Add(new DetailAction
             {
-                DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
-                DetailEntityType.Audiobook => "Want to Listen",
-                _ => "Add to collection",
-            },
-            Icon = "add",
-            Tooltip = entityType switch
-            {
-                DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
-                DetailEntityType.Audiobook => "Want to Listen",
-                _ => "Add to collection",
-            },
-            DisplayStyle = isReadableEntity ? "button" : "icon",
-        });
-
-        if (isReadableEntity)
-        {
-            actions.Add(BuildReactionAction());
-            return actions;
+                Key = "add-to-collection",
+                Label = entityType switch
+                {
+                    DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
+                    DetailEntityType.Audiobook => "Want to Listen",
+                    _ => "Add",
+                },
+                Icon = "add",
+                Tooltip = entityType switch
+                {
+                    DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
+                    DetailEntityType.Audiobook => "Want to Listen",
+                    _ => "Add to collection",
+                },
+                DisplayStyle = "icon",
+            });
+            actions.Add(BuildFavoriteAction(isFavorite));
         }
-
-        actions.Add(BuildReactionAction());
 
         return actions;
     }
 
-    private static DetailAction BuildReactionAction()
+    private static DetailAction BuildFavoriteAction(bool isSelected)
         => new()
         {
-            Key = "reaction-menu",
-            Label = "Rate",
-            Icon = "thumb_up",
-            Tooltip = "Rate this item",
-            DisplayStyle = "hover-menu",
-            Children =
-            [
-                new DetailAction { Key = "like", Label = "Thumbs up", Icon = "thumb_up", Tooltip = "Thumbs up" },
-                new DetailAction { Key = "dislike", Label = "Thumbs down", Icon = "thumb_down", Tooltip = "Thumbs down" },
-            ],
+            Key = "favorite",
+            Label = isSelected ? "Favorited" : "Favorite",
+            Icon = isSelected ? "favorite_filled" : "favorite",
+            Tooltip = isSelected ? "Remove from favorites" : "Add to favorites",
+            DisplayStyle = "icon",
+            IsSelected = isSelected,
         };
 
     private static bool HasReadListenCompanion(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
@@ -3397,6 +3423,18 @@ public sealed class DetailComposerService
 
     private static bool IsReadableEntity(DetailEntityType entityType)
         => entityType is DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Audiobook or DetailEntityType.Work;
+
+    private static bool CanFavoriteEntity(DetailEntityType entityType)
+        => IsReadableEntity(entityType)
+           || IsWatchEntity(entityType)
+           || entityType is DetailEntityType.MusicAlbum
+               or DetailEntityType.MusicArtist
+               or DetailEntityType.MusicTrack
+               or DetailEntityType.MovieSeries
+               or DetailEntityType.TvShow
+               or DetailEntityType.TvSeason
+               or DetailEntityType.BookSeries
+               or DetailEntityType.ComicSeries;
 
     private static string BuildReadListenAvailabilityLabel(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
     {
@@ -3459,18 +3497,13 @@ public sealed class DetailComposerService
 
     private static IReadOnlyList<DetailAction> BuildOverflowActions(Guid id, DetailEntityType entityType, bool isAdminView)
     {
-        var actions = new List<DetailAction>
-        {
-            new() { Key = "details", Label = "Details", Icon = "info" },
-            new() { Key = "sync-settings", Label = "Sync Settings", Icon = "sync", Tooltip = "Sync settings are coming soon", IsDisabled = true, IsStub = true },
-            new() { Key = "manage-artwork", Label = "Manage Artwork", Icon = "image", IsAdminOnly = true },
-            new() { Key = "refresh", Label = "Refresh Metadata", Icon = "sync", IsAdminOnly = true },
-            new() { Key = "file-info", Label = "View File Info", Icon = "info", IsAdminOnly = true },
-        };
+        var actions = new List<DetailAction>();
 
         if (isAdminView)
         {
-            actions.Add(new DetailAction { Key = "edit", Label = "Edit Details", Icon = "edit", IsAdminOnly = true });
+            actions.Add(new DetailAction { Key = "manage-artwork", Label = "Manage Artwork", Icon = "image", IsAdminOnly = true });
+            actions.Add(new DetailAction { Key = "refresh", Label = "Refresh Metadata", Icon = "sync", IsAdminOnly = true });
+            actions.Add(new DetailAction { Key = "file-info", Label = "View File Info", Icon = "info", IsAdminOnly = true });
             actions.Add(new DetailAction { Key = "delete", Label = "Delete from Library", Icon = "delete", IsAdminOnly = true, IsDestructive = true });
         }
 

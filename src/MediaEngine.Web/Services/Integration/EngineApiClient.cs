@@ -1217,14 +1217,18 @@ public sealed class EngineApiClient : IEngineApiClient
         Guid id,
         DetailPresentationContext context = DetailPresentationContext.Default,
         string? containerId = null,
+        Guid? profileId = null,
         CancellationToken ct = default)
     {
         try
         {
             var entity = Uri.EscapeDataString(entityType.ToString().ToLowerInvariant());
             var ctx = Uri.EscapeDataString(context.ToString().ToLowerInvariant());
-            var containerQuery = string.IsNullOrWhiteSpace(containerId) ? string.Empty : $"&containerId={Uri.EscapeDataString(containerId)}";
-            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?context={ctx}{containerQuery}", ct);
+            var query = new List<string> { $"context={ctx}" };
+            if (!string.IsNullOrWhiteSpace(containerId))
+                query.Add($"containerId={Uri.EscapeDataString(containerId)}");
+            AddQuery(query, "profileId", profileId?.ToString("D"));
+            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?{string.Join('&', query)}", ct);
             return detail is null ? null : NormalizeDetailArtwork(detail);
         }
         catch (OperationCanceledException) { return null; }

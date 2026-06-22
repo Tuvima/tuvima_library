@@ -13,7 +13,7 @@ public enum MediaReaction
 
 public sealed class MediaReactionService
 {
-    private const string FavoritesCollectionName = "Favorites";
+    private const string LikedCollectionName = "Liked Media";
     private const string DislikedCollectionName = "Disliked Media";
     private const int CollectionItemFetchLimit = 4000;
 
@@ -163,7 +163,7 @@ public sealed class MediaReactionService
         var collections = await _apiClient.GetManagedCollectionsAsync(profileId, ct);
         var favorites = collections.FirstOrDefault(collection =>
             string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(collection.Name, FavoritesCollectionName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(collection.Name, LikedCollectionName, StringComparison.OrdinalIgnoreCase)
             && collection.ProfileId == profileId);
         var disliked = collections.FirstOrDefault(collection =>
             string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
@@ -173,9 +173,9 @@ public sealed class MediaReactionService
         if (createCollections && favorites is null)
         {
             await _apiClient.CreateCollectionAsync(
-                FavoritesCollectionName,
-                "Profile-level likes and favorites across the library.",
-                Icons.Material.Outlined.Grade,
+                LikedCollectionName,
+                "Profile-level positive feedback across the library.",
+                Icons.Material.Outlined.ThumbUpOffAlt,
                 "Playlist",
                 [],
                 "all",
@@ -189,7 +189,7 @@ public sealed class MediaReactionService
             collections = await _apiClient.GetManagedCollectionsAsync(profileId, ct);
             favorites = collections.FirstOrDefault(collection =>
                 string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(collection.Name, FavoritesCollectionName, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(collection.Name, LikedCollectionName, StringComparison.OrdinalIgnoreCase)
                 && collection.ProfileId == profileId);
         }
 

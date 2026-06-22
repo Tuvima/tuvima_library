@@ -227,7 +227,7 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
 
     [Theory]
     [MemberData(nameof(EditableMediaTypeData))]
-    public void DetailHero_PutsEditInWorkingOverflowMenuForEditableMediaTypes(DetailEntityType entityType)
+    public void DetailHero_PutsEditInVisibleActionRowForEditableMediaTypes(DetailEntityType entityType)
     {
         using var cut = Render(builder =>
         {
@@ -239,11 +239,8 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         });
 
         Assert.Empty(cut.FindAll(".tl-detail-inline-edit"));
-        Assert.NotNull(cut.Find("button[aria-label='More actions']"));
-
-        var overflow = Assert.Single(cut.FindComponents<OverflowActionMenu>());
-        var editAction = Assert.Single(overflow.Instance.Actions, action => action.Key == "edit-media");
-        Assert.Equal("Edit", editAction.Label);
+        Assert.NotNull(cut.Find("button[aria-label='Edit']"));
+        Assert.Empty(cut.FindComponents<OverflowActionMenu>());
 
         var overflowMenuSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
