@@ -6,52 +6,99 @@
 @if (Tracks.Count > 0)
 {
     <section class="tl-detail-track-section" aria-label="@($"{AlbumTitle} tracks")">
-        <div class="tl-detail-track-list" role="table" aria-label="@($"{AlbumTitle} tracks")">
-            <div class="tl-detail-track-list__head" role="row">
-                <span role="columnheader">#</span>
-                <span role="columnheader">Title</span>
-                @if (ShowArtistColumn)
-                {
-                    <span role="columnheader">Artist</span>
-                }
-                <span role="columnheader">Time</span>
-                <span role="columnheader" class="tl-detail-track-list__status-head">Status</span>
-            </div>
-
-            @for (var index = 0; index < Tracks.Count; index++)
-            {
-                var track = Tracks[index];
-                var isPlaying = IsCurrentTrack(track);
-                <AppNativeButton Type="button" Class='@($"tl-detail-track-row {(isPlaying ? " is-playing" : null)}")' role="row" AriaLabel="@($" Play {track.Title}")" OnClick="@(() => PlayTrackAsync(track, index))">
-                    <span class="tl-detail-track-row__number" role="cell">
-                        <span class="tl-detail-track-row__ordinal">@DisplayTrackNumber(track, index)</span>
-                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
-                    </span>
-                    <span class="tl-detail-track-row__title" role="cell">
-                        <span class="tl-detail-track-row__name">@track.Title</span>
-                        @if (track.IsExplicit)
-                        {
-                            <span class="tl-detail-track-row__badge">E</span>
-                        }
-                    </span>
-                    @if (ShowArtistColumn)
-                    {
-                        <span class="tl-detail-track-row__artist" role="cell">@DisplayOrDash(track.Artist)</span>
-                    }
-                    <span class="tl-detail-track-row__duration" role="cell">@DisplayOrDash(track.Duration)</span>
-                    <span class="tl-detail-track-row__status" role="cell">
-                        @if (isPlaying)
-                        {
-                            <span class="tl-detail-track-row__playing" aria-label="Currently playing"></span>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(track.Quality))
-                        {
-                            <span class="tl-detail-track-row__quality">@track.Quality</span>
-                        }
-                    </span>
-                </AppNativeButton>
-            }
+        <div class="tl-detail-track-toolbar">
+            <span>@OwnedCount of @Tracks.Count tracks owned</span>
+            <label class="tl-detail-track-toggle">
+                <AppNativeInput Type="checkbox" Checked="@_showMissingTracks" OnChange="ToggleMissingTracks" />
+                <span>Show missing tracks</span>
+            </label>
         </div>
+
+        <div class="tl-detail-track-table-shell">
+            <table class="tl-detail-track-table" aria-label="@($"{AlbumTitle} tracks")">
+                <thead>
+                    <tr>
+                        <th scope="col">
+                            <AppNativeButton Type="button" Class="tl-detail-track-sort" OnClick='@(() => ToggleSort("track"))' aria-sort="@AriaSort("track")">
+                                #
+                                <MudIcon Icon="@SortIcon("track")" Size="Size.Small" />
+                            </AppNativeButton>
+                        </th>
+                        <th scope="col">
+                            <AppNativeButton Type="button" Class="tl-detail-track-sort" OnClick='@(() => ToggleSort("title"))' aria-sort="@AriaSort("title")">
+                                Title
+                                <MudIcon Icon="@SortIcon("title")" Size="Size.Small" />
+                            </AppNativeButton>
+                        </th>
+                        @if (ShowArtistColumn)
+                        {
+                            <th scope="col">
+                                <AppNativeButton Type="button" Class="tl-detail-track-sort" OnClick='@(() => ToggleSort("artist"))' aria-sort="@AriaSort("artist")">
+                                    Artist
+                                    <MudIcon Icon="@SortIcon("artist")" Size="Size.Small" />
+                                </AppNativeButton>
+                            </th>
+                        }
+                        <th scope="col">
+                            <AppNativeButton Type="button" Class="tl-detail-track-sort" OnClick='@(() => ToggleSort("duration"))' aria-sort="@AriaSort("duration")">
+                                Duration
+                                <MudIcon Icon="@SortIcon("duration")" Size="Size.Small" />
+                            </AppNativeButton>
+                        </th>
+                        <th scope="col">
+                            <AppNativeButton Type="button" Class="tl-detail-track-sort" OnClick='@(() => ToggleSort("status"))' aria-sort="@AriaSort("status")">
+                                Status
+                                <MudIcon Icon="@SortIcon("status")" Size="Size.Small" />
+                            </AppNativeButton>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < VisibleTracks.Count; index++)
+                    {
+                        var track = VisibleTracks[index];
+                        var isPlaying = IsCurrentTrack(track);
+                        <tr class='@($"tl-detail-track-row {(isPlaying ? " is-playing" : null)} {(!track.IsOwned ? " is-missing" : null)}")'>
+                            <td class="tl-detail-track-row__number">
+                                @if (track.IsOwned)
+                                {
+                                    <AppNativeButton Type="button" Class="tl-detail-track-row__play" AriaLabel="@($"Play {track.Title}")" OnClick="@(() => PlayTrackAsync(track))">
+                                        <span class="tl-detail-track-row__ordinal">@DisplayTrackNumber(track, index)</span>
+                                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                    </AppNativeButton>
+                                }
+                                else
+                                {
+                                    <span class="tl-detail-track-row__ordinal">@DisplayTrackNumber(track, index)</span>
+                                }
+                            </td>
+                            <td class="tl-detail-track-row__title">
+                                <span class="tl-detail-track-row__name">@track.Title</span>
+                                @if (track.IsExplicit)
+                                {
+                                    <span class="tl-detail-track-row__badge">E</span>
+                                }
+                            </td>
+                            @if (ShowArtistColumn)
+                            {
+                                <td class="tl-detail-track-row__artist">@DisplayOrDash(track.Artist)</td>
+                            }
+                            <td class="tl-detail-track-row__duration">@DisplayDuration(track)</td>
+                            <td class="tl-detail-track-row__status">
+                                <span class='@($"tl-detail-track-status {(track.IsOwned ? "is-owned" : "is-missing")}")'>
+                                    <MudIcon Icon="@(track.IsOwned ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.CloudOff)" Size="Size.Small" />
+                                    <span>@(track.IsOwned ? "Owned" : "Missing")</span>
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (VisibleTracks.Count == 0)
+        {
+            <div class="tl-detail-track-empty">No owned tracks match the current view.</div>
+        }
     </section>
 }
 
@@ -60,12 +107,19 @@
     [Parameter] public string AlbumTitle { get; set; } = "Album";
     [Parameter] public string? AlbumArtworkUrl { get; set; }
 
+    private string _sortColumn = "track";
+    private bool _sortDescending;
+    private bool _showMissingTracks = true;
+
     private IReadOnlyList<MediaGroupingItemViewModel> Tracks =>
         Groups.SelectMany(group => group.Items)
             .Where(item => item.EntityType == DetailEntityType.MusicTrack)
-            .OrderBy(TrackSortKey)
-            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private IReadOnlyList<MediaGroupingItemViewModel> VisibleTracks =>
+        SortTracks(_showMissingTracks ? Tracks : Tracks.Where(track => track.IsOwned));
+
+    private int OwnedCount => Tracks.Count(track => track.IsOwned);
 
     private bool ShowArtistColumn =>
         Tracks.Select(track => track.Artist)
@@ -74,12 +128,19 @@
             .Take(2)
             .Count() > 1;
 
-    private async Task PlayTrackAsync(MediaGroupingItemViewModel track, int index)
+    private async Task PlayTrackAsync(MediaGroupingItemViewModel track)
     {
-        var queue = Tracks.Select(ToQueueItem).ToList();
+        if (!track.IsOwned)
+        {
+            return;
+        }
+
+        var queue = VisibleTracks.Where(item => item.IsOwned).Select(ToQueueItem).ToList();
         if (queue.Count == 0)
             return;
 
+        var workId = Guid.TryParse(track.Id, out var parsed) ? parsed : Guid.Empty;
+        var index = Math.Max(0, queue.FindIndex(item => item.WorkId == workId));
         await Playback.ReplaceQueueItemsAsync(queue, index, AlbumTitle, shuffle: false);
     }
 
@@ -87,23 +148,133 @@
         => new()
         {
             WorkId = Guid.TryParse(track.Id, out var workId) ? workId : Guid.Empty,
+            AssetId = Guid.TryParse(track.AssetId, out var assetId) ? assetId : null,
             MediaType = "Music",
             Title = track.Title,
             Subtitle = track.Artist,
             Album = AlbumTitle,
             CoverUrl = track.ArtworkUrl ?? AlbumArtworkUrl,
-            Duration = track.Duration,
+            Duration = DisplayDuration(track),
+            InitialPositionSeconds = track.StartSeconds,
         };
 
     private bool IsCurrentTrack(MediaGroupingItemViewModel track)
-        => Guid.TryParse(track.Id, out var workId)
+        => track.IsOwned
+           && Guid.TryParse(track.Id, out var workId)
            && Playback.CurrentItem?.WorkId == workId;
+
+    private void ToggleSort(string column)
+    {
+        if (string.Equals(_sortColumn, column, StringComparison.OrdinalIgnoreCase))
+        {
+            _sortDescending = !_sortDescending;
+            return;
+        }
+
+        _sortColumn = column;
+        _sortDescending = column is "duration" or "status";
+    }
+
+    private void ToggleMissingTracks(ChangeEventArgs args)
+    {
+        _showMissingTracks = args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private IReadOnlyList<MediaGroupingItemViewModel> SortTracks(IEnumerable<MediaGroupingItemViewModel> tracks)
+    {
+        var ordered = _sortColumn switch
+        {
+            "title" => _sortDescending
+                ? tracks.OrderByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+            "artist" => _sortDescending
+                ? tracks.OrderByDescending(track => track.Artist ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.Artist ?? string.Empty, StringComparer.OrdinalIgnoreCase),
+            "duration" => _sortDescending
+                ? tracks.OrderByDescending(DurationSortKey)
+                : tracks.OrderBy(DurationSortKey),
+            "status" => _sortDescending
+                ? tracks.OrderBy(track => track.IsOwned)
+                : tracks.OrderByDescending(track => track.IsOwned),
+            _ => _sortDescending
+                ? tracks.OrderByDescending(TrackSortKey)
+                : tracks.OrderBy(TrackSortKey),
+        };
+
+        return ordered
+            .ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private string SortIcon(string column)
+    {
+        if (!string.Equals(_sortColumn, column, StringComparison.OrdinalIgnoreCase))
+        {
+            return Icons.Material.Outlined.UnfoldMore;
+        }
+
+        return _sortDescending ? Icons.Material.Outlined.ArrowDownward : Icons.Material.Outlined.ArrowUpward;
+    }
+
+    private string AriaSort(string column)
+        => string.Equals(_sortColumn, column, StringComparison.OrdinalIgnoreCase)
+            ? _sortDescending ? "descending" : "ascending"
+            : "none";
 
     private static int TrackSortKey(MediaGroupingItemViewModel track)
         => int.TryParse(track.TrackNumber, out var parsed) ? parsed : int.MaxValue;
 
+    private static double DurationSortKey(MediaGroupingItemViewModel track)
+        => track.DurationSeconds ?? double.MaxValue;
+
     private static string DisplayTrackNumber(MediaGroupingItemViewModel track, int index)
         => string.IsNullOrWhiteSpace(track.TrackNumber) ? (index + 1).ToString() : track.TrackNumber;
+
+    private static string DisplayDuration(MediaGroupingItemViewModel track)
+    {
+        if (track.DurationSeconds is > 0)
+        {
+            return FormatSeconds(track.DurationSeconds.Value);
+        }
+
+        if (TryParseDurationSeconds(track.Duration, out var seconds))
+        {
+            return FormatSeconds(seconds);
+        }
+
+        return DisplayOrDash(track.Duration);
+    }
+
+    private static string FormatSeconds(double seconds)
+    {
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return span.TotalHours >= 1
+            ? span.ToString(@"h\:mm\:ss")
+            : span.ToString(@"m\:ss");
+    }
+
+    private static bool TryParseDurationSeconds(string? value, out double seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (TimeSpan.TryParse(value, out var span))
+        {
+            seconds = span.TotalSeconds;
+            return seconds > 0;
+        }
+
+        if (double.TryParse(value, out var numeric))
+        {
+            seconds = numeric >= 60000 ? numeric / 1000d : numeric;
+            return seconds > 0;
+        }
+
+        return false;
+    }
 
     private static string DisplayOrDash(string? value)
         => string.IsNullOrWhiteSpace(value) ? "-" : value;

@@ -1131,7 +1131,19 @@ window.listenPlayback = (function () {
         },
         seekAudio: function (element, seconds) {
             if (!element) return;
-            element.currentTime = Math.max(0, seconds || 0);
+            var target = Math.max(0, seconds || 0);
+            try {
+                element.currentTime = target;
+            } catch (error) {
+                var applyWhenReady = function () {
+                    try {
+                        element.currentTime = target;
+                    } catch (innerError) {
+                        console.debug("Audio seek was rejected.", innerError);
+                    }
+                };
+                element.addEventListener('loadedmetadata', applyWhenReady, { once: true });
+            }
         },
         setVolume: function (element, volume) {
             if (!element) return;

@@ -129,9 +129,9 @@ public sealed class PlayerSessionRepository
                 client = @client,
                 playback_state = CASE WHEN @currentQueueItemId IS NULL THEN 'stopped' ELSE 'playing' END,
                 current_queue_item_id = @currentQueueItemId,
-                position_seconds = 0,
+                position_seconds = @positionSeconds,
                 duration_seconds = @durationSeconds,
-                progress_pct = 0,
+                progress_pct = @progressPct,
                 shuffle_enabled = @shuffleEnabled,
                 source_label = @sourceLabel,
                 state_version = state_version + 1,
@@ -144,7 +144,9 @@ public sealed class PlayerSessionRepository
                 deviceId,
                 client,
                 currentQueueItemId = current,
+                positionSeconds = currentItem?.PositionSeconds ?? 0,
                 durationSeconds = currentItem?.DurationSeconds,
+                progressPct = CalculateProgress(currentItem?.PositionSeconds, currentItem?.DurationSeconds),
                 shuffleEnabled = shuffle ? 1 : 0,
                 sourceLabel,
                 now,
@@ -218,7 +220,9 @@ public sealed class PlayerSessionRepository
                 client = @client,
                 current_queue_item_id = CASE WHEN @hasCurrent = 1 THEN current_queue_item_id ELSE @firstQueueItemId END,
                 playback_state = CASE WHEN @hasCurrent = 1 THEN playback_state ELSE 'playing' END,
+                position_seconds = CASE WHEN @hasCurrent = 1 THEN position_seconds ELSE @positionSeconds END,
                 duration_seconds = CASE WHEN @hasCurrent = 1 THEN duration_seconds ELSE @durationSeconds END,
+                progress_pct = CASE WHEN @hasCurrent = 1 THEN progress_pct ELSE @progressPct END,
                 state_version = state_version + 1,
                 updated_at = @now
             WHERE profile_id = @profileId;
@@ -230,7 +234,9 @@ public sealed class PlayerSessionRepository
                 client,
                 hasCurrent = hasCurrent ? 1 : 0,
                 firstQueueItemId = items[0].QueueItemId,
+                positionSeconds = items[0].PositionSeconds ?? 0,
                 durationSeconds = items[0].DurationSeconds,
+                progressPct = CalculateProgress(items[0].PositionSeconds, items[0].DurationSeconds),
                 now,
             }, tx);
 
@@ -608,6 +614,16 @@ public sealed class PlayerSessionRepository
 
     private static bool IsStale(DateTimeOffset? lastHeartbeatAt, TimeSpan staleAfter) =>
         !lastHeartbeatAt.HasValue || DateTimeOffset.UtcNow - lastHeartbeatAt.Value > staleAfter;
+
+    private static double CalculateProgress(double? positionSeconds, double? durationSeconds)
+    {
+        if (!positionSeconds.HasValue || !durationSeconds.HasValue || durationSeconds.Value <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp(positionSeconds.Value / durationSeconds.Value * 100d, 0d, 100d);
+    }
 
     private sealed record PlayerSessionRow
     {

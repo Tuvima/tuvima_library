@@ -249,6 +249,7 @@
     private DotNetObjectReference<ListenNowPlayingBar>? _selfReference;
     private bool _restored;
     private string? _lastAppliedStreamUrl;
+    private string? _lastSeekedStreamUrl;
     private bool? _lastAppliedPlayingState;
     private double? _lastAppliedVolume;
     private bool? _lastAppliedMuteState;
@@ -359,6 +360,7 @@
         if (!string.Equals(_lastAppliedStreamUrl, Playback.CurrentStreamUrl, StringComparison.Ordinal))
         {
             _lastAppliedStreamUrl = Playback.CurrentStreamUrl;
+            _lastSeekedStreamUrl = null;
             _lastAppliedPlayingState = null;
         }
 
@@ -372,6 +374,13 @@
         {
             await JS.InvokeVoidAsync("listenPlayback.setMuted", _audioRef, Playback.IsMuted);
             _lastAppliedMuteState = Playback.IsMuted;
+        }
+
+        if (!string.Equals(_lastSeekedStreamUrl, Playback.CurrentStreamUrl, StringComparison.Ordinal)
+            && Playback.CurrentTimeSeconds > 0)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, Playback.CurrentTimeSeconds);
+            _lastSeekedStreamUrl = Playback.CurrentStreamUrl;
         }
 
         if (_lastAppliedPlayingState != Playback.IsPlaying)

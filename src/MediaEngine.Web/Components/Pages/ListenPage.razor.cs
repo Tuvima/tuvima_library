@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
+using MediaEngine.Contracts.Details;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -62,6 +63,7 @@ public partial class ListenPage
 
     private CollectionGroupDetailViewModel? _albumDetail;
     private CollectionGroupDetailViewModel? _artistDetail;
+    private DetailPageViewModel? _audioDetail;
     private DiscoveryPageViewModel _musicHomePage = new() { Key = "listen-music" };
     private ProfileViewModel? _activeProfile;
     private Guid? _activeProfileId;
@@ -84,6 +86,7 @@ public partial class ListenPage
     private string _artistSearch = string.Empty;
     private string _artistSort = "name";
     private string? _lastHandledTrackContext;
+    private string? _audioDetailTab;
     private string? _selectedArtistName;
     private string? _restoredArtistName;
     private string? _restoredMode;
@@ -130,7 +133,9 @@ public partial class ListenPage
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
     private bool IsDefaultEntry => string.Equals(CurrentPath, "/listen", StringComparison.OrdinalIgnoreCase);
     private bool IsAudiobooksView => string.Equals(CurrentPath, AudiobooksRoute, StringComparison.OrdinalIgnoreCase);
-    private bool IsMusicMode => !IsAudiobooksView;
+    private bool IsAudiobookDetail => WorkId.HasValue && CurrentPath.StartsWith("/listen/audiobook/", StringComparison.OrdinalIgnoreCase);
+    private bool IsAudiobooksMode => IsAudiobooksView || IsAudiobookDetail;
+    private bool IsMusicMode => !IsAudiobooksMode;
     private bool IsMusicHome => IsMusicMode
         && (string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase)
             || IsDefaultEntry);
@@ -138,13 +143,16 @@ public partial class ListenPage
     private bool IsAlbumDetail => IsMusicMode
         && (CollectionId.HasValue || !string.IsNullOrWhiteSpace(AlbumKey))
         && CurrentPath.StartsWith("/listen/music/albums/", StringComparison.OrdinalIgnoreCase);
+    private bool IsAudioDetailSurface => IsAlbumDetail || IsAudiobookDetail;
     private bool IsSongsView => IsMusicMode && string.Equals(NormalizedSection, "songs", StringComparison.OrdinalIgnoreCase);
     private bool IsPlaylistsView => IsMusicMode && !CollectionId.HasValue && string.IsNullOrWhiteSpace(PlaylistKey) && string.Equals(NormalizedSection, "playlists", StringComparison.OrdinalIgnoreCase);
     private bool IsPlaylistSurface => IsMusicMode && ((CollectionId.HasValue && CurrentPath.StartsWith("/listen/music/playlists/", StringComparison.OrdinalIgnoreCase)) || !string.IsNullOrWhiteSpace(PlaylistKey));
     private bool IsArtistsSurface => IsMusicMode && (string.Equals(NormalizedSection, "artists", StringComparison.OrdinalIgnoreCase) || CurrentPath.StartsWith("/listen/music/artists/", StringComparison.OrdinalIgnoreCase));
     private string SelectedArtistName => _selectedArtistName ?? string.Empty;
 
-    private string PageTitleText => IsAlbumDetail && _albumDetail is not null
+    private string PageTitleText => _audioDetail is not null
+        ? $"{_audioDetail.Title} - Listen"
+        : IsAlbumDetail && _albumDetail is not null
         ? $"{_albumDetail.DisplayName} - Listen"
         : IsPlaylistSurface
             ? $"{ActivePlaylistTitle} - Listen"
@@ -154,7 +162,7 @@ public partial class ListenPage
                     ? "Listen - Tuvima"
                 : IsMusicHome
                     ? "Music - Listen"
-                : IsAudiobooksView
+                : IsAudiobooksMode
                     ? "Audiobooks - Listen"
                     : "Listen - Tuvima";
 
@@ -397,19 +405,14 @@ public partial class ListenPage
         _redirecting = false;
         _albumDetail = null;
         _artistDetail = null;
+        _audioDetail = null;
+        _audioDetailTab = null;
         _artistLoading = false;
         _playlistItems.Clear();
         _selectedTrackIds.Clear();
         CloseTrackContextMenu();
         _draggingTrackIds.Clear();
         StateHasChanged();
-
-        if (WorkId.HasValue)
-        {
-            _redirecting = true;
-            Nav.NavigateTo($"/book/{WorkId.Value}?mode=listen", replace: true);
-            return;
-        }
 
         try
         {
@@ -470,6 +473,15 @@ public partial class ListenPage
             if (IsAlbumDetail)
             {
                 _albumDetail = await LoadAlbumDetailAsync();
+                _audioDetail = BuildAlbumDetailModel(_albumDetail);
+            }
+
+            if (IsAudiobookDetail && WorkId.HasValue)
+            {
+                _audioDetail = await ApiClient.GetDetailPageAsync(
+                    DetailEntityType.Audiobook,
+                    WorkId.Value,
+                    DetailPresentationContext.Listen);
             }
 
             if (CollectionId.HasValue && IsPlaylistSurface)
@@ -525,7 +537,7 @@ public partial class ListenPage
     {
         try
         {
-            var mode = IsAudiobooksView ? "audiobooks" : "music";
+            var mode = IsAudiobooksMode ? "audiobooks" : "music";
             if (!string.Equals(_lastPersistedMode, mode, StringComparison.OrdinalIgnoreCase))
             {
                 await JS.InvokeVoidAsync("listenUi.setMode", mode);
@@ -1087,6 +1099,12 @@ public partial class ListenPage
         Nav.NavigateTo(route);
     }
 
+    private Task SetAudioDetailTabAsync(string tab)
+    {
+        _audioDetailTab = tab;
+        return Task.CompletedTask;
+    }
+
     private async Task<CollectionGroupDetailViewModel?> LoadAlbumDetailAsync()
     {
         if (!string.IsNullOrWhiteSpace(AlbumKey))
@@ -1116,6 +1134,169 @@ public partial class ListenPage
 
         return await ApiClient.GetCollectionGroupDetailAsync(CollectionId.Value);
     }
+
+    private static DetailPageViewModel? BuildAlbumDetailModel(CollectionGroupDetailViewModel? detail)
+    {
+        if (detail is null)
+        {
+            return null;
+        }
+
+        var id = detail.RootWorkId ?? detail.CollectionId;
+        var artworkUrl = FirstNonBlankOrNull(detail.CoverUrl, detail.HeroUrl, detail.BackgroundUrl);
+        var artist = FirstNonBlankOrNull(detail.Creator, detail.Writer, detail.Director);
+        var tracks = detail.Works
+            .OrderBy(work => ParseTrackNumber(FirstNonBlankOrNull(work.TrackNumber, work.Ordinal?.ToString(CultureInfo.InvariantCulture))))
+            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(work => new MediaGroupingItemViewModel
+            {
+                Id = work.WorkId.ToString("D"),
+                EntityType = DetailEntityType.MusicTrack,
+                Title = string.IsNullOrWhiteSpace(work.Title) ? "Untitled track" : work.Title,
+                Subtitle = artist,
+                ArtworkUrl = FirstNonBlankOrNull(work.CoverUrl, artworkUrl),
+                TrackNumber = FirstNonBlankOrNull(work.TrackNumber, work.Ordinal?.ToString(CultureInfo.InvariantCulture)),
+                Duration = work.Duration,
+                DurationSeconds = work.DurationSeconds,
+                Artist = artist,
+                Metadata = string.IsNullOrWhiteSpace(work.Duration) ? [] : [new MetadataPill { Label = work.Duration!, Kind = "duration" }],
+                Actions = work.WorkId == Guid.Empty ? [] : [new DetailAction { Key = "play-track", Label = "Play", Icon = "play_arrow" }],
+                IsOwned = work.IsOwned,
+                ProgressState = work.IsOwned ? LibraryProgressState.Unstarted : LibraryProgressState.Missing,
+            })
+            .ToList();
+
+        IReadOnlyList<CreditGroupViewModel> contributors = string.IsNullOrWhiteSpace(artist)
+            ? []
+            : new List<CreditGroupViewModel>
+            {
+                new()
+                {
+                    Title = "Artist",
+                    GroupType = CreditGroupType.MusicCredits,
+                    Credits =
+                    [
+                        new EntityCreditViewModel
+                        {
+                            EntityType = RelatedEntityType.MusicArtist,
+                            DisplayName = artist!,
+                            FallbackInitials = Initials(artist!),
+                            PrimaryRole = "Artist",
+                            IsPrimary = true,
+                        },
+                    ],
+                },
+            };
+
+        return new DetailPageViewModel
+        {
+            Id = id.ToString("D"),
+            EntityType = DetailEntityType.MusicAlbum,
+            PresentationContext = DetailPresentationContext.Listen,
+            EditorTarget = id == Guid.Empty
+                ? null
+                : new DetailEditorTarget
+                {
+                    EntityId = id.ToString("D"),
+                    EntityKind = detail.RootWorkId.HasValue ? "Work" : "Collection",
+                    ContainerMode = detail.RootWorkId.HasValue ? "Canonical" : "Curated",
+                    InitialTab = "tracks",
+                },
+            Title = detail.DisplayName,
+            Subtitle = artist,
+            Description = detail.Description,
+            Tagline = detail.Tagline,
+            Artwork = new ArtworkSet
+            {
+                CoverUrl = artworkUrl,
+                PosterUrl = artworkUrl,
+                BackdropUrl = FirstNonBlankOrNull(detail.BackgroundUrl, detail.HeroUrl, detail.BannerUrl),
+                BannerUrl = detail.BannerUrl,
+                LogoUrl = detail.LogoUrl,
+                DominantColors = detail.DominantColors,
+                PrimaryColor = detail.PrimaryColor,
+                SecondaryColor = detail.SecondaryColor,
+                AccentColor = detail.AccentColor,
+                HeroArtwork = new HeroArtworkViewModel
+                {
+                    Url = FirstNonBlankOrNull(detail.BackgroundUrl, detail.HeroUrl, artworkUrl),
+                    Mode = HeroArtworkMode.ArtworkFallback,
+                    HasImage = !string.IsNullOrWhiteSpace(FirstNonBlankOrNull(detail.BackgroundUrl, detail.HeroUrl, artworkUrl)),
+                },
+                PresentationMode = ArtworkPresentationMode.ColorGradientFromArtwork,
+            },
+            Metadata = BuildAlbumDetailMetadata(detail, tracks.Count),
+            PrimaryActions =
+            [
+                new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true },
+            ],
+            SecondaryActions =
+            [
+                new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle", DisplayStyle = "icon" },
+                new DetailAction { Key = "save", Label = "Save", Icon = "playlist_add", DisplayStyle = "icon" },
+            ],
+            OverflowActions =
+            [
+                new DetailAction { Key = "details", Label = "Details", Icon = "info" },
+            ],
+            ContributorGroups = contributors,
+            PreviewContributors = contributors.SelectMany(group => group.Credits).Take(3).ToList(),
+            Tabs =
+            [
+                new DetailTab { Key = "tracks", Label = "Tracks" },
+                new DetailTab { Key = "overview", Label = "Overview" },
+                new DetailTab { Key = "credits", Label = "Credits" },
+                new DetailTab { Key = "related", Label = "Related" },
+                new DetailTab { Key = "details", Label = "Details" },
+            ],
+            MediaGroups =
+            [
+                new MediaGroupingViewModel
+                {
+                    Key = "tracks",
+                    Title = "Tracks",
+                    Items = tracks,
+                    OwnedCount = tracks.Count(track => track.IsOwned),
+                    TotalCount = tracks.Count,
+                    MissingCount = tracks.Count(track => !track.IsOwned),
+                    CompletionPercent = tracks.Count == 0
+                        ? 0
+                        : Math.Round((double)tracks.Count(track => track.IsOwned) / tracks.Count * 100d, 1),
+                },
+            ],
+            IdentityStatus = CanonicalIdentityStatus.ProviderMatched,
+            LibraryStatus = MediaEngine.Contracts.Details.LibraryStatus.Owned,
+        };
+    }
+
+    private static IReadOnlyList<MetadataPill> BuildAlbumDetailMetadata(CollectionGroupDetailViewModel detail, int trackCount)
+    {
+        var values = new List<MetadataPill>
+        {
+            new() { Label = "Album", Kind = "type" },
+        };
+
+        AddMetadata(values, FirstNonBlankOrNull(detail.YearRange, detail.ReleaseDate), "year");
+        AddMetadata(values, Pluralize(trackCount > 0 ? trackCount : detail.TotalItems, "track"), "track_count");
+        AddMetadata(values, detail.TotalDuration, "duration");
+        AddMetadata(values, detail.Genre, "genre");
+        return values;
+    }
+
+    private static void AddMetadata(List<MetadataPill> values, string? label, string kind)
+    {
+        if (!string.IsNullOrWhiteSpace(label))
+        {
+            values.Add(new MetadataPill { Label = label, Kind = kind });
+        }
+    }
+
+    private static string Initials(string value)
+        => string.Join(
+            string.Empty,
+            value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Take(2)
+                .Select(part => char.ToUpperInvariant(part[0])));
 
     private string BuildAlbumDetailRoute(string? albumName, string? artistName = null, Guid? trackId = null, bool edit = false)
     {

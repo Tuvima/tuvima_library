@@ -50,7 +50,7 @@ public static class MediaNavigation
             MediaBucket.Music => collectionId.HasValue
                 ? $"/listen/music/albums/{collectionId.Value}?track={workId}"
                 : $"/listen/music/songs?track={workId}",
-            MediaBucket.Audiobook => $"/book/{workId}?mode=listen",
+            MediaBucket.Audiobook => $"/listen/audiobook/{workId}",
             MediaBucket.Read => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}",
         };

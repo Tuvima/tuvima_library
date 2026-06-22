@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
@@ -13,6 +15,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
@@ -277,6 +280,7 @@ public static class CollectionEndpoints
             ICanonicalValueArrayRepository canonicalArrayRepo,
             IPersonRepository personRepo,
             IPersonCreditReadService personCreditReadService,
+            AppleRetailClient appleRetailClient,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -293,6 +297,7 @@ public static class CollectionEndpoints
                 .FirstOrDefault()?.Key;
 
             bool isTv = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase);
+            bool isMusic = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase);
 
             // Phase 4 — resolve the topmost Work id for the collection by walking the
             // parent_work_id chain from any of the collection's works (they all share
@@ -314,14 +319,15 @@ public static class CollectionEndpoints
                     """;
                 var idParam = rootCmd.CreateParameter();
                 idParam.ParameterName = "@id";
-                idParam.Value = collection.Works[0].Id.ToString();
+                idParam.Value = GuidSql.ToBlob(collection.Works[0].Id);
                 rootCmd.Parameters.Add(idParam);
 
                 var rootIdObj = await rootCmd.ExecuteScalarAsync(ct);
-                if (rootIdObj is string rootIdStr && Guid.TryParse(rootIdStr, out var rid))
+                var rid = GuidSql.FromDbNullable(rootIdObj);
+                if (rid.HasValue)
                 {
-                    rootParentWorkId = rid;
-                    parentCvs = await canonicalRepo.GetByEntityAsync(rid, ct);
+                    rootParentWorkId = rid.Value;
+                    parentCvs = await canonicalRepo.GetByEntityAsync(rid.Value, ct);
                 }
             }
 
@@ -344,6 +350,8 @@ public static class CollectionEndpoints
                                          ?? GetCanonical(workDto, "year");
                     string? duration = GetCanonical(workDto, "duration")
                                          ?? GetCanonical(workDto, "runtime");
+                    var durationSeconds = isMusic ? NormalizeAudioDurationSeconds(duration) : null;
+                    var displayDuration = isMusic ? FormatAudioDuration(durationSeconds, duration) : duration;
                     string? coverUrl = BuildCoverStreamUrl(w);
                     string? backgroundUrl = BuildBackgroundStreamUrl(w);
                     string? bannerUrl = BuildBannerStreamUrl(w);
@@ -389,7 +397,8 @@ public static class CollectionEndpoints
                         Title = title,
                         Ordinal = w.Ordinal,
                         Year = year,
-                        Duration = duration,
+                        Duration = displayDuration,
+                        DurationSeconds = durationSeconds,
                         CoverUrl = coverUrl,
                         BackgroundUrl = backgroundUrl,
                         BannerUrl = bannerUrl,
@@ -425,6 +434,7 @@ public static class CollectionEndpoints
                 ParentCv("release_date")
                 ?? ParentCv("date")
                 ?? ParentCv("year"));
+            var collectionPalette = ResolvePalette(rootParentWorkId, parentCvs, db);
 
             // Resolve cover URL as a /stream/ endpoint. Cover art is downloaded
             // to disk by CoverArtWorker and served via StreamEndpoints. We need
@@ -472,8 +482,7 @@ public static class CollectionEndpoints
             // Build the response — TV uses seasons grouping, Music uses album grouping, others use flat works list.
             List<CollectionGroupSeasonDto> seasons = [];
             List<CollectionGroupWorkDto> flatWorks = [];
-
-            bool isMusic = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase);
+            var collectionChildJson = ParentCv(MetadataFieldConstants.ChildEntitiesJson);
 
             if (isTv)
             {
@@ -488,12 +497,23 @@ public static class CollectionEndpoints
                     })
                     .ToList();
             }
-            else if (isMusic && workDtos.Count > 1)
+            else if (isMusic)
             {
+                collectionChildJson = await EnsureAppleAlbumTrackManifestAsync(
+                    rootParentWorkId,
+                    collectionCreator,
+                    FirstNonBlank(ParentCv(MetadataFieldConstants.Album), ParentCv(MetadataFieldConstants.Title), collection.DisplayName),
+                    collectionChildJson,
+                    parentCvs,
+                    canonicalRepo,
+                    appleRetailClient,
+                    ct);
+
                 // Music: tracks are already within one album collection, show as flat list with track ordering
-                flatWorks = workDtos
+                var ownedTracks = workDtos
                     .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : w.Ordinal ?? int.MaxValue)
                     .ToList();
+                flatWorks = MergeUnownedMusicTracks(ownedTracks, collectionChildJson, collectionCover);
             }
             else
             {
@@ -525,6 +545,10 @@ public static class CollectionEndpoints
                 CoverUrl = collectionCover,
                 BackgroundUrl = collectionBackground,
                 BannerUrl = collectionBanner,
+                DominantColors = collectionPalette.DominantColors,
+                PrimaryColor = collectionPalette.PrimaryColor,
+                SecondaryColor = collectionPalette.SecondaryColor,
+                AccentColor = collectionPalette.AccentColor,
                 Description = collectionDescription,
                 Tagline = collectionTagline,
                 Creator = collectionCreator,
@@ -536,7 +560,7 @@ public static class CollectionEndpoints
                 Network = collectionNetwork,
                 SeasonCount = isTv ? seasons.Count : null,
                 TopCast = topCast,
-                TotalItems = collection.Works.Count,
+                TotalItems = isMusic ? flatWorks.Count : collection.Works.Count,
                 Seasons = seasons,
                 Works = flatWorks,
             };
@@ -918,6 +942,8 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupValue")] string? groupValue,
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "mediaType")] string? mediaType,
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
+            ICanonicalValueRepository canonicalRepo,
+            AppleRetailClient appleRetailClient,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -931,6 +957,7 @@ public static class CollectionEndpoints
             {
                 "show_name" => ("season_number", "season_number, episode_number, title"),
                 "artist" => ("album", "album, CAST(track_number AS INTEGER), title"),
+                "album" => ((string?)null, "CAST(track_number AS INTEGER), title"),
                 "series" => ((string?)null, "CAST(series_index AS INTEGER), title"),
                 _ => ((string?)null, "title"),
             };
@@ -1024,6 +1051,7 @@ public static class CollectionEndpoints
                 work_data AS (
                     SELECT
                         mw.work_id,
+                        COALESCE(gp.id, p.id, w.id) AS root_work_id,
                         MAX(CASE WHEN cv.key = 'title'               THEN cv.value END) AS title,
                         MAX(CASE WHEN cv.key = 'episode_title'       THEN cv.value END) AS episode_title,
                         MAX(CASE WHEN cv.key = 'show_name'           THEN cv.value END) AS show_name,
@@ -1091,6 +1119,36 @@ public static class CollectionEndpoints
                             ),
                             MAX(CASE WHEN cv.key IN ('clear_logo_url', 'clear_logo', 'logo_url', 'logo') THEN NULLIF(cv.value, '') END)
                         ) AS logo,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_primary.value, '')
+                                FROM canonical_values cv_group_primary
+                                WHERE cv_group_primary.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_primary.key IN ('artwork_primary_hex', 'cover_primary_hex', 'primary_color')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('artwork_primary_hex', 'cover_primary_hex', 'primary_color') THEN NULLIF(cv.value, '') END)
+                        ) AS primary_color,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_secondary.value, '')
+                                FROM canonical_values cv_group_secondary
+                                WHERE cv_group_secondary.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_secondary.key IN ('artwork_secondary_hex', 'cover_secondary_hex', 'secondary_color')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('artwork_secondary_hex', 'cover_secondary_hex', 'secondary_color') THEN NULLIF(cv.value, '') END)
+                        ) AS secondary_color,
+                        COALESCE(
+                            (
+                                SELECT NULLIF(cv_group_accent.value, '')
+                                FROM canonical_values cv_group_accent
+                                WHERE cv_group_accent.entity_id = COALESCE(gp.id, p.id, w.id)
+                                  AND cv_group_accent.key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color')
+                                LIMIT 1
+                            ),
+                            MAX(CASE WHEN cv.key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color') THEN NULLIF(cv.value, '') END)
+                        ) AS accent_color,
                         MAX(CASE WHEN cv.key = 'genre'               THEN cv.value END) AS genre,
                         MAX(CASE WHEN cv.key = 'network'             THEN cv.value END) AS network,
                         MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json
@@ -1147,16 +1205,25 @@ public static class CollectionEndpoints
             string? combinedBanner = null;
             string? combinedHero = null;
             string? combinedLogo = null;
+            string? combinedPrimaryColor = null;
+            string? combinedSecondaryColor = null;
+            string? combinedAccentColor = null;
             string? combinedGenre = null;
             string? combinedNetwork = null;
+            Guid? combinedRootWorkId = null;
             var allYears = new List<string>();
             int totalItems = 0;
             // Collect child_entities_json from any owned work that carries it.
             string? collectedChildJson = null;
+            var isMusicAlbumGroup = string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
 
             while (reader.Read())
             {
                 var workId = reader.GetGuid(reader.GetOrdinal("work_id"));
+                var rootWorkId = reader.IsDBNull(reader.GetOrdinal("root_work_id"))
+                    ? (Guid?)null
+                    : GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("root_work_id")));
                 var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
                 var episodeTitle = reader.IsDBNull(reader.GetOrdinal("episode_title")) ? null : reader.GetString(reader.GetOrdinal("episode_title"));
                 var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
@@ -1164,9 +1231,15 @@ public static class CollectionEndpoints
                 var banner = reader.IsDBNull(reader.GetOrdinal("banner")) ? null : reader.GetString(reader.GetOrdinal("banner"));
                 var hero = reader.IsDBNull(reader.GetOrdinal("hero")) ? null : reader.GetString(reader.GetOrdinal("hero"));
                 var logo = reader.IsDBNull(reader.GetOrdinal("logo")) ? null : reader.GetString(reader.GetOrdinal("logo"));
+                var primaryColor = reader.IsDBNull(reader.GetOrdinal("primary_color")) ? null : reader.GetString(reader.GetOrdinal("primary_color"));
+                var secondaryColor = reader.IsDBNull(reader.GetOrdinal("secondary_color")) ? null : reader.GetString(reader.GetOrdinal("secondary_color"));
+                var accentColor = reader.IsDBNull(reader.GetOrdinal("accent_color")) ? null : reader.GetString(reader.GetOrdinal("accent_color"));
                 var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
                 var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
                 var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
+                var rawDuration = duration ?? runtime;
+                var durationSeconds = isMusicAlbumGroup ? NormalizeAudioDurationSeconds(rawDuration) : null;
+                var displayDuration = isMusicAlbumGroup ? FormatAudioDuration(durationSeconds, rawDuration) : rawDuration;
                 var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
                 var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
                 var episodeNum = reader.IsDBNull(reader.GetOrdinal("episode_number")) ? null : reader.GetString(reader.GetOrdinal("episode_number"));
@@ -1199,7 +1272,11 @@ public static class CollectionEndpoints
                 combinedBanner ??= banner;
                 combinedHero ??= hero;
                 combinedLogo ??= logo;
+                combinedPrimaryColor ??= primaryColor;
+                combinedSecondaryColor ??= secondaryColor;
+                combinedAccentColor ??= accentColor;
                 combinedGenre ??= genre;
+                combinedRootWorkId ??= rootWorkId;
 
                 combinedNetwork ??= networkVal;
 
@@ -1232,7 +1309,8 @@ public static class CollectionEndpoints
                     WorkId = workId,
                     Title = episodeTitle ?? title ?? $"Item {workId.ToString("N")[..8]}",
                     Year = year,
-                    Duration = duration ?? runtime,
+                    Duration = displayDuration,
+                    DurationSeconds = durationSeconds,
                     CoverUrl = cover,
                     BackgroundUrl = background,
                     BannerUrl = banner,
@@ -1251,6 +1329,22 @@ public static class CollectionEndpoints
             // For TV shows the JSON has an "episodes" array grouped by season;
             // for music it has "tracks"; for comics "issues". We use the same
             // child-entity parsing used by MergeUnownedMusicTracks.
+            IReadOnlyList<CanonicalValue> rootCanonicals = [];
+            if (isMusicAlbumGroup && combinedRootWorkId.HasValue)
+            {
+                rootCanonicals = await canonicalRepo.GetByEntityAsync(combinedRootWorkId.Value, ct);
+                collectedChildJson ??= FirstCanonicalValue(rootCanonicals, MetadataFieldConstants.ChildEntitiesJson);
+                collectedChildJson = await EnsureAppleAlbumTrackManifestAsync(
+                    combinedRootWorkId,
+                    combinedCreator,
+                    groupValue,
+                    collectedChildJson,
+                    rootCanonicals,
+                    canonicalRepo,
+                    appleRetailClient,
+                    ct);
+            }
+
             if (!string.IsNullOrWhiteSpace(collectedChildJson))
             {
                 MergeUnownedChildEntities(
@@ -1260,6 +1354,11 @@ public static class CollectionEndpoints
                     secondaryGroup,
                     combinedCover);
             }
+
+            var palette = ResolvePalette(combinedRootWorkId, rootCanonicals, db);
+            combinedPrimaryColor ??= palette.PrimaryColor;
+            combinedSecondaryColor ??= palette.SecondaryColor;
+            combinedAccentColor ??= palette.AccentColor;
 
             var years = allYears.Distinct().OrderBy(y => y).ToList();
             string? yearRange = years.Count switch
@@ -1296,6 +1395,13 @@ public static class CollectionEndpoints
             {
                 seasons = [];
                 flatWorks = sectionMap.Values.SelectMany(v => v).ToList();
+                if (isMusicAlbumGroup)
+                {
+                    flatWorks = flatWorks
+                        .OrderBy(item => int.TryParse(item.TrackNumber, out var trackNumber) ? trackNumber : item.Ordinal ?? int.MaxValue)
+                        .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
             }
 
             var response = new CollectionGroupDetailDto
@@ -1308,6 +1414,10 @@ public static class CollectionEndpoints
                 BannerUrl = combinedBanner,
                 HeroUrl = combinedHero,
                 LogoUrl = combinedLogo,
+                DominantColors = palette.DominantColors,
+                PrimaryColor = combinedPrimaryColor,
+                SecondaryColor = combinedSecondaryColor,
+                AccentColor = combinedAccentColor,
                 Creator = combinedCreator,
                 YearRange = yearRange,
                 Genre = combinedGenre,
@@ -4107,71 +4217,74 @@ public static class CollectionEndpoints
         if (string.IsNullOrWhiteSpace(childEntitiesJson))
         {
             // No Wikidata data — sort owned by track number and return.
-            return ownedTracks
-                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
-                .ToList();
+            return SortAlbumTracks(ownedTracks);
         }
 
         try
         {
-            using var doc = System.Text.Json.JsonDocument.Parse(childEntitiesJson);
+            using var doc = JsonDocument.Parse(childEntitiesJson);
             if (!doc.RootElement.TryGetProperty("tracks", out var tracksArr) ||
-                tracksArr.ValueKind != System.Text.Json.JsonValueKind.Array)
+                tracksArr.ValueKind != JsonValueKind.Array)
             {
-                return ownedTracks
-                    .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
-                    .ToList();
+                return SortAlbumTracks(ownedTracks);
             }
 
             // Build a lookup of owned tracks by normalized title for matching.
+            var ownedByTitleAndNumber = ownedTracks
+                .Where(t => !string.IsNullOrWhiteSpace(t.Title))
+                .GroupBy(t => BuildTrackMatchKey(t.Title, ParseNullableInt(t.TrackNumber)))
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
             var ownedByTitle = ownedTracks
                 .Where(t => !string.IsNullOrWhiteSpace(t.Title))
-                .GroupBy(t => t.Title.Trim().ToLowerInvariant())
+                .GroupBy(t => NormalizeTrackTitle(t.Title))
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             var merged = new List<CollectionGroupWorkDto>();
             var seenOwned = new HashSet<Guid>();
-            int wikidataOrdinal = 0;
+            int manifestOrdinal = 0;
 
             foreach (var trackEl in tracksArr.EnumerateArray())
             {
-                wikidataOrdinal++;
-                var title = trackEl.TryGetProperty("title", out var titleEl) && titleEl.ValueKind == System.Text.Json.JsonValueKind.String
-                    ? titleEl.GetString()
-                    : null;
+                manifestOrdinal++;
+                var title = ReadJsonString(trackEl, "title", "trackName", "name");
                 if (string.IsNullOrWhiteSpace(title))
                 {
                     continue;
                 }
 
-                var ordinal = trackEl.TryGetProperty("ordinal", out var ordEl) && ordEl.ValueKind == System.Text.Json.JsonValueKind.Number
-                    ? ordEl.GetInt32()
-                    : wikidataOrdinal;
-
-                var key = title.Trim().ToLowerInvariant();
-                if (ownedByTitle.TryGetValue(key, out var owned))
+                var trackNumber = ReadJsonInt(trackEl, "track_number", "trackNumber", "number");
+                var ordinal = ReadJsonInt(trackEl, "ordinal", "position") ?? trackNumber ?? manifestOrdinal;
+                var durationSeconds = ReadChildDurationSeconds(trackEl);
+                var owned = ownedByTitleAndNumber.GetValueOrDefault(BuildTrackMatchKey(title, trackNumber))
+                    ?? ownedByTitle.GetValueOrDefault(NormalizeTrackTitle(title));
+                if (owned is not null)
                 {
                     // Owned — keep the local row but normalise the track number from Wikidata.
-                    if (string.IsNullOrWhiteSpace(owned.TrackNumber))
+                    merged.Add(new CollectionGroupWorkDto
                     {
-                        merged.Add(new CollectionGroupWorkDto
-                        {
-                            WorkId = owned.WorkId,
-                            Title = owned.Title,
-                            Ordinal = ordinal,
-                            Year = owned.Year,
-                            Duration = owned.Duration,
-                            CoverUrl = owned.CoverUrl ?? albumCover,
-                            WikidataQid = owned.WikidataQid,
-                            TrackNumber = ordinal.ToString(),
-                            Status = owned.Status,
-                            IsOwned = true,
-                        });
-                    }
-                    else
-                    {
-                        merged.Add(owned);
-                    }
+                        WorkId = owned.WorkId,
+                        Title = owned.Title,
+                        Ordinal = owned.Ordinal ?? ordinal,
+                        Year = owned.Year,
+                        Duration = FirstNonBlank(owned.Duration, FormatAudioDuration(durationSeconds, null)),
+                        DurationSeconds = owned.DurationSeconds ?? durationSeconds,
+                        CoverUrl = owned.CoverUrl ?? albumCover,
+                        BackgroundUrl = owned.BackgroundUrl,
+                        BannerUrl = owned.BannerUrl,
+                        HeroUrl = owned.HeroUrl,
+                        WikidataQid = owned.WikidataQid,
+                        TrackNumber = FirstNonBlank(owned.TrackNumber, (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture)),
+                        Status = owned.Status,
+                        Description = owned.Description,
+                        Director = owned.Director,
+                        Writer = owned.Writer,
+                        ReleaseDate = owned.ReleaseDate,
+                        PlaybackSummary = owned.PlaybackSummary,
+                        IsOwned = true,
+                        Stage1 = owned.Stage1,
+                        Stage2 = owned.Stage2,
+                        Stage3 = owned.Stage3,
+                    });
                     seenOwned.Add(owned.WorkId);
                 }
                 else
@@ -4182,9 +4295,11 @@ public static class CollectionEndpoints
                         WorkId = Guid.Empty,
                         Title = title,
                         Ordinal = ordinal,
-                        TrackNumber = ordinal.ToString(),
+                        TrackNumber = (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture),
+                        Duration = FormatAudioDuration(durationSeconds, null),
+                        DurationSeconds = durationSeconds,
                         CoverUrl = albumCover,
-                        Status = "Unowned",
+                        Status = "Missing",
                         IsOwned = false,
                     });
                 }
@@ -4199,16 +4314,12 @@ public static class CollectionEndpoints
                 }
             }
 
-            return merged
-                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
-                .ToList();
+            return SortAlbumTracks(merged);
         }
-        catch
+        catch (JsonException)
         {
             // Malformed JSON — fall back to owned-only.
-            return ownedTracks
-                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
-                .ToList();
+            return SortAlbumTracks(ownedTracks);
         }
     }
 
@@ -4333,16 +4444,12 @@ public static class CollectionEndpoints
                 continue;
             }
 
-            var ordinal = el.TryGetProperty("ordinal", out var oEl)
-                && oEl.ValueKind == System.Text.Json.JsonValueKind.Number
-                ? oEl.GetInt32()
-                : wikiOrdinal;
+            var trackNumber = ReadJsonInt(el, "track_number", "trackNumber", "number");
+            var ordinal = ReadJsonInt(el, "ordinal", "position") ?? trackNumber ?? wikiOrdinal;
+            var durationSeconds = ReadChildDurationSeconds(el);
 
             var episodeNumStr = isEpisode
-                ? (el.TryGetProperty("episode_number", out var enEl)
-                   && enEl.ValueKind == System.Text.Json.JsonValueKind.Number
-                       ? enEl.GetInt32().ToString()
-                       : ordinal.ToString())
+                ? (ReadJsonInt(el, "episode_number", "episodeNumber") ?? ordinal).ToString(CultureInfo.InvariantCulture)
                 : null;
 
             sectionMap[sectionKey].Add(new CollectionGroupWorkDto
@@ -4351,12 +4458,492 @@ public static class CollectionEndpoints
                 Title = title,
                 Ordinal = ordinal,
                 Episode = episodeNumStr,
-                TrackNumber = isEpisode ? null : ordinal.ToString(),
+                TrackNumber = isEpisode ? null : (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture),
+                Duration = FormatAudioDuration(durationSeconds, null),
+                DurationSeconds = durationSeconds,
                 CoverUrl = fallbackCover,
-                Status = "Unowned",
+                Status = "Missing",
                 IsOwned = false,
             });
         }
+    }
+
+    private static List<CollectionGroupWorkDto> SortAlbumTracks(IEnumerable<CollectionGroupWorkDto> tracks)
+        => tracks
+            .OrderBy(track => ParseNullableInt(track.TrackNumber) ?? track.Ordinal ?? int.MaxValue)
+            .ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static string NormalizeTrackTitle(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+    private static string BuildTrackMatchKey(string? title, int? trackNumber)
+        => $"{NormalizeTrackTitle(title)}|{trackNumber?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}";
+
+    private static string? ReadJsonString(JsonElement element, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    private static int? ReadJsonInt(JsonElement element, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!element.TryGetProperty(key, out var value))
+            {
+                continue;
+            }
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var parsed))
+            {
+                return parsed;
+            }
+
+            if (value.ValueKind == JsonValueKind.String
+                && int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private static double? ReadJsonDouble(JsonElement element, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!element.TryGetProperty(key, out var value))
+            {
+                continue;
+            }
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var parsed))
+            {
+                return parsed;
+            }
+
+            if (value.ValueKind == JsonValueKind.String
+                && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private static double? ReadChildDurationSeconds(JsonElement element)
+    {
+        var seconds = ReadJsonDouble(element, "duration_seconds", "durationSeconds");
+        if (seconds is > 0)
+        {
+            return seconds;
+        }
+
+        var millis = ReadJsonDouble(element, "duration_ms", "durationMillis", "trackTimeMillis");
+        if (millis is > 0)
+        {
+            return millis.Value / 1000d;
+        }
+
+        return NormalizeAudioDurationSeconds(ReadJsonString(element, "duration", "runtime"));
+    }
+
+    private static double? NormalizeAudioDurationSeconds(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var span) && span.TotalSeconds > 0)
+        {
+            return span.TotalSeconds;
+        }
+
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric) && numeric > 0)
+        {
+            return numeric >= 60000 ? numeric / 1000d : numeric;
+        }
+
+        return null;
+    }
+
+    private static string? FormatAudioDuration(double? seconds, string? fallback)
+    {
+        if (seconds is > 0)
+        {
+            var span = TimeSpan.FromSeconds(seconds.Value);
+            return span.TotalHours >= 1
+                ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+                : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+        }
+
+        var fallbackSeconds = NormalizeAudioDurationSeconds(fallback);
+        if (fallbackSeconds is > 0)
+        {
+            return FormatAudioDuration(fallbackSeconds, null);
+        }
+
+        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
+    }
+
+    private static string? FirstCanonicalValue(IReadOnlyList<CanonicalValue> values, params string[] keys)
+        => values
+            .FirstOrDefault(value => keys.Any(key => string.Equals(value.Key, key, StringComparison.OrdinalIgnoreCase))
+                && !string.IsNullOrWhiteSpace(value.Value))
+            ?.Value;
+
+    private static CollectionPalette ResolvePalette(
+        Guid? entityId,
+        IReadOnlyList<CanonicalValue> canonicalValues,
+        IDatabaseConnection db)
+    {
+        var primary = FirstCanonicalValue(canonicalValues,
+            MetadataFieldConstants.ArtworkPrimaryHex,
+            "cover_primary_hex",
+            "primary_color");
+        var secondary = FirstCanonicalValue(canonicalValues,
+            MetadataFieldConstants.ArtworkSecondaryHex,
+            "cover_secondary_hex",
+            "secondary_color");
+        var accent = FirstCanonicalValue(canonicalValues,
+            MetadataFieldConstants.ArtworkAccentHex,
+            "cover_accent_hex",
+            "accent_color",
+            "dominant_color");
+
+        var colors = new List<string>();
+        AddColor(colors, primary);
+        AddColor(colors, secondary);
+        AddColor(colors, accent);
+
+        if (entityId.HasValue && (string.IsNullOrWhiteSpace(primary) || string.IsNullOrWhiteSpace(secondary) || string.IsNullOrWhiteSpace(accent)))
+        {
+            using var conn = db.CreateConnection();
+            var row = conn.QueryFirstOrDefault<AssetPaletteRow>("""
+                SELECT primary_hex AS PrimaryHex,
+                       secondary_hex AS SecondaryHex,
+                       accent_hex AS AccentHex
+                FROM entity_assets
+                WHERE entity_id = @EntityId
+                  AND entity_type = 'Work'
+                  AND asset_type IN ('CoverArt', 'SquareArt', 'Background', 'Banner')
+                ORDER BY is_preferred DESC, created_at DESC, id
+                LIMIT 1;
+                """, new { EntityId = entityId.Value });
+
+            primary ??= row?.PrimaryHex;
+            secondary ??= row?.SecondaryHex;
+            accent ??= row?.AccentHex;
+            AddColor(colors, row?.PrimaryHex);
+            AddColor(colors, row?.SecondaryHex);
+            AddColor(colors, row?.AccentHex);
+        }
+
+        return new CollectionPalette(primary, secondary, accent, colors);
+    }
+
+    private static void AddColor(List<string> colors, string? color)
+    {
+        if (!string.IsNullOrWhiteSpace(color) && !colors.Contains(color, StringComparer.OrdinalIgnoreCase))
+        {
+            colors.Add(color);
+        }
+    }
+
+    private static async Task<string?> EnsureAppleAlbumTrackManifestAsync(
+        Guid? rootWorkId,
+        string? artist,
+        string? album,
+        string? existingChildEntitiesJson,
+        IReadOnlyList<CanonicalValue> rootCanonicalValues,
+        ICanonicalValueRepository canonicalRepo,
+        AppleRetailClient appleRetailClient,
+        CancellationToken ct)
+    {
+        if (!NeedsAppleAlbumTrackGapFill(existingChildEntitiesJson))
+        {
+            return existingChildEntitiesJson;
+        }
+
+        var collectionId = FirstCanonicalValue(rootCanonicalValues, BridgeIdKeys.AppleMusicCollectionId);
+        if (string.IsNullOrWhiteSpace(collectionId))
+        {
+            collectionId = await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct);
+        }
+
+        if (string.IsNullOrWhiteSpace(collectionId))
+        {
+            return existingChildEntitiesJson;
+        }
+
+        var appleTracks = await appleRetailClient.FetchAlbumTracksAsync(collectionId, "us", "en", ct);
+        if (appleTracks.Count == 0)
+        {
+            return existingChildEntitiesJson;
+        }
+
+        var appleManifest = BuildAppleAlbumTrackManifest(appleTracks);
+        var mergedManifest = MergeTrackManifests(existingChildEntitiesJson, appleManifest);
+        if (rootWorkId.HasValue && !string.IsNullOrWhiteSpace(mergedManifest) && !string.Equals(mergedManifest, existingChildEntitiesJson, StringComparison.Ordinal))
+        {
+            await canonicalRepo.UpsertBatchAsync(
+                [
+                    new CanonicalValue
+                    {
+                        EntityId = rootWorkId.Value,
+                        Key = MetadataFieldConstants.ChildEntitiesJson,
+                        Value = mergedManifest,
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                        WinningProviderId = WellKnownProviders.AppleApi,
+                    },
+                    new CanonicalValue
+                    {
+                        EntityId = rootWorkId.Value,
+                        Key = MetadataFieldConstants.TrackCount,
+                        Value = CountManifestTracks(mergedManifest).ToString(CultureInfo.InvariantCulture),
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                        WinningProviderId = WellKnownProviders.AppleApi,
+                    },
+                ],
+                ct);
+        }
+
+        return mergedManifest;
+    }
+
+    private static bool NeedsAppleAlbumTrackGapFill(string? childEntitiesJson)
+    {
+        if (string.IsNullOrWhiteSpace(childEntitiesJson))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(childEntitiesJson);
+            if (!doc.RootElement.TryGetProperty("tracks", out var tracks) || tracks.ValueKind != JsonValueKind.Array || tracks.GetArrayLength() == 0)
+            {
+                return true;
+            }
+
+            return tracks.EnumerateArray().Any(track =>
+                string.IsNullOrWhiteSpace(ReadJsonString(track, "title", "trackName", "name"))
+                || ReadJsonInt(track, "ordinal", "position") is null
+                || ReadJsonInt(track, "track_number", "trackNumber", "number") is null
+                || ReadChildDurationSeconds(track) is null);
+        }
+        catch (JsonException)
+        {
+            return true;
+        }
+    }
+
+    private static string BuildAppleAlbumTrackManifest(IReadOnlyList<JsonNode> tracks)
+    {
+        var array = new JsonArray();
+        var ordinal = 0;
+        foreach (var track in tracks)
+        {
+            ordinal++;
+            var title = track["trackName"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                continue;
+            }
+
+            var trackNumber = track["trackNumber"]?.GetValue<int?>() ?? ordinal;
+            var durationMillis = track["trackTimeMillis"]?.GetValue<long?>();
+            var item = new JsonObject
+            {
+                ["title"] = title,
+                ["ordinal"] = trackNumber,
+                ["track_number"] = trackNumber,
+                ["source"] = "apple_itunes",
+            };
+
+            if (track["discNumber"]?.GetValue<int?>() is { } discNumber)
+            {
+                item["disc_number"] = discNumber;
+            }
+
+            if (durationMillis is > 0)
+            {
+                item["duration_seconds"] = Math.Round(durationMillis.Value / 1000d, 3);
+            }
+
+            if (track["trackId"]?.GetValue<long?>() is { } trackId)
+            {
+                item["apple_music_id"] = trackId.ToString(CultureInfo.InvariantCulture);
+            }
+
+            array.Add(item);
+        }
+
+        return new JsonObject { ["tracks"] = array }.ToJsonString();
+    }
+
+    private static string MergeTrackManifests(string? existingJson, string appleJson)
+    {
+        var items = ReadTrackManifest(existingJson, defaultSource: "wikidata");
+        var appleItems = ReadTrackManifest(appleJson, defaultSource: "apple_itunes");
+        if (items.Count == 0)
+        {
+            items = appleItems;
+        }
+        else
+        {
+            foreach (var appleItem in appleItems)
+            {
+                var existing = items.FirstOrDefault(item =>
+                    string.Equals(BuildTrackMatchKey(item.Title, item.TrackNumber), BuildTrackMatchKey(appleItem.Title, appleItem.TrackNumber), StringComparison.OrdinalIgnoreCase))
+                    ?? items.FirstOrDefault(item => string.Equals(NormalizeTrackTitle(item.Title), NormalizeTrackTitle(appleItem.Title), StringComparison.OrdinalIgnoreCase));
+
+                if (existing is null)
+                {
+                    items.Add(appleItem);
+                    continue;
+                }
+
+                existing.TrackNumber ??= appleItem.TrackNumber;
+                existing.Ordinal = existing.Ordinal <= 0 ? appleItem.Ordinal : existing.Ordinal;
+                existing.DiscNumber ??= appleItem.DiscNumber;
+                existing.DurationSeconds ??= appleItem.DurationSeconds;
+                existing.AppleMusicId ??= appleItem.AppleMusicId;
+            }
+        }
+
+        var array = new JsonArray();
+        foreach (var item in items
+                     .OrderBy(item => item.DiscNumber ?? 1)
+                     .ThenBy(item => item.TrackNumber ?? item.Ordinal)
+                     .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase))
+        {
+            var obj = new JsonObject
+            {
+                ["title"] = item.Title,
+                ["ordinal"] = item.Ordinal,
+                ["source"] = item.Source,
+            };
+            if (item.TrackNumber is { } trackNumber)
+            {
+                obj["track_number"] = trackNumber;
+            }
+            if (item.DiscNumber is { } discNumber)
+            {
+                obj["disc_number"] = discNumber;
+            }
+            if (item.DurationSeconds is { } duration)
+            {
+                obj["duration_seconds"] = Math.Round(duration, 3);
+            }
+            if (!string.IsNullOrWhiteSpace(item.AppleMusicId))
+            {
+                obj["apple_music_id"] = item.AppleMusicId;
+            }
+
+            array.Add(obj);
+        }
+
+        return new JsonObject { ["tracks"] = array }.ToJsonString();
+    }
+
+    private static List<AlbumTrackManifestItem> ReadTrackManifest(string? json, string defaultSource)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("tracks", out var tracks) || tracks.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            var ordinal = 0;
+            var result = new List<AlbumTrackManifestItem>();
+            foreach (var track in tracks.EnumerateArray())
+            {
+                ordinal++;
+                var title = ReadJsonString(track, "title", "trackName", "name");
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    continue;
+                }
+
+                var trackNumber = ReadJsonInt(track, "track_number", "trackNumber", "number");
+                result.Add(new AlbumTrackManifestItem
+                {
+                    Title = title,
+                    Ordinal = ReadJsonInt(track, "ordinal", "position") ?? trackNumber ?? ordinal,
+                    TrackNumber = trackNumber,
+                    DiscNumber = ReadJsonInt(track, "disc_number", "discNumber"),
+                    DurationSeconds = ReadChildDurationSeconds(track),
+                    AppleMusicId = ReadJsonString(track, "apple_music_id", "appleMusicId", "trackId"),
+                    Source = ReadJsonString(track, "source", "provider") ?? defaultSource,
+                });
+            }
+
+            return result;
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private static int CountManifestTracks(string manifestJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(manifestJson);
+            return doc.RootElement.TryGetProperty("tracks", out var tracks) && tracks.ValueKind == JsonValueKind.Array
+                ? tracks.GetArrayLength()
+                : 0;
+        }
+        catch (JsonException)
+        {
+            return 0;
+        }
+    }
+
+    private sealed record CollectionPalette(
+        string? PrimaryColor,
+        string? SecondaryColor,
+        string? AccentColor,
+        List<string> DominantColors);
+
+    private sealed class AssetPaletteRow
+    {
+        public string? PrimaryHex { get; init; }
+        public string? SecondaryHex { get; init; }
+        public string? AccentHex { get; init; }
+    }
+
+    private sealed class AlbumTrackManifestItem
+    {
+        public string Title { get; init; } = string.Empty;
+        public int Ordinal { get; set; }
+        public int? TrackNumber { get; set; }
+        public int? DiscNumber { get; set; }
+        public double? DurationSeconds { get; set; }
+        public string? AppleMusicId { get; set; }
+        public string Source { get; init; } = "provider";
     }
 
     private static List<CollectionResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)

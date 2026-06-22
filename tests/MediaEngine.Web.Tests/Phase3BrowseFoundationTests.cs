@@ -117,7 +117,7 @@ public sealed class Phase3BrowseFoundationTests : TestContext
     [InlineData("Movie", "/watch/movie/32000000-0000-0000-0000-000000000001")]
     [InlineData("TV", "/details/TvEpisode/32000000-0000-0000-0000-000000000001?context=Watch")]
     [InlineData("Music", "/listen/music/songs?track=32000000-0000-0000-0000-000000000001")]
-    [InlineData("Audiobook", "/book/32000000-0000-0000-0000-000000000001?mode=listen")]
+    [InlineData("Audiobook", "/listen/audiobook/32000000-0000-0000-0000-000000000001")]
     public void SearchResults_RouteToMediaSpecificSurfaces(string mediaType, string expectedRoute)
     {
         var result = new SearchResultViewModel

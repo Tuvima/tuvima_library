@@ -51,6 +51,9 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("position_seconds", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ProgressPct = Math.Clamp(progressPct, 0, 100)", serviceSource, StringComparison.Ordinal);
         Assert.Contains("LOWER(w.media_type) IN ('music', 'audiobooks')", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("PlayerQueueMutationItemDto", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("requested.PositionSeconds", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("StartIndex", serviceSource, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

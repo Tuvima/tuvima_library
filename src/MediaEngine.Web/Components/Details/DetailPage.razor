@@ -18,80 +18,92 @@
 @if (Model is not null)
 {
     <article class="tl-detail-page">
-        <DetailHero Model="Model" OnActionSelected="HandleDetailActionAsync" />
+        @if (IsAudioDetail)
+        {
+            <AudioDetailLayout Model="Model"
+                               Tabs="VisibleTabs"
+                               ActiveTab="@CurrentActiveTab"
+                               ActiveTabChanged="SetActiveTabAsync"
+                               OnActionSelected="HandleDetailActionAsync"
+                               OnContainerSelected="HandleContainerSelectedAsync" />
+        }
+        else
+        {
+            <DetailHero Model="Model" OnActionSelected="HandleDetailActionAsync" />
 
-        <DetailTabs Tabs="VisibleTabs" ActiveTab="@CurrentActiveTab" ActiveTabChanged="SetActiveTabAsync" />
+            <DetailTabs Tabs="VisibleTabs" ActiveTab="@CurrentActiveTab" ActiveTabChanged="SetActiveTabAsync" />
 
-        <section class="tl-detail-body">
-            @if (CurrentActiveTab is "overview")
-            {
-                <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
-                                                                 OnTabRequested="SetActiveTabAsync"
-                                                                 OnContainerSelected="HandleContainerSelectedAsync" />
-            }
-            else if (CurrentActiveTab is "episodes")
-            {
-                <EpisodesTab Groups="Model.MediaGroups" />
-            }
-            else if (CurrentActiveTab is "sequence")
-            {
-                @if (Model.SequencePlacement is not null)
+            <section class="tl-detail-body">
+                @if (CurrentActiveTab is "overview")
                 {
-                    <SequencePlacementPanel Placement="Model.SequencePlacement" OnContainerSelected="HandleContainerSelectedAsync" />
+                    <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
+                                                                     OnTabRequested="SetActiveTabAsync"
+                                                                     OnContainerSelected="HandleContainerSelectedAsync" />
+                }
+                else if (CurrentActiveTab is "episodes")
+                {
+                    <EpisodesTab Groups="Model.MediaGroups" />
+                }
+                else if (CurrentActiveTab is "sequence")
+                {
+                    @if (Model.SequencePlacement is not null)
+                    {
+                        <SequencePlacementPanel Placement="Model.SequencePlacement" OnContainerSelected="HandleContainerSelectedAsync" />
+                    }
+                    else
+                    {
+                        <ChildrenListTab Groups="Model.MediaGroups" />
+                    }
+                }
+                else if (CurrentActiveTab is "tracks" or "items" or "issues" or "media" or "works" or "albums")
+                {
+                    @if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
+                    {
+                        <MusicTrackList Groups="Model.MediaGroups"
+                                        AlbumTitle="@Model.Title"
+                                        AlbumArtworkUrl="@(Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl)" />
+                    }
+                    else
+                    {
+                        <ChildrenListTab Groups="Model.MediaGroups" />
+                    }
+                }
+                else if (CurrentActiveTab is "contributors" or "people" or "credits" or "cast")
+                {
+                    <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
+                                            CharacterGroups="Model.CharacterGroups"
+                                            IncludeCharacters="IncludeCharactersInPeopleTab" />
+                }
+                else if (CurrentActiveTab is "characters" or "portrayals")
+                {
+                    <CharactersSection Groups="Model.CharacterGroups" />
+                }
+                else if (CurrentActiveTab is "universe" or "timeline" or "relationships" or "related")
+                {
+                    <UniverseTab Relationships="Model.RelationshipStrip" Groups="Model.MediaGroups" />
+                }
+                else if (CurrentActiveTab is "formats")
+                {
+                    <FormatsTab Formats="Model.OwnedFormats" />
+                }
+                else if (CurrentActiveTab is "sync")
+                {
+                    <SyncTab Sync="Model.ReadingListeningSync" Capability="Model.SyncCapability" />
+                }
+                else if (CurrentActiveTab is "editions")
+                {
+                    <EditionsTab Formats="Model.OwnedFormats" />
+                }
+                else if (CurrentActiveTab is "registry")
+                {
+                    <RegistryTab Model="Model" />
                 }
                 else
                 {
-                    <ChildrenListTab Groups="Model.MediaGroups" />
+                    <DetailsTab Model="Model" />
                 }
-            }
-            else if (CurrentActiveTab is "tracks" or "items" or "issues" or "media" or "works" or "albums")
-            {
-                @if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
-                {
-                    <MusicTrackList Groups="Model.MediaGroups"
-                                    AlbumTitle="@Model.Title"
-                                    AlbumArtworkUrl="@(Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl)" />
-                }
-                else
-                {
-                    <ChildrenListTab Groups="Model.MediaGroups" />
-                }
-            }
-            else if (CurrentActiveTab is "contributors" or "people" or "credits" or "cast")
-            {
-                <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
-                                        CharacterGroups="Model.CharacterGroups"
-                                        IncludeCharacters="IncludeCharactersInPeopleTab" />
-            }
-            else if (CurrentActiveTab is "characters" or "portrayals")
-            {
-                <CharactersSection Groups="Model.CharacterGroups" />
-            }
-            else if (CurrentActiveTab is "universe" or "timeline" or "relationships" or "related")
-            {
-                <UniverseTab Relationships="Model.RelationshipStrip" Groups="Model.MediaGroups" />
-            }
-            else if (CurrentActiveTab is "formats")
-            {
-                <FormatsTab Formats="Model.OwnedFormats" />
-            }
-            else if (CurrentActiveTab is "sync")
-            {
-                <SyncTab Sync="Model.ReadingListeningSync" Capability="Model.SyncCapability" />
-            }
-            else if (CurrentActiveTab is "editions")
-            {
-                <EditionsTab Formats="Model.OwnedFormats" />
-            }
-            else if (CurrentActiveTab is "registry")
-            {
-                <RegistryTab Model="Model" />
-            }
-            else
-            {
-                <DetailsTab Model="Model" />
-            }
-        </section>
+            </section>
+        }
     </article>
 }
 
@@ -110,6 +122,8 @@
             : VisibleTabs.FirstOrDefault()?.Key ?? "overview";
 
     private bool IncludeCharactersInPeopleTab => CurrentActiveTab is not "cast";
+
+    private bool IsAudioDetail => Model?.EntityType is DetailEntityType.MusicAlbum or DetailEntityType.Audiobook;
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 
@@ -172,6 +186,12 @@
         if (Model?.EntityType == DetailEntityType.MusicAlbum && action.Key is "play-album" or "shuffle")
         {
             await PlayAlbumAsync(shuffle: action.Key == "shuffle");
+            return;
+        }
+
+        if (Model?.EntityType == DetailEntityType.Audiobook && action.Key is "listen" or "continue")
+        {
+            await PlayAudiobookAsync();
             return;
         }
 
@@ -398,12 +418,51 @@
         => new()
         {
             WorkId = Guid.TryParse(item.Id, out var workId) ? workId : Guid.Empty,
+            AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
             MediaType = "Music",
             Title = item.Title,
             Subtitle = item.Artist,
             Album = Model?.Title,
             CoverUrl = item.ArtworkUrl ?? Model?.Artwork.CoverUrl ?? Model?.Artwork.PosterUrl,
             Duration = item.Duration,
+            InitialPositionSeconds = item.StartSeconds,
+        };
+
+    private async Task PlayAudiobookAsync()
+    {
+        if (Model is null)
+            return;
+
+        var chapters = Model.MediaGroups
+            .SelectMany(group => group.Items)
+            .Where(item => item.EntityType == DetailEntityType.Audiobook)
+            .OrderBy(TrackSortKey)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (chapters.Count == 0)
+            return;
+
+        var startIndex = chapters.FindIndex(item => item.ProgressPercent is > 0 and < 100);
+        if (startIndex < 0)
+            startIndex = 0;
+
+        var queue = chapters.Select(ToAudiobookQueueItem).Where(item => item.WorkId != Guid.Empty).ToList();
+        await Playback.ReplaceQueueItemsAsync(queue, startIndex, Model.Title, shuffle: false);
+    }
+
+    private ListenQueueItem ToAudiobookQueueItem(MediaGroupingItemViewModel item)
+        => new()
+        {
+            WorkId = Guid.TryParse(item.Id, out var workId) ? workId : Guid.Empty,
+            AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
+            MediaType = "Audiobooks",
+            Title = item.Title,
+            Subtitle = item.Subtitle,
+            Album = Model?.Title,
+            CoverUrl = item.ArtworkUrl ?? Model?.Artwork.CoverUrl ?? Model?.Artwork.PosterUrl,
+            Duration = item.Duration,
+            InitialPositionSeconds = item.StartSeconds,
         };
 
     private static int TrackSortKey(MediaGroupingItemViewModel item)

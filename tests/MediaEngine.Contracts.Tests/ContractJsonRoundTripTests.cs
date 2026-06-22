@@ -57,6 +57,27 @@ public sealed class ContractJsonRoundTripTests
                     PageCount = 304,
                 },
             ],
+            MediaGroups =
+            [
+                new MediaGroupingViewModel
+                {
+                    Key = "chapters",
+                    Title = "Chapters",
+                    Items =
+                    [
+                        new MediaGroupingItemViewModel
+                        {
+                            Id = "work-1",
+                            EntityType = DetailEntityType.Audiobook,
+                            Title = "Chapter 1",
+                            AssetId = "asset-1",
+                            ChapterIndex = 0,
+                            StartSeconds = 12.5,
+                            EndSeconds = 1800,
+                        },
+                    ],
+                },
+            ],
             IdentityStatus = CanonicalIdentityStatus.ProviderMatched,
             LibraryStatus = LibraryStatus.Owned,
         };
@@ -70,6 +91,8 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal(dto.Artwork.CoverUrl, roundTrip.Artwork.CoverUrl);
         Assert.Equal(dto.Metadata[0].Label, roundTrip.Metadata[0].Label);
         Assert.Equal(dto.OwnedFormats[0].FormatType, roundTrip.OwnedFormats[0].FormatType);
+        Assert.Equal("asset-1", roundTrip.MediaGroups[0].Items[0].AssetId);
+        Assert.Equal(12.5, roundTrip.MediaGroups[0].Items[0].StartSeconds);
         Assert.Contains("\"entityType\":", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"EntityType\"", json, StringComparison.Ordinal);
     }
@@ -307,6 +330,30 @@ public sealed class ContractJsonRoundTripTests
         Assert.Contains("\"positionSeconds\":1842.25", json, StringComparison.Ordinal);
         Assert.Contains("\"progressPct\":25.59", json, StringComparison.Ordinal);
         Assert.Contains("\"streamUrl\":\"/playback/stream/44444444-4444-4444-4444-444444444444\"", json, StringComparison.Ordinal);
+
+        var mutation = new PlayerQueueMutationDto
+        {
+            StartIndex = 0,
+            Items =
+            [
+                new PlayerQueueMutationItemDto
+                {
+                    WorkId = workId,
+                    AssetId = assetId,
+                    Title = "Chapter 4",
+                    MediaType = "Audiobooks",
+                    PositionSeconds = 1842.25,
+                },
+            ],
+        };
+        var mutationJson = JsonSerializer.Serialize(mutation, JsonOptions);
+        var mutationRoundTrip = JsonSerializer.Deserialize<PlayerQueueMutationDto>(mutationJson, JsonOptions);
+
+        Assert.NotNull(mutationRoundTrip);
+        Assert.Equal(0, mutationRoundTrip.StartIndex);
+        Assert.Equal(1842.25, mutationRoundTrip.Items[0].PositionSeconds);
+        Assert.Contains("\"items\":[", mutationJson, StringComparison.Ordinal);
+        Assert.Contains("\"startIndex\":0", mutationJson, StringComparison.Ordinal);
     }
 
     [Fact]

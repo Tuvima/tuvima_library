@@ -165,7 +165,12 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaGroupingItemVie
   ArtworkUrl: System.String | nullability=nullable | accessors=get,init
   TrackNumber: System.String | nullability=nullable | accessors=get,init
   Duration: System.String | nullability=nullable | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
   Artist: System.String | nullability=nullable | accessors=get,init
+  AssetId: System.String | nullability=nullable | accessors=get,init
+  ChapterIndex: System.Int32? | nullability=nullable | accessors=get,init
+  StartSeconds: System.Double? | nullability=nullable | accessors=get,init
+  EndSeconds: System.Double? | nullability=nullable | accessors=get,init
   IsExplicit: System.Boolean | nullability=not-null | accessors=get,init
   Quality: System.String | nullability=nullable | accessors=get,init
   ProgressPercent: System.Double? | nullability=nullable | accessors=get,init
@@ -699,13 +704,33 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueMutatio
   ExpectedStateVersion: System.Int64? | nullability=nullable | accessors=get,init
   Force: System.Boolean | nullability=not-null | accessors=get,init
   Mode: System.String | nullability=not-null | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlayerQueueMutationItemDto> | nullability=not-null | accessors=get,init
   WorkIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
   QueueItemIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
+  StartIndex: System.Int32? | nullability=nullable | accessors=get,init
   StartWorkId: System.Guid? | nullability=nullable | accessors=get,init
   StartQueueItemId: System.Guid? | nullability=nullable | accessors=get,init
   SourceLabel: System.String | nullability=nullable | accessors=get,init
   Shuffle: System.Boolean | nullability=not-null | accessors=get,init
   ClearExisting: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueMutationItemDto
+  WorkId: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+  CollectionId: System.Guid? | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  Title: System.String | nullability=nullable | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Album: System.String | nullability=nullable | accessors=get,init
+  Author: System.String | nullability=nullable | accessors=get,init
+  Artist: System.String | nullability=nullable | accessors=get,init
+  Narrator: System.String | nullability=nullable | accessors=get,init
+  Series: System.String | nullability=nullable | accessors=get,init
+  CoverUrl: System.String | nullability=nullable | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
+  PositionSeconds: System.Double? | nullability=nullable | accessors=get,init
+  StreamUrl: System.String | nullability=nullable | accessors=get,init
+  DownloadUrl: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueMutationModes
 

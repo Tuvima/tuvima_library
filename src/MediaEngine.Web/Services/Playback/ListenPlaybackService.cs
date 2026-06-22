@@ -70,7 +70,7 @@ public sealed class ListenPlaybackService
         CurrentIndex = 0;
         SourceLabel = sourceLabel ?? item.Album ?? item.Title;
         IsDismissed = false;
-        CurrentTimeSeconds = 0;
+        CurrentTimeSeconds = InitialPositionFor(item);
         DurationSeconds = 0;
         IsPlaying = true;
         CurrentError = null;
@@ -119,7 +119,7 @@ public sealed class ListenPlaybackService
         CurrentIndex = Math.Clamp(startIndex, 0, _queue.Count - 1);
         SourceLabel = sourceLabel;
         IsDismissed = false;
-        CurrentTimeSeconds = 0;
+        CurrentTimeSeconds = InitialPositionFor(_queue[CurrentIndex]);
         DurationSeconds = 0;
         IsPlaying = true;
         CurrentError = null;
@@ -139,6 +139,7 @@ public sealed class ListenPlaybackService
             IsDismissed = false;
             IsPlaying = true;
             CurrentError = null;
+            CurrentTimeSeconds = InitialPositionFor(item);
             await EnsurePlayableAsync(CurrentIndex, ct);
             NotifyChanged();
             await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
@@ -162,6 +163,7 @@ public sealed class ListenPlaybackService
             IsDismissed = false;
             IsPlaying = true;
             CurrentError = null;
+            CurrentTimeSeconds = InitialPositionFor(item);
             await EnsurePlayableAsync(CurrentIndex, ct);
             NotifyChanged();
             await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
@@ -186,7 +188,7 @@ public sealed class ListenPlaybackService
         }
 
         CurrentIndex = index;
-        CurrentTimeSeconds = 0;
+        CurrentTimeSeconds = InitialPositionFor(_queue[CurrentIndex]);
         DurationSeconds = 0;
         IsDismissed = false;
         IsPlaying = true;
@@ -207,7 +209,7 @@ public sealed class ListenPlaybackService
 
         RememberCurrentItem();
         CurrentIndex++;
-        CurrentTimeSeconds = 0;
+        CurrentTimeSeconds = InitialPositionFor(_queue[CurrentIndex]);
         DurationSeconds = 0;
         IsPlaying = true;
         CurrentError = null;
@@ -226,7 +228,7 @@ public sealed class ListenPlaybackService
         }
 
         CurrentIndex--;
-        CurrentTimeSeconds = 0;
+        CurrentTimeSeconds = InitialPositionFor(_queue[CurrentIndex]);
         DurationSeconds = 0;
         IsPlaying = true;
         CurrentError = null;
@@ -250,7 +252,7 @@ public sealed class ListenPlaybackService
         }
 
         CurrentIndex++;
-        CurrentTimeSeconds = 0;
+        CurrentTimeSeconds = InitialPositionFor(_queue[CurrentIndex]);
         DurationSeconds = 0;
         IsPlaying = true;
         CurrentError = null;
@@ -589,7 +591,9 @@ public sealed class ListenPlaybackService
             {
                 DeviceId = "web-dashboard",
                 Client = "web",
+                Items = items.Select(ToPlayerQueueMutationItem).ToList(),
                 WorkIds = items.Select(item => item.WorkId).Where(id => id != Guid.Empty).ToList(),
+                StartIndex = start,
                 StartWorkId = items[start].WorkId,
                 SourceLabel = sourceLabel,
                 Shuffle = shuffle,
@@ -619,6 +623,7 @@ public sealed class ListenPlaybackService
                 DeviceId = "web-dashboard",
                 Client = "web",
                 Mode = mode,
+                Items = items.Select(ToPlayerQueueMutationItem).ToList(),
                 WorkIds = items.Select(item => item.WorkId).Where(id => id != Guid.Empty).ToList(),
                 SourceLabel = SourceLabel,
             }, ct);
@@ -643,6 +648,64 @@ public sealed class ListenPlaybackService
             AssetId = work.AssetId,
             StreamUrl = null,
         };
+
+    private static PlayerQueueMutationItemDto ToPlayerQueueMutationItem(ListenQueueItem item)
+        => new()
+        {
+            WorkId = item.WorkId,
+            AssetId = item.AssetId,
+            CollectionId = item.CollectionId,
+            MediaType = item.MediaType,
+            Title = item.Title,
+            Subtitle = item.Subtitle,
+            Album = item.Album,
+            Artist = IsMusic(item.MediaType) ? item.Subtitle : null,
+            Author = IsAudiobook(item.MediaType) ? item.Subtitle : null,
+            CoverUrl = item.CoverUrl,
+            DurationSeconds = TryParseDurationSeconds(item.Duration),
+            PositionSeconds = item.InitialPositionSeconds,
+            StreamUrl = item.StreamUrl,
+        };
+
+    private static double InitialPositionFor(ListenQueueItem item) =>
+        Math.Max(0, item.InitialPositionSeconds ?? 0);
+
+    private static bool IsMusic(string? mediaType) =>
+        mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static bool IsAudiobook(string? mediaType) =>
+        mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static double? TryParseDurationSeconds(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var text = value.Trim();
+        if (double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+        {
+            return seconds;
+        }
+
+        var parts = text.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length is 2 or 3
+            && parts.All(part => double.TryParse(part, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _)))
+        {
+            var multiplier = 1d;
+            var total = 0d;
+            for (var i = parts.Length - 1; i >= 0; i--)
+            {
+                total += double.Parse(parts[i], System.Globalization.CultureInfo.InvariantCulture) * multiplier;
+                multiplier *= 60d;
+            }
+
+            return total;
+        }
+
+        return null;
+    }
 
     private static string? GetDuration(WorkViewModel work)
         => work.CanonicalValues.FirstOrDefault(cv =>
@@ -692,6 +755,9 @@ public sealed record ListenQueueItem
 
     [JsonPropertyName("stream_url")]
     public string? StreamUrl { get; init; }
+
+    [JsonPropertyName("initial_position_seconds")]
+    public double? InitialPositionSeconds { get; init; }
 
     [JsonPropertyName("played_at")]
     public DateTimeOffset? PlayedAt { get; init; }

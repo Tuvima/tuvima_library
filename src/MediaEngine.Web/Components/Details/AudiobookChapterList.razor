@@ -1,0 +1,120 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Services.Playback
+@inject ListenPlaybackService Playback
+
+@if (Chapters.Count > 0)
+{
+    <section class="tl-detail-track-section tl-detail-chapter-section" aria-label="@($"{AudiobookTitle} chapters")">
+        <div class="tl-detail-track-list tl-detail-chapter-list" role="table" aria-label="@($"{AudiobookTitle} chapters")">
+            <div class="tl-detail-track-list__head tl-detail-chapter-list__head" role="row">
+                <span role="columnheader">#</span>
+                <span role="columnheader">Chapter</span>
+                <span role="columnheader">Progress</span>
+                <span role="columnheader">Time</span>
+                <span role="columnheader" class="tl-detail-track-list__status-head">Status</span>
+            </div>
+
+            @for (var index = 0; index < Chapters.Count; index++)
+            {
+                var chapter = Chapters[index];
+                var isPlaying = IsCurrentChapter(chapter);
+                <AppNativeButton Type="button" Class='@($"tl-detail-track-row tl-detail-chapter-row {(isPlaying ? " is-playing" : null)}")' role="row" AriaLabel="@($" Play {chapter.Title}")" OnClick="@(() => PlayChapterAsync(index))">
+                    <span class="tl-detail-track-row__number" role="cell">
+                        <span class="tl-detail-track-row__ordinal">@DisplayChapterNumber(chapter, index)</span>
+                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                    </span>
+                    <span class="tl-detail-track-row__title" role="cell">
+                        <span class="tl-detail-track-row__name">@chapter.Title</span>
+                        @if (!string.IsNullOrWhiteSpace(chapter.Subtitle))
+                        {
+                            <span class="tl-detail-chapter-row__subtitle">@chapter.Subtitle</span>
+                        }
+                    </span>
+                    <span class="tl-detail-chapter-row__progress" role="cell">
+                        @if (chapter.ProgressPercent.HasValue)
+                        {
+                            <AppCssElement Tag="span" Class="tl-detail-chapter-progress" Css="@ProgressStyle(chapter.ProgressPercent.Value)">
+                                <span></span>
+                            </AppCssElement>
+                            <span>@(Math.Round(chapter.ProgressPercent.Value))%</span>
+                        }
+                        else
+                        {
+                            <span>-</span>
+                        }
+                    </span>
+                    <span class="tl-detail-track-row__duration" role="cell">@DisplayOrDash(chapter.Duration)</span>
+                    <span class="tl-detail-track-row__status" role="cell">
+                        @if (isPlaying)
+                        {
+                            <span class="tl-detail-track-row__playing" aria-label="Currently playing"></span>
+                        }
+                    </span>
+                </AppNativeButton>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
+    [Parameter] public string AudiobookTitle { get; set; } = "Audiobook";
+    [Parameter] public string? AudiobookArtworkUrl { get; set; }
+
+    private IReadOnlyList<MediaGroupingItemViewModel> Chapters =>
+        Groups.SelectMany(group => group.Items)
+            .Where(item => item.EntityType == DetailEntityType.Audiobook)
+            .OrderBy(ChapterSortKey)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private async Task PlayChapterAsync(int index)
+    {
+        var queue = Chapters.Select(ToQueueItem).ToList();
+        if (queue.Count == 0)
+        {
+            return;
+        }
+
+        await Playback.ReplaceQueueItemsAsync(queue, index, AudiobookTitle, shuffle: false);
+    }
+
+    private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel chapter)
+        => new()
+        {
+            WorkId = Guid.TryParse(chapter.Id, out var workId) ? workId : Guid.Empty,
+            AssetId = Guid.TryParse(chapter.AssetId, out var assetId) ? assetId : null,
+            MediaType = "Audiobooks",
+            Title = chapter.Title,
+            Subtitle = chapter.Subtitle,
+            Album = AudiobookTitle,
+            CoverUrl = chapter.ArtworkUrl ?? AudiobookArtworkUrl,
+            Duration = chapter.Duration,
+            InitialPositionSeconds = chapter.StartSeconds,
+        };
+
+    private bool IsCurrentChapter(MediaGroupingItemViewModel chapter)
+    {
+        if (!Guid.TryParse(chapter.Id, out var workId) || Playback.CurrentItem?.WorkId != workId)
+        {
+            return false;
+        }
+
+        return !chapter.StartSeconds.HasValue
+            || Math.Abs((Playback.CurrentItem.InitialPositionSeconds ?? 0) - chapter.StartSeconds.Value) < 0.5d;
+    }
+
+    private static int ChapterSortKey(MediaGroupingItemViewModel chapter)
+        => int.TryParse(chapter.TrackNumber, out var parsed) ? parsed : chapter.ChapterIndex ?? int.MaxValue;
+
+    private static string DisplayChapterNumber(MediaGroupingItemViewModel chapter, int index)
+        => string.IsNullOrWhiteSpace(chapter.TrackNumber) ? (index + 1).ToString() : chapter.TrackNumber;
+
+    private static string DisplayOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private static string ProgressStyle(double percent) =>
+        $"--chapter-progress:{Math.Clamp(percent, 0, 100):0.###}%";
+}

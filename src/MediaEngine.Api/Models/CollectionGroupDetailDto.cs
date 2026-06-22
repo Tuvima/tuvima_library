@@ -36,6 +36,18 @@ public sealed class CollectionGroupDetailDto
     [JsonPropertyName("logo_url")]
     public string? LogoUrl { get; init; }
 
+    [JsonPropertyName("dominant_colors")]
+    public List<string> DominantColors { get; init; } = [];
+
+    [JsonPropertyName("primary_color")]
+    public string? PrimaryColor { get; init; }
+
+    [JsonPropertyName("secondary_color")]
+    public string? SecondaryColor { get; init; }
+
+    [JsonPropertyName("accent_color")]
+    public string? AccentColor { get; init; }
+
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
@@ -143,6 +155,9 @@ public sealed class CollectionGroupWorkDto
 
     [JsonPropertyName("duration")]
     public string? Duration { get; init; }
+
+    [JsonPropertyName("duration_seconds")]
+    public double? DurationSeconds { get; init; }
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }

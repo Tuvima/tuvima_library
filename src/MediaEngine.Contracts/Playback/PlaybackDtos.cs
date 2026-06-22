@@ -168,13 +168,35 @@ public sealed record PlayerQueueMutationDto
     public long? ExpectedStateVersion { get; init; }
     public bool Force { get; init; }
     public string Mode { get; init; } = PlayerQueueMutationModes.Replace;
+    public IReadOnlyList<PlayerQueueMutationItemDto> Items { get; init; } = [];
     public IReadOnlyList<Guid> WorkIds { get; init; } = [];
     public IReadOnlyList<Guid> QueueItemIds { get; init; } = [];
+    public int? StartIndex { get; init; }
     public Guid? StartWorkId { get; init; }
     public Guid? StartQueueItemId { get; init; }
     public string? SourceLabel { get; init; }
     public bool Shuffle { get; init; }
     public bool ClearExisting { get; init; }
+}
+
+public sealed record PlayerQueueMutationItemDto
+{
+    public Guid WorkId { get; init; }
+    public Guid? AssetId { get; init; }
+    public Guid? CollectionId { get; init; }
+    public string? MediaType { get; init; }
+    public string? Title { get; init; }
+    public string? Subtitle { get; init; }
+    public string? Album { get; init; }
+    public string? Author { get; init; }
+    public string? Artist { get; init; }
+    public string? Narrator { get; init; }
+    public string? Series { get; init; }
+    public string? CoverUrl { get; init; }
+    public double? DurationSeconds { get; init; }
+    public double? PositionSeconds { get; init; }
+    public string? StreamUrl { get; init; }
+    public string? DownloadUrl { get; init; }
 }
 
 public sealed record PlayerHeartbeatDto

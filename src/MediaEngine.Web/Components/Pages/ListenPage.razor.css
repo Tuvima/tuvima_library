@@ -540,6 +540,18 @@
     gap: 34px;
 }
 
+.listen-audio-detail-host {
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 8px;
+    background: rgba(7, 12, 22, 0.78);
+}
+
+::deep .listen-audio-detail-host .tl-detail-page {
+    min-height: auto;
+    background: transparent;
+}
+
 .listen-topbar {
     align-items: center;
     margin-bottom: 24px;

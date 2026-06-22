@@ -496,8 +496,34 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("MusicTrackList", detailPage);
         Assert.Contains("ReplaceQueueItemsAsync", trackList);
-        Assert.Contains("tl-detail-track-list", trackList);
+        Assert.Contains("<table class=\"tl-detail-track-table\"", trackList);
+        Assert.Contains("Show missing tracks", trackList);
+        Assert.Contains("track.IsOwned", trackList);
+        Assert.Contains("DurationSeconds", trackList);
+        Assert.Contains("ToggleSort", trackList);
         Assert.DoesNotContain("@page \"/listen/album", albumRoute, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AudioDetailPagesUseCompactListenLayoutWithoutChangingHeroDefault()
+    {
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var audioLayout = ReadSource("src/MediaEngine.Web/Components/Details/AudioDetailLayout.razor");
+        var chapterList = ReadSource("src/MediaEngine.Web/Components/Details/AudiobookChapterList.razor");
+        var listenPage = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor.cs");
+
+        Assert.Contains("DetailEntityType.MusicAlbum or DetailEntityType.Audiobook", detailPage);
+        Assert.Contains("<AudioDetailLayout", detailPage);
+        Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
+        Assert.Contains("<MusicTrackList", audioLayout);
+        Assert.Contains("<AudiobookChapterList", audioLayout);
+        Assert.Contains("tl-audio-detail__hero-artwash", audioLayout);
+        Assert.Contains("tl-audio-detail__metadata", audioLayout);
+        Assert.DoesNotContain("HeroMetadataPills", audioLayout);
+        Assert.Contains("InitialPositionSeconds = chapter.StartSeconds", chapterList);
+        Assert.Contains("GetDetailPageAsync(", listenPage);
+        Assert.Contains("DetailEntityType.Audiobook", listenPage);
+        Assert.DoesNotContain("NavigateTo($\"/book/{WorkId.Value}?mode=listen\"", listenPage, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath)

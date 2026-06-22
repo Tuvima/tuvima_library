@@ -67,6 +67,23 @@ public sealed class PersonAndWorkEndpointRouteTests
     }
 
     [Fact]
+    public void CollectionGroupDetail_ExposesAudioPaletteAndCompleteAlbumTrackData()
+    {
+        var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionGroupDetailDto.cs"));
+
+        Assert.Contains("PrimaryColor", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("SecondaryColor", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("AccentColor", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("DurationSeconds", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("EnsureAppleAlbumTrackManifestAsync", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("AppleRetailClient appleRetailClient", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.ChildEntitiesJson", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("Status = \"Missing\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("MergeTrackManifests", endpointSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WorkEndpoints_ExposeReadOnlyWorkAndEditionIdentitySurfaces()
     {
         var workEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\WorkEndpoints.cs"));

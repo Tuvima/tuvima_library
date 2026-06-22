@@ -10,7 +10,9 @@
 @page "/listen/audiobook/{WorkId:guid}"
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
+@using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Browse
+@using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Components.Listen
@@ -154,7 +156,7 @@ else
             <header class="listen-topbar">
                 <div class="listen-topbar__identity">
                     <div>
-                        <h1>@(IsDefaultEntry ? "Listen" : IsAudiobooksView ? "Audiobooks" : "Music")</h1>
+                        <h1>@(IsDefaultEntry ? "Listen" : IsAudiobooksMode ? "Audiobooks" : "Music")</h1>
                     </div>
                 </div>
 
@@ -162,7 +164,7 @@ else
                     <AppNativeButton Type="button" role="tab" aria-selected="@IsMusicMode" Class='@($"listen-mode-switch__option {(IsMusicMode ? " is-active" : null)}")' OnClick="OpenMusicModeAsync">
                         Music
                     </AppNativeButton>
-                    <AppNativeButton Type="button" role="tab" aria-selected="@IsAudiobooksView" Class='@($"listen-mode-switch__option {(IsAudiobooksView ? " is-active" : null)}")' OnClick="OpenAudiobooksModeAsync">
+                    <AppNativeButton Type="button" role="tab" aria-selected="@IsAudiobooksMode" Class='@($"listen-mode-switch__option {(IsAudiobooksMode ? " is-active" : null)}")' OnClick="OpenAudiobooksModeAsync">
                         Audiobooks
                     </AppNativeButton>
                 </div>
@@ -263,6 +265,14 @@ else
                                        Class="listen-card-grid listen-card-grid--albums" />
                     }
                 </section>
+            }
+            else if (IsAudioDetailSurface && _audioDetail is not null)
+            {
+                <div class="listen-audio-detail-host">
+                    <DetailPage Model="_audioDetail"
+                                ActiveTab="@_audioDetailTab"
+                                ActiveTabChanged="SetAudioDetailTabAsync" />
+                </div>
             }
             else if (IsAlbumDetail && _albumDetail is not null)
             {

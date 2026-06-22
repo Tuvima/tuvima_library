@@ -54,7 +54,7 @@ public sealed class PlayerService
         var deviceId = NormalizeDeviceId(request.DeviceId);
         var client = NormalizeClient(request.Client);
         var sessionId = Guid.NewGuid();
-        var items = await ResolveQueueItemsAsync(request.WorkIds, request.SourceLabel, ct);
+        var items = await ResolveQueueItemsAsync(request, ct);
 
         if (request.Shuffle)
         {
@@ -62,6 +62,11 @@ public sealed class PlayerService
         }
 
         var currentQueueItemId = request.StartQueueItemId;
+        if (!currentQueueItemId.HasValue && request.StartIndex.HasValue && items.Count > 0)
+        {
+            currentQueueItemId = items[Math.Clamp(request.StartIndex.Value, 0, items.Count - 1)].QueueItemId;
+        }
+
         if (!currentQueueItemId.HasValue && request.StartWorkId.HasValue)
         {
             currentQueueItemId = items.FirstOrDefault(item => item.WorkId == request.StartWorkId.Value)?.QueueItemId;
@@ -88,7 +93,7 @@ public sealed class PlayerService
         var profileId = ResolveProfileId(request.ProfileId);
         var deviceId = NormalizeDeviceId(request.DeviceId);
         var client = NormalizeClient(request.Client);
-        var items = await ResolveQueueItemsAsync(request.WorkIds, request.SourceLabel, ct);
+        var items = await ResolveQueueItemsAsync(request, ct);
 
         await _sessions.AddQueueItemsAsync(
             profileId,
@@ -247,7 +252,9 @@ public sealed class PlayerService
             playbackState: item is null ? PlayerPlaybackStates.Stopped : PlayerPlaybackStates.Playing,
             currentQueueItemId: item?.QueueItemId,
             setCurrentQueueItem: item is not null,
+            positionSeconds: item is null ? null : Math.Max(0, item.PositionSeconds ?? 0),
             durationSeconds: item?.DurationSeconds,
+            progressPct: CalculateProgress(item?.PositionSeconds, item?.DurationSeconds),
             ct: ct);
     }
 
@@ -293,13 +300,24 @@ public sealed class PlayerService
             ct: ct);
     }
 
-    private async Task<IReadOnlyList<PlayerQueueItemDto>> ResolveQueueItemsAsync(
-        IReadOnlyList<Guid> workIds,
-        string? sourceLabel,
-        CancellationToken ct)
+    private async Task<IReadOnlyList<PlayerQueueItemDto>> ResolveQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct)
     {
         var items = new List<PlayerQueueItemDto>();
-        foreach (var workId in workIds.Distinct())
+        var explicitWorkIds = new HashSet<Guid>();
+
+        foreach (var requested in request.Items.Where(item => item.WorkId != Guid.Empty))
+        {
+            var resolved = await ResolvePlayableWorkAsync(requested.WorkId, ct);
+            if (resolved is null)
+            {
+                continue;
+            }
+
+            explicitWorkIds.Add(requested.WorkId);
+            items.Add(MergeQueueItem(resolved, requested, request.SourceLabel));
+        }
+
+        foreach (var workId in request.WorkIds.Where(id => id != Guid.Empty).Distinct().Where(id => !explicitWorkIds.Contains(id)))
         {
             var resolved = await ResolvePlayableWorkAsync(workId, ct);
             if (resolved is null)
@@ -311,11 +329,39 @@ public sealed class PlayerService
             {
                 QueueItemId = Guid.NewGuid(),
                 AddedAt = DateTimeOffset.UtcNow,
-                Subtitle = FirstNonBlank(resolved.Subtitle, resolved.Artist, resolved.Author, resolved.Narrator, sourceLabel),
+                Subtitle = FirstNonBlank(resolved.Subtitle, resolved.Artist, resolved.Author, resolved.Narrator, request.SourceLabel),
             });
         }
 
         return items;
+    }
+
+    private static PlayerQueueItemDto MergeQueueItem(
+        PlayerQueueItemDto resolved,
+        PlayerQueueMutationItemDto requested,
+        string? sourceLabel)
+    {
+        var assetId = requested.AssetId ?? resolved.AssetId;
+        return resolved with
+        {
+            QueueItemId = Guid.NewGuid(),
+            AddedAt = DateTimeOffset.UtcNow,
+            AssetId = assetId,
+            CollectionId = requested.CollectionId ?? resolved.CollectionId,
+            MediaType = FirstNonBlank(requested.MediaType, resolved.MediaType) ?? resolved.MediaType,
+            Title = FirstNonBlank(requested.Title, resolved.Title) ?? resolved.Title,
+            Subtitle = FirstNonBlank(requested.Subtitle, resolved.Subtitle, requested.Artist, resolved.Artist, requested.Author, resolved.Author, requested.Narrator, resolved.Narrator, sourceLabel),
+            Album = FirstNonBlank(requested.Album, resolved.Album),
+            Author = FirstNonBlank(requested.Author, resolved.Author),
+            Artist = FirstNonBlank(requested.Artist, resolved.Artist),
+            Narrator = FirstNonBlank(requested.Narrator, resolved.Narrator),
+            Series = FirstNonBlank(requested.Series, resolved.Series),
+            CoverUrl = FirstNonBlank(requested.CoverUrl, resolved.CoverUrl, assetId.HasValue ? $"/stream/{assetId.Value}/cover" : null),
+            DurationSeconds = requested.DurationSeconds ?? resolved.DurationSeconds,
+            PositionSeconds = requested.PositionSeconds.HasValue ? Math.Max(0, requested.PositionSeconds.Value) : resolved.PositionSeconds,
+            StreamUrl = FirstNonBlank(requested.StreamUrl, resolved.StreamUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
+            DownloadUrl = FirstNonBlank(requested.DownloadUrl, resolved.DownloadUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
+        };
     }
 
     private async Task<PlayerQueueItemDto?> ResolvePlayableWorkAsync(Guid workId, CancellationToken ct)
@@ -418,8 +464,8 @@ public sealed class PlayerService
         {
             StreamUrl = manifest.DirectStreamUrl ?? current.StreamUrl,
             DurationSeconds = current.DurationSeconds,
-            PositionSeconds = manifest.Resume?.PositionSeconds ?? state.PositionSeconds,
-            ProgressPct = manifest.Resume?.ProgressPct ?? state.ProgressPct,
+            PositionSeconds = state.PositionSeconds > 0 ? state.PositionSeconds : current.PositionSeconds ?? manifest.Resume?.PositionSeconds,
+            ProgressPct = state.ProgressPct > 0 ? state.ProgressPct : current.ProgressPct ?? manifest.Resume?.ProgressPct,
             Chapters = manifest.Chapters,
             Manifest = manifest,
         };

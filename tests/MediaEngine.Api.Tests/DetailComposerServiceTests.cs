@@ -158,8 +158,10 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"people\"", source);
         Assert.Contains("DetailEntityType.TvShow => hasUniverse ? [\"episodes\", \"overview\", \"cast\", \"universe\", \"details\"] : [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
         Assert.Contains("DetailEntityType.TvSeason => [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Book or DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"chapters\", \"overview\", \"credits\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook => [\"chapters\", \"overview\", \"credits\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);

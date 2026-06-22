@@ -526,7 +526,12 @@ public sealed class MediaGroupingItemViewModel
     public string? ArtworkUrl { get; init; }
     public string? TrackNumber { get; init; }
     public string? Duration { get; init; }
+    public double? DurationSeconds { get; init; }
     public string? Artist { get; init; }
+    public string? AssetId { get; init; }
+    public int? ChapterIndex { get; init; }
+    public double? StartSeconds { get; init; }
+    public double? EndSeconds { get; init; }
     public bool IsExplicit { get; init; }
     public string? Quality { get; init; }
     public double? ProgressPercent { get; init; }
