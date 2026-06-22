@@ -150,7 +150,9 @@ public partial class ListenPage
             ? $"{ActivePlaylistTitle} - Listen"
             : IsArtistsSurface && !string.IsNullOrWhiteSpace(SelectedArtistName)
                 ? $"{SelectedArtistName} - Listen"
-                : IsMusicHome || IsDefaultEntry
+                : IsDefaultEntry
+                    ? "Listen - Tuvima"
+                : IsMusicHome
                     ? "Music - Listen"
                 : IsAudiobooksView
                     ? "Audiobooks - Listen"
@@ -293,6 +295,35 @@ public partial class ListenPage
     [
         new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
         new("Favorite Songs", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder, _favoriteWorkIds.Count.ToString(CultureInfo.InvariantCulture)),
+    ];
+
+    private IReadOnlyList<ListenNavItem> ListenLibraryItems =>
+    [
+        new("Home", "/listen", Icons.Material.Outlined.Home, null),
+        new("Explore", "/listen/music", Icons.Material.Outlined.Explore, null),
+    ];
+
+    private IReadOnlyList<ListenNavItem> ListenFormatItems =>
+    [
+        new("All Audio", "/listen", Icons.Material.Outlined.LibraryMusic, (_musicWorks.Count + _audiobookWorks.Count).ToString(CultureInfo.InvariantCulture)),
+        new("Audiobooks", AudiobooksRoute, Icons.Material.Outlined.Headphones, _audiobookWorks.Count.ToString(CultureInfo.InvariantCulture)),
+        new("Music", MusicHomeRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
+    ];
+
+    private IReadOnlyList<ListenNavItem> ListenYourLibraryItems =>
+    [
+        new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
+        new("Albums", AlbumsRoute, Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
+        new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
+        new("Songs", SongsRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
+        new("Genres", SongsRoute, Icons.Material.Outlined.Category, SongGenres.Count.ToString(CultureInfo.InvariantCulture)),
+    ];
+
+    private IReadOnlyList<ListenNavItem> ListenPinnedPlaylistItems =>
+    [
+        new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
+        new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule),
+        new("All Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic),
     ];
 
     private IReadOnlyList<ListenNavItem> MusicLibraryItems
@@ -481,7 +512,6 @@ public partial class ListenPage
 
         if (IsDefaultEntry)
         {
-            Nav.NavigateTo(ResolveConfiguredEntryRoute(), replace: true);
             return;
         }
 
@@ -1148,13 +1178,20 @@ public partial class ListenPage
     }
 
     private bool IsRouteActive(string route)
-        => (IsDefaultEntry && string.Equals(route, MusicHomeRoute, StringComparison.OrdinalIgnoreCase))
-           || string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase)
-           || CurrentPath.StartsWith(route + "/", StringComparison.OrdinalIgnoreCase);
+    {
+        if (string.Equals(route, "/listen", StringComparison.OrdinalIgnoreCase))
+        {
+            return IsDefaultEntry;
+        }
+
+        return string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase)
+               || CurrentPath.StartsWith(route + "/", StringComparison.OrdinalIgnoreCase);
+    }
 
     private bool IsRouteActiveExact(string route)
-        => (IsDefaultEntry && string.Equals(route, MusicHomeRoute, StringComparison.OrdinalIgnoreCase))
-           || string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase);
+        => string.Equals(route, "/listen", StringComparison.OrdinalIgnoreCase)
+            ? IsDefaultEntry
+            : string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase);
 
     private async Task PlaySingleWorkAsync(WorkViewModel work, string sourceLabel)
     {

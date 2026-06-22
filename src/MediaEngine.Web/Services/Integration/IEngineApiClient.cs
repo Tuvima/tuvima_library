@@ -28,6 +28,18 @@ public interface IEngineApiClient
 
     Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default);
 
+    Task<PlayerStateDto?> GetPlayerStateAsync(Guid? profileId = null, string? deviceId = null, string client = "web", CancellationToken ct = default);
+
+    Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default);
+
+    Task<PlayerStateDto?> AddPlayerQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct = default);
+
+    Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default);
+
+    Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default);
+
+    Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default);
+
     Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 
     Task RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default);

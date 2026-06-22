@@ -9,11 +9,12 @@
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @inject ILogger<ListenNowPlayingBar> Logger
+@inject NavigationManager Nav
 @implements IAsyncDisposable
 
 @if (Playback.HasQueue && Playback.CurrentItem is not null)
 {
-    <div class="listen-player-shell">
+    <div class="@PlayerShellClass">
         @if (Playback.IsPanelOpen)
         {
             <div class="listen-player-panel-backdrop" @onclick="Playback.ClosePanel"></div>
@@ -255,6 +256,12 @@
     private bool _lyricsLoading;
     private List<LrcDisplayLine> _lyricsLines = [];
 
+    private string PlayerShellClass => IsListenRoute
+        ? "listen-player-shell listen-player-shell--listen-route"
+        : "listen-player-shell";
+
+    private bool IsListenRoute => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.StartsWith("/listen", StringComparison.OrdinalIgnoreCase);
+
     private double ProgressMax => Playback.DurationSeconds > 0 ? Playback.DurationSeconds : 1;
 
     private LrcDisplayLine? ActiveLyricLine => _lyricsLines.LastOrDefault(line => line.StartSeconds <= Playback.CurrentTimeSeconds + 0.25);
@@ -262,7 +269,12 @@
     protected override void OnInitialized()
     {
         Playback.OnChanged += HandlePlaybackChanged;
+        Playback.OnTransportCommandRequested += HandleTransportCommandAsync;
+        Nav.LocationChanged += HandleLocationChanged;
     }
+
+    private void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) =>
+        _ = InvokeAsync(StateHasChanged);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -390,18 +402,19 @@
             isPlaying: !state.Paused,
             volume: state.Volume,
             isMuted: state.Muted);
+        await Playback.ReportHeartbeatAsync();
     }
 
-    private Task HandleAudioStarted()
+    private async Task HandleAudioStarted()
     {
         Playback.UpdateTransportState(isPlaying: true);
-        return Task.CompletedTask;
+        await Playback.ReportHeartbeatAsync(force: true);
     }
 
-    private Task HandleAudioPaused()
+    private async Task HandleAudioPaused()
     {
         Playback.UpdateTransportState(isPlaying: false);
-        return Task.CompletedTask;
+        await Playback.ReportHeartbeatAsync(force: true);
     }
 
     private async Task HandleAudioEndedAsync()
@@ -458,24 +471,25 @@
 
         await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, seconds);
         Playback.UpdateTransportState(currentTimeSeconds: seconds);
+        await Playback.ReportHeartbeatAsync(force: true);
     }
 
-    private Task SetVolumeAsync(ChangeEventArgs args)
+    private async Task SetVolumeAsync(ChangeEventArgs args)
     {
         if (!double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var volume))
         {
-            return Task.CompletedTask;
+            return;
         }
 
         volume = Math.Clamp(volume, 0d, 1d);
         Playback.UpdateTransportState(volume: volume, isMuted: volume <= 0 ? true : false);
-        return Task.CompletedTask;
+        await Playback.ReportHeartbeatAsync(force: true);
     }
 
-    private Task ToggleMuteAsync()
+    private async Task ToggleMuteAsync()
     {
         Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
-        return Task.CompletedTask;
+        await Playback.ReportHeartbeatAsync(force: true);
     }
 
     private async Task TogglePopupAsync()
@@ -548,18 +562,56 @@
             case "seek" when command.Value.HasValue:
                 await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
                 Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
+                await Playback.ReportHeartbeatAsync(force: true);
                 break;
             case "set-volume" when command.Value.HasValue:
                 Playback.UpdateTransportState(volume: command.Value.Value, isMuted: command.Value.Value <= 0);
+                await Playback.ReportHeartbeatAsync(force: true);
                 break;
             case "toggle-mute":
                 Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
+                await Playback.ReportHeartbeatAsync(force: true);
                 break;
             case "close-player":
                 await ClosePlayerAsync();
                 break;
             case "popup-closed":
                 Playback.SetPopupOpen(false);
+                break;
+        }
+    }
+
+    private async Task HandleTransportCommandAsync(ListenTransportCommand command)
+    {
+        switch (command.Action)
+        {
+            case "toggle-play":
+                await TogglePlayPauseAsync();
+                break;
+            case "play-next":
+                await PlayNextAsync();
+                break;
+            case "play-previous":
+                await PlayPreviousAsync();
+                break;
+            case "seek" when command.Value.HasValue:
+                await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
+                Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
+                await Playback.ReportHeartbeatAsync(force: true);
+                break;
+            case "set-volume" when command.Value.HasValue:
+                Playback.UpdateTransportState(volume: command.Value.Value, isMuted: command.Value.Value <= 0);
+                await Playback.ReportHeartbeatAsync(force: true);
+                break;
+            case "toggle-mute":
+                Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
+                await Playback.ReportHeartbeatAsync(force: true);
+                break;
+            case "toggle-panel":
+                Playback.TogglePanel();
+                break;
+            case "close-player":
+                await ClosePlayerAsync();
                 break;
         }
     }
@@ -635,6 +687,8 @@
     public async ValueTask DisposeAsync()
     {
         Playback.OnChanged -= HandlePlaybackChanged;
+        Playback.OnTransportCommandRequested -= HandleTransportCommandAsync;
+        Nav.LocationChanged -= HandleLocationChanged;
 
         try
         {

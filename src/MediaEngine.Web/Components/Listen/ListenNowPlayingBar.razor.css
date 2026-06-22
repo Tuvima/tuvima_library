@@ -6,6 +6,21 @@
         pointer-events: none;
     }
 
+    @media (min-width: 1181px) {
+        .listen-player-shell--listen-route {
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+
+        .listen-player-shell--listen-route .listen-player,
+        .listen-player-shell--listen-route .listen-player-panel,
+        .listen-player-shell--listen-route .listen-player-panel-backdrop {
+            opacity: 0;
+            pointer-events: none;
+        }
+    }
+
     .listen-player {
         pointer-events: auto;
         display: grid;

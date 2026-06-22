@@ -460,8 +460,11 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(cut.FindAll(".sidebar-page"));
+            Assert.Single(cut.FindAll(".listen-page"));
+            Assert.Single(cut.FindAll(".listen-rail-shell"));
             Assert.Single(cut.FindAll(".listen-rail"));
+            Assert.Single(cut.FindAll(".listen-content"));
+            Assert.Single(cut.FindAll(".listen-now-panel"));
             Assert.Empty(cut.FindAll(".listen-topbar__menu"));
             Assert.Empty(cut.FindAll(".listen-rail__close"));
             Assert.DoesNotContain("Pins", cut.Markup);
@@ -477,22 +480,59 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             var markup = cut.Markup;
-            var music = markup.IndexOf(">Music<", StringComparison.Ordinal);
-            var quickAccess = markup.IndexOf(">Quick access<", StringComparison.Ordinal);
+            var library = markup.IndexOf(">Library<", StringComparison.Ordinal);
+            var formats = markup.IndexOf(">Formats<", StringComparison.Ordinal);
+            var yourLibrary = markup.IndexOf(">Your Library<", StringComparison.Ordinal);
             var playlists = markup.IndexOf(">Playlists<", StringComparison.Ordinal);
 
-            Assert.True(music >= 0, "Music section should render.");
-            Assert.True(quickAccess > music, "Quick access should render below Music.");
-            Assert.True(playlists > quickAccess, "Playlists should render below Quick access.");
+            Assert.True(library >= 0, "Library section should render.");
+            Assert.True(formats > library, "Formats should render below Library.");
+            Assert.True(yourLibrary > formats, "Your Library should render below Formats.");
+            Assert.True(playlists > yourLibrary, "Playlists should render below Your Library.");
+            Assert.Contains(">All Audio<", markup);
+            Assert.Contains(">Audiobooks<", markup);
+            Assert.Contains(">Music<", markup);
+            Assert.Contains(">Songs<", markup);
             Assert.Single(cut.FindAll(".listen-rail__section-toggle"));
             Assert.Contains("Summer Movies", markup);
             Assert.Contains("Add playlist", markup);
             Assert.Contains("Drag to reorder Summer Movies", markup);
+            Assert.DoesNotContain(">Podcasts<", markup);
+            Assert.DoesNotContain(">Radio<", markup);
             Assert.DoesNotContain("Edit playlist", markup);
             Assert.DoesNotContain("New Playlist Folder", markup);
             Assert.DoesNotContain("listen-create-modal", markup);
-            Assert.DoesNotContain("All Songs", markup);
         });
+    }
+
+    [Fact]
+    public void ListenDesktopPlayer_UsesPersistentRightPanelAndHidesBottomHostOnListenRoutes()
+    {
+        var panelSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingPanel.razor"));
+        var panelCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingPanel.razor.css"));
+        var hostSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingBar.razor"));
+        var hostCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingBar.razor.css"));
+
+        Assert.Contains("listen-now-panel", panelSource, StringComparison.Ordinal);
+        Assert.Contains("Now Playing", panelSource, StringComparison.Ordinal);
+        Assert.Contains("Up Next", panelSource, StringComparison.Ordinal);
+        Assert.Contains("Drag tracks here", panelSource, StringComparison.Ordinal);
+        Assert.Contains("OnTransportCommandRequested", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ReportHeartbeatAsync", hostSource, StringComparison.Ordinal);
+        Assert.Contains("listen-player-shell--listen-route", hostSource, StringComparison.Ordinal);
+        Assert.Contains("@media (min-width: 1181px)", hostCss, StringComparison.Ordinal);
+        Assert.Contains(".listen-player-shell--listen-route", hostCss, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 1180px)", panelCss, StringComparison.Ordinal);
+        Assert.Contains("display: none;", panelCss, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiscoveryHero_RendersScopedRootSoListenHomeSidebarStaysVisible()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Discovery", "DiscoveryHero.razor"));
+
+        Assert.Contains("<section class=\"@($\"discovery-hero-shell {HeroSurfaceClass}\")\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppCssElement Tag=\"section\" Class='@($\"discovery-hero-shell", source, StringComparison.Ordinal);
     }
 
     [Fact]

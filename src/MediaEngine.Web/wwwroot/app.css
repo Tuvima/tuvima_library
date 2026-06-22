@@ -43,6 +43,11 @@ body {
     box-shadow: none !important;
 }
 
+.discovery-hero-accent-scope {
+    display: block;
+    min-height: inherit;
+}
+
 /* -- Logo colour -------------------------------------------------------- */
 .app-logo {
     color: rgba(255,255,255,0.87);

@@ -75,6 +75,138 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<PlayerStateDto?> GetPlayerStateAsync(Guid? profileId = null, string? deviceId = null, string client = "web", CancellationToken ct = default)
+    {
+        const string endpoint = "GET /player/state";
+        try
+        {
+            var query = new List<string>();
+            if (profileId.HasValue) query.Add($"profileId={profileId.Value:D}");
+            if (!string.IsNullOrWhiteSpace(deviceId)) query.Add($"deviceId={Uri.EscapeDataString(deviceId)}");
+            if (!string.IsNullOrWhiteSpace(client)) query.Add($"client={Uri.EscapeDataString(client)}");
+            var suffix = query.Count == 0 ? string.Empty : "?" + string.Join("&", query);
+            var state = await _http.GetFromJsonAsync<PlayerStateDto>("/player/state" + suffix, ct);
+            ClearFailure(endpoint);
+            return state;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GET /player/state failed");
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
+    public Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
+        PostPlayerMutationAsync("/player/queue/replace", request, "POST /player/queue/replace", ct);
+
+    public Task<PlayerStateDto?> AddPlayerQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
+        PostPlayerMutationAsync("/player/queue/items", request, "POST /player/queue/items", ct);
+
+    public async Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default)
+    {
+        const string endpoint = "POST /player/command";
+        try
+        {
+            var response = await _http.PostAsJsonAsync("/player/command", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return state;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "POST /player/command failed");
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
+    public async Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default)
+    {
+        const string endpoint = "POST /player/heartbeat";
+        try
+        {
+            var response = await _http.PostAsJsonAsync("/player/heartbeat", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return state;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "POST /player/heartbeat failed");
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
+    public async Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default)
+    {
+        const string endpoint = "POST /player/session/takeover";
+        try
+        {
+            var response = await _http.PostAsJsonAsync("/player/session/takeover", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return state;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "POST /player/session/takeover failed");
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
+    private async Task<PlayerStateDto?> PostPlayerMutationAsync(
+        string url,
+        PlayerQueueMutationDto request,
+        string endpoint,
+        CancellationToken ct)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync(url, request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return state;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Endpoint} failed", endpoint);
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default)
     {
         try

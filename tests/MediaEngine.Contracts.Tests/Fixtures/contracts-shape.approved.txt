@@ -615,6 +615,134 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackTrackDto
   Channels: System.Int32? | nullability=nullable | accessors=get,init
   BitrateKbps: System.Int32? | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerCapabilitiesDto
+  CanPlay: System.Boolean | nullability=not-null | accessors=get,init
+  CanPause: System.Boolean | nullability=not-null | accessors=get,init
+  CanStop: System.Boolean | nullability=not-null | accessors=get,init
+  CanSeek: System.Boolean | nullability=not-null | accessors=get,init
+  CanSkipNext: System.Boolean | nullability=not-null | accessors=get,init
+  CanSkipPrevious: System.Boolean | nullability=not-null | accessors=get,init
+  CanSetVolume: System.Boolean | nullability=not-null | accessors=get,init
+  CanMute: System.Boolean | nullability=not-null | accessors=get,init
+  CanSetSpeed: System.Boolean | nullability=not-null | accessors=get,init
+  CanShuffle: System.Boolean | nullability=not-null | accessors=get,init
+  CanRepeat: System.Boolean | nullability=not-null | accessors=get,init
+  CanUseChapters: System.Boolean | nullability=not-null | accessors=get,init
+  CanReorderQueue: System.Boolean | nullability=not-null | accessors=get,init
+  CanTakeover: System.Boolean | nullability=not-null | accessors=get,init
+  SupportedMediaTypes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  SupportedPlaybackRates: System.Collections.Generic.IReadOnlyList<System.Double> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerCommandRequestDto
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  DeviceId: System.String | nullability=nullable | accessors=get,init
+  Client: System.String | nullability=nullable | accessors=get,init
+  ExpectedStateVersion: System.Int64? | nullability=nullable | accessors=get,init
+  Force: System.Boolean | nullability=not-null | accessors=get,init
+  Command: System.String | nullability=not-null | accessors=get,init
+  QueueItemId: System.Guid? | nullability=nullable | accessors=get,init
+  PositionSeconds: System.Double? | nullability=nullable | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
+  Volume: System.Double? | nullability=nullable | accessors=get,init
+  IsMuted: System.Boolean? | nullability=nullable | accessors=get,init
+  PlaybackRate: System.Double? | nullability=nullable | accessors=get,init
+  ShuffleEnabled: System.Boolean? | nullability=nullable | accessors=get,init
+  RepeatMode: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerCommands
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerHeartbeatDto
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  SessionId: System.Guid? | nullability=nullable | accessors=get,init
+  DeviceId: System.String | nullability=nullable | accessors=get,init
+  Client: System.String | nullability=nullable | accessors=get,init
+  QueueItemId: System.Guid? | nullability=nullable | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+  IsPlaying: System.Boolean | nullability=not-null | accessors=get,init
+  PositionSeconds: System.Double | nullability=not-null | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
+  ProgressPct: System.Double? | nullability=nullable | accessors=get,init
+  Volume: System.Double? | nullability=nullable | accessors=get,init
+  IsMuted: System.Boolean? | nullability=nullable | accessors=get,init
+  PlaybackRate: System.Double? | nullability=nullable | accessors=get,init
+  StateVersion: System.Int64? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerPlaybackStates
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueItemDto
+  QueueItemId: System.Guid | nullability=not-null | accessors=get,init
+  WorkId: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+  CollectionId: System.Guid? | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Album: System.String | nullability=nullable | accessors=get,init
+  Author: System.String | nullability=nullable | accessors=get,init
+  Artist: System.String | nullability=nullable | accessors=get,init
+  Narrator: System.String | nullability=nullable | accessors=get,init
+  Series: System.String | nullability=nullable | accessors=get,init
+  CoverUrl: System.String | nullability=nullable | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
+  PositionSeconds: System.Double? | nullability=nullable | accessors=get,init
+  ProgressPct: System.Double? | nullability=nullable | accessors=get,init
+  StreamUrl: System.String | nullability=nullable | accessors=get,init
+  DownloadUrl: System.String | nullability=nullable | accessors=get,init
+  Chapters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackChapterDto> | nullability=not-null | accessors=get,init
+  Manifest: MediaEngine.Contracts.Playback.PlaybackManifestDto | nullability=nullable | accessors=get,init
+  AddedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueMutationDto
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  DeviceId: System.String | nullability=nullable | accessors=get,init
+  Client: System.String | nullability=nullable | accessors=get,init
+  ExpectedStateVersion: System.Int64? | nullability=nullable | accessors=get,init
+  Force: System.Boolean | nullability=not-null | accessors=get,init
+  Mode: System.String | nullability=not-null | accessors=get,init
+  WorkIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
+  QueueItemIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
+  StartWorkId: System.Guid? | nullability=nullable | accessors=get,init
+  StartQueueItemId: System.Guid? | nullability=nullable | accessors=get,init
+  SourceLabel: System.String | nullability=nullable | accessors=get,init
+  Shuffle: System.Boolean | nullability=not-null | accessors=get,init
+  ClearExisting: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueMutationModes
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerRepeatModes
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerSessionTakeoverRequestDto
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  DeviceId: System.String | nullability=nullable | accessors=get,init
+  Client: System.String | nullability=nullable | accessors=get,init
+  Force: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerStateDto
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  SessionId: System.Guid | nullability=not-null | accessors=get,init
+  DeviceId: System.String | nullability=not-null | accessors=get,init
+  Client: System.String | nullability=not-null | accessors=get,init
+  PlaybackState: System.String | nullability=not-null | accessors=get,init
+  StateVersion: System.Int64 | nullability=not-null | accessors=get,init
+  CurrentQueueItemId: System.Guid? | nullability=nullable | accessors=get,init
+  CurrentItem: MediaEngine.Contracts.Playback.PlayerQueueItemDto | nullability=nullable | accessors=get,init
+  Queue: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlayerQueueItemDto> | nullability=not-null | accessors=get,init
+  PositionSeconds: System.Double | nullability=not-null | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
+  ProgressPct: System.Double | nullability=not-null | accessors=get,init
+  Volume: System.Double | nullability=not-null | accessors=get,init
+  IsMuted: System.Boolean | nullability=not-null | accessors=get,init
+  PlaybackRate: System.Double | nullability=not-null | accessors=get,init
+  ShuffleEnabled: System.Boolean | nullability=not-null | accessors=get,init
+  RepeatMode: System.String | nullability=not-null | accessors=get,init
+  SourceLabel: System.String | nullability=nullable | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  LastHeartbeatAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  IsStale: System.Boolean | nullability=not-null | accessors=get,init
+  Capabilities: MediaEngine.Contracts.Playback.PlayerCapabilitiesDto | nullability=not-null | accessors=get,init
+  Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.QueueEncodeRequestDto
   ProfileKey: System.String | nullability=not-null | accessors=get,init
   ScheduledFor: System.DateTimeOffset? | nullability=nullable | accessors=get,init

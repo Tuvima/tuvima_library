@@ -3,122 +3,124 @@
 
 @if (Hero is not null)
 {
-    <AppCssElement Tag="section" Class='@($"discovery-hero-shell {HeroSurfaceClass}")' Css="@($"--hero-accent: {Hero.AccentColor};")">
-        <div class="discovery-hero-backdrop">
-            @if (!string.IsNullOrWhiteSpace(ActiveHeroBackdropUrl))
-            {
-                <img src="@ActiveHeroBackdropUrl" alt="" class="discovery-hero-backdrop-image" @onerror="HandleHeroBackdropError" />
-            }
-        </div>
-        <div class="discovery-hero-overlay"></div>
-        <div class="discovery-hero-texture"></div>
-
-        <div class="discovery-hero-content">
-            <div class="discovery-hero-copy">
-                @if (!string.IsNullOrWhiteSpace(Hero.Eyebrow))
+    <section class="@($"discovery-hero-shell {HeroSurfaceClass}")">
+        <AppCssElement Tag="div" Class="discovery-hero-accent-scope" Css="@($"--hero-accent: {Hero.AccentColor};")">
+            <div class="discovery-hero-backdrop">
+                @if (!string.IsNullOrWhiteSpace(ActiveHeroBackdropUrl))
                 {
-                    <div class="discovery-hero-eyebrow">@Hero.Eyebrow</div>
+                    <img src="@ActiveHeroBackdropUrl" alt="" class="discovery-hero-backdrop-image" @onerror="HandleHeroBackdropError" />
                 }
-
-                @if (!string.IsNullOrWhiteSpace(Hero.LogoUrl) && Hero.SurfaceKind == MediaTileSurfaceKind.BannerLandscape)
-                {
-                    <img src="@Hero.LogoUrl" alt="@Hero.Title" class="discovery-hero-logo" />
-                }
-                else
-                {
-                    <h1 class="discovery-hero-title">@Hero.Title</h1>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Hero.Subtitle))
-                {
-                    <div class="discovery-hero-subtitle">@Hero.Subtitle</div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Hero.StatusText))
-                {
-                    <div class="discovery-hero-status">@Hero.StatusText</div>
-                }
-
-                @if (DisplayMetaPills.Count > 0)
-                {
-                    <div class="discovery-hero-facts" aria-label="Title facts">
-                        @foreach (var fact in DisplayMetaPills)
-                        {
-                            <span class="discovery-hero-fact">@fact</span>
-                        }
-                    </div>
-                }
-                else if (ShowMetaRow)
-                {
-                    <div class="discovery-hero-meta-row">
-                        @if (!string.IsNullOrWhiteSpace(HeroMediaIcon))
-                        {
-                            <span class="discovery-hero-kind" title="@HeroMediaKindLabel">
-                                <MudIcon Icon="@HeroMediaIcon" />
-                                <span class="discovery-visually-hidden">@HeroMediaKindLabel</span>
-                            </span>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(HeroMetaDisplay))
-                        {
-                            <div class="discovery-hero-meta">@HeroMetaDisplay</div>
-                        }
-                    </div>
-                }
-
-                @if (DisplayChips.Count > 0)
-                {
-                    <div class="discovery-hero-chips">
-                        @foreach (var chip in DisplayChips)
-                        {
-                            <span class="discovery-hero-chip">@chip</span>
-                        }
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(DisplaySummary))
-                {
-                    <p class="discovery-hero-description">@DisplaySummary</p>
-                }
-
-                @if (Hero.ProgressPct is > 0)
-                {
-                    <div class="discovery-hero-progress">
-                        <div class="discovery-hero-progress-label">Progress</div>
-                        <div class="discovery-hero-progress-bar">
-                            <AppCssElement Tag="div" Class="discovery-hero-progress-fill" Css="@($"width: {$"{Math.Min(100, Hero.ProgressPct.Value):F0}%"};")"></AppCssElement>
-                        </div>
-                    </div>
-                }
-
-                <div class="discovery-hero-actions">
-                    <AppButton Variant="Variant.Filled"
-                               StartIcon="@Icons.Material.Filled.PlayArrow"
-                               Class="discovery-hero-btn discovery-hero-btn-primary"
-                               OnClick="OpenPrimary">
-                        @Hero.PrimaryActionLabel
-                    </AppButton>
-
-                    @if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
-                    {
-                        <AppButton Variant="Variant.Outlined"
-                                   StartIcon="@Icons.Material.Outlined.Info"
-                                   Class="discovery-hero-btn discovery-hero-btn-secondary"
-                                   OnClick="OpenSecondary">
-                            @Hero.SecondaryActionLabel
-                        </AppButton>
-                    }
-                </div>
             </div>
+            <div class="discovery-hero-overlay"></div>
+            <div class="discovery-hero-texture"></div>
 
-            @if (!string.IsNullOrWhiteSpace(Hero.PreviewImageUrl))
-            {
-                <div class="discovery-hero-preview @PreviewClass">
-                    <img src="@Hero.PreviewImageUrl" alt="@Hero.Title" class="discovery-hero-preview-image @PreviewImageFitClass" />
+            <div class="discovery-hero-content">
+                <div class="discovery-hero-copy">
+                    @if (!string.IsNullOrWhiteSpace(Hero.Eyebrow))
+                    {
+                        <div class="discovery-hero-eyebrow">@Hero.Eyebrow</div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Hero.LogoUrl) && Hero.SurfaceKind == MediaTileSurfaceKind.BannerLandscape)
+                    {
+                        <img src="@Hero.LogoUrl" alt="@Hero.Title" class="discovery-hero-logo" />
+                    }
+                    else
+                    {
+                        <h1 class="discovery-hero-title">@Hero.Title</h1>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Hero.Subtitle))
+                    {
+                        <div class="discovery-hero-subtitle">@Hero.Subtitle</div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Hero.StatusText))
+                    {
+                        <div class="discovery-hero-status">@Hero.StatusText</div>
+                    }
+
+                    @if (DisplayMetaPills.Count > 0)
+                    {
+                        <div class="discovery-hero-facts" aria-label="Title facts">
+                            @foreach (var fact in DisplayMetaPills)
+                            {
+                                <span class="discovery-hero-fact">@fact</span>
+                            }
+                        </div>
+                    }
+                    else if (ShowMetaRow)
+                    {
+                        <div class="discovery-hero-meta-row">
+                            @if (!string.IsNullOrWhiteSpace(HeroMediaIcon))
+                            {
+                                <span class="discovery-hero-kind" title="@HeroMediaKindLabel">
+                                    <MudIcon Icon="@HeroMediaIcon" />
+                                    <span class="discovery-visually-hidden">@HeroMediaKindLabel</span>
+                                </span>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(HeroMetaDisplay))
+                            {
+                                <div class="discovery-hero-meta">@HeroMetaDisplay</div>
+                            }
+                        </div>
+                    }
+
+                    @if (DisplayChips.Count > 0)
+                    {
+                        <div class="discovery-hero-chips">
+                            @foreach (var chip in DisplayChips)
+                            {
+                                <span class="discovery-hero-chip">@chip</span>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(DisplaySummary))
+                    {
+                        <p class="discovery-hero-description">@DisplaySummary</p>
+                    }
+
+                    @if (Hero.ProgressPct is > 0)
+                    {
+                        <div class="discovery-hero-progress">
+                            <div class="discovery-hero-progress-label">Progress</div>
+                            <div class="discovery-hero-progress-bar">
+                                <AppCssElement Tag="div" Class="discovery-hero-progress-fill" Css="@($"width: {$"{Math.Min(100, Hero.ProgressPct.Value):F0}%"};")"></AppCssElement>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="discovery-hero-actions">
+                        <AppButton Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   Class="discovery-hero-btn discovery-hero-btn-primary"
+                                   OnClick="OpenPrimary">
+                            @Hero.PrimaryActionLabel
+                        </AppButton>
+
+                        @if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
+                        {
+                            <AppButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Outlined.Info"
+                                       Class="discovery-hero-btn discovery-hero-btn-secondary"
+                                       OnClick="OpenSecondary">
+                                @Hero.SecondaryActionLabel
+                            </AppButton>
+                        }
+                    </div>
                 </div>
-            }
-        </div>
-    </AppCssElement>
+
+                @if (!string.IsNullOrWhiteSpace(Hero.PreviewImageUrl))
+                {
+                    <div class="discovery-hero-preview @PreviewClass">
+                        <img src="@Hero.PreviewImageUrl" alt="@Hero.Title" class="discovery-hero-preview-image @PreviewImageFitClass" />
+                    </div>
+                }
+            </div>
+        </AppCssElement>
+    </section>
 }
 
 @code {

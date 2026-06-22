@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Web.Services.Playback;
 
@@ -8,16 +10,21 @@ public sealed class ListenPlaybackService
 {
     private readonly UIOrchestratorService _orchestrator;
     private readonly IEngineApiClient _apiClient;
+    private readonly ILogger<ListenPlaybackService>? _logger;
     private readonly List<ListenQueueItem> _queue = [];
     private readonly List<ListenQueueItem> _history = [];
+    private readonly Guid _sessionId = Guid.NewGuid();
+    private DateTimeOffset _lastHeartbeatAt = DateTimeOffset.MinValue;
 
-    public ListenPlaybackService(UIOrchestratorService orchestrator, IEngineApiClient apiClient)
+    public ListenPlaybackService(UIOrchestratorService orchestrator, IEngineApiClient apiClient, ILogger<ListenPlaybackService>? logger = null)
     {
         _orchestrator = orchestrator;
         _apiClient = apiClient;
+        _logger = logger;
     }
 
     public event Action? OnChanged;
+    public event Func<ListenTransportCommand, Task>? OnTransportCommandRequested;
 
     public IReadOnlyList<ListenQueueItem> Queue => _queue;
     public IReadOnlyList<ListenQueueItem> History => _history;
@@ -118,6 +125,7 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         NotifyChanged();
+        await SyncReplaceQueueAsync(items, CurrentIndex, sourceLabel, shuffle, ct);
     }
 
     public async Task InsertNextAsync(WorkViewModel work, CancellationToken ct = default)
@@ -133,12 +141,14 @@ public sealed class ListenPlaybackService
             CurrentError = null;
             await EnsurePlayableAsync(CurrentIndex, ct);
             NotifyChanged();
+            await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
             return;
         }
 
         var insertIndex = Math.Clamp(CurrentIndex + 1, 0, _queue.Count);
         _queue.Insert(insertIndex, item);
         NotifyChanged();
+        await SyncAddQueueItemsAsync([item], PlayerQueueMutationModes.AddNext, ct);
     }
 
     public async Task AddToQueueAsync(WorkViewModel work, CancellationToken ct = default)
@@ -154,11 +164,13 @@ public sealed class ListenPlaybackService
             CurrentError = null;
             await EnsurePlayableAsync(CurrentIndex, ct);
             NotifyChanged();
+            await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
             return;
         }
 
         _queue.Add(item);
         NotifyChanged();
+        await SyncAddQueueItemsAsync([item], PlayerQueueMutationModes.AddEnd, ct);
     }
 
     public async Task PlayIndexAsync(int index, CancellationToken ct = default)
@@ -368,6 +380,51 @@ public sealed class ListenPlaybackService
         }
     }
 
+    public async Task RequestTransportCommandAsync(ListenTransportCommand command)
+    {
+        if (OnTransportCommandRequested is not null)
+        {
+            await OnTransportCommandRequested.Invoke(command);
+        }
+    }
+
+    public async Task ReportHeartbeatAsync(bool force = false, CancellationToken ct = default)
+    {
+        if (_apiClient is null || CurrentItem?.AssetId is not Guid assetId)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (!force && now - _lastHeartbeatAt < TimeSpan.FromSeconds(5))
+        {
+            return;
+        }
+
+        _lastHeartbeatAt = now;
+        try
+        {
+            await _apiClient.PostPlayerHeartbeatAsync(new PlayerHeartbeatDto
+            {
+                SessionId = _sessionId,
+                DeviceId = "web-dashboard",
+                Client = "web",
+                AssetId = assetId,
+                IsPlaying = IsPlaying,
+                PositionSeconds = CurrentTimeSeconds,
+                DurationSeconds = DurationSeconds > 0 ? DurationSeconds : null,
+                ProgressPct = DurationSeconds > 0 ? Math.Clamp(CurrentTimeSeconds / DurationSeconds * 100d, 0d, 100d) : null,
+                Volume = Volume,
+                IsMuted = IsMuted,
+                PlaybackRate = 1d,
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Could not sync listen player heartbeat.");
+        }
+    }
+
     public void MarkCurrentFailed(string message)
     {
         CurrentError = string.IsNullOrWhiteSpace(message)
@@ -513,6 +570,65 @@ public sealed class ListenPlaybackService
         CurrentError = null;
     }
 
+    private async Task SyncReplaceQueueAsync(
+        IReadOnlyList<ListenQueueItem> items,
+        int startIndex,
+        string? sourceLabel,
+        bool shuffle,
+        CancellationToken ct)
+    {
+        if (_apiClient is null || items.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var start = Math.Clamp(startIndex, 0, items.Count - 1);
+            await _apiClient.ReplacePlayerQueueAsync(new PlayerQueueMutationDto
+            {
+                DeviceId = "web-dashboard",
+                Client = "web",
+                WorkIds = items.Select(item => item.WorkId).Where(id => id != Guid.Empty).ToList(),
+                StartWorkId = items[start].WorkId,
+                SourceLabel = sourceLabel,
+                Shuffle = shuffle,
+                ClearExisting = true,
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Could not sync listen player queue replacement.");
+        }
+    }
+
+    private async Task SyncAddQueueItemsAsync(
+        IReadOnlyList<ListenQueueItem> items,
+        string mode,
+        CancellationToken ct)
+    {
+        if (_apiClient is null || items.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _apiClient.AddPlayerQueueItemsAsync(new PlayerQueueMutationDto
+            {
+                DeviceId = "web-dashboard",
+                Client = "web",
+                Mode = mode,
+                WorkIds = items.Select(item => item.WorkId).Where(id => id != Guid.Empty).ToList(),
+                SourceLabel = SourceLabel,
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Could not sync listen player queue addition.");
+        }
+    }
+
     private static ListenQueueItem CreateQueueItem(WorkViewModel work)
         => new()
         {
@@ -542,6 +658,8 @@ public static class ListenPlaybackTabs
     public const string History = "history";
     public const string Lyrics = "lyrics";
 }
+
+public sealed record ListenTransportCommand(string Action, double? Value = null);
 
 public sealed record ListenQueueItem
 {

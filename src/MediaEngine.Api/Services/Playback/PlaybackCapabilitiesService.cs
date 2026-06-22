@@ -233,13 +233,14 @@ public sealed class PlaybackCapabilitiesService
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<ResumeRow>("""
             SELECT progress_pct AS ProgressPct,
-                   last_accessed AS LastAccessed
+                   last_accessed AS LastAccessed,
+                   extended_properties AS ExtendedProperties
             FROM user_states
             WHERE asset_id = @assetId
             ORDER BY last_accessed DESC
             LIMIT 1;
             """,
-            new { assetId = assetId.ToString() });
+            new { assetId });
 
         await Task.CompletedTask;
         if (row is null)
@@ -250,10 +251,36 @@ public sealed class PlaybackCapabilitiesService
         return new PlaybackResumeDto
         {
             ProgressPct = row.ProgressPct,
+            PositionSeconds = TryGetPositionSeconds(row.ExtendedProperties),
             LastAccessed = DateTimeOffset.TryParse(row.LastAccessed, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
                 ? parsed
                 : null,
         };
+    }
+
+    private static double? TryGetPositionSeconds(string? extendedProperties)
+    {
+        if (string.IsNullOrWhiteSpace(extendedProperties))
+        {
+            return null;
+        }
+
+        try
+        {
+            var properties = JsonSerializer.Deserialize<Dictionary<string, string>>(extendedProperties);
+            if (properties is not null
+                && properties.TryGetValue("position_seconds", out var position)
+                && double.TryParse(position, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+            {
+                return seconds;
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
     }
 
     private static string BuildSourceHash(MediaAsset asset)
@@ -590,5 +617,5 @@ public sealed class PlaybackCapabilitiesService
         },
     };
 
-    private sealed record ResumeRow(double ProgressPct, string? LastAccessed);
+    private sealed record ResumeRow(double ProgressPct, string? LastAccessed, string? ExtendedProperties);
 }

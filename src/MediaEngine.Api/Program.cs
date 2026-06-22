@@ -287,6 +287,8 @@ builder.Services.AddSingleton<IProfileExternalLoginService, ProfileExternalLogin
 builder.Services.AddSingleton<IFFmpegService, FFmpegService>();
 builder.Services.AddSingleton<PlaybackStateRepository>();
 builder.Services.AddSingleton<PlaybackCapabilitiesService>();
+builder.Services.AddSingleton<PlayerSessionRepository>();
+builder.Services.AddSingleton<PlayerService>();
 builder.Services.AddSingleton<IUserPlaybackSettingsService, UserPlaybackSettingsService>();
 builder.Services.AddHostedService<EncodeQueueService>();
 

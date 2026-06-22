@@ -38,26 +38,42 @@ else if (!string.IsNullOrWhiteSpace(_error))
 }
 else
 {
-    <SidebarPageShell Class="listen-page">
-        <Rail>
-        <div class="listen-rail">
-            @if (IsMusicMode)
-            {
+    <div class="listen-page">
+        <aside class="listen-rail-shell">
+            <div class="listen-rail">
                 <section class="listen-rail__section">
-                    <div class="listen-rail__label">Music</div>
-                    @foreach (var item in MusicLibraryItems)
+                    <div class="listen-rail__label">Library</div>
+                    @foreach (var item in ListenLibraryItems)
                     {
                         <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
                             <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
                             <span>@item.Label</span>
-                            <span class="listen-rail__meta">@item.Meta</span>
+                            @if (!string.IsNullOrWhiteSpace(item.Meta))
+                            {
+                                <span class="listen-rail__meta">@item.Meta</span>
+                            }
                         </AppNativeButton>
                     }
                 </section>
 
                 <section class="listen-rail__section">
-                    <div class="listen-rail__label">Quick access</div>
-                    @foreach (var item in QuickAccessItems)
+                    <div class="listen-rail__label">Formats</div>
+                    @foreach (var item in ListenFormatItems)
+                    {
+                        <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
+                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
+                            <span>@item.Label</span>
+                            @if (!string.IsNullOrWhiteSpace(item.Meta))
+                            {
+                                <span class="listen-rail__meta">@item.Meta</span>
+                            }
+                        </AppNativeButton>
+                    }
+                </section>
+
+                <section class="listen-rail__section">
+                    <div class="listen-rail__label">Your Library</div>
+                    @foreach (var item in ListenYourLibraryItems)
                     {
                         <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
                             <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
@@ -90,83 +106,55 @@ else
 
                     @if (_playlistsExpanded)
                     {
-                        <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActiveExact(PlaylistsRoute) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(PlaylistsRoute))">
-                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-18px" />
-                            <span>All Playlists</span>
-                        </AppNativeButton>
-
-                        @if (PlaylistCollections.Count == 0)
+                        @foreach (var item in ListenPinnedPlaylistItems)
                         {
-                            <div class="listen-playlist-dropzone"
+                            <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
+                                <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
+                                <span>@item.Label</span>
+                            </AppNativeButton>
+                        }
+
+                        @foreach (var playlist in PlaylistCollections)
+                        {
+                            var playlistRoute = $"/listen/music/playlists/{playlist.Id}";
+                            <div class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
                                  @ondragover:preventDefault="true"
-                                 @ondrop="@(() => HandlePlaylistDropAsync())">
-                                <div class="listen-playlist-dropzone__title">Drop songs here to create your first playlist</div>
-                                <div class="listen-playlist-dropzone__meta">Or open Playlists to start one manually.</div>
+                                 @ondrop="@(() => DropPlaylistReorderAsync(playlist.Id))">
+                                <AppNativeButton Type="button" Class="listen-rail__drag" draggable="true" AriaLabel="@($" Drag to reorder {playlist.Name}")" @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))" @ondragend="EndPlaylistReorder">
+                                    <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="tl-u-font-size-18px" />
+                                </AppNativeButton>
+                                <AppNativeButton Type="button" Class='@($"listen-rail__item is-child {(IsRouteActive(playlistRoute) ? "is-active" : null)}")' OnClick="@(() => NavigateTo(playlistRoute))" @ondragover:preventDefault="true" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
+                                    @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
+                                    {
+                                        <span class="listen-rail__thumb"><img src="@playlist.SquareArtworkUrl" alt="" /></span>
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@PlaylistIconFor(playlist)" Class="tl-u-font-size-18px" />
+                                    }
+                                    <span>@playlist.Name</span>
+                                </AppNativeButton>
+                                <AppNativeButton Type="button" Class="listen-rail__more" Title="Playlist options" AriaLabel="@($" {playlist.Name} options")" StopPropagation="true" OnClick="@(() => TogglePlaylistActionsMenu(playlist.Id))">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-18px" />
+                                </AppNativeButton>
+                                @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == playlist.Id)
+                                {
+                                    <div class="listen-actions-menu listen-actions-menu--rail">
+                                        <AppNativeButton Type="button" OnClick="@(() => OpenPlaylistEditorFromMenuAsync(playlist))">Edit Playlist</AppNativeButton>
+                                    </div>
+                                }
                             </div>
                         }
-                        else
-                        {
-                            @foreach (var playlist in PlaylistCollections)
-                            {
-                                var playlistRoute = $"/listen/music/playlists/{playlist.Id}";
-                                <div class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
-                                     @ondragover:preventDefault="true"
-                                     @ondrop="@(() => DropPlaylistReorderAsync(playlist.Id))">
-                                    <AppNativeButton Type="button" Class="listen-rail__drag" draggable="true" AriaLabel="@($" Drag to reorder {playlist.Name}")" @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))" @ondragend="EndPlaylistReorder">
-                                        <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="tl-u-font-size-18px" />
-                                    </AppNativeButton>
-                                    <AppNativeButton Type="button" Class='@($"listen-rail__item is-child {(IsRouteActive(playlistRoute) ? "is-active" : null)}")' OnClick="@(() => NavigateTo(playlistRoute))" @ondragover:preventDefault="true" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
-                                        @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
-                                        {
-                                            <span class="listen-rail__thumb"><img src="@playlist.SquareArtworkUrl" alt="" /></span>
-                                        }
-                                        else
-                                        {
-                                            <MudIcon Icon="@PlaylistIconFor(playlist)" Class="tl-u-font-size-18px" />
-                                        }
-                                        <span>@playlist.Name</span>
-                                    </AppNativeButton>
-                                    <AppNativeButton Type="button" Class="listen-rail__more" Title="Playlist options" AriaLabel="@($" {playlist.Name} options")" StopPropagation="true" OnClick="@(() => TogglePlaylistActionsMenu(playlist.Id))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-18px" />
-                                    </AppNativeButton>
-                                    @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == playlist.Id)
-                                    {
-                                        <div class="listen-actions-menu listen-actions-menu--rail">
-                                            <AppNativeButton Type="button" OnClick="@(() => OpenPlaylistEditorFromMenuAsync(playlist))">Edit Playlist</AppNativeButton>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        }
                     }
                 </section>
-            }
-            else
-            {
-                <section class="listen-rail__section">
-                    <div class="listen-rail__label">Audiobooks</div>
-                    @foreach (var item in AudiobookLibraryItems)
-                    {
-                        <AppNativeButton Type="button" Class='@($"listen-rail__item {(IsRouteActive(item.Route) ? "is-active" : null)}")' OnClick="@(() => NavigateTo(item.Route))">
-                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
-                            <span>@item.Label</span>
-                            @if (!string.IsNullOrWhiteSpace(item.Meta))
-                            {
-                                <span class="listen-rail__meta">@item.Meta</span>
-                            }
-                        </AppNativeButton>
-                    }
-                </section>
-            }
-        </div>
-        </Rail>
+            </div>
+        </aside>
 
-        <ChildContent>
         <main class="listen-content">
             <header class="listen-topbar">
                 <div class="listen-topbar__identity">
                     <div>
-                        <h1>@(IsAudiobooksView ? "Audiobooks" : "Music")</h1>
+                        <h1>@(IsDefaultEntry ? "Listen" : IsAudiobooksView ? "Audiobooks" : "Music")</h1>
                     </div>
                 </div>
 
@@ -774,6 +762,6 @@ else
                                   Preset="@AudiobookBrowsePreset" />
             }
         </main>
-        </ChildContent>
-    </SidebarPageShell>
+        <ListenNowPlayingPanel />
+    </div>
 }

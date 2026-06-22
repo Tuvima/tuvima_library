@@ -233,6 +233,83 @@ public sealed class ContractJsonRoundTripTests
     }
 
     [Fact]
+    public void PlayerDto_RoundTripsQueueStateAndOpdsReadyMetadata()
+    {
+        var profileId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var sessionId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var queueItemId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var workId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var assetId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var state = new PlayerStateDto
+        {
+            ProfileId = profileId,
+            SessionId = sessionId,
+            DeviceId = "desktop-study",
+            Client = "web",
+            PlaybackState = PlayerPlaybackStates.Playing,
+            StateVersion = 42,
+            CurrentQueueItemId = queueItemId,
+            PositionSeconds = 1842.25,
+            DurationSeconds = 7200,
+            ProgressPct = 25.59,
+            Volume = 0.72,
+            PlaybackRate = 1.25,
+            SourceLabel = "Audiobooks",
+            Queue =
+            [
+                new PlayerQueueItemDto
+                {
+                    QueueItemId = queueItemId,
+                    WorkId = workId,
+                    AssetId = assetId,
+                    MediaType = "Audiobooks",
+                    Title = "Leviathan Wakes",
+                    Author = "James S. A. Corey",
+                    Narrator = "Jefferson Mays",
+                    Series = "The Expanse",
+                    CoverUrl = "/images/covers/leviathan.jpg",
+                    DurationSeconds = 7200,
+                    PositionSeconds = 1842.25,
+                    ProgressPct = 25.59,
+                    StreamUrl = "/playback/stream/44444444-4444-4444-4444-444444444444",
+                    DownloadUrl = "/playback/download/44444444-4444-4444-4444-444444444444",
+                    Chapters =
+                    [
+                        new PlaybackChapterDto
+                        {
+                            Index = 1,
+                            Title = "Chapter 1",
+                            StartSeconds = 0,
+                            EndSeconds = 1800,
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(state, JsonOptions);
+        var roundTrip = JsonSerializer.Deserialize<PlayerStateDto>(json, JsonOptions);
+
+        Assert.NotNull(roundTrip);
+        Assert.Equal(profileId, roundTrip.ProfileId);
+        Assert.Equal(sessionId, roundTrip.SessionId);
+        Assert.Equal(queueItemId, roundTrip.CurrentQueueItemId);
+        Assert.Equal(1842.25, roundTrip.PositionSeconds);
+        Assert.Equal(25.59, roundTrip.ProgressPct);
+        Assert.Equal("Audiobooks", roundTrip.Queue[0].MediaType);
+        Assert.Equal(workId, roundTrip.Queue[0].WorkId);
+        Assert.Equal(assetId, roundTrip.Queue[0].AssetId);
+        Assert.Equal("James S. A. Corey", roundTrip.Queue[0].Author);
+        Assert.Equal("Jefferson Mays", roundTrip.Queue[0].Narrator);
+        Assert.Equal("The Expanse", roundTrip.Queue[0].Series);
+        Assert.Equal("/playback/stream/44444444-4444-4444-4444-444444444444", roundTrip.Queue[0].StreamUrl);
+        Assert.Equal("Chapter 1", roundTrip.Queue[0].Chapters[0].Title);
+        Assert.Contains("\"positionSeconds\":1842.25", json, StringComparison.Ordinal);
+        Assert.Contains("\"progressPct\":25.59", json, StringComparison.Ordinal);
+        Assert.Contains("\"streamUrl\":\"/playback/stream/44444444-4444-4444-4444-444444444444\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SettingsDto_RoundTripsRepresentativeShape()
     {
         var dto = new PipelineConfiguration

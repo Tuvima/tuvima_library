@@ -89,6 +89,140 @@ public sealed record PlaybackResumeDto
     public DateTimeOffset? LastAccessed { get; init; }
 }
 
+public sealed record PlayerStateDto
+{
+    public Guid ProfileId { get; init; }
+    public Guid SessionId { get; init; }
+    public string DeviceId { get; init; } = "web";
+    public string Client { get; init; } = "web";
+    public string PlaybackState { get; init; } = PlayerPlaybackStates.Stopped;
+    public long StateVersion { get; init; }
+    public Guid? CurrentQueueItemId { get; init; }
+    public PlayerQueueItemDto? CurrentItem { get; init; }
+    public IReadOnlyList<PlayerQueueItemDto> Queue { get; init; } = [];
+    public double PositionSeconds { get; init; }
+    public double? DurationSeconds { get; init; }
+    public double ProgressPct { get; init; }
+    public double Volume { get; init; } = 0.8d;
+    public bool IsMuted { get; init; }
+    public double PlaybackRate { get; init; } = 1d;
+    public bool ShuffleEnabled { get; init; }
+    public string RepeatMode { get; init; } = PlayerRepeatModes.Off;
+    public string? SourceLabel { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset UpdatedAt { get; init; }
+    public DateTimeOffset? LastHeartbeatAt { get; init; }
+    public bool IsStale { get; init; }
+    public PlayerCapabilitiesDto Capabilities { get; init; } = new();
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+}
+
+public sealed record PlayerQueueItemDto
+{
+    public Guid QueueItemId { get; init; }
+    public Guid WorkId { get; init; }
+    public Guid? AssetId { get; init; }
+    public Guid? CollectionId { get; init; }
+    public string MediaType { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string? Subtitle { get; init; }
+    public string? Album { get; init; }
+    public string? Author { get; init; }
+    public string? Artist { get; init; }
+    public string? Narrator { get; init; }
+    public string? Series { get; init; }
+    public string? CoverUrl { get; init; }
+    public double? DurationSeconds { get; init; }
+    public double? PositionSeconds { get; init; }
+    public double? ProgressPct { get; init; }
+    public string? StreamUrl { get; init; }
+    public string? DownloadUrl { get; init; }
+    public IReadOnlyList<PlaybackChapterDto> Chapters { get; init; } = [];
+    public PlaybackManifestDto? Manifest { get; init; }
+    public DateTimeOffset AddedAt { get; init; }
+}
+
+public sealed record PlayerCommandRequestDto
+{
+    public Guid? ProfileId { get; init; }
+    public string? DeviceId { get; init; }
+    public string? Client { get; init; }
+    public long? ExpectedStateVersion { get; init; }
+    public bool Force { get; init; }
+    public string Command { get; init; } = PlayerCommands.Pause;
+    public Guid? QueueItemId { get; init; }
+    public double? PositionSeconds { get; init; }
+    public double? DurationSeconds { get; init; }
+    public double? Volume { get; init; }
+    public bool? IsMuted { get; init; }
+    public double? PlaybackRate { get; init; }
+    public bool? ShuffleEnabled { get; init; }
+    public string? RepeatMode { get; init; }
+}
+
+public sealed record PlayerQueueMutationDto
+{
+    public Guid? ProfileId { get; init; }
+    public string? DeviceId { get; init; }
+    public string? Client { get; init; }
+    public long? ExpectedStateVersion { get; init; }
+    public bool Force { get; init; }
+    public string Mode { get; init; } = PlayerQueueMutationModes.Replace;
+    public IReadOnlyList<Guid> WorkIds { get; init; } = [];
+    public IReadOnlyList<Guid> QueueItemIds { get; init; } = [];
+    public Guid? StartWorkId { get; init; }
+    public Guid? StartQueueItemId { get; init; }
+    public string? SourceLabel { get; init; }
+    public bool Shuffle { get; init; }
+    public bool ClearExisting { get; init; }
+}
+
+public sealed record PlayerHeartbeatDto
+{
+    public Guid? ProfileId { get; init; }
+    public Guid? SessionId { get; init; }
+    public string? DeviceId { get; init; }
+    public string? Client { get; init; }
+    public Guid? QueueItemId { get; init; }
+    public Guid? AssetId { get; init; }
+    public bool IsPlaying { get; init; }
+    public double PositionSeconds { get; init; }
+    public double? DurationSeconds { get; init; }
+    public double? ProgressPct { get; init; }
+    public double? Volume { get; init; }
+    public bool? IsMuted { get; init; }
+    public double? PlaybackRate { get; init; }
+    public long? StateVersion { get; init; }
+}
+
+public sealed record PlayerCapabilitiesDto
+{
+    public bool CanPlay { get; init; } = true;
+    public bool CanPause { get; init; } = true;
+    public bool CanStop { get; init; } = true;
+    public bool CanSeek { get; init; } = true;
+    public bool CanSkipNext { get; init; } = true;
+    public bool CanSkipPrevious { get; init; } = true;
+    public bool CanSetVolume { get; init; } = true;
+    public bool CanMute { get; init; } = true;
+    public bool CanSetSpeed { get; init; } = true;
+    public bool CanShuffle { get; init; } = true;
+    public bool CanRepeat { get; init; } = true;
+    public bool CanUseChapters { get; init; } = true;
+    public bool CanReorderQueue { get; init; } = true;
+    public bool CanTakeover { get; init; } = true;
+    public IReadOnlyList<string> SupportedMediaTypes { get; init; } = ["Music", "Audiobooks"];
+    public IReadOnlyList<double> SupportedPlaybackRates { get; init; } = [0.5d, 0.75d, 1d, 1.25d, 1.5d, 2d];
+}
+
+public sealed record PlayerSessionTakeoverRequestDto
+{
+    public Guid? ProfileId { get; init; }
+    public string? DeviceId { get; init; }
+    public string? Client { get; init; }
+    public bool Force { get; init; }
+}
+
 public sealed record EncodeJobDto
 {
     public Guid Id { get; init; }
@@ -266,6 +400,45 @@ public static class PlaybackDeliveryModes
     public const string Hls = "hls";
     public const string OfflineVariant = "offline-variant";
     public const string Reader = "reader";
+}
+
+public static class PlayerPlaybackStates
+{
+    public const string Stopped = "stopped";
+    public const string Playing = "playing";
+    public const string Paused = "paused";
+}
+
+public static class PlayerRepeatModes
+{
+    public const string Off = "off";
+    public const string One = "one";
+    public const string All = "all";
+}
+
+public static class PlayerCommands
+{
+    public const string Play = "play";
+    public const string Pause = "pause";
+    public const string Stop = "stop";
+    public const string Next = "next";
+    public const string Previous = "previous";
+    public const string Seek = "seek";
+    public const string Volume = "volume";
+    public const string Mute = "mute";
+    public const string Speed = "speed";
+    public const string Shuffle = "shuffle";
+    public const string Repeat = "repeat";
+}
+
+public static class PlayerQueueMutationModes
+{
+    public const string Replace = "replace";
+    public const string AddNext = "add-next";
+    public const string AddEnd = "add-end";
+    public const string Reorder = "reorder";
+    public const string Remove = "remove";
+    public const string Clear = "clear";
 }
 
 public static class EncodeJobStatuses

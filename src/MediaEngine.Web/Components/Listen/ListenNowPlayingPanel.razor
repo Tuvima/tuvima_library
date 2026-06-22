@@ -1,0 +1,194 @@
+@namespace MediaEngine.Web.Components.Listen
+@using System.Globalization
+@using MediaEngine.Web.Services.Playback
+@inject ListenPlaybackService Playback
+@implements IDisposable
+
+<aside class="listen-now-panel" aria-label="Now playing">
+    <div class="listen-now-panel__header">
+        <span>Now Playing</span>
+        <MudIcon Icon="@Icons.Material.Outlined.ExpandLess" Class="tl-u-font-size-18px" />
+    </div>
+
+    @if (Playback.HasQueue && Playback.CurrentItem is not null)
+    {
+        var current = Playback.CurrentItem;
+        <div class="listen-now-panel__body">
+            <div class="listen-now-panel__cover">
+                @if (!string.IsNullOrWhiteSpace(current.CoverUrl))
+                {
+                    <img src="@current.CoverUrl" alt="@current.Title" />
+                }
+                else
+                {
+                    <MudIcon Icon="@FallbackIconFor(current)" Class="tl-u-font-size-64px" />
+                }
+            </div>
+
+            <div class="listen-now-panel__meta">
+                <h2>@current.Title</h2>
+                <p>@FirstNonBlank(current.Subtitle, current.Album, current.MediaType)</p>
+                @if (!string.IsNullOrWhiteSpace(current.Album) && !string.Equals(current.Album, current.Subtitle, StringComparison.OrdinalIgnoreCase))
+                {
+                    <span>@current.Album</span>
+                }
+            </div>
+
+            <div class="listen-now-panel__progress">
+                <AppNativeInput Type="range"
+                                Min="0"
+                                Max="@ProgressMax"
+                                Step="1"
+                                Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)"
+                                Class="listen-now-panel__slider"
+                                OnInput="SeekAsync" />
+                <div class="listen-now-panel__time">
+                    <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+                    <span>@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
+                </div>
+            </div>
+
+            <div class="listen-now-panel__controls" aria-label="Playback controls">
+                <AppNativeButton Type="button" Class="listen-now-panel__mini">1x</AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)" AriaLabel="Previous">
+                    <MudIcon Icon="@Icons.Material.Outlined.Replay10" Class="tl-u-font-size-20px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause">
+                    <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-30px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="NextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)" AriaLabel="Next">
+                    <MudIcon Icon="@Icons.Material.Outlined.FastForward" Class="tl-u-font-size-20px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-now-panel__icon" AriaLabel="Sleep timer">
+                    <MudIcon Icon="@Icons.Material.Outlined.DarkMode" Class="tl-u-font-size-18px" />
+                </AppNativeButton>
+            </div>
+
+            <div class="listen-now-panel__volume">
+                <AppNativeButton Type="button" Class="listen-now-panel__volume-button" OnClick="ToggleMuteAsync" AriaLabel="Mute">
+                    <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Class="tl-u-font-size-18px" />
+                </AppNativeButton>
+                <AppNativeInput Type="range"
+                                Min="0"
+                                Max="1"
+                                Step="0.05"
+                                Value="@Playback.Volume"
+                                Class="listen-now-panel__slider"
+                                OnInput="SetVolumeAsync" />
+            </div>
+
+            <div class="listen-now-panel__queue-header">
+                <span>Up Next</span>
+                <AppNativeButton Type="button" Class="listen-now-panel__clear" OnClick="Playback.ClearUpcoming">Clear</AppNativeButton>
+            </div>
+
+            @if (Playback.UpcomingQueue.Count == 0)
+            {
+                <div class="listen-now-panel__empty">The queue ends with the current item.</div>
+            }
+            else
+            {
+                <div class="listen-now-panel__queue">
+                    @for (var index = Playback.CurrentIndex + 1; index < Playback.Queue.Count; index++)
+                    {
+                        var item = Playback.Queue[index];
+                        <div class="listen-now-panel__queue-row">
+                            <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="listen-now-panel__drag tl-u-font-size-18px" />
+                            <AppNativeButton Type="button" Class="listen-now-panel__queue-main" OnClick="@(() => PlayFromQueueAsync(index))">
+                                <span class="listen-now-panel__queue-cover">
+                                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                    {
+                                        <img src="@item.CoverUrl" alt="" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@FallbackIconFor(item)" Class="tl-u-font-size-16px" />
+                                    }
+                                </span>
+                                <span class="listen-now-panel__queue-copy">
+                                    <strong>@item.Title</strong>
+                                    <span>@FirstNonBlank(item.Subtitle, item.Album, item.MediaType)</span>
+                                </span>
+                                <span class="listen-now-panel__queue-duration">@item.Duration</span>
+                            </AppNativeButton>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="listen-now-panel__drop">
+                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-30px" />
+                <span>Drag tracks here to queue or into playlists</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="listen-now-panel__placeholder">
+            <MudIcon Icon="@Icons.Material.Outlined.LibraryMusic" Class="tl-u-font-size-48px" />
+            <p>Choose music or an audiobook to start listening.</p>
+        </div>
+    }
+</aside>
+
+@code {
+    private double ProgressMax => Playback.DurationSeconds > 0 ? Playback.DurationSeconds : 1;
+
+    protected override void OnInitialized()
+    {
+        Playback.OnChanged += HandlePlaybackChanged;
+    }
+
+    private void HandlePlaybackChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private Task TogglePlayAsync() => Playback.RequestTransportCommandAsync(new("toggle-play"));
+
+    private Task NextAsync() => Playback.RequestTransportCommandAsync(new("play-next"));
+
+    private Task PreviousAsync() => Playback.RequestTransportCommandAsync(new("play-previous"));
+
+    private Task ToggleMuteAsync() => Playback.RequestTransportCommandAsync(new("toggle-mute"));
+
+    private Task PlayFromQueueAsync(int index) => Playback.PlayIndexAsync(index);
+
+    private Task SeekAsync(ChangeEventArgs args)
+    {
+        if (!double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+        {
+            return Task.CompletedTask;
+        }
+
+        return Playback.RequestTransportCommandAsync(new("seek", seconds));
+    }
+
+    private Task SetVolumeAsync(ChangeEventArgs args)
+    {
+        if (!double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var volume))
+        {
+            return Task.CompletedTask;
+        }
+
+        return Playback.RequestTransportCommandAsync(new("set-volume", Math.Clamp(volume, 0d, 1d)));
+    }
+
+    private static string FormatTimestamp(double seconds)
+    {
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return span.TotalHours >= 1
+            ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+    }
+
+    private static string FallbackIconFor(ListenQueueItem item) =>
+        item.MediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase)
+            ? Icons.Material.Outlined.Headphones
+            : Icons.Material.Outlined.Album;
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
+
+    public void Dispose()
+    {
+        Playback.OnChanged -= HandlePlaybackChanged;
+    }
+}

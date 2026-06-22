@@ -606,6 +606,53 @@ CREATE TABLE IF NOT EXISTS playback_inspection_cache (
     PRIMARY KEY (asset_id, source_hash)
 );
 
+CREATE TABLE IF NOT EXISTS player_sessions (
+    profile_id            BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+    session_id            BLOB NOT NULL,
+    device_id             TEXT NOT NULL,
+    client                TEXT NOT NULL,
+    playback_state        TEXT NOT NULL DEFAULT 'stopped'
+                          CHECK (playback_state IN ('stopped','playing','paused')),
+    current_queue_item_id BLOB REFERENCES player_queue_items(id) ON DELETE SET NULL,
+    position_seconds      REAL NOT NULL DEFAULT 0.0,
+    duration_seconds      REAL,
+    progress_pct          REAL NOT NULL DEFAULT 0.0,
+    volume                REAL NOT NULL DEFAULT 0.8,
+    is_muted              INTEGER NOT NULL DEFAULT 0 CHECK (is_muted IN (0, 1)),
+    playback_rate         REAL NOT NULL DEFAULT 1.0,
+    shuffle_enabled       INTEGER NOT NULL DEFAULT 0 CHECK (shuffle_enabled IN (0, 1)),
+    repeat_mode           TEXT NOT NULL DEFAULT 'off'
+                          CHECK (repeat_mode IN ('off','one','all')),
+    source_label          TEXT,
+    state_version         INTEGER NOT NULL DEFAULT 1,
+    created_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    last_heartbeat_at     TEXT
+);
+
+CREATE TABLE IF NOT EXISTS player_queue_items (
+    id               BLOB NOT NULL PRIMARY KEY,
+    profile_id       BLOB NOT NULL REFERENCES player_sessions(profile_id) ON DELETE CASCADE,
+    position         INTEGER NOT NULL,
+    work_id          BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    asset_id         BLOB REFERENCES media_assets(id) ON DELETE SET NULL,
+    collection_id    BLOB REFERENCES collections(id) ON DELETE SET NULL,
+    media_type       TEXT NOT NULL,
+    title            TEXT NOT NULL,
+    subtitle         TEXT,
+    album            TEXT,
+    author           TEXT,
+    artist           TEXT,
+    narrator         TEXT,
+    series           TEXT,
+    cover_url        TEXT,
+    duration_seconds REAL,
+    stream_url       TEXT,
+    download_url     TEXT,
+    added_at         TEXT NOT NULL,
+    source_label     TEXT
+);
+
 CREATE TABLE IF NOT EXISTS playback_segments (
     id            BLOB NOT NULL PRIMARY KEY,
     asset_id      BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
@@ -1204,6 +1251,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_persons_wikidata_qid
 
 CREATE INDEX IF NOT EXISTS idx_playback_segments_asset
     ON playback_segments(asset_id, kind, start_seconds);
+
+CREATE INDEX IF NOT EXISTS idx_player_queue_items_profile_position
+    ON player_queue_items(profile_id, position);
+
+CREATE INDEX IF NOT EXISTS idx_player_sessions_heartbeat
+    ON player_sessions(last_heartbeat_at);
 
 CREATE INDEX IF NOT EXISTS idx_prc_expires ON provider_response_cache (expires_at);
 
