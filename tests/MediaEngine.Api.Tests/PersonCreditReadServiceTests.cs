@@ -131,6 +131,8 @@ public sealed class PersonCreditReadServiceTests : IDisposable
 
                 INSERT INTO persons (id, name, created_at)
                     VALUES ($personId, 'Jeremy Renner', $now);
+                INSERT INTO person_media_links (media_asset_id, person_id, role)
+                    VALUES ($assetId, $personId, 'Actor');
 
                 INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
                     VALUES ($claim1, $workId, $providerId, 'cast_member', 'Amy Adams', 0.90, $now);

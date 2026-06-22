@@ -54,14 +54,25 @@ public sealed class WikidataSeriesManifestHydrationService
         if (!ShouldHydrate(context.MediaType))
             return;
 
-        var (seriesQid, seriesLabel) = await ResolveSeriesQidAsync(context, ct).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(seriesQid))
+        var candidates = await ResolveSeriesManifestCandidatesAsync(context, ct).ConfigureAwait(false);
+        if (candidates.Count == 0)
             return;
 
-        var cacheKey = $"{context.IngestionRunId?.ToString("D") ?? "process"}:{seriesQid}";
+        foreach (var candidate in candidates)
+        {
+            await HydrateManifestCandidateAsync(context, candidate, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task HydrateManifestCandidateAsync(
+        SeriesManifestHydrationContext context,
+        SeriesManifestCandidate candidate,
+        CancellationToken ct)
+    {
+        var cacheKey = $"{context.IngestionRunId?.ToString("D") ?? "process"}:{candidate.Qid}";
         var lazy = _inFlight.GetOrAdd(
             cacheKey,
-            _ => new Lazy<Task>(() => HydrateCoreAsync(context, seriesQid, seriesLabel, ct)));
+            _ => new Lazy<Task>(() => HydrateCoreAsync(context, candidate.Qid, candidate.Label, ct)));
 
         try
         {
@@ -375,12 +386,13 @@ public sealed class WikidataSeriesManifestHydrationService
         => string.Equals(item.ItemQid, context.ResolvedWorkQid, StringComparison.OrdinalIgnoreCase)
             || (context.WorkId.HasValue && item.LinkedWorkId == context.WorkId.Value);
 
-    private async Task<(string? Qid, string? Label)> ResolveSeriesQidAsync(
+    private async Task<IReadOnlyList<SeriesManifestCandidate>> ResolveSeriesManifestCandidatesAsync(
         SeriesManifestHydrationContext context,
         CancellationToken ct)
     {
-        if (TryResolveFromClaims(context.FullClaims, context, out var qid, out var label))
-            return (qid, label);
+        var candidates = ResolveClaimedSeriesManifestCandidates(context.FullClaims, context.MediaType).ToList();
+        if (candidates.Count > 0)
+            return candidates;
 
         if (context.Lineage is not null)
         {
@@ -395,40 +407,61 @@ public sealed class WikidataSeriesManifestHydrationService
                     string.Equals(r.RelType, "series", StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrWhiteSpace(r.RelQid));
                 if (seriesRelationship is not null)
-                    return (seriesRelationship.RelQid, seriesRelationship.RelLabel);
+                    AddSeriesManifestCandidate(candidates, seriesRelationship.RelQid, seriesRelationship.RelLabel);
 
-                var collection = await _collectionRepo.GetByIdAsync(collectionId.Value, ct).ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(collection?.WikidataQid))
-                    return (collection.WikidataQid, collection.DisplayName);
+                if (candidates.Count == 0)
+                {
+                    var collection = await _collectionRepo.GetByIdAsync(collectionId.Value, ct).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(collection?.WikidataQid))
+                        AddSeriesManifestCandidate(candidates, collection.WikidataQid, collection.DisplayName);
+                }
             }
         }
 
-        return (null, null);
+        return candidates;
     }
 
-    private static bool TryResolveFromClaims(
+    internal static IReadOnlyList<SeriesManifestCandidate> ResolveClaimedSeriesManifestCandidates(
         IReadOnlyList<ProviderClaim> claims,
-        SeriesManifestHydrationContext context,
-        out string? qid,
-        out string? label)
+        MediaType mediaType)
     {
+        var candidates = new List<SeriesManifestCandidate>();
         foreach (var key in new[] { "series_qid", "part_of_the_series_qid", "part_of_series_qid" })
         {
-            var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
-            if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
-                return true;
+            foreach (var claim in claims.Where(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (TryParseQidValue(claim.Value, out var qid, out var label))
+                    AddSeriesManifestCandidate(candidates, qid, label);
+            }
         }
 
-        foreach (var key in new[] { "series" })
+        if (candidates.Count == 0 && mediaType is MediaType.Movies)
         {
-            var claim = claims.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
-            if (claim is not null && TryParseQidValue(claim.Value, out qid, out label))
-                return true;
+            foreach (var key in new[] { "franchise_qid", "narrative_root_qid" })
+            {
+                foreach (var claim in claims.Where(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (TryParseQidValue(claim.Value, out var qid, out var label))
+                        AddSeriesManifestCandidate(candidates, qid, label);
+                }
+            }
         }
 
-        qid = null;
-        label = null;
-        return false;
+        return candidates;
+    }
+
+    private static void AddSeriesManifestCandidate(
+        List<SeriesManifestCandidate> candidates,
+        string? qid,
+        string? label)
+    {
+        if (string.IsNullOrWhiteSpace(qid)
+            || candidates.Any(candidate => string.Equals(candidate.Qid, qid, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        candidates.Add(new SeriesManifestCandidate(qid, label));
     }
 
     private static IEnumerable<SeriesManifestItem> FilterManifestItems(
@@ -826,6 +859,8 @@ public sealed class WikidataSeriesManifestHydrationService
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
     internal sealed record OrderedSeriesManifestItem(SeriesManifestItem Item, int SortOrder);
+
+    internal sealed record SeriesManifestCandidate(string Qid, string? Label);
 
     internal sealed record ParentCollectionManifestCandidate(string Qid, string? Label);
 }

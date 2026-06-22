@@ -1,6 +1,7 @@
 using MediaEngine.Providers.Services;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Providers.Models;
 using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Tests;
@@ -75,7 +76,7 @@ public sealed class CollectionAssignmentServiceTests
     public void SeriesManifestHydration_UsesImmediateSeriesBeforeBroaderCollectionFallback()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\WikidataSeriesManifestHydrationService.cs"));
-        var resolveStart = source.IndexOf("private static bool TryResolveFromClaims", StringComparison.Ordinal);
+        var resolveStart = source.IndexOf("internal static IReadOnlyList<SeriesManifestCandidate> ResolveClaimedSeriesManifestCandidates", StringComparison.Ordinal);
         Assert.True(resolveStart >= 0);
 
         var resolveEnd = source.IndexOf("private static IEnumerable<SeriesManifestItem> FilterManifestItems", resolveStart, StringComparison.Ordinal);
@@ -83,9 +84,43 @@ public sealed class CollectionAssignmentServiceTests
 
         var resolveSource = source[resolveStart..resolveEnd];
         Assert.Contains("\"series_qid\"", resolveSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"franchise_qid\"", resolveSource, StringComparison.Ordinal);
+        Assert.Contains("candidates.Count == 0 && mediaType is MediaType.Movies", resolveSource, StringComparison.Ordinal);
+        Assert.Contains("\"franchise_qid\"", resolveSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"fictional_universe_qid\"", resolveSource, StringComparison.Ordinal);
         Assert.Contains("RelType, \"series\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SeriesManifestHydration_CollectsAllSeriesQidsAndUsesMovieFranchiseOnlyAsFallback()
+    {
+        var spiderCandidates = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
+        [
+            new ProviderClaim("series_qid", "Q99601314::Spider-Verse", 0.9),
+            new ProviderClaim("series_qid", "Q65071834::list of Sony Pictures Animation productions", 0.9),
+            new ProviderClaim("franchise_qid", "Q2307877::Spider-Man in film", 0.9),
+        ],
+        MediaType.Movies);
+
+        Assert.Equal(["Q99601314", "Q65071834"], spiderCandidates.Select(candidate => candidate.Qid));
+
+        var bladeRunnerCandidates = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
+        [
+            new ProviderClaim("franchise_qid", "Q48724847::Blade Runner", 0.9),
+            new ProviderClaim("narrative_root_qid", "Q48724847::Blade Runner", 0.9),
+        ],
+        MediaType.Movies);
+
+        var candidate = Assert.Single(bladeRunnerCandidates);
+        Assert.Equal("Q48724847", candidate.Qid);
+        Assert.Equal("Blade Runner", candidate.Label);
+
+        var bookCandidates = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
+        [
+            new ProviderClaim("franchise_qid", "QBroad::Broad Book Franchise", 0.9),
+        ],
+        MediaType.Books);
+
+        Assert.Empty(bookCandidates);
     }
 
     [Fact]

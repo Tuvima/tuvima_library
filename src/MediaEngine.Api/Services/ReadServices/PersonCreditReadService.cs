@@ -159,19 +159,40 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     {
         foreach (var credit in source)
         {
-            var duplicate = destination.Any(existing =>
-                (credit.PersonId.HasValue && existing.PersonId == credit.PersonId)
-                || (!string.IsNullOrWhiteSpace(credit.WikidataQid)
-                    && string.Equals(existing.WikidataQid, credit.WikidataQid, StringComparison.OrdinalIgnoreCase))
-                || string.Equals(existing.Name, credit.Name, StringComparison.OrdinalIgnoreCase));
-            if (!duplicate)
+            var duplicate = destination.FirstOrDefault(existing => IsSameCredit(existing, credit));
+            if (duplicate is not null)
             {
-                destination.Add(credit);
+                MergeCharacterPortrayals(duplicate, credit);
+                continue;
             }
+
+            destination.Add(credit);
 
             if (destination.Count >= MaxCastCredits)
             {
                 return;
+            }
+        }
+    }
+
+    private static bool IsSameCredit(CastCreditDto existing, CastCreditDto incoming)
+        => (incoming.PersonId.HasValue && existing.PersonId == incoming.PersonId)
+            || (!string.IsNullOrWhiteSpace(incoming.WikidataQid)
+                && string.Equals(existing.WikidataQid, incoming.WikidataQid, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(existing.Name, incoming.Name, StringComparison.OrdinalIgnoreCase);
+
+    private static void MergeCharacterPortrayals(CastCreditDto target, CastCreditDto source)
+    {
+        foreach (var character in source.Characters)
+        {
+            var duplicate = target.Characters.Any(existing =>
+                (character.FictionalEntityId != Guid.Empty && existing.FictionalEntityId == character.FictionalEntityId)
+                || (!string.IsNullOrWhiteSpace(character.CharacterQid)
+                    && string.Equals(existing.CharacterQid, character.CharacterQid, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(existing.CharacterName, character.CharacterName, StringComparison.OrdinalIgnoreCase));
+            if (!duplicate)
+            {
+                target.Characters.Add(character);
             }
         }
     }
