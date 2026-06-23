@@ -52,9 +52,10 @@ public sealed class MediaTypePipeline
     /// Key = claim key (e.g. "cover", "description", "narrator").
     /// Value = ordered list of provider names; first provider with a claim wins.
     ///
-    /// Only needed for fields where Wikidata is silent (cover, rating, description,
-    /// narrator, duration, page_count). For structured fields (title, author, year,
-    /// genre, series), Wikidata always wins via Tier C of the Priority Cascade.
+    /// Used for fields where the media lane needs provider-specific display
+    /// precedence (cover, rating, description, narrator, duration, page_count, or
+    /// edition-specific audio title/author/series). Fields without an override fall
+    /// back to the normal Priority Cascade.
     /// </summary>
     [JsonPropertyName("field_priorities")]
     public Dictionary<string, List<string>> FieldPriorities { get; set; } = new(StringComparer.OrdinalIgnoreCase);

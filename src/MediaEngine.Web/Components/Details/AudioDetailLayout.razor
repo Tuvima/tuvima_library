@@ -1,8 +1,8 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<AppCssElement Tag="div" Class="tl-audio-detail" Css="@AudioChromeStyle">
-    <section class="tl-audio-detail__hero" aria-label="@($"{Model.Title} audio details")">
+<AppCssElement Tag="div" Class="@AudioDetailClass" Css="@AudioChromeStyle">
+    <section class="@AudioHeroClass" aria-label="@($"{Model.Title} audio details")">
         @if (!string.IsNullOrWhiteSpace(ArtworkUrl))
         {
             <AppCssElement Tag="div" Class="tl-audio-detail__hero-artwash" Css="@BackdropStyle"></AppCssElement>
@@ -112,6 +112,26 @@
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
 
     private string? ArtworkUrl => Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.HeroArtwork.Url;
+
+    private string AudioDetailClass =>
+        $"tl-audio-detail{(Model.EntityType == DetailEntityType.Audiobook ? " tl-audio-detail--audiobook" : " tl-audio-detail--music")}";
+
+    private string AudioHeroClass =>
+        $"tl-audio-detail__hero {TitleDensityClass}";
+
+    private string TitleDensityClass
+    {
+        get
+        {
+            var title = Model.Title?.Trim() ?? string.Empty;
+            var wordCount = title.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            return title.Length >= 78 || wordCount >= 9
+                ? "tl-audio-detail__hero--title-dense"
+                : title.Length >= 48 || wordCount >= 6
+                    ? "tl-audio-detail__hero--title-long"
+                    : "tl-audio-detail__hero--title-normal";
+        }
+    }
 
     private string FallbackIcon => Model.EntityType == DetailEntityType.MusicAlbum
         ? Icons.Material.Outlined.Album

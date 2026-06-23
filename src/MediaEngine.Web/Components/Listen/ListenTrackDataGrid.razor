@@ -150,7 +150,7 @@
                             HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Favorite, hidden))">
                 <CellTemplate Context="cell">
                     <AppNativeButton Type="button" Class='@($"listen-track-grid__favorite {(cell.Item.IsFavorite ? " is-active" : null)}")' AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(cell.Item.EntityId))">
-                        <MudIcon Icon="@(cell.Item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                        <MudIcon Icon="@(cell.Item.IsFavorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
                                  Class="tl-u-font-size-16px" />
                     </AppNativeButton>
                 </CellTemplate>

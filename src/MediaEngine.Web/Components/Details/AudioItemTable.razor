@@ -1,0 +1,561 @@
+@namespace MediaEngine.Web.Components.Details
+@using System.Globalization
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Playback
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@inject FavoriteService Favorites
+@inject ListenPlaybackService Playback
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+
+@if (Items.Count > 0)
+{
+    <section class="tl-detail-track-section" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
+        @if (!IsAudiobook)
+        {
+            <div class="tl-detail-track-toolbar">
+                <span>@OwnedCount of @Items.Count tracks owned</span>
+                <label class="tl-detail-track-toggle">
+                    <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
+                    <span>Show missing tracks</span>
+                </label>
+            </div>
+        }
+
+        <div class="tl-audio-item-table"
+             @onmousemove="@(args => ResizeColumn(args.ClientX))"
+             @onmouseup="EndColumnResize"
+             @onmouseleave="EndColumnResize">
+            <div class="tl-detail-track-table-shell">
+                <table class="tl-detail-track-table tl-audio-item-table__table" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
+                    <colgroup>
+                        @foreach (var column in VisibleColumns)
+                        {
+                            <AppCssElement Tag="col" Css="@ColumnStyle(column)" />
+                        }
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            @foreach (var column in VisibleColumns)
+                            {
+                                <th scope="col" class="@ColumnHeaderClass(column)">
+                                    @if (column.Sortable)
+                                    {
+                                        <AppNativeButton Type="button"
+                                                         Class="tl-detail-track-sort"
+                                                         OnClick="@(() => ToggleSort(column.Key))"
+                                                         aria-sort="@AriaSort(column.Key)">
+                                            <span>@column.Label</span>
+                                            <MudIcon Icon="@SortIcon(column.Key)" Size="Size.Small" />
+                                        </AppNativeButton>
+                                    }
+                                    else
+                                    {
+                                        <span>@column.Label</span>
+                                    }
+                                    <span class="tl-audio-item-table__resizer"
+                                          @onclick:stopPropagation="true"
+                                          @onmousedown:stopPropagation="true"
+                                          @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"></span>
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var index = 0; index < VisibleItems.Count; index++)
+                        {
+                            var item = VisibleItems[index];
+                            var isPlaying = IsCurrentItem(item);
+                            <tr class="@RowClass(item, isPlaying)"
+                                draggable="@item.IsOwned"
+                                data-audio-row="true"
+                                data-work-id="@item.Id"
+                                data-asset-id="@item.AssetId"
+                                data-start-seconds="@item.StartSeconds"
+                                @ondragstart="@(() => StartDrag(item))"
+                                @ondragend="EndDrag"
+                                @ondblclick="@(() => PlayItemAsync(item))">
+                                @foreach (var column in VisibleColumns)
+                                {
+                                    @switch (column.Key)
+                                    {
+                                        case "track":
+                                            <td class="tl-detail-track-row__number">
+                                                <span class="tl-audio-item-table__drag" title="Drag to queue or playlist" aria-hidden="true">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
+                                                </span>
+                                                @if (item.IsOwned)
+                                                {
+                                                    <AppNativeButton Type="button" Class="tl-detail-track-row__play" AriaLabel="@($"Play {item.Title}")" StopPropagation="true" OnClick="@(() => PlayItemAsync(item))">
+                                                        @if (isPlaying)
+                                                        {
+                                                            <span class="tl-detail-track-row__playing" aria-label="Currently playing"></span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="tl-detail-track-row__ordinal">@DisplayOrdinal(item, index)</span>
+                                                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                                        }
+                                                    </AppNativeButton>
+                                                }
+                                                else
+                                                {
+                                                    <span class="tl-detail-track-row__ordinal">@DisplayOrdinal(item, index)</span>
+                                                }
+                                            </td>
+                                            break;
+                                        case "title":
+                                            <td class="tl-detail-track-row__title">
+                                                <span class="tl-detail-track-row__name">@item.Title</span>
+                                                @if (item.IsExplicit)
+                                                {
+                                                    <span class="tl-detail-track-row__badge">E</span>
+                                                }
+                                            </td>
+                                            break;
+                                        case "artist":
+                                            <td class="tl-detail-track-row__artist">@DisplayOrDash(item.Artist)</td>
+                                            break;
+                                        case "progress":
+                                            <td class="tl-detail-chapter-row__progress">
+                                                @if (item.ProgressPercent.HasValue)
+                                                {
+                                                    <AppCssElement Tag="span" Class="tl-detail-chapter-progress" Css="@ProgressStyle(item.ProgressPercent.Value)">
+                                                        <span></span>
+                                                    </AppCssElement>
+                                                    <span>@(Math.Round(item.ProgressPercent.Value))%</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>-</span>
+                                                }
+                                            </td>
+                                            break;
+                                        case "duration":
+                                            <td class="tl-detail-track-row__duration">@DisplayDuration(item)</td>
+                                            break;
+                                        case "status":
+                                            <td class="tl-detail-track-row__status">
+                                                <span class="@($"tl-detail-track-status {(item.IsOwned ? "is-owned" : "is-missing")}")">
+                                                    <MudIcon Icon="@(item.IsOwned ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.CloudOff)" Size="Size.Small" />
+                                                    <span>@(item.IsOwned ? "Owned" : "Missing")</span>
+                                                </span>
+                                            </td>
+                                            break;
+                                        case "favorite":
+                                            <td class="tl-audio-item-table__favorite">
+                                                <AppNativeButton Type="button" Class="@($"tl-audio-item-table__icon-button {(_favoriteIds.Contains(ItemId(item)) ? " is-active" : null)}")" AriaLabel="@FavoriteLabel(item)" Title="@FavoriteLabel(item)" Disabled="@(!CanFavorite(item))" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(item))">
+                                                    <MudIcon Icon="@(_favoriteIds.Contains(ItemId(item)) ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" Size="Size.Small" />
+                                                </AppNativeButton>
+                                            </td>
+                                            break;
+                                        case "queue":
+                                            <td class="tl-audio-item-table__queue">
+                                                <AppNativeButton Type="button" Class="tl-audio-item-table__icon-button" AriaLabel="@($"Add {item.Title} to queue")" Title="Add to queue" Disabled="@(!item.IsOwned)" StopPropagation="true" OnClick="@(() => QueueItemAsync(item))">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.PlaylistAdd" Size="Size.Small" />
+                                                </AppNativeButton>
+                                            </td>
+                                            break;
+                                    }
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (VisibleItems.Count == 0)
+        {
+            <div class="tl-detail-track-empty">No owned tracks match the current view.</div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
+    [Parameter] public string SourceTitle { get; set; } = "Audio";
+    [Parameter] public string? ArtworkUrl { get; set; }
+    [Parameter] public bool IsAudiobook { get; set; }
+
+    private readonly HashSet<Guid> _favoriteIds = [];
+    private readonly List<AudioTableColumn> _columns = [];
+    private string _modeKey = string.Empty;
+    private string _sortColumn = "track";
+    private bool _sortDescending;
+    private bool _showMissingItems = true;
+    private string? _resizingColumnKey;
+    private double _resizeStartX;
+    private int _resizeStartWidth;
+
+    private string ItemNounPlural => IsAudiobook ? "chapters" : "tracks";
+
+    private IReadOnlyList<MediaGroupingItemViewModel> Items =>
+        Groups.SelectMany(group => group.Items)
+            .Where(item => IsAudiobook
+                ? item.EntityType == DetailEntityType.Audiobook
+                : item.EntityType == DetailEntityType.MusicTrack)
+            .ToList();
+
+    private IReadOnlyList<MediaGroupingItemViewModel> VisibleItems =>
+        SortItems(_showMissingItems || IsAudiobook ? Items : Items.Where(item => item.IsOwned));
+
+    private int OwnedCount => Items.Count(item => item.IsOwned);
+
+    private bool ShowArtistColumn =>
+        !IsAudiobook
+        && Items.Select(item => item.Artist)
+            .Where(artist => !string.IsNullOrWhiteSpace(artist))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .Count() > 1;
+
+    private IReadOnlyList<AudioTableColumn> VisibleColumns =>
+        _columns.Where(column => column.Key != "artist" || ShowArtistColumn).ToList();
+
+    protected override void OnParametersSet()
+    {
+        var nextMode = IsAudiobook ? "audiobook" : "music";
+        if (!string.Equals(_modeKey, nextMode, StringComparison.Ordinal))
+        {
+            _modeKey = nextMode;
+            _sortColumn = "track";
+            _sortDescending = false;
+            _columns.Clear();
+            _columns.AddRange(IsAudiobook ? AudiobookColumns() : MusicColumns());
+        }
+
+        _favoriteIds.Clear();
+        foreach (var item in Items)
+        {
+            if (item.IsFavorite && Guid.TryParse(item.Id, out var id))
+            {
+                _favoriteIds.Add(id);
+            }
+        }
+    }
+
+    private static IReadOnlyList<AudioTableColumn> MusicColumns() =>
+    [
+        new("track", "#", 88, 72, true),
+        new("title", "Title", 420, 220, true),
+        new("artist", "Artist", 220, 160, true),
+        new("duration", "Duration", 132, 104, true, "right"),
+        new("status", "Status", 158, 128, true),
+        new("favorite", "Favorite", 92, 76, true, "center"),
+        new("queue", "Queue", 86, 72, false, "center"),
+    ];
+
+    private static IReadOnlyList<AudioTableColumn> AudiobookColumns() =>
+    [
+        new("track", "#", 96, 78, true),
+        new("title", "Chapter", 560, 260, true),
+        new("progress", "Progress", 180, 132, true),
+        new("duration", "Time", 156, 126, true, "right"),
+        new("queue", "Queue", 86, 72, false, "center"),
+    ];
+
+    private async Task PlayItemAsync(MediaGroupingItemViewModel item)
+    {
+        if (!item.IsOwned)
+        {
+            return;
+        }
+
+        var playable = VisibleItems.Where(row => row.IsOwned).ToList();
+        if (playable.Count == 0)
+        {
+            return;
+        }
+
+        var index = Math.Max(0, playable.FindIndex(row => SamePlayableItem(row, item)));
+        await Playback.ReplaceQueueItemsAsync(playable.Select(ToQueueItem), index, SourceTitle, shuffle: false);
+    }
+
+    private async Task QueueItemAsync(MediaGroupingItemViewModel item)
+    {
+        if (!item.IsOwned)
+        {
+            return;
+        }
+
+        await Playback.AddQueueItemAsync(ToQueueItem(item));
+    }
+
+    private async Task ToggleFavoriteAsync(MediaGroupingItemViewModel item)
+    {
+        if (!CanFavorite(item))
+        {
+            return;
+        }
+
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var membership = await Favorites.ToggleAsync(ItemId(item), profile?.Id);
+        if (membership is null)
+        {
+            Snackbar.Add("Favorites require an active profile.", Severity.Warning);
+            return;
+        }
+
+        if (membership.IsFavorite)
+        {
+            _favoriteIds.Add(ItemId(item));
+        }
+        else
+        {
+            _favoriteIds.Remove(ItemId(item));
+        }
+    }
+
+    private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel item)
+        => new()
+        {
+            WorkId = ItemId(item),
+            AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
+            MediaType = IsAudiobook ? "Audiobooks" : "Music",
+            Title = item.Title,
+            Subtitle = IsAudiobook ? item.Subtitle : item.Artist,
+            Album = SourceTitle,
+            CoverUrl = item.ArtworkUrl ?? ArtworkUrl,
+            Duration = DisplayDuration(item),
+            InitialPositionSeconds = item.StartSeconds,
+        };
+
+    private bool IsCurrentItem(MediaGroupingItemViewModel item)
+    {
+        var itemId = ItemId(item);
+        if (itemId == Guid.Empty || Playback.CurrentItem?.WorkId != itemId)
+        {
+            return false;
+        }
+
+        if (!IsAudiobook)
+        {
+            return true;
+        }
+
+        return !item.StartSeconds.HasValue
+            || Math.Abs((Playback.CurrentItem.InitialPositionSeconds ?? 0) - item.StartSeconds.Value) < 0.5d;
+    }
+
+    private void ToggleSort(string column)
+    {
+        if (string.Equals(_sortColumn, column, StringComparison.OrdinalIgnoreCase))
+        {
+            _sortDescending = !_sortDescending;
+            return;
+        }
+
+        _sortColumn = column;
+        _sortDescending = column is "duration" or "status";
+    }
+
+    private void ToggleMissingItems(ChangeEventArgs args)
+    {
+        _showMissingItems = args.Value is true
+            || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private IReadOnlyList<MediaGroupingItemViewModel> SortItems(IEnumerable<MediaGroupingItemViewModel> items)
+    {
+        var ordered = _sortColumn switch
+        {
+            "title" => _sortDescending
+                ? items.OrderByDescending(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                : items.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
+            "artist" => _sortDescending
+                ? items.OrderByDescending(item => item.Artist ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                : items.OrderBy(item => item.Artist ?? string.Empty, StringComparer.OrdinalIgnoreCase),
+            "progress" => _sortDescending
+                ? items.OrderByDescending(item => item.ProgressPercent ?? -1)
+                : items.OrderBy(item => item.ProgressPercent ?? -1),
+            "duration" => _sortDescending
+                ? items.OrderByDescending(DurationSortKey)
+                : items.OrderBy(DurationSortKey),
+            "status" => _sortDescending
+                ? items.OrderBy(item => item.IsOwned)
+                : items.OrderByDescending(item => item.IsOwned),
+            "favorite" => _sortDescending
+                ? items.OrderBy(item => !_favoriteIds.Contains(ItemId(item)))
+                : items.OrderByDescending(item => _favoriteIds.Contains(ItemId(item))),
+            _ => _sortDescending
+                ? items.OrderByDescending(ItemSortKey)
+                : items.OrderBy(ItemSortKey),
+        };
+
+        return ordered.ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private void BeginColumnResize(string key, double clientX)
+    {
+        var column = _columns.FirstOrDefault(item => item.Key == key);
+        if (column is null)
+        {
+            return;
+        }
+
+        _resizingColumnKey = key;
+        _resizeStartX = clientX;
+        _resizeStartWidth = column.Width;
+    }
+
+    private void ResizeColumn(double clientX)
+    {
+        if (string.IsNullOrWhiteSpace(_resizingColumnKey))
+        {
+            return;
+        }
+
+        var column = _columns.FirstOrDefault(item => item.Key == _resizingColumnKey);
+        if (column is null)
+        {
+            return;
+        }
+
+        column.Width = Math.Max(column.MinWidth, _resizeStartWidth + (int)Math.Round(clientX - _resizeStartX));
+    }
+
+    private void EndColumnResize()
+    {
+        _resizingColumnKey = null;
+    }
+
+    private void StartDrag(MediaGroupingItemViewModel item)
+    {
+        _draggingItemId = item.Id;
+    }
+
+    private void EndDrag()
+    {
+        _draggingItemId = null;
+    }
+
+    private string SortIcon(string column)
+    {
+        if (!string.Equals(_sortColumn, column, StringComparison.OrdinalIgnoreCase))
+        {
+            return Icons.Material.Outlined.UnfoldMore;
+        }
+
+        return _sortDescending ? Icons.Material.Outlined.ArrowDownward : Icons.Material.Outlined.ArrowUpward;
+    }
+
+    private string AriaSort(string column)
+        => string.Equals(_sortColumn, column, StringComparison.OrdinalIgnoreCase)
+            ? _sortDescending ? "descending" : "ascending"
+            : "none";
+
+    private string DisplayDuration(MediaGroupingItemViewModel item)
+    {
+        if (item.DurationSeconds is > 0)
+        {
+            return FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook);
+        }
+
+        if (TryParseDurationSeconds(item.Duration, out var seconds))
+        {
+            return FormatSeconds(seconds, forceHours: IsAudiobook);
+        }
+
+        return DisplayOrDash(item.Duration);
+    }
+
+    private string RowClass(MediaGroupingItemViewModel item, bool isPlaying)
+        => $"tl-detail-track-row tl-audio-item-table__row{(isPlaying ? " is-playing" : string.Empty)}{(!item.IsOwned ? " is-missing" : string.Empty)}{(_draggingItemId == item.Id ? " is-dragging" : string.Empty)}";
+
+    private string ColumnHeaderClass(AudioTableColumn column)
+        => $"tl-audio-item-table__head-cell tl-audio-item-table__head-cell--{column.Key}{(column.Align is "right" ? " is-right" : column.Align is "center" ? " is-center" : string.Empty)}";
+
+    private static string ColumnStyle(AudioTableColumn column)
+        => $"width:{column.Width}px;min-width:{column.MinWidth}px;";
+
+    private string FavoriteLabel(MediaGroupingItemViewModel item)
+        => _favoriteIds.Contains(ItemId(item)) ? "Remove favorite" : "Add favorite";
+
+    private bool CanFavorite(MediaGroupingItemViewModel item)
+        => !IsAudiobook && item.IsOwned && ItemId(item) != Guid.Empty;
+
+    private static Guid ItemId(MediaGroupingItemViewModel item)
+        => Guid.TryParse(item.Id, out var id) ? id : Guid.Empty;
+
+    private static bool SamePlayableItem(MediaGroupingItemViewModel left, MediaGroupingItemViewModel right)
+        => string.Equals(left.Id, right.Id, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(left.AssetId, right.AssetId, StringComparison.OrdinalIgnoreCase)
+           && Nullable.Equals(left.StartSeconds, right.StartSeconds);
+
+    private static int ItemSortKey(MediaGroupingItemViewModel item)
+        => int.TryParse(item.TrackNumber, out var parsed) ? parsed : item.ChapterIndex ?? int.MaxValue;
+
+    private static double DurationSortKey(MediaGroupingItemViewModel item)
+        => item.DurationSeconds ?? (TryParseDurationSeconds(item.Duration, out var parsed) ? parsed : double.MaxValue);
+
+    private static string DisplayOrdinal(MediaGroupingItemViewModel item, int index)
+        => string.IsNullOrWhiteSpace(item.TrackNumber) ? (index + 1).ToString(CultureInfo.InvariantCulture) : item.TrackNumber;
+
+    private static string FormatSeconds(double seconds, bool forceHours)
+    {
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        if (forceHours)
+        {
+            return $"{(int)span.TotalHours:00}:{span.Minutes:00}:{span.Seconds:00}";
+        }
+
+        return span.TotalHours >= 1
+            ? $"{(int)span.TotalHours}:{span.Minutes:00}:{span.Seconds:00}"
+            : $"{span.Minutes}:{span.Seconds:00}";
+    }
+
+    private static bool TryParseDurationSeconds(string? value, out double seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (TimeSpan.TryParse(value, out var span))
+        {
+            seconds = span.TotalSeconds;
+            return seconds > 0;
+        }
+
+        if (double.TryParse(value, out var numeric))
+        {
+            seconds = numeric >= 60000 ? numeric / 1000d : numeric;
+            return seconds > 0;
+        }
+
+        return false;
+    }
+
+    private static string DisplayOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private static string ProgressStyle(double percent) =>
+        $"--chapter-progress:{Math.Clamp(percent, 0, 100):0.###}%";
+
+    private string? _draggingItemId;
+
+    private sealed class AudioTableColumn
+    {
+        public AudioTableColumn(string key, string label, int width, int minWidth, bool sortable, string align = "left")
+        {
+            Key = key;
+            Label = label;
+            Width = width;
+            MinWidth = minWidth;
+            Sortable = sortable;
+            Align = align;
+        }
+
+        public string Key { get; }
+        public string Label { get; }
+        public int Width { get; set; }
+        public int MinWidth { get; }
+        public bool Sortable { get; }
+        public string Align { get; }
+    }
+}

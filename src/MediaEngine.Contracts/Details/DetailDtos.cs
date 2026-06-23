@@ -539,6 +539,7 @@ public sealed class MediaGroupingItemViewModel
     public IReadOnlyList<MetadataPill> Metadata { get; init; } = [];
     public IReadOnlyList<DetailAction> Actions { get; init; } = [];
     public bool IsOwned { get; init; } = true;
+    public bool IsFavorite { get; init; }
     public LibraryProgressState ProgressState { get; init; } = LibraryProgressState.Unknown;
 }
 

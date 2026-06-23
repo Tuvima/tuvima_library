@@ -108,6 +108,16 @@
                     </AppNativeButton>
                 </div>
             }
+            else if (IsPrimaryHeroActionRow)
+            {
+                <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
+                    <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
+                        <AppNativeButton Type="button" Class='@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon {ActionStateClass(action)} {(action.IsStub ? " tl-detail-watch-secondary--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                        </AppNativeButton>
+                    </MudTooltip>
+                </div>
+            }
             else if (IsPrimaryHeroActionRow && action.Key == "watch-party")
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">

@@ -82,7 +82,7 @@
                     case "favorite":
                         <div class="listen-song-table__favorite" role="cell">
                             <AppNativeButton Type="button" Class='@($"listen-song-table__favorite-button {(FavoriteIds.Contains(track.Id) ? " is-active" : null)}")' AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(track))">
-                                <MudIcon Icon="@(FavoriteIds.Contains(track.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" Size="Size.Small" />
+                                <MudIcon Icon="@(FavoriteIds.Contains(track.Id) ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" Size="Size.Small" />
                             </AppNativeButton>
                         </div>
                         break;

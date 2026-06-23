@@ -493,15 +493,20 @@ public sealed class UnifiedDetailComponentTests
     {
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
         var trackList = ReadSource("src/MediaEngine.Web/Components/Details/MusicTrackList.razor");
+        var audioTable = ReadSource("src/MediaEngine.Web/Components/Details/AudioItemTable.razor");
         var albumRoute = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
 
         Assert.Contains("MusicTrackList", detailPage);
-        Assert.Contains("ReplaceQueueItemsAsync", trackList);
-        Assert.Contains("<table class=\"tl-detail-track-table\"", trackList);
-        Assert.Contains("Show missing tracks", trackList);
-        Assert.Contains("track.IsOwned", trackList);
-        Assert.Contains("DurationSeconds", trackList);
-        Assert.Contains("ToggleSort", trackList);
+        Assert.Contains("<AudioItemTable", trackList);
+        Assert.Contains("ReplaceQueueItemsAsync", audioTable);
+        Assert.Contains("<table class=\"tl-detail-track-table tl-audio-item-table__table\"", audioTable);
+        Assert.Contains("Show missing tracks", audioTable);
+        Assert.Contains("item.IsOwned", audioTable);
+        Assert.Contains("DurationSeconds", audioTable);
+        Assert.Contains("ToggleSort", audioTable);
+        Assert.Contains("BeginColumnResize", audioTable);
+        Assert.Contains("draggable=\"@item.IsOwned\"", audioTable);
+        Assert.Contains("Icons.Material.Filled.Favorite", audioTable);
         Assert.DoesNotContain("@page \"/listen/album", albumRoute, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -511,6 +516,7 @@ public sealed class UnifiedDetailComponentTests
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
         var audioLayout = ReadSource("src/MediaEngine.Web/Components/Details/AudioDetailLayout.razor");
         var chapterList = ReadSource("src/MediaEngine.Web/Components/Details/AudiobookChapterList.razor");
+        var audioTable = ReadSource("src/MediaEngine.Web/Components/Details/AudioItemTable.razor");
         var listenPage = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor.cs");
 
         Assert.Contains("DetailEntityType.MusicAlbum or DetailEntityType.Audiobook", detailPage);
@@ -518,13 +524,38 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.Contains("<MusicTrackList", audioLayout);
         Assert.Contains("<AudiobookChapterList", audioLayout);
+        Assert.Contains("<AudioItemTable", chapterList);
         Assert.Contains("tl-audio-detail__hero-artwash", audioLayout);
         Assert.Contains("tl-audio-detail__metadata", audioLayout);
+        Assert.Contains("tl-audio-detail__hero--title-dense", audioLayout);
         Assert.DoesNotContain("HeroMetadataPills", audioLayout);
-        Assert.Contains("InitialPositionSeconds = chapter.StartSeconds", chapterList);
+        Assert.Contains("InitialPositionSeconds = item.StartSeconds", audioTable);
+        Assert.Contains("FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook)", audioTable);
         Assert.Contains("GetDetailPageAsync(", listenPage);
         Assert.Contains("DetailEntityType.Audiobook", listenPage);
         Assert.DoesNotContain("NavigateTo($\"/book/{WorkId.Value}?mode=listen\"", listenPage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AudioDetailActionsAndTablesUseHeartFavoritesAndAlignedHeroIcons()
+    {
+        var actions = ReadSource("src/MediaEngine.Web/Components/Details/HeroActionRow.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+        var songTable = ReadSource("src/MediaEngine.Web/Components/Listen/ListenSongTable.razor");
+        var trackGrid = ReadSource("src/MediaEngine.Web/Components/Listen/ListenTrackDataGrid.razor");
+        var libraryTable = ReadSource("src/MediaEngine.Web/Components/Library/LibraryConfigurableTable.razor");
+
+        Assert.Contains("else if (IsPrimaryHeroActionRow)", actions);
+        Assert.Contains("tl-detail-watch-secondary--icon", actions);
+        Assert.Contains("border-radius: 999px", styles);
+        Assert.Contains("Icons.Material.Filled.Favorite", songTable);
+        Assert.Contains("Icons.Material.Outlined.FavoriteBorder", songTable);
+        Assert.Contains("Icons.Material.Filled.Favorite", trackGrid);
+        Assert.Contains("Icons.Material.Outlined.FavoriteBorder", trackGrid);
+        Assert.Contains("Icons.Material.Filled.Favorite", libraryTable);
+        Assert.Contains("Icons.Material.Outlined.FavoriteBorder", libraryTable);
+        Assert.DoesNotContain("Icons.Material.Filled.Star", songTable);
+        Assert.DoesNotContain("Icons.Material.Outlined.StarBorder", trackGrid);
     }
 
     private static string ReadSource(string relativePath)

@@ -4927,6 +4927,7 @@ public sealed class EngineApiClient : IEngineApiClient
                     Metadata = item.Metadata,
                     Actions = item.Actions,
                     IsOwned = item.IsOwned,
+                    IsFavorite = item.IsFavorite,
                     ProgressState = item.ProgressState,
                 }).ToList(),
             }).ToList(),

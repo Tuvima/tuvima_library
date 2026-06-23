@@ -338,7 +338,7 @@ else
                                            OnClick="() => RequestSort(col.SortKey!)">
                                     @if (col.RenderType == ColumnRenderType.FavoriteToggle)
                                     {
-                                        <MudIcon Icon="@Icons.Material.Outlined.StarBorder" Class="tl-u-font-size-14px" />
+                                        <MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" Class="tl-u-font-size-14px" />
                                     }
                                     else
                                     {
@@ -552,7 +552,7 @@ else
 
                                     case ColumnRenderType.FavoriteToggle:
                                         <span @onclick:stopPropagation="true">
-                                            <AppIconButton Icon="@(item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                            <AppIconButton Icon="@(item.IsFavorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
                                                            Color="Color.Inherit"
                                                            Class='@($"vmt-favorite-button {(item.IsFavorite ? "is-active" : string.Empty)}")'
                                                            aria-label="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"

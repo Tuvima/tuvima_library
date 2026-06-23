@@ -10,6 +10,9 @@ namespace MediaEngine.Intelligence.Tests;
 /// </summary>
 internal sealed class StubConfigurationLoader : IConfigurationLoader
 {
+    public PipelineConfiguration PipelineConfiguration { get; init; } = new();
+    public IReadOnlyList<ProviderConfiguration> ProviderConfigurations { get; init; } = [];
+
     public CoreConfiguration LoadCore() => new();
     public void SaveCore(CoreConfiguration config) { }
     public ScoringSettings LoadScoring() => new();
@@ -18,7 +21,7 @@ internal sealed class StubConfigurationLoader : IConfigurationLoader
     public void SaveMaintenance(MaintenanceSettings settings) { }
     public HydrationSettings LoadHydration() => new();
     public void SaveHydration(HydrationSettings settings) { }
-    public PipelineConfiguration LoadPipelines() => new();
+    public PipelineConfiguration LoadPipelines() => PipelineConfiguration;
     public void SavePipelines(PipelineConfiguration config) { }
     public DisambiguationSettings LoadDisambiguation() => new();
     public void SaveDisambiguation(DisambiguationSettings settings) { }
@@ -31,7 +34,7 @@ internal sealed class StubConfigurationLoader : IConfigurationLoader
     public LibrariesConfiguration LoadLibraries() => new();
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
-    public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
+    public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => ProviderConfigurations;
     public T? LoadConfig<T>(string subdirectory, string name) where T : class => null;
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
     public T? LoadAi<T>() where T : class => default;

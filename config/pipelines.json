@@ -29,10 +29,19 @@
       }
     ],
     "field_priorities": {
+      "title": [
+        "apple_api"
+      ],
+      "author": [
+        "apple_api"
+      ],
       "cover": [
         "apple_api"
       ],
       "narrator": [
+        "apple_api"
+      ],
+      "series": [
         "apple_api"
       ],
       "description": [

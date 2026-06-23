@@ -74,6 +74,7 @@ public sealed class ContractJsonRoundTripTests
                             ChapterIndex = 0,
                             StartSeconds = 12.5,
                             EndSeconds = 1800,
+                            IsFavorite = true,
                         },
                     ],
                 },
@@ -93,6 +94,7 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal(dto.OwnedFormats[0].FormatType, roundTrip.OwnedFormats[0].FormatType);
         Assert.Equal("asset-1", roundTrip.MediaGroups[0].Items[0].AssetId);
         Assert.Equal(12.5, roundTrip.MediaGroups[0].Items[0].StartSeconds);
+        Assert.True(roundTrip.MediaGroups[0].Items[0].IsFavorite);
         Assert.Contains("\"entityType\":", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"EntityType\"", json, StringComparison.Ordinal);
     }

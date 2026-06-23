@@ -396,7 +396,7 @@ public sealed class DetailComposerService
             PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = relationships,
             Tabs = BuildTabs(entityType, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
-            MediaGroups = BuildCollectionMediaGroups(entityType, displayWorks),
+            MediaGroups = BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -647,7 +647,7 @@ public sealed class DetailComposerService
             PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = relationships,
             Tabs = BuildTabs(DetailEntityType.Universe, context, isAdminView, hasUniverse: true),
-            MediaGroups = BuildCollectionMediaGroups(DetailEntityType.Universe, works),
+            MediaGroups = BuildCollectionMediaGroups(DetailEntityType.Universe, works, new HashSet<Guid>()),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -4267,7 +4267,10 @@ public sealed class DetailComposerService
         return year.Length >= 4 && year.Take(4).All(char.IsDigit) ? year[..4] : year;
     }
 
-    private static IReadOnlyList<MediaGroupingViewModel> BuildCollectionMediaGroups(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
+    private static IReadOnlyList<MediaGroupingViewModel> BuildCollectionMediaGroups(
+        DetailEntityType entityType,
+        IReadOnlyList<CollectionWorkSummary> works,
+        IReadOnlySet<Guid> favoriteWorkIds)
     {
         if (entityType == DetailEntityType.TvShow)
         {
@@ -4278,7 +4281,7 @@ public sealed class DetailComposerService
                 {
                     Key = g.Key.ToLowerInvariant().Replace(" ", "-"),
                     Title = g.Key,
-                    Items = g.Select(ToMediaItem).ToList(),
+                    Items = g.Select(work => ToMediaItem(work, favoriteWorkIds)).ToList(),
                 })
                 .Select(ApplyMediaGroupCompletion)
                 .ToList();
@@ -4300,7 +4303,7 @@ public sealed class DetailComposerService
                     DetailEntityType.ComicSeries => "Issues",
                     _ => "Items",
                 },
-                Items = works.Select(ToMediaItem).ToList(),
+                Items = works.Select(work => ToMediaItem(work, favoriteWorkIds)).ToList(),
             })
         ];
     }
@@ -4366,7 +4369,7 @@ public sealed class DetailComposerService
     private static string NormalizeTextKey(string? value)
         => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
 
-    private static MediaGroupingItemViewModel ToMediaItem(CollectionWorkSummary work)
+    private static MediaGroupingItemViewModel ToMediaItem(CollectionWorkSummary work, IReadOnlySet<Guid> favoriteWorkIds)
         => new()
         {
             Id = work.Id,
@@ -4386,6 +4389,7 @@ public sealed class DetailComposerService
             Metadata = BuildEpisodeMetadata(FormatTrackDuration(work.Duration), work.Year),
             Actions = work.IsOwned ? [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", Route = BuildWorkRoute(work) }] : [],
             IsOwned = work.IsOwned,
+            IsFavorite = Guid.TryParse(work.Id, out var workId) && favoriteWorkIds.Contains(workId),
             ProgressState = work.IsOwned ? LibraryProgressState.Unstarted : LibraryProgressState.Missing,
         };
 

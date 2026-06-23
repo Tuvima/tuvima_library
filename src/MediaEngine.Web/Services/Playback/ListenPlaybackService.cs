@@ -155,11 +155,18 @@ public sealed class ListenPlaybackService
     public async Task AddToQueueAsync(WorkViewModel work, CancellationToken ct = default)
     {
         var item = CreateQueueItem(work);
+        await AddQueueItemAsync(item, next: false, ct);
+    }
+
+    public async Task AddQueueItemAsync(ListenQueueItem item, bool next = false, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
         if (_queue.Count == 0)
         {
             _queue.Add(item);
             CurrentIndex = 0;
-            SourceLabel = work.Album ?? work.Title;
+            SourceLabel = item.Album ?? item.Title;
             IsDismissed = false;
             IsPlaying = true;
             CurrentError = null;
@@ -170,9 +177,20 @@ public sealed class ListenPlaybackService
             return;
         }
 
-        _queue.Add(item);
+        var mutationMode = PlayerQueueMutationModes.AddEnd;
+        if (next)
+        {
+            var insertIndex = Math.Clamp(CurrentIndex + 1, 0, _queue.Count);
+            _queue.Insert(insertIndex, item);
+            mutationMode = PlayerQueueMutationModes.AddNext;
+        }
+        else
+        {
+            _queue.Add(item);
+        }
+
         NotifyChanged();
-        await SyncAddQueueItemsAsync([item], PlayerQueueMutationModes.AddEnd, ct);
+        await SyncAddQueueItemsAsync([item], mutationMode, ct);
     }
 
     public async Task PlayIndexAsync(int index, CancellationToken ct = default)

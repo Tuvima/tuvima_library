@@ -788,7 +788,8 @@
     min-height: 100vh;
     position: relative;
     overflow: hidden;
-    padding: clamp(1rem, 2.2vw, 2rem);
+    padding: clamp(0.8rem, 1.8vw, 1.5rem);
+    container-type: inline-size;
     background:
         radial-gradient(circle at 75% 20%, rgba(var(--hero-accent-rgb, 220, 165, 62), 0.30), transparent 27rem),
         radial-gradient(circle at 20% 0%, rgba(var(--hero-bg-rgb, 9, 14, 22), 0.68), transparent 30rem),
@@ -798,11 +799,11 @@
 ::deep .tl-audio-detail__hero {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem);
-    gap: clamp(1.2rem, 3vw, 2rem);
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 26rem);
+    gap: clamp(1.25rem, 3vw, 2.4rem);
     align-items: center;
-    min-height: clamp(19rem, 30vw, 27rem);
-    padding: clamp(1.5rem, 3vw, 2.4rem);
+    min-height: clamp(18rem, 27vw, 25rem);
+    padding: clamp(1.35rem, 2.6vw, 2.15rem) clamp(1.4rem, 3vw, 2.4rem);
     overflow: hidden;
     border-radius: 10px;
     background:
@@ -841,21 +842,33 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.72rem;
+    gap: clamp(0.52rem, 1.1vw, 0.72rem);
 }
 
 ::deep .tl-audio-detail__copy h1 {
     margin: 0;
-    max-width: 16ch;
+    max-width: min(16ch, 100%);
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(3.8rem, 6.4vw, 7.2rem);
+    font-size: clamp(2.9rem, 7.8cqw, 5.95rem);
     font-weight: 500;
-    line-height: 0.92;
+    line-height: 0.94;
     letter-spacing: 0;
     color: #fffaf3;
     text-transform: uppercase;
     text-wrap: pretty;
     text-shadow: 0 2px 22px rgba(0,0,0,0.45);
+}
+
+::deep .tl-audio-detail__hero--title-long .tl-audio-detail__copy h1 {
+    max-width: min(20ch, 100%);
+    font-size: clamp(2.4rem, 5.8cqw, 4.55rem);
+    line-height: 0.98;
+}
+
+::deep .tl-audio-detail__hero--title-dense .tl-audio-detail__copy h1 {
+    max-width: min(24ch, 100%);
+    font-size: clamp(2.05rem, 4.6cqw, 3.65rem);
+    line-height: 1.02;
 }
 
 ::deep .tl-audio-detail__credit {
@@ -889,7 +902,7 @@
     position: relative;
     z-index: 2;
     justify-self: end;
-    width: min(100%, clamp(10.5rem, 18vw, 16rem));
+    width: min(100%, clamp(15rem, 25vw, 24rem));
     display: grid;
     place-items: center;
     aspect-ratio: 1;
@@ -903,6 +916,10 @@
     color: rgba(246, 240, 232, 0.72);
 }
 
+::deep .tl-audio-detail--audiobook .tl-audio-detail__art {
+    width: min(100%, clamp(16.5rem, 27vw, 26rem));
+}
+
 ::deep .tl-audio-detail__art img {
     width: 100%;
     height: 100%;
@@ -913,7 +930,7 @@
 ::deep .tl-audio-detail__list {
     position: relative;
     z-index: 2;
-    margin-top: clamp(1rem, 2vw, 1.5rem);
+    margin-top: clamp(0.75rem, 1.5vw, 1.15rem);
     border: 1px solid rgba(150, 165, 205, 0.16);
     border-radius: 8px;
     overflow: hidden;
@@ -985,11 +1002,11 @@
     ::deep .tl-audio-detail__art {
         order: 1;
         justify-self: start;
-        width: min(12rem, 52vw);
+        width: min(16rem, 62vw);
     }
 
     ::deep .tl-audio-detail__copy h1 {
-        font-size: clamp(2.25rem, 13vw, 4.25rem);
+        font-size: clamp(2.15rem, 12vw, 4rem);
     }
 
     ::deep .tl-detail-chapter-list__head {
@@ -2454,6 +2471,9 @@
 ::deep .tl-detail-secondary-action--watch {
     min-width: 0;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
 }
 
 ::deep .tl-detail-watch-secondary {
@@ -2476,7 +2496,10 @@
 
 ::deep .tl-detail-watch-secondary--icon {
     width: clamp(3.9rem, 5vw, 4.25rem);
+    min-width: clamp(3.9rem, 5vw, 4.25rem);
     padding-inline: 0;
+    border-radius: 999px;
+    aspect-ratio: 1;
 }
 
 ::deep .tl-detail-watch-secondary .mud-icon-root {
@@ -4386,6 +4409,145 @@
 
 ::deep .tl-detail-track-status.is-missing {
     color: rgba(203, 213, 225, 0.55);
+}
+
+::deep .tl-audio-item-table {
+    width: 100%;
+}
+
+::deep .tl-audio-item-table__table {
+    min-width: max-content;
+}
+
+::deep .tl-audio-item-table__table th,
+::deep .tl-audio-item-table__table td {
+    position: relative;
+    width: auto;
+    height: 3.05rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+::deep .tl-audio-item-table__table th:first-child,
+::deep .tl-audio-item-table__table td:first-child,
+::deep .tl-audio-item-table__table th:nth-last-child(2),
+::deep .tl-audio-item-table__table td:nth-last-child(2),
+::deep .tl-audio-item-table__table th:last-child,
+::deep .tl-audio-item-table__table td:last-child {
+    width: auto;
+}
+
+::deep .tl-audio-item-table__table thead th {
+    height: 2.85rem;
+    background: rgba(11, 17, 28, 0.64);
+    color: rgba(246, 240, 232, 0.52);
+    font-size: 0.72rem;
+    font-weight: 820;
+    text-transform: uppercase;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.08);
+}
+
+::deep .tl-audio-item-table__head-cell.is-right,
+::deep .tl-audio-item-table__table td.tl-detail-track-row__duration {
+    text-align: right;
+}
+
+::deep .tl-audio-item-table__head-cell.is-center,
+::deep .tl-audio-item-table__favorite,
+::deep .tl-audio-item-table__queue {
+    text-align: center;
+}
+
+::deep .tl-audio-item-table__resizer {
+    position: absolute;
+    top: 0.35rem;
+    right: 0;
+    bottom: 0.35rem;
+    width: 0.5rem;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+::deep .tl-audio-item-table__resizer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0.2rem;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255,255,255,0.10);
+}
+
+::deep .tl-audio-item-table__resizer:hover::after {
+    background: color-mix(in srgb, var(--tl-detail-primary, #dca53e) 80%, #fff);
+}
+
+::deep .tl-audio-item-table__drag {
+    width: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(246, 240, 232, 0.34);
+    cursor: grab;
+}
+
+::deep .tl-audio-item-table__row[draggable="true"]:active .tl-audio-item-table__drag {
+    cursor: grabbing;
+}
+
+::deep .tl-audio-item-table__row.is-dragging {
+    opacity: 0.72;
+}
+
+::deep .tl-audio-item-table__table .tl-detail-track-row__number {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+::deep .tl-audio-item-table__table .tl-detail-track-row__title {
+    min-width: 0;
+}
+
+::deep .tl-audio-item-table__table .tl-detail-track-row__name {
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: middle;
+}
+
+::deep .tl-audio-item-table__icon-button {
+    width: 2.2rem;
+    height: 2.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    color: rgba(246, 240, 232, 0.66);
+}
+
+::deep .tl-audio-item-table__icon-button:hover,
+::deep .tl-audio-item-table__icon-button:focus-visible,
+::deep .tl-audio-item-table__icon-button.is-active {
+    border-color: rgba(255, 216, 106, 0.58);
+    color: #ffd76a;
+    background: rgba(255, 216, 106, 0.12);
+    outline: none;
+}
+
+::deep .tl-audio-item-table__icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.36;
+}
+
+::deep .tl-audio-item-table__table .tl-detail-chapter-row__progress {
+    display: inline-flex;
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 ::deep .tl-detail-track-empty {

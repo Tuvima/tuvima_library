@@ -34,6 +34,19 @@ public sealed class PipelineConfigurationTests
             ReadPriority(document, "TV", "episode_description"));
     }
 
+    [Fact]
+    public void AudiobookPipeline_PrefersRetailEditionMetadataForDisplayIdentity()
+    {
+        var configPath = FindRepoFile("config", "pipelines.json");
+        using var document = JsonDocument.Parse(File.ReadAllText(configPath));
+
+        Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "title"));
+        Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "author"));
+        Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "series"));
+        Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "narrator"));
+        Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "cover"));
+    }
+
     private static string[] ReadPriority(JsonDocument document, string mediaType, string field)
     {
         var root = document.RootElement;

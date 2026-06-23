@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
@@ -13,6 +14,7 @@ namespace MediaEngine.Intelligence.Tests;
 public sealed class ScoringEngineTests
 {
     private static readonly Guid WikidataProviderId = Guid.Parse("b3000003-d000-4000-8000-000000000004");
+    private static readonly Guid AppleProviderId = Guid.Parse("b1000001-e000-4000-8000-000000000001");
     private static readonly Guid ProviderA = Guid.Parse("aaaa0000-0000-0000-0000-000000000001");
     private static readonly Guid ProviderB = Guid.Parse("bbbb0000-0000-0000-0000-000000000002");
     private static readonly Guid EntityId  = Guid.Parse("eeee0000-0000-0000-0000-000000000001");
@@ -70,6 +72,61 @@ public sealed class ScoringEngineTests
         var titleScore = result.FieldScores.First(f => f.Key == "title");
         Assert.Equal("Dune", titleScore.WinningValue);
         Assert.Equal(WikidataProviderId, titleScore.WinningProviderId);
+    }
+
+    [Fact]
+    public async Task AudiobookPipelinePriority_AllowsRetailTitleToWinDisplayIdentity()
+    {
+        var loader = new StubConfigurationLoader
+        {
+            PipelineConfiguration = new PipelineConfiguration
+            {
+                Pipelines =
+                {
+                    ["Audiobooks"] = new MediaTypePipeline
+                    {
+                        FieldPriorities =
+                        {
+                            ["title"] = ["apple_api"],
+                        },
+                    },
+                },
+            },
+            ProviderConfigurations =
+            [
+                new MediaEngine.Storage.Models.ProviderConfiguration
+                {
+                    Name = "apple_api",
+                    ProviderId = AppleProviderId.ToString("D"),
+                    Enabled = true,
+                },
+            ],
+        };
+        var engine = new PriorityCascadeEngine(loader, NullLogger<PriorityCascadeEngine>.Instance);
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            DetectedMediaType = MediaType.Audiobooks,
+            Claims =
+            [
+                MakeClaim("title", "Embedded File Title", ProviderA, 0.99),
+                MakeClaim("title", "Retail Audiobook Title", AppleProviderId, 0.70),
+                MakeClaim("title", "Wikidata Work Title", WikidataProviderId, 0.98),
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [ProviderA] = 1.0,
+                [AppleProviderId] = 1.0,
+                [WikidataProviderId] = 1.0,
+            },
+            Configuration = DefaultConfig,
+        };
+
+        var result = await engine.ScoreEntityAsync(context);
+
+        var titleScore = result.FieldScores.First(f => f.Key == "title");
+        Assert.Equal("Retail Audiobook Title", titleScore.WinningValue);
+        Assert.Equal(AppleProviderId, titleScore.WinningProviderId);
     }
 
     [Fact]

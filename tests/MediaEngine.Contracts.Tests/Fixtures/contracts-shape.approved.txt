@@ -178,6 +178,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaGroupingItemVie
   Metadata: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MetadataPill> | nullability=not-null | accessors=get,init
   Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
   IsOwned: System.Boolean | nullability=not-null | accessors=get,init
+  IsFavorite: System.Boolean | nullability=not-null | accessors=get,init
   ProgressState: MediaEngine.Contracts.Details.LibraryProgressState | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaGroupingViewModel
