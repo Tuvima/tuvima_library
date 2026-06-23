@@ -39,7 +39,7 @@ public sealed class PlaybackStateRepository
             """,
             new
             {
-                assetId = assetId.ToString(),
+                assetId,
                 sourceHash,
                 inspectedAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
                 fileSize,
@@ -77,7 +77,7 @@ public sealed class PlaybackStateRepository
               AND source_hash = @sourceHash
             ORDER BY created_at DESC;
             """,
-            new { assetId = assetId.ToString(), sourceHash }).AsList();
+            new { assetId, sourceHash }).AsList();
 
         return Task.FromResult<IReadOnlyList<OfflineVariantDto>>(rows.Select(ToDto).ToList());
     }
@@ -95,7 +95,7 @@ public sealed class PlaybackStateRepository
               AND asset_id = @assetId
             LIMIT 1;
             """,
-            new { assetId = assetId.ToString(), variantId = variantId.ToString() });
+            new { assetId, variantId });
 
         return Task.FromResult(row);
     }
@@ -127,7 +127,7 @@ public sealed class PlaybackStateRepository
             ORDER BY created_at DESC
             LIMIT 1;
             """,
-            new { assetId = assetId.ToString(), profileKey, sourceHash });
+            new { assetId, profileKey, sourceHash });
 
         if (existing is not null)
         {
@@ -148,8 +148,8 @@ public sealed class PlaybackStateRepository
             """,
             new
             {
-                id = id.ToString(),
-                assetId = assetId.ToString(),
+                id,
+                assetId,
                 profileKey,
                 sourceHash,
                 status,
@@ -234,7 +234,7 @@ public sealed class PlaybackStateRepository
             """,
             new
             {
-                jobId = jobId.ToString(),
+                jobId,
                 completedAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
             });
 
@@ -279,7 +279,7 @@ public sealed class PlaybackStateRepository
 
         return Task.FromResult(changed == 0
             ? null
-            : new LeasedEncodeJob(Guid.Parse(row.Id), Guid.Parse(row.AssetId), row.ProfileKey, row.SourceHash));
+            : new LeasedEncodeJob(row.Id, row.AssetId, row.ProfileKey, row.SourceHash));
     }
 
     public Task CompleteEncodeJobAsync(
@@ -332,8 +332,8 @@ public sealed class PlaybackStateRepository
             """,
             new
             {
-                id = variantId.ToString(),
-                assetId = job.AssetId.ToString(),
+                id = variantId,
+                assetId = job.AssetId,
                 profileKey = job.ProfileKey,
                 sourceHash = job.SourceHash,
                 displayName,
@@ -346,7 +346,7 @@ public sealed class PlaybackStateRepository
                 height,
                 bitrateKbps,
                 createdAt = now,
-                jobId = job.Id.ToString(),
+                jobId = job.Id,
             });
 
         return Task.CompletedTask;
@@ -366,7 +366,7 @@ public sealed class PlaybackStateRepository
             """,
             new
             {
-                jobId = jobId.ToString(),
+                jobId,
                 completedAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
                 error,
             });
@@ -376,17 +376,15 @@ public sealed class PlaybackStateRepository
 
     private static OfflineVariantDto ToDto(OfflineVariantRow row)
     {
-        var id = Guid.Parse(row.Id);
-        var assetId = Guid.Parse(row.AssetId);
         return new OfflineVariantDto
         {
-            Id = id,
-            AssetId = assetId,
+            Id = row.Id,
+            AssetId = row.AssetId,
             ProfileKey = row.ProfileKey,
             DisplayName = row.DisplayName,
             Status = row.Status,
             DownloadUrl = string.Equals(row.Status, OfflineVariantStatuses.Ready, StringComparison.OrdinalIgnoreCase)
-                ? $"/playback/{assetId}/offline/{id}"
+                ? $"/playback/{row.AssetId}/offline/{row.Id}"
                 : null,
             FileSizeBytes = row.FileSizeBytes,
             Container = row.Container,
@@ -403,8 +401,8 @@ public sealed class PlaybackStateRepository
 
     private static EncodeJobDto ToDto(EncodeJobRow row) => new()
     {
-        Id = Guid.Parse(row.Id),
-        AssetId = Guid.Parse(row.AssetId),
+        Id = row.Id,
+        AssetId = row.AssetId,
         ProfileKey = row.ProfileKey,
         Status = row.Status,
         CreatedAt = ParseDate(row.CreatedAt) ?? DateTimeOffset.MinValue,
@@ -423,40 +421,50 @@ public sealed class PlaybackStateRepository
             ? parsed
             : null;
 
-    private sealed record OfflineVariantRow(
-        string Id,
-        string AssetId,
-        string ProfileKey,
-        string SourceHash,
-        string DisplayName,
-        string Status,
-        string? OutputPath,
-        long? FileSizeBytes,
-        string? Container,
-        string? VideoCodec,
-        string? AudioCodec,
-        int? Width,
-        int? Height,
-        int? BitrateKbps,
-        string CreatedAt,
-        string? ExpiresAt);
+    private sealed class OfflineVariantRow
+    {
+        public Guid Id { get; set; }
+        public Guid AssetId { get; set; }
+        public string ProfileKey { get; set; } = string.Empty;
+        public string SourceHash { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string? OutputPath { get; set; }
+        public long? FileSizeBytes { get; set; }
+        public string? Container { get; set; }
+        public string? VideoCodec { get; set; }
+        public string? AudioCodec { get; set; }
+        public int? Width { get; set; }
+        public int? Height { get; set; }
+        public int? BitrateKbps { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
+        public string? ExpiresAt { get; set; }
+    }
 
-    private sealed record EncodeJobRow(
-        string Id,
-        string AssetId,
-        string ProfileKey,
-        string Status,
-        string CreatedAt,
-        string? ScheduledFor,
-        string? StartedAt,
-        string? CompletedAt,
-        double ProgressPct,
-        string? OutputPath,
-        long? OutputBytes,
-        string? LastError,
-        int RetryCount);
+    private sealed class EncodeJobRow
+    {
+        public Guid Id { get; set; }
+        public Guid AssetId { get; set; }
+        public string ProfileKey { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string CreatedAt { get; set; } = string.Empty;
+        public string? ScheduledFor { get; set; }
+        public string? StartedAt { get; set; }
+        public string? CompletedAt { get; set; }
+        public double ProgressPct { get; set; }
+        public string? OutputPath { get; set; }
+        public long? OutputBytes { get; set; }
+        public string? LastError { get; set; }
+        public int RetryCount { get; set; }
+    }
 
-    private sealed record LeasedEncodeJobRow(string Id, string AssetId, string ProfileKey, string SourceHash);
+    private sealed class LeasedEncodeJobRow
+    {
+        public Guid Id { get; set; }
+        public Guid AssetId { get; set; }
+        public string ProfileKey { get; set; } = string.Empty;
+        public string SourceHash { get; set; } = string.Empty;
+    }
 }
 
 public sealed record OfflineVariantFile(string? OutputPath, string Status, long? FileSizeBytes);

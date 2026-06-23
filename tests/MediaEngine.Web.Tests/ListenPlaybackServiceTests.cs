@@ -1,5 +1,9 @@
+using System.Net;
+using System.Net.Http.Json;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Playback;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Tests;
 
@@ -104,6 +108,20 @@ public sealed class ListenPlaybackServiceTests
     }
 
     [Fact]
+    public async Task PlayAudiobookAsync_NormalizesRelativeStreamUrlToEngineUrl()
+    {
+        var apiClient = new EngineApiClient(
+            new HttpClient(new PlayerSyncHandler()) { BaseAddress = new Uri("http://engine.test") },
+            NullLogger<EngineApiClient>.Instance);
+        var service = new ListenPlaybackService(null!, apiClient);
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "/stream/312274cc-8cf0-4ead-9934-1aa78eb2b195");
+
+        await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
+
+        Assert.Equal("http://engine.test/stream/312274cc-8cf0-4ead-9934-1aa78eb2b195", service.CurrentStreamUrl);
+    }
+
+    [Fact]
     public void ClearUpcoming_RemovesOnlyFutureQueueItems()
     {
         var service = new ListenPlaybackService(null!, null!);
@@ -192,4 +210,19 @@ public sealed class ListenPlaybackServiceTests
         Duration = "11:32:00",
         StreamUrl = streamUrl,
     };
+
+    private sealed class PlayerSyncHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            object payload = request.RequestUri?.AbsolutePath.Contains("/history", StringComparison.OrdinalIgnoreCase) == true
+                ? Array.Empty<AudiobookListenHistoryItemDto>()
+                : new PlayerStateDto { Experience = PlayerExperienceModes.Audiobook, PlaybackRate = 1.25d };
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(payload),
+            });
+        }
+    }
 }

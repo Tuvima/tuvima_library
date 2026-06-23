@@ -197,7 +197,7 @@ public sealed class AudiobookListenHistoryRepository
             """, new
         {
             profileId,
-            item.WorkId,
+            workId = item.WorkId,
             assetId,
             queueItemId = heartbeat.QueueItemId ?? item.QueueItemId,
             title = item.Title,
@@ -240,18 +240,18 @@ public sealed class AudiobookListenHistoryRepository
             """, new
         {
             id = Guid.NewGuid(),
-            active.ProfileId,
-            active.WorkId,
-            active.AssetId,
-            active.Title,
-            active.ChapterTitle,
-            active.ChapterIndex,
+            profileId = active.ProfileId,
+            workId = active.WorkId,
+            assetId = active.AssetId,
+            title = active.Title,
+            chapterTitle = active.ChapterTitle,
+            chapterIndex = active.ChapterIndex,
             positionSeconds = safePosition,
             durationSeconds = safeDuration,
             progressPct = progress,
-            active.DeviceId,
-            active.Client,
-            active.StartedAt,
+            deviceId = active.DeviceId,
+            client = active.Client,
+            startedAt = active.StartedAt,
             endedAt,
         });
 
@@ -267,7 +267,7 @@ public sealed class AudiobookListenHistoryRepository
                   ORDER BY ended_at DESC
                   LIMIT 10
               );
-            """, new { active.ProfileId, active.WorkId });
+            """, new { profileId = active.ProfileId, workId = active.WorkId });
     }
 
     private static void ClearActive(System.Data.IDbConnection conn, Guid profileId)

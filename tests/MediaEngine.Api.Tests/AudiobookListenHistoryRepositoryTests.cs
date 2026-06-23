@@ -1,0 +1,155 @@
+using Dapper;
+using MediaEngine.Api.Services.Playback;
+using MediaEngine.Contracts.Playback;
+using MediaEngine.Storage;
+using Microsoft.Data.Sqlite;
+
+namespace MediaEngine.Api.Tests;
+
+public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
+{
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"tuvima-audiobook-history-{Guid.NewGuid():N}.db");
+    private readonly DatabaseConnection _db;
+
+    public AudiobookListenHistoryRepositoryTests()
+    {
+        DapperConfiguration.Configure();
+        _db = new DatabaseConnection(_dbPath);
+        _db.InitializeSchema();
+        _db.RunStartupChecks();
+    }
+
+    [Fact]
+    public async Task TrackHeartbeatAsync_FinalizesQualifiedAudiobookListenHistoryWithGuidBlobKeys()
+    {
+        var ids = await CreateProfileAssetAsync();
+        var queueItemId = Guid.NewGuid();
+        var item = new PlayerQueueItemDto
+        {
+            QueueItemId = queueItemId,
+            WorkId = ids.WorkId,
+            AssetId = ids.AssetId,
+            MediaType = "Audiobooks",
+            Title = "Test Audiobook",
+            DurationSeconds = 3600,
+            Chapters =
+            [
+                new PlaybackChapterDto
+                {
+                    Index = 1,
+                    Title = "Chapter 1",
+                    StartSeconds = 0,
+                    EndSeconds = 3600,
+                },
+            ],
+        };
+
+        var repository = new AudiobookListenHistoryRepository(_db);
+
+        await repository.TrackHeartbeatAsync(
+            ids.ProfileId,
+            item,
+            new PlayerHeartbeatDto
+            {
+                QueueItemId = queueItemId,
+                AssetId = ids.AssetId,
+                IsPlaying = true,
+                PositionSeconds = 65,
+                DurationSeconds = 3600,
+                PlaybackRate = 1.25,
+            },
+            qualificationSeconds: 0,
+            deviceId: "web-dashboard",
+            client: "web");
+
+        await repository.TrackHeartbeatAsync(
+            ids.ProfileId,
+            item,
+            new PlayerHeartbeatDto
+            {
+                QueueItemId = queueItemId,
+                AssetId = ids.AssetId,
+                IsPlaying = false,
+                PositionSeconds = 125,
+                DurationSeconds = 3600,
+                PlaybackRate = 1.25,
+            },
+            qualificationSeconds: 0,
+            deviceId: "web-dashboard",
+            client: "web");
+
+        var history = await repository.GetRecentAsync(ids.ProfileId, ids.WorkId);
+
+        var entry = Assert.Single(history);
+        Assert.Equal(ids.ProfileId, entry.ProfileId);
+        Assert.Equal(ids.WorkId, entry.WorkId);
+        Assert.Equal(ids.AssetId, entry.AssetId);
+        Assert.Equal("Chapter 1", entry.ChapterTitle);
+        Assert.Equal(125, entry.PositionSeconds);
+
+        using var conn = _db.CreateConnection();
+        var keyTypes = await conn.QuerySingleAsync<KeyTypeRow>(
+            """
+            SELECT typeof(profile_id) AS ProfileType,
+                   typeof(work_id) AS WorkType,
+                   typeof(asset_id) AS AssetType
+            FROM audiobook_listen_history
+            WHERE profile_id = @profileId;
+            """,
+            new { profileId = ids.ProfileId });
+
+        Assert.Equal("blob", keyTypes.ProfileType);
+        Assert.Equal("blob", keyTypes.WorkType);
+        Assert.Equal("blob", keyTypes.AssetType);
+    }
+
+    private async Task<(Guid ProfileId, Guid WorkId, Guid AssetId)> CreateProfileAssetAsync()
+    {
+        using var conn = _db.CreateConnection();
+        var profileId = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO profiles (id, display_name, avatar_color, role, created_at)
+            VALUES (@profileId, 'Owner', '#7C4DFF', 'Administrator', @now);
+            INSERT INTO collections (id, created_at) VALUES (@collectionId, @now);
+            INSERT INTO works (id, collection_id, media_type) VALUES (@workId, @collectionId, 'Audiobooks');
+            INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+            VALUES (@assetId, @editionId, @contentHash, '/library/Audiobooks/test.m4b', 'Normal');
+            """,
+            new
+            {
+                profileId,
+                collectionId,
+                workId,
+                editionId,
+                assetId,
+                contentHash = $"asset-{assetId:N}",
+                now = DateTimeOffset.UtcNow,
+            });
+        return (profileId, workId, assetId);
+    }
+
+    public void Dispose()
+    {
+        _db.Dispose();
+        SqliteConnection.ClearAllPools();
+        foreach (var suffix in new[] { "", "-wal", "-shm" })
+        {
+            var path = _dbPath + suffix;
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    private sealed record KeyTypeRow
+    {
+        public string ProfileType { get; init; } = string.Empty;
+        public string WorkType { get; init; } = string.Empty;
+        public string AssetType { get; init; } = string.Empty;
+    }
+}

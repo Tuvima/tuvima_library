@@ -50,6 +50,8 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("idx_player_sessions_heartbeat", schema, StringComparison.Ordinal);
         Assert.Contains("idx_audiobook_listen_history_profile_work", schema, StringComparison.Ordinal);
         Assert.Contains("CreateConnection()", repositorySource, StringComparison.Ordinal);
+        Assert.Contains("queueItemId = item.QueueItemId", repositorySource, StringComparison.Ordinal);
+        Assert.Contains("workId = item.WorkId", repositorySource, StringComparison.Ordinal);
         Assert.Contains("PlayerStateConflictException", repositorySource, StringComparison.Ordinal);
         Assert.Contains("PlayerSessionConflictException", repositorySource, StringComparison.Ordinal);
         Assert.Contains("StaleSessionWindow", serviceSource, StringComparison.Ordinal);

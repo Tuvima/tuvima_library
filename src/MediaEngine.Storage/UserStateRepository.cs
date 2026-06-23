@@ -37,7 +37,7 @@ public sealed class UserStateRepository : IUserStateStore
             FROM   user_states
             WHERE  user_id  = @userId
               AND  asset_id = @assetId
-            """, new { userId = userId.ToString(), assetId = assetId.ToString() });
+            """, new { userId, assetId });
 
         return Task.FromResult(row is null ? null : (UserState?)MapRow(row));
     }
@@ -58,8 +58,8 @@ public sealed class UserStateRepository : IUserStateStore
                  @lastAccessed, @extendedProperties)
             """, new
         {
-            userId             = state.UserId.ToString(),
-            assetId            = state.AssetId.ToString(),
+            userId             = state.UserId,
+            assetId            = state.AssetId,
             contentHash        = string.IsNullOrEmpty(state.ContentHash) ? null : state.ContentHash,
             progressPct        = state.ProgressPct,
             lastAccessed       = state.LastAccessed.ToString("O"),
@@ -105,7 +105,7 @@ public sealed class UserStateRepository : IUserStateStore
             WHERE  user_id = @userId
             ORDER BY last_accessed DESC
             LIMIT @limit
-            """, new { userId = userId.ToString(), limit }).AsList();
+            """, new { userId, limit }).AsList();
 
         return Task.FromResult<IReadOnlyList<UserState>>(rows.Select(MapRow).ToList());
     }
@@ -114,8 +114,8 @@ public sealed class UserStateRepository : IUserStateStore
 
     private sealed class UserStateRow
     {
-        public string UserId             { get; set; } = "";
-        public string AssetId            { get; set; } = "";
+        public Guid UserId               { get; set; }
+        public Guid AssetId              { get; set; }
         public string? ContentHash       { get; set; }
         public double ProgressPct        { get; set; }
         public string LastAccessed       { get; set; } = "";
@@ -124,8 +124,8 @@ public sealed class UserStateRepository : IUserStateStore
 
     private static UserState MapRow(UserStateRow r) => new()
     {
-        UserId       = Guid.Parse(r.UserId),
-        AssetId      = Guid.Parse(r.AssetId),
+        UserId       = r.UserId,
+        AssetId      = r.AssetId,
         ContentHash  = r.ContentHash ?? string.Empty,
         ProgressPct  = r.ProgressPct,
         LastAccessed = DateTimeOffset.Parse(r.LastAccessed),

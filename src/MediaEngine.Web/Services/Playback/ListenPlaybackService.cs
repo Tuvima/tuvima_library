@@ -736,6 +736,12 @@ public sealed class ListenPlaybackService
         var item = _queue[index];
         if (!string.IsNullOrWhiteSpace(item.StreamUrl))
         {
+            var normalizedStreamUrl = NormalizeStreamUrl(item.StreamUrl);
+            if (!string.Equals(item.StreamUrl, normalizedStreamUrl, StringComparison.Ordinal))
+            {
+                _queue[index] = item with { StreamUrl = normalizedStreamUrl };
+            }
+
             return;
         }
 
@@ -762,7 +768,7 @@ public sealed class ListenPlaybackService
         _queue[index] = item with
         {
             AssetId = assetId,
-            StreamUrl = _apiClient.ToAbsoluteEngineUrl(streamUrl),
+            StreamUrl = NormalizeStreamUrl(streamUrl),
         };
         double? manifestDuration = manifest?.Chapters
             .Where(chapter => chapter.EndSeconds.HasValue)
@@ -775,6 +781,18 @@ public sealed class ListenPlaybackService
             DurationSeconds = manifestDuration.Value;
         }
         CurrentError = null;
+    }
+
+    private string? NormalizeStreamUrl(string? streamUrl)
+    {
+        if (string.IsNullOrWhiteSpace(streamUrl))
+        {
+            return null;
+        }
+
+        return _apiClient is null
+            ? streamUrl
+            : _apiClient.ToAbsoluteEngineUrl(streamUrl);
     }
 
     private async Task SyncReplaceQueueAsync(

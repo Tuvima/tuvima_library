@@ -97,6 +97,49 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task UserState_Save_UsesGuidBlobAssetForeignKey()
+    {
+        var assetRepo = new MediaAssetRepository(_db);
+        var stateRepo = new UserStateRepository(_db);
+        var editionId = await CreateTestEditionAsync();
+        var asset = new MediaAsset
+        {
+            Id = Guid.NewGuid(),
+            EditionId = editionId,
+            ContentHash = $"state_{Guid.NewGuid():N}",
+            FilePathRoot = "/library/Audiobooks/test.m4b",
+            Status = AssetStatus.Normal,
+        };
+        await assetRepo.InsertAsync(asset);
+
+        var userId = Guid.NewGuid();
+        await stateRepo.SaveAsync(new UserState
+        {
+            UserId = userId,
+            AssetId = asset.Id,
+            ContentHash = asset.ContentHash,
+            ProgressPct = 42.5,
+            LastAccessed = DateTimeOffset.UtcNow,
+            ExtendedProperties =
+            {
+                ["position_seconds"] = "123.5",
+            },
+        });
+
+        using var conn = _db.CreateConnection();
+        var storageType = await conn.ExecuteScalarAsync<string>(
+            "SELECT typeof(asset_id) FROM user_states WHERE user_id = @userId AND asset_id = @assetId",
+            new { userId, assetId = asset.Id });
+        var saved = await stateRepo.GetAsync(userId, asset.Id);
+
+        Assert.Equal("blob", storageType);
+        Assert.NotNull(saved);
+        Assert.Equal(asset.Id, saved.AssetId);
+        Assert.Equal(42.5, saved.ProgressPct);
+        Assert.Equal("123.5", saved.ExtendedProperties["position_seconds"]);
+    }
+
+    [Fact]
     public async Task MediaAsset_FindByHash_ReturnsNull_WhenNotFound()
     {
         var repo = new MediaAssetRepository(_db);
