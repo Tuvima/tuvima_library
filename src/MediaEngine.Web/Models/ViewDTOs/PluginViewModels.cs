@@ -40,6 +40,9 @@ public sealed class PluginViewModel
 
     [JsonPropertyName("settings")]
     public Dictionary<string, JsonElement> Settings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("settings_schema")]
+    public JsonElement? SettingsSchema { get; set; }
 }
 
 public sealed class PluginHealthViewModel

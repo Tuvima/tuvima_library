@@ -32,6 +32,7 @@ public partial class ListenPage
     [Inject] private IEngineApiClient ApiClient { get; set; } = default!;
     [Inject] private UIOrchestratorService Orchestrator { get; set; } = default!;
     [Inject] private ListenPlaybackService Playback { get; set; } = default!;
+    [Inject] private ListenAudioDragService AudioDrag { get; set; } = default!;
     [Inject] private FavoriteService Favorites { get; set; } = default!;
     [Inject] private MediaReactionService Reactions { get; set; } = default!;
     [Inject] private MediaEditorLauncherService MediaEditorLauncher { get; set; } = default!;
@@ -174,7 +175,7 @@ public partial class ListenPage
         ? []
         : ResolveGroupWorks(_albumDetail.Works)
             .OrderBy(work => ParseTrackNumber(work.TrackNumber))
-            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
             .ToList();
     private IReadOnlyList<CollectionGroupSeasonViewModel> ArtistAlbums => _artistDetail?.Seasons ?? [];
     private IReadOnlyList<WorkViewModel> ArtistTracks => ResolveArtistTracks();
@@ -413,6 +414,7 @@ public partial class ListenPage
         _selectedTrackIds.Clear();
         CloseTrackContextMenu();
         _draggingTrackIds.Clear();
+        AudioDrag.Clear();
         StateHasChanged();
 
         try
@@ -443,7 +445,7 @@ public partial class ListenPage
             _allWorks.AddRange(worksTask.Result);
 
             _musicWorks.Clear();
-            _musicWorks.AddRange(_allWorks.Where(IsMusicWork).OrderBy(work => work.Artist ?? work.Author).ThenBy(work => work.Album).ThenBy(work => ParseTrackNumber(work.TrackNumber)).ThenBy(work => work.Title));
+            _musicWorks.AddRange(_allWorks.Where(IsMusicWork).OrderBy(work => work.Artist ?? work.Author).ThenBy(work => work.Album).ThenBy(work => ParseTrackNumber(work.TrackNumber)).ThenBy(DisplayTrackTitle));
 
             _audiobookWorks.Clear();
             _audiobookWorks.AddRange(_allWorks.Where(IsAudiobookWork).OrderBy(work => work.Author).ThenBy(work => work.Series).ThenBy(work => work.Title));
@@ -1098,6 +1100,8 @@ public partial class ListenPage
         _playlistActionsMenuOpen = false;
         _playlistActionsCollectionId = null;
         CloseTrackContextMenu();
+        _draggingTrackIds.Clear();
+        AudioDrag.Clear();
         Nav.NavigateTo(route);
     }
 
@@ -1161,6 +1165,7 @@ public partial class ListenPage
                 Duration = work.Duration,
                 DurationSeconds = work.DurationSeconds,
                 Artist = artist,
+                AssetId = work.AssetId?.ToString("D"),
                 Metadata = string.IsNullOrWhiteSpace(work.Duration) ? [] : [new MetadataPill { Label = work.Duration!, Kind = "duration" }],
                 Actions = work.WorkId == Guid.Empty ? [] : [new DetailAction { Key = "play-track", Label = "Play", Icon = "play_arrow" }],
                 IsOwned = work.IsOwned,
@@ -1453,7 +1458,7 @@ public partial class ListenPage
             LaunchEntityKind = "Work",
             Mode = SharedMediaEditorMode.Normal,
             MediaType = work.MediaType,
-            HeaderTitle = work.Title,
+            HeaderTitle = DisplayTrackTitle(work),
             HeaderSubtitle = FirstNonBlank(work.Artist, work.Author, work.Album, work.Series),
             CoverUrl = work.CoverUrl,
             PreviewItems =
@@ -1461,7 +1466,7 @@ public partial class ListenPage
                 new MediaEditorPreviewItem
                 {
                     EntityId = work.Id,
-                    Title = work.Title,
+                    Title = DisplayTrackTitle(work),
                     CoverUrl = work.CoverUrl,
                     MediaType = work.MediaType,
                 }
@@ -1521,7 +1526,7 @@ public partial class ListenPage
         if (!string.IsNullOrWhiteSpace(_songSearch))
         {
             filtered = filtered.Where(work =>
-                work.Title.Contains(_songSearch, StringComparison.OrdinalIgnoreCase)
+                DisplayTrackTitle(work).Contains(_songSearch, StringComparison.OrdinalIgnoreCase)
                 || (work.Artist?.Contains(_songSearch, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (work.Album?.Contains(_songSearch, StringComparison.OrdinalIgnoreCase) ?? false));
         }
@@ -1644,7 +1649,7 @@ public partial class ListenPage
         return new LibraryItemViewModel
         {
             EntityId = work.Id,
-            Title = work.Title,
+            Title = DisplayTrackTitle(work),
             OriginalTitle = work.OriginalTitle,
             Artist = string.Equals(artist, "-", StringComparison.Ordinal) ? null : artist,
             Album = work.Album,
@@ -1658,7 +1663,7 @@ public partial class ListenPage
             DiscNumber = GetCanonicalValue(work, "disc_number"),
             Rating = GetCanonicalValue(work, "rating", "album_rating"),
             Year = work.Year,
-            SortTitle = GetCanonicalValue(work, "sort_title") ?? work.Title,
+            SortTitle = GetCanonicalValue(work, "sort_title") ?? DisplayTrackTitle(work),
             SortArtist = GetCanonicalValue(work, "sort_artist") ?? artist,
             SortAlbum = GetCanonicalValue(work, "sort_album") ?? work.Album,
             Kind = GetCanonicalValue(work, "kind") ?? "Audio File",
@@ -1744,12 +1749,19 @@ public partial class ListenPage
             ? _selectedTrackIds.ToHashSet()
             : [entityId];
 
+        var draggingItems = CurrentTrackSurfaceTracks
+            .Where(work => _draggingTrackIds.Contains(work.Id))
+            .Select(ListenPlaybackService.CreateQueueItem)
+            .ToList();
+        AudioDrag.BeginDrag(_draggingTrackIds, draggingItems);
+
         return Task.CompletedTask;
     }
 
     private Task OnTrackDragEnded()
     {
         _draggingTrackIds.Clear();
+        AudioDrag.Clear();
         return Task.CompletedTask;
     }
 
@@ -1900,16 +1912,42 @@ public partial class ListenPage
 
     private async Task HandlePlaylistDropAsync(Guid? collectionId = null)
     {
-        if (_draggingTrackIds.Count == 0)
+        var draggingWorkIds = _draggingTrackIds.Count > 0
+            ? _draggingTrackIds.ToHashSet()
+            : AudioDrag.WorkIds.ToHashSet();
+
+        if (draggingWorkIds.Count == 0)
             return;
 
-        _selectedTrackIds = _draggingTrackIds.ToHashSet();
+        var draggedWorks = draggingWorkIds
+            .Select(id => _workLookup.GetValueOrDefault(id))
+            .Where(work => work is not null)
+            .Cast<WorkViewModel>()
+            .ToList();
+
+        if (draggedWorks.Count == 0)
+        {
+            _draggingTrackIds.Clear();
+            AudioDrag.Clear();
+            return;
+        }
+
+        _selectedTrackIds = draggingWorkIds;
         if (collectionId.HasValue)
-            await AddSelectedTracksToPlaylistAsync(collectionId.Value);
+        {
+            var collection = PlaylistCollections.FirstOrDefault(item => item.Id == collectionId.Value);
+            if (collection is not null)
+            {
+                await AddTracksToPlaylistAsync(draggedWorks, collection);
+            }
+        }
         else
-            await AddSelectedTracksToPlaylistAsync();
+        {
+            await CreatePlaylistAndAddTracksAsync(draggedWorks);
+        }
 
         _draggingTrackIds.Clear();
+        AudioDrag.Clear();
     }
 
     private void OpenArtist(string artistName)
@@ -1963,7 +2001,7 @@ public partial class ListenPage
                     .OrderBy(work => work.Artist ?? work.Author, StringComparer.OrdinalIgnoreCase)
                     .ThenBy(work => work.Album, StringComparer.OrdinalIgnoreCase)
                     .ThenBy(work => ParseTrackNumber(work.TrackNumber))
-                    .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
                     .ToList(),
                 "recently-added" => RecentlyAddedTracks.ToList(),
                 _ => [],
@@ -2044,29 +2082,29 @@ public partial class ListenPage
         var ordered = NormalizeSongSortColumn(_songSortColumn) switch
         {
             "title" => _songSortDescending
-                ? works.OrderByDescending(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                : works.OrderBy(work => work.Title, StringComparer.OrdinalIgnoreCase),
+                ? works.OrderByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : works.OrderBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "artist" => _songSortDescending
-                ? works.OrderByDescending(work => work.Artist ?? work.Author, StringComparer.OrdinalIgnoreCase).ThenByDescending(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                : works.OrderBy(work => work.Artist ?? work.Author, StringComparer.OrdinalIgnoreCase).ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase),
+                ? works.OrderByDescending(work => work.Artist ?? work.Author, StringComparer.OrdinalIgnoreCase).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : works.OrderBy(work => work.Artist ?? work.Author, StringComparer.OrdinalIgnoreCase).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "album" => _songSortDescending
                 ? works.OrderByDescending(work => work.Album, StringComparer.OrdinalIgnoreCase).ThenByDescending(work => ParseTrackNumber(work.TrackNumber))
                 : works.OrderBy(work => work.Album, StringComparer.OrdinalIgnoreCase).ThenBy(work => ParseTrackNumber(work.TrackNumber)),
             "genre" => _songSortDescending
-                ? works.OrderByDescending(work => work.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenByDescending(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                : works.OrderBy(work => work.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase),
+                ? works.OrderByDescending(work => work.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : works.OrderBy(work => work.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "favorite" => _songSortDescending
-                ? works.OrderByDescending(work => _favoriteWorkIds.Contains(work.Id)).ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                : works.OrderBy(work => _favoriteWorkIds.Contains(work.Id)).ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase),
+                ? works.OrderByDescending(work => _favoriteWorkIds.Contains(work.Id)).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : works.OrderBy(work => _favoriteWorkIds.Contains(work.Id)).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "plays" => _songSortDescending
-                ? works.OrderByDescending(GetPlayCount).ThenByDescending(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                : works.OrderBy(GetPlayCount).ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase),
+                ? works.OrderByDescending(GetPlayCount).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : works.OrderBy(GetPlayCount).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "time" => _songSortDescending
-                ? works.OrderByDescending(GetDurationSortKey).ThenByDescending(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                : works.OrderBy(GetDurationSortKey).ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase),
+                ? works.OrderByDescending(GetDurationSortKey).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : works.OrderBy(GetDurationSortKey).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             _ => _songSortDescending
-                ? works.OrderByDescending(work => work.CreatedAt).ThenByDescending(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                : works.OrderBy(work => work.CreatedAt).ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase),
+                ? works.OrderByDescending(work => work.CreatedAt).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : works.OrderBy(work => work.CreatedAt).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
         };
 
         return ordered.ToList();
@@ -2110,6 +2148,17 @@ public partial class ListenPage
     private static string GetTrackDuration(WorkViewModel work)
         => LibraryHelpers.FormatDuration(GetTrackDurationSeconds(work), fallback: "0:00");
 
+    private static string DisplayTrackTitle(WorkViewModel work)
+        => FirstNonBlankOrNull(
+               IsUntitled(work.Title) ? null : work.Title,
+               GetCanonicalValue(work, "track_title"),
+               GetCanonicalValue(work, "track_name"),
+               GetCanonicalValue(work, "song_title"),
+               GetCanonicalValue(work, "name"),
+               GetCanonicalValue(work, "file_title"),
+               GetCanonicalValue(work, "file_name"))
+           ?? work.Title;
+
     private static long GetTrackDurationSeconds(WorkViewModel work)
         => LibraryHelpers.NormalizeDurationSeconds(
             GetCanonicalValue(work, "duration_sec"),
@@ -2147,6 +2196,10 @@ public partial class ListenPage
 
     private static string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
+
+    private static bool IsUntitled(string? value)
+        => string.IsNullOrWhiteSpace(value)
+           || value.Trim().StartsWith("Untitled", StringComparison.OrdinalIgnoreCase);
 
     private static string? FirstNonBlankOrNull(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));

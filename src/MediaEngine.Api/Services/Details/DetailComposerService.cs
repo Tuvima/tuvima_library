@@ -1457,6 +1457,10 @@ public sealed class DetailComposerService
                        MAX(CASE WHEN acv.key = 'narrator' THEN acv.value END)
                    ) AS Narrator,
                    COALESCE(
+                       MAX(CASE WHEN wcv.key IN ('duration_seconds', 'duration_sec') THEN wcv.value END),
+                       MAX(CASE WHEN acv.key IN ('duration_seconds', 'duration_sec') THEN acv.value END)
+                   ) AS DurationSecondsValue,
+                   COALESCE(
                        MAX(CASE WHEN wcv.key = 'duration' THEN wcv.value END),
                        MAX(CASE WHEN acv.key = 'duration' THEN acv.value END),
                        MAX(CASE WHEN wcv.key = 'runtime' THEN wcv.value END),
@@ -1521,7 +1525,9 @@ public sealed class DetailComposerService
     {
         var durationSeconds = chapter.EndSeconds.HasValue && chapter.EndSeconds.Value > chapter.StartSeconds
             ? chapter.EndSeconds.Value - chapter.StartSeconds
-            : (double?)null;
+            : chapter.Index == 0 && chapter.StartSeconds <= 0
+                ? TryParseAudioDurationSeconds(row.DurationSecondsValue) ?? TryParseDurationSeconds(row.Duration)
+                : (double?)null;
 
         return new MediaGroupingItemViewModel
         {
@@ -1546,7 +1552,17 @@ public sealed class DetailComposerService
 
     private static MediaGroupingItemViewModel ToFullAudiobookItem(AudiobookAssetRow row, MediaEngine.Contracts.Playback.PlaybackManifestDto? manifest, double? resumeSeconds)
     {
-        var durationSeconds = TryParseDurationSeconds(row.Duration);
+        double? durationSeconds = TryParseAudioDurationSeconds(row.DurationSecondsValue)
+            ?? TryParseDurationSeconds(row.Duration);
+        durationSeconds ??= manifest?.Chapters
+            .Where(chapter => chapter.EndSeconds.HasValue)
+            .Select(chapter => chapter.EndSeconds!.Value)
+            .DefaultIfEmpty()
+            .Max();
+        if (durationSeconds <= 0)
+        {
+            durationSeconds = null;
+        }
 
         return new MediaGroupingItemViewModel
         {
@@ -3272,7 +3288,7 @@ public sealed class DetailComposerService
             DetailEntityType.Movie => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", Route = $"/watch/player/resolve?workId={id}", IsPrimary = true }],
             DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", IsPrimary = true }],
             DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
-            DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
+            DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Resume", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = "Listen", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true }],
             DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
@@ -3708,6 +3724,22 @@ public sealed class DetailComposerService
         }
 
         return (int)Math.Round(minutes * 60d, MidpointRounding.AwayFromZero);
+    }
+
+    private static int? TryParseAudioDurationSeconds(string? durationSeconds)
+    {
+        if (string.IsNullOrWhiteSpace(durationSeconds))
+        {
+            return null;
+        }
+
+        if (!double.TryParse(durationSeconds.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds)
+            || seconds <= 0)
+        {
+            return null;
+        }
+
+        return (int)Math.Round(seconds >= 60000 ? seconds / 1000d : seconds, MidpointRounding.AwayFromZero);
     }
 
     private static string? FormatTrackDuration(string? duration)
@@ -6081,6 +6113,7 @@ public sealed class DetailComposerService
         public string Title { get; init; } = string.Empty;
         public string? Author { get; init; }
         public string? Narrator { get; init; }
+        public string? DurationSecondsValue { get; init; }
         public string? Duration { get; init; }
     }
 

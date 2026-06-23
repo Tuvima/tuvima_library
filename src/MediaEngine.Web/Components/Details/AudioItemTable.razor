@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @inject FavoriteService Favorites
+@inject ListenAudioDragService AudioDrag
 @inject ListenPlaybackService Playback
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
@@ -84,27 +85,24 @@
                                     {
                                         case "track":
                                             <td class="tl-detail-track-row__number">
-                                                <span class="tl-audio-item-table__drag" title="Drag to queue or playlist" aria-hidden="true">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
-                                                </span>
-                                                @if (item.IsOwned)
-                                                {
-                                                    <AppNativeButton Type="button" Class="tl-detail-track-row__play" AriaLabel="@($"Play {item.Title}")" StopPropagation="true" OnClick="@(() => PlayItemAsync(item))">
+                                                <span class="tl-audio-item-table__index">
+                                                    <span class="tl-audio-item-table__drag" title="Drag to queue or playlist" aria-hidden="true">
+                                                        <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
+                                                    </span>
+                                                    <span class="tl-audio-item-table__play-slot">
                                                         @if (isPlaying)
                                                         {
                                                             <span class="tl-detail-track-row__playing" aria-label="Currently playing"></span>
                                                         }
-                                                        else
+                                                        else if (item.IsOwned)
                                                         {
-                                                            <span class="tl-detail-track-row__ordinal">@DisplayOrdinal(item, index)</span>
-                                                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                                            <AppNativeButton Type="button" Class="tl-detail-track-row__play" AriaLabel="@($"Play {item.Title}")" StopPropagation="true" OnClick="@(() => PlayItemAsync(item))">
+                                                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                                            </AppNativeButton>
                                                         }
-                                                    </AppNativeButton>
-                                                }
-                                                else
-                                                {
+                                                    </span>
                                                     <span class="tl-detail-track-row__ordinal">@DisplayOrdinal(item, index)</span>
-                                                }
+                                                </span>
                                             </td>
                                             break;
                                         case "title":
@@ -272,6 +270,12 @@
         }
 
         var index = Math.Max(0, playable.FindIndex(row => SamePlayableItem(row, item)));
+        if (IsAudiobook)
+        {
+            await Playback.PlayAudiobookAsync(ToQueueItem(item), SourceTitle);
+            return;
+        }
+
         await Playback.ReplaceQueueItemsAsync(playable.Select(ToQueueItem), index, SourceTitle, shuffle: false);
     }
 
@@ -279,6 +283,12 @@
     {
         if (!item.IsOwned)
         {
+            return;
+        }
+
+        if (IsAudiobook)
+        {
+            await Playback.PlayAudiobookAsync(ToQueueItem(item), SourceTitle);
             return;
         }
 
@@ -316,18 +326,32 @@
             WorkId = ItemId(item),
             AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
             MediaType = IsAudiobook ? "Audiobooks" : "Music",
-            Title = item.Title,
-            Subtitle = IsAudiobook ? item.Subtitle : item.Artist,
+            Title = IsAudiobook ? SourceTitle : item.Title,
+            Subtitle = IsAudiobook ? item.Title : item.Artist,
             Album = SourceTitle,
             CoverUrl = item.ArtworkUrl ?? ArtworkUrl,
             Duration = DisplayDuration(item),
-            InitialPositionSeconds = item.StartSeconds,
+            InitialPositionSeconds = ResumePositionFor(item),
         };
+
+    private static double? ResumePositionFor(MediaGroupingItemViewModel item)
+    {
+        if (item.ProgressPercent is > 0 and < 100)
+        {
+            var start = Math.Max(0, item.StartSeconds ?? 0);
+            if (item.EndSeconds is > 0 && item.EndSeconds.Value > start)
+            {
+                return start + (item.EndSeconds.Value - start) * Math.Clamp(item.ProgressPercent.Value, 0, 100) / 100d;
+            }
+        }
+
+        return item.StartSeconds;
+    }
 
     private bool IsCurrentItem(MediaGroupingItemViewModel item)
     {
         var itemId = ItemId(item);
-        if (itemId == Guid.Empty || Playback.CurrentItem?.WorkId != itemId)
+        if (!Playback.IsPlaying || itemId == Guid.Empty || Playback.CurrentItem?.WorkId != itemId)
         {
             return false;
         }
@@ -425,12 +449,19 @@
 
     private void StartDrag(MediaGroupingItemViewModel item)
     {
+        if (!item.IsOwned)
+        {
+            return;
+        }
+
         _draggingItemId = item.Id;
+        AudioDrag.BeginDrag([ToQueueItem(item)]);
     }
 
     private void EndDrag()
     {
         _draggingItemId = null;
+        AudioDrag.Clear();
     }
 
     private string SortIcon(string column)

@@ -47,7 +47,7 @@ else
         </AppCard>
 
         <AppAlert Tone="AppUiTone.Info">
-            Partial. Plugin list, enable/disable, settings JSON, manifest editing for dynamic plugins, health checks, jobs, delete actions, and the approved GitHub catalog use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
+            Partial. Plugin list, enable/disable, plugin-provided settings, health checks, jobs, delete actions, and the approved GitHub catalog use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
         </AppAlert>
 
         @if (!string.IsNullOrWhiteSpace(_error))
@@ -117,7 +117,6 @@ else
                 else
                 {
                     var plugin = SelectedPlugin;
-                    EnsureJsonBuffers(plugin);
 
                     <div class="settings-plugin-detail-stack">
                         <div class="settings-plugin-detail-header">
@@ -166,63 +165,35 @@ else
                         <AppTabs Class="settings-tab-strip settings-plugin-tabs">
                             <AppTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
                                 <div class="settings-plugin-tab-body">
-                                    @if (plugin.Settings.Count == 0)
+                                    @{
+                                        var settingEntries = GetSettingEntries(plugin).ToList();
+                                        var primarySettings = settingEntries.Where(setting => !setting.Advanced).ToList();
+                                        var advancedSettings = settingEntries.Where(setting => setting.Advanced).ToList();
+                                    }
+                                    @if (settingEntries.Count == 0)
                                     {
                                         <AppAlert Tone="AppUiTone.Info">This plugin does not expose user settings.</AppAlert>
                                     }
                                     else
                                     {
-                                        @foreach (var setting in plugin.Settings.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase))
+                                        @foreach (var setting in primarySettings)
                                         {
-                                            @SettingEditor(plugin, setting.Key, setting.Value)
+                                            @SettingEditor(plugin, setting)
+                                        }
+
+                                        @if (advancedSettings.Count > 0)
+                                        {
+                                            <MudExpansionPanels Elevation="0" Dense="true" Class="mb-2">
+                                                <MudExpansionPanel Text="Advanced settings">
+                                                    @foreach (var setting in advancedSettings)
+                                                    {
+                                                        @SettingEditor(plugin, setting)
+                                                    }
+                                                </MudExpansionPanel>
+                                            </MudExpansionPanels>
                                         }
                                     }
                                 </div>
-                            </AppTabPanel>
-                            <AppTabPanel Text="JSON" Icon="@Icons.Material.Outlined.DataObject">
-                                <div class="settings-plugin-tab-body">
-                                    <div class="settings-plugin-tab-title">Settings JSON</div>
-                                    <AppTextarea Value="@_settingsJson[plugin.Id]"
-                                                 ValueChanged="@(v => _settingsJson[plugin.Id] = v ?? "{}")"
-                                                 Lines="16"
-                                                 Class="settings-plugin-json-editor" />
-                                    <AppActionBar Align="AppHorizontalAlignment.Start">
-                                        <AppButton Label="Save settings JSON"
-                                                   StartIcon="@Icons.Material.Outlined.Save"
-                                                   ButtonStyle="AppButtonStyle.Filled"
-                                                   Tone="AppUiTone.Primary"
-                                                   OnClick="@(() => SaveSettingsJsonAsync(plugin))" />
-                                        <AppButton Label="Reset"
-                                                   StartIcon="@Icons.Material.Outlined.Restore"
-                                                   OnClick="@(() => ResetSettingsJson(plugin))" />
-                                    </AppActionBar>
-                                </div>
-                            </AppTabPanel>
-                            <AppTabPanel Text="Manifest" Icon="@Icons.Material.Outlined.Description">
-                                @if (plugin.IsBuiltIn)
-                                {
-                                    <AppAlert Tone="AppUiTone.Info">Built-in plugin manifests are compiled into Tuvima Library and cannot be edited here.</AppAlert>
-                                }
-                                else
-                                {
-                                    <div class="settings-plugin-tab-body">
-                                        <div class="settings-plugin-tab-title">Plugin manifest JSON</div>
-                                        <AppTextarea Value="@GetManifestJson(plugin)"
-                                                     ValueChanged="@(v => _manifestJson[plugin.Id] = v ?? "{}")"
-                                                     Lines="18"
-                                                     Class="settings-plugin-json-editor" />
-                                        <AppActionBar Align="AppHorizontalAlignment.Start">
-                                            <AppButton Label="Save manifest JSON"
-                                                       StartIcon="@Icons.Material.Outlined.Save"
-                                                       ButtonStyle="AppButtonStyle.Filled"
-                                                       Tone="AppUiTone.Primary"
-                                                       OnClick="@(() => SaveManifestJsonAsync(plugin))" />
-                                            <AppButton Label="Reload manifest"
-                                                       StartIcon="@Icons.Material.Outlined.Refresh"
-                                                       OnClick="@(() => LoadManifestJsonAsync(plugin, force: true))" />
-                                        </AppActionBar>
-                                    </div>
-                                }
                             </AppTabPanel>
                             <AppTabPanel Text="Jobs & health" Icon="@Icons.Material.Outlined.HealthAndSafety">
                                 <div class="settings-plugin-tab-body">
@@ -376,8 +347,8 @@ else
                                     <AppTable Class="settings-plugin-job-table">
                                         <tbody>
                                             <tr><td>Use a plugin</td><td>Download an approved release, verify the published SHA-256 when one is provided, extract it under the library root at .data/plugins/plugin-folder, reload the Engine, then enable it here.</td></tr>
-                                            <tr><td>Configure a plugin</td><td>Select the plugin, edit typed settings or Settings JSON, then run Jobs & health before relying on scheduled work.</td></tr>
-                                            <tr><td>Build a plugin</td><td>Create a .NET class library that references MediaEngine.Plugins, implement ITuvimaPlugin, ship plugin.json beside the compiled assembly, and list only the permissions, tools, and AI roles the plugin actually needs.</td></tr>
+                                            <tr><td>Configure a plugin</td><td>Select the plugin, update the fields it exposes, then run Jobs & health before relying on scheduled work.</td></tr>
+                                            <tr><td>Build a plugin</td><td>Create a .NET class library that references MediaEngine.Plugins, implement ITuvimaPlugin, ship plugin.json beside the compiled assembly, and include settings schema metadata for every admin-facing option.</td></tr>
                                             <tr><td>Submit for approval</td><td>Publish a GitHub release with a versioned archive, checksum, source repository, manifest, and installation notes so maintainers can add it to the approved catalog.</td></tr>
                                         </tbody>
                                     </AppTable>
@@ -425,12 +396,9 @@ else
 }
 
 @code {
-    private static readonly JsonSerializerOptions PrettyJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<string, PluginHealthViewModel> _health = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IReadOnlyList<PluginJobViewModel>> _jobs = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, string> _settingsJson = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, string> _manifestJson = new(StringComparer.OrdinalIgnoreCase);
     private List<PluginViewModel> _plugins = [];
     private ApprovedPluginCatalogViewModel? _approvedCatalog;
     private bool _approvedCatalogLoading;
@@ -460,9 +428,6 @@ else
             if (_plugins.Count > 0 && SelectedPlugin is null)
                 _selectedPluginId = _plugins[0].Id;
 
-            foreach (var plugin in _plugins)
-                EnsureJsonBuffers(plugin);
-
             _approvedCatalog ??= await Orchestrator.GetApprovedPluginCatalogAsync();
         }
         catch
@@ -477,8 +442,6 @@ else
 
     private async Task ReloadAsync()
     {
-        _settingsJson.Clear();
-        _manifestJson.Clear();
         await LoadAsync();
     }
 
@@ -486,9 +449,6 @@ else
     {
         _selectedPluginId = pluginId;
         _deletePluginId = null;
-
-        if (SelectedPlugin is { IsBuiltIn: false } plugin)
-            _ = LoadManifestJsonAsync(plugin);
     }
 
     private async Task SetEnabledAsync(PluginViewModel plugin, bool enabled)
@@ -511,8 +471,6 @@ else
             Snackbar.Add("Plugin setting could not be saved.", Severity.Error);
             return;
         }
-
-        ResetSettingsJson(plugin);
     }
 
     private async Task SaveRawSettingAsync(PluginViewModel plugin, string key, string rawJson)
@@ -524,7 +482,7 @@ else
         }
         catch (JsonException ex)
         {
-            Snackbar.Add($"Setting JSON is invalid: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Setting value is invalid: {ex.Message}", Severity.Error);
         }
     }
 
@@ -537,70 +495,6 @@ else
         }
 
         await SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(parsed, _json));
-    }
-
-    private async Task SaveSettingsJsonAsync(PluginViewModel plugin)
-    {
-        try
-        {
-            var settings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(_settingsJson[plugin.Id], _json)
-                ?? new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
-
-            if (!await Orchestrator.SavePluginSettingsAsync(plugin.Id, settings))
-            {
-                Snackbar.Add("Settings JSON could not be saved.", Severity.Error);
-                return;
-            }
-
-            plugin.Settings = new Dictionary<string, JsonElement>(settings, StringComparer.OrdinalIgnoreCase);
-            ResetSettingsJson(plugin);
-            Snackbar.Add("Settings JSON saved.", Severity.Success);
-        }
-        catch (JsonException ex)
-        {
-            Snackbar.Add($"Settings JSON is invalid: {ex.Message}", Severity.Error);
-        }
-    }
-
-    private async Task LoadManifestJsonAsync(PluginViewModel plugin, bool force = false)
-    {
-        if (plugin.IsBuiltIn || (!force && _manifestJson.ContainsKey(plugin.Id)))
-            return;
-
-        var json = await Orchestrator.GetPluginManifestJsonAsync(plugin.Id);
-        if (json is null)
-        {
-            Snackbar.Add("Plugin manifest JSON could not be loaded.", Severity.Error);
-            return;
-        }
-
-        _manifestJson[plugin.Id] = json;
-        StateHasChanged();
-    }
-
-    private async Task SaveManifestJsonAsync(PluginViewModel plugin)
-    {
-        if (!_manifestJson.TryGetValue(plugin.Id, out var json))
-            return;
-
-        try
-        {
-            JsonDocument.Parse(json);
-        }
-        catch (JsonException ex)
-        {
-            Snackbar.Add($"Manifest JSON is invalid: {ex.Message}", Severity.Error);
-            return;
-        }
-
-        if (!await Orchestrator.SavePluginManifestJsonAsync(plugin.Id, json))
-        {
-            Snackbar.Add("Manifest JSON could not be saved.", Severity.Error);
-            return;
-        }
-
-        Snackbar.Add("Manifest JSON saved.", Severity.Success);
-        await ReloadAsync();
     }
 
     private async Task DeletePluginAsync(PluginViewModel plugin)
@@ -644,32 +538,6 @@ else
         }
     }
 
-    private void EnsureJsonBuffers(PluginViewModel plugin)
-    {
-        _settingsJson.TryAdd(plugin.Id, JsonSerializer.Serialize(plugin.Settings, PrettyJson));
-        if (!plugin.IsBuiltIn)
-            _manifestJson.TryAdd(plugin.Id, "{}");
-    }
-
-    private void ResetSettingsJson(PluginViewModel plugin)
-    {
-        _settingsJson[plugin.Id] = JsonSerializer.Serialize(plugin.Settings, PrettyJson);
-    }
-
-    private string GetManifestJson(PluginViewModel plugin)
-    {
-        if (!_manifestJson.TryGetValue(plugin.Id, out var json))
-        {
-            json = "{}";
-            _manifestJson[plugin.Id] = json;
-        }
-
-        if (json == "{}")
-            _ = LoadManifestJsonAsync(plugin);
-
-        return json;
-    }
-
     private bool MatchesFilter(PluginViewModel plugin)
     {
         if (!string.IsNullOrWhiteSpace(_search))
@@ -694,34 +562,227 @@ else
                                                                                    Size="AppControlSize.Compact"
                                                                                    OnClick="@(() => _filter = value)" />;
 
-    private RenderFragment SettingEditor(PluginViewModel plugin, string key, JsonElement value) => value.ValueKind switch
+    private RenderFragment SettingEditor(PluginViewModel plugin, PluginSettingDefinition setting)
     {
-        JsonValueKind.True or JsonValueKind.False => @<AppSwitchRow Label="@ToTitle(key)"
-                                                                    Description="@key"
-                                                                    Icon="@Icons.Material.Outlined.ToggleOn"
-                                                                    Value="@value.GetBoolean()"
-                                                                    ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v, _json)))" />,
-        JsonValueKind.Number => @<AppTextField Label="@ToTitle(key)"
-                                               Value="@ReadNumberText(value)"
-                                               ValueChanged="@(v => SaveNumberSettingAsync(plugin, key, v))"
-                                               HelpText="@key"
-                                               InputType="InputType.Number" />,
-        JsonValueKind.String => @<AppTextField Label="@ToTitle(key)"
-                                               Value="@ReadString(value)"
-                                               ValueChanged="@(v => SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(v ?? string.Empty, _json)))"
-                                               Placeholder="@key" />,
-        _ => @<AppTextarea Label="@ToTitle(key)"
-                           Value="@value.GetRawText()"
-                           ValueChanged="@(v => SaveRawSettingAsync(plugin, key, v ?? "null"))"
-                           Lines="4" />,
-    };
+        var options = GetSelectOptions(setting);
+        if (options.Count > 0)
+        {
+            return @<AppSelect Label="@setting.Label"
+                               Value="@ReadSettingText(setting.Value)"
+                               ValueChanged="@(v => SaveStringSettingAsync(plugin, setting, v))"
+                               Options="@options"
+                               HelpText="@setting.HelpText" />;
+        }
+
+        if (IsBooleanSetting(setting))
+        {
+            return @<AppSwitchRow Label="@setting.Label"
+                                 Description="@setting.HelpText"
+                                 Icon="@Icons.Material.Outlined.ToggleOn"
+                                 Value="@ReadBoolean(setting.Value)"
+                                 ValueChanged="@(v => SaveSettingAsync(plugin, setting.Key, JsonSerializer.SerializeToElement(v, _json)))" />;
+        }
+
+        if (IsNumberSetting(setting))
+        {
+            return @<AppTextField Label="@setting.Label"
+                                  Value="@ReadNumberText(setting.Value)"
+                                  ValueChanged="@(v => SaveNumberSettingAsync(plugin, setting, v))"
+                                  HelpText="@setting.HelpText"
+                                  InputType="InputType.Number" />;
+        }
+
+        if (IsStringSetting(setting))
+        {
+            return @<AppTextField Label="@setting.Label"
+                                  Value="@ReadString(setting.Value)"
+                                  ValueChanged="@(v => SaveStringSettingAsync(plugin, setting, v))"
+                                  HelpText="@setting.HelpText"
+                                  Placeholder="@setting.Key"
+                                  InputType="@TextInputType(setting)" />;
+        }
+
+        return @<AppTextarea Label="@setting.Label"
+                             Value="@setting.Value.GetRawText()"
+                             ValueChanged="@(v => SaveRawSettingAsync(plugin, setting.Key, v ?? "null"))"
+                             HelpText="@setting.HelpText"
+                             Lines="4" />;
+    }
+
+    private IEnumerable<PluginSettingDefinition> GetSettingEntries(PluginViewModel plugin)
+    {
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var order = 0;
+        if (TryGetSchemaProperties(plugin.SettingsSchema, out var properties))
+        {
+            foreach (var property in properties.EnumerateObject())
+            {
+                var value = plugin.Settings.TryGetValue(property.Name, out var current)
+                    ? current
+                    : ReadDefaultValue(property.Value);
+                emitted.Add(property.Name);
+                yield return new PluginSettingDefinition(property.Name, value, property.Value, order++);
+            }
+        }
+
+        foreach (var setting in plugin.Settings
+                     .Where(kvp => !emitted.Contains(kvp.Key))
+                     .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            yield return new PluginSettingDefinition(setting.Key, setting.Value, null, order++);
+        }
+    }
+
+    private async Task SaveStringSettingAsync(PluginViewModel plugin, PluginSettingDefinition setting, string? raw)
+    {
+        var value = CoerceStringValue(setting, raw ?? string.Empty);
+        await SaveSettingAsync(plugin, setting.Key, value);
+    }
+
+    private async Task SaveNumberSettingAsync(PluginViewModel plugin, PluginSettingDefinition setting, string? raw)
+    {
+        if (IsIntegerSetting(setting))
+        {
+            if (!long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedInteger))
+            {
+                Snackbar.Add("Setting number is invalid.", Severity.Error);
+                return;
+            }
+
+            await SaveSettingAsync(plugin, setting.Key, JsonSerializer.SerializeToElement(parsedInteger, _json));
+            return;
+        }
+
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+        {
+            Snackbar.Add("Setting number is invalid.", Severity.Error);
+            return;
+        }
+
+        await SaveSettingAsync(plugin, setting.Key, JsonSerializer.SerializeToElement(parsed, _json));
+    }
+
+    private static bool TryGetSchemaProperties(JsonElement? schema, out JsonElement properties)
+    {
+        if (schema is { ValueKind: JsonValueKind.Object } root
+            && root.TryGetProperty("properties", out properties)
+            && properties.ValueKind == JsonValueKind.Object)
+        {
+            return true;
+        }
+
+        properties = default;
+        return false;
+    }
+
+    private static JsonElement ReadDefaultValue(JsonElement definition)
+    {
+        if (definition.ValueKind == JsonValueKind.Object
+            && definition.TryGetProperty("default", out var defaultValue)
+            && defaultValue.ValueKind is not JsonValueKind.Undefined)
+        {
+            return defaultValue.Clone();
+        }
+
+        var type = ReadSchemaString(definition, "type");
+        return type?.ToLowerInvariant() switch
+        {
+            "boolean" or "bool" => JsonSerializer.SerializeToElement(false),
+            "integer" or "int" => JsonSerializer.SerializeToElement(0),
+            "number" => JsonSerializer.SerializeToElement(0d),
+            "array" => JsonSerializer.SerializeToElement(Array.Empty<string>()),
+            "object" => JsonSerializer.SerializeToElement(new Dictionary<string, string>()),
+            _ => JsonSerializer.SerializeToElement(string.Empty),
+        };
+    }
+
+    private static JsonElement CoerceStringValue(PluginSettingDefinition setting, string raw)
+    {
+        if (IsIntegerSetting(setting) && long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer))
+            return JsonSerializer.SerializeToElement(integer);
+        if (IsNumberSetting(setting) && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+            return JsonSerializer.SerializeToElement(number);
+        if (IsBooleanSetting(setting) && bool.TryParse(raw, out var boolean))
+            return JsonSerializer.SerializeToElement(boolean);
+        return JsonSerializer.SerializeToElement(raw);
+    }
+
+    private static bool IsBooleanSetting(PluginSettingDefinition setting) =>
+        IsSchemaType(setting, "boolean", "bool") || setting.Value.ValueKind is JsonValueKind.True or JsonValueKind.False;
+
+    private static bool IsIntegerSetting(PluginSettingDefinition setting) =>
+        IsSchemaType(setting, "integer", "int");
+
+    private static bool IsNumberSetting(PluginSettingDefinition setting) =>
+        IsIntegerSetting(setting) || IsSchemaType(setting, "number") || setting.Value.ValueKind == JsonValueKind.Number;
+
+    private static bool IsStringSetting(PluginSettingDefinition setting) =>
+        IsSchemaType(setting, "string") || setting.Value.ValueKind == JsonValueKind.String;
+
+    private static bool IsSchemaType(PluginSettingDefinition setting, params string[] types)
+    {
+        var type = ReadSchemaString(setting.Schema, "type");
+        return type is not null && types.Contains(type, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool ReadBoolean(JsonElement value) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+            _ => false,
+        };
+
+    private static IReadOnlyList<AppSelectOption> GetSelectOptions(PluginSettingDefinition setting)
+    {
+        if (setting.Schema is not { ValueKind: JsonValueKind.Object } schema
+            || !schema.TryGetProperty("enum", out var values)
+            || values.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return values.EnumerateArray()
+            .Select(value => new AppSelectOption(ReadSettingText(value), ToTitle(ReadSettingText(value))))
+            .ToList();
+    }
+
+    private static InputType TextInputType(PluginSettingDefinition setting) =>
+        string.Equals(ReadSchemaString(setting.Schema, "format"), "password", StringComparison.OrdinalIgnoreCase)
+        || ReadSchemaBool(setting.Schema, "secret")
+            ? InputType.Password
+            : InputType.Text;
 
     private static string ReadString(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
+
+    private static string ReadSettingText(JsonElement value) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() ?? string.Empty,
+            JsonValueKind.Number => value.GetRawText(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            _ => value.GetRawText(),
+        };
 
     private static string ReadNumberText(JsonElement value) =>
         value.TryGetDouble(out var parsed)
             ? parsed.ToString(CultureInfo.InvariantCulture)
             : "0";
+
+    private static string? ReadSchemaString(JsonElement? schema, string propertyName) =>
+        schema is { ValueKind: JsonValueKind.Object } element
+        && element.TryGetProperty(propertyName, out var property)
+        && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+
+    private static bool ReadSchemaBool(JsonElement? schema, string propertyName) =>
+        schema is { ValueKind: JsonValueKind.Object } element
+        && element.TryGetProperty(propertyName, out var property)
+        && property.ValueKind is JsonValueKind.True or JsonValueKind.False
+        && property.GetBoolean();
 
     private static AppUiTone HealthTone(string status) => string.Equals(status, "healthy", StringComparison.OrdinalIgnoreCase) ? AppUiTone.Success : AppUiTone.Warning;
 
@@ -742,5 +803,23 @@ else
         return string.IsNullOrWhiteSpace(text)
             ? key
             : string.Concat(char.ToUpperInvariant(text[0]), text[1..]);
+    }
+
+    private sealed record PluginSettingDefinition(
+        string Key,
+        JsonElement Value,
+        JsonElement? Schema,
+        int Order)
+    {
+        public string Label => ReadSchemaString(Schema, "title")
+            ?? ReadSchemaString(Schema, "label")
+            ?? ToTitle(Key);
+
+        public string? HelpText => ReadSchemaString(Schema, "description")
+            ?? ReadSchemaString(Schema, "help_text");
+
+        public bool Advanced => ReadSchemaBool(Schema, "advanced")
+            || ReadSchemaBool(Schema, "ui:advanced")
+            || ReadSchemaBool(Schema, "x-advanced");
     }
 }

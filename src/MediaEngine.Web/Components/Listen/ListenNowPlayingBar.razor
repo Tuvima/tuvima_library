@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using System.Text.RegularExpressions
 @using Microsoft.JSInterop
+@using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Services.Playback
 @using MediaEngine.Web.Services.Integration
 @inject ListenPlaybackService Playback
@@ -204,14 +205,14 @@
 
             <div class="listen-player__transport">
                 <div class="listen-player__transport-buttons">
-                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)">
-                        <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
+                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(!Playback.IsAudiobookMode && Playback.CurrentIndex <= 0)">
+                        <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.Replay10 : Icons.Material.Outlined.SkipPrevious)" Class="tl-u-font-size-20px" />
                     </AppNativeButton>
                     <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync">
-                        <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
+                        <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
                     </AppNativeButton>
-                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
-                        <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Class="tl-u-font-size-20px" />
+                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(!Playback.IsAudiobookMode && Playback.CurrentIndex >= Playback.Queue.Count - 1)">
+                        <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.Forward30 : Icons.Material.Outlined.SkipNext)" Class="tl-u-font-size-20px" />
                     </AppNativeButton>
                 </div>
 
@@ -227,8 +228,14 @@
                     <AppMaterialIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Css="font-size: 18px;"  />
                 </AppNativeButton>
                 <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@Playback.Volume" Class="listen-player__volume-slider" OnInput="SetVolumeAsync" />
+                @if (Playback.IsAudiobookMode)
+                {
+                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.CyclePlaybackRateAsync())" AriaLabel="Playback speed">
+                        <span>@FormatSpeed(Playback.PlaybackRate)</span>
+                    </AppNativeButton>
+                }
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="Playback.TogglePanel">
-                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-18px" />
+                    <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.History : Icons.Material.Outlined.QueueMusic)" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync">
                     <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Class="tl-u-font-size-18px" />
@@ -253,6 +260,7 @@
     private bool? _lastAppliedPlayingState;
     private double? _lastAppliedVolume;
     private bool? _lastAppliedMuteState;
+    private double? _lastAppliedPlaybackRate;
     private Guid? _lyricsAssetId;
     private bool _lyricsLoading;
     private List<LrcDisplayLine> _lyricsLines = [];
@@ -362,6 +370,7 @@
             _lastAppliedStreamUrl = Playback.CurrentStreamUrl;
             _lastSeekedStreamUrl = null;
             _lastAppliedPlayingState = null;
+            await JS.InvokeVoidAsync("listenPlayback.loadAudio", _audioRef);
         }
 
         if (_lastAppliedVolume != Playback.Volume)
@@ -374,6 +383,12 @@
         {
             await JS.InvokeVoidAsync("listenPlayback.setMuted", _audioRef, Playback.IsMuted);
             _lastAppliedMuteState = Playback.IsMuted;
+        }
+
+        if (!_lastAppliedPlaybackRate.HasValue || Math.Abs(_lastAppliedPlaybackRate.Value - Playback.PlaybackRate) >= 0.01d)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, Playback.PlaybackRate);
+            _lastAppliedPlaybackRate = Playback.PlaybackRate;
         }
 
         if (!string.Equals(_lastSeekedStreamUrl, Playback.CurrentStreamUrl, StringComparison.Ordinal)
@@ -390,7 +405,7 @@
                 var started = await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
                 if (!started)
                 {
-                    Playback.MarkCurrentFailed("This audio source could not start playback.");
+                    Playback.MarkNeedsUserGestureToStart();
                 }
             }
             else
@@ -410,13 +425,14 @@
             durationSeconds: state.Duration,
             isPlaying: !state.Paused,
             volume: state.Volume,
-            isMuted: state.Muted);
+            isMuted: state.Muted,
+            playbackRate: state.PlaybackRate);
         await Playback.ReportHeartbeatAsync();
     }
 
     private async Task HandleAudioStarted()
     {
-        Playback.UpdateTransportState(isPlaying: true);
+        Playback.MarkPlaybackStarted();
         await Playback.ReportHeartbeatAsync(force: true);
     }
 
@@ -439,7 +455,7 @@
 
     private async Task TogglePlayPauseAsync()
     {
-        if (Playback.IsPlaying)
+        if (Playback.IsPlaying && !Playback.NeedsUserGestureToStart)
         {
             await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _audioRef);
             Playback.UpdateTransportState(isPlaying: false);
@@ -449,11 +465,11 @@
             var started = await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
             if (started)
             {
-                Playback.UpdateTransportState(isPlaying: true);
+                Playback.MarkPlaybackStarted();
             }
             else
             {
-                Playback.MarkCurrentFailed("This audio source could not start playback.");
+                Playback.MarkNeedsUserGestureToStart();
             }
         }
     }
@@ -463,9 +479,21 @@
     private Task PlayHistoryItemAsync(ListenQueueItem item)
         => Playback.PlayQueueItemAsync(item, item.Album ?? item.Title);
 
-    private async Task PlayNextAsync() => await Playback.SkipNextAsync();
+    private async Task PlayNextAsync()
+    {
+        if (Playback.IsAudiobookMode)
+        {
+            await Playback.SkipForwardAsync();
+            return;
+        }
 
-    private Task PlayPreviousAsync() => Playback.SkipPreviousAsync();
+        await Playback.SkipNextAsync();
+    }
+
+    private Task PlayPreviousAsync() =>
+        Playback.IsAudiobookMode
+            ? Playback.SkipBackAsync()
+            : Playback.SkipPreviousAsync();
 
     private void RemoveUpcoming(int absoluteIndex) => Playback.RemoveUpcomingAt(absoluteIndex);
 
@@ -546,6 +574,12 @@
             case "play-previous":
                 await PlayPreviousAsync();
                 break;
+            case "skip-back":
+                await Playback.SkipBackAsync();
+                break;
+            case "skip-forward":
+                await Playback.SkipForwardAsync();
+                break;
             case "toggle-panel":
                 Playback.TogglePanel();
                 break;
@@ -565,6 +599,9 @@
             case "play-history" when command.Item is not null:
                 await Playback.PlayQueueItemAsync(command.Item, command.Item.Album ?? command.Item.Title);
                 break;
+            case "play-audiobook-history" when command.AudiobookHistoryItem is not null:
+                await Playback.PlayAudiobookHistoryAsync(command.AudiobookHistoryItem);
+                break;
             case "set-tab" when !string.IsNullOrWhiteSpace(command.Tab):
                 Playback.SetActiveTab(command.Tab);
                 break;
@@ -575,6 +612,11 @@
                 break;
             case "set-volume" when command.Value.HasValue:
                 Playback.UpdateTransportState(volume: command.Value.Value, isMuted: command.Value.Value <= 0);
+                await Playback.ReportHeartbeatAsync(force: true);
+                break;
+            case "set-speed" when command.Value.HasValue:
+                await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, command.Value.Value);
+                Playback.UpdateTransportState(playbackRate: command.Value.Value);
                 await Playback.ReportHeartbeatAsync(force: true);
                 break;
             case "toggle-mute":
@@ -603,6 +645,12 @@
             case "play-previous":
                 await PlayPreviousAsync();
                 break;
+            case "skip-back":
+                await Playback.SkipBackAsync();
+                break;
+            case "skip-forward":
+                await Playback.SkipForwardAsync();
+                break;
             case "seek" when command.Value.HasValue:
                 await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
                 Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
@@ -610,6 +658,11 @@
                 break;
             case "set-volume" when command.Value.HasValue:
                 Playback.UpdateTransportState(volume: command.Value.Value, isMuted: command.Value.Value <= 0);
+                await Playback.ReportHeartbeatAsync(force: true);
+                break;
+            case "set-speed" when command.Value.HasValue:
+                await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, command.Value.Value);
+                Playback.UpdateTransportState(playbackRate: command.Value.Value);
                 await Playback.ReportHeartbeatAsync(force: true);
                 break;
             case "toggle-mute":
@@ -651,6 +704,9 @@
             ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
             : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
+
+    private static string FormatSpeed(double rate) =>
+        $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";
 
     private static bool IsAudiobook(ListenQueueItem item)
         => item.MediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase)
@@ -721,6 +777,7 @@
         public double Volume { get; set; }
         public bool Muted { get; set; }
         public bool Paused { get; set; }
+        public double PlaybackRate { get; set; } = 1d;
     }
 
     private sealed class PopupCommand
@@ -730,6 +787,7 @@
         public double? Value { get; set; }
         public string? Tab { get; set; }
         public ListenQueueItem? Item { get; set; }
+        public AudiobookListenHistoryItemDto? AudiobookHistoryItem { get; set; }
     }
 
     private sealed record LrcDisplayLine(double StartSeconds, string Text);

@@ -335,6 +335,7 @@ public static class CollectionEndpoints
                 parentCvs.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
             var rootWorkQid = collection.WikidataQid ?? ParentCv(BridgeIdKeys.WikidataQid);
+            var primaryAssetIds = await LoadPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), db, ct);
 
             // Build per-work DTOs.
             var workDtos = collection.Works
@@ -348,7 +349,9 @@ public static class CollectionEndpoints
                                          ?? $"Work {w.Id.ToString("N")[..8]}";
                     string? year = GetCanonical(workDto, "release_year")
                                          ?? GetCanonical(workDto, "year");
-                    string? duration = GetCanonical(workDto, "duration")
+                    string? duration = GetCanonical(workDto, "duration_seconds")
+                                         ?? GetCanonical(workDto, "duration_sec")
+                                         ?? GetCanonical(workDto, "duration")
                                          ?? GetCanonical(workDto, "runtime");
                     var durationSeconds = isMusic ? NormalizeAudioDurationSeconds(duration) : null;
                     var displayDuration = isMusic ? FormatAudioDuration(durationSeconds, duration) : duration;
@@ -394,6 +397,7 @@ public static class CollectionEndpoints
                     return new CollectionGroupWorkDto
                     {
                         WorkId = w.Id,
+                        AssetId = primaryAssetIds.GetValueOrDefault(w.Id),
                         Title = title,
                         Ordinal = w.Ordinal,
                         Year = year,
@@ -454,11 +458,12 @@ public static class CollectionEndpoints
                     """;
                 var widParam = coverCmd.CreateParameter();
                 widParam.ParameterName = "@wid";
-                widParam.Value = rootParentWorkId.Value.ToString();
+                widParam.Value = GuidSql.ToBlob(rootParentWorkId.Value);
                 coverCmd.Parameters.Add(widParam);
                 var rootAssetObj = await coverCmd.ExecuteScalarAsync(ct);
-                if (rootAssetObj is string rootAssetStr)
+                if (GuidSql.FromDbNullable(rootAssetObj) is { } rootAssetId)
                 {
+                    var rootAssetStr = rootAssetId.ToString("D");
                     collectionCover = $"/stream/{rootAssetStr}/cover";
                     collectionBackground = $"/stream/{rootAssetStr}/background";
                     collectionBanner = $"/stream/{rootAssetStr}/banner";
@@ -540,7 +545,7 @@ public static class CollectionEndpoints
                 CollectionId = collection.Id,
                 DisplayName = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
                 RootWorkId = rootParentWorkId,
-                WikidataQid = collection.WikidataQid,
+                WikidataQid = rootWorkQid,
                 PrimaryMediaType = primaryMediaType,
                 CoverUrl = collectionCover,
                 BackgroundUrl = collectionBackground,
@@ -578,6 +583,7 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "collection_ids")] string collectionIdsParam,
             ICollectionRepository collectionRepo,
             IPersonRepository personRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(collectionIdsParam))
@@ -613,19 +619,27 @@ public static class CollectionEndpoints
                 }
 
                 // Build owned track DTOs from collection.Works.
+                var primaryAssetIds = await LoadPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), db, ct);
                 var ownedTracks = collection.Works
                     .OrderBy(w => w.Ordinal ?? int.MaxValue)
                     .ThenBy(w => w.Id)
                     .Select(w =>
                     {
                         var wDto = WorkDto.FromDomain(w);
+                        var duration = GetCanonical(wDto, "duration_seconds")
+                            ?? GetCanonical(wDto, "duration_sec")
+                            ?? GetCanonical(wDto, "duration")
+                            ?? GetCanonical(wDto, "runtime");
+                        var durationSeconds = NormalizeAudioDurationSeconds(duration);
                         return new CollectionGroupWorkDto
                         {
                             WorkId = w.Id,
+                            AssetId = primaryAssetIds.GetValueOrDefault(w.Id),
                             Title = GetCanonical(wDto, "title") ?? $"Track {w.Id.ToString("N")[..8]}",
                             Ordinal = w.Ordinal,
                             Year = GetCanonical(wDto, "release_year") ?? GetCanonical(wDto, "year"),
-                            Duration = GetCanonical(wDto, "duration") ?? GetCanonical(wDto, "runtime"),
+                            Duration = FormatAudioDuration(durationSeconds, duration),
+                            DurationSeconds = durationSeconds,
                             CoverUrl = BuildCoverStreamUrl(w),
                             WikidataQid = w.WikidataQid,
                             TrackNumber = GetCanonical(wDto, "track_number"),
@@ -768,12 +782,14 @@ public static class CollectionEndpoints
                 work_data AS (
                     SELECT
                         aw.work_id,
+                        MIN(ma.id) AS asset_id,
                         MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
                         MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
                         MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
                         MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
                         MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS release_year,
                         MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
+                        MAX(CASE WHEN cv.key IN ('duration_seconds', 'duration_sec') THEN cv.value END) AS duration_seconds_value,
                         MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
                         '/stream/' || MIN(ma.id) || '/cover' AS cover,
@@ -806,14 +822,21 @@ public static class CollectionEndpoints
 
             while (reader.Read())
             {
-                var workId = reader.GetGuid(reader.GetOrdinal("work_id"));
+                var workId = GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("work_id")));
+                var assetId = reader.IsDBNull(reader.GetOrdinal("asset_id"))
+                    ? (Guid?)null
+                    : GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("asset_id")));
                 var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
                 var album = reader.IsDBNull(reader.GetOrdinal("album")) ? null : reader.GetString(reader.GetOrdinal("album"));
                 var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
                 var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
                 var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
+                var durationSecondsValue = reader.IsDBNull(reader.GetOrdinal("duration_seconds_value")) ? null : reader.GetString(reader.GetOrdinal("duration_seconds_value"));
                 var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
                 var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
+                var rawDuration = durationSecondsValue ?? duration ?? runtime;
+                var durationSeconds = NormalizeAudioDurationSeconds(rawDuration);
+                var displayDuration = FormatAudioDuration(durationSeconds, rawDuration);
                 var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
                 var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
                 var artistVal = reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
@@ -852,9 +875,11 @@ public static class CollectionEndpoints
                 tracks.Add(new CollectionGroupWorkDto
                 {
                     WorkId = workId,
+                    AssetId = assetId,
                     Title = title ?? $"Track {workId.ToString("N")[..8]}",
                     Year = year,
-                    Duration = duration ?? runtime,
+                    Duration = displayDuration,
+                    DurationSeconds = durationSeconds,
                     CoverUrl = cover,
                     TrackNumber = trackNum,
                     Status = "Provisional",
@@ -1051,6 +1076,7 @@ public static class CollectionEndpoints
                 work_data AS (
                     SELECT
                         mw.work_id,
+                        MIN(ma.id) AS asset_id,
                         COALESCE(gp.id, p.id, w.id) AS root_work_id,
                         MAX(CASE WHEN cv.key = 'title'               THEN cv.value END) AS title,
                         MAX(CASE WHEN cv.key = 'episode_title'       THEN cv.value END) AS episode_title,
@@ -1066,6 +1092,7 @@ public static class CollectionEndpoints
                         MAX(CASE WHEN cv.key = 'track_number'        THEN cv.value END) AS track_number,
                         MAX(CASE WHEN cv.key = 'release_year'        THEN cv.value END) AS release_year,
                         MAX(CASE WHEN cv.key = 'year'                THEN cv.value END) AS year_val,
+                        MAX(CASE WHEN cv.key IN ('duration_seconds', 'duration_sec') THEN cv.value END) AS duration_seconds_value,
                         MAX(CASE WHEN cv.key = 'duration'            THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime'             THEN cv.value END) AS runtime,
                         COALESCE(
@@ -1220,7 +1247,10 @@ public static class CollectionEndpoints
 
             while (reader.Read())
             {
-                var workId = reader.GetGuid(reader.GetOrdinal("work_id"));
+                var workId = GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("work_id")));
+                var assetId = reader.IsDBNull(reader.GetOrdinal("asset_id"))
+                    ? (Guid?)null
+                    : GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("asset_id")));
                 var rootWorkId = reader.IsDBNull(reader.GetOrdinal("root_work_id"))
                     ? (Guid?)null
                     : GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("root_work_id")));
@@ -1235,9 +1265,10 @@ public static class CollectionEndpoints
                 var secondaryColor = reader.IsDBNull(reader.GetOrdinal("secondary_color")) ? null : reader.GetString(reader.GetOrdinal("secondary_color"));
                 var accentColor = reader.IsDBNull(reader.GetOrdinal("accent_color")) ? null : reader.GetString(reader.GetOrdinal("accent_color"));
                 var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
+                var durationSecondsValue = reader.IsDBNull(reader.GetOrdinal("duration_seconds_value")) ? null : reader.GetString(reader.GetOrdinal("duration_seconds_value"));
                 var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
                 var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
-                var rawDuration = duration ?? runtime;
+                var rawDuration = durationSecondsValue ?? duration ?? runtime;
                 var durationSeconds = isMusicAlbumGroup ? NormalizeAudioDurationSeconds(rawDuration) : null;
                 var displayDuration = isMusicAlbumGroup ? FormatAudioDuration(durationSeconds, rawDuration) : rawDuration;
                 var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
@@ -1307,6 +1338,7 @@ public static class CollectionEndpoints
                 items.Add(new CollectionGroupWorkDto
                 {
                     WorkId = workId,
+                    AssetId = assetId,
                     Title = episodeTitle ?? title ?? $"Item {workId.ToString("N")[..8]}",
                     Year = year,
                     Duration = displayDuration,
@@ -1359,6 +1391,11 @@ public static class CollectionEndpoints
             combinedPrimaryColor ??= palette.PrimaryColor;
             combinedSecondaryColor ??= palette.SecondaryColor;
             combinedAccentColor ??= palette.AccentColor;
+            var rootWikidataQid = FirstCanonicalValue(rootCanonicals, BridgeIdKeys.WikidataQid);
+            var rootDescription = FirstCanonicalValue(rootCanonicals, MetadataFieldConstants.Description);
+            var rootTagline = FirstCanonicalValue(rootCanonicals, MetadataFieldConstants.Tagline);
+            var rootReleaseDate = NormalizeReleaseDate(
+                FirstCanonicalValue(rootCanonicals, "release_date", "date", "year"));
 
             var years = allYears.Distinct().OrderBy(y => y).ToList();
             string? yearRange = years.Count switch
@@ -1408,6 +1445,8 @@ public static class CollectionEndpoints
             {
                 CollectionId = Guid.Empty,
                 DisplayName = groupValue,
+                RootWorkId = combinedRootWorkId,
+                WikidataQid = rootWikidataQid,
                 PrimaryMediaType = mediaType ?? "Unknown",
                 CoverUrl = combinedCover,
                 BackgroundUrl = combinedBackground,
@@ -1418,7 +1457,10 @@ public static class CollectionEndpoints
                 PrimaryColor = combinedPrimaryColor,
                 SecondaryColor = combinedSecondaryColor,
                 AccentColor = combinedAccentColor,
+                Description = rootDescription,
+                Tagline = rootTagline,
                 Creator = combinedCreator,
+                ReleaseDate = rootReleaseDate,
                 YearRange = yearRange,
                 Genre = combinedGenre,
                 Network = combinedNetwork,
@@ -3983,6 +4025,50 @@ public static class CollectionEndpoints
         return raw;
     }
 
+    private static async Task<Dictionary<Guid, Guid?>> LoadPrimaryAssetIdsAsync(
+        IEnumerable<Guid> workIds,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var ids = workIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        using var conn = db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        var parameterNames = new List<string>(ids.Count);
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var parameter = cmd.CreateParameter();
+            parameter.ParameterName = $"@workId{i}";
+            parameter.Value = GuidSql.ToBlob(ids[i]);
+            cmd.Parameters.Add(parameter);
+            parameterNames.Add(parameter.ParameterName);
+        }
+
+        cmd.CommandText = $"""
+            SELECT e.work_id AS WorkId,
+                   MIN(ma.id) AS AssetId
+            FROM editions e
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE e.work_id IN ({string.Join(", ", parameterNames)})
+            GROUP BY e.work_id;
+            """;
+
+        var results = new Dictionary<Guid, Guid?>();
+        using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var workId = GuidSql.FromDb(reader.GetValue(0));
+            var assetId = GuidSql.FromDbNullable(reader.GetValue(1));
+            results[workId] = assetId;
+        }
+
+        return results;
+    }
+
     /// <summary>
     /// Builds the preferred cover URL from a Work's canonical values.
     /// </summary>
@@ -4263,6 +4349,7 @@ public static class CollectionEndpoints
                     merged.Add(new CollectionGroupWorkDto
                     {
                         WorkId = owned.WorkId,
+                        AssetId = owned.AssetId,
                         Title = owned.Title,
                         Ordinal = owned.Ordinal ?? ordinal,
                         Year = owned.Year,

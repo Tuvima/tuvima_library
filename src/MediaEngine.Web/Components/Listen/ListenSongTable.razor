@@ -41,6 +41,9 @@
     </AppCssElement>
 
     <Virtualize Items="@DisplayTracks" Context="track" TItem="WorkViewModel" ItemSize="48" OverscanCount="8">
+        @{
+            var trackTitle = DisplayTrackTitle(track);
+        }
         <AppCssElement Tag="div" Class="listen-song-table__row"
              @key="track.Id"
              Css="@($"grid-template-columns: {GridTemplate}")"
@@ -61,18 +64,18 @@
                         {
                             <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Size="Size.Small" />
                         }
-                        <AppNativeButton Type="button" Class="listen-song-table__art-play" Title="Play song" AriaLabel="@($" Play {track.Title}")" StopPropagation="true" OnClick="@(() => PlayAsync(track.Id, false))">
+                        <AppNativeButton Type="button" Class="listen-song-table__art-play" Title="Play song" AriaLabel="@($" Play {trackTitle}")" StopPropagation="true" OnClick="@(() => PlayAsync(track.Id, false))">
                             <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
                         </AppNativeButton>
                     </div>
                 }
                 else
                 {
-                    <AppNativeButton Type="button" Class="listen-song-table__play-only" Title="Play song" AriaLabel="@($" Play {track.Title}")" StopPropagation="true" OnClick="@(() => PlayAsync(track.Id, false))">
+                    <AppNativeButton Type="button" Class="listen-song-table__play-only" Title="Play song" AriaLabel="@($" Play {trackTitle}")" StopPropagation="true" OnClick="@(() => PlayAsync(track.Id, false))">
                         <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
                     </AppNativeButton>
                 }
-                <span class="listen-song-table__title">@track.Title</span>
+                <span class="listen-song-table__title">@trackTitle</span>
             </div>
 
             @foreach (var column in VisibleDataColumns)
@@ -106,17 +109,17 @@
                         break;
                     case "queue":
                         <div class="listen-song-table__queue" role="cell">
-                            <AppNativeButton Type="button" Class="listen-song-table__icon-button" Title="Add to queue" AriaLabel="@($" Add {track.Title} to queue")" StopPropagation="true" OnClick="@(() => QueueAsync(track))">
+                            <AppNativeButton Type="button" Class="listen-song-table__icon-button" Title="Add to queue" AriaLabel="@($" Add {trackTitle} to queue")" StopPropagation="true" OnClick="@(() => QueueAsync(track))">
                                 <MudIcon Icon="@Icons.Material.Outlined.PlaylistAdd" Size="Size.Small" />
                             </AppNativeButton>
                         </div>
                         break;
                     case "editDelete":
                         <div class="listen-song-table__edit-delete" role="cell">
-                            <AppNativeButton Type="button" Class="listen-song-table__icon-button" Title="Edit song" AriaLabel="@($" Edit {track.Title}")" StopPropagation="true" OnClick="@(() => EditAsync(track))">
+                            <AppNativeButton Type="button" Class="listen-song-table__icon-button" Title="Edit song" AriaLabel="@($" Edit {trackTitle}")" StopPropagation="true" OnClick="@(() => EditAsync(track))">
                                 <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
                             </AppNativeButton>
-                            <AppNativeButton Type="button" Class="listen-song-table__icon-button listen-song-table__icon-button--danger" Title="Delete song" AriaLabel="@($" Delete {track.Title}")" StopPropagation="true" OnClick="@(() => DeleteAsync(track))">
+                            <AppNativeButton Type="button" Class="listen-song-table__icon-button listen-song-table__icon-button--danger" Title="Delete song" AriaLabel="@($" Delete {trackTitle}")" StopPropagation="true" OnClick="@(() => DeleteAsync(track))">
                                 <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
                             </AppNativeButton>
                         </div>
@@ -254,32 +257,32 @@
         var ordered = NormalizeSortColumn(_sortColumn) switch
         {
             "title" => _sortDescending
-                ? tracks.OrderByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "artist" => _sortDescending
-                ? tracks.OrderByDescending(track => track.Artist ?? track.Author, StringComparer.OrdinalIgnoreCase).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(track => track.Artist ?? track.Author, StringComparer.OrdinalIgnoreCase).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(track => track.Artist ?? track.Author, StringComparer.OrdinalIgnoreCase).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.Artist ?? track.Author, StringComparer.OrdinalIgnoreCase).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "album" => _sortDescending
                 ? tracks.OrderByDescending(track => track.Album, StringComparer.OrdinalIgnoreCase).ThenByDescending(track => ParseTrackNumber(track.TrackNumber))
                 : tracks.OrderBy(track => track.Album, StringComparer.OrdinalIgnoreCase).ThenBy(track => ParseTrackNumber(track.TrackNumber)),
             "genre" => _sortDescending
-                ? tracks.OrderByDescending(track => track.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(track => track.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(track => track.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.Genres.FirstOrDefault(), StringComparer.OrdinalIgnoreCase).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "favorite" => _sortDescending
-                ? tracks.OrderByDescending(track => FavoriteIds.Contains(track.Id)).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(track => FavoriteIds.Contains(track.Id)).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(track => FavoriteIds.Contains(track.Id)).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => FavoriteIds.Contains(track.Id)).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "plays" => _sortDescending
-                ? tracks.OrderByDescending(GetPlayCount).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(GetPlayCount).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(GetPlayCount).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(GetPlayCount).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "time" => _sortDescending
-                ? tracks.OrderByDescending(GetDurationSortKey).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(GetDurationSortKey).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(GetDurationSortKey).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(GetDurationSortKey).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             "track" => _sortDescending
-                ? tracks.OrderByDescending(track => ParseTrackNumber(track.TrackNumber)).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(track => ParseTrackNumber(track.TrackNumber)).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(track => ParseTrackNumber(track.TrackNumber)).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => ParseTrackNumber(track.TrackNumber)).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
             _ => _sortDescending
-                ? tracks.OrderByDescending(track => track.CreatedAt).ThenByDescending(track => track.Title, StringComparer.OrdinalIgnoreCase)
-                : tracks.OrderBy(track => track.CreatedAt).ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase),
+                ? tracks.OrderByDescending(track => track.CreatedAt).ThenByDescending(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
+                : tracks.OrderBy(track => track.CreatedAt).ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase),
         };
 
         return ordered.ToList();
@@ -328,6 +331,17 @@
     private Task EndDragAsync()
         => EnableDrag ? OnDragEnded?.Invoke() ?? Task.CompletedTask : Task.CompletedTask;
 
+    private static string DisplayTrackTitle(WorkViewModel work)
+        => FirstNonBlankOrNull(
+               IsUntitled(work.Title) ? null : work.Title,
+               GetCanonicalValue(work, "track_title"),
+               GetCanonicalValue(work, "track_name"),
+               GetCanonicalValue(work, "song_title"),
+               GetCanonicalValue(work, "name"),
+               GetCanonicalValue(work, "file_title"),
+               GetCanonicalValue(work, "file_name"))
+           ?? work.Title;
+
     private static string GetTrackDuration(WorkViewModel work)
         => LibraryHelpers.FormatDuration(GetTrackDurationSeconds(work), fallback: "0:00");
 
@@ -360,6 +374,13 @@
 
     private static string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
+
+    private static string? FirstNonBlankOrNull(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static bool IsUntitled(string? value)
+        => string.IsNullOrWhiteSpace(value)
+           || value.Trim().StartsWith("Untitled", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatDateAdded(DateTimeOffset createdAt)
         => createdAt == default ? "-" : createdAt.LocalDateTime.ToString("M/d/yyyy", CultureInfo.CurrentCulture);

@@ -179,6 +179,31 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 10, CancellationToken ct = default)
+    {
+        const string endpoint = "GET /player/audiobooks/{workId}/history";
+        try
+        {
+            var query = new List<string> { $"limit={Math.Clamp(limit, 1, 50)}" };
+            if (profileId.HasValue)
+            {
+                query.Add($"profileId={profileId.Value:D}");
+            }
+
+            var suffix = "?" + string.Join("&", query);
+            var items = await _http.GetFromJsonAsync<List<AudiobookListenHistoryItemDto>>($"/player/audiobooks/{workId:D}/history{suffix}", ct);
+            ClearFailure(endpoint);
+            return items ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GET /player/audiobooks/{WorkId}/history failed", workId);
+            RecordExceptionFailure(endpoint, ex);
+            return [];
+        }
+    }
+
     private async Task<PlayerStateDto?> PostPlayerMutationAsync(
         string url,
         PlayerQueueMutationDto request,

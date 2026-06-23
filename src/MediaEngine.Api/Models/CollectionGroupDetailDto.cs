@@ -144,6 +144,9 @@ public sealed class CollectionGroupWorkDto
     [JsonPropertyName("work_id")]
     public required Guid WorkId { get; init; }
 
+    [JsonPropertyName("asset_id")]
+    public Guid? AssetId { get; init; }
+
     [JsonPropertyName("title")]
     public required string Title { get; init; }
 

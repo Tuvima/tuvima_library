@@ -1,3 +1,4 @@
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Web.Services.Playback;
 
 namespace MediaEngine.Web.Tests;
@@ -27,8 +28,25 @@ public sealed class ListenPlaybackServiceTests
             DurationSeconds = 180,
             Volume = 0.55,
             IsMuted = true,
+            PlaybackRate = 1.5d,
+            Experience = PlayerExperienceModes.Audiobook,
+            NeedsUserGestureToStart = true,
             IsPlaying = false,
             IsPopupOpen = true,
+            AudiobookHistory =
+            [
+                new AudiobookListenHistoryItemDto
+                {
+                    Id = Guid.NewGuid(),
+                    WorkId = Guid.NewGuid(),
+                    AssetId = Guid.NewGuid(),
+                    Title = "Previous audiobook position",
+                    PositionSeconds = 1240,
+                    ProgressPct = 27.5,
+                    StartedAt = DateTimeOffset.UtcNow.AddMinutes(-3),
+                    EndedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+                },
+            ],
         };
 
         service.RestoreState(snapshot);
@@ -42,8 +60,47 @@ public sealed class ListenPlaybackServiceTests
         Assert.Equal(180, roundTrip.DurationSeconds);
         Assert.Equal(0.55, roundTrip.Volume, 3);
         Assert.True(roundTrip.IsMuted);
+        Assert.Equal(1.5d, roundTrip.PlaybackRate);
+        Assert.Equal(PlayerExperienceModes.Audiobook, roundTrip.Experience);
+        Assert.True(roundTrip.NeedsUserGestureToStart);
         Assert.False(roundTrip.IsPlaying);
         Assert.True(roundTrip.IsPopupOpen);
+        Assert.Single(roundTrip.AudiobookHistory);
+    }
+
+    [Fact]
+    public async Task PlayAudiobookAsync_UsesSingleItemModeAndAppliesResumeRewind()
+    {
+        var service = new ListenPlaybackService(null!, null!);
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://dungeon-crawler-carl") with
+        {
+            InitialPositionSeconds = 123,
+        };
+
+        await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
+
+        Assert.True(service.IsAudiobookMode);
+        Assert.Single(service.Queue);
+        Assert.Equal("Dungeon Crawler Carl", service.CurrentItem?.Title);
+        Assert.Equal(113, service.CurrentTimeSeconds);
+        Assert.Equal(1.25d, service.PlaybackRate);
+        Assert.True(service.IsPlaying);
+        Assert.False(service.NeedsUserGestureToStart);
+    }
+
+    [Fact]
+    public async Task AddQueueItemAsync_Audiobook_ReplacesMusicQueueInsteadOfAppending()
+    {
+        var service = new ListenPlaybackService(null!, null!);
+        await service.AddQueueItemAsync(CreateQueueItem("Current Song", "stream://song"));
+
+        await service.AddQueueItemAsync(CreateAudiobookItem("Dungeon Crawler Carl", "stream://book"));
+
+        Assert.True(service.IsAudiobookMode);
+        Assert.Single(service.Queue);
+        Assert.Equal("Dungeon Crawler Carl", service.Queue[0].Title);
+        Assert.Single(service.History);
+        Assert.Equal("Current Song", service.History[0].Title);
     }
 
     [Fact]
@@ -121,6 +178,18 @@ public sealed class ListenPlaybackServiceTests
         Subtitle = "Artist",
         Album = "Album",
         Duration = "3:30",
+        StreamUrl = streamUrl,
+    };
+
+    private static ListenQueueItem CreateAudiobookItem(string title, string streamUrl) => new()
+    {
+        WorkId = Guid.NewGuid(),
+        AssetId = Guid.NewGuid(),
+        MediaType = "Audiobooks",
+        Title = title,
+        Subtitle = "Matt Dinniman",
+        Album = title,
+        Duration = "11:32:00",
         StreamUrl = streamUrl,
     };
 }

@@ -51,6 +51,7 @@ public sealed class UiShellRenderTests : TestContext
         Services.AddScoped<CollectionEditorLauncherService>();
         Services.AddScoped<MediaTileComposerService>();
         Services.AddScoped<ListenPlaybackService>();
+        Services.AddScoped<ListenAudioDragService>();
         Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
         Services.AddScoped<MediaReactionService>();
         Services.AddScoped<FavoriteService>();

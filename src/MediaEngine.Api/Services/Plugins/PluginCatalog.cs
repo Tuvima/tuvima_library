@@ -77,6 +77,7 @@ public sealed class PluginCatalog
     {
         var registration = Get(pluginId)
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
+        ValidateSettings(registration, settings);
         var config = _settingsStore.Load(registration.Manifest);
         config.Settings = settings;
         _settingsStore.Save(config);
@@ -202,6 +203,7 @@ public sealed class PluginCatalog
             }
         }
 
+        var settingsSchema = ResolveSettingsSchema(manifest, capabilities);
         return new PluginRegistration(
             manifest,
             config.Enabled,
@@ -209,8 +211,147 @@ public sealed class PluginCatalog
             capabilities,
             config.Settings,
             loadError,
+            settingsSchema,
             manifestPath);
     }
+
+    private JsonElement? ResolveSettingsSchema(
+        PluginManifest manifest,
+        IReadOnlyList<IPluginCapability> capabilities)
+    {
+        if (manifest.SettingsSchema is { } manifestSchema && IsConcreteJson(manifestSchema))
+            return manifestSchema.Clone();
+
+        foreach (var provider in capabilities.OfType<IPluginSettingsSchemaProvider>())
+        {
+            try
+            {
+                var schema = provider.GetSettingsSchema();
+                if (IsConcreteJson(schema))
+                    return schema.Clone();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Plugin {PluginId} failed to provide a settings schema", manifest.Id);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsConcreteJson(JsonElement element) =>
+        element.ValueKind is not JsonValueKind.Undefined and not JsonValueKind.Null;
+
+    private static void ValidateSettings(PluginRegistration registration, IReadOnlyDictionary<string, JsonElement> settings)
+    {
+        if (registration.SettingsSchema is not { } schema || schema.ValueKind != JsonValueKind.Object)
+            return;
+
+        var properties = TryGetPropertyObject(schema, "properties");
+        if (properties is null)
+            return;
+
+        var required = ReadStringArray(schema, "required");
+        foreach (var key in required)
+        {
+            if (!settings.ContainsKey(key))
+                throw new InvalidOperationException($"Plugin setting '{key}' is required.");
+        }
+
+        foreach (var (key, value) in settings)
+        {
+            if (!properties.Value.TryGetProperty(key, out var definition) || definition.ValueKind != JsonValueKind.Object)
+                continue;
+
+            ValidateSettingValue(key, value, definition);
+        }
+    }
+
+    private static void ValidateSettingValue(string key, JsonElement value, JsonElement definition)
+    {
+        var expectedType = ReadString(definition, "type");
+        if (!string.IsNullOrWhiteSpace(expectedType) && !SettingTypeMatches(expectedType, value))
+            throw new InvalidOperationException($"Plugin setting '{key}' must be {expectedType}.");
+
+        var allowedValues = ReadEnumValues(definition);
+        if (allowedValues.Count > 0 && !allowedValues.Contains(ScalarSettingValue(value), StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Plugin setting '{key}' is not one of the allowed values.");
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var numeric))
+        {
+            if (TryReadDouble(definition, "minimum", out var min) && numeric < min)
+                throw new InvalidOperationException($"Plugin setting '{key}' must be at least {min}.");
+            if (TryReadDouble(definition, "maximum", out var max) && numeric > max)
+                throw new InvalidOperationException($"Plugin setting '{key}' must be at most {max}.");
+        }
+    }
+
+    private static JsonElement? TryGetPropertyObject(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.Object
+            ? property
+            : null;
+
+    private static string? ReadString(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+
+    private static IReadOnlyList<string> ReadStringArray(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.Array)
+            return [];
+
+        return property.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetString())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> ReadEnumValues(JsonElement definition)
+    {
+        if (!definition.TryGetProperty("enum", out var property) || property.ValueKind != JsonValueKind.Array)
+            return [];
+
+        return property.EnumerateArray()
+            .Select(ScalarSettingValue)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToList();
+    }
+
+    private static bool TryReadDouble(JsonElement element, string propertyName, out double value)
+    {
+        if (element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.Number)
+            return property.TryGetDouble(out value);
+
+        value = default;
+        return false;
+    }
+
+    private static bool SettingTypeMatches(string expectedType, JsonElement value)
+    {
+        return expectedType.ToLowerInvariant() switch
+        {
+            "boolean" or "bool" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+            "integer" or "int" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
+            "number" => value.ValueKind == JsonValueKind.Number,
+            "string" => value.ValueKind == JsonValueKind.String,
+            "array" => value.ValueKind == JsonValueKind.Array,
+            "object" => value.ValueKind == JsonValueKind.Object,
+            _ => true,
+        };
+    }
+
+    private static string ScalarSettingValue(JsonElement value) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() ?? string.Empty,
+            JsonValueKind.Number => value.GetRawText(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            _ => value.GetRawText(),
+        };
 
     private IEnumerable<PluginRegistration> LoadFilePlugins()
     {
@@ -232,6 +373,7 @@ public sealed class PluginCatalog
                         [],
                         new Dictionary<string, JsonElement>(),
                         "Plugin manifest must include entry_assembly and entry_type.",
+                        null,
                         manifestPath));
                     continue;
                 }
@@ -239,7 +381,7 @@ public sealed class PluginCatalog
                 var assemblyPath = Path.Combine(Path.GetDirectoryName(manifestPath)!, manifest.EntryAssembly);
                 if (!File.Exists(assemblyPath))
                 {
-                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry assembly was not found.", manifestPath));
+                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry assembly was not found.", null, manifestPath));
                     continue;
                 }
 
@@ -247,13 +389,13 @@ public sealed class PluginCatalog
                 var type = assembly.GetType(manifest.EntryType, throwOnError: false);
                 if (type is null || !typeof(ITuvimaPlugin).IsAssignableFrom(type))
                 {
-                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type does not implement ITuvimaPlugin.", manifestPath));
+                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type does not implement ITuvimaPlugin.", null, manifestPath));
                     continue;
                 }
 
                 var plugin = (ITuvimaPlugin?)Activator.CreateInstance(type);
                 results.Add(plugin is null
-                    ? new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type could not be constructed.", manifestPath)
+                    ? new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry type could not be constructed.", null, manifestPath)
                     : BuildRegistration(plugin, manifest, isBuiltIn: false, loadError: null, manifestPath: manifestPath));
             }
             catch (Exception ex)
@@ -266,6 +408,7 @@ public sealed class PluginCatalog
                     [],
                     new Dictionary<string, JsonElement>(),
                     ex.Message,
+                    null,
                     manifestPath));
             }
         }
@@ -281,5 +424,6 @@ public sealed record PluginRegistration(
     IReadOnlyList<IPluginCapability> Capabilities,
     IReadOnlyDictionary<string, JsonElement> Settings,
     string? LoadError,
+    JsonElement? SettingsSchema,
     string? ManifestPath);
 

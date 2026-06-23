@@ -205,6 +205,14 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("SettingsStatusKind.Partial", delivery, StringComparison.Ordinal);
         Assert.Contains("remain disabled until persistence exists", delivery, StringComparison.Ordinal);
         Assert.Contains("Install and update marketplace flows are planned", plugins, StringComparison.Ordinal);
+        Assert.Contains("plugin-provided settings", plugins, StringComparison.Ordinal);
+        Assert.Contains("Advanced settings", plugins, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"JSON\"", plugins, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Manifest\"", plugins, StringComparison.Ordinal);
+        Assert.DoesNotContain("Settings JSON", plugins, StringComparison.Ordinal);
+        Assert.DoesNotContain("Plugin manifest JSON", plugins, StringComparison.Ordinal);
+        Assert.DoesNotContain("_settingsJson", plugins, StringComparison.Ordinal);
+        Assert.DoesNotContain("_manifestJson", plugins, StringComparison.Ordinal);
         Assert.Contains("Local AI runs on this server", localAi, StringComparison.Ordinal);
     }
 

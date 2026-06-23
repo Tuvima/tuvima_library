@@ -490,12 +490,16 @@
         if (chapters.Count == 0)
             return;
 
-        var startIndex = chapters.FindIndex(item => item.ProgressPercent is > 0 and < 100);
-        if (startIndex < 0)
-            startIndex = 0;
+        var startItem = chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 100)
+            ?? chapters.FirstOrDefault();
+        if (startItem is null)
+            return;
 
-        var queue = chapters.Select(ToAudiobookQueueItem).Where(item => item.WorkId != Guid.Empty).ToList();
-        await Playback.ReplaceQueueItemsAsync(queue, startIndex, Model.Title, shuffle: false);
+        var item = ToAudiobookQueueItem(startItem);
+        if (item.WorkId == Guid.Empty)
+            return;
+
+        await Playback.PlayAudiobookAsync(item, Model.Title);
     }
 
     private ListenQueueItem ToAudiobookQueueItem(MediaGroupingItemViewModel item)
@@ -504,13 +508,28 @@
             WorkId = Guid.TryParse(item.Id, out var workId) ? workId : Guid.Empty,
             AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
             MediaType = "Audiobooks",
-            Title = item.Title,
-            Subtitle = item.Subtitle,
+            Title = Model?.Title ?? item.Title,
+            Subtitle = item.Title,
             Album = Model?.Title,
             CoverUrl = item.ArtworkUrl ?? Model?.Artwork.CoverUrl ?? Model?.Artwork.PosterUrl,
             Duration = item.Duration,
-            InitialPositionSeconds = item.StartSeconds,
+            InitialPositionSeconds = ResumePositionFor(item),
         };
+
+    private static double? ResumePositionFor(MediaGroupingItemViewModel item)
+    {
+        if (item.ProgressPercent is > 0 and < 100)
+        {
+            var start = Math.Max(0, item.StartSeconds ?? 0);
+            var end = item.EndSeconds;
+            if (end is > 0 && end.Value > start)
+            {
+                return start + (end.Value - start) * Math.Clamp(item.ProgressPercent.Value, 0, 100) / 100d;
+            }
+        }
+
+        return item.StartSeconds;
+    }
 
     private static int TrackSortKey(MediaGroupingItemViewModel item)
         => int.TryParse(item.TrackNumber, out var parsed) ? parsed : int.MaxValue;

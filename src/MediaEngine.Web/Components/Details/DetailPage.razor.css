@@ -785,7 +785,7 @@
 }
 
 ::deep .tl-audio-detail {
-    min-height: 100vh;
+    min-height: auto;
     position: relative;
     overflow: hidden;
     padding: clamp(0.8rem, 1.8vw, 1.5rem);
@@ -869,6 +869,19 @@
     max-width: min(24ch, 100%);
     font-size: clamp(2.05rem, 4.6cqw, 3.65rem);
     line-height: 1.02;
+}
+
+::deep .tl-audio-detail--audiobook .tl-audio-detail__copy h1 {
+    max-width: min(22ch, 100%);
+    font-size: clamp(2.2rem, 5.1cqw, 4.25rem);
+    line-height: 1;
+}
+
+::deep .tl-audio-detail--audiobook .tl-audio-detail__hero--title-long .tl-audio-detail__copy h1,
+::deep .tl-audio-detail--audiobook .tl-audio-detail__hero--title-dense .tl-audio-detail__copy h1 {
+    max-width: min(26ch, 100%);
+    font-size: clamp(1.85rem, 4.1cqw, 3.3rem);
+    line-height: 1.04;
 }
 
 ::deep .tl-audio-detail__credit {
@@ -4423,7 +4436,7 @@
 ::deep .tl-audio-item-table__table td {
     position: relative;
     width: auto;
-    height: 3.05rem;
+    height: 3.35rem;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -4492,6 +4505,21 @@
     cursor: grab;
 }
 
+::deep .tl-audio-item-table__index {
+    display: grid;
+    grid-template-columns: 1rem 2.25rem minmax(2.5ch, 1fr);
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+::deep .tl-audio-item-table__play-slot {
+    width: 2.25rem;
+    height: 2.25rem;
+    display: inline-grid;
+    place-items: center;
+}
+
 ::deep .tl-audio-item-table__row[draggable="true"]:active .tl-audio-item-table__drag {
     cursor: grabbing;
 }
@@ -4501,9 +4529,7 @@
 }
 
 ::deep .tl-audio-item-table__table .tl-detail-track-row__number {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
+    min-width: 0;
 }
 
 ::deep .tl-audio-item-table__table .tl-detail-track-row__title {

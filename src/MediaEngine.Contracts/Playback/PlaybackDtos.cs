@@ -96,6 +96,7 @@ public sealed record PlayerStateDto
     public string DeviceId { get; init; } = "web";
     public string Client { get; init; } = "web";
     public string PlaybackState { get; init; } = PlayerPlaybackStates.Stopped;
+    public string Experience { get; init; } = PlayerExperienceModes.Music;
     public long StateVersion { get; init; }
     public Guid? CurrentQueueItemId { get; init; }
     public PlayerQueueItemDto? CurrentItem { get; init; }
@@ -114,7 +115,26 @@ public sealed record PlayerStateDto
     public DateTimeOffset? LastHeartbeatAt { get; init; }
     public bool IsStale { get; init; }
     public PlayerCapabilitiesDto Capabilities { get; init; } = new();
+    public IReadOnlyList<AudiobookListenHistoryItemDto> AudiobookHistory { get; init; } = [];
     public IReadOnlyList<string> Warnings { get; init; } = [];
+}
+
+public sealed record AudiobookListenHistoryItemDto
+{
+    public Guid Id { get; init; }
+    public Guid ProfileId { get; init; }
+    public Guid WorkId { get; init; }
+    public Guid AssetId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string? ChapterTitle { get; init; }
+    public int? ChapterIndex { get; init; }
+    public double PositionSeconds { get; init; }
+    public double? DurationSeconds { get; init; }
+    public double ProgressPct { get; init; }
+    public string DeviceId { get; init; } = "web-dashboard";
+    public string Client { get; init; } = "web";
+    public DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset EndedAt { get; init; }
 }
 
 public sealed record PlayerQueueItemDto
@@ -152,6 +172,7 @@ public sealed record PlayerCommandRequestDto
     public string Command { get; init; } = PlayerCommands.Pause;
     public Guid? QueueItemId { get; init; }
     public double? PositionSeconds { get; init; }
+    public double? DeltaSeconds { get; init; }
     public double? DurationSeconds { get; init; }
     public double? Volume { get; init; }
     public bool? IsMuted { get; init; }
@@ -235,6 +256,7 @@ public sealed record PlayerCapabilitiesDto
     public bool CanTakeover { get; init; } = true;
     public IReadOnlyList<string> SupportedMediaTypes { get; init; } = ["Music", "Audiobooks"];
     public IReadOnlyList<double> SupportedPlaybackRates { get; init; } = [0.5d, 0.75d, 1d, 1.25d, 1.5d, 2d];
+    public IReadOnlyList<double> SupportedScanRates { get; init; } = [2d, 4d, 8d, 16d];
 }
 
 public sealed record PlayerSessionTakeoverRequestDto
@@ -343,6 +365,9 @@ public sealed class ListeningSettingsDto
     public decimal AudiobookDefaultSpeed { get; set; } = 1.25m;
     public int SkipBackSeconds { get; set; } = 15;
     public int SkipForwardSeconds { get; set; } = 30;
+    public int ResumeRewindSeconds { get; set; } = 10;
+    public int AudiobookListenQualificationSeconds { get; set; } = 60;
+    public List<double> AudiobookScanRates { get; set; } = [2d, 4d, 8d, 16d];
     public bool MusicCrossfade { get; set; }
     public int CrossfadeSeconds { get; set; } = 5;
     public string DefaultSleepTimer { get; set; } = "30";
@@ -431,6 +456,12 @@ public static class PlayerPlaybackStates
     public const string Paused = "paused";
 }
 
+public static class PlayerExperienceModes
+{
+    public const string Music = "music";
+    public const string Audiobook = "audiobook";
+}
+
 public static class PlayerRepeatModes
 {
     public const string Off = "off";
@@ -446,11 +477,15 @@ public static class PlayerCommands
     public const string Next = "next";
     public const string Previous = "previous";
     public const string Seek = "seek";
+    public const string RelativeSeek = "relative-seek";
     public const string Volume = "volume";
     public const string Mute = "mute";
     public const string Speed = "speed";
     public const string Shuffle = "shuffle";
     public const string Repeat = "repeat";
+    public const string ScanStart = "scan-start";
+    public const string ScanStop = "scan-stop";
+    public const string SleepTimer = "sleep-timer";
 }
 
 public static class PlayerQueueMutationModes

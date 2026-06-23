@@ -24,7 +24,7 @@ The live contracts support:
 - `IPlaybackSegmentDetector` for playback markers such as commercial, intro, recap, and credits segments.
 - `IPluginHealthCheck` for setup and dependency checks.
 - `IPluginJob` for plugin-owned work.
-- `IPluginSettingsSchemaProvider` for future richer settings UI.
+- `IPluginSettingsSchemaProvider` for runtime settings metadata.
 - `IPluginToolRuntime` for checksum-pinned external tool resolution and execution.
 - `IPluginAiClient` for declared local AI calls.
 
@@ -106,6 +106,16 @@ Dynamic plugins must include a manifest file named `plugin.json` in the plugin f
   "supported_platforms": ["win-x64", "linux-x64", "osx-x64", "osx-arm64"],
   "default_settings": {
     "enabled_feature": true
+  },
+  "settings_schema": {
+    "properties": {
+      "enabled_feature": {
+        "type": "boolean",
+        "title": "Enable Feature",
+        "description": "Turns on the sample feature."
+      }
+    },
+    "required": ["enabled_feature"]
   }
 }
 ```
@@ -119,6 +129,20 @@ Required dynamic plugin fields:
 - `entry_type`
 
 Use reverse-DNS style ids when possible, such as `com.example.sample-plugin`.
+
+## Expose settings clearly
+
+Admins configure plugins through typed fields in **Settings > Plugins**. They do not edit raw settings JSON or manifest JSON from the Dashboard. Put every admin-facing option in `default_settings`, then describe it with `settings_schema` in `plugin.json` or implement `IPluginSettingsSchemaProvider` when the schema has to be computed at runtime.
+
+The Dashboard understands a small JSON-schema-style subset:
+
+- `properties` with one object per setting key.
+- `title` and `description` for field labels and help text.
+- `type` values such as `boolean`, `string`, `integer`, `number`, `array`, and `object`.
+- `enum` for select controls.
+- `default`, `minimum`, `maximum`, `format: "password"`, `secret: true`, and `advanced: true`.
+
+The Engine validates typed saves against the schema when one exists. Keep manifest metadata focused on packaging and capability declarations; keep user-adjustable behavior in settings.
 
 ## Package locally
 
@@ -170,4 +194,4 @@ To be listed as an approved plugin, publish a GitHub release that includes:
 
 Maintainers can then add the release to `docs/reference/approved-plugins.json`.
 
-Plain English summary: A plugin is a small .NET package with a manifest. Developers implement the plugin contracts, package the assembly and `plugin.json` together, test it from the library `.data/plugins` folder, and publish a checksummed GitHub release for catalog approval.
+Plain English summary: A plugin is a small .NET package with a manifest and clear settings metadata. Developers implement the plugin contracts, package the assembly and `plugin.json` together, test it from the library `.data/plugins` folder, and publish a checksummed GitHub release for catalog approval.

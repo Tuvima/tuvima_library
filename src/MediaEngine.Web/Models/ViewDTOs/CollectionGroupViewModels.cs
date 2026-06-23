@@ -195,6 +195,9 @@ public sealed class CollectionGroupWorkViewModel
     [JsonPropertyName("work_id")]
     public Guid WorkId { get; set; }
 
+    [JsonPropertyName("asset_id")]
+    public Guid? AssetId { get; set; }
+
     [JsonPropertyName("title")]
     public string Title { get; set; } = "";
 

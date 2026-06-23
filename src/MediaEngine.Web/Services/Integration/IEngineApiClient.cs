@@ -40,6 +40,8 @@ public interface IEngineApiClient
 
     Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default);
 
+    Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 10, CancellationToken ct = default);
+
     Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 
     Task RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default);

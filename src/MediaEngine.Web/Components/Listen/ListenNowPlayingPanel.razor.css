@@ -1,6 +1,7 @@
 .listen-now-panel {
     min-width: 0;
-    min-height: calc(100vh - 64px);
+    height: calc(100dvh - 64px);
+    min-height: 0;
     border-left: 1px solid rgba(148, 163, 184, 0.16);
     background:
         linear-gradient(180deg, rgba(15, 22, 36, 0.94), rgba(7, 11, 20, 0.98)),
@@ -114,7 +115,8 @@
 .listen-now-panel__mini,
 .listen-now-panel__volume-button,
 .listen-now-panel__clear,
-.listen-now-panel__queue-main {
+.listen-now-panel__queue-main,
+.listen-now-panel__history-row {
     border: 0;
     background: transparent;
     color: rgba(226, 232, 240, 0.84);
@@ -133,7 +135,8 @@
 
 .listen-now-panel__icon:hover,
 .listen-now-panel__volume-button:hover,
-.listen-now-panel__queue-main:hover {
+.listen-now-panel__queue-main:hover,
+.listen-now-panel__history-row:hover {
     background: rgba(148, 163, 184, 0.10);
 }
 
@@ -194,6 +197,18 @@
     flex: 1;
     gap: 10px;
     padding: 6px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.listen-now-panel__history-row {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px;
     border-radius: 8px;
     text-align: left;
 }

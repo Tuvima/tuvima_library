@@ -175,6 +175,7 @@ internal static class PluginEndpoints
         tool_requirements = registration.Manifest.ToolRequirements,
         ai_permissions = registration.Manifest.AiPermissions,
         settings = registration.Settings,
+        settings_schema = registration.SettingsSchema,
         manifest_path = registration.ManifestPath,
     };
 }

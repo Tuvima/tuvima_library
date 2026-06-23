@@ -51,6 +51,9 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         Assert.True(settings.General.ResumePlayback);
         Assert.Equal(1.0m, settings.Watching.DefaultPlaybackSpeed);
         Assert.Equal(1.25m, settings.Listening.AudiobookDefaultSpeed);
+        Assert.Equal(10, settings.Listening.ResumeRewindSeconds);
+        Assert.Equal(60, settings.Listening.AudiobookListenQualificationSeconds);
+        Assert.Equal([2d, 4d, 8d, 16d], settings.Listening.AudiobookScanRates);
         Assert.Equal("Sepia", settings.Reading.Theme);
     }
 
@@ -85,6 +88,14 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         settings = await _service.GetAsync(_profileId);
         settings.Reading.Theme = "Neon";
         await Assert.ThrowsAsync<ArgumentException>(() => _service.UpdateAsync(_profileId, settings));
+
+        settings = await _service.GetAsync(_profileId);
+        settings.Listening.ResumeRewindSeconds = 11;
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.UpdateAsync(_profileId, settings));
+
+        settings = await _service.GetAsync(_profileId);
+        settings.Listening.AudiobookListenQualificationSeconds = 10;
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _service.UpdateAsync(_profileId, settings));
     }
 
     [Fact]

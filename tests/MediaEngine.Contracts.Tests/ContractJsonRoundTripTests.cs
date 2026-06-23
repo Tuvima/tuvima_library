@@ -272,6 +272,7 @@ public sealed class ContractJsonRoundTripTests
             DeviceId = "desktop-study",
             Client = "web",
             PlaybackState = PlayerPlaybackStates.Playing,
+            Experience = PlayerExperienceModes.Audiobook,
             StateVersion = 42,
             CurrentQueueItemId = queueItemId,
             PositionSeconds = 1842.25,
@@ -310,6 +311,24 @@ public sealed class ContractJsonRoundTripTests
                     ],
                 },
             ],
+            AudiobookHistory =
+            [
+                new AudiobookListenHistoryItemDto
+                {
+                    Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+                    ProfileId = profileId,
+                    WorkId = workId,
+                    AssetId = assetId,
+                    Title = "Leviathan Wakes",
+                    ChapterTitle = "Chapter 4",
+                    ChapterIndex = 4,
+                    PositionSeconds = 1842.25,
+                    DurationSeconds = 7200,
+                    ProgressPct = 25.59,
+                    StartedAt = DateTimeOffset.Parse("2026-04-24T12:00:00Z"),
+                    EndedAt = DateTimeOffset.Parse("2026-04-24T12:01:00Z"),
+                },
+            ],
         };
 
         var json = JsonSerializer.Serialize(state, JsonOptions);
@@ -318,6 +337,7 @@ public sealed class ContractJsonRoundTripTests
         Assert.NotNull(roundTrip);
         Assert.Equal(profileId, roundTrip.ProfileId);
         Assert.Equal(sessionId, roundTrip.SessionId);
+        Assert.Equal(PlayerExperienceModes.Audiobook, roundTrip.Experience);
         Assert.Equal(queueItemId, roundTrip.CurrentQueueItemId);
         Assert.Equal(1842.25, roundTrip.PositionSeconds);
         Assert.Equal(25.59, roundTrip.ProgressPct);
@@ -329,8 +349,10 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal("The Expanse", roundTrip.Queue[0].Series);
         Assert.Equal("/playback/stream/44444444-4444-4444-4444-444444444444", roundTrip.Queue[0].StreamUrl);
         Assert.Equal("Chapter 1", roundTrip.Queue[0].Chapters[0].Title);
+        Assert.Equal("Chapter 4", roundTrip.AudiobookHistory[0].ChapterTitle);
         Assert.Contains("\"positionSeconds\":1842.25", json, StringComparison.Ordinal);
         Assert.Contains("\"progressPct\":25.59", json, StringComparison.Ordinal);
+        Assert.Contains("\"experience\":\"audiobook\"", json, StringComparison.Ordinal);
         Assert.Contains("\"streamUrl\":\"/playback/stream/44444444-4444-4444-4444-444444444444\"", json, StringComparison.Ordinal);
 
         var mutation = new PlayerQueueMutationDto

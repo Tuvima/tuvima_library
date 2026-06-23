@@ -1106,13 +1106,22 @@ window.listenPlayback = (function () {
                 };
             }
 
-            return {
-                currentTime: element.currentTime || 0,
-                duration: isFinite(element.duration) ? element.duration : 0,
-                volume: typeof element.volume === 'number' ? element.volume : 0.8,
-                muted: !!element.muted,
-                paused: !!element.paused
-            };
+                return {
+                    currentTime: element.currentTime || 0,
+                    duration: isFinite(element.duration) ? element.duration : 0,
+                    volume: typeof element.volume === 'number' ? element.volume : 0.8,
+                    muted: !!element.muted,
+                    paused: !!element.paused,
+                    playbackRate: typeof element.playbackRate === 'number' ? element.playbackRate : 1
+                };
+            },
+        loadAudio: function (element) {
+            if (!element) return;
+            try {
+                element.load();
+            } catch (error) {
+                console.debug("Audio load was rejected.", error);
+            }
         },
         playAudio: async function (element) {
             if (!element) return false;
@@ -1153,6 +1162,15 @@ window.listenPlayback = (function () {
         setMuted: function (element, muted) {
             if (!element) return;
             element.muted = !!muted;
+        },
+        setPlaybackRate: function (element, rate) {
+            if (!element) return;
+            var next = Math.max(0.5, Math.min(32, rate || 1));
+            try {
+                element.playbackRate = next;
+            } catch (error) {
+                console.debug("Audio playback rate was rejected.", error);
+            }
         }
     };
 })();

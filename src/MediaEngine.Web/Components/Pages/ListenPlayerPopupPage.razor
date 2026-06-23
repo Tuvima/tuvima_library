@@ -3,6 +3,7 @@
 @using System.Globalization
 @using System.Text.Json
 @using Microsoft.JSInterop
+@using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Services.Playback
 @inject IJSRuntime JS
 @inject IStringLocalizer<SharedStrings> L
@@ -40,14 +41,14 @@
 
         <div class="listen-popup__tabs">
             <AppNativeButton Type="button" Class='@($"listen-popup__tab {(_snapshot.ActiveTab == ListenPlaybackTabs.Queue ? " is-active" : null)}")' OnClick="@(() => SetTabAsync(ListenPlaybackTabs.Queue))">
-                @L["Listen_PlayingNext"]
+                @(IsAudiobookMode ? L["Listen_Chapters"] : L["Listen_PlayingNext"])
             </AppNativeButton>
             <AppNativeButton Type="button" Class='@($"listen-popup__tab {(_snapshot.ActiveTab == ListenPlaybackTabs.History ? " is-active" : null)}")' OnClick="@(() => SetTabAsync(ListenPlaybackTabs.History))">
                 @L["Listen_History"]
             </AppNativeButton>
         </div>
 
-        @if (_snapshot.ActiveTab == ListenPlaybackTabs.Queue)
+        @if (_snapshot.ActiveTab == ListenPlaybackTabs.Queue && !IsAudiobookMode)
         {
             <div class="listen-popup__subheader">
                 <span>@L["Listen_PlayingNext"]</span>
@@ -96,7 +97,29 @@
                 <span>@L["Listen_History"]</span>
             </div>
 
-            @if (_snapshot.History.Count == 0)
+            @if (IsAudiobookMode)
+            {
+                if (_snapshot.AudiobookHistory.Count == 0)
+                {
+                    <div class="listen-popup__empty-state">Qualified audiobook listens will appear here.</div>
+                }
+                else
+                {
+                    <div class="listen-popup__list">
+                        @foreach (var item in _snapshot.AudiobookHistory)
+                        {
+                            <AppNativeButton Type="button" Class="listen-popup__row-main" OnClick="@(() => PlayAudiobookHistoryAsync(item))">
+                                <div class="listen-popup__row-copy">
+                                    <div class="listen-popup__row-title">@FirstNonBlank(item.ChapterTitle, item.Title)</div>
+                                    <div class="listen-popup__row-subtitle">@($"{FormatTimestamp(item.PositionSeconds)} · {item.EndedAt.LocalDateTime:g}")</div>
+                                </div>
+                                <div class="listen-popup__row-duration">@($"{Math.Round(item.ProgressPct):0}%")</div>
+                            </AppNativeButton>
+                        }
+                    </div>
+                }
+            }
+            else if (_snapshot.History.Count == 0)
             {
                 <div class="listen-popup__empty-state">@L["Listen_HistoryEmpty"]</div>
             }
@@ -139,14 +162,20 @@
             </AppNativeButton>
             <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@_snapshot.Volume" Class="listen-popup__volume" OnInput="SetVolumeAsync" />
             <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="PlayPreviousAsync">
-                <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
+                <MudIcon Icon="@(IsAudiobookMode ? Icons.Material.Outlined.Replay10 : Icons.Material.Outlined.SkipPrevious)" Class="tl-u-font-size-20px" />
             </AppNativeButton>
             <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync">
-                <MudIcon Icon="@(_snapshot.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-22px" />
+                <MudIcon Icon="@(_snapshot.IsPlaying && !_snapshot.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-22px" />
             </AppNativeButton>
             <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="PlayNextAsync">
-                <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Class="tl-u-font-size-20px" />
+                <MudIcon Icon="@(IsAudiobookMode ? Icons.Material.Outlined.Forward30 : Icons.Material.Outlined.SkipNext)" Class="tl-u-font-size-20px" />
             </AppNativeButton>
+            @if (IsAudiobookMode)
+            {
+                <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="CycleSpeedAsync">
+                    <span>@FormatSpeed(_snapshot.PlaybackRate)</span>
+                </AppNativeButton>
+            }
             <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="ClosePlayerAsync">
                 <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
             </AppNativeButton>
@@ -170,6 +199,7 @@
             : _snapshot.Queue.Skip(_snapshot.CurrentIndex + 1).ToList();
 
     private double ProgressMax => _snapshot.DurationSeconds > 0 ? _snapshot.DurationSeconds : 1;
+    private bool IsAudiobookMode => string.Equals(_snapshot.Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -214,14 +244,16 @@
 
     private Task SetTabAsync(string tab) => SendCommandAsync(new PopupCommand { Action = "set-tab", Tab = tab });
     private Task TogglePlayAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-play" });
-    private Task PlayNextAsync() => SendCommandAsync(new PopupCommand { Action = "play-next" });
-    private Task PlayPreviousAsync() => SendCommandAsync(new PopupCommand { Action = "play-previous" });
+    private Task PlayNextAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "skip-forward" : "play-next" });
+    private Task PlayPreviousAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "skip-back" : "play-previous" });
     private Task ClearUpcomingAsync() => SendCommandAsync(new PopupCommand { Action = "clear-upcoming" });
     private Task RemoveUpcomingAsync(int index) => SendCommandAsync(new PopupCommand { Action = "remove-upcoming", Index = index });
     private Task PlayIndexAsync(int index) => SendCommandAsync(new PopupCommand { Action = "play-index", Index = index });
     private Task PlayHistoryAsync(ListenQueueItem item) => SendCommandAsync(new PopupCommand { Action = "play-history", Item = item });
+    private Task PlayAudiobookHistoryAsync(AudiobookListenHistoryItemDto item) => SendCommandAsync(new PopupCommand { Action = "play-audiobook-history", AudiobookHistoryItem = item });
     private Task ToggleMuteAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-mute" });
     private Task ClosePlayerAsync() => SendCommandAsync(new PopupCommand { Action = "close-player" });
+    private Task CycleSpeedAsync() => SendCommandAsync(new PopupCommand { Action = "set-speed", Value = NextSpeed(_snapshot.PlaybackRate) });
 
     private async Task SeekAsync(ChangeEventArgs args)
     {
@@ -259,6 +291,16 @@
     private string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? L["Listen_LibraryAudio"];
 
+    private static string FormatSpeed(double rate) =>
+        $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";
+
+    private static double NextSpeed(double current)
+    {
+        var rates = new[] { 0.75d, 1d, 1.25d, 1.5d, 1.75d, 2d, 2.5d, 3d };
+        var index = Array.FindIndex(rates, rate => Math.Abs(rate - current) < 0.01d);
+        return rates[(index + 1 + rates.Length) % rates.Length];
+    }
+
     public async ValueTask DisposeAsync()
     {
         try
@@ -284,5 +326,6 @@
         public double? Value { get; set; }
         public string? Tab { get; set; }
         public ListenQueueItem? Item { get; set; }
+        public AudiobookListenHistoryItemDto? AudiobookHistoryItem { get; set; }
     }
 }

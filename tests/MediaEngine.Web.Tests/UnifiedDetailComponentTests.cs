@@ -529,7 +529,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-audio-detail__metadata", audioLayout);
         Assert.Contains("tl-audio-detail__hero--title-dense", audioLayout);
         Assert.DoesNotContain("HeroMetadataPills", audioLayout);
-        Assert.Contains("InitialPositionSeconds = item.StartSeconds", audioTable);
+        Assert.Contains("InitialPositionSeconds = ResumePositionFor(item)", audioTable);
         Assert.Contains("FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook)", audioTable);
         Assert.Contains("GetDetailPageAsync(", listenPage);
         Assert.Contains("DetailEntityType.Audiobook", listenPage);

@@ -1,7 +1,8 @@
 ﻿.listen-page {
     display: grid;
     grid-template-columns: 284px minmax(0, 1fr) 360px;
-    min-height: calc(100vh - 64px);
+    height: calc(100dvh - 64px);
+    min-height: 0;
     padding-bottom: 0;
     background:
         radial-gradient(circle at top left, rgba(139, 92, 246, 0.12), transparent 30%),
@@ -11,6 +12,7 @@
 
 .listen-rail-shell {
     min-width: 0;
+    min-height: 0;
     border-right: 1px solid rgba(148, 163, 184, 0.16);
     background: rgba(9, 15, 27, 0.88);
     padding: 24px 14px;
@@ -518,8 +520,10 @@
 
 .listen-content {
     min-width: 0;
+    min-height: 0;
     padding: 30px 42px 42px;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .listen-home {

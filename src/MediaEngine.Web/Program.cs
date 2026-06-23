@@ -184,6 +184,7 @@ builder.Services.AddScoped<WatchlistService>();
 builder.Services.AddScoped<FavoriteService>();
 builder.Services.AddScoped<MediaReactionService>();
 builder.Services.AddScoped<ListenPlaybackService>();
+builder.Services.AddScoped<ListenAudioDragService>();
 builder.Services.AddScoped<ListenPageState>();
 builder.Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
 

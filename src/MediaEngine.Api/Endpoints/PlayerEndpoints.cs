@@ -46,6 +46,10 @@ public static class PlayerEndpoints
             {
                 return Results.Conflict(new { error = ex.Message, ex.CurrentVersion, ex.ExpectedVersion });
             }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
         })
         .WithName("ReplacePlayerQueue")
         .WithSummary("Replace the queue and start playback from the requested item.")
@@ -66,6 +70,10 @@ public static class PlayerEndpoints
             catch (PlayerStateConflictException ex)
             {
                 return Results.Conflict(new { error = ex.Message, ex.CurrentVersion, ex.ExpectedVersion });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
             }
         })
         .WithName("AddPlayerQueueItems")
@@ -203,6 +211,21 @@ public static class PlayerEndpoints
         .WithSummary("Take control of a stale or explicitly forced player session from another client.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status409Conflict)
+        .RequireAnyRole();
+
+        group.MapGet("/audiobooks/{workId:guid}/history", async (
+            Guid workId,
+            Guid? profileId,
+            int? limit,
+            PlayerService player,
+            CancellationToken ct) =>
+        {
+            var history = await player.GetAudiobookHistoryAsync(profileId, workId, limit, ct);
+            return Results.Ok(history);
+        })
+        .WithName("GetAudiobookListenHistory")
+        .WithSummary("Return recent qualified audiobook listen checkpoints for resume recovery.")
+        .Produces<IReadOnlyList<AudiobookListenHistoryItemDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         return app;

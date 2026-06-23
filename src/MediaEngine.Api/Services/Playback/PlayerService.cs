@@ -17,19 +17,25 @@ public sealed class PlayerService
     private readonly IDatabaseConnection _db;
     private readonly IMediaAssetRepository _assets;
     private readonly IUserStateStore _userStates;
+    private readonly IUserPlaybackSettingsService _settings;
+    private readonly AudiobookListenHistoryRepository _history;
 
     public PlayerService(
         PlayerSessionRepository sessions,
         PlaybackCapabilitiesService playback,
         IDatabaseConnection db,
         IMediaAssetRepository assets,
-        IUserStateStore userStates)
+        IUserStateStore userStates,
+        IUserPlaybackSettingsService settings,
+        AudiobookListenHistoryRepository history)
     {
         _sessions = sessions;
         _playback = playback;
         _db = db;
         _assets = assets;
         _userStates = userStates;
+        _settings = settings;
+        _history = history;
     }
 
     public async Task<PlayerStateDto> GetStateAsync(Guid? profileId, string? deviceId, string? client, CancellationToken ct = default)
@@ -55,6 +61,7 @@ public sealed class PlayerService
         var client = NormalizeClient(request.Client);
         var sessionId = Guid.NewGuid();
         var items = await ResolveQueueItemsAsync(request, ct);
+        ValidateQueueReplacement(items);
 
         if (request.Shuffle)
         {
@@ -94,6 +101,7 @@ public sealed class PlayerService
         var deviceId = NormalizeDeviceId(request.DeviceId);
         var client = NormalizeClient(request.Client);
         var items = await ResolveQueueItemsAsync(request, ct);
+        ValidateQueueAddition(items);
 
         await _sessions.AddQueueItemsAsync(
             profileId,
@@ -168,6 +176,15 @@ public sealed class PlayerService
                     progressPct: CalculateProgress(request.PositionSeconds ?? state.PositionSeconds, request.DurationSeconds ?? state.DurationSeconds),
                     ct: ct);
                 break;
+            case PlayerCommands.RelativeSeek:
+                var relativePosition = Math.Max(0, state.PositionSeconds + (request.DeltaSeconds ?? 0));
+                await _sessions.UpdateTransportAsync(
+                    profileId,
+                    positionSeconds: relativePosition,
+                    durationSeconds: request.DurationSeconds ?? state.DurationSeconds,
+                    progressPct: CalculateProgress(relativePosition, request.DurationSeconds ?? state.DurationSeconds),
+                    ct: ct);
+                break;
             case PlayerCommands.Volume:
                 await _sessions.UpdateTransportAsync(profileId, volume: ClampVolume(request.Volume), ct: ct);
                 break;
@@ -176,6 +193,12 @@ public sealed class PlayerService
                 break;
             case PlayerCommands.Speed:
                 await _sessions.UpdateTransportAsync(profileId, playbackRate: ClampPlaybackRate(request.PlaybackRate), ct: ct);
+                break;
+            case PlayerCommands.ScanStart:
+                await _sessions.UpdateTransportAsync(profileId, playbackRate: ClampScanRate(request.PlaybackRate), ct: ct);
+                break;
+            case PlayerCommands.ScanStop:
+                await _sessions.UpdateTransportAsync(profileId, playbackRate: ClampPlaybackRate(request.PlaybackRate ?? 1d), ct: ct);
                 break;
             case PlayerCommands.Shuffle:
                 await _sessions.UpdateTransportAsync(profileId, shuffleEnabled: request.ShuffleEnabled ?? !state.ShuffleEnabled, ct: ct);
@@ -194,6 +217,7 @@ public sealed class PlayerService
         var deviceId = NormalizeDeviceId(heartbeat.DeviceId);
         var client = NormalizeClient(heartbeat.Client);
         await _sessions.EnsureSessionAsync(profileId, heartbeat.SessionId ?? Guid.NewGuid(), deviceId, client, ct);
+        var priorState = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
 
         var position = Math.Max(0, heartbeat.PositionSeconds);
         var duration = heartbeat.DurationSeconds;
@@ -224,6 +248,20 @@ public sealed class PlayerService
         if (assetId.HasValue)
         {
             await SaveResumeAsync(profileId, assetId.Value, position, duration, progress, state, heartbeat.SessionId, deviceId, client, ct);
+        }
+
+        var historyItem = ResolveHistoryItem(priorState, heartbeat, assetId);
+        if (historyItem is not null && IsAudiobook(historyItem.MediaType))
+        {
+            var settings = await GetPlaybackSettingsOrDefaultAsync(profileId, ct);
+            await _history.TrackHeartbeatAsync(
+                profileId,
+                historyItem,
+                heartbeat,
+                settings.Listening.AudiobookListenQualificationSeconds,
+                deviceId,
+                client,
+                ct);
         }
 
         return await GetStateAsync(profileId, deviceId, client, ct);
@@ -415,7 +453,7 @@ public sealed class PlayerService
             LEFT JOIN canonical_values wcv ON wcv.entity_id = w.id
             LEFT JOIN canonical_values acv ON acv.entity_id = ma.id
             WHERE w.id = @workId
-              AND LOWER(w.media_type) IN ('music', 'audiobooks')
+              AND LOWER(w.media_type) IN ('music', 'audiobooks', 'audiobook', 'audio')
             GROUP BY w.id, ma.id
             ORDER BY ma.presented_at IS NULL, ma.presented_at DESC, ma.file_path_root
             LIMIT 1;
@@ -451,7 +489,11 @@ public sealed class PlayerService
         var current = state.CurrentItem;
         if (current?.AssetId is null)
         {
-            return state with { Capabilities = GetCapabilities() };
+            return state with
+            {
+                Capabilities = GetCapabilities(),
+                Experience = ExperienceFor(state.Queue),
+            };
         }
 
         var manifest = await _playback.BuildManifestAsync(current.AssetId.Value, state.Client, ct);
@@ -478,7 +520,11 @@ public sealed class PlayerService
         {
             CurrentItem = enrichedCurrent,
             Queue = queue,
+            Experience = ExperienceFor(queue),
             Capabilities = GetCapabilities(),
+            AudiobookHistory = IsAudiobook(enrichedCurrent.MediaType)
+                ? await _history.GetRecentAsync(state.ProfileId, enrichedCurrent.WorkId, 10, ct)
+                : [],
             Warnings = manifest.Warnings,
         };
     }
@@ -544,6 +590,16 @@ public sealed class PlayerService
         IsStale = true,
     };
 
+    public Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookHistoryAsync(
+        Guid? profileId,
+        Guid workId,
+        int? limit,
+        CancellationToken ct = default)
+    {
+        var normalizedProfile = ResolveProfileId(profileId);
+        return _history.GetRecentAsync(normalizedProfile, workId, limit ?? 10, ct);
+    }
+
     private static Guid ResolveProfileId(Guid? profileId) =>
         profileId.GetValueOrDefault() == Guid.Empty ? DefaultProfileId : profileId!.Value;
 
@@ -569,6 +625,81 @@ public sealed class PlayerService
 
     private static double? ClampPlaybackRate(double? playbackRate) =>
         playbackRate.HasValue ? Math.Clamp(playbackRate.Value, 0.5d, 2d) : null;
+
+    private static double? ClampScanRate(double? playbackRate) =>
+        playbackRate.HasValue ? Math.Clamp(playbackRate.Value, 1d, 32d) : null;
+
+    private static void ValidateQueueReplacement(IReadOnlyList<PlayerQueueItemDto> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        if (items.Any(item => IsAudiobook(item.MediaType)) && items.Any(item => IsMusic(item.MediaType)))
+        {
+            throw new InvalidOperationException("Music and audiobooks cannot share one player queue.");
+        }
+
+        if (items.Count(item => IsAudiobook(item.MediaType)) > 1)
+        {
+            throw new InvalidOperationException("Audiobooks play one title at a time. Replace the current audiobook instead of queueing chapters.");
+        }
+    }
+
+    private static void ValidateQueueAddition(IReadOnlyList<PlayerQueueItemDto> items)
+    {
+        if (items.Any(item => IsAudiobook(item.MediaType)))
+        {
+            throw new InvalidOperationException("Audiobooks play one title at a time. Use queue replacement to start an audiobook.");
+        }
+    }
+
+    private static PlayerQueueItemDto? ResolveHistoryItem(PlayerStateDto? state, PlayerHeartbeatDto heartbeat, Guid? assetId)
+    {
+        if (state is null || state.Queue.Count == 0)
+        {
+            return null;
+        }
+
+        if (heartbeat.QueueItemId.HasValue)
+        {
+            return state.Queue.FirstOrDefault(item => item.QueueItemId == heartbeat.QueueItemId.Value);
+        }
+
+        if (state.CurrentItem is not null)
+        {
+            return state.CurrentItem;
+        }
+
+        return assetId.HasValue
+            ? state.Queue.FirstOrDefault(item => item.AssetId == assetId.Value)
+            : null;
+    }
+
+    private async Task<UserPlaybackSettingsDto> GetPlaybackSettingsOrDefaultAsync(Guid profileId, CancellationToken ct)
+    {
+        try
+        {
+            return await _settings.GetOrCreateDefaultsAsync(profileId, ct);
+        }
+        catch
+        {
+            return UserPlaybackSettingsDto.CreateDefaults(profileId);
+        }
+    }
+
+    private static string ExperienceFor(IReadOnlyList<PlayerQueueItemDto> queue) =>
+        queue.Any(item => IsAudiobook(item.MediaType))
+            ? PlayerExperienceModes.Audiobook
+            : PlayerExperienceModes.Music;
+
+    private static bool IsAudiobook(string? mediaType) =>
+        mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true
+        && mediaType.Contains("book", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMusic(string? mediaType) =>
+        mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true;
 
     private static double CalculateProgress(double? positionSeconds, double? durationSeconds)
     {

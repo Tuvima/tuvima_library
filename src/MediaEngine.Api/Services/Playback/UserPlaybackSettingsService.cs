@@ -17,6 +17,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
     private static readonly HashSet<int> WatchingSkipForwardValues = [10, 30, 60, 90];
     private static readonly HashSet<int> ListeningSkipBackValues = [10, 15, 30];
     private static readonly HashSet<int> ListeningSkipForwardValues = [15, 30, 60];
+    private static readonly HashSet<int> ListeningResumeRewindValues = [0, 5, 10, 15, 30];
     private static readonly HashSet<string> VideoQualityValues = BuildSet(
         PlaybackPreferenceValues.Auto,
         PlaybackPreferenceValues.Original,
@@ -182,6 +183,17 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
 
         settings.Watching.DefaultPlaybackSpeed = Math.Round(settings.Watching.DefaultPlaybackSpeed, 2);
         settings.Listening.AudiobookDefaultSpeed = Math.Round(settings.Listening.AudiobookDefaultSpeed, 2);
+        settings.Listening.AudiobookScanRates ??= [2d, 4d, 8d, 16d];
+        settings.Listening.AudiobookScanRates = settings.Listening.AudiobookScanRates
+            .Where(rate => rate is >= 1d and <= 32d)
+            .Select(rate => Math.Round(rate, 2))
+            .Distinct()
+            .Order()
+            .ToList();
+        if (settings.Listening.AudiobookScanRates.Count == 0)
+        {
+            settings.Listening.AudiobookScanRates = [2d, 4d, 8d, 16d];
+        }
         settings.Watching.PreferredVideoQuality = NormalizeToken(settings.Watching.PreferredVideoQuality);
         settings.Listening.DefaultSleepTimer = NormalizeToken(settings.Listening.DefaultSleepTimer);
         settings.Listening.OutputPreference = NormalizeToken(settings.Listening.OutputPreference);
@@ -205,11 +217,13 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         RequireRange(settings.Reading.FontSizePercent, 80, 160, nameof(settings.Reading.FontSizePercent));
         RequireRange(settings.Watching.DefaultPlaybackSpeed, 0.5m, 2.0m, nameof(settings.Watching.DefaultPlaybackSpeed));
         RequireRange(settings.Listening.AudiobookDefaultSpeed, 0.5m, 3.0m, nameof(settings.Listening.AudiobookDefaultSpeed));
+        RequireRange(settings.Listening.AudiobookListenQualificationSeconds, 15, 300, nameof(settings.Listening.AudiobookListenQualificationSeconds));
 
         RequireAllowed(settings.Watching.SkipBackSeconds, WatchingSkipBackValues, nameof(settings.Watching.SkipBackSeconds));
         RequireAllowed(settings.Watching.SkipForwardSeconds, WatchingSkipForwardValues, nameof(settings.Watching.SkipForwardSeconds));
         RequireAllowed(settings.Listening.SkipBackSeconds, ListeningSkipBackValues, nameof(settings.Listening.SkipBackSeconds));
         RequireAllowed(settings.Listening.SkipForwardSeconds, ListeningSkipForwardValues, nameof(settings.Listening.SkipForwardSeconds));
+        RequireAllowed(settings.Listening.ResumeRewindSeconds, ListeningResumeRewindValues, nameof(settings.Listening.ResumeRewindSeconds));
         RequireAllowed(settings.Watching.PreferredVideoQuality, VideoQualityValues, nameof(settings.Watching.PreferredVideoQuality));
         RequireAllowed(settings.Listening.DefaultSleepTimer, SleepTimerValues, nameof(settings.Listening.DefaultSleepTimer));
         RequireAllowed(settings.Listening.OutputPreference, OutputValues, nameof(settings.Listening.OutputPreference));

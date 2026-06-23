@@ -443,7 +443,7 @@ else
                                         </AppNativeButton>
                                         @if (_artistDetail.ArtistPersonId.HasValue)
                                         {
-                                            <AppNativeButton Type="button" Class="listen-button listen-button--secondary" OnClick="@(() => Nav.NavigateTo($" /details/person/{_artistDetail.ArtistPersonId.Value}"))">View artist page</AppNativeButton>
+                                            <AppNativeButton Type="button" Class="listen-button listen-button--secondary" OnClick="@(() => Nav.NavigateTo($"/details/person/{_artistDetail.ArtistPersonId.Value}"))">View artist page</AppNativeButton>
                                         }
                                     </div>
                                 </div>
@@ -729,7 +729,7 @@ else
                                     {
                                         <div class="listen-playlist-track-row__favorite" role="cell">
                                             <AppNativeButton Type="button" Class='@($"listen-track-grid__favorite {(_favoriteWorkIds.Contains(track.Id) ? " is-active" : null)}")' AriaLabel="Toggle favorite" Title="Toggle favorite" StopPropagation="true" OnClick="@(() => ToggleFavoriteAsync(track))">
-                                                <MudIcon Icon="@(_favoriteWorkIds.Contains(track.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)" Size="Size.Small" />
+                                                <MudIcon Icon="@(_favoriteWorkIds.Contains(track.Id) ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" Size="Size.Small" />
                                             </AppNativeButton>
                                         </div>
                                     }

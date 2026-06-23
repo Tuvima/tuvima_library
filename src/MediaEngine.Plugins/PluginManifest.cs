@@ -43,6 +43,9 @@ public sealed record PluginManifest
 
     [JsonPropertyName("default_settings")]
     public Dictionary<string, JsonElement> DefaultSettings { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("settings_schema")]
+    public JsonElement? SettingsSchema { get; init; }
 }
 
 public sealed record PluginCapabilityDescriptor

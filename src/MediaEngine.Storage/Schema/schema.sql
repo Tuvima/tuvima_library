@@ -653,6 +653,40 @@ CREATE TABLE IF NOT EXISTS player_queue_items (
     source_label     TEXT
 );
 
+CREATE TABLE IF NOT EXISTS audiobook_listen_active_segments (
+    profile_id             BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+    work_id                BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    asset_id               BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    queue_item_id          BLOB,
+    title                  TEXT NOT NULL,
+    chapter_title          TEXT,
+    chapter_index          INTEGER,
+    started_at             TEXT NOT NULL,
+    started_position_seconds REAL NOT NULL DEFAULT 0.0,
+    last_position_seconds  REAL NOT NULL DEFAULT 0.0,
+    duration_seconds       REAL,
+    device_id              TEXT NOT NULL,
+    client                 TEXT NOT NULL,
+    last_heartbeat_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS audiobook_listen_history (
+    id                     BLOB NOT NULL PRIMARY KEY,
+    profile_id             BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    work_id                BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    asset_id               BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    title                  TEXT NOT NULL,
+    chapter_title          TEXT,
+    chapter_index          INTEGER,
+    position_seconds       REAL NOT NULL DEFAULT 0.0,
+    duration_seconds       REAL,
+    progress_pct           REAL NOT NULL DEFAULT 0.0,
+    device_id              TEXT NOT NULL,
+    client                 TEXT NOT NULL,
+    started_at             TEXT NOT NULL,
+    ended_at               TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS playback_segments (
     id            BLOB NOT NULL PRIMARY KEY,
     asset_id      BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
@@ -1257,6 +1291,12 @@ CREATE INDEX IF NOT EXISTS idx_player_queue_items_profile_position
 
 CREATE INDEX IF NOT EXISTS idx_player_sessions_heartbeat
     ON player_sessions(last_heartbeat_at);
+
+CREATE INDEX IF NOT EXISTS idx_audiobook_listen_history_profile_work
+    ON audiobook_listen_history(profile_id, work_id, ended_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audiobook_listen_history_profile_asset
+    ON audiobook_listen_history(profile_id, asset_id, ended_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_prc_expires ON provider_response_cache (expires_at);
 
