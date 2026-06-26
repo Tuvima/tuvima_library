@@ -24,6 +24,7 @@ public sealed class DockerfileGuardrailTests
             "src/MediaEngine.AI/MediaEngine.AI.csproj",
             "src/MediaEngine.Plugins/MediaEngine.Plugins.csproj",
             "src/MediaEngine.Plugin.CommercialSkip/MediaEngine.Plugin.CommercialSkip.csproj",
+            "src/MediaEngine.Plugin.FandomLore/MediaEngine.Plugin.FandomLore.csproj",
             "src/MediaEngine.Plugin.MediaSegments/MediaEngine.Plugin.MediaSegments.csproj",
             "src/MediaEngine.Api/MediaEngine.Api.csproj",
             "src/MediaEngine.Web/MediaEngine.Web.csproj",

@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using MediaEngine.Api.Services.Plugins;
+using MediaEngine.Plugin.FandomLore;
 using MediaEngine.Plugins;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Models;
@@ -10,6 +11,43 @@ namespace MediaEngine.Api.Tests;
 
 public sealed class PluginCatalogTests
 {
+    [Fact]
+    public void BuiltInFandomPlugin_ExposesUniverseLoreCapabilityAndSettingsSchema()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "tuvima-fandom-plugin-tests", Guid.NewGuid().ToString("N"));
+        var configRoot = Path.Combine(tempRoot, "config");
+        var libraryRoot = Path.Combine(tempRoot, "library");
+        Directory.CreateDirectory(configRoot);
+        Directory.CreateDirectory(libraryRoot);
+
+        try
+        {
+            using var loader = new ConfigurationDirectoryLoader(configRoot);
+            loader.SaveCore(new CoreConfiguration { LibraryRoot = libraryRoot });
+
+            var catalog = new PluginCatalog(
+                [new FandomLorePlugin()],
+                new PluginSettingsStore(loader),
+                loader,
+                NullLogger<PluginCatalog>.Instance);
+
+            var registration = Assert.Single(catalog.List());
+            Assert.True(registration.IsBuiltIn);
+            Assert.False(registration.Enabled);
+            Assert.Equal("tuvima.fandom-lore", registration.Manifest.Id);
+            Assert.Contains(registration.Manifest.Capabilities, capability => capability.Kind == "universe-lore-provider");
+            Assert.NotNull(registration.SettingsSchema);
+            Assert.True(registration.SettingsSchema!.Value.TryGetProperty("properties", out var properties));
+            Assert.True(properties.TryGetProperty("source_mode", out var sourceMode));
+            Assert.Equal("Source mode", sourceMode.GetProperty("title").GetString());
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     [Fact]
     public void DynamicPluginManifest_CanBeEditedAndDeleted()
     {

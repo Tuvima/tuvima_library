@@ -3664,6 +3664,7 @@ public sealed class EngineApiClient : IEngineApiClient
         string? types = null,
         string? center = null,
         int? depth = null,
+        bool includeSupplementalLore = false,
         CancellationToken ct = default)
     {
         try
@@ -3674,6 +3675,7 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!string.IsNullOrWhiteSpace(types)) queryParams.Add($"types={Uri.EscapeDataString(types)}");
             if (!string.IsNullOrWhiteSpace(center)) queryParams.Add($"center={Uri.EscapeDataString(center)}");
             if (depth.HasValue) queryParams.Add($"depth={depth.Value}");
+            if (includeSupplementalLore) queryParams.Add("include_supplemental_lore=true");
             if (queryParams.Count > 0) url += "?" + string.Join("&", queryParams);
 
             return await _http.GetFromJsonAsync<UniverseGraphResponse>(url, ct);
@@ -3700,6 +3702,118 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /universe/{Qid}/lore-delta failed", qid);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<UniverseLoreSourceViewModel>> GetUniverseLoreSourcesAsync(
+        string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<UniverseLoreSourceViewModel>>(
+                $"universe/{Uri.EscapeDataString(qid)}/lore-sources", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /universe/{Qid}/lore-sources failed", qid);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<UniverseLoreSourceViewModel>> DiscoverUniverseLoreSourcesAsync(
+        string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                $"universe/{Uri.EscapeDataString(qid)}/lore-sources/discover", new { }, ct);
+            if (!response.IsSuccessStatusCode)
+                return [];
+
+            return await response.Content.ReadFromJsonAsync<List<UniverseLoreSourceViewModel>>(cancellationToken: ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /universe/{Qid}/lore-sources/discover failed", qid);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
+    public async Task<UniverseLoreSourceViewModel?> AddUniverseLoreSourceAsync(
+        string qid, UniverseLoreManualSourceRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                $"universe/{Uri.EscapeDataString(qid)}/lore-sources/manual", request, ct);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            return await response.Content.ReadFromJsonAsync<UniverseLoreSourceViewModel>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /universe/{Qid}/lore-sources/manual failed", qid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public Task<IReadOnlyList<UniverseLoreSourceViewModel>> ApproveUniverseLoreSourceAsync(
+        string qid, Guid sourceId, CancellationToken ct = default) =>
+        SetUniverseLoreSourceStatusAsync(qid, sourceId, "approve", ct);
+
+    public Task<IReadOnlyList<UniverseLoreSourceViewModel>> RejectUniverseLoreSourceAsync(
+        string qid, Guid sourceId, CancellationToken ct = default) =>
+        SetUniverseLoreSourceStatusAsync(qid, sourceId, "reject", ct);
+
+    public async Task<UniverseLoreEnrichmentSummaryViewModel?> EnrichUniverseLoreAsync(
+        string qid, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                $"universe/{Uri.EscapeDataString(qid)}/lore/enrich", new { }, ct);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            return await response.Content.ReadFromJsonAsync<UniverseLoreEnrichmentSummaryViewModel>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /universe/{Qid}/lore/enrich failed", qid);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    private async Task<IReadOnlyList<UniverseLoreSourceViewModel>> SetUniverseLoreSourceStatusAsync(
+        string qid,
+        Guid sourceId,
+        string statusAction,
+        CancellationToken ct)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                $"universe/{Uri.EscapeDataString(qid)}/lore-sources/{sourceId:D}/{statusAction}", new { }, ct);
+            if (!response.IsSuccessStatusCode)
+                return [];
+
+            return await response.Content.ReadFromJsonAsync<List<UniverseLoreSourceViewModel>>(cancellationToken: ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /universe/{Qid}/lore-sources/{SourceId}/{StatusAction} failed", qid, sourceId, statusAction);
             LastError = ex.Message;
             return [];
         }

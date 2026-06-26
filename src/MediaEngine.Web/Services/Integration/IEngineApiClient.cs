@@ -752,10 +752,35 @@ public interface IEngineApiClient
         string? types = null,
         string? center = null,
         int? depth = null,
+        bool includeSupplementalLore = false,
         CancellationToken ct = default);
 
     /// <summary>GET /universe/{qid}/lore-delta — check which entities have changed on Wikidata since last enrichment.</summary>
     Task<IReadOnlyList<LoreDeltaResultDto>> CheckLoreDeltaAsync(
+        string qid, CancellationToken ct = default);
+
+    /// <summary>GET /universe/{qid}/lore-sources - admin review list for plugin lore sources.</summary>
+    Task<IReadOnlyList<UniverseLoreSourceViewModel>> GetUniverseLoreSourcesAsync(
+        string qid, CancellationToken ct = default);
+
+    /// <summary>POST /universe/{qid}/lore-sources/discover - find source candidates through lore plugins.</summary>
+    Task<IReadOnlyList<UniverseLoreSourceViewModel>> DiscoverUniverseLoreSourcesAsync(
+        string qid, CancellationToken ct = default);
+
+    /// <summary>POST /universe/{qid}/lore-sources/manual - add a plugin lore source for admin approval.</summary>
+    Task<UniverseLoreSourceViewModel?> AddUniverseLoreSourceAsync(
+        string qid, UniverseLoreManualSourceRequest request, CancellationToken ct = default);
+
+    /// <summary>POST /universe/{qid}/lore-sources/{sourceId}/approve - approve a plugin lore source.</summary>
+    Task<IReadOnlyList<UniverseLoreSourceViewModel>> ApproveUniverseLoreSourceAsync(
+        string qid, Guid sourceId, CancellationToken ct = default);
+
+    /// <summary>POST /universe/{qid}/lore-sources/{sourceId}/reject - reject a plugin lore source.</summary>
+    Task<IReadOnlyList<UniverseLoreSourceViewModel>> RejectUniverseLoreSourceAsync(
+        string qid, Guid sourceId, CancellationToken ct = default);
+
+    /// <summary>POST /universe/{qid}/lore/enrich - import approved plugin lore for this universe.</summary>
+    Task<UniverseLoreEnrichmentSummaryViewModel?> EnrichUniverseLoreAsync(
         string qid, CancellationToken ct = default);
 
     /// <summary>GET /universes — list all narrative roots (fictional universes).</summary>

@@ -43,6 +43,18 @@ public sealed class GraphNodeDto
 
     [JsonPropertyName("works")]
     public List<GraphNodeWorkLink>? Works { get; set; }
+
+    [JsonPropertyName("supplemental")]
+    public bool Supplemental { get; set; }
+
+    [JsonPropertyName("provenance")]
+    public string? Provenance { get; set; }
+
+    [JsonPropertyName("source_plugin")]
+    public string? SourcePlugin { get; set; }
+
+    [JsonPropertyName("source_url")]
+    public string? SourceUrl { get; set; }
 }
 
 public sealed class GraphNodeWorkLink
@@ -79,6 +91,93 @@ public sealed class GraphEdgeDto
 
     [JsonPropertyName("end_time")]
     public string? EndTime { get; set; }
+
+    [JsonPropertyName("supplemental")]
+    public bool Supplemental { get; set; }
+
+    [JsonPropertyName("provenance")]
+    public string? Provenance { get; set; }
+
+    [JsonPropertyName("source_plugin")]
+    public string? SourcePlugin { get; set; }
+
+    [JsonPropertyName("source_url")]
+    public string? SourceUrl { get; set; }
+}
+
+public sealed class UniverseLoreSourceViewModel
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
+    [JsonPropertyName("universe_qid")]
+    public string UniverseQid { get; set; } = string.Empty;
+
+    [JsonPropertyName("plugin_id")]
+    public string PluginId { get; set; } = string.Empty;
+
+    [JsonPropertyName("source_key")]
+    public string SourceKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("source_name")]
+    public string SourceName { get; set; } = string.Empty;
+
+    [JsonPropertyName("base_url")]
+    public string BaseUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("api_url")]
+    public string ApiUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; set; }
+
+    [JsonPropertyName("license")]
+    public string? License { get; set; }
+
+    [JsonPropertyName("approved_at")]
+    public DateTimeOffset? ApprovedAt { get; set; }
+
+    [JsonPropertyName("approved_by")]
+    public string? ApprovedBy { get; set; }
+
+    [JsonPropertyName("rejected_at")]
+    public DateTimeOffset? RejectedAt { get; set; }
+
+    [JsonPropertyName("last_discovered_at")]
+    public DateTimeOffset? LastDiscoveredAt { get; set; }
+
+    [JsonPropertyName("last_enriched_at")]
+    public DateTimeOffset? LastEnrichedAt { get; set; }
+}
+
+public sealed class UniverseLoreManualSourceRequest
+{
+    [JsonPropertyName("source_name")]
+    public string? SourceName { get; set; }
+
+    [JsonPropertyName("base_url")]
+    public string BaseUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("api_url")]
+    public string? ApiUrl { get; set; }
+}
+
+public sealed class UniverseLoreEnrichmentSummaryViewModel
+{
+    [JsonPropertyName("universe_qid")]
+    public string UniverseQid { get; set; } = string.Empty;
+
+    [JsonPropertyName("sources_enriched")]
+    public int SourcesEnriched { get; set; }
+
+    [JsonPropertyName("entities_written")]
+    public int EntitiesWritten { get; set; }
+
+    [JsonPropertyName("relationships_written")]
+    public int RelationshipsWritten { get; set; }
 }
 
 public sealed class LoreDeltaResultDto

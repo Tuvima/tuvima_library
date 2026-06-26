@@ -41,6 +41,7 @@ using MediaEngine.Providers.Workers;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Plugin.CommercialSkip;
+using MediaEngine.Plugin.FandomLore;
 using MediaEngine.Plugin.MediaSegments;
 using MediaEngine.Plugins;
 using Microsoft.Extensions.Http.Resilience;
@@ -653,6 +654,7 @@ builder.Services.AddSingleton<ICanonDiscrepancyService,   CanonDiscrepancyServic
 builder.Services.AddSingleton<IFictionalEntityRepository,      FictionalEntityRepository>();
 builder.Services.AddSingleton<IEntityRelationshipRepository,    EntityRelationshipRepository>();
 builder.Services.AddSingleton<INarrativeRootRepository,         NarrativeRootRepository>();
+builder.Services.AddSingleton<IPluginLoreRepository,            PluginLoreRepository>();
 builder.Services.AddSingleton<INarrativeRootResolver,           NarrativeRootResolver>();
 builder.Services.AddSingleton<IRecursiveFictionalEntityService, RecursiveFictionalEntityService>();
 builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopulationService>();
@@ -865,6 +867,7 @@ builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.HardwareBenchmarkSer
 builder.Services.AddHostedService<MediaEngine.Api.Services.HardwareBenchmarkBackgroundService>();
 // -- Plugin host --------------------------------------------------------------
 builder.Services.AddSingleton<ITuvimaPlugin, CommercialSkipPlugin>();
+builder.Services.AddSingleton<ITuvimaPlugin, FandomLorePlugin>();
 builder.Services.AddSingleton<ITuvimaPlugin, IntroSkipPlugin>();
 builder.Services.AddSingleton<ITuvimaPlugin, CreditsDetectionPlugin>();
 builder.Services.AddSingleton<ITuvimaPlugin, RecapDetectionPlugin>();
@@ -872,6 +875,7 @@ builder.Services.AddSingleton<ITuvimaPlugin, AiVisualVerifierPlugin>();
 builder.Services.AddSingleton<PluginSettingsStore>();
 builder.Services.AddSingleton<PluginCatalog>();
 builder.Services.AddSingleton<ApprovedPluginCatalogService>();
+builder.Services.AddSingleton<PluginUniverseLoreService>();
 builder.Services.AddSingleton<PluginJobStateService>();
 builder.Services.AddSingleton<PluginScheduledSegmentService>();
 builder.Services.AddSingleton<IPluginToolRuntime, PluginToolRuntime>();

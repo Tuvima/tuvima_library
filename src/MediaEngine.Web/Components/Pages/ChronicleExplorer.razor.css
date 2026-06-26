@@ -51,3 +51,27 @@
 .chronicle-explorer-qid {
     color: rgba(248, 248, 248, 0.52);
 }
+
+.chronicle-source-table .app-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.chronicle-source-table th,
+.chronicle-source-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--tl-border-default);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.chronicle-source-table th {
+    color: rgba(248, 248, 248, 0.62);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.chronicle-source-table td {
+    overflow-wrap: anywhere;
+}

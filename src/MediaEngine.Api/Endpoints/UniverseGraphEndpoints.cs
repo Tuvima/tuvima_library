@@ -151,9 +151,11 @@ public static class UniverseGraphEndpoints
             string? center,
             int? depth,
             int? timeline_year,
+            bool? include_supplemental_lore,
             INarrativeRootRepository rootRepo,
             IFictionalEntityRepository entityRepo,
             IEntityRelationshipRepository relRepo,
+            IPluginLoreRepository pluginLoreRepo,
             IPersonRepository personRepo,
             IEraActorResolverService eraActorResolver,
             CancellationToken ct) =>
@@ -262,11 +264,15 @@ public static class UniverseGraphEndpoints
                     description = entity.Description,
                     image,
                     works      = workLinks.Select(wl => new { qid = wl.WorkQid, label = wl.WorkLabel }),
+                    supplemental = false,
+                    provenance = "wikidata",
+                    source_plugin = (string?)null,
+                    source_url = (string?)null,
                 });
             }
 
             // Build edges.
-            var edges = relationships.Select(r => new
+            var edges = relationships.Select(r => (object)new
             {
                 source       = r.SubjectQid,
                 target       = r.ObjectQid,
@@ -276,7 +282,25 @@ public static class UniverseGraphEndpoints
                 context_work = r.ContextWorkQid,
                 start_time   = r.StartTime,
                 end_time     = r.EndTime,
-            });
+                supplemental = false,
+                provenance = "wikidata",
+                source_plugin = (string?)null,
+                source_url = (string?)null,
+            }).ToList();
+
+            if (include_supplemental_lore == true
+                && string.IsNullOrWhiteSpace(work)
+                && string.IsNullOrWhiteSpace(center))
+            {
+                await AppendSupplementalLoreAsync(
+                    qid,
+                    types,
+                    pluginLoreRepo,
+                    entityQids,
+                    nodes,
+                    edges,
+                    ct).ConfigureAwait(false);
+            }
 
             return Results.Ok(new
             {
@@ -607,6 +631,90 @@ public static class UniverseGraphEndpoints
         public string? PerformerHeadshot { get; init; }
         public string? PerformerLocalHeadshotPath { get; init; }
     }
+
+    private static async Task AppendSupplementalLoreAsync(
+        string universeQid,
+        string? types,
+        IPluginLoreRepository pluginLoreRepo,
+        IReadOnlySet<string> existingQids,
+        List<object> nodes,
+        List<object> edges,
+        CancellationToken ct)
+    {
+        var typeSet = string.IsNullOrWhiteSpace(types)
+            ? null
+            : new HashSet<string>(
+                types.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries),
+                StringComparer.OrdinalIgnoreCase);
+
+        var supplementalEntities = await pluginLoreRepo.GetEntitiesAsync(universeQid, approvedOnly: true, ct).ConfigureAwait(false);
+        if (typeSet is not null)
+            supplementalEntities = supplementalEntities.Where(entity => typeSet.Contains(entity.EntityType)).ToList();
+
+        var nodeIdsByExternalKey = new Dictionary<(Guid SourceId, string ExternalKey), string>();
+        var nodeIds = existingQids.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entity in supplementalEntities)
+        {
+            var nodeId = !string.IsNullOrWhiteSpace(entity.WikidataQid)
+                ? entity.WikidataQid
+                : BuildSupplementalNodeId(entity.SourceId, entity.ExternalKey);
+
+            nodeIdsByExternalKey[(entity.SourceId, entity.ExternalKey)] = nodeId;
+
+            if (!nodeIds.Add(nodeId))
+                continue;
+
+            nodes.Add(new
+            {
+                id = nodeId,
+                label = entity.Label,
+                type = entity.EntityType,
+                description = entity.Description,
+                image = (string?)null,
+                works = Array.Empty<object>(),
+                supplemental = true,
+                provenance = "plugin",
+                source_plugin = entity.PluginId,
+                source_url = entity.SourceUrl,
+            });
+        }
+
+        var supplementalRelationships = await pluginLoreRepo.GetRelationshipsAsync(universeQid, approvedOnly: true, ct).ConfigureAwait(false);
+        foreach (var relationship in supplementalRelationships)
+        {
+            var sourceId = !string.IsNullOrWhiteSpace(relationship.SubjectQid)
+                ? relationship.SubjectQid
+                : nodeIdsByExternalKey.GetValueOrDefault((relationship.SourceId, relationship.SubjectExternalKey));
+            var targetId = !string.IsNullOrWhiteSpace(relationship.ObjectQid)
+                ? relationship.ObjectQid
+                : nodeIdsByExternalKey.GetValueOrDefault((relationship.SourceId, relationship.ObjectExternalKey));
+
+            if (string.IsNullOrWhiteSpace(sourceId) || string.IsNullOrWhiteSpace(targetId))
+                continue;
+            if (!nodeIds.Contains(sourceId) || !nodeIds.Contains(targetId))
+                continue;
+
+            edges.Add(new
+            {
+                source = sourceId,
+                target = targetId,
+                type = relationship.RelationshipType,
+                label = FormatEdgeLabel(relationship.RelationshipType),
+                confidence = relationship.Confidence,
+                context_work = (string?)null,
+                start_time = (string?)null,
+                end_time = (string?)null,
+                supplemental = true,
+                provenance = "plugin",
+                source_plugin = relationship.PluginId,
+                source_url = relationship.SourceUrl,
+            });
+        }
+    }
+
+    private static string BuildSupplementalNodeId(Guid sourceId, string externalKey) =>
+        $"plugin:{sourceId:N}:{Uri.EscapeDataString(externalKey)}";
 
     /// <summary>
     /// Converts a relationship type constant (e.g. "father") to a human-readable

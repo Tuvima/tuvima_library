@@ -37,6 +37,7 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapDisplayEndpoints();
         app.MapDetailEndpoints();
         app.MapUniverseGraphEndpoints();
+        app.MapUniverseLoreEndpoints();
         app.MapCharacterEndpoints();
         app.MapCanonEndpoints();
         app.MapDeferredEnrichmentEndpoints();

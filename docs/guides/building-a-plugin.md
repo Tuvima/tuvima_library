@@ -22,6 +22,7 @@ The live contracts support:
 
 - `ITuvimaPlugin` as the plugin entry point.
 - `IPlaybackSegmentDetector` for playback markers such as commercial, intro, recap, and credits segments.
+- `IUniverseLoreProvider` for approved supplemental universe lore such as characters, locations, factions, and relationships.
 - `IPluginHealthCheck` for setup and dependency checks.
 - `IPluginJob` for plugin-owned work.
 - `IPluginSettingsSchemaProvider` for runtime settings metadata.
@@ -178,6 +179,17 @@ Common permissions:
 If a plugin uses tools, declare each `tool_requirements` entry with the executable name, license, source URL, supported platforms, download URL, SHA-256, and relative executable path when auto-install is supported.
 
 If a plugin uses local AI, declare `ai_permissions` with role, token limit, schedule, and resource class. The AI client checks these declarations before running inference.
+
+## Universe lore plugins
+
+Universe lore plugins supplement Wikidata; they do not replace it. The Engine gives an `IUniverseLoreProvider` a Wikidata-backed universe QID and settings, the plugin can propose external lore sources, and admins approve or reject those sources in Chronicle Explorer before any data is imported. Approved data is stored as supplemental plugin lore and can be requested by the graph API as an overlay.
+
+Use this shape when a source has useful structured lore but should stay visibly separate from canonical Wikidata facts:
+
+- `DiscoverSourcesAsync` proposes source candidates for admin review.
+- `EnrichUniverseAsync` reads only approved sources.
+- Extracted entities should include source URLs, confidence, evidence, and a stable external key.
+- Article prose should not be copied into Tuvima. Store structured metadata, relationships, and links back to the source.
 
 ## Submit for the approved catalog
 

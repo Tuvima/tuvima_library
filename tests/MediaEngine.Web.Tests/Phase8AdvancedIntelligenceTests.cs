@@ -112,8 +112,14 @@ public sealed class Phase8AdvancedIntelligenceTests : TestContext
         }));
         Services.AddScoped<DeviceContextService>();
 
-        var cut = RenderComponent<ChronicleExplorer>(parameters => parameters
-            .Add(component => component.Qid, "Q1"));
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<ChronicleExplorer>(1);
+            builder.AddAttribute(2, nameof(ChronicleExplorer.Qid), "Q1");
+            builder.CloseComponent();
+        });
 
         cut.WaitForAssertion(() =>
         {

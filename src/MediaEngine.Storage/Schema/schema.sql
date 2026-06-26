@@ -316,6 +316,67 @@ CREATE TABLE IF NOT EXISTS fictional_entity_work_links (
     PRIMARY KEY (entity_id, work_qid, link_type)
 );
 
+CREATE TABLE IF NOT EXISTS plugin_lore_sources (
+    id                  BLOB PRIMARY KEY,
+    universe_qid        TEXT NOT NULL,
+    plugin_id           TEXT NOT NULL,
+    source_key          TEXT NOT NULL,
+    source_name         TEXT NOT NULL,
+    base_url            TEXT NOT NULL,
+    api_url             TEXT NOT NULL,
+    status              TEXT NOT NULL DEFAULT 'Pending'
+                            CHECK (status IN ('Pending', 'Approved', 'Rejected')),
+    confidence          REAL NOT NULL DEFAULT 0.0,
+    evidence_json       TEXT NOT NULL DEFAULT '{}',
+    license             TEXT,
+    approved_at         TEXT,
+    approved_by         TEXT,
+    rejected_at         TEXT,
+    last_discovered_at  TEXT,
+    last_enriched_at    TEXT,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    UNIQUE (universe_qid, plugin_id, source_key)
+);
+
+CREATE TABLE IF NOT EXISTS plugin_lore_entities (
+    id              BLOB PRIMARY KEY,
+    source_id       BLOB NOT NULL REFERENCES plugin_lore_sources(id) ON DELETE CASCADE,
+    universe_qid    TEXT NOT NULL,
+    plugin_id       TEXT NOT NULL,
+    external_key    TEXT NOT NULL,
+    wikidata_qid    TEXT,
+    label           TEXT NOT NULL,
+    description     TEXT,
+    entity_type     TEXT NOT NULL DEFAULT 'Unknown'
+                        CHECK (entity_type IN ('Character', 'Location', 'Organization', 'Event', 'Unknown')),
+    aliases_json    TEXT NOT NULL DEFAULT '[]',
+    source_url      TEXT NOT NULL,
+    confidence      REAL NOT NULL DEFAULT 0.0,
+    evidence_json   TEXT NOT NULL DEFAULT '{}',
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    UNIQUE (source_id, external_key)
+);
+
+CREATE TABLE IF NOT EXISTS plugin_lore_relationships (
+    id                   BLOB PRIMARY KEY,
+    source_id            BLOB NOT NULL REFERENCES plugin_lore_sources(id) ON DELETE CASCADE,
+    universe_qid         TEXT NOT NULL,
+    plugin_id            TEXT NOT NULL,
+    subject_external_key TEXT NOT NULL,
+    subject_qid          TEXT,
+    object_external_key  TEXT NOT NULL,
+    object_qid           TEXT,
+    relationship_type    TEXT NOT NULL,
+    source_url           TEXT NOT NULL,
+    confidence           REAL NOT NULL DEFAULT 0.0,
+    evidence_json        TEXT NOT NULL DEFAULT '{}',
+    created_at           TEXT NOT NULL,
+    updated_at           TEXT NOT NULL,
+    UNIQUE (source_id, subject_external_key, relationship_type, object_external_key)
+);
+
 CREATE TABLE IF NOT EXISTS file_hash_cache (
     absolute_path TEXT    NOT NULL PRIMARY KEY,
     size_bytes    INTEGER NOT NULL,
@@ -1140,6 +1201,18 @@ CREATE INDEX IF NOT EXISTS idx_fictional_entities_type
 
 CREATE INDEX IF NOT EXISTS idx_fictional_entities_universe
     ON fictional_entities (fictional_universe_qid);
+
+CREATE INDEX IF NOT EXISTS idx_plugin_lore_sources_universe
+    ON plugin_lore_sources (universe_qid, status);
+
+CREATE INDEX IF NOT EXISTS idx_plugin_lore_entities_universe
+    ON plugin_lore_entities (universe_qid, entity_type);
+
+CREATE INDEX IF NOT EXISTS idx_plugin_lore_entities_qid
+    ON plugin_lore_entities (wikidata_qid) WHERE wikidata_qid IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_plugin_lore_relationships_universe
+    ON plugin_lore_relationships (universe_qid, relationship_type);
 
 CREATE INDEX IF NOT EXISTS idx_field_changes_entity ON entity_field_changes(entity_id);
 

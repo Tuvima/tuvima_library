@@ -27,7 +27,7 @@ else if (_loading)
         <MudText Typo="Typo.body2" Color="Color.Secondary">Loading Universe Graph data...</MudText>
     </AppPanel>
 }
-else if (_graph is null || !_hasGraphData)
+else if (_graph is null)
 {
     <AppPanel Class="chronicle-explorer-empty pa-6" Elevation="0">
         <MudIcon Icon="@Icons.Material.Filled.Hub" Size="Size.Large" Color="Color.Default" />
@@ -89,9 +89,23 @@ else
                      ToolTip="Character to performer mapping" />
         <MudTabPanel Text="Adaptations" Icon="@Icons.Material.Filled.Merge"
                      ToolTip="Adaptation chain" />
+        <MudTabPanel Text="Sources" Icon="@Icons.Material.Filled.FactCheck"
+                     ToolTip="Supplemental lore sources" />
     </AppTabs>
 @if (_activeMode == 0 || _activeMode == 1 || _activeMode == 2)
     {
+@if (!_hasGraphData)
+        {
+            <AppPanel Class="chronicle-explorer-empty pa-6" Elevation="0">
+                <MudIcon Icon="@Icons.Material.Filled.Hub" Size="Size.Large" Color="Color.Default" />
+                <MudText Typo="Typo.h5">Universe Graph unavailable</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Tuvima has not found enough real character, location, organization, event, or relationship data for this Universe yet.
+                </MudText>
+            </AppPanel>
+        }
+        else
+        {
 @if (_activeMode == 0)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="chronicle-explorer-controls mb-3">
@@ -189,6 +203,7 @@ else
                 </AppPanel>
             </MudItem>
         </MudGrid>
+        }
     }
     else if (_activeMode == 3)
     {
@@ -200,6 +215,131 @@ else
     {
 <AppPanel Class="chronicle-explorer-full-panel pa-4">
             <AdaptationTree UniverseQid="@Qid" />
+        </AppPanel>
+    }
+    else if (_activeMode == 5)
+    {
+<AppPanel Class="chronicle-explorer-full-panel pa-4">
+            <MudStack Spacing="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.h6">Supplemental lore sources</MudText>
+                    <MudSpacer />
+                    <AppButton Label="Discover"
+                               ButtonStyle="AppButtonStyle.Outlined"
+                               Tone="AppUiTone.Primary"
+                               StartIcon="@Icons.Material.Filled.TravelExplore"
+                               Disabled="@_loreActionBusy"
+                               OnClick="@DiscoverLoreSourcesAsync" />
+                    <AppButton Label="Enrich"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Primary"
+                               StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                               Disabled="@(_loreActionBusy || !HasApprovedLoreSource)"
+                               OnClick="@EnrichLoreSourcesAsync" />
+                </MudStack>
+
+                @if (!string.IsNullOrWhiteSpace(_loreMessage))
+                {
+                    <AppAlert Severity="@_loreMessageSeverity" Class="mb-1"
+                              CloseIconClicked="@(() => _loreMessage = string.Empty)">
+                        @_loreMessage
+                    </AppAlert>
+                }
+
+                <MudGrid>
+                    <MudItem xs="12" md="5">
+                        <AppTextField T="string" @bind-Value="_manualSourceName"
+                                      Label="Source name"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" md="5">
+                        <AppTextField T="string" @bind-Value="_manualSourceUrl"
+                                      Label="Fandom URL"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" md="2" Class="d-flex align-center">
+                        <AppButton Label="Add"
+                                   ButtonStyle="AppButtonStyle.Outlined"
+                                   Tone="AppUiTone.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   Disabled="@(_loreActionBusy || string.IsNullOrWhiteSpace(_manualSourceUrl))"
+                                   OnClick="@AddManualLoreSourceAsync" />
+                    </MudItem>
+                </MudGrid>
+
+                @if (_loreSourcesLoading)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (_loreSources.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        No supplemental lore sources have been found or added for this Universe.
+                    </MudText>
+                }
+                else
+                {
+                    <AppTable Class="chronicle-source-table">
+                        <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th>Confidence</th>
+                            <th>Last enriched</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var source in _loreSources)
+                        {
+                            <tr>
+                                <td>
+                                    <MudStack Spacing="0">
+                                        <MudLink Href="@source.BaseUrl" Target="_blank">@source.SourceName</MudLink>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@source.PluginId</MudText>
+                                    </MudStack>
+                                </td>
+                                <td>
+                                    <AppChip T="string" Size="Size.Small"
+                                             Color="@GetSourceStatusColor(source.Status)"
+                                             Variant="@GetSourceStatusVariant(source.Status)">
+                                        @source.Status
+                                    </AppChip>
+                                </td>
+                                <td>@source.Confidence.ToString("P0")</td>
+                                <td>@(source.LastEnrichedAt?.ToLocalTime().ToString("g") ?? "-")</td>
+                                <td>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1">
+                                        @if (!source.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <AppIconButton Icon="@Icons.Material.Filled.Check"
+                                                           Tooltip="Approve"
+                                                           AriaLabel="Approve source"
+                                                           Tone="AppUiTone.Success"
+                                                           Size="AppControlSize.Compact"
+                                                           Disabled="@_loreActionBusy"
+                                                           OnClick="@(() => ApproveLoreSourceAsync(source.Id))" />
+                                        }
+                                        @if (!source.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <AppIconButton Icon="@Icons.Material.Filled.Close"
+                                                           Tooltip="Reject"
+                                                           AriaLabel="Reject source"
+                                                           Tone="AppUiTone.Error"
+                                                           Size="AppControlSize.Compact"
+                                                           Disabled="@_loreActionBusy"
+                                                           OnClick="@(() => RejectLoreSourceAsync(source.Id))" />
+                                        }
+                                    </MudStack>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </AppTable>
+                }
+            </MudStack>
         </AppPanel>
     }
 }
@@ -267,7 +407,7 @@ else
     private int _characterCount;
     private int _locationCount;
     private int _orgCount;
-    private int _activeMode = 0;  // 0=Web, 1=Paths, 2=Family, 3=Cast, 4=Adaptations
+    private int _activeMode = 0;  // 0=Web, 1=Paths, 2=Family, 3=Cast, 4=Adaptations, 5=Sources
     private int _previousMode = 0;
     private PathFinderPanel? _pathFinderRef;
     private bool _showCharacters = true;
@@ -275,11 +415,21 @@ else
     private bool _showOrganizations = true;
     private bool _loading = true;
     private bool _hasGraphData;
+    private bool _loreSourcesLoading;
+    private bool _loreActionBusy;
+    private string _manualSourceName = string.Empty;
+    private string _manualSourceUrl = string.Empty;
+    private string _loreMessage = string.Empty;
+    private Severity _loreMessageSeverity = Severity.Info;
+    private List<UniverseLoreSourceViewModel> _loreSources = [];
 
     private IEnumerable<GraphNodeDto> FilteredEntities =>
         _graph?.Nodes.Where(n =>
             string.IsNullOrWhiteSpace(_entitySearch) ||
             n.Label.Contains(_entitySearch, StringComparison.OrdinalIgnoreCase)) ?? [];
+
+    private bool HasApprovedLoreSource =>
+        _loreSources.Any(source => source.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -315,7 +465,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
-        _graph = await ApiClient.GetUniverseGraphAsync(Qid);
+        _graph = await ApiClient.GetUniverseGraphAsync(Qid, includeSupplementalLore: true);
         if (_graph is not null)
         {
             _hasGraphData = _graph.Nodes.Count > 0 && _graph.Edges.Count > 0;
@@ -348,6 +498,7 @@ else
         }
         try
         {
+            await LoadLoreSourcesAsync();
             var deltas = await ApiClient.CheckLoreDeltaAsync(Qid);
             _loreDeltaChanges = deltas.Count(d => d.HasChanged);
         }
@@ -382,7 +533,7 @@ else
         if (_showOrganizations) activeTypes.Add("Organization");
 
         var types = string.Join(",", activeTypes);
-        _graph = await ApiClient.GetUniverseGraphAsync(Qid, types: types);
+        _graph = await ApiClient.GetUniverseGraphAsync(Qid, types: types, includeSupplementalLore: true);
         if (_graph is not null)
         {
             _hasGraphData = _graph.Nodes.Count > 0 && _graph.Edges.Count > 0;
@@ -467,6 +618,144 @@ else
         "Location"     => Color.Success,
         "Organization" => Color.Warning,
         _              => Color.Default,
+    };
+
+    private async Task LoadLoreSourcesAsync()
+    {
+        _loreSourcesLoading = true;
+        try
+        {
+            _loreSources = (await ApiClient.GetUniverseLoreSourcesAsync(Qid)).ToList();
+        }
+        finally
+        {
+            _loreSourcesLoading = false;
+        }
+    }
+
+    private async Task DiscoverLoreSourcesAsync()
+    {
+        _loreActionBusy = true;
+        try
+        {
+            _loreSources = (await ApiClient.DiscoverUniverseLoreSourcesAsync(Qid)).ToList();
+            SetLoreMessage("Source discovery completed.", Severity.Success);
+        }
+        finally
+        {
+            _loreActionBusy = false;
+        }
+    }
+
+    private async Task AddManualLoreSourceAsync()
+    {
+        _loreActionBusy = true;
+        try
+        {
+            var added = await ApiClient.AddUniverseLoreSourceAsync(
+                Qid,
+                new UniverseLoreManualSourceRequest
+                {
+                    SourceName = _manualSourceName,
+                    BaseUrl = _manualSourceUrl,
+                });
+            if (added is null)
+            {
+                SetLoreMessage("The source could not be added.", Severity.Error);
+                return;
+            }
+
+            _manualSourceName = string.Empty;
+            _manualSourceUrl = string.Empty;
+            await LoadLoreSourcesAsync();
+            SetLoreMessage("Source added for approval.", Severity.Success);
+        }
+        finally
+        {
+            _loreActionBusy = false;
+        }
+    }
+
+    private async Task ApproveLoreSourceAsync(Guid sourceId)
+    {
+        _loreActionBusy = true;
+        try
+        {
+            _loreSources = (await ApiClient.ApproveUniverseLoreSourceAsync(Qid, sourceId)).ToList();
+            SetLoreMessage("Source approved.", Severity.Success);
+        }
+        finally
+        {
+            _loreActionBusy = false;
+        }
+    }
+
+    private async Task RejectLoreSourceAsync(Guid sourceId)
+    {
+        _loreActionBusy = true;
+        try
+        {
+            _loreSources = (await ApiClient.RejectUniverseLoreSourceAsync(Qid, sourceId)).ToList();
+            SetLoreMessage("Source rejected.", Severity.Info);
+        }
+        finally
+        {
+            _loreActionBusy = false;
+        }
+    }
+
+    private async Task EnrichLoreSourcesAsync()
+    {
+        _loreActionBusy = true;
+        try
+        {
+            var summary = await ApiClient.EnrichUniverseLoreAsync(Qid);
+            if (summary is null)
+            {
+                SetLoreMessage("Lore enrichment did not complete.", Severity.Error);
+                return;
+            }
+
+            await LoadLoreSourcesAsync();
+            _graph = await ApiClient.GetUniverseGraphAsync(Qid, includeSupplementalLore: true);
+            if (_graph is not null)
+            {
+                _hasGraphData = _graph.Nodes.Count > 0 && _graph.Edges.Count > 0;
+                _characterCount = _graph.Nodes.Count(n =>
+                    string.Equals(n.Type, "Character", StringComparison.OrdinalIgnoreCase));
+                _locationCount = _graph.Nodes.Count(n =>
+                    string.Equals(n.Type, "Location", StringComparison.OrdinalIgnoreCase));
+                _orgCount = _graph.Nodes.Count(n =>
+                    string.Equals(n.Type, "Organization", StringComparison.OrdinalIgnoreCase));
+            }
+
+            SetLoreMessage(
+                $"Enriched {summary.EntitiesWritten} entities from {summary.SourcesEnriched} source(s).",
+                Severity.Success);
+        }
+        finally
+        {
+            _loreActionBusy = false;
+        }
+    }
+
+    private void SetLoreMessage(string message, Severity severity)
+    {
+        _loreMessage = message;
+        _loreMessageSeverity = severity;
+    }
+
+    private static Color GetSourceStatusColor(string status) => status switch
+    {
+        "Approved" => Color.Success,
+        "Rejected" => Color.Error,
+        _ => Color.Warning,
+    };
+
+    private static Variant GetSourceStatusVariant(string status) => status switch
+    {
+        "Approved" => Variant.Filled,
+        _ => Variant.Outlined,
     };
 
     public async ValueTask DisposeAsync()

@@ -16,9 +16,11 @@ tags:
 
 The Universe Graph connects fictional characters, locations, organizations, and events across all media in the Library. When a book, film, audiobook, and comic all belong to the same creative universe, the graph captures the relationships that bind them - characters who are siblings, locations that exist within other locations, actors who played specific roles across adaptations.
 
-The graph is populated automatically during hydration using Wikidata as the data source. It is stored in SQLite and loaded into an in-memory EntityGraph for graph queries and pathfinding.
+The graph is populated automatically during hydration using Wikidata as the canonical data source. Approved plugins can add supplemental lore, but plugin data stays marked as supplemental and keeps source attribution instead of becoming canonical Wikidata data. It is stored in SQLite and loaded into an in-memory EntityGraph for graph queries and pathfinding.
 
 Current serving rule: graph APIs and UI must remain truthful. `GET /universes` returns narrative roots with real entity and relationship counts plus an enrichment status. Chronicle Explorer loads graph data lazily only when opened, renders a graph only when real nodes and edges exist, disables the explorer on mobile, and disables the timeline control on television devices. Empty, partial, and pending graph states are surfaced as data lifecycle states rather than replaced with fake entities or links.
+
+Supplemental serving rule: approved plugin lore appears only when a caller asks for the overlay with `include_supplemental_lore=true`. Plugin nodes and edges include `supplemental=true`, `provenance=plugin`, `source_plugin`, and `source_url` so UI and API clients can distinguish them from Wikidata facts.
 
 ---
 
@@ -163,6 +165,7 @@ The Chronicle Explorer Dashboard page renders the full universe graph using Cyto
 Features:
 - Universe header with entity and edge count chips
 - Lore Delta amber alert banner when Wikidata changes are detected
+- Sources tab for admin approval of supplemental lore sources
 - Timeline slider (visible when edges carry temporal data)
 - Type filter toggle chips (Character / Location / Organization)
 - Layout selector (force-directed / concentric / grid)
@@ -170,6 +173,20 @@ Features:
 - Searchable entity list panel (40%)
 
 Device constraints: Chronicle Explorer is disabled on mobile. The timeline slider is disabled on television.
+
+## Supplemental Lore Approval
+
+The first implemented universe lore plugin is `tuvima.fandom-lore`. It reads Wikidata `P6262` Fandom article IDs to suggest candidate Fandom wiki sources, or admins can add a Fandom URL manually. Approval happens in Chronicle Explorer's **Sources** tab for the selected universe. Pending sources are inert; the plugin only imports entities or relationships from sources with status `Approved`.
+
+The imported rows live in:
+
+| Table | Purpose |
+|---|---|
+| `plugin_lore_sources` | Candidate, approved, and rejected external lore sources per universe and plugin. |
+| `plugin_lore_entities` | Supplemental characters, locations, organizations, and events with source attribution. |
+| `plugin_lore_relationships` | Supplemental relationships between approved plugin lore entities. |
+
+Stage 3 universe enrichment runs plugin lore after the core Wikidata enhancer pass. Plugin failures are logged but do not block ingestion readiness.
 
 ---
 
@@ -179,8 +196,14 @@ Device constraints: Chronicle Explorer is disabled on mobile. The timeline slide
 |---|---|---|
 | GET | `/universes` | List all narrative roots with entity counts |
 | GET | `/universe/{qid}` | Universe detail: entities, relationships, metadata |
-| GET | `/universe/{qid}/graph` | Cytoscape.js-ready JSON; supports `?type=`, `?work=`, `?ego=`, `?timeline_year=` filters |
+| GET | `/universe/{qid}/graph` | Cytoscape.js-ready JSON; supports `?type=`, `?work=`, `?ego=`, `?timeline_year=`, and `?include_supplemental_lore=true` filters |
 | GET | `/universe/{qid}/lore-delta` | Check for Wikidata revisions newer than stored |
+| GET | `/universe/{qid}/lore-sources` | Admin list of plugin lore sources for the universe |
+| POST | `/universe/{qid}/lore-sources/discover` | Ask enabled lore plugins to suggest source candidates |
+| POST | `/universe/{qid}/lore-sources/manual` | Add a manual source candidate |
+| POST | `/universe/{qid}/lore-sources/{sourceId}/approve` | Approve a source for plugin enrichment |
+| POST | `/universe/{qid}/lore-sources/{sourceId}/reject` | Reject a source |
+| POST | `/universe/{qid}/lore/enrich` | Import approved plugin lore for the universe |
 | GET | `/metadata/{entityId}/canon-discrepancies` | Compare edition against master work |
 
 ---

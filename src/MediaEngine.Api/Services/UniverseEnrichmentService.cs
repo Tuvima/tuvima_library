@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 
@@ -340,6 +341,7 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
             try
             {
                 await services.Enrichment.RunUniverseEnhancerPassAsync(request.EntityId, request.WorkQid, ct).ConfigureAwait(false);
+                await RunPluginLorePassAsync(lookup, narrativeRoot, services.PluginUniverseLore, ct).ConfigureAwait(false);
                 await MarkStage3EnhancedAsync(services.CanonicalRepository, request.EntityId, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -561,6 +563,58 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         return null;
     }
 
+    private async Task RunPluginLorePassAsync(
+        IReadOnlyDictionary<string, string> lookup,
+        NarrativeRoot? narrativeRoot,
+        PluginUniverseLoreService pluginUniverseLore,
+        CancellationToken ct)
+    {
+        var universeQid = ResolveUniverseQid(lookup, narrativeRoot);
+        if (string.IsNullOrWhiteSpace(universeQid))
+            return;
+
+        try
+        {
+            await pluginUniverseLore.DiscoverSourcesAsync(universeQid, ct).ConfigureAwait(false);
+            var summary = await pluginUniverseLore.EnrichUniverseAsync(universeQid, ct).ConfigureAwait(false);
+            if (summary.SourcesEnriched > 0)
+            {
+                _logger.LogInformation(
+                    "[UNIVERSE-ENRICH] Plugin lore enriched {EntityCount} supplemental entities from {SourceCount} source(s) for {UniverseQid}",
+                    summary.EntitiesWritten,
+                    summary.SourcesEnriched,
+                    universeQid);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "[UNIVERSE-ENRICH] Plugin lore pass failed for {UniverseQid}", universeQid);
+        }
+    }
+
+    private static string? ResolveUniverseQid(
+        IReadOnlyDictionary<string, string> lookup,
+        NarrativeRoot? narrativeRoot)
+    {
+        if (!string.IsNullOrWhiteSpace(narrativeRoot?.Qid))
+            return narrativeRoot.Qid;
+
+        foreach (var key in new[]
+                 {
+                     "fictional_universe_qid",
+                     "franchise_qid",
+                     "series_qid",
+                     "characters_qid",
+                     "narrative_location_qid",
+                 })
+        {
+            if (lookup.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+
+        return null;
+    }
+
     private static ResolvedServices ResolveServices(IServiceProvider services)
         => new(
             services.GetRequiredService<IConfigurationLoader>(),
@@ -571,7 +625,8 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
             services.GetRequiredService<INarrativeRootResolver>(),
             services.GetRequiredService<IIdentityJobRepository>(),
             services.GetRequiredService<BatchProgressService>(),
-            services.GetRequiredService<IEventPublisher>());
+            services.GetRequiredService<IEventPublisher>(),
+            services.GetRequiredService<PluginUniverseLoreService>());
 
     private sealed class InlineUniverseBatch
     {
@@ -609,7 +664,8 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         INarrativeRootResolver NarrativeRootResolver,
         IIdentityJobRepository JobRepository,
         BatchProgressService BatchProgress,
-        IEventPublisher EventPublisher);
+        IEventPublisher EventPublisher,
+        PluginUniverseLoreService PluginUniverseLore);
 
     private sealed record Stage3Scope(
         Guid CanonicalEntityId,
