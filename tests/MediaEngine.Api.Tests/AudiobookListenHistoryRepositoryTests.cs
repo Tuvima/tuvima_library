@@ -103,6 +103,54 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
         Assert.Equal("blob", keyTypes.AssetType);
     }
 
+    [Fact]
+    public async Task AudiobookBookmarkRepository_CreatesListsAndDeletesBookmarksWithGuidBlobKeys()
+    {
+        var ids = await CreateProfileAssetAsync();
+        var repository = new AudiobookBookmarkRepository(_db);
+
+        var bookmark = await repository.CreateAsync(
+            ids.ProfileId,
+            ids.WorkId,
+            new CreateAudiobookBookmarkRequestDto
+            {
+                AssetId = ids.AssetId,
+                ChapterIndex = 7,
+                ChapterTitle = "Chapter 8",
+                PositionSeconds = 22917,
+                DurationSeconds = 53596,
+                Label = "Chapter 8 - 6:21:57",
+            });
+
+        var bookmarks = await repository.GetByWorkAsync(ids.ProfileId, ids.WorkId);
+
+        var listed = Assert.Single(bookmarks);
+        Assert.Equal(bookmark.Id, listed.Id);
+        Assert.Equal(ids.ProfileId, listed.ProfileId);
+        Assert.Equal(ids.WorkId, listed.WorkId);
+        Assert.Equal(ids.AssetId, listed.AssetId);
+        Assert.Equal("Chapter 8", listed.ChapterTitle);
+        Assert.Equal(22917, listed.PositionSeconds);
+
+        using var conn = _db.CreateConnection();
+        var keyTypes = await conn.QuerySingleAsync<KeyTypeRow>(
+            """
+            SELECT typeof(profile_id) AS ProfileType,
+                   typeof(work_id) AS WorkType,
+                   typeof(asset_id) AS AssetType
+            FROM audiobook_bookmarks
+            WHERE id = @id;
+            """,
+            new { id = bookmark.Id });
+
+        Assert.Equal("blob", keyTypes.ProfileType);
+        Assert.Equal("blob", keyTypes.WorkType);
+        Assert.Equal("blob", keyTypes.AssetType);
+
+        Assert.True(await repository.DeleteAsync(ids.ProfileId, bookmark.Id));
+        Assert.Empty(await repository.GetByWorkAsync(ids.ProfileId, ids.WorkId));
+    }
+
     private async Task<(Guid ProfileId, Guid WorkId, Guid AssetId)> CreateProfileAssetAsync()
     {
         using var conn = _db.CreateConnection();

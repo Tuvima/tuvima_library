@@ -168,9 +168,9 @@
 
         <div class="listen-player">
             <audio @ref="_audioRef"
-                   @key="Playback.CurrentStreamUrl"
+                   @key="Playback.CurrentBrowserStreamUrl"
                    class="listen-player__audio-native"
-                   src="@Playback.CurrentStreamUrl"
+                   src="@Playback.CurrentBrowserStreamUrl"
                    autoplay
                    @onloadedmetadata="HandleAudioMetricsChangedAsync"
                    @ondurationchange="HandleAudioMetricsChangedAsync"
@@ -312,7 +312,7 @@
             _restored = true;
         }
 
-        if (Playback.CurrentItem is not null && !string.IsNullOrWhiteSpace(Playback.CurrentStreamUrl))
+        if (Playback.CurrentItem is not null && !string.IsNullOrWhiteSpace(Playback.CurrentBrowserStreamUrl))
         {
             await SyncAudioAsync();
         }
@@ -365,9 +365,10 @@
 
     private async Task SyncAudioAsync()
     {
-        if (!string.Equals(_lastAppliedStreamUrl, Playback.CurrentStreamUrl, StringComparison.Ordinal))
+        var browserStreamUrl = Playback.CurrentBrowserStreamUrl;
+        if (!string.Equals(_lastAppliedStreamUrl, browserStreamUrl, StringComparison.Ordinal))
         {
-            _lastAppliedStreamUrl = Playback.CurrentStreamUrl;
+            _lastAppliedStreamUrl = browserStreamUrl;
             _lastSeekedStreamUrl = null;
             _lastAppliedPlayingState = null;
             await JS.InvokeVoidAsync("listenPlayback.loadAudio", _audioRef);
@@ -391,11 +392,11 @@
             _lastAppliedPlaybackRate = Playback.PlaybackRate;
         }
 
-        if (!string.Equals(_lastSeekedStreamUrl, Playback.CurrentStreamUrl, StringComparison.Ordinal)
+        if (!string.Equals(_lastSeekedStreamUrl, browserStreamUrl, StringComparison.Ordinal)
             && Playback.CurrentTimeSeconds > 0)
         {
             await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, Playback.CurrentTimeSeconds);
-            _lastSeekedStreamUrl = Playback.CurrentStreamUrl;
+            _lastSeekedStreamUrl = browserStreamUrl;
         }
 
         if (_lastAppliedPlayingState != Playback.IsPlaying)
@@ -457,8 +458,7 @@
     {
         if (Playback.IsPlaying && !Playback.NeedsUserGestureToStart)
         {
-            await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _audioRef);
-            Playback.UpdateTransportState(isPlaying: false);
+            await PauseAudioAsync();
         }
         else
         {
@@ -472,6 +472,21 @@
                 Playback.MarkNeedsUserGestureToStart();
             }
         }
+    }
+
+    private async Task PauseAudioAsync()
+    {
+        await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _audioRef);
+        Playback.UpdateTransportState(isPlaying: false);
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private async Task ApplyPlaybackRateAsync(double rate)
+    {
+        var next = Math.Clamp(rate, 0.5d, 3d);
+        await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, next);
+        Playback.UpdateTransportState(playbackRate: next);
+        await Playback.ReportHeartbeatAsync(force: true);
     }
 
     private Task PlayFromQueueAsync(int index) => Playback.PlayIndexAsync(index);
@@ -568,17 +583,29 @@
             case "toggle-play":
                 await TogglePlayPauseAsync();
                 break;
+            case "pause":
+                await PauseAudioAsync();
+                break;
             case "play-next":
                 await PlayNextAsync();
                 break;
             case "play-previous":
                 await PlayPreviousAsync();
                 break;
+            case "play-next-chapter":
+                await Playback.PlayNextChapterAsync();
+                break;
+            case "play-previous-chapter":
+                await Playback.PlayPreviousChapterAsync();
+                break;
             case "skip-back":
                 await Playback.SkipBackAsync();
                 break;
             case "skip-forward":
                 await Playback.SkipForwardAsync();
+                break;
+            case "play-chapter" when command.ChapterIndex.HasValue:
+                await Playback.PlayAudiobookChapterAsync(command.ChapterIndex.Value);
                 break;
             case "toggle-panel":
                 Playback.TogglePanel();
@@ -602,6 +629,15 @@
             case "play-audiobook-history" when command.AudiobookHistoryItem is not null:
                 await Playback.PlayAudiobookHistoryAsync(command.AudiobookHistoryItem);
                 break;
+            case "play-audiobook-bookmark" when command.AudiobookBookmark is not null:
+                await Playback.PlayAudiobookBookmarkAsync(command.AudiobookBookmark);
+                break;
+            case "add-audiobook-bookmark":
+                await Playback.AddAudiobookBookmarkAsync();
+                break;
+            case "delete-audiobook-bookmark" when command.BookmarkId.HasValue:
+                await Playback.DeleteAudiobookBookmarkAsync(command.BookmarkId.Value);
+                break;
             case "set-tab" when !string.IsNullOrWhiteSpace(command.Tab):
                 Playback.SetActiveTab(command.Tab);
                 break;
@@ -615,9 +651,16 @@
                 await Playback.ReportHeartbeatAsync(force: true);
                 break;
             case "set-speed" when command.Value.HasValue:
-                await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, command.Value.Value);
-                Playback.UpdateTransportState(playbackRate: command.Value.Value);
-                await Playback.ReportHeartbeatAsync(force: true);
+                await ApplyPlaybackRateAsync(command.Value.Value);
+                break;
+            case "set-sleep-timer" when string.Equals(command.TimerMode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal):
+                await Playback.SetSleepTimerEndOfChapterAsync();
+                break;
+            case "set-sleep-timer" when command.TimerMinutes.HasValue:
+                await Playback.SetSleepTimerAsync(TimeSpan.FromMinutes(command.TimerMinutes.Value));
+                break;
+            case "cancel-sleep-timer":
+                await Playback.CancelSleepTimerAsync();
                 break;
             case "toggle-mute":
                 Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
@@ -639,11 +682,20 @@
             case "toggle-play":
                 await TogglePlayPauseAsync();
                 break;
+            case "pause":
+                await PauseAudioAsync();
+                break;
             case "play-next":
                 await PlayNextAsync();
                 break;
             case "play-previous":
                 await PlayPreviousAsync();
+                break;
+            case "play-next-chapter":
+                await Playback.PlayNextChapterAsync();
+                break;
+            case "play-previous-chapter":
+                await Playback.PlayPreviousChapterAsync();
                 break;
             case "skip-back":
                 await Playback.SkipBackAsync();
@@ -661,9 +713,7 @@
                 await Playback.ReportHeartbeatAsync(force: true);
                 break;
             case "set-speed" when command.Value.HasValue:
-                await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, command.Value.Value);
-                Playback.UpdateTransportState(playbackRate: command.Value.Value);
-                await Playback.ReportHeartbeatAsync(force: true);
+                await ApplyPlaybackRateAsync(command.Value.Value);
                 break;
             case "toggle-mute":
                 Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
@@ -784,10 +834,15 @@
     {
         public string Action { get; set; } = string.Empty;
         public int? Index { get; set; }
+        public int? ChapterIndex { get; set; }
         public double? Value { get; set; }
         public string? Tab { get; set; }
+        public int? TimerMinutes { get; set; }
+        public string? TimerMode { get; set; }
+        public Guid? BookmarkId { get; set; }
         public ListenQueueItem? Item { get; set; }
         public AudiobookListenHistoryItemDto? AudiobookHistoryItem { get; set; }
+        public AudiobookBookmarkDto? AudiobookBookmark { get; set; }
     }
 
     private sealed record LrcDisplayLine(double StartSeconds, string Text);

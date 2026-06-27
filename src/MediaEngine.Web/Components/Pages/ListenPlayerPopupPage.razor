@@ -1,4 +1,4 @@
-﻿@page "/listen/player-popup"
+@page "/listen/player-popup"
 @layout MediaEngine.Web.Shared.PopupLayout
 @using System.Globalization
 @using System.Text.Json
@@ -12,7 +12,7 @@
 
 <PageTitle>@L["Listen_MiniPlayerTitle"]</PageTitle>
 
-<div class="listen-popup">
+<AppCssElement Tag="div" Class="@PopupClass" Css="@BackdropStyle">
     @if (CurrentItem is null)
     {
         <div class="listen-popup__empty">
@@ -22,184 +22,264 @@
     }
     else
     {
-        <div class="listen-popup__header">
-            <div class="listen-popup__thumb">
-                @if (!string.IsNullOrWhiteSpace(CurrentItem.CoverUrl))
+        var current = CurrentItem;
+        <div class="listen-popup__topbar">
+            <AppNativeButton Type="button" Class="listen-popup__top-icon" OnClick="ClosePopupWindowAsync" AriaLabel="Collapse player" title="Collapse player">
+                <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="tl-u-font-size-34px" />
+            </AppNativeButton>
+            <div class="listen-popup__top-actions">
+                <AppNativeButton Type="button" Class="listen-popup__top-icon" Disabled="true" AriaLabel="Playback device" title="Playback device">
+                    <MudIcon Icon="@Icons.Material.Outlined.Cast" Class="tl-u-font-size-28px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup__top-icon" AriaLabel="More options" title="More options">
+                    <MudIcon Icon="@Icons.Material.Outlined.MoreVert" Class="tl-u-font-size-30px" />
+                </AppNativeButton>
+            </div>
+        </div>
+
+        <main class="listen-popup__stage" aria-label="Audiobook player">
+            <div class="listen-popup__cover">
+                @if (!string.IsNullOrWhiteSpace(current.CoverUrl))
                 {
-                    <img src="@CurrentItem.CoverUrl" alt="@CurrentItem.Title" />
+                    <img src="@current.CoverUrl" alt="@current.Title" />
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Outlined.Album" Class="tl-u-font-size-18px" />
+                    <MudIcon Icon="@(IsAudiobookMode ? Icons.Material.Outlined.Headphones : Icons.Material.Outlined.Album)" Class="tl-u-font-size-72px" />
                 }
             </div>
-            <div class="listen-popup__copy">
-                <div class="listen-popup__title">@CurrentItem.Title</div>
-                <div class="listen-popup__subtitle">@FirstNonBlank(CurrentItem.Subtitle, CurrentItem.Album, _snapshot.SourceLabel)</div>
-            </div>
-        </div>
 
-        <div class="listen-popup__tabs">
-            <AppNativeButton Type="button" Class='@($"listen-popup__tab {(_snapshot.ActiveTab == ListenPlaybackTabs.Queue ? " is-active" : null)}")' OnClick="@(() => SetTabAsync(ListenPlaybackTabs.Queue))">
-                @(IsAudiobookMode ? L["Listen_Chapters"] : L["Listen_PlayingNext"])
-            </AppNativeButton>
-            <AppNativeButton Type="button" Class='@($"listen-popup__tab {(_snapshot.ActiveTab == ListenPlaybackTabs.History ? " is-active" : null)}")' OnClick="@(() => SetTabAsync(ListenPlaybackTabs.History))">
-                @L["Listen_History"]
-            </AppNativeButton>
-        </div>
+            <section class="listen-popup__identity">
+                <h1>@current.Title</h1>
+                <p>@PlayerSubtitle(current)</p>
+            </section>
 
-        @if (_snapshot.ActiveTab == ListenPlaybackTabs.Queue && !IsAudiobookMode)
-        {
-            <div class="listen-popup__subheader">
-                <span>@L["Listen_PlayingNext"]</span>
-                <AppNativeButton Type="button" Class="listen-popup__text-action" OnClick="ClearUpcomingAsync">@L["Common_Clear"]</AppNativeButton>
-            </div>
+            <section class="listen-popup__timeline" aria-label="Playback progress">
+                <AppNativeInput Type="range"
+                                Min="0"
+                                Max="@ProgressMax"
+                                Step="1"
+                                Value="@Math.Min(_snapshot.CurrentTimeSeconds, ProgressMax)"
+                                Class="listen-popup__progress-slider"
+                                OnInput="SeekAsync"
+                                aria-label="Seek" />
+                <div class="listen-popup__time-row">
+                    <span>@FormatTimestamp(_snapshot.CurrentTimeSeconds)</span>
+                    <span>@RemainingLabel</span>
+                    <span>@FormatTimestamp(ProgressMax)</span>
+                </div>
+            </section>
 
-            @if (UpcomingItems.Count == 0)
+            <section class="listen-popup__transport" aria-label="Playback controls">
+                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="PlayPreviousChapterAsync" AriaLabel="Previous chapter" title="Previous chapter">
+                    <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-36px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="SkipBackAsync" AriaLabel="Back 30 seconds" title="Back 30 seconds">
+                    <MudIcon Icon="@Icons.Material.Outlined.Replay30" Class="tl-u-font-size-42px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause">
+                    <MudIcon Icon="@(_snapshot.IsPlaying && !_snapshot.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-46px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="SkipForwardAsync" AriaLabel="Forward 30 seconds" title="Forward 30 seconds">
+                    <MudIcon Icon="@Icons.Material.Outlined.Forward30" Class="tl-u-font-size-42px" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="PlayNextChapterAsync" AriaLabel="Next chapter" title="Next chapter">
+                    <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-36px" />
+                </AppNativeButton>
+            </section>
+
+            @if (IsAudiobookMode)
             {
-                <div class="listen-popup__empty-state">@L["Listen_QueueEndsWithCurrent"]</div>
+                <section class="listen-popup__actions" aria-label="Audiobook tools">
+                    @ActionButton("speed", FormatSpeed(_snapshot.PlaybackRate), "Speed", Icons.Material.Outlined.Speed)
+                    @ActionButton("chapters", "Chapters", "Chapters", Icons.Material.Outlined.FormatListBulleted)
+                    @ActionButton("history", "History", "History", Icons.Material.Outlined.History)
+                    @ActionButton("bookmarks", "Bookmark", "Bookmark", Icons.Material.Outlined.BookmarkBorder)
+                    @ActionButton("sleep", "Sleep Timer", "Sleep timer", Icons.Material.Outlined.Timer)
+                </section>
             }
             else
             {
-                <div class="listen-popup__list">
-                    @for (var index = _snapshot.CurrentIndex + 1; index < _snapshot.Queue.Count; index++)
-                    {
-                        var item = _snapshot.Queue[index];
-                        <div class="listen-popup__row">
-                            <AppNativeButton Type="button" Class="listen-popup__row-main" OnClick="@(() => PlayIndexAsync(index))">
-                                <div class="listen-popup__row-thumb">
-                                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
-                                    {
-                                        <img src="@item.CoverUrl" alt="@item.Title" />
-                                    }
-                                    else
-                                    {
-                                        <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Class="tl-u-font-size-16px" />
-                                    }
-                                </div>
-                                <div class="listen-popup__row-copy">
-                                    <div class="listen-popup__row-title">@item.Title</div>
-                                    <div class="listen-popup__row-subtitle">@FirstNonBlank(item.Subtitle, item.Album)</div>
-                                </div>
-                                <div class="listen-popup__row-duration">@item.Duration</div>
-                            </AppNativeButton>
-                            <AppNativeButton Type="button" Class="listen-popup__row-action" OnClick="@(() => RemoveUpcomingAsync(index))">
-                                <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-16px" />
+                <section class="listen-popup__music-actions" aria-label="Music controls">
+                    <AppNativeButton Type="button" Class="listen-popup__sheet-action" OnClick="ToggleMuteAsync" AriaLabel="Mute" title="Mute">
+                        <MudIcon Icon="@(_snapshot.IsMuted || _snapshot.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Class="tl-u-font-size-24px" />
+                        <span>Volume</span>
+                    </AppNativeButton>
+                    <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnInput="SetVolumeAsync" aria-label="Volume" />
+                </section>
+            }
+        </main>
+
+        @if (IsAudiobookMode && _activeSheet is not null)
+        {
+            <section class="listen-popup-sheet" aria-label="@SheetTitle">
+                <div class="listen-popup-sheet__grabber"></div>
+                <div class="listen-popup-sheet__header">
+                    <div>
+                        <h2>@SheetTitle</h2>
+                        <p>@SheetSubtitle</p>
+                    </div>
+                    <AppNativeButton Type="button" Class="listen-popup-sheet__close" OnClick="@(() => _activeSheet = null)" AriaLabel="Close sheet" title="Close">
+                        <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-34px" />
+                    </AppNativeButton>
+                </div>
+
+                @switch (_activeSheet)
+                {
+                    case "speed":
+                        <div class="listen-popup-sheet__list listen-popup-sheet__list--speed">
+                            @foreach (var rate in SpeedRates)
+                            {
+                                <AppNativeButton Type="button" Class="@($"listen-popup-sheet__speed-row {(Math.Abs(rate - _snapshot.PlaybackRate) < 0.01d ? "is-active" : null)}")" OnClick="@(() => SetSpeedAsync(rate))" AriaLabel="@($"Set speed to {FormatSpeed(rate)}")" title="@($"Set speed to {FormatSpeed(rate)}")">
+                                    <span class="listen-popup-sheet__radio"></span>
+                                    <span>@FormatSpeed(rate)</span>
+                                </AppNativeButton>
+                            }
+                        </div>
+                        break;
+                    case "chapters":
+                        <div class="listen-popup-sheet__list">
+                            @if (CurrentChapters.Count == 0)
+                            {
+                                <div class="listen-popup-sheet__empty">No timed chapters were found for this audiobook.</div>
+                            }
+                            else
+                            {
+                                @for (var index = 0; index < CurrentChapters.Count; index++)
+                                {
+                                    var chapter = CurrentChapters[index];
+                                    var isActive = IsCurrentChapter(chapter);
+                                    <AppNativeButton Type="button" Class="@($"listen-popup-sheet__row {(isActive ? "is-active" : null)}")" OnClick="@(() => PlayChapterAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")" title="@($"Play {chapter.Title}")">
+                                        <span class="listen-popup-sheet__index">@($"{index + 1}")</span>
+                                        <span class="listen-popup-sheet__copy">
+                                            <strong>@chapter.Title</strong>
+                                            <span>@ChapterDuration(chapter)</span>
+                                        </span>
+                                        <MudIcon Icon="@(isActive ? Icons.Material.Filled.VolumeUp : Icons.Material.Filled.ChevronRight)" Class="tl-u-font-size-28px" />
+                                    </AppNativeButton>
+                                }
+                            }
+                        </div>
+                        break;
+                    case "history":
+                        <div class="listen-popup-sheet__list">
+                            @if (_snapshot.AudiobookHistory.Count == 0)
+                            {
+                                <div class="listen-popup-sheet__empty">Recent listening positions will appear here.</div>
+                            }
+                            else
+                            {
+                                @for (var index = 0; index < _snapshot.AudiobookHistory.Count; index++)
+                                {
+                                    var item = _snapshot.AudiobookHistory[index];
+                                    <AppNativeButton Type="button" Class="listen-popup-sheet__row" OnClick="@(() => PlayAudiobookHistoryAsync(item))" AriaLabel="@($"Resume {HistoryTitle(item)}")" title="@($"Resume {HistoryTitle(item)}")">
+                                        <span class="listen-popup-sheet__index">@($"{index + 1}")</span>
+                                        <span class="listen-popup-sheet__copy">
+                                            <strong>@HistoryTitle(item)</strong>
+                                            <span>@item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</span>
+                                        </span>
+                                        <span class="listen-popup-sheet__resume">Resume here</span>
+                                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="tl-u-font-size-28px" />
+                                    </AppNativeButton>
+                                }
+                            }
+                        </div>
+                        break;
+                    case "bookmarks":
+                        <div class="listen-popup-sheet__toolbar">
+                            <AppNativeButton Type="button" Class="listen-popup-sheet__primary" OnClick="AddBookmarkAsync" AriaLabel="Add bookmark at current position" title="Add bookmark at current position">
+                                <MudIcon Icon="@Icons.Material.Outlined.BookmarkAdd" Class="tl-u-font-size-24px" />
+                                <span>Add bookmark at @FormatTimestamp(_snapshot.CurrentTimeSeconds)</span>
                             </AppNativeButton>
                         </div>
-                    }
-                </div>
-            }
-        }
-        else
-        {
-            <div class="listen-popup__subheader">
-                <span>@L["Listen_History"]</span>
-            </div>
-
-            @if (IsAudiobookMode)
-            {
-                if (_snapshot.AudiobookHistory.Count == 0)
-                {
-                    <div class="listen-popup__empty-state">Qualified audiobook listens will appear here.</div>
-                }
-                else
-                {
-                    <div class="listen-popup__list">
-                        @foreach (var item in _snapshot.AudiobookHistory)
-                        {
-                            <AppNativeButton Type="button" Class="listen-popup__row-main" OnClick="@(() => PlayAudiobookHistoryAsync(item))">
-                                <div class="listen-popup__row-copy">
-                                    <div class="listen-popup__row-title">@FirstNonBlank(item.ChapterTitle, item.Title)</div>
-                                    <div class="listen-popup__row-subtitle">@($"{FormatTimestamp(item.PositionSeconds)} · {item.EndedAt.LocalDateTime:g}")</div>
-                                </div>
-                                <div class="listen-popup__row-duration">@($"{Math.Round(item.ProgressPct):0}%")</div>
-                            </AppNativeButton>
-                        }
-                    </div>
-                }
-            }
-            else if (_snapshot.History.Count == 0)
-            {
-                <div class="listen-popup__empty-state">@L["Listen_HistoryEmpty"]</div>
-            }
-            else
-            {
-                <div class="listen-popup__list">
-                    @foreach (var item in _snapshot.History)
-                    {
-                        <AppNativeButton Type="button" Class="listen-popup__row-main" OnClick="@(() => PlayHistoryAsync(item))">
-                            <div class="listen-popup__row-thumb">
-                                @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                        <div class="listen-popup-sheet__list">
+                            @if (_snapshot.AudiobookBookmarks.Count == 0)
+                            {
+                                <div class="listen-popup-sheet__empty">No bookmarks yet.</div>
+                            }
+                            else
+                            {
+                                @foreach (var bookmark in _snapshot.AudiobookBookmarks)
                                 {
-                                    <img src="@item.CoverUrl" alt="@item.Title" />
+                                    <div class="listen-popup-sheet__row listen-popup-sheet__row--split">
+                                        <AppNativeButton Type="button" Class="listen-popup-sheet__row-main" OnClick="@(() => PlayBookmarkAsync(bookmark))" AriaLabel="@($"Resume bookmark {BookmarkTitle(bookmark)}")" title="@($"Resume bookmark {BookmarkTitle(bookmark)}")">
+                                            <span class="listen-popup-sheet__copy">
+                                                <strong>@BookmarkTitle(bookmark)</strong>
+                                                <span>@bookmark.CreatedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</span>
+                                            </span>
+                                            <span class="listen-popup-sheet__resume">Resume</span>
+                                        </AppNativeButton>
+                                        <AppNativeButton Type="button" Class="listen-popup-sheet__delete" OnClick="@(() => DeleteBookmarkAsync(bookmark.Id))" AriaLabel="Delete bookmark" title="Delete bookmark">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Delete" Class="tl-u-font-size-24px" />
+                                        </AppNativeButton>
+                                    </div>
                                 }
-                                else
-                                {
-                                    <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Class="tl-u-font-size-16px" />
-                                }
-                            </div>
-                            <div class="listen-popup__row-copy">
-                                <div class="listen-popup__row-title">@item.Title</div>
-                                <div class="listen-popup__row-subtitle">@FirstNonBlank(item.Subtitle, item.Album, FormatHistoryStamp(item.PlayedAt))</div>
-                            </div>
-                            <div class="listen-popup__row-duration">@item.Duration</div>
-                        </AppNativeButton>
-                    }
-                </div>
-            }
+                            }
+                        </div>
+                        break;
+                    case "sleep":
+                        <div class="listen-popup-sheet__timer-grid">
+                            @TimerButton("Off", null, null)
+                            @TimerButton("5 min", 5, null)
+                            @TimerButton("10 min", 10, null)
+                            @TimerButton("15 min", 15, null)
+                            @TimerButton("30 min", 30, null)
+                            @TimerButton("45 min", 45, null)
+                            @TimerButton("60 min", 60, null)
+                            @TimerButton("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
+                        </div>
+                        <div class="listen-popup-sheet__empty listen-popup-sheet__empty--compact">Current timer: @SleepTimerDisplay</div>
+                        break;
+                }
+            </section>
         }
-
-        <div class="listen-popup__progress">
-            <span>@FormatTimestamp(_snapshot.CurrentTimeSeconds)</span>
-            <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(_snapshot.CurrentTimeSeconds, ProgressMax)" OnInput="SeekAsync" />
-            <span>@FormatTimestamp(Math.Max(0, _snapshot.DurationSeconds - _snapshot.CurrentTimeSeconds))</span>
-        </div>
-
-        <div class="listen-popup__controls">
-            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="ToggleMuteAsync">
-                <AppMaterialIcon Icon="@(_snapshot.IsMuted || _snapshot.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Css="font-size: 18px;"  />
-            </AppNativeButton>
-            <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@_snapshot.Volume" Class="listen-popup__volume" OnInput="SetVolumeAsync" />
-            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="PlayPreviousAsync">
-                <MudIcon Icon="@(IsAudiobookMode ? Icons.Material.Outlined.Replay10 : Icons.Material.Outlined.SkipPrevious)" Class="tl-u-font-size-20px" />
-            </AppNativeButton>
-            <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync">
-                <MudIcon Icon="@(_snapshot.IsPlaying && !_snapshot.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-22px" />
-            </AppNativeButton>
-            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="PlayNextAsync">
-                <MudIcon Icon="@(IsAudiobookMode ? Icons.Material.Outlined.Forward30 : Icons.Material.Outlined.SkipNext)" Class="tl-u-font-size-20px" />
-            </AppNativeButton>
-            @if (IsAudiobookMode)
-            {
-                <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="CycleSpeedAsync">
-                    <span>@FormatSpeed(_snapshot.PlaybackRate)</span>
-                </AppNativeButton>
-            }
-            <AppNativeButton Type="button" Class="listen-popup__icon" OnClick="ClosePlayerAsync">
-                <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
-            </AppNativeButton>
-        </div>
     }
-</div>
+</AppCssElement>
 
 @code {
+    private static readonly IReadOnlyList<double> SpeedRates = Enumerable.Range(5, 26).Select(value => value / 10d).ToList();
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
     private ListenPlaybackSnapshot _snapshot = new();
     private DotNetObjectReference<ListenPlayerPopupPage>? _selfReference;
+    private string? _activeSheet;
 
     private ListenQueueItem? CurrentItem =>
         _snapshot.CurrentIndex >= 0 && _snapshot.CurrentIndex < _snapshot.Queue.Count
             ? _snapshot.Queue[_snapshot.CurrentIndex]
             : null;
 
-    private IReadOnlyList<ListenQueueItem> UpcomingItems =>
-        _snapshot.CurrentIndex < 0 || _snapshot.CurrentIndex >= _snapshot.Queue.Count
-            ? _snapshot.Queue
-            : _snapshot.Queue.Skip(_snapshot.CurrentIndex + 1).ToList();
-
-    private double ProgressMax => _snapshot.DurationSeconds > 0 ? _snapshot.DurationSeconds : 1;
     private bool IsAudiobookMode => string.Equals(_snapshot.Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase);
+    private double ProgressMax => _snapshot.DurationSeconds > 0 ? _snapshot.DurationSeconds : TryParseDurationSeconds(CurrentItem?.Duration) ?? 1;
+    private IReadOnlyList<PlaybackChapterDto> CurrentChapters => CurrentItem?.Chapters ?? [];
+    private string PopupClass => IsAudiobookMode ? "listen-popup listen-popup--audiobook" : "listen-popup listen-popup--music";
+    private string BackdropStyle => string.IsNullOrWhiteSpace(CurrentItem?.CoverUrl)
+        ? string.Empty
+        : $"--listen-popup-cover:url('{CurrentItem.CoverUrl.Replace("'", "%27", StringComparison.Ordinal)}');";
+    private string RemainingLabel => $"{FormatTimestamp(Math.Max(0, ProgressMax - _snapshot.CurrentTimeSeconds))} left";
+    private string SheetTitle => _activeSheet switch
+    {
+        "speed" => "Speed",
+        "chapters" => "Chapters",
+        "history" => "History",
+        "bookmarks" => "Bookmarks",
+        "sleep" => "Sleep Timer",
+        _ => string.Empty,
+    };
+    private string SheetSubtitle => _activeSheet switch
+    {
+        "speed" => "Choose playback speed",
+        "chapters" => "Jump to a chapter",
+        "history" => "Recent listening positions",
+        "bookmarks" => "Saved audiobook positions",
+        "sleep" => "Stop playback automatically",
+        _ => string.Empty,
+    };
+    private string SleepTimerDisplay => _snapshot.SleepTimerMode switch
+    {
+        ListenSleepTimerModes.EndOfChapter => "End of chapter",
+        ListenSleepTimerModes.Timer when _snapshot.SleepTimerEndsAtUtc.HasValue => $"{Math.Max(1, (int)Math.Ceiling((_snapshot.SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalMinutes))} min",
+        _ => "Off",
+    };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -242,18 +322,52 @@
         return Task.CompletedTask;
     }
 
-    private Task SetTabAsync(string tab) => SendCommandAsync(new PopupCommand { Action = "set-tab", Tab = tab });
+    private RenderFragment ActionButton(string sheet, string value, string label, string icon) => @<AppNativeButton Type="button" Class="@($"listen-popup__action {(_activeSheet == sheet ? "is-active" : null)}")" OnClick="@(() => ToggleSheet(sheet))" AriaLabel="@label" title="@label">
+        <MudIcon Icon="@icon" Class="tl-u-font-size-32px" />
+        <strong>@value</strong>
+        <span>@label</span>
+    </AppNativeButton>;
+
+    private RenderFragment TimerButton(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-popup-sheet__timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">@label</AppNativeButton>;
+
+    private void ToggleSheet(string sheet) => _activeSheet = _activeSheet == sheet ? null : sheet;
     private Task TogglePlayAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-play" });
-    private Task PlayNextAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "skip-forward" : "play-next" });
-    private Task PlayPreviousAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "skip-back" : "play-previous" });
-    private Task ClearUpcomingAsync() => SendCommandAsync(new PopupCommand { Action = "clear-upcoming" });
-    private Task RemoveUpcomingAsync(int index) => SendCommandAsync(new PopupCommand { Action = "remove-upcoming", Index = index });
-    private Task PlayIndexAsync(int index) => SendCommandAsync(new PopupCommand { Action = "play-index", Index = index });
-    private Task PlayHistoryAsync(ListenQueueItem item) => SendCommandAsync(new PopupCommand { Action = "play-history", Item = item });
+    private Task SkipForwardAsync() => SendCommandAsync(new PopupCommand { Action = "skip-forward" });
+    private Task SkipBackAsync() => SendCommandAsync(new PopupCommand { Action = "skip-back" });
+    private Task PlayNextChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-next-chapter" : "play-next" });
+    private Task PlayPreviousChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-previous-chapter" : "play-previous" });
+    private Task PlayChapterAsync(int chapterIndex) => SendCommandAsync(new PopupCommand { Action = "play-chapter", ChapterIndex = chapterIndex });
     private Task PlayAudiobookHistoryAsync(AudiobookListenHistoryItemDto item) => SendCommandAsync(new PopupCommand { Action = "play-audiobook-history", AudiobookHistoryItem = item });
+    private Task PlayBookmarkAsync(AudiobookBookmarkDto bookmark) => SendCommandAsync(new PopupCommand { Action = "play-audiobook-bookmark", AudiobookBookmark = bookmark });
+    private Task AddBookmarkAsync() => SendCommandAsync(new PopupCommand { Action = "add-audiobook-bookmark" });
+    private Task DeleteBookmarkAsync(Guid bookmarkId) => SendCommandAsync(new PopupCommand { Action = "delete-audiobook-bookmark", BookmarkId = bookmarkId });
     private Task ToggleMuteAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-mute" });
-    private Task ClosePlayerAsync() => SendCommandAsync(new PopupCommand { Action = "close-player" });
-    private Task CycleSpeedAsync() => SendCommandAsync(new PopupCommand { Action = "set-speed", Value = NextSpeed(_snapshot.PlaybackRate) });
+    private Task SetSpeedAsync(double rate) => SendCommandAsync(new PopupCommand { Action = "set-speed", Value = rate });
+
+    private Task SetTimerAsync(int? minutes, string? mode)
+    {
+        if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
+        {
+            return SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMode = mode });
+        }
+
+        return minutes.HasValue
+            ? SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMinutes = minutes })
+            : SendCommandAsync(new PopupCommand { Action = "cancel-sleep-timer" });
+    }
+
+    private async Task ClosePopupWindowAsync()
+    {
+        await SendCommandAsync(new PopupCommand { Action = "popup-closed" });
+        try
+        {
+            await JS.InvokeVoidAsync("window.close");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not close listen popup window.");
+        }
+    }
 
     private async Task SeekAsync(ChangeEventArgs args)
     {
@@ -274,6 +388,48 @@
     private Task SendCommandAsync(PopupCommand command)
         => JS.InvokeVoidAsync("listenPlayback.sendCommand", JsonSerializer.Serialize(command, _jsonOptions)).AsTask();
 
+    private bool IsTimerActive(int? minutes, string? mode)
+    {
+        if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
+        {
+            return _snapshot.SleepTimerMode == ListenSleepTimerModes.EndOfChapter;
+        }
+
+        if (!minutes.HasValue)
+        {
+            return _snapshot.SleepTimerMode == ListenSleepTimerModes.Off;
+        }
+
+        return _snapshot.SleepTimerMode == ListenSleepTimerModes.Timer
+            && _snapshot.SleepTimerEndsAtUtc.HasValue
+            && Math.Abs((_snapshot.SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalMinutes - minutes.Value) < 1.2d;
+    }
+
+    private bool IsCurrentChapter(PlaybackChapterDto chapter) =>
+        _snapshot.CurrentTimeSeconds >= chapter.StartSeconds - 0.5d
+        && (!chapter.EndSeconds.HasValue || _snapshot.CurrentTimeSeconds < chapter.EndSeconds.Value - 0.5d);
+
+    private string PlayerSubtitle(ListenQueueItem item)
+    {
+        if (IsAudiobookMode)
+        {
+            return FirstNonBlank(item.Album, item.Subtitle, _snapshot.SourceLabel, "Audiobook");
+        }
+
+        return FirstNonBlank(item.Subtitle, item.Album, _snapshot.SourceLabel, "Library audio");
+    }
+
+    private static string ChapterDuration(PlaybackChapterDto chapter) =>
+        chapter.EndSeconds is > 0 && chapter.EndSeconds.Value > chapter.StartSeconds
+            ? FormatTimestamp(chapter.EndSeconds.Value - chapter.StartSeconds)
+            : FormatTimestamp(chapter.StartSeconds);
+
+    private static string HistoryTitle(AudiobookListenHistoryItemDto item) =>
+        $"{FirstNonBlank(item.ChapterTitle, item.Title, "Audiobook")} - Left off at {FormatTimestamp(item.PositionSeconds)}";
+
+    private static string BookmarkTitle(AudiobookBookmarkDto item) =>
+        FirstNonBlank(item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");
+
     private static string FormatTimestamp(double seconds)
     {
         var safe = Math.Max(0, seconds);
@@ -283,23 +439,40 @@
             : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
-    private string FormatHistoryStamp(DateTimeOffset? playedAt)
-        => playedAt.HasValue
-            ? playedAt.Value.LocalDateTime.ToString("M/d h:mm tt", CultureInfo.CurrentCulture)
-            : L["Listen_PlayedEarlier"];
-
-    private string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? L["Listen_LibraryAudio"];
-
     private static string FormatSpeed(double rate) =>
-        $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";
+        $"{Math.Clamp(rate, 0.5d, 3d).ToString("0.0", CultureInfo.InvariantCulture)}x";
 
-    private static double NextSpeed(double current)
+    private static double? TryParseDurationSeconds(string? value)
     {
-        var rates = new[] { 0.75d, 1d, 1.25d, 1.5d, 1.75d, 2d, 2.5d, 3d };
-        var index = Array.FindIndex(rates, rate => Math.Abs(rate - current) < 0.01d);
-        return rates[(index + 1 + rates.Length) % rates.Length];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var parts = value.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length is not (2 or 3))
+        {
+            return null;
+        }
+
+        var total = 0d;
+        var multiplier = 1d;
+        for (var index = parts.Length - 1; index >= 0; index--)
+        {
+            if (!double.TryParse(parts[index], NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return null;
+            }
+
+            total += parsed * multiplier;
+            multiplier *= 60d;
+        }
+
+        return total;
     }
+
+    private static string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
 
     public async ValueTask DisposeAsync()
     {
@@ -322,10 +495,12 @@
     private sealed class PopupCommand
     {
         public string Action { get; set; } = string.Empty;
-        public int? Index { get; set; }
+        public int? ChapterIndex { get; set; }
         public double? Value { get; set; }
-        public string? Tab { get; set; }
-        public ListenQueueItem? Item { get; set; }
+        public int? TimerMinutes { get; set; }
+        public string? TimerMode { get; set; }
+        public Guid? BookmarkId { get; set; }
         public AudiobookListenHistoryItemDto? AudiobookHistoryItem { get; set; }
+        public AudiobookBookmarkDto? AudiobookBookmark { get; set; }
     }
 }

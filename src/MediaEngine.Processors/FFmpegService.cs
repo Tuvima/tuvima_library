@@ -296,8 +296,40 @@ public sealed class FFmpegService : IFFmpegService
 
             // ── Chapters ──────────────────────────────────────────────────────
             int chapterCount = 0;
+            var parsedChapters = new List<MediaProbeChapter>();
             if (root.TryGetProperty("chapters", out var chapters))
+            {
                 chapterCount = chapters.GetArrayLength();
+                var chapterIndex = 0;
+                foreach (var chapter in chapters.EnumerateArray())
+                {
+                    var startSeconds = TryReadSeconds(chapter, "start_time");
+                    if (startSeconds is null)
+                    {
+                        chapterIndex++;
+                        continue;
+                    }
+
+                    var endSeconds = TryReadSeconds(chapter, "end_time");
+                    if (endSeconds <= startSeconds)
+                    {
+                        endSeconds = null;
+                    }
+
+                    string? title = null;
+                    if (chapter.TryGetProperty("tags", out var chapterTags))
+                    {
+                        title = TryReadTag(chapterTags, "title");
+                    }
+
+                    parsedChapters.Add(new MediaProbeChapter(
+                        chapterIndex,
+                        string.IsNullOrWhiteSpace(title) ? null : title,
+                        Math.Max(0, startSeconds.Value),
+                        endSeconds));
+                    chapterIndex++;
+                }
+            }
 
             return new MediaProbeResult
             {
@@ -324,6 +356,7 @@ public sealed class FFmpegService : IFFmpegService
                 FrameRate      = frameRate,
                 HasEmbeddedCover = hasCover,
                 ChapterCount   = chapterCount,
+                Chapters       = parsedChapters,
                 SubtitleLanguages = subtitleLanguages
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList(),
@@ -344,6 +377,44 @@ public sealed class FFmpegService : IFFmpegService
                 var raw = value.GetString();
                 if (!string.IsNullOrWhiteSpace(raw))
                     return raw;
+            }
+        }
+
+        return null;
+    }
+
+    private static double? TryReadSeconds(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value))
+        {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var numeric))
+        {
+            return numeric;
+        }
+
+        if (value.ValueKind == JsonValueKind.String
+            && double.TryParse(
+                value.GetString(),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
+    private static string? TryReadTag(JsonElement tags, string key)
+    {
+        foreach (var candidate in new[] { key, key.ToUpperInvariant(), key.ToLowerInvariant() })
+        {
+            if (tags.TryGetProperty(candidate, out var value))
+            {
+                return value.GetString();
             }
         }
 

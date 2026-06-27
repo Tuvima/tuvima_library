@@ -1,13 +1,168 @@
 @namespace MediaEngine.Web.Components.Details
+@using System.Globalization
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Services.Playback
+@inject ListenPlaybackService Playback
 
-<AudioItemTable Groups="Groups"
-                SourceTitle="@AudiobookTitle"
-                ArtworkUrl="@AudiobookArtworkUrl"
-                IsAudiobook="true" />
+@if (ChapterItems.Count > 0)
+{
+    <section class="tl-audiobook-chapters" aria-label="@($"{AudiobookTitle} chapters")">
+        <div class="tl-audiobook-chapters__header">
+            <div>
+                <h2>Chapters</h2>
+                <p>@ChapterItems.Count chapter@(ChapterItems.Count == 1 ? string.Empty : "s") available in the player</p>
+            </div>
+        </div>
+
+        <div class="tl-audiobook-chapters__list">
+            @for (var index = 0; index < ChapterItems.Count; index++)
+            {
+                var item = ChapterItems[index];
+                var chapter = ToPlaybackChapter(item, index);
+                var isCurrent = IsCurrentChapter(item);
+                <AppNativeButton Type="button"
+                                 Class="@($"tl-audiobook-chapters__row {(isCurrent ? "is-current" : null)}")"
+                                 OnClick="@(() => PlayChapterAsync(item, chapter))"
+                                 AriaLabel="@($"Play {chapter.Title}")"
+                                 title="@($"Play {chapter.Title}")">
+                    <span class="tl-audiobook-chapters__number">@($"{index + 1}")</span>
+                    <span class="tl-audiobook-chapters__copy">
+                        <strong>@chapter.Title</strong>
+                        <span>@ChapterMeta(item, chapter)</span>
+                    </span>
+                    @if (item.ProgressPercent is > 0 and < 100)
+                    {
+                        <span class="tl-audiobook-chapters__progress">@($"{Math.Round(item.ProgressPercent.Value):0}%")</span>
+                    }
+                    <MudIcon Icon="@(isCurrent ? Icons.Material.Filled.VolumeUp : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-22px" />
+                </AppNativeButton>
+            }
+        </div>
+    </section>
+}
 
 @code {
     [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
     [Parameter] public string AudiobookTitle { get; set; } = "Audiobook";
     [Parameter] public string? AudiobookArtworkUrl { get; set; }
+
+    private IReadOnlyList<MediaGroupingItemViewModel> ChapterItems =>
+        Groups.SelectMany(group => group.Items)
+            .Where(item => item.EntityType == DetailEntityType.Audiobook)
+            .OrderBy(item => item.StartSeconds ?? double.MaxValue)
+            .ThenBy(item => item.ChapterIndex ?? int.MaxValue)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private Task PlayChapterAsync(MediaGroupingItemViewModel item, PlaybackChapterDto chapter)
+    {
+        if (!item.IsOwned)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Playback.PlayAudiobookChapterAsync(ToQueueItem(item, chapter), chapter, AudiobookTitle);
+    }
+
+    private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel item, PlaybackChapterDto chapter) => new()
+    {
+        WorkId = ItemId(item),
+        AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
+        MediaType = "Audiobooks",
+        Title = AudiobookTitle,
+        Subtitle = chapter.Title,
+        Album = AudiobookTitle,
+        CoverUrl = item.ArtworkUrl ?? AudiobookArtworkUrl,
+        Duration = DisplayDuration(item, chapter),
+        InitialPositionSeconds = chapter.StartSeconds,
+        Chapters = ChapterItems.Select(chapterItem => ToPlaybackChapter(chapterItem)).ToList(),
+        ChapterIndex = chapter.Index,
+        StartAtExactPosition = true,
+    };
+
+    private PlaybackChapterDto ToPlaybackChapter(MediaGroupingItemViewModel item, int ordinal) => new()
+    {
+        Index = ordinal,
+        Title = ListenPlaybackService.CleanChapterTitle(item.Title, ordinal),
+        StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
+        EndSeconds = item.EndSeconds,
+    };
+
+    private PlaybackChapterDto ToPlaybackChapter(MediaGroupingItemViewModel item) =>
+        ToPlaybackChapter(item, ChapterOrdinal(item));
+
+    private int ChapterOrdinal(MediaGroupingItemViewModel item)
+    {
+        for (var index = 0; index < ChapterItems.Count; index++)
+        {
+            if (ReferenceEquals(ChapterItems[index], item) || ChapterItems[index].Id == item.Id && ChapterItems[index].StartSeconds == item.StartSeconds)
+            {
+                return index;
+            }
+        }
+
+        return Math.Max(0, item.ChapterIndex ?? 0);
+    }
+
+    private bool IsCurrentChapter(MediaGroupingItemViewModel item)
+    {
+        if (!Playback.IsAudiobookMode || Playback.CurrentItem is null)
+        {
+            return false;
+        }
+
+        if (Guid.TryParse(item.AssetId, out var assetId)
+            && Playback.CurrentItem.AssetId.HasValue
+            && Playback.CurrentItem.AssetId.Value != assetId)
+        {
+            return false;
+        }
+
+        if (!item.StartSeconds.HasValue)
+        {
+            return false;
+        }
+
+        var current = Playback.CurrentTimeSeconds;
+        return current >= item.StartSeconds.Value - 0.5d
+            && (!item.EndSeconds.HasValue || current < item.EndSeconds.Value - 0.5d);
+    }
+
+    private static string ChapterMeta(MediaGroupingItemViewModel item, PlaybackChapterDto chapter)
+    {
+        var duration = DisplayDuration(item, chapter);
+        if (item.StartSeconds.HasValue)
+        {
+            return $"{FormatTimestamp(item.StartSeconds.Value)} - {duration}";
+        }
+
+        return duration;
+    }
+
+    private static string DisplayDuration(MediaGroupingItemViewModel item, PlaybackChapterDto chapter)
+    {
+        if (chapter.EndSeconds is > 0 && chapter.EndSeconds.Value > chapter.StartSeconds)
+        {
+            return FormatTimestamp(chapter.EndSeconds.Value - chapter.StartSeconds);
+        }
+
+        if (item.DurationSeconds is > 0)
+        {
+            return FormatTimestamp(item.DurationSeconds.Value);
+        }
+
+        return item.Duration ?? string.Empty;
+    }
+
+    private static string FormatTimestamp(double seconds)
+    {
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return span.TotalHours >= 1
+            ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+    }
+
+    private static Guid ItemId(MediaGroupingItemViewModel item) =>
+        Guid.TryParse(item.Id, out var id) ? id : Guid.Empty;
 }

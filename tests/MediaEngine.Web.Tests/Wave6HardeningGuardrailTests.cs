@@ -30,7 +30,8 @@ public sealed class Wave6HardeningGuardrailTests
         Assert.Contains("@L[\"Layout_SkipToContent\"]", layout);
         Assert.Contains("L[\"TopBar_EngineDegradedBanner\"]", layout);
         Assert.Contains("@L[\"Listen_NothingPlaying\"]", popup);
-        Assert.Contains("@L[\"Listen_PlayingNext\"]", popup);
+        Assert.Contains("@L[\"Listen_MiniPlayerTitle\"]", popup);
+        Assert.Contains("Recent listening positions", popup);
         Assert.DoesNotContain(">Nothing is playing right now.<", popup, StringComparison.Ordinal);
         Assert.DoesNotContain(">Playing Next<", popup, StringComparison.Ordinal);
     }

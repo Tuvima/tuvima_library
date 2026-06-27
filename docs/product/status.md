@@ -32,7 +32,7 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Settings > Libraries | Live | Folder paths, organization templates, path checks, save, and scan actions are backed by Engine/config APIs. |
 | Settings > Providers | Live | Provider catalogue/status/config, credential state, health, tests, and pipeline priority are backed where the Engine exposes them. |
 | Settings > Local AI | Live | Model inventory, download/cancel/load/unload, hardware profile, benchmark, resources, feature flags, vocabulary, and schedules are connected where endpoints exist. |
-| Playback and reader preferences | Live | Personal playback, reading, subtitle, resume, and progress preferences persist through the playback settings API. |
+| Playback and reader preferences | Live | Personal playback, reading, subtitle, resume, audiobook history/bookmarks, and progress preferences persist through the playback settings and player APIs. |
 | Plugins | Partial | Plugin list, enable/disable, settings JSON, dynamic manifests, health, jobs, and approved-catalog lookup are available. |
 | Users and access | Partial | Profiles and API keys are Engine-backed. Remote access and some network controls are still read-only or not connected. |
 

@@ -290,6 +290,7 @@ builder.Services.AddSingleton<PlaybackStateRepository>();
 builder.Services.AddSingleton<PlaybackCapabilitiesService>();
 builder.Services.AddSingleton<PlayerSessionRepository>();
 builder.Services.AddSingleton<AudiobookListenHistoryRepository>();
+builder.Services.AddSingleton<AudiobookBookmarkRepository>();
 builder.Services.AddSingleton<PlayerService>();
 builder.Services.AddSingleton<IUserPlaybackSettingsService, UserPlaybackSettingsService>();
 builder.Services.AddHostedService<EncodeQueueService>();

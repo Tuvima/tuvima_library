@@ -677,7 +677,7 @@ public sealed class DetailComposerService
               AND ma.status = 'Normal'
             ORDER BY COALESCE(e.format_label, ''), ma.file_path_root;
             """,
-            new { workId = workId.ToString(), defaultOwnerUserId = DefaultOwnerUserId.ToString("D") },
+            new { workId, defaultOwnerUserId = DefaultOwnerUserId },
             cancellationToken: ct))).ToList();
 
         if (rows.Count == 0)
@@ -1505,11 +1505,12 @@ public sealed class DetailComposerService
             }
         }
 
+        var resume = await LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, ct);
         var chapters = manifest?.Chapters ?? [];
-        var resumeSeconds = manifest?.Resume?.PositionSeconds;
+        var resumeSeconds = resume?.PositionSeconds;
         var items = chapters.Count > 0
             ? chapters.Select(chapter => ToAudiobookChapterItem(row, chapter, resumeSeconds)).ToList()
-            : [ToFullAudiobookItem(row, manifest, resumeSeconds)];
+            : [ToFullAudiobookItem(row, manifest, resume)];
 
         return new MediaGroupingViewModel
         {
@@ -1528,6 +1529,7 @@ public sealed class DetailComposerService
             : chapter.Index == 0 && chapter.StartSeconds <= 0
                 ? TryParseAudioDurationSeconds(row.DurationSecondsValue) ?? TryParseDurationSeconds(row.Duration)
                 : (double?)null;
+        var progressPercent = CalculateChapterProgress(resumeSeconds, chapter.StartSeconds, chapter.EndSeconds);
 
         return new MediaGroupingItemViewModel
         {
@@ -1538,19 +1540,24 @@ public sealed class DetailComposerService
             ArtworkUrl = $"/stream/{row.AssetId}/cover",
             TrackNumber = (chapter.Index + 1).ToString(CultureInfo.InvariantCulture),
             Duration = FormatSecondsDuration(durationSeconds),
+            DurationSeconds = durationSeconds,
             AssetId = row.AssetId.ToString("D"),
             ChapterIndex = chapter.Index,
             StartSeconds = chapter.StartSeconds,
             EndSeconds = chapter.EndSeconds,
-            ProgressPercent = CalculateChapterProgress(resumeSeconds, chapter.StartSeconds, chapter.EndSeconds),
+            ProgressPercent = progressPercent,
             Metadata = BuildEpisodeMetadata(FormatSecondsDuration(durationSeconds), null),
-            Actions = [new DetailAction { Key = "play-chapter", Label = "Play", Icon = "play_arrow" }],
+            Actions = [new DetailAction { Key = "play-chapter", Label = progressPercent is > 0 and < 100 ? "Continue" : "Play", Icon = "play_arrow" }],
             IsOwned = true,
-            ProgressState = LibraryProgressState.Unstarted,
+            ProgressState = progressPercent >= 100
+                ? LibraryProgressState.Completed
+                : progressPercent is > 0
+                    ? LibraryProgressState.InProgress
+                    : LibraryProgressState.Unstarted,
         };
     }
 
-    private static MediaGroupingItemViewModel ToFullAudiobookItem(AudiobookAssetRow row, MediaEngine.Contracts.Playback.PlaybackManifestDto? manifest, double? resumeSeconds)
+    private static MediaGroupingItemViewModel ToFullAudiobookItem(AudiobookAssetRow row, MediaEngine.Contracts.Playback.PlaybackManifestDto? manifest, MediaEngine.Contracts.Playback.PlaybackResumeDto? resume)
     {
         double? durationSeconds = TryParseAudioDurationSeconds(row.DurationSecondsValue)
             ?? TryParseDurationSeconds(row.Duration);
@@ -1573,16 +1580,148 @@ public sealed class DetailComposerService
             ArtworkUrl = $"/stream/{row.AssetId}/cover",
             TrackNumber = "1",
             Duration = FormatSecondsDuration(durationSeconds),
+            DurationSeconds = durationSeconds,
             AssetId = row.AssetId.ToString("D"),
             ChapterIndex = 0,
             StartSeconds = 0,
             EndSeconds = durationSeconds,
-            ProgressPercent = manifest?.Resume?.ProgressPct,
+            ProgressPercent = resume?.ProgressPct,
             Metadata = BuildEpisodeMetadata(FormatSecondsDuration(durationSeconds), null),
-            Actions = [new DetailAction { Key = "play-chapter", Label = resumeSeconds is > 0 ? "Continue" : "Play", Icon = "play_arrow" }],
+            Actions = [new DetailAction { Key = "play-chapter", Label = resume?.PositionSeconds is > 0 ? "Continue" : "Play", Icon = "play_arrow" }],
             IsOwned = true,
-            ProgressState = resumeSeconds is > 0 ? LibraryProgressState.InProgress : LibraryProgressState.Unstarted,
+            ProgressState = resume?.ProgressPct >= 100
+                ? LibraryProgressState.Completed
+                : resume?.PositionSeconds is > 0
+                    ? LibraryProgressState.InProgress
+                    : LibraryProgressState.Unstarted,
         };
+    }
+
+    private static async Task<MediaEngine.Contracts.Playback.PlaybackResumeDto?> LoadAudiobookResumeAsync(
+        System.Data.IDbConnection conn,
+        Guid workId,
+        Guid assetId,
+        MediaEngine.Contracts.Playback.PlaybackResumeDto? fallback,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var rows = (await conn.QueryAsync<AudiobookResumeRow>(new CommandDefinition(
+            """
+            SELECT 0 AS SourceRank,
+                   last_position_seconds AS PositionSeconds,
+                   duration_seconds AS DurationSeconds,
+                   CASE WHEN duration_seconds IS NOT NULL AND duration_seconds > 0 THEN (last_position_seconds / duration_seconds) * 100.0 ELSE NULL END AS ProgressPct,
+                   last_heartbeat_at AS LastAccessed,
+                   NULL AS ExtendedProperties
+            FROM audiobook_listen_active_segments
+            WHERE work_id = @workId
+              AND asset_id = @assetId
+            UNION ALL
+            SELECT 1 AS SourceRank,
+                   position_seconds AS PositionSeconds,
+                   duration_seconds AS DurationSeconds,
+                   progress_pct AS ProgressPct,
+                   ended_at AS LastAccessed,
+                   NULL AS ExtendedProperties
+            FROM audiobook_listen_history
+            WHERE work_id = @workId
+              AND asset_id = @assetId
+            UNION ALL
+            SELECT 2 AS SourceRank,
+                   NULL AS PositionSeconds,
+                   NULL AS DurationSeconds,
+                   progress_pct AS ProgressPct,
+                   last_accessed AS LastAccessed,
+                   extended_properties AS ExtendedProperties
+            FROM user_states
+            WHERE asset_id = @assetId
+            ORDER BY SourceRank ASC, LastAccessed DESC
+            LIMIT 25;
+            """,
+            new { workId, assetId },
+            cancellationToken: ct))).ToList();
+
+        if (rows.Count == 0)
+        {
+            return fallback;
+        }
+
+        var resumes = rows
+            .Select(row => BuildAudiobookResume(row, fallback))
+            .Where(resume => resume is not null)
+            .Select(resume => resume!)
+            .ToList();
+
+        return resumes.FirstOrDefault(IsMeaningfulAudiobookResume)
+            ?? (IsMeaningfulAudiobookResume(fallback) ? fallback : null)
+            ?? resumes.FirstOrDefault()
+            ?? fallback;
+    }
+
+    private static MediaEngine.Contracts.Playback.PlaybackResumeDto? BuildAudiobookResume(
+        AudiobookResumeRow row,
+        MediaEngine.Contracts.Playback.PlaybackResumeDto? fallback)
+    {
+        var positionSeconds = row.PositionSeconds
+            ?? TryReadExtendedPropertyDouble(row.ExtendedProperties, "position_seconds")
+            ?? (row.SourceRank == 2 ? fallback?.PositionSeconds : null);
+        var durationSeconds = row.DurationSeconds
+            ?? TryReadExtendedPropertyDouble(row.ExtendedProperties, "duration_seconds");
+        var progressPct = row.ProgressPct
+            ?? (positionSeconds.HasValue && durationSeconds is > 0
+                ? positionSeconds.Value / durationSeconds.Value * 100d
+                : fallback?.ProgressPct);
+
+        if (!positionSeconds.HasValue && !progressPct.HasValue)
+        {
+            return fallback;
+        }
+
+        return new MediaEngine.Contracts.Playback.PlaybackResumeDto
+        {
+            PositionSeconds = positionSeconds,
+            ProgressPct = Math.Clamp(progressPct ?? 0, 0, 100),
+            LastAccessed = DateTimeOffset.TryParse(row.LastAccessed, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+                ? parsed
+                : fallback?.LastAccessed,
+        };
+    }
+
+    private static bool IsMeaningfulAudiobookResume(MediaEngine.Contracts.Playback.PlaybackResumeDto? resume)
+        => resume?.PositionSeconds is > 0 || resume?.ProgressPct is > 0;
+
+    private static double? TryReadExtendedPropertyDouble(string? extendedProperties, string key)
+    {
+        if (string.IsNullOrWhiteSpace(extendedProperties))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(extendedProperties);
+            if (!doc.RootElement.TryGetProperty(key, out var value))
+            {
+                return null;
+            }
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var numeric))
+            {
+                return numeric;
+            }
+
+            if (value.ValueKind == JsonValueKind.String
+                && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
     }
 
     private async Task<IReadOnlyList<MediaGroupingItemViewModel>> LoadMoreLikeThisItemsAsync(
@@ -3219,7 +3358,7 @@ public sealed class DetailComposerService
         string? runtime,
         IReadOnlyList<OwnedFormatViewModel> formats)
     {
-        if (!IsWatchEntity(entityType))
+        if (!IsWatchEntity(entityType) && entityType is not DetailEntityType.Audiobook)
         {
             return null;
         }
@@ -3239,7 +3378,9 @@ public sealed class DetailComposerService
         return new ProgressViewModel
         {
             Percent = percent,
-            Label = BuildHeroProgressLabel(percent, runtimeSource),
+            Label = entityType is DetailEntityType.Audiobook
+                ? BuildListenHeroProgressLabel(percent, runtimeSource)
+                : BuildHeroProgressLabel(percent, runtimeSource),
         };
     }
 
@@ -3278,8 +3419,22 @@ public sealed class DetailComposerService
             : $"Continue watching · {rounded}% watched · {timeLeft} left";
     }
 
+    private static string BuildListenHeroProgressLabel(double percent, string? runtime)
+    {
+        var rounded = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 1, 99);
+        var timeLeft = FormatTimeLeft(runtime, percent);
+        return string.IsNullOrWhiteSpace(timeLeft)
+            ? $"Continue listening - {rounded}% listened"
+            : $"Continue listening - {rounded}% listened - {timeLeft} left";
+    }
+
     private static bool IsWatchEntity(DetailEntityType entityType)
         => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+
+    private static bool HasAudiobookProgress(IReadOnlyList<OwnedFormatViewModel> formats)
+        => formats.Any(format =>
+            format.FormatType == MediaFormatType.Audiobook
+            && format.Progress?.Percent is > 0 and < 99.5);
 
     private static IReadOnlyList<DetailAction> BuildPrimaryActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, IReadOnlyList<OwnedFormatViewModel> formats, ProgressViewModel? heroProgress)
     {
@@ -3288,9 +3443,9 @@ public sealed class DetailComposerService
             DetailEntityType.Movie => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", Route = $"/watch/player/resolve?workId={id}", IsPrimary = true }],
             DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", IsPrimary = true }],
             DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
-            DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Resume", Icon = "headphones", IsPrimary = true }],
+            DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
-            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = "Listen", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true }],
+            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true }],
             DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
@@ -3548,8 +3703,8 @@ public sealed class DetailComposerService
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "details"],
             DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "details"],
             DetailEntityType.Book => ["overview", "credits", "details"],
-            DetailEntityType.Audiobook when hasUniverse => ["chapters", "overview", "credits", "universe", "details"],
-            DetailEntityType.Audiobook => ["chapters", "overview", "credits", "details"],
+            DetailEntityType.Audiobook when hasUniverse => ["overview", "chapters", "credits", "universe", "details"],
+            DetailEntityType.Audiobook => ["overview", "chapters", "credits", "details"],
             DetailEntityType.BookSeries when hasUniverse => ["overview", "works", "credits", "universe", "details"],
             DetailEntityType.BookSeries => ["overview", "works", "credits", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "details"],
@@ -6154,6 +6309,16 @@ public sealed class DetailComposerService
     }
 
     private sealed record CharacterDetailRow(Guid Id, string Label, string? WikidataQid, string? UniverseQid, string? UniverseLabel, string? ImageUrl, string? EntitySubType);
+    private sealed class AudiobookResumeRow
+    {
+        public int SourceRank { get; init; }
+        public double? PositionSeconds { get; init; }
+        public double? DurationSeconds { get; init; }
+        public double? ProgressPct { get; init; }
+        public string? LastAccessed { get; init; }
+        public string? ExtendedProperties { get; init; }
+    }
+
     private sealed class CollectionCharacterRow
     {
         public Guid Id { get; init; }

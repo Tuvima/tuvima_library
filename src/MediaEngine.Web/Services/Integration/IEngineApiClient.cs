@@ -42,6 +42,12 @@ public interface IEngineApiClient
 
     Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 10, CancellationToken ct = default);
 
+    Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(Guid workId, Guid? profileId = null, CancellationToken ct = default);
+
+    Task<AudiobookBookmarkDto?> CreateAudiobookBookmarkAsync(Guid workId, CreateAudiobookBookmarkRequestDto request, Guid? profileId = null, CancellationToken ct = default);
+
+    Task<bool> DeleteAudiobookBookmarkAsync(Guid bookmarkId, Guid? profileId = null, CancellationToken ct = default);
+
     Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 
     Task RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default);

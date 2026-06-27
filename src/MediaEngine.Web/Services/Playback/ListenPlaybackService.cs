@@ -15,8 +15,10 @@ public sealed class ListenPlaybackService
     private readonly List<ListenQueueItem> _queue = [];
     private readonly List<ListenQueueItem> _history = [];
     private readonly List<AudiobookListenHistoryItemDto> _audiobookHistory = [];
+    private readonly List<AudiobookBookmarkDto> _audiobookBookmarks = [];
     private readonly Guid _sessionId = Guid.NewGuid();
     private DateTimeOffset _lastHeartbeatAt = DateTimeOffset.MinValue;
+    private CancellationTokenSource? _sleepTimerCts;
 
     public ListenPlaybackService(
         UIOrchestratorService orchestrator,
@@ -36,6 +38,7 @@ public sealed class ListenPlaybackService
     public IReadOnlyList<ListenQueueItem> Queue => _queue;
     public IReadOnlyList<ListenQueueItem> History => _history;
     public IReadOnlyList<AudiobookListenHistoryItemDto> AudiobookHistory => _audiobookHistory;
+    public IReadOnlyList<AudiobookBookmarkDto> AudiobookBookmarks => _audiobookBookmarks;
     public IReadOnlyList<ListenQueueItem> UpcomingQueue =>
         CurrentIndex < 0 || CurrentIndex >= _queue.Count
             ? _queue
@@ -56,6 +59,14 @@ public sealed class ListenPlaybackService
     public bool NeedsUserGestureToStart { get; private set; }
     public bool IsPopupOpen { get; private set; }
     public string? CurrentError { get; private set; }
+    public string SleepTimerMode { get; private set; } = ListenSleepTimerModes.Off;
+    public DateTimeOffset? SleepTimerEndsAtUtc { get; private set; }
+    public string SleepTimerLabel => SleepTimerMode switch
+    {
+        ListenSleepTimerModes.EndOfChapter => "End of chapter",
+        ListenSleepTimerModes.Timer when SleepTimerEndsAtUtc.HasValue => FormatSleepTimerRemaining(SleepTimerEndsAtUtc.Value),
+        _ => "Off",
+    };
 
     public bool HasQueue => _queue.Count > 0 && !IsDismissed;
 
@@ -65,6 +76,7 @@ public sealed class ListenPlaybackService
             : null;
 
     public string? CurrentStreamUrl => CurrentItem?.StreamUrl;
+    public string? CurrentBrowserStreamUrl => ToDashboardDirectStreamUrl(CurrentStreamUrl) ?? CurrentStreamUrl;
     public bool IsAudiobookMode => string.Equals(Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase);
     public bool IsMusicMode => !IsAudiobookMode;
 
@@ -80,6 +92,36 @@ public sealed class ListenPlaybackService
 
     public Task PlayAudiobookAsync(ListenQueueItem item, string? sourceLabel = null, CancellationToken ct = default)
         => PlayQueueItemCoreAsync(item with { MediaType = "Audiobooks" }, sourceLabel ?? item.Album ?? item.Title, ct);
+
+    public Task PlayAudiobookChapterAsync(ListenQueueItem item, PlaybackChapterDto chapter, string? sourceLabel = null, CancellationToken ct = default)
+    {
+        var normalized = NormalizeChapter(chapter, chapter.Index);
+        var chapterItem = item with
+        {
+            MediaType = "Audiobooks",
+            Subtitle = normalized.Title,
+            InitialPositionSeconds = normalized.StartSeconds,
+            ChapterIndex = normalized.Index,
+            StartAtExactPosition = true,
+        };
+
+        return PlayQueueItemCoreAsync(chapterItem, sourceLabel ?? item.Album ?? item.Title, ct);
+    }
+
+    public Task PlayAudiobookChapterAsync(int chapterIndex, CancellationToken ct = default)
+    {
+        var current = CurrentItem;
+        if (current is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var chapter = current.Chapters.FirstOrDefault(item => item.Index == chapterIndex)
+            ?? current.Chapters.ElementAtOrDefault(Math.Clamp(chapterIndex, 0, Math.Max(0, current.Chapters.Count - 1)));
+        return chapter is null
+            ? Task.CompletedTask
+            : PlayAudiobookChapterAsync(current, chapter, SourceLabel, ct);
+    }
 
     private async Task PlayQueueItemCoreAsync(ListenQueueItem item, string? sourceLabel = null, CancellationToken ct = default)
     {
@@ -100,6 +142,10 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         await RefreshAudiobookHistoryAsync(ct);
+        if (_queue[CurrentIndex].StartAtExactPosition)
+        {
+            await RequestTransportCommandAsync(new("seek", CurrentTimeSeconds));
+        }
         NotifyChanged();
         await SyncReplaceQueueAsync([_queue[CurrentIndex]], 0, SourceLabel, false, ct);
     }
@@ -483,6 +529,15 @@ public sealed class ListenPlaybackService
             changed = true;
         }
 
+        if (SleepTimerMode == ListenSleepTimerModes.EndOfChapter
+            && IsPlaying
+            && CurrentItem is { Chapters.Count: > 0 } current
+            && ResolveCurrentChapter(current, CurrentTimeSeconds) is { EndSeconds: { } endSeconds }
+            && CurrentTimeSeconds >= endSeconds - 0.5d)
+        {
+            _ = ExpireSleepTimerAsync();
+        }
+
         if (changed)
         {
             NotifyChanged();
@@ -519,14 +574,62 @@ public sealed class ListenPlaybackService
         await ReportHeartbeatAsync(force: true, ct);
     }
 
+    public async Task PlayNextChapterAsync(CancellationToken ct = default)
+    {
+        var current = CurrentItem;
+        if (current?.Chapters.Count is not > 0)
+        {
+            await SkipForwardAsync(ct);
+            return;
+        }
+
+        var chapter = ResolveCurrentChapter(current, CurrentTimeSeconds);
+        var next = current.Chapters.FirstOrDefault(item => item.StartSeconds > CurrentTimeSeconds + 0.5d)
+            ?? (chapter is null ? current.Chapters.FirstOrDefault() : current.Chapters.FirstOrDefault(item => item.Index > chapter.Index));
+        if (next is null)
+        {
+            return;
+        }
+
+        await PlayAudiobookChapterAsync(current, next, SourceLabel, ct);
+    }
+
+    public async Task PlayPreviousChapterAsync(CancellationToken ct = default)
+    {
+        var current = CurrentItem;
+        if (current?.Chapters.Count is not > 0)
+        {
+            await SkipBackAsync(ct);
+            return;
+        }
+
+        var chapter = ResolveCurrentChapter(current, CurrentTimeSeconds);
+        var previous = current.Chapters.LastOrDefault(item => item.StartSeconds < CurrentTimeSeconds - 3d)
+            ?? (chapter is null ? current.Chapters.FirstOrDefault() : current.Chapters.LastOrDefault(item => item.Index < chapter.Index))
+            ?? current.Chapters.FirstOrDefault();
+        if (previous is null)
+        {
+            return;
+        }
+
+        await PlayAudiobookChapterAsync(current, previous, SourceLabel, ct);
+    }
+
     public async Task CyclePlaybackRateAsync(CancellationToken ct = default)
     {
         var rates = await SupportedPlaybackRatesAsync(ct);
         var currentIndex = rates.FindIndex(rate => Math.Abs(rate - PlaybackRate) < 0.01d);
         var next = rates[(currentIndex + 1 + rates.Count) % rates.Count];
+        await SetPlaybackRateAsync(next, ct);
+    }
+
+    public async Task SetPlaybackRateAsync(double rate, CancellationToken ct = default)
+    {
+        var next = Math.Clamp(Math.Round(rate, 1), 0.5d, 3d);
         PlaybackRate = next;
         NotifyChanged();
         await RequestTransportCommandAsync(new("set-speed", next));
+        await ReportHeartbeatAsync(force: true, ct);
     }
 
     public async Task PlayAudiobookHistoryAsync(AudiobookListenHistoryItemDto history, CancellationToken ct = default)
@@ -546,10 +649,122 @@ public sealed class ListenPlaybackService
             Title = string.IsNullOrWhiteSpace(history.Title) ? current?.Title ?? "Audiobook" : history.Title,
             Subtitle = history.ChapterTitle ?? current?.Subtitle,
             InitialPositionSeconds = history.PositionSeconds,
+            ChapterIndex = history.ChapterIndex,
+            StartAtExactPosition = true,
             Duration = history.DurationSeconds.HasValue ? FormatDuration(history.DurationSeconds.Value) : current?.Duration,
         };
 
         await PlayAudiobookAsync(item, item.Title, ct);
+    }
+
+    public async Task PlayAudiobookBookmarkAsync(AudiobookBookmarkDto bookmark, CancellationToken ct = default)
+    {
+        var current = CurrentItem;
+        var item = (current ?? new ListenQueueItem
+        {
+            WorkId = bookmark.WorkId,
+            AssetId = bookmark.AssetId,
+            MediaType = "Audiobooks",
+            Title = bookmark.Label ?? "Audiobook",
+        }) with
+        {
+            WorkId = bookmark.WorkId,
+            AssetId = bookmark.AssetId,
+            MediaType = "Audiobooks",
+            Subtitle = bookmark.ChapterTitle ?? current?.Subtitle,
+            InitialPositionSeconds = bookmark.PositionSeconds,
+            ChapterIndex = bookmark.ChapterIndex,
+            StartAtExactPosition = true,
+            Duration = bookmark.DurationSeconds.HasValue ? FormatDuration(bookmark.DurationSeconds.Value) : current?.Duration,
+        };
+
+        await PlayAudiobookAsync(item, item.Title, ct);
+    }
+
+    public async Task<AudiobookBookmarkDto?> AddAudiobookBookmarkAsync(CancellationToken ct = default)
+    {
+        var current = CurrentItem;
+        if (!IsAudiobookMode || current?.AssetId is not Guid assetId || current.WorkId == Guid.Empty || _apiClient is null)
+        {
+            return null;
+        }
+
+        var chapter = ResolveCurrentChapter(current, CurrentTimeSeconds);
+        var bookmark = await _apiClient.CreateAudiobookBookmarkAsync(
+            current.WorkId,
+            new CreateAudiobookBookmarkRequestDto
+            {
+                AssetId = assetId,
+                ChapterIndex = chapter?.Index ?? current.ChapterIndex,
+                ChapterTitle = chapter?.Title ?? current.Subtitle,
+                PositionSeconds = CurrentTimeSeconds,
+                DurationSeconds = DurationSeconds > 0 ? DurationSeconds : TryParseDurationSeconds(current.Duration),
+                Label = chapter is null
+                    ? $"Left off at {FormatDuration(CurrentTimeSeconds)}"
+                    : $"{chapter.Title} - {FormatDuration(CurrentTimeSeconds)}",
+            },
+            ct: ct);
+
+        if (bookmark is not null)
+        {
+            _audiobookBookmarks.Insert(0, bookmark);
+            NotifyChanged();
+        }
+
+        return bookmark;
+    }
+
+    public async Task DeleteAudiobookBookmarkAsync(Guid bookmarkId, CancellationToken ct = default)
+    {
+        if (_apiClient is null)
+        {
+            return;
+        }
+
+        if (await _apiClient.DeleteAudiobookBookmarkAsync(bookmarkId, ct: ct))
+        {
+            _audiobookBookmarks.RemoveAll(item => item.Id == bookmarkId);
+            NotifyChanged();
+        }
+    }
+
+    public Task SetSleepTimerAsync(TimeSpan duration, CancellationToken ct = default)
+    {
+        if (duration <= TimeSpan.Zero)
+        {
+            return CancelSleepTimerAsync();
+        }
+
+        _sleepTimerCts?.Cancel();
+        _sleepTimerCts?.Dispose();
+        _sleepTimerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        SleepTimerMode = ListenSleepTimerModes.Timer;
+        SleepTimerEndsAtUtc = DateTimeOffset.UtcNow.Add(duration);
+        NotifyChanged();
+        _ = CompleteSleepTimerAfterDelayAsync(duration, _sleepTimerCts.Token);
+        return Task.CompletedTask;
+    }
+
+    public Task SetSleepTimerEndOfChapterAsync()
+    {
+        _sleepTimerCts?.Cancel();
+        _sleepTimerCts?.Dispose();
+        _sleepTimerCts = null;
+        SleepTimerMode = ListenSleepTimerModes.EndOfChapter;
+        SleepTimerEndsAtUtc = null;
+        NotifyChanged();
+        return Task.CompletedTask;
+    }
+
+    public Task CancelSleepTimerAsync()
+    {
+        _sleepTimerCts?.Cancel();
+        _sleepTimerCts?.Dispose();
+        _sleepTimerCts = null;
+        SleepTimerMode = ListenSleepTimerModes.Off;
+        SleepTimerEndsAtUtc = null;
+        NotifyChanged();
+        return Task.CompletedTask;
     }
 
     public async Task ReportHeartbeatAsync(bool force = false, CancellationToken ct = default)
@@ -632,6 +847,10 @@ public sealed class ListenPlaybackService
         _queue.Clear();
         _history.Clear();
         _audiobookHistory.Clear();
+        _audiobookBookmarks.Clear();
+        _sleepTimerCts?.Cancel();
+        _sleepTimerCts?.Dispose();
+        _sleepTimerCts = null;
         CurrentIndex = -1;
         SourceLabel = null;
         IsPanelOpen = false;
@@ -647,6 +866,8 @@ public sealed class ListenPlaybackService
         IsPlaying = false;
         IsPopupOpen = false;
         CurrentError = null;
+        SleepTimerMode = ListenSleepTimerModes.Off;
+        SleepTimerEndsAtUtc = null;
         NotifyChanged();
     }
 
@@ -658,6 +879,8 @@ public sealed class ListenPlaybackService
         _history.AddRange(snapshot.History ?? []);
         _audiobookHistory.Clear();
         _audiobookHistory.AddRange(snapshot.AudiobookHistory ?? []);
+        _audiobookBookmarks.Clear();
+        _audiobookBookmarks.AddRange(snapshot.AudiobookBookmarks ?? []);
         CurrentIndex = _queue.Count == 0
             ? -1
             : Math.Clamp(snapshot.CurrentIndex, 0, _queue.Count - 1);
@@ -682,6 +905,18 @@ public sealed class ListenPlaybackService
         IsPlaying = snapshot.IsPlaying && _queue.Count > 0;
         IsPopupOpen = snapshot.IsPopupOpen;
         CurrentError = snapshot.CurrentError;
+        SleepTimerMode = snapshot.SleepTimerMode is ListenSleepTimerModes.Timer or ListenSleepTimerModes.EndOfChapter
+            ? snapshot.SleepTimerMode
+            : ListenSleepTimerModes.Off;
+        SleepTimerEndsAtUtc = snapshot.SleepTimerEndsAtUtc > DateTimeOffset.UtcNow ? snapshot.SleepTimerEndsAtUtc : null;
+        if (SleepTimerMode == ListenSleepTimerModes.Timer && !SleepTimerEndsAtUtc.HasValue)
+        {
+            SleepTimerMode = ListenSleepTimerModes.Off;
+        }
+        if (SleepTimerMode == ListenSleepTimerModes.Timer && SleepTimerEndsAtUtc.HasValue)
+        {
+            _ = SetSleepTimerAsync(SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow);
+        }
         NotifyChanged();
     }
 
@@ -690,6 +925,7 @@ public sealed class ListenPlaybackService
         Queue = _queue.ToList(),
         History = _history.ToList(),
         AudiobookHistory = _audiobookHistory.ToList(),
+        AudiobookBookmarks = _audiobookBookmarks.ToList(),
         CurrentIndex = CurrentIndex,
         SourceLabel = SourceLabel,
         Experience = Experience,
@@ -705,6 +941,8 @@ public sealed class ListenPlaybackService
         IsPlaying = IsPlaying,
         IsPopupOpen = IsPopupOpen,
         CurrentError = CurrentError,
+        SleepTimerMode = SleepTimerMode,
+        SleepTimerEndsAtUtc = SleepTimerEndsAtUtc,
     };
 
     private void RememberCurrentItem()
@@ -740,9 +978,18 @@ public sealed class ListenPlaybackService
             if (!string.Equals(item.StreamUrl, normalizedStreamUrl, StringComparison.Ordinal))
             {
                 _queue[index] = item with { StreamUrl = normalizedStreamUrl };
+                item = _queue[index];
             }
 
-            return;
+            if (!IsAudiobook(item.MediaType) || item.Chapters.Count > 0)
+            {
+                return;
+            }
+
+            if (_apiClient is null)
+            {
+                return;
+            }
         }
 
         var assetId = item.AssetId;
@@ -769,6 +1016,7 @@ public sealed class ListenPlaybackService
         {
             AssetId = assetId,
             StreamUrl = NormalizeStreamUrl(streamUrl),
+            Chapters = NormalizeChapters(manifest?.Chapters ?? []),
         };
         double? manifestDuration = manifest?.Chapters
             .Where(chapter => chapter.EndSeconds.HasValue)
@@ -793,6 +1041,36 @@ public sealed class ListenPlaybackService
         return _apiClient is null
             ? streamUrl
             : _apiClient.ToAbsoluteEngineUrl(streamUrl);
+    }
+
+    private static string? ToDashboardDirectStreamUrl(string? streamUrl)
+    {
+        if (string.IsNullOrWhiteSpace(streamUrl))
+        {
+            return null;
+        }
+
+        var candidate = streamUrl.Trim();
+        if (Uri.TryCreate(candidate, UriKind.Absolute, out var absolute))
+        {
+            candidate = absolute.PathAndQuery;
+        }
+        else if (candidate.StartsWith("stream/", StringComparison.OrdinalIgnoreCase))
+        {
+            candidate = "/" + candidate;
+        }
+
+        if (!candidate.StartsWith("/stream/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var remainder = candidate["/stream/".Length..];
+        var pathEnd = remainder.IndexOfAny(['?', '#']);
+        var path = (pathEnd >= 0 ? remainder[..pathEnd] : remainder).TrimEnd('/');
+        return Guid.TryParse(path, out var assetId)
+            ? $"/engine-stream/{assetId:D}"
+            : null;
     }
 
     private async Task SyncReplaceQueueAsync(
@@ -896,7 +1174,7 @@ public sealed class ListenPlaybackService
     private async Task<double> InitialPositionForAsync(ListenQueueItem item, CancellationToken ct)
     {
         var position = InitialPositionFor(item);
-        if (position <= 0 || !IsAudiobook(item.MediaType))
+        if (position <= 0 || !IsAudiobook(item.MediaType) || item.StartAtExactPosition)
         {
             return position;
         }
@@ -934,7 +1212,7 @@ public sealed class ListenPlaybackService
         }
 
         var settings = await PlaybackSettingsAsync(ct);
-        return new[] { 0.75d, 1d, 1.25d, 1.5d, 1.75d, 2d, 2.5d, 3d }
+        return Enumerable.Range(5, 26).Select(value => value / 10d)
             .Append((double)settings.Listening.AudiobookDefaultSpeed)
             .Distinct()
             .Order()
@@ -944,6 +1222,7 @@ public sealed class ListenPlaybackService
     private async Task RefreshAudiobookHistoryAsync(CancellationToken ct)
     {
         _audiobookHistory.Clear();
+        _audiobookBookmarks.Clear();
         if (!IsAudiobookMode || CurrentItem is null || CurrentItem.WorkId == Guid.Empty || _apiClient is null)
         {
             return;
@@ -952,11 +1231,13 @@ public sealed class ListenPlaybackService
         try
         {
             var items = await _apiClient.GetAudiobookListenHistoryAsync(CurrentItem.WorkId, limit: 10, ct: ct);
-            _audiobookHistory.AddRange(items);
+            _audiobookHistory.AddRange(CleanAudiobookHistory(items));
+            var bookmarks = await _apiClient.GetAudiobookBookmarksAsync(CurrentItem.WorkId, ct: ct);
+            _audiobookBookmarks.AddRange(bookmarks);
         }
         catch (Exception ex)
         {
-            _logger?.LogDebug(ex, "Could not load audiobook listen history.");
+            _logger?.LogDebug(ex, "Could not load audiobook listen history or bookmarks.");
         }
     }
 
@@ -972,7 +1253,108 @@ public sealed class ListenPlaybackService
             : PlayerExperienceModes.Music;
         PlaybackRate = state.PlaybackRate is >= 0.5d and <= 32d ? state.PlaybackRate : PlaybackRate;
         _audiobookHistory.Clear();
-        _audiobookHistory.AddRange(state.AudiobookHistory ?? []);
+        _audiobookHistory.AddRange(CleanAudiobookHistory(state.AudiobookHistory ?? []));
+    }
+
+    public PlaybackChapterDto? CurrentChapter =>
+        CurrentItem is { Chapters.Count: > 0 } current
+            ? ResolveCurrentChapter(current, CurrentTimeSeconds)
+            : null;
+
+    public static IReadOnlyList<PlaybackChapterDto> NormalizeChapters(IReadOnlyList<PlaybackChapterDto> chapters) =>
+        chapters
+            .OrderBy(chapter => chapter.StartSeconds)
+            .Select((chapter, ordinal) => NormalizeChapter(chapter, ordinal))
+            .ToList();
+
+    public static PlaybackChapterDto NormalizeChapter(PlaybackChapterDto chapter, int ordinal) =>
+        chapter with { Title = CleanChapterTitle(chapter.Title, ordinal) };
+
+    public static string CleanChapterTitle(string? title, int ordinal)
+    {
+        var fallback = $"Chapter {Math.Max(1, ordinal + 1)}";
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return fallback;
+        }
+
+        var text = title.Trim();
+        if (text.Equals("chapter", StringComparison.OrdinalIgnoreCase))
+        {
+            return fallback;
+        }
+
+        if (text.All(char.IsDigit))
+        {
+            return int.TryParse(text.TrimStart('0'), out var number) && number > 0
+                ? $"Chapter {number}"
+                : fallback;
+        }
+
+        return text;
+    }
+
+    private static PlaybackChapterDto? ResolveCurrentChapter(ListenQueueItem item, double positionSeconds) =>
+        item.Chapters.LastOrDefault(chapter =>
+            chapter.StartSeconds <= positionSeconds
+            && (!chapter.EndSeconds.HasValue || positionSeconds < chapter.EndSeconds.Value))
+        ?? item.Chapters.FirstOrDefault();
+
+    private static IReadOnlyList<AudiobookListenHistoryItemDto> CleanAudiobookHistory(IEnumerable<AudiobookListenHistoryItemDto> items) =>
+        items
+            .Where(item => item.PositionSeconds > 0.5d)
+            .OrderByDescending(item => item.EndedAt)
+            .GroupBy(item => new
+            {
+                item.WorkId,
+                item.AssetId,
+                Chapter = item.ChapterIndex ?? -1,
+                PositionBucket = (int)Math.Floor(item.PositionSeconds / 300d),
+            })
+            .Select(group => group.First())
+            .Take(10)
+            .ToList();
+
+    private async Task CompleteSleepTimerAfterDelayAsync(TimeSpan duration, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(duration, ct);
+            await ExpireSleepTimerAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task ExpireSleepTimerAsync()
+    {
+        if (SleepTimerMode == ListenSleepTimerModes.Off)
+        {
+            return;
+        }
+
+        _sleepTimerCts?.Cancel();
+        _sleepTimerCts?.Dispose();
+        _sleepTimerCts = null;
+        SleepTimerMode = ListenSleepTimerModes.Off;
+        SleepTimerEndsAtUtc = null;
+        IsPlaying = false;
+        NotifyChanged();
+        await RequestTransportCommandAsync(new("pause"));
+        await ReportHeartbeatAsync(force: true);
+    }
+
+    private static string FormatSleepTimerRemaining(DateTimeOffset endsAtUtc)
+    {
+        var remaining = endsAtUtc - DateTimeOffset.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return "Off";
+        }
+
+        var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+        return $"{minutes} min";
     }
 
     private static string FormatDuration(double seconds)
@@ -1073,6 +1455,13 @@ public static class ListenPlaybackTabs
     public const string Lyrics = "lyrics";
 }
 
+public static class ListenSleepTimerModes
+{
+    public const string Off = "off";
+    public const string Timer = "timer";
+    public const string EndOfChapter = "chapter";
+}
+
 public sealed record ListenTransportCommand(string Action, double? Value = null);
 
 public sealed record ListenQueueItem
@@ -1110,6 +1499,15 @@ public sealed record ListenQueueItem
     [JsonPropertyName("initial_position_seconds")]
     public double? InitialPositionSeconds { get; init; }
 
+    [JsonPropertyName("chapters")]
+    public IReadOnlyList<PlaybackChapterDto> Chapters { get; init; } = [];
+
+    [JsonPropertyName("chapter_index")]
+    public int? ChapterIndex { get; init; }
+
+    [JsonPropertyName("start_at_exact_position")]
+    public bool StartAtExactPosition { get; init; }
+
     [JsonPropertyName("played_at")]
     public DateTimeOffset? PlayedAt { get; init; }
 }
@@ -1124,6 +1522,9 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("audiobook_history")]
     public List<AudiobookListenHistoryItemDto> AudiobookHistory { get; init; } = [];
+
+    [JsonPropertyName("audiobook_bookmarks")]
+    public List<AudiobookBookmarkDto> AudiobookBookmarks { get; init; } = [];
 
     [JsonPropertyName("current_index")]
     public int CurrentIndex { get; init; }
@@ -1169,4 +1570,10 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("current_error")]
     public string? CurrentError { get; init; }
+
+    [JsonPropertyName("sleep_timer_mode")]
+    public string SleepTimerMode { get; init; } = ListenSleepTimerModes.Off;
+
+    [JsonPropertyName("sleep_timer_ends_at_utc")]
+    public DateTimeOffset? SleepTimerEndsAtUtc { get; init; }
 }

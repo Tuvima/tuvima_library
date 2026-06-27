@@ -204,6 +204,76 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(Guid workId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        const string endpoint = "GET /player/audiobooks/{workId}/bookmarks";
+        try
+        {
+            var suffix = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
+            var items = await _http.GetFromJsonAsync<List<AudiobookBookmarkDto>>($"/player/audiobooks/{workId:D}/bookmarks{suffix}", ct);
+            ClearFailure(endpoint);
+            return items ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GET /player/audiobooks/{WorkId}/bookmarks failed", workId);
+            RecordExceptionFailure(endpoint, ex);
+            return [];
+        }
+    }
+
+    public async Task<AudiobookBookmarkDto?> CreateAudiobookBookmarkAsync(Guid workId, CreateAudiobookBookmarkRequestDto request, Guid? profileId = null, CancellationToken ct = default)
+    {
+        const string endpoint = "POST /player/audiobooks/{workId}/bookmarks";
+        try
+        {
+            var suffix = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
+            var response = await _http.PostAsJsonAsync($"/player/audiobooks/{workId:D}/bookmarks{suffix}", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var bookmark = await response.Content.ReadFromJsonAsync<AudiobookBookmarkDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return bookmark;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "POST /player/audiobooks/{WorkId}/bookmarks failed", workId);
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
+    public async Task<bool> DeleteAudiobookBookmarkAsync(Guid bookmarkId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        const string endpoint = "DELETE /player/audiobooks/bookmarks/{bookmarkId}";
+        try
+        {
+            var suffix = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
+            var response = await _http.DeleteAsync($"/player/audiobooks/bookmarks/{bookmarkId:D}{suffix}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return false;
+            }
+
+            ClearFailure(endpoint);
+            return true;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "DELETE /player/audiobooks/bookmarks/{BookmarkId} failed", bookmarkId);
+            RecordExceptionFailure(endpoint, ex);
+            return false;
+        }
+    }
+
     private async Task<PlayerStateDto?> PostPlayerMutationAsync(
         string url,
         PlayerQueueMutationDto request,

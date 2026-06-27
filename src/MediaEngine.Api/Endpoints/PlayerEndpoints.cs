@@ -228,6 +228,56 @@ public static class PlayerEndpoints
         .Produces<IReadOnlyList<AudiobookListenHistoryItemDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
+        group.MapGet("/audiobooks/{workId:guid}/bookmarks", async (
+            Guid workId,
+            Guid? profileId,
+            PlayerService player,
+            CancellationToken ct) =>
+        {
+            var bookmarks = await player.GetAudiobookBookmarksAsync(profileId, workId, ct);
+            return Results.Ok(bookmarks);
+        })
+        .WithName("GetAudiobookBookmarks")
+        .WithSummary("Return saved audiobook playback bookmarks for a work.")
+        .Produces<IReadOnlyList<AudiobookBookmarkDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
+        group.MapPost("/audiobooks/{workId:guid}/bookmarks", async (
+            Guid workId,
+            Guid? profileId,
+            CreateAudiobookBookmarkRequestDto request,
+            PlayerService player,
+            CancellationToken ct) =>
+        {
+            if (request.AssetId == Guid.Empty)
+            {
+                return Results.BadRequest(new { error = "An asset id is required for an audiobook bookmark." });
+            }
+
+            var bookmark = await player.CreateAudiobookBookmarkAsync(profileId, workId, request, ct);
+            return Results.Created($"/player/audiobooks/{workId:D}/bookmarks/{bookmark.Id:D}", bookmark);
+        })
+        .WithName("CreateAudiobookBookmark")
+        .WithSummary("Save the current audiobook playback position as a bookmark.")
+        .Produces<AudiobookBookmarkDto>(StatusCodes.Status201Created)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAnyRole();
+
+        group.MapDelete("/audiobooks/bookmarks/{bookmarkId:guid}", async (
+            Guid bookmarkId,
+            Guid? profileId,
+            PlayerService player,
+            CancellationToken ct) =>
+        {
+            var deleted = await player.DeleteAudiobookBookmarkAsync(profileId, bookmarkId, ct);
+            return deleted ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("DeleteAudiobookBookmark")
+        .WithSummary("Delete one saved audiobook bookmark.")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
         return app;
     }
 }

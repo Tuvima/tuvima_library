@@ -1,9 +1,11 @@
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 using MediaEngine.Processors.Processors;
 using System.IO.Compression;
+using System.Reflection;
 using System.Text;
 
 namespace MediaEngine.Processors.Tests;
@@ -72,6 +74,61 @@ public class GenericFileProcessorTests
     public async Task ProcessAsync_ThrowsOnWhitespacePath()
     {
         await Assert.ThrowsAsync<ArgumentException>(() => _processor.ProcessAsync("   "));
+    }
+}
+
+public class FFmpegServiceParsingTests
+{
+    [Fact]
+    public void ParseProbeJson_PreservesTimedAudiobookChapters()
+    {
+        const string json = """
+        {
+          "format": {
+            "duration": "120.0",
+            "size": "4096",
+            "tags": { "title": "Dungeon Crawler Carl" }
+          },
+          "streams": [],
+          "chapters": [
+            {
+              "id": 0,
+              "start_time": "0.000000",
+              "end_time": "60.500000",
+              "tags": { "title": "Chapter One" }
+            },
+            {
+              "id": 1,
+              "start_time": "60.500000",
+              "end_time": "120.000000",
+              "tags": { "TITLE": "Chapter Two" }
+            }
+          ]
+        }
+        """;
+
+        var parser = typeof(FFmpegService).GetMethod("ParseProbeJson", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(parser);
+
+        var result = Assert.IsType<MediaProbeResult>(parser!.Invoke(null, [json, "audiobook.mp3"]));
+
+        Assert.Equal(2, result.ChapterCount);
+        Assert.Collection(
+            result.Chapters,
+            chapter =>
+            {
+                Assert.Equal(0, chapter.Index);
+                Assert.Equal("Chapter One", chapter.Title);
+                Assert.Equal(0, chapter.StartSeconds);
+                Assert.Equal(60.5, chapter.EndSeconds);
+            },
+            chapter =>
+            {
+                Assert.Equal(1, chapter.Index);
+                Assert.Equal("Chapter Two", chapter.Title);
+                Assert.Equal(60.5, chapter.StartSeconds);
+                Assert.Equal(120, chapter.EndSeconds);
+            });
     }
 }
 

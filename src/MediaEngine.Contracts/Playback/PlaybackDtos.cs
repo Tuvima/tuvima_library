@@ -137,6 +137,31 @@ public sealed record AudiobookListenHistoryItemDto
     public DateTimeOffset EndedAt { get; init; }
 }
 
+public sealed record AudiobookBookmarkDto
+{
+    public Guid Id { get; init; }
+    public Guid ProfileId { get; init; }
+    public Guid WorkId { get; init; }
+    public Guid AssetId { get; init; }
+    public int? ChapterIndex { get; init; }
+    public string? ChapterTitle { get; init; }
+    public double PositionSeconds { get; init; }
+    public double? DurationSeconds { get; init; }
+    public string? Label { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+}
+
+public sealed record CreateAudiobookBookmarkRequestDto
+{
+    public Guid? ProfileId { get; init; }
+    public Guid AssetId { get; init; }
+    public int? ChapterIndex { get; init; }
+    public string? ChapterTitle { get; init; }
+    public double PositionSeconds { get; init; }
+    public double? DurationSeconds { get; init; }
+    public string? Label { get; init; }
+}
+
 public sealed record PlayerQueueItemDto
 {
     public Guid QueueItemId { get; init; }

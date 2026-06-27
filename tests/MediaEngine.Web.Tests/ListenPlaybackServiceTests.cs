@@ -51,6 +51,18 @@ public sealed class ListenPlaybackServiceTests
                     EndedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
                 },
             ],
+            AudiobookBookmarks =
+            [
+                new AudiobookBookmarkDto
+                {
+                    Id = Guid.NewGuid(),
+                    WorkId = Guid.NewGuid(),
+                    AssetId = Guid.NewGuid(),
+                    PositionSeconds = 512,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+            SleepTimerMode = ListenSleepTimerModes.EndOfChapter,
         };
 
         service.RestoreState(snapshot);
@@ -70,6 +82,8 @@ public sealed class ListenPlaybackServiceTests
         Assert.False(roundTrip.IsPlaying);
         Assert.True(roundTrip.IsPopupOpen);
         Assert.Single(roundTrip.AudiobookHistory);
+        Assert.Single(roundTrip.AudiobookBookmarks);
+        Assert.Equal(ListenSleepTimerModes.EndOfChapter, roundTrip.SleepTimerMode);
     }
 
     [Fact]
@@ -90,6 +104,49 @@ public sealed class ListenPlaybackServiceTests
         Assert.Equal(1.25d, service.PlaybackRate);
         Assert.True(service.IsPlaying);
         Assert.False(service.NeedsUserGestureToStart);
+    }
+
+    [Fact]
+    public async Task PlayAudiobookChapterAsync_UsesExactChapterStartWithoutResumeRewind()
+    {
+        var service = new ListenPlaybackService(null!, null!);
+        var chapter = new PlaybackChapterDto
+        {
+            Index = 2,
+            Title = "003",
+            StartSeconds = 1256.245,
+            EndSeconds = 2664.814,
+        };
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://dungeon-crawler-carl") with
+        {
+            InitialPositionSeconds = 6400,
+            Chapters = [chapter],
+        };
+
+        await service.PlayAudiobookChapterAsync(audiobook, chapter, "Dungeon Crawler Carl");
+
+        Assert.Equal(1256.245, service.CurrentTimeSeconds, 3);
+        Assert.Equal(2, service.CurrentItem?.ChapterIndex);
+        Assert.True(service.CurrentItem?.StartAtExactPosition);
+        Assert.Equal("Chapter 3", service.CurrentItem?.Subtitle);
+    }
+
+    [Fact]
+    public async Task SetPlaybackRateAsync_SetsExactSelectedRate()
+    {
+        var service = new ListenPlaybackService(null!, null!);
+
+        await service.SetPlaybackRateAsync(1.3d);
+
+        Assert.Equal(1.3d, service.PlaybackRate);
+    }
+
+    [Fact]
+    public void CleanChapterTitle_UsesReadableFallbackForNumericEmbeddedTitles()
+    {
+        Assert.Equal("Chapter 1", ListenPlaybackService.CleanChapterTitle("001", 0));
+        Assert.Equal("Dedication", ListenPlaybackService.CleanChapterTitle("Dedication", 1));
+        Assert.Equal("Chapter 3", ListenPlaybackService.CleanChapterTitle("", 2));
     }
 
     [Fact]
@@ -119,6 +176,21 @@ public sealed class ListenPlaybackServiceTests
         await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
 
         Assert.Equal("http://engine.test/stream/312274cc-8cf0-4ead-9934-1aa78eb2b195", service.CurrentStreamUrl);
+    }
+
+    [Fact]
+    public async Task CurrentBrowserStreamUrl_UsesDashboardProxyForEngineDirectStreams()
+    {
+        var apiClient = new EngineApiClient(
+            new HttpClient(new PlayerSyncHandler()) { BaseAddress = new Uri("http://engine.test") },
+            NullLogger<EngineApiClient>.Instance);
+        var service = new ListenPlaybackService(null!, apiClient);
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "/stream/312274cc-8cf0-4ead-9934-1aa78eb2b195");
+
+        await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
+
+        Assert.Equal("http://engine.test/stream/312274cc-8cf0-4ead-9934-1aa78eb2b195", service.CurrentStreamUrl);
+        Assert.Equal("/engine-stream/312274cc-8cf0-4ead-9934-1aa78eb2b195", service.CurrentBrowserStreamUrl);
     }
 
     [Fact]

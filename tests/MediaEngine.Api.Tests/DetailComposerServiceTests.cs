@@ -160,8 +160,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.TvSeason => [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"chapters\", \"overview\", \"credits\", \"universe\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook => [\"chapters\", \"overview\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"chapters\", \"credits\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"chapters\", \"credits\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
@@ -208,6 +208,21 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Label = heroProgress is null ? \"Watch\" : \"Continue Watching\"", source);
         Assert.Contains("Continue watching", source);
         Assert.Contains("public ProgressViewModel? Progress { get; init; }", contracts);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesAudiobookResumeForContinueActionsAndChapterProgress()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, ct)", source);
+        Assert.Contains("FROM audiobook_listen_active_segments", source);
+        Assert.Contains("FROM audiobook_listen_history", source);
+        Assert.Contains("IsMeaningfulAudiobookResume", source);
+        Assert.Contains("BuildListenHeroProgressLabel", source);
+        Assert.Contains("Label = heroProgress is null ? \"Listen\" : \"Continue\"", source);
+        Assert.Contains("ProgressPercent = progressPercent", source);
+        Assert.Contains("DurationSeconds = durationSeconds", source);
     }
 
     [Fact]

@@ -445,29 +445,136 @@ public sealed class PlaybackCapabilitiesService
 
     private static IReadOnlyList<PlaybackChapterDto> BuildChapters(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
     {
-        if (mediaInfo?.Chapters.Count > 0)
+        if (probe?.Chapters.Count > 0)
         {
-            return mediaInfo.Chapters.Select((chapter, index) => new PlaybackChapterDto
-            {
-                Index = index,
-                Title = FirstNonBlank(chapter.Name, $"Chapter {index + 1}"),
-                StartSeconds = 0,
-            }).ToList();
+            return CompleteChapterRanges(
+                probe.Chapters.Select(chapter => new PlaybackChapterDto
+                {
+                    Index = chapter.Index,
+                    Title = FirstNonBlank(chapter.Title, $"Chapter {chapter.Index + 1}"),
+                    StartSeconds = chapter.StartSeconds,
+                    EndSeconds = chapter.EndSeconds,
+                }),
+                probe.Duration.TotalSeconds);
         }
 
-        if (probe?.ChapterCount is not > 0)
+        if (mediaInfo?.Chapters.Count > 0)
+        {
+            var timedMediaInfoChapters = mediaInfo.Chapters
+                .Select((chapter, index) =>
+                {
+                    var startSeconds = TryReadChapterSeconds(chapter, "StartSeconds", "Start", "StartTime", "TimeStart");
+                    if (!startSeconds.HasValue)
+                    {
+                        return null;
+                    }
+
+                    var endSeconds = TryReadChapterSeconds(chapter, "EndSeconds", "End", "EndTime", "TimeEnd");
+                    return new PlaybackChapterDto
+                    {
+                        Index = index,
+                        Title = FirstNonBlank(chapter.Name, $"Chapter {index + 1}"),
+                        StartSeconds = Math.Max(0, startSeconds.Value),
+                        EndSeconds = endSeconds,
+                    };
+                })
+                .Where(chapter => chapter is not null)
+                .Select(chapter => chapter!)
+                .ToList();
+
+            if (timedMediaInfoChapters.Count > 0)
+            {
+                return CompleteChapterRanges(timedMediaInfoChapters, mediaInfo.Duration);
+            }
+        }
+
+        return [];
+    }
+
+    private static IReadOnlyList<PlaybackChapterDto> CompleteChapterRanges(
+        IEnumerable<PlaybackChapterDto> chapters,
+        double? totalDurationSeconds)
+    {
+        var ordered = chapters
+            .Where(chapter => chapter.StartSeconds >= 0)
+            .OrderBy(chapter => chapter.StartSeconds)
+            .ThenBy(chapter => chapter.Index)
+            .ToList();
+        if (ordered.Count == 0)
         {
             return [];
         }
 
-        return Enumerable.Range(0, probe.ChapterCount)
-            .Select(index => new PlaybackChapterDto
+        var result = new List<PlaybackChapterDto>(ordered.Count);
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var chapter = ordered[i];
+            var nextStart = i + 1 < ordered.Count ? ordered[i + 1].StartSeconds : (double?)null;
+            var endSeconds = chapter.EndSeconds;
+            if (!endSeconds.HasValue || endSeconds.Value <= chapter.StartSeconds)
             {
-                Index = index,
-                Title = $"Chapter {index + 1}",
-                StartSeconds = 0,
-            })
-            .ToList();
+                endSeconds = nextStart is > 0 && nextStart.Value > chapter.StartSeconds
+                    ? nextStart
+                    : totalDurationSeconds is > 0 && totalDurationSeconds.Value > chapter.StartSeconds
+                        ? totalDurationSeconds
+                        : null;
+            }
+
+            result.Add(chapter with { EndSeconds = endSeconds });
+        }
+
+        return result;
+    }
+
+    private static double? TryReadChapterSeconds(object chapter, params string[] propertyNames)
+    {
+        var type = chapter.GetType();
+        foreach (var propertyName in propertyNames)
+        {
+            var property = type.GetProperty(propertyName);
+            if (property is null)
+            {
+                continue;
+            }
+
+            var value = property.GetValue(chapter);
+            if (value is null)
+            {
+                continue;
+            }
+
+            if (value is double doubleValue)
+            {
+                return doubleValue;
+            }
+
+            if (value is float floatValue)
+            {
+                return floatValue;
+            }
+
+            if (value is int intValue)
+            {
+                return intValue;
+            }
+
+            if (value is long longValue)
+            {
+                return longValue;
+            }
+
+            if (value is TimeSpan time)
+            {
+                return time.TotalSeconds;
+            }
+
+            if (double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
     }
 
     private static string NormalizeCodecName(string? value)
@@ -536,7 +643,7 @@ public sealed class PlaybackCapabilitiesService
             Key = "android",
             DisplayName = "Android",
             PreferredDelivery = PlaybackDeliveryModes.DirectStream,
-            SupportedContainers = ["mp4", "m4v", "webm", "mp3", "m4a", "aac", "ogg", "wav", "epub", "pdf", "cbz"],
+            SupportedContainers = ["mp4", "m4v", "webm", "mp3", "m4a", "m4b", "aac", "ogg", "wav", "epub", "pdf", "cbz"],
             SupportedVideoCodecs = ["h264", "hevc", "vp8", "vp9", "av1"],
             SupportedAudioCodecs = ["aac", "mp3", "opus", "vorbis", "flac", "pcm_s16le"],
             SupportedSubtitleFormats = ["vtt", "srt"],
@@ -550,7 +657,7 @@ public sealed class PlaybackCapabilitiesService
             Key = "android-tv",
             DisplayName = "Android TV",
             PreferredDelivery = PlaybackDeliveryModes.Hls,
-            SupportedContainers = ["mp4", "m4v", "webm", "mp3", "m4a", "aac", "ogg", "wav"],
+            SupportedContainers = ["mp4", "m4v", "webm", "mp3", "m4a", "m4b", "aac", "ogg", "wav"],
             SupportedVideoCodecs = ["h264", "hevc", "vp9", "av1"],
             SupportedAudioCodecs = ["aac", "mp3", "opus", "vorbis", "flac"],
             SupportedSubtitleFormats = ["vtt", "srt"],
@@ -564,7 +671,7 @@ public sealed class PlaybackCapabilitiesService
             Key = "apple-tv",
             DisplayName = "Apple TV",
             PreferredDelivery = PlaybackDeliveryModes.Hls,
-            SupportedContainers = ["mp4", "m4v", "mp3", "m4a", "aac"],
+            SupportedContainers = ["mp4", "m4v", "mp3", "m4a", "m4b", "aac"],
             SupportedVideoCodecs = ["h264", "hevc"],
             SupportedAudioCodecs = ["aac", "mp3", "alac"],
             SupportedSubtitleFormats = ["vtt"],
@@ -578,7 +685,7 @@ public sealed class PlaybackCapabilitiesService
             Key = "roku",
             DisplayName = "Roku",
             PreferredDelivery = PlaybackDeliveryModes.Hls,
-            SupportedContainers = ["mp4", "m4v", "mp3", "m4a", "aac"],
+            SupportedContainers = ["mp4", "m4v", "mp3", "m4a", "m4b", "aac"],
             SupportedVideoCodecs = ["h264", "hevc"],
             SupportedAudioCodecs = ["aac", "mp3"],
             SupportedSubtitleFormats = ["vtt", "srt"],
@@ -591,7 +698,7 @@ public sealed class PlaybackCapabilitiesService
             Key = "mobile-download",
             DisplayName = "Mobile Download",
             PreferredDelivery = PlaybackDeliveryModes.OfflineVariant,
-            SupportedContainers = ["mp4", "m4v", "mp3", "m4a", "aac", "epub", "pdf", "cbz"],
+            SupportedContainers = ["mp4", "m4v", "mp3", "m4a", "m4b", "aac", "epub", "pdf", "cbz"],
             SupportedVideoCodecs = ["h264"],
             SupportedAudioCodecs = ["aac", "mp3"],
             SupportedSubtitleFormats = ["vtt"],
@@ -606,7 +713,7 @@ public sealed class PlaybackCapabilitiesService
             Key = "web",
             DisplayName = "Web",
             PreferredDelivery = PlaybackDeliveryModes.DirectStream,
-            SupportedContainers = ["mp4", "m4v", "webm", "mp3", "m4a", "aac", "ogg", "wav", "epub", "pdf", "cbz"],
+            SupportedContainers = ["mp4", "m4v", "webm", "mp3", "m4a", "m4b", "aac", "ogg", "wav", "epub", "pdf", "cbz"],
             SupportedVideoCodecs = ["h264", "vp8", "vp9", "av1"],
             SupportedAudioCodecs = ["aac", "mp3", "opus", "vorbis", "flac", "pcm_s16le"],
             SupportedSubtitleFormats = ["vtt"],

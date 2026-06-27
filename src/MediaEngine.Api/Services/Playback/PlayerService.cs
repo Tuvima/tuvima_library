@@ -19,6 +19,7 @@ public sealed class PlayerService
     private readonly IUserStateStore _userStates;
     private readonly IUserPlaybackSettingsService _settings;
     private readonly AudiobookListenHistoryRepository _history;
+    private readonly AudiobookBookmarkRepository _bookmarks;
 
     public PlayerService(
         PlayerSessionRepository sessions,
@@ -27,7 +28,8 @@ public sealed class PlayerService
         IMediaAssetRepository assets,
         IUserStateStore userStates,
         IUserPlaybackSettingsService settings,
-        AudiobookListenHistoryRepository history)
+        AudiobookListenHistoryRepository history,
+        AudiobookBookmarkRepository bookmarks)
     {
         _sessions = sessions;
         _playback = playback;
@@ -36,6 +38,7 @@ public sealed class PlayerService
         _userStates = userStates;
         _settings = settings;
         _history = history;
+        _bookmarks = bookmarks;
     }
 
     public async Task<PlayerStateDto> GetStateAsync(Guid? profileId, string? deviceId, string? client, CancellationToken ct = default)
@@ -598,6 +601,34 @@ public sealed class PlayerService
     {
         var normalizedProfile = ResolveProfileId(profileId);
         return _history.GetRecentAsync(normalizedProfile, workId, limit ?? 10, ct);
+    }
+
+    public Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(
+        Guid? profileId,
+        Guid workId,
+        CancellationToken ct = default)
+    {
+        var normalizedProfile = ResolveProfileId(profileId);
+        return _bookmarks.GetByWorkAsync(normalizedProfile, workId, ct);
+    }
+
+    public Task<AudiobookBookmarkDto> CreateAudiobookBookmarkAsync(
+        Guid? profileId,
+        Guid workId,
+        CreateAudiobookBookmarkRequestDto request,
+        CancellationToken ct = default)
+    {
+        var normalizedProfile = ResolveProfileId(profileId ?? request.ProfileId);
+        return _bookmarks.CreateAsync(normalizedProfile, workId, request, ct);
+    }
+
+    public Task<bool> DeleteAudiobookBookmarkAsync(
+        Guid? profileId,
+        Guid bookmarkId,
+        CancellationToken ct = default)
+    {
+        var normalizedProfile = ResolveProfileId(profileId);
+        return _bookmarks.DeleteAsync(normalizedProfile, bookmarkId, ct);
     }
 
     private static Guid ResolveProfileId(Guid? profileId) =>

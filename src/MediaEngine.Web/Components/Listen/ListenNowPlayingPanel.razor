@@ -82,12 +82,12 @@
             @if (Playback.IsAudiobookMode)
             {
                 <div class="listen-now-panel__queue-header">
-                    <span>History</span>
+                    <span>Recent listening</span>
                 </div>
 
                 @if (Playback.AudiobookHistory.Count == 0)
                 {
-                    <div class="listen-now-panel__empty">Qualified audiobook listens will appear here.</div>
+                    <div class="listen-now-panel__empty">Recent listening positions will appear here.</div>
                 }
                 else
                 {
@@ -96,10 +96,10 @@
                         {
                             <AppNativeButton Type="button" Class="listen-now-panel__history-row" OnClick="@(() => PlayHistoryAsync(item))">
                                 <span class="listen-now-panel__queue-copy">
-                                    <strong>@FirstNonBlank(item.ChapterTitle, item.Title)</strong>
-                                    <span>@($"{FormatTimestamp(item.PositionSeconds)} · {item.EndedAt.LocalDateTime:g}")</span>
+                                    <strong>@($"{FirstNonBlank(item.ChapterTitle, item.Title)} - {FormatTimestamp(item.PositionSeconds)}")</strong>
+                                    <span>@item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</span>
                                 </span>
-                                <span class="listen-now-panel__queue-duration">@($"{Math.Round(item.ProgressPct):0}%")</span>
+                                <span class="listen-now-panel__queue-duration">Resume</span>
                             </AppNativeButton>
                         }
                     </div>

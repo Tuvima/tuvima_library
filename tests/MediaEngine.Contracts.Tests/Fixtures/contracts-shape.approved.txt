@@ -477,6 +477,18 @@ MediaEngine.Contracts.Paging.MediaEngine.Contracts.Paging.PagedResponse<T>
   TotalCount: System.Int32? | nullability=nullable | accessors=get,init
   NextCursor: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookBookmarkDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  WorkId: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  ChapterIndex: System.Int32? | nullability=nullable | accessors=get,init
+  ChapterTitle: System.String | nullability=nullable | accessors=get,init
+  PositionSeconds: System.Double | nullability=not-null | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
+  Label: System.String | nullability=nullable | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookListenHistoryItemDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   ProfileId: System.Guid | nullability=not-null | accessors=get,init
@@ -492,6 +504,15 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookListenHis
   Client: System.String | nullability=not-null | accessors=get,init
   StartedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   EndedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.CreateAudiobookBookmarkRequestDto
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  ChapterIndex: System.Int32? | nullability=nullable | accessors=get,init
+  ChapterTitle: System.String | nullability=nullable | accessors=get,init
+  PositionSeconds: System.Double | nullability=not-null | accessors=get,init
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
+  Label: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.EncodeJobDto
   Id: System.Guid | nullability=not-null | accessors=get,init

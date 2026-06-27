@@ -231,6 +231,10 @@ app.MapGet("/culture/set", (string culture, string redirectUri, HttpContext ctx)
     return Results.Redirect(redirectUri);
 }).AllowAnonymous();
 
+app.MapMethods("/engine-stream/{assetId:guid}", [HttpMethods.Get, HttpMethods.Head], ProxyEngineStreamAsync)
+    .WithName("ProxyEngineMediaStream")
+    .WithSummary("Proxies Engine media bytes through the Dashboard origin for browser media playback.");
+
 if (ssoEnabled)
 {
     app.MapGet("/auth/login", (string? returnUrl) =>
@@ -253,3 +257,49 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static async Task ProxyEngineStreamAsync(
+    Guid assetId,
+    HttpContext ctx,
+    IHttpClientFactory httpFactory,
+    CancellationToken ct)
+{
+    var client = httpFactory.CreateClient("EngineApi");
+    using var request = new HttpRequestMessage(HttpMethod.Get, $"/stream/{assetId:D}");
+    CopyRequestHeader(ctx, request, "Range");
+    CopyRequestHeader(ctx, request, "If-Range");
+
+    using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+    ctx.Response.StatusCode = (int)response.StatusCode;
+    CopyResponseHeaders(response, ctx.Response);
+
+    if (HttpMethods.IsHead(ctx.Request.Method))
+    {
+        return;
+    }
+
+    await response.Content.CopyToAsync(ctx.Response.Body, ct);
+}
+
+static void CopyRequestHeader(HttpContext ctx, HttpRequestMessage request, string headerName)
+{
+    if (ctx.Request.Headers.TryGetValue(headerName, out var values))
+    {
+        request.Headers.TryAddWithoutValidation(headerName, values.ToArray());
+    }
+}
+
+static void CopyResponseHeaders(HttpResponseMessage source, HttpResponse target)
+{
+    foreach (var header in source.Headers)
+    {
+        target.Headers[header.Key] = header.Value.ToArray();
+    }
+
+    foreach (var header in source.Content.Headers)
+    {
+        target.Headers[header.Key] = header.Value.ToArray();
+    }
+
+    target.Headers.Remove("transfer-encoding");
+}

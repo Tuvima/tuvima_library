@@ -586,6 +586,23 @@ Saved reading positions.
 | `cfi` | TEXT | EPUB Canonical Fragment Identifier for precise position |
 | `created_at` | TEXT | Timestamp |
 
+### audiobook_bookmarks
+
+Saved audiobook playback positions. These are separate from EPUB reader bookmarks because they use audio seconds, optional chapter metadata, and the owning audiobook work.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | BLOB | UUID, primary key |
+| `profile_id` | BLOB | FK -> `profiles.id` |
+| `work_id` | BLOB | FK -> `works.id` |
+| `asset_id` | BLOB | FK -> `media_assets.id` |
+| `chapter_index` | INTEGER | Optional chapter index at the saved position |
+| `chapter_title` | TEXT | Optional display chapter title |
+| `position_seconds` | REAL | Exact audio position |
+| `duration_seconds` | REAL | Optional asset duration |
+| `label` | TEXT | Optional user-facing bookmark label |
+| `created_at` | TEXT | Timestamp |
+
 ### reader_highlights
 
 Text highlights and annotations.

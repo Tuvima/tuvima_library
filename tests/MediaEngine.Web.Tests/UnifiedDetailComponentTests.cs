@@ -524,13 +524,20 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.Contains("<MusicTrackList", audioLayout);
         Assert.Contains("<AudiobookChapterList", audioLayout);
-        Assert.Contains("<AudioItemTable", chapterList);
+        Assert.DoesNotContain("<AudioItemTable", chapterList);
+        Assert.Contains("tl-audiobook-chapters__row", chapterList);
+        Assert.Contains("PlayAudiobookChapterAsync", chapterList);
+        Assert.Contains("SupplementalActiveTab is \"chapters\"", audioLayout);
         Assert.Contains("tl-audio-detail__hero-artwash", audioLayout);
         Assert.Contains("tl-audio-detail__metadata", audioLayout);
         Assert.Contains("tl-audio-detail__hero--title-dense", audioLayout);
         Assert.DoesNotContain("HeroMetadataPills", audioLayout);
+        Assert.DoesNotContain("<AudiobookChapterList Groups=\"Model.MediaGroups\"", audioLayout[..audioLayout.IndexOf("<DetailTabs", StringComparison.Ordinal)]);
         Assert.Contains("InitialPositionSeconds = ResumePositionFor(item)", audioTable);
         Assert.Contains("FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook)", audioTable);
+        Assert.Contains("FormatChapterTimeRange(item.StartSeconds.Value, item.EndSeconds)", audioTable);
+        Assert.Contains("Playback.CurrentTimeSeconds", audioTable);
+        Assert.Contains("currentItem.AssetId.Value != assetId", audioTable);
         Assert.Contains("GetDetailPageAsync(", listenPage);
         Assert.Contains("DetailEntityType.Audiobook", listenPage);
         Assert.DoesNotContain("NavigateTo($\"/book/{WorkId.Value}?mode=listen\"", listenPage, StringComparison.Ordinal);
@@ -556,6 +563,36 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Icons.Material.Outlined.FavoriteBorder", libraryTable);
         Assert.DoesNotContain("Icons.Material.Filled.Star", songTable);
         Assert.DoesNotContain("Icons.Material.Outlined.StarBorder", trackGrid);
+    }
+
+    [Fact]
+    public void AudiobookPopupUsesImmersivePlayerSheetsAndAccessibleActions()
+    {
+        var popup = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor");
+        var popupCss = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor.css");
+        var host = ReadSource("src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor");
+
+        Assert.Contains("listen-popup__stage", popup);
+        Assert.Contains("listen-popup__actions", popup);
+        Assert.Contains("Speed", popup);
+        Assert.Contains("Chapters", popup);
+        Assert.Contains("History", popup);
+        Assert.Contains("Bookmark", popup);
+        Assert.Contains("Sleep Timer", popup);
+        Assert.Contains("listen-popup-sheet__grabber", popup);
+        Assert.Contains("play-chapter", popup);
+        Assert.Contains("add-audiobook-bookmark", popup);
+        Assert.Contains("set-sleep-timer", popup);
+        Assert.Contains("AriaLabel=\"Back 30 seconds\"", popup);
+        Assert.Contains("AriaLabel=\"Forward 30 seconds\"", popup);
+        Assert.Contains("play-next-chapter", host);
+        Assert.Contains("play-previous-chapter", host);
+        Assert.Contains("ApplyPlaybackRateAsync", host);
+        Assert.Contains("--listen-accent", popupCss);
+        Assert.Contains("listen-popup-sheet", popupCss);
+        Assert.DoesNotContain("#ff416c", popupCss, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("#ff2746", popupCss, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("#8b5cf6", popupCss, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ReadSource(string relativePath)

@@ -326,6 +326,22 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 
 ---
 
+## Player
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/player/state` | Current playback session, queue, position, and audiobook history | Required |
+| POST | `/player/queue/replace` | Replace the active playback queue | Required |
+| POST | `/player/queue/items` | Add items to the active playback queue | Required |
+| POST | `/player/command` | Apply transport commands such as play, pause, seek, volume, or speed | Required |
+| POST | `/player/heartbeat` | Persist current playback timing and resume progress | Required |
+| GET | `/player/audiobooks/{workId}/history` | Recent audiobook listening checkpoints | Required |
+| GET | `/player/audiobooks/{workId}/bookmarks` | Saved audiobook playback bookmarks | Required |
+| POST | `/player/audiobooks/{workId}/bookmarks` | Save an audiobook playback bookmark at a position in seconds | Required |
+| DELETE | `/player/audiobooks/bookmarks/{bookmarkId}` | Delete an audiobook playback bookmark | Required |
+
+---
+
 ## Progress
 
 | Method | Path | Description | Auth |

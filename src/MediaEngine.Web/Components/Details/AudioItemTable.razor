@@ -351,7 +351,8 @@
     private bool IsCurrentItem(MediaGroupingItemViewModel item)
     {
         var itemId = ItemId(item);
-        if (!Playback.IsPlaying || itemId == Guid.Empty || Playback.CurrentItem?.WorkId != itemId)
+        var currentItem = Playback.CurrentItem;
+        if (!Playback.IsPlaying || itemId == Guid.Empty || currentItem?.WorkId != itemId)
         {
             return false;
         }
@@ -361,8 +362,32 @@
             return true;
         }
 
-        return !item.StartSeconds.HasValue
-            || Math.Abs((Playback.CurrentItem.InitialPositionSeconds ?? 0) - item.StartSeconds.Value) < 0.5d;
+        if (Guid.TryParse(item.AssetId, out var assetId)
+            && currentItem.AssetId.HasValue
+            && currentItem.AssetId.Value != assetId)
+        {
+            return false;
+        }
+
+        if (!item.StartSeconds.HasValue)
+        {
+            return true;
+        }
+
+        var start = item.StartSeconds.Value;
+        var current = Playback.CurrentTimeSeconds;
+        var selectedStart = currentItem.InitialPositionSeconds;
+        if (current < start && selectedStart.HasValue && Math.Abs(selectedStart.Value - start) < 0.5d)
+        {
+            return true;
+        }
+
+        if (current < start - 0.5d)
+        {
+            return false;
+        }
+
+        return !item.EndSeconds.HasValue || current < item.EndSeconds.Value - 0.5d;
     }
 
     private void ToggleSort(string column)
@@ -481,6 +506,11 @@
 
     private string DisplayDuration(MediaGroupingItemViewModel item)
     {
+        if (IsAudiobook && Items.Count > 1 && item.StartSeconds.HasValue)
+        {
+            return FormatChapterTimeRange(item.StartSeconds.Value, item.EndSeconds);
+        }
+
         if (item.DurationSeconds is > 0)
         {
             return FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook);
@@ -492,6 +522,14 @@
         }
 
         return DisplayOrDash(item.Duration);
+    }
+
+    private static string FormatChapterTimeRange(double startSeconds, double? endSeconds)
+    {
+        var start = FormatSeconds(startSeconds, forceHours: true);
+        return endSeconds is > 0 && endSeconds.Value > startSeconds
+            ? $"{start} - {FormatSeconds(endSeconds.Value, forceHours: true)}"
+            : start;
     }
 
     private string RowClass(MediaGroupingItemViewModel item, bool isPlaying)

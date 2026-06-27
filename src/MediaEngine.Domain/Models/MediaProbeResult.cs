@@ -43,5 +43,12 @@ public sealed record MediaProbeResult
 
     public bool HasEmbeddedCover              { get; init; }
     public int  ChapterCount                  { get; init; }
+    public IReadOnlyList<MediaProbeChapter> Chapters { get; init; } = [];
     public IReadOnlyList<string> SubtitleLanguages { get; init; } = [];
 }
+
+public sealed record MediaProbeChapter(
+    int Index,
+    string? Title,
+    double StartSeconds,
+    double? EndSeconds);

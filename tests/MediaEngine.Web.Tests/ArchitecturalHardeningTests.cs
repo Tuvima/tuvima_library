@@ -187,6 +187,22 @@ public sealed class ArchitecturalHardeningTests
     }
 
     [Fact]
+    public void Dashboard_ProxiesEngineMediaStreamsForBrowserPlayback()
+    {
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Program.cs"));
+        var playback = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Services/Playback/ListenPlaybackService.cs"));
+        var host = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor"));
+
+        Assert.Contains("app.MapMethods(\"/engine-stream/{assetId:guid}\"", program, StringComparison.Ordinal);
+        Assert.Contains("HttpCompletionOption.ResponseHeadersRead", program, StringComparison.Ordinal);
+        Assert.Contains("CopyRequestHeader(ctx, request, \"Range\")", program, StringComparison.Ordinal);
+        Assert.Contains("CopyResponseHeaders(response, ctx.Response)", program, StringComparison.Ordinal);
+        Assert.Contains("CurrentBrowserStreamUrl", playback, StringComparison.Ordinal);
+        Assert.Contains("/engine-stream/{assetId:D}", playback, StringComparison.Ordinal);
+        Assert.Contains("src=\"@Playback.CurrentBrowserStreamUrl\"", host, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ListenPageState_TracksDefaultsAndSelectionTransitions()
     {
         var state = new ListenPageState();
