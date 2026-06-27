@@ -78,8 +78,25 @@ public sealed record PlaybackChapterDto
 {
     public int Index { get; init; }
     public string Title { get; init; } = string.Empty;
+    public string? OriginalTitle { get; init; }
+    public string Kind { get; init; } = PlaybackChapterKinds.Chapter;
+    public string TitleSource { get; init; } = PlaybackChapterTitleSources.Generated;
     public double StartSeconds { get; init; }
     public double? EndSeconds { get; init; }
+}
+
+public static class PlaybackChapterKinds
+{
+    public const string Chapter = "Chapter";
+    public const string Intro = "Intro";
+}
+
+public static class PlaybackChapterTitleSources
+{
+    public const string Embedded = "Embedded";
+    public const string Generated = "Generated";
+    public const string Override = "Override";
+    public const string AiSuggested = "AiSuggested";
 }
 
 public sealed record PlaybackResumeDto
@@ -160,6 +177,49 @@ public sealed record CreateAudiobookBookmarkRequestDto
     public double PositionSeconds { get; init; }
     public double? DurationSeconds { get; init; }
     public string? Label { get; init; }
+}
+
+public sealed record AudiobookChapterTitleOverrideDto
+{
+    public Guid WorkId { get; init; }
+    public Guid AssetId { get; init; }
+    public int ChapterIndex { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string TitleSource { get; init; } = PlaybackChapterTitleSources.Override;
+    public DateTimeOffset UpdatedAt { get; init; }
+}
+
+public sealed record UpsertAudiobookChapterTitleOverrideRequestDto
+{
+    public Guid? ProfileId { get; init; }
+    public Guid AssetId { get; init; }
+    public int ChapterIndex { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string? TitleSource { get; init; }
+}
+
+public sealed record SuggestAudiobookChapterNamesRequestDto
+{
+    public Guid? ProfileId { get; init; }
+    public Guid? AssetId { get; init; }
+}
+
+public sealed record AudiobookChapterNameSuggestionsDto
+{
+    public Guid WorkId { get; init; }
+    public Guid AssetId { get; init; }
+    public IReadOnlyList<AudiobookChapterNameSuggestionDto> Suggestions { get; init; } = [];
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+}
+
+public sealed record AudiobookChapterNameSuggestionDto
+{
+    public int ChapterIndex { get; init; }
+    public string CurrentTitle { get; init; } = string.Empty;
+    public string? OriginalTitle { get; init; }
+    public string SuggestedTitle { get; init; } = string.Empty;
+    public double Confidence { get; init; }
+    public string? Reason { get; init; }
 }
 
 public sealed record PlayerQueueItemDto
@@ -389,10 +449,16 @@ public sealed class ListeningSettingsDto
 {
     public decimal AudiobookDefaultSpeed { get; set; } = 1.25m;
     public int SkipBackSeconds { get; set; } = 15;
-    public int SkipForwardSeconds { get; set; } = 30;
+    public int SkipForwardSeconds { get; set; } = 15;
     public int ResumeRewindSeconds { get; set; } = 10;
     public int AudiobookListenQualificationSeconds { get; set; } = 60;
     public List<double> AudiobookScanRates { get; set; } = [2d, 4d, 8d, 16d];
+    public bool DetectShortIntroChapters { get; set; } = true;
+    public int ShortIntroMaxSeconds { get; set; } = 30;
+    public string ShortIntroLabel { get; set; } = "Intro";
+    public bool HideSingleLargeChapterDetails { get; set; } = true;
+    public int MinimumChaptersForChapterDetails { get; set; } = 2;
+    public int SingleLargeChapterMinSeconds { get; set; } = 1800;
     public bool MusicCrossfade { get; set; }
     public int CrossfadeSeconds { get; set; } = 5;
     public string DefaultSleepTimer { get; set; } = "30";

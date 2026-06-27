@@ -151,6 +151,46 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
         Assert.Empty(await repository.GetByWorkAsync(ids.ProfileId, ids.WorkId));
     }
 
+    [Fact]
+    public async Task AudiobookChapterTitleOverrideRepository_UpsertsListsAndDeletesDisplayNames()
+    {
+        var ids = await CreateProfileAssetAsync();
+        var repository = new AudiobookChapterTitleOverrideRepository(_db);
+
+        var created = await repository.UpsertAsync(
+            ids.WorkId,
+            new UpsertAudiobookChapterTitleOverrideRequestDto
+            {
+                AssetId = ids.AssetId,
+                ChapterIndex = 3,
+                Title = "The Crawl Begins",
+                TitleSource = PlaybackChapterTitleSources.AiSuggested,
+            });
+
+        Assert.Equal(ids.WorkId, created.WorkId);
+        Assert.Equal(ids.AssetId, created.AssetId);
+        Assert.Equal(3, created.ChapterIndex);
+        Assert.Equal("The Crawl Begins", created.Title);
+        Assert.Equal(PlaybackChapterTitleSources.AiSuggested, created.TitleSource);
+
+        var listed = Assert.Single(await repository.GetByWorkAsync(ids.WorkId, ids.AssetId));
+        Assert.Equal(created.Title, listed.Title);
+
+        var updated = await repository.UpsertAsync(
+            ids.WorkId,
+            new UpsertAudiobookChapterTitleOverrideRequestDto
+            {
+                AssetId = ids.AssetId,
+                ChapterIndex = 3,
+                Title = "A Manual Name",
+            });
+
+        Assert.Equal("A Manual Name", updated.Title);
+        Assert.Equal(PlaybackChapterTitleSources.Override, updated.TitleSource);
+        Assert.True(await repository.DeleteAsync(ids.WorkId, ids.AssetId, 3));
+        Assert.Empty(await repository.GetByAssetAsync(ids.AssetId));
+    }
+
     private async Task<(Guid ProfileId, Guid WorkId, Guid AssetId)> CreateProfileAssetAsync()
     {
         using var conn = _db.CreateConnection();

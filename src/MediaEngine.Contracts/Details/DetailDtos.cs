@@ -387,6 +387,10 @@ public sealed class ProgressViewModel
 {
     public double Percent { get; init; }
     public string? Label { get; init; }
+    public string? ContextLabel { get; init; }
+    public string? PercentLabel { get; init; }
+    public string? RemainingLabel { get; init; }
+    public string? SecondaryLabel { get; init; }
 }
 
 public sealed class TextPositionViewModel
@@ -533,6 +537,7 @@ public sealed class MediaGroupingItemViewModel
     public int? ChapterIndex { get; init; }
     public double? StartSeconds { get; init; }
     public double? EndSeconds { get; init; }
+    public double? ResumePositionSeconds { get; init; }
     public bool IsExplicit { get; init; }
     public string? Quality { get; init; }
     public double? ProgressPercent { get; init; }

@@ -2377,6 +2377,46 @@
     font-weight: 650;
 }
 
+::deep .tl-detail-hero-progress__summary,
+::deep .tl-detail-hero-progress__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+::deep .tl-detail-hero-progress__summary {
+    color: rgba(var(--hero-text-rgb), 0.92);
+    font-size: 0.96rem;
+    font-weight: 800;
+}
+
+::deep .tl-detail-hero-progress__context {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: rgba(var(--hero-accent-rgb), 0.98);
+}
+
+::deep .tl-detail-hero-progress__context > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .tl-detail-hero-progress__percent {
+    color: rgba(var(--hero-accent-rgb), 0.98);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+::deep .tl-detail-hero-progress__meta {
+    color: rgba(var(--hero-text-rgb), 0.76);
+    font-size: 0.86rem;
+    font-weight: 650;
+}
+
 ::deep .tl-detail-hero-progress__track {
     height: 4px;
     border-radius: 999px;
@@ -5147,7 +5187,7 @@
     background: transparent;
     color: var(--app-text-primary, var(--tl-text-primary));
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 14px;
     padding: 12px 16px;
@@ -5164,14 +5204,8 @@
     background: color-mix(in srgb, var(--tl-status-warning, #f59e0b) 12%, transparent);
 }
 
-::deep .tl-audiobook-chapters__row.is-current,
-::deep .tl-audiobook-chapters__number {
+::deep .tl-audiobook-chapters__row.is-current {
     color: var(--tl-status-warning, #f59e0b);
-}
-
-::deep .tl-audiobook-chapters__number {
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
 }
 
 ::deep .tl-audiobook-chapters__copy {

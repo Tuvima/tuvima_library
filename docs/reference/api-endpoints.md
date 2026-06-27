@@ -339,6 +339,10 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | GET | `/player/audiobooks/{workId}/bookmarks` | Saved audiobook playback bookmarks | Required |
 | POST | `/player/audiobooks/{workId}/bookmarks` | Save an audiobook playback bookmark at a position in seconds | Required |
 | DELETE | `/player/audiobooks/bookmarks/{bookmarkId}` | Delete an audiobook playback bookmark | Required |
+| POST | `/player/audiobooks/{workId}/chapters/suggest-names` | Suggest display-only audiobook chapter names using local AI | Required |
+| GET | `/player/audiobooks/{workId}/chapter-overrides` | List saved display-only audiobook chapter title overrides | Required |
+| POST | `/player/audiobooks/{workId}/chapter-overrides` | Save one display-only audiobook chapter title override | Required |
+| DELETE | `/player/audiobooks/{workId}/chapter-overrides/{assetId}/{chapterIndex}` | Delete one display-only audiobook chapter title override | Required |
 
 ---
 

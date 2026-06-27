@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Details
 @using System.Globalization
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Playback
@@ -332,10 +333,28 @@
             CoverUrl = item.ArtworkUrl ?? ArtworkUrl,
             Duration = DisplayDuration(item),
             InitialPositionSeconds = ResumePositionFor(item),
+            Chapters = IsAudiobook ? VisibleItems.Select(ToPlaybackChapter).ToList() : [],
+            ChapterIndex = IsAudiobook ? item.ChapterIndex : null,
+        };
+
+    private static PlaybackChapterDto ToPlaybackChapter(MediaGroupingItemViewModel item)
+        => new()
+        {
+            Index = Math.Max(0, item.ChapterIndex ?? 0),
+            Title = string.IsNullOrWhiteSpace(item.Title)
+                ? ListenPlaybackService.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
+                : item.Title.Trim(),
+            StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
+            EndSeconds = item.EndSeconds,
         };
 
     private static double? ResumePositionFor(MediaGroupingItemViewModel item)
     {
+        if (item.ResumePositionSeconds is > 0)
+        {
+            return item.ResumePositionSeconds;
+        }
+
         if (item.ProgressPercent is > 0 and < 100)
         {
             var start = Math.Max(0, item.StartSeconds ?? 0);

@@ -761,6 +761,16 @@ CREATE TABLE IF NOT EXISTS audiobook_bookmarks (
     created_at             TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS audiobook_chapter_title_overrides (
+    work_id                BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    asset_id               BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    chapter_index          INTEGER NOT NULL,
+    title                  TEXT NOT NULL,
+    title_source           TEXT NOT NULL,
+    updated_at             TEXT NOT NULL,
+    PRIMARY KEY (asset_id, chapter_index)
+);
+
 CREATE TABLE IF NOT EXISTS playback_segments (
     id            BLOB NOT NULL PRIMARY KEY,
     asset_id      BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
@@ -1386,6 +1396,9 @@ CREATE INDEX IF NOT EXISTS idx_audiobook_listen_history_profile_asset
 
 CREATE INDEX IF NOT EXISTS idx_audiobook_bookmarks_profile_work
     ON audiobook_bookmarks(profile_id, work_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audiobook_chapter_title_overrides_work
+    ON audiobook_chapter_title_overrides(work_id, asset_id, chapter_index);
 
 CREATE INDEX IF NOT EXISTS idx_prc_expires ON provider_response_cache (expires_at);
 

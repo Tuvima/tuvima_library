@@ -26,10 +26,9 @@
                                  OnClick="@(() => PlayChapterAsync(item, chapter))"
                                  AriaLabel="@($"Play {chapter.Title}")"
                                  title="@($"Play {chapter.Title}")">
-                    <span class="tl-audiobook-chapters__number">@($"{index + 1}")</span>
                     <span class="tl-audiobook-chapters__copy">
                         <strong>@chapter.Title</strong>
-                        <span>@ChapterMeta(item, chapter)</span>
+                        <span>@ChapterDuration(item, chapter)</span>
                     </span>
                     @if (item.ProgressPercent is > 0 and < 100)
                     {
@@ -84,7 +83,7 @@
     private PlaybackChapterDto ToPlaybackChapter(MediaGroupingItemViewModel item, int ordinal) => new()
     {
         Index = ordinal,
-        Title = ListenPlaybackService.CleanChapterTitle(item.Title, ordinal),
+        Title = string.IsNullOrWhiteSpace(item.Title) ? ListenPlaybackService.CleanChapterTitle(item.Title, ordinal) : item.Title.Trim(),
         StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
         EndSeconds = item.EndSeconds,
     };
@@ -129,16 +128,8 @@
             && (!item.EndSeconds.HasValue || current < item.EndSeconds.Value - 0.5d);
     }
 
-    private static string ChapterMeta(MediaGroupingItemViewModel item, PlaybackChapterDto chapter)
-    {
-        var duration = DisplayDuration(item, chapter);
-        if (item.StartSeconds.HasValue)
-        {
-            return $"{FormatTimestamp(item.StartSeconds.Value)} - {duration}";
-        }
-
-        return duration;
-    }
+    private static string ChapterDuration(MediaGroupingItemViewModel item, PlaybackChapterDto chapter) =>
+        DisplayDuration(item, chapter);
 
     private static string DisplayDuration(MediaGroupingItemViewModel item, PlaybackChapterDto chapter)
     {

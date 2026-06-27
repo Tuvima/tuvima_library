@@ -172,6 +172,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaGroupingItemVie
   ChapterIndex: System.Int32? | nullability=nullable | accessors=get,init
   StartSeconds: System.Double? | nullability=nullable | accessors=get,init
   EndSeconds: System.Double? | nullability=nullable | accessors=get,init
+  ResumePositionSeconds: System.Double? | nullability=nullable | accessors=get,init
   IsExplicit: System.Boolean | nullability=not-null | accessors=get,init
   Quality: System.String | nullability=nullable | accessors=get,init
   ProgressPercent: System.Double? | nullability=nullable | accessors=get,init
@@ -251,6 +252,10 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.PersonRelatedLink
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ProgressViewModel
   Percent: System.Double | nullability=not-null | accessors=get,init
   Label: System.String | nullability=nullable | accessors=get,init
+  ContextLabel: System.String | nullability=nullable | accessors=get,init
+  PercentLabel: System.String | nullability=nullable | accessors=get,init
+  RemainingLabel: System.String | nullability=nullable | accessors=get,init
+  SecondaryLabel: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ReadingListeningSyncCapabilityViewModel
   State: MediaEngine.Contracts.Details.SyncCapabilityState | nullability=not-null | accessors=get,init
@@ -489,6 +494,28 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookBookmarkD
   Label: System.String | nullability=nullable | accessors=get,init
   CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionDto
+  ChapterIndex: System.Int32 | nullability=not-null | accessors=get,init
+  CurrentTitle: System.String | nullability=not-null | accessors=get,init
+  OriginalTitle: System.String | nullability=nullable | accessors=get,init
+  SuggestedTitle: System.String | nullability=not-null | accessors=get,init
+  Confidence: System.Double | nullability=not-null | accessors=get,init
+  Reason: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionsDto
+  WorkId: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  Suggestions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionDto> | nullability=not-null | accessors=get,init
+  Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookChapterTitleOverrideDto
+  WorkId: System.Guid | nullability=not-null | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  ChapterIndex: System.Int32 | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  TitleSource: System.String | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookListenHistoryItemDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   ProfileId: System.Guid | nullability=not-null | accessors=get,init
@@ -538,6 +565,12 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.ListeningSettingsD
   ResumeRewindSeconds: System.Int32 | nullability=not-null | accessors=get,set
   AudiobookListenQualificationSeconds: System.Int32 | nullability=not-null | accessors=get,set
   AudiobookScanRates: System.Collections.Generic.List<System.Double> | nullability=not-null | accessors=get,set
+  DetectShortIntroChapters: System.Boolean | nullability=not-null | accessors=get,set
+  ShortIntroMaxSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  ShortIntroLabel: System.String | nullability=not-null | accessors=get,set
+  HideSingleLargeChapterDetails: System.Boolean | nullability=not-null | accessors=get,set
+  MinimumChaptersForChapterDetails: System.Int32 | nullability=not-null | accessors=get,set
+  SingleLargeChapterMinSeconds: System.Int32 | nullability=not-null | accessors=get,set
   MusicCrossfade: System.Boolean | nullability=not-null | accessors=get,set
   CrossfadeSeconds: System.Int32 | nullability=not-null | accessors=get,set
   DefaultSleepTimer: System.String | nullability=not-null | accessors=get,set
@@ -568,8 +601,15 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.OfflineVariantStat
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackChapterDto
   Index: System.Int32 | nullability=not-null | accessors=get,init
   Title: System.String | nullability=not-null | accessors=get,init
+  OriginalTitle: System.String | nullability=nullable | accessors=get,init
+  Kind: System.String | nullability=not-null | accessors=get,init
+  TitleSource: System.String | nullability=not-null | accessors=get,init
   StartSeconds: System.Double | nullability=not-null | accessors=get,init
   EndSeconds: System.Double? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackChapterKinds
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackChapterTitleSources
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDeliveryModes
 
@@ -850,6 +890,17 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.SubtitleLanguageSe
   SubtitleBackground: System.Boolean | nullability=not-null | accessors=get,set
   SubtitlePosition: System.String | nullability=not-null | accessors=get,set
   SubtitleStyle: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.SuggestAudiobookChapterNamesRequestDto
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  AssetId: System.Guid? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.UpsertAudiobookChapterTitleOverrideRequestDto
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  ChapterIndex: System.Int32 | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  TitleSource: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.UserPlaybackSettingsDto
   ProfileId: System.Guid | nullability=not-null | accessors=get,set

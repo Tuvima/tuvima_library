@@ -35,7 +35,7 @@
                            OverflowActions="Model.OverflowActions"
                            InlineEditAction="InlineEditAction"
                            UsePrimaryHeroChrome="true"
-                           OnActionSelected="OnActionSelected" />
+                           OnActionSelected="SelectActionAsync" />
 
             <HeroProgressBlock Progress="Model.Progress" />
 
@@ -110,6 +110,9 @@
     [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
+
+    private Task SelectActionAsync(DetailAction action) =>
+        OnActionSelected.InvokeAsync(action);
 
     private string? ArtworkUrl => Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.HeroArtwork.Url;
 
@@ -216,7 +219,8 @@
         var group = Model.MediaGroups.FirstOrDefault(mediaGroup =>
             Model.EntityType == DetailEntityType.MusicAlbum
                 ? mediaGroup.Key == "tracks"
-                : mediaGroup.Key == "chapters");
+                : mediaGroup.Key == "chapters"
+                  && string.Equals(mediaGroup.Title, "Chapters", StringComparison.OrdinalIgnoreCase));
         if (group is null || group.TotalCount <= 0)
         {
             return null;

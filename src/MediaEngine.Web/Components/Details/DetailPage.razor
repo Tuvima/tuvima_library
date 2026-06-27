@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -190,9 +191,9 @@
             return;
         }
 
-        if (Model?.EntityType == DetailEntityType.Audiobook && action.Key is "listen" or "continue")
+        if (Model?.EntityType == DetailEntityType.Audiobook && (action.Key is "listen" or "continue"))
         {
-            await PlayAudiobookAsync();
+            await PlayAudiobookAsync(IsContinueAction(action));
             return;
         }
 
@@ -475,7 +476,7 @@
             InitialPositionSeconds = item.StartSeconds,
         };
 
-    private async Task PlayAudiobookAsync()
+    private async Task PlayAudiobookAsync(bool preferResume)
     {
         if (Model is null)
             return;
@@ -490,19 +491,41 @@
         if (chapters.Count == 0)
             return;
 
-        var startItem = chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 100)
-            ?? chapters.FirstOrDefault();
+        var startItem = preferResume
+            ? ResolveAudiobookResumeItem(chapters)
+            : chapters.FirstOrDefault();
         if (startItem is null)
             return;
 
-        var item = ToAudiobookQueueItem(startItem);
+        var item = ToAudiobookQueueItem(startItem, chapters);
         if (item.WorkId == Guid.Empty)
             return;
 
         await Playback.PlayAudiobookAsync(item, Model.Title);
     }
 
-    private ListenQueueItem ToAudiobookQueueItem(MediaGroupingItemViewModel item)
+    private static bool IsContinueAction(DetailAction action) =>
+        string.Equals(action.Key, "continue", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(action.Label, "Continue", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(action.Label, "Continue Listening", StringComparison.OrdinalIgnoreCase);
+
+    private static MediaGroupingItemViewModel? ResolveAudiobookResumeItem(IReadOnlyList<MediaGroupingItemViewModel> chapters) =>
+        chapters.FirstOrDefault(item => item.ResumePositionSeconds is > 0)
+        ?? chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 99.5)
+        ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item) && !IsIntroChapter(item))
+        ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item))
+        ?? chapters.FirstOrDefault();
+
+    private static bool IsCompletedChapter(MediaGroupingItemViewModel item) =>
+        item.ProgressPercent is >= 99.5;
+
+    private static bool IsIntroChapter(MediaGroupingItemViewModel item) =>
+        item.ChapterIndex == 0
+        && string.Equals(item.Title, "Intro", StringComparison.OrdinalIgnoreCase)
+        && item.StartSeconds is null or <= 5
+        && item.DurationSeconds is null or <= 120;
+
+    private ListenQueueItem ToAudiobookQueueItem(MediaGroupingItemViewModel item, IReadOnlyList<MediaGroupingItemViewModel> chapters)
         => new()
         {
             WorkId = Guid.TryParse(item.Id, out var workId) ? workId : Guid.Empty,
@@ -514,10 +537,28 @@
             CoverUrl = item.ArtworkUrl ?? Model?.Artwork.CoverUrl ?? Model?.Artwork.PosterUrl,
             Duration = item.Duration,
             InitialPositionSeconds = ResumePositionFor(item),
+            Chapters = chapters.Select(ToPlaybackChapter).ToList(),
+            ChapterIndex = item.ChapterIndex,
+        };
+
+    private static PlaybackChapterDto ToPlaybackChapter(MediaGroupingItemViewModel item)
+        => new()
+        {
+            Index = Math.Max(0, item.ChapterIndex ?? 0),
+            Title = string.IsNullOrWhiteSpace(item.Title)
+                ? ListenPlaybackService.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
+                : item.Title.Trim(),
+            StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
+            EndSeconds = item.EndSeconds,
         };
 
     private static double? ResumePositionFor(MediaGroupingItemViewModel item)
     {
+        if (item.ResumePositionSeconds is > 0)
+        {
+            return item.ResumePositionSeconds;
+        }
+
         if (item.ProgressPercent is > 0 and < 100)
         {
             var start = Math.Max(0, item.StartSeconds ?? 0);

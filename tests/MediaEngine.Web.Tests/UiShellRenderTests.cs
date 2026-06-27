@@ -247,7 +247,14 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("UpdateAndSaveAsync", source);
         Assert.Contains("Video Speed", source);
         Assert.Contains("Audiobook Speed", source);
+        Assert.Contains("Audiobook Chapters", source);
+        Assert.Contains("DetectShortIntroChapters", source);
+        Assert.Contains("ShortIntroMaxSeconds", source);
+        Assert.Contains("ShortIntroLabel", source);
+        Assert.Contains("NormalizeIntroLabel", source);
         Assert.Contains("<MudSlider T=\"double\"", source);
+        Assert.Contains("<MudSlider T=\"int\"", source);
+        Assert.Contains("<AppTextField T=\"string\"", source);
         Assert.Contains("Orchestrator.SavePlaybackSettingsAsync", source);
         Assert.DoesNotContain("Saved locally", source);
         Assert.DoesNotContain("Save changes", source);

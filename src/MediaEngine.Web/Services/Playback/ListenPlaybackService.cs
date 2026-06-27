@@ -55,6 +55,7 @@ public sealed class ListenPlaybackService
     public bool IsMuted { get; private set; }
     public bool IsPlaying { get; private set; } = true;
     public double PlaybackRate { get; private set; } = 1d;
+    public long PlaybackStartVersion { get; private set; }
     public string Experience { get; private set; } = PlayerExperienceModes.Music;
     public bool NeedsUserGestureToStart { get; private set; }
     public bool IsPopupOpen { get; private set; }
@@ -142,11 +143,12 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         await RefreshAudiobookHistoryAsync(ct);
-        if (_queue[CurrentIndex].StartAtExactPosition)
+        MarkPlaybackStart();
+        NotifyChanged();
+        if (CurrentTimeSeconds > 0)
         {
             await RequestTransportCommandAsync(new("seek", CurrentTimeSeconds));
         }
-        NotifyChanged();
         await SyncReplaceQueueAsync([_queue[CurrentIndex]], 0, SourceLabel, false, ct);
     }
 
@@ -207,7 +209,12 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         await RefreshAudiobookHistoryAsync(ct);
+        MarkPlaybackStart();
         NotifyChanged();
+        if (CurrentTimeSeconds > 0)
+        {
+            await RequestTransportCommandAsync(new("seek", CurrentTimeSeconds));
+        }
         await SyncReplaceQueueAsync(items, CurrentIndex, sourceLabel, shuffle, ct);
     }
 
@@ -227,6 +234,7 @@ public sealed class ListenPlaybackService
             CurrentTimeSeconds = await InitialPositionForAsync(item, ct);
             PlaybackRate = await InitialPlaybackRateForAsync(item, ct);
             await EnsurePlayableAsync(CurrentIndex, ct);
+            MarkPlaybackStart();
             NotifyChanged();
             await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
             return;
@@ -267,6 +275,7 @@ public sealed class ListenPlaybackService
             CurrentTimeSeconds = await InitialPositionForAsync(item, ct);
             PlaybackRate = await InitialPlaybackRateForAsync(item, ct);
             await EnsurePlayableAsync(CurrentIndex, ct);
+            MarkPlaybackStart();
             NotifyChanged();
             await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
             return;
@@ -317,6 +326,7 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         await RefreshAudiobookHistoryAsync(ct);
+        MarkPlaybackStart();
         NotifyChanged();
     }
 
@@ -341,6 +351,7 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         await RefreshAudiobookHistoryAsync(ct);
+        MarkPlaybackStart();
         NotifyChanged();
         return true;
     }
@@ -364,6 +375,7 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         await RefreshAudiobookHistoryAsync(ct);
+        MarkPlaybackStart();
         NotifyChanged();
     }
 
@@ -392,6 +404,7 @@ public sealed class ListenPlaybackService
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         await RefreshAudiobookHistoryAsync(ct);
+        MarkPlaybackStart();
         NotifyChanged();
     }
 
@@ -866,6 +879,7 @@ public sealed class ListenPlaybackService
         IsPlaying = false;
         IsPopupOpen = false;
         CurrentError = null;
+        PlaybackStartVersion++;
         SleepTimerMode = ListenSleepTimerModes.Off;
         SleepTimerEndsAtUtc = null;
         NotifyChanged();
@@ -905,6 +919,7 @@ public sealed class ListenPlaybackService
         IsPlaying = snapshot.IsPlaying && _queue.Count > 0;
         IsPopupOpen = snapshot.IsPopupOpen;
         CurrentError = snapshot.CurrentError;
+        PlaybackStartVersion = Math.Max(PlaybackStartVersion, snapshot.PlaybackStartVersion);
         SleepTimerMode = snapshot.SleepTimerMode is ListenSleepTimerModes.Timer or ListenSleepTimerModes.EndOfChapter
             ? snapshot.SleepTimerMode
             : ListenSleepTimerModes.Off;
@@ -941,6 +956,7 @@ public sealed class ListenPlaybackService
         IsPlaying = IsPlaying,
         IsPopupOpen = IsPopupOpen,
         CurrentError = CurrentError,
+        PlaybackStartVersion = PlaybackStartVersion,
         SleepTimerMode = SleepTimerMode,
         SleepTimerEndsAtUtc = SleepTimerEndsAtUtc,
     };
@@ -1004,7 +1020,9 @@ public sealed class ListenPlaybackService
             return;
         }
 
-        var manifest = await _apiClient.GetPlaybackManifestAsync(assetId.Value, "web", ct);
+        var settings = _preferences is null ? null : await _preferences.GetAsync(ct);
+        var profileId = settings?.ProfileId == Guid.Empty ? null : settings?.ProfileId;
+        var manifest = await _apiClient.GetPlaybackManifestAsync(assetId.Value, "web", profileId, ct);
         var streamUrl = manifest?.DirectStreamUrl;
         if (string.IsNullOrWhiteSpace(streamUrl))
         {
@@ -1161,12 +1179,26 @@ public sealed class ListenPlaybackService
             Subtitle = item.Subtitle,
             Album = item.Album,
             Artist = IsMusic(item.MediaType) ? item.Subtitle : null,
-            Author = IsAudiobook(item.MediaType) ? item.Subtitle : null,
+            Author = IsAudiobook(item.MediaType) ? null : item.Subtitle,
             CoverUrl = item.CoverUrl,
-            DurationSeconds = TryParseDurationSeconds(item.Duration),
+            DurationSeconds = ResolveQueueDurationSeconds(item),
             PositionSeconds = item.InitialPositionSeconds,
             StreamUrl = item.StreamUrl,
         };
+
+    private static double? ResolveQueueDurationSeconds(ListenQueueItem item)
+    {
+        if (!IsAudiobook(item.MediaType) || item.Chapters.Count == 0)
+        {
+            return TryParseDurationSeconds(item.Duration);
+        }
+
+        return item.Chapters
+            .Where(chapter => chapter.EndSeconds.HasValue)
+            .Select(chapter => chapter.EndSeconds!.Value)
+            .DefaultIfEmpty(TryParseDurationSeconds(item.Duration) ?? 0)
+            .Max();
+    }
 
     private static double InitialPositionFor(ListenQueueItem item) =>
         Math.Max(0, item.InitialPositionSeconds ?? 0);
@@ -1268,7 +1300,11 @@ public sealed class ListenPlaybackService
             .ToList();
 
     public static PlaybackChapterDto NormalizeChapter(PlaybackChapterDto chapter, int ordinal) =>
-        chapter with { Title = CleanChapterTitle(chapter.Title, ordinal) };
+        !string.IsNullOrWhiteSpace(chapter.OriginalTitle)
+            || !string.Equals(chapter.TitleSource, PlaybackChapterTitleSources.Generated, StringComparison.Ordinal)
+            || string.Equals(chapter.Kind, PlaybackChapterKinds.Intro, StringComparison.Ordinal)
+                ? chapter
+                : chapter with { Title = CleanChapterTitle(chapter.Title, ordinal) };
 
     public static string CleanChapterTitle(string? title, int ordinal)
     {
@@ -1445,6 +1481,8 @@ public sealed class ListenPlaybackService
         => string.IsNullOrWhiteSpace(value)
            || value.Trim().StartsWith("Untitled", StringComparison.OrdinalIgnoreCase);
 
+    private void MarkPlaybackStart() => PlaybackStartVersion++;
+
     private void NotifyChanged() => OnChanged?.Invoke();
 }
 
@@ -1570,6 +1608,9 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("current_error")]
     public string? CurrentError { get; init; }
+
+    [JsonPropertyName("playback_start_version")]
+    public long PlaybackStartVersion { get; init; }
 
     [JsonPropertyName("sleep_timer_mode")]
     public string SleepTimerMode { get; init; } = ListenSleepTimerModes.Off;

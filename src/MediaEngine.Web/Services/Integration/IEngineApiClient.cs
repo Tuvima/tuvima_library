@@ -26,7 +26,7 @@ public interface IEngineApiClient
 
     string ToAbsoluteEngineUrl(string value);
 
-    Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default);
+    Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", Guid? profileId = null, CancellationToken ct = default);
 
     Task<PlayerStateDto?> GetPlayerStateAsync(Guid? profileId = null, string? deviceId = null, string client = "web", CancellationToken ct = default);
 
@@ -47,6 +47,14 @@ public interface IEngineApiClient
     Task<AudiobookBookmarkDto?> CreateAudiobookBookmarkAsync(Guid workId, CreateAudiobookBookmarkRequestDto request, Guid? profileId = null, CancellationToken ct = default);
 
     Task<bool> DeleteAudiobookBookmarkAsync(Guid bookmarkId, Guid? profileId = null, CancellationToken ct = default);
+
+    Task<AudiobookChapterNameSuggestionsDto?> SuggestAudiobookChapterNamesAsync(Guid workId, SuggestAudiobookChapterNamesRequestDto request, CancellationToken ct = default);
+
+    Task<IReadOnlyList<AudiobookChapterTitleOverrideDto>> GetAudiobookChapterTitleOverridesAsync(Guid workId, Guid? assetId = null, CancellationToken ct = default);
+
+    Task<AudiobookChapterTitleOverrideDto?> UpsertAudiobookChapterTitleOverrideAsync(Guid workId, UpsertAudiobookChapterTitleOverrideRequestDto request, CancellationToken ct = default);
+
+    Task<bool> DeleteAudiobookChapterTitleOverrideAsync(Guid workId, Guid assetId, int chapterIndex, CancellationToken ct = default);
 
     Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 

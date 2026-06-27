@@ -278,6 +278,83 @@ public static class PlayerEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
+        group.MapPost("/audiobooks/{workId:guid}/chapters/suggest-names", async (
+            Guid workId,
+            SuggestAudiobookChapterNamesRequestDto request,
+            AudiobookChapterNamingService naming,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await naming.SuggestNamesAsync(workId, request, ct));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        })
+        .WithName("SuggestAudiobookChapterNames")
+        .WithSummary("Suggest display-only audiobook chapter names using local AI.")
+        .Produces<AudiobookChapterNameSuggestionsDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/audiobooks/{workId:guid}/chapter-overrides", async (
+            Guid workId,
+            Guid? assetId,
+            AudiobookChapterNamingService naming,
+            CancellationToken ct) =>
+        {
+            var overrides = await naming.GetOverridesAsync(workId, assetId, ct);
+            return Results.Ok(overrides);
+        })
+        .WithName("GetAudiobookChapterTitleOverrides")
+        .WithSummary("Return display-only audiobook chapter title overrides.")
+        .Produces<IReadOnlyList<AudiobookChapterTitleOverrideDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
+        group.MapPost("/audiobooks/{workId:guid}/chapter-overrides", async (
+            Guid workId,
+            UpsertAudiobookChapterTitleOverrideRequestDto request,
+            AudiobookChapterNamingService naming,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await naming.UpsertOverrideAsync(workId, request, ct));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        })
+        .WithName("UpsertAudiobookChapterTitleOverride")
+        .WithSummary("Create or update one display-only audiobook chapter title override.")
+        .Produces<AudiobookChapterTitleOverrideDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapDelete("/audiobooks/{workId:guid}/chapter-overrides/{assetId:guid}/{chapterIndex:int}", async (
+            Guid workId,
+            Guid assetId,
+            int chapterIndex,
+            AudiobookChapterNamingService naming,
+            CancellationToken ct) =>
+        {
+            var deleted = await naming.DeleteOverrideAsync(workId, assetId, chapterIndex, ct);
+            return deleted ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("DeleteAudiobookChapterTitleOverride")
+        .WithSummary("Delete one display-only audiobook chapter title override.")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
         return app;
     }
 }

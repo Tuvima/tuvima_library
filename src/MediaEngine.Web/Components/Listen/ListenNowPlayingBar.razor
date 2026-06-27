@@ -204,17 +204,40 @@
             </div>
 
             <div class="listen-player__transport">
-                <div class="listen-player__transport-buttons">
-                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(!Playback.IsAudiobookMode && Playback.CurrentIndex <= 0)">
-                        <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.Replay10 : Icons.Material.Outlined.SkipPrevious)" Class="tl-u-font-size-20px" />
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync">
-                        <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(!Playback.IsAudiobookMode && Playback.CurrentIndex >= Playback.Queue.Count - 1)">
-                        <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.Forward30 : Icons.Material.Outlined.SkipNext)" Class="tl-u-font-size-20px" />
-                    </AppNativeButton>
-                </div>
+                @if (Playback.IsAudiobookMode)
+                {
+                    <div class="listen-player__transport-buttons listen-player__transport-buttons--audiobook">
+                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayPreviousChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Previous chapter" title="Previous chapter">
+                            <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-20px" />
+                        </AppNativeButton>
+                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.SkipBackAsync())" AriaLabel="Back 15 seconds" title="Back 15 seconds">
+                            <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="tl-u-font-size-22px" />
+                        </AppNativeButton>
+                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync" AriaLabel="Play or pause" title="Play or pause">
+                            <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
+                        </AppNativeButton>
+                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.SkipForwardAsync())" AriaLabel="Forward 15 seconds" title="Forward 15 seconds">
+                            <MudIcon Icon="@Icons.Material.Outlined.Forward" Class="tl-u-font-size-22px" />
+                        </AppNativeButton>
+                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayNextChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Next chapter" title="Next chapter">
+                            <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-20px" />
+                        </AppNativeButton>
+                    </div>
+                }
+                else
+                {
+                    <div class="listen-player__transport-buttons">
+                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)">
+                            <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
+                        </AppNativeButton>
+                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync">
+                            <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
+                        </AppNativeButton>
+                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
+                            <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Class="tl-u-font-size-20px" />
+                        </AppNativeButton>
+                    </div>
+                }
 
                 <div class="listen-player__progress">
                     <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
@@ -257,6 +280,8 @@
     private bool _restored;
     private string? _lastAppliedStreamUrl;
     private string? _lastSeekedStreamUrl;
+    private double? _lastSeekedPositionSeconds;
+    private long _lastAppliedStartVersion = -1;
     private bool? _lastAppliedPlayingState;
     private double? _lastAppliedVolume;
     private bool? _lastAppliedMuteState;
@@ -265,9 +290,19 @@
     private bool _lyricsLoading;
     private List<LrcDisplayLine> _lyricsLines = [];
 
-    private string PlayerShellClass => IsListenRoute
-        ? "listen-player-shell listen-player-shell--listen-route"
-        : "listen-player-shell";
+    private string PlayerShellClass
+    {
+        get
+        {
+            var classes = IsListenRoute
+                ? "listen-player-shell listen-player-shell--listen-route"
+                : "listen-player-shell";
+
+            return Playback.IsAudiobookMode
+                ? $"{classes} listen-player-shell--audiobook"
+                : classes;
+        }
+    }
 
     private bool IsListenRoute => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.StartsWith("/listen", StringComparison.OrdinalIgnoreCase);
 
@@ -366,10 +401,20 @@
     private async Task SyncAudioAsync()
     {
         var browserStreamUrl = Playback.CurrentBrowserStreamUrl;
+        var startVersionChanged = _lastAppliedStartVersion != Playback.PlaybackStartVersion;
+        if (startVersionChanged)
+        {
+            _lastAppliedStartVersion = Playback.PlaybackStartVersion;
+            _lastSeekedStreamUrl = null;
+            _lastSeekedPositionSeconds = null;
+            _lastAppliedPlayingState = null;
+        }
+
         if (!string.Equals(_lastAppliedStreamUrl, browserStreamUrl, StringComparison.Ordinal))
         {
             _lastAppliedStreamUrl = browserStreamUrl;
             _lastSeekedStreamUrl = null;
+            _lastSeekedPositionSeconds = null;
             _lastAppliedPlayingState = null;
             await JS.InvokeVoidAsync("listenPlayback.loadAudio", _audioRef);
         }
@@ -392,11 +437,16 @@
             _lastAppliedPlaybackRate = Playback.PlaybackRate;
         }
 
-        if (!string.Equals(_lastSeekedStreamUrl, browserStreamUrl, StringComparison.Ordinal)
-            && Playback.CurrentTimeSeconds > 0)
+        var shouldSeek = Playback.CurrentTimeSeconds > 0
+            && (!string.Equals(_lastSeekedStreamUrl, browserStreamUrl, StringComparison.Ordinal)
+                || !_lastSeekedPositionSeconds.HasValue
+                || Math.Abs(_lastSeekedPositionSeconds.Value - Playback.CurrentTimeSeconds) >= 0.5d
+                || startVersionChanged);
+        if (shouldSeek)
         {
             await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, Playback.CurrentTimeSeconds);
             _lastSeekedStreamUrl = browserStreamUrl;
+            _lastSeekedPositionSeconds = Playback.CurrentTimeSeconds;
         }
 
         if (_lastAppliedPlayingState != Playback.IsPlaying)

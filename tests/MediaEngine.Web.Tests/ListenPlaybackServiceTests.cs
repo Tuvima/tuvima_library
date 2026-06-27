@@ -62,6 +62,7 @@ public sealed class ListenPlaybackServiceTests
                     CreatedAt = DateTimeOffset.UtcNow,
                 },
             ],
+            PlaybackStartVersion = 7,
             SleepTimerMode = ListenSleepTimerModes.EndOfChapter,
         };
 
@@ -81,6 +82,7 @@ public sealed class ListenPlaybackServiceTests
         Assert.True(roundTrip.NeedsUserGestureToStart);
         Assert.False(roundTrip.IsPlaying);
         Assert.True(roundTrip.IsPopupOpen);
+        Assert.Equal(7, roundTrip.PlaybackStartVersion);
         Assert.Single(roundTrip.AudiobookHistory);
         Assert.Single(roundTrip.AudiobookBookmarks);
         Assert.Equal(ListenSleepTimerModes.EndOfChapter, roundTrip.SleepTimerMode);
@@ -129,6 +131,21 @@ public sealed class ListenPlaybackServiceTests
         Assert.Equal(2, service.CurrentItem?.ChapterIndex);
         Assert.True(service.CurrentItem?.StartAtExactPosition);
         Assert.Equal("Chapter 3", service.CurrentItem?.Subtitle);
+    }
+
+    [Fact]
+    public async Task PlayAudiobookAsync_IncrementsPlaybackStartVersionForSameStreamStarts()
+    {
+        var service = new ListenPlaybackService(null!, null!);
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://dungeon-crawler-carl");
+
+        await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
+        var firstVersion = service.PlaybackStartVersion;
+
+        await service.PlayAudiobookAsync(audiobook with { InitialPositionSeconds = 1200 }, "Dungeon Crawler Carl");
+
+        Assert.True(service.PlaybackStartVersion > firstVersion);
+        Assert.Equal(1190, service.CurrentTimeSeconds);
     }
 
     [Fact]

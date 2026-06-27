@@ -160,8 +160,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.TvSeason => [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"chapters\", \"credits\", \"universe\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"chapters\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook when hasUniverse && hasChapters => [\"overview\", \"chapters\", \"credits\", \"universe\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook when hasChapters => [\"overview\", \"chapters\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
@@ -220,7 +221,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("FROM audiobook_listen_history", source);
         Assert.Contains("IsMeaningfulAudiobookResume", source);
         Assert.Contains("BuildListenHeroProgressLabel", source);
+        Assert.Contains("BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups)", source);
+        Assert.Contains("current.ResumePositionSeconds.Value / totalSeconds * 100", source);
         Assert.Contains("Label = heroProgress is null ? \"Listen\" : \"Continue\"", source);
+        Assert.Contains("ResumePositionSeconds = IsPositionWithinChapter(resumeSeconds, chapter.StartSeconds, chapter.EndSeconds)", source);
         Assert.Contains("ProgressPercent = progressPercent", source);
         Assert.Contains("DurationSeconds = durationSeconds", source);
     }

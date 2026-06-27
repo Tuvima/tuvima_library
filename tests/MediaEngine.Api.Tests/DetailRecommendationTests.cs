@@ -135,7 +135,7 @@ public sealed class DetailRecommendationTests : IDisposable
 
         var task = (Task<IReadOnlyList<MediaGroupingViewModel>>)method.Invoke(
             composer,
-            [workId, entityType, CancellationToken.None])!;
+            [workId, entityType, null, CancellationToken.None])!;
 
         return await task;
     }

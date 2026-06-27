@@ -29,10 +29,11 @@ public static class PlaybackEndpoints
         group.MapGet("/{assetId:guid}/manifest", async (
             Guid assetId,
             string? client,
+            Guid? profileId,
             PlaybackCapabilitiesService playback,
             CancellationToken ct) =>
         {
-            var manifest = await playback.BuildManifestAsync(assetId, client, ct);
+            var manifest = await playback.BuildManifestAsync(assetId, client, profileId, ct);
             return manifest is null
                 ? Results.NotFound($"Asset '{assetId}' not found.")
                 : Results.Ok(manifest);

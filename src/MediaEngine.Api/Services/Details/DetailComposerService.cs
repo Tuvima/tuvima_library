@@ -71,7 +71,7 @@ public sealed class DetailComposerService
                 or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(id, entityType, context, isAdminView, favoriteWorkIds, ct),
             DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, ct),
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, ct),
-            _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedContainerId, favoriteWorkIds, ct),
+            _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedContainerId, favoriteWorkIds, profileId, ct),
         };
     }
 
@@ -137,6 +137,7 @@ public sealed class DetailComposerService
         bool isAdminView,
         string? selectedContainerId,
         IReadOnlySet<Guid> favoriteWorkIds,
+        Guid? profileId,
         CancellationToken ct)
     {
         var detail = await _libraryItems.GetDetailAsync(workId, ct);
@@ -148,7 +149,6 @@ public sealed class DetailComposerService
         var values = detail.CanonicalValues.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
         var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct);
-        var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats);
         var artworkFallback = await LoadWorkArtworkFallbackAsync(workId, ct);
         var multiFormatState = ownedFormats.Count > 1
             ? MultiFormatState.MultipleFormatsSeparateProgress
@@ -189,7 +189,9 @@ public sealed class DetailComposerService
         var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
         var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
         var sequencePlacement = await BuildSequencePlacementAsync(workId, detail, entityType, selectedContainerId, ct);
-        var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, ct);
+        var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, profileId, ct);
+        var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats)
+            ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
         var longDescription = ResolveLongDescription(detail.Description, values, entityType);
         var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
@@ -232,7 +234,13 @@ public sealed class DetailComposerService
             CharacterGroups = characters,
             PreviewCharacters = characters.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = relationships,
-            Tabs = BuildTabs(entityType, context, isAdminView, sequencePlacement is not null, HasUniverseRelationship(relationships)),
+            Tabs = BuildTabs(
+                entityType,
+                context,
+                isAdminView,
+                sequencePlacement is not null,
+                HasUniverseRelationship(relationships),
+                HasChapterGroup(mediaGroups)),
             MediaGroups = mediaGroups,
             IdentityStatus = ResolveIdentityStatus(detail.WikidataQid, detail.Status, detail.Confidence),
             LibraryStatus = LibraryStatus.Owned,
@@ -1393,12 +1401,12 @@ public sealed class DetailComposerService
         };
     }
 
-    private async Task<IReadOnlyList<MediaGroupingViewModel>> BuildWorkMediaGroupsAsync(Guid workId, DetailEntityType entityType, CancellationToken ct)
+    private async Task<IReadOnlyList<MediaGroupingViewModel>> BuildWorkMediaGroupsAsync(Guid workId, DetailEntityType entityType, Guid? profileId, CancellationToken ct)
     {
         if (entityType == DetailEntityType.Audiobook)
         {
             var groups = new List<MediaGroupingViewModel>();
-            var chapterGroup = await BuildAudiobookChapterGroupAsync(workId, ct);
+            var chapterGroup = await BuildAudiobookChapterGroupAsync(workId, profileId, ct);
             if (chapterGroup is not null)
             {
                 groups.Add(chapterGroup);
@@ -1435,7 +1443,7 @@ public sealed class DetailComposerService
         ];
     }
 
-    private async Task<MediaGroupingViewModel?> BuildAudiobookChapterGroupAsync(Guid workId, CancellationToken ct)
+    private async Task<MediaGroupingViewModel?> BuildAudiobookChapterGroupAsync(Guid workId, Guid? profileId, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -1490,7 +1498,7 @@ public sealed class DetailComposerService
         {
             try
             {
-                manifest = await _playback.BuildManifestAsync(row.AssetId, "web", ct);
+                manifest = await _playback.BuildManifestAsync(row.AssetId, "web", profileId, ct);
             }
             catch (OperationCanceledException)
             {
@@ -1545,6 +1553,7 @@ public sealed class DetailComposerService
             ChapterIndex = chapter.Index,
             StartSeconds = chapter.StartSeconds,
             EndSeconds = chapter.EndSeconds,
+            ResumePositionSeconds = IsPositionWithinChapter(resumeSeconds, chapter.StartSeconds, chapter.EndSeconds) ? resumeSeconds : null,
             ProgressPercent = progressPercent,
             Metadata = BuildEpisodeMetadata(FormatSecondsDuration(durationSeconds), null),
             Actions = [new DetailAction { Key = "play-chapter", Label = progressPercent is > 0 and < 100 ? "Continue" : "Play", Icon = "play_arrow" }],
@@ -1585,6 +1594,7 @@ public sealed class DetailComposerService
             ChapterIndex = 0,
             StartSeconds = 0,
             EndSeconds = durationSeconds,
+            ResumePositionSeconds = resume?.PositionSeconds,
             ProgressPercent = resume?.ProgressPct,
             Metadata = BuildEpisodeMetadata(FormatSecondsDuration(durationSeconds), null),
             Actions = [new DetailAction { Key = "play-chapter", Label = resume?.PositionSeconds is > 0 ? "Continue" : "Play", Icon = "play_arrow" }],
@@ -1689,6 +1699,11 @@ public sealed class DetailComposerService
 
     private static bool IsMeaningfulAudiobookResume(MediaEngine.Contracts.Playback.PlaybackResumeDto? resume)
         => resume?.PositionSeconds is > 0 || resume?.ProgressPct is > 0;
+
+    private static bool IsPositionWithinChapter(double? positionSeconds, double startSeconds, double? endSeconds)
+        => positionSeconds.HasValue
+            && positionSeconds.Value >= startSeconds
+            && (!endSeconds.HasValue || positionSeconds.Value < endSeconds.Value);
 
     private static double? TryReadExtendedPropertyDouble(string? extendedProperties, string key)
     {
@@ -3384,6 +3399,90 @@ public sealed class DetailComposerService
         };
     }
 
+    private static ProgressViewModel? BuildAudiobookHeroProgress(
+        DetailEntityType entityType,
+        string? runtime,
+        IReadOnlyList<MediaGroupingViewModel> mediaGroups)
+    {
+        if (entityType is not DetailEntityType.Audiobook)
+        {
+            return null;
+        }
+
+        var chapterGroup = mediaGroups
+            .FirstOrDefault(group => string.Equals(group.Key, "chapters", StringComparison.OrdinalIgnoreCase));
+        var chapters = chapterGroup?.Items ?? [];
+        if (chapters.Count == 0)
+        {
+            return null;
+        }
+
+        var current = chapters
+            .Where(item => item.ResumePositionSeconds is > 0)
+            .OrderByDescending(item => item.ResumePositionSeconds)
+            .FirstOrDefault()
+            ?? chapters
+                .Where(item => item.ProgressPercent is > 0 and < 99.5)
+                .OrderByDescending(item => item.ProgressPercent)
+                .FirstOrDefault();
+        if (current is null)
+        {
+            return null;
+        }
+
+        var totalSeconds = chapters
+            .Select(item => item.EndSeconds ?? item.DurationSeconds ?? 0)
+            .Where(seconds => seconds > 0)
+            .DefaultIfEmpty()
+            .Max();
+        var percent = current.ResumePositionSeconds is > 0 && totalSeconds > 0
+            ? current.ResumePositionSeconds.Value / totalSeconds * 100
+            : current.ProgressPercent ?? 0;
+        if (percent is <= 0 or >= 99.5)
+        {
+            return null;
+        }
+
+        var runtimeSource = FirstNonBlank(FormatSecondsDuration(totalSeconds > 0 ? totalSeconds : null), runtime);
+        var clampedPercent = Math.Clamp(percent, 0, 100);
+        var roundedPercent = Math.Clamp((int)Math.Round(clampedPercent, MidpointRounding.AwayFromZero), 1, 99);
+        var timeLeft = FormatTimeLeft(runtimeSource, clampedPercent);
+        var currentPosition = 0;
+        for (var i = 0; i < chapters.Count; i++)
+        {
+            if (ReferenceEquals(chapters[i], current))
+            {
+                currentPosition = i + 1;
+                break;
+            }
+        }
+
+        var hasVisibleChapters = chapters.Count > 1
+            && string.Equals(chapterGroup?.Title, "Chapters", StringComparison.OrdinalIgnoreCase)
+            && currentPosition > 0;
+        var chaptersRemaining = hasVisibleChapters
+            ? Math.Max(0, chapters.Count - currentPosition)
+            : 0;
+
+        return new ProgressViewModel
+        {
+            Percent = clampedPercent,
+            Label = BuildListenHeroProgressLabel(clampedPercent, runtimeSource),
+            ContextLabel = hasVisibleChapters ? $"{current.Title} of {chapters.Count}" : null,
+            PercentLabel = $"{roundedPercent}%",
+            RemainingLabel = string.IsNullOrWhiteSpace(timeLeft) ? null : $"{timeLeft} left",
+            SecondaryLabel = hasVisibleChapters
+                ? chaptersRemaining == 1 ? "1 chapter remaining" : $"{chaptersRemaining} chapters remaining"
+                : null,
+        };
+    }
+
+    private static bool HasChapterGroup(IReadOnlyList<MediaGroupingViewModel> mediaGroups) =>
+        mediaGroups.Any(group =>
+            string.Equals(group.Key, "chapters", StringComparison.OrdinalIgnoreCase)
+            && group.Items.Count > 0
+            && string.Equals(group.Title, "Chapters", StringComparison.OrdinalIgnoreCase));
+
     private static ProgressViewModel? BuildCollectionHeroProgress(
         DetailEntityType entityType,
         IReadOnlyList<CollectionWorkSummary> works)
@@ -3686,7 +3785,8 @@ public sealed class DetailComposerService
         DetailPresentationContext context,
         bool isAdminView,
         bool hasSeries = false,
-        bool hasUniverse = false)
+        bool hasUniverse = false,
+        bool hasChapters = true)
     {
         string[] keys = entityType switch
         {
@@ -3703,8 +3803,10 @@ public sealed class DetailComposerService
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "details"],
             DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "details"],
             DetailEntityType.Book => ["overview", "credits", "details"],
-            DetailEntityType.Audiobook when hasUniverse => ["overview", "chapters", "credits", "universe", "details"],
-            DetailEntityType.Audiobook => ["overview", "chapters", "credits", "details"],
+            DetailEntityType.Audiobook when hasUniverse && hasChapters => ["overview", "chapters", "credits", "universe", "details"],
+            DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "details"],
+            DetailEntityType.Audiobook when hasChapters => ["overview", "chapters", "credits", "details"],
+            DetailEntityType.Audiobook => ["overview", "credits", "details"],
             DetailEntityType.BookSeries when hasUniverse => ["overview", "works", "credits", "universe", "details"],
             DetailEntityType.BookSeries => ["overview", "works", "credits", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "details"],

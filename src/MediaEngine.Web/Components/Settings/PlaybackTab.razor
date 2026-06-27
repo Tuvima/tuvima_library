@@ -135,12 +135,34 @@ else if (_settings is not null)
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Skip & Silence" Icon="@Icons.Material.Outlined.Forward30">
+                        <SettingsSectionPanel Title="Skip & Silence" Icon="@Icons.Material.Outlined.Forward">
                             @IntSelect("Skip back", _settings.Listening.SkipBackSeconds, ListeningSkipBackOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SkipBackSeconds = v), " seconds")
                             @IntSelect("Skip forward", _settings.Listening.SkipForwardSeconds, ListeningSkipForwardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SkipForwardSeconds = v), " seconds")
                             @IntSelect("Resume rewind", _settings.Listening.ResumeRewindSeconds, ListeningResumeRewindOptions, v => UpdateAndSaveAsync(() => _settings.Listening.ResumeRewindSeconds = v), " seconds")
                             @IntSelect("Listen history threshold", _settings.Listening.AudiobookListenQualificationSeconds, ListeningQualificationOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookListenQualificationSeconds = v), " seconds")
                             @BoolRow(Icons.Material.Outlined.VolumeOff, "Skip silence", "Reduce long silent gaps when supported.", _settings.Listening.SkipSilence, v => UpdateAndSaveAsync(() => _settings.Listening.SkipSilence = v))
+                        </SettingsSectionPanel>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <SettingsSectionPanel Title="Audiobook Chapters" Icon="@Icons.Material.Outlined.FormatListNumbered">
+                            @BoolRow(Icons.Material.Outlined.ShortText, "Detect short intro chapter", "Label a very short first chapter as the intro without skipping it.", _settings.Listening.DetectShortIntroChapters, v => UpdateAndSaveAsync(() => _settings.Listening.DetectShortIntroChapters = v))
+                            <div class="settings-slider-block">
+                                @SliderHeader("Intro threshold", $"{_settings.Listening.ShortIntroMaxSeconds}s")
+                                <MudSlider T="int" Class="settings-slider" Value="_settings.Listening.ShortIntroMaxSeconds" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.ShortIntroMaxSeconds = v))" Min="5" Max="120" Step="5" Disabled="@(!_settings.Listening.DetectShortIntroChapters)" Color="Color.Primary" />
+                                @SliderLabels(["5s", "30s", "60s", "120s"])
+                            </div>
+                            <AppTextField T="string"
+                                          Label="Intro label"
+                                          Value="@_settings.Listening.ShortIntroLabel"
+                                          ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.ShortIntroLabel = NormalizeIntroLabel(v)))"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Disabled="@(!_settings.Listening.DetectShortIntroChapters)"
+                                          Class="settings-field--compact settings-field--text-control"
+                                          HelpText="Used only when the embedded first chapter name is blank, numeric, or generic." />
+                            @BoolRow(Icons.Material.Outlined.VisibilityOff, "Hide one large chapter", "Suppress chapter UI when an audiobook only exposes one long media segment.", _settings.Listening.HideSingleLargeChapterDetails, v => UpdateAndSaveAsync(() => _settings.Listening.HideSingleLargeChapterDetails = v))
+                            @IntSelect("Minimum chapter rows", _settings.Listening.MinimumChaptersForChapterDetails, ChapterDetailCountOptions, v => UpdateAndSaveAsync(() => _settings.Listening.MinimumChaptersForChapterDetails = v), " chapters")
+                            @IntSelect("Single chapter threshold", _settings.Listening.SingleLargeChapterMinSeconds, SingleLargeChapterOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SingleLargeChapterMinSeconds = v), " seconds")
                         </SettingsSectionPanel>
                     </MudItem>
                     <MudItem xs="12" lg="6">
@@ -247,6 +269,8 @@ else if (_settings is not null)
     private static readonly int[] ListeningSkipForwardOptions = [15, 30, 60];
     private static readonly int[] ListeningResumeRewindOptions = [0, 5, 10, 15, 30];
     private static readonly int[] ListeningQualificationOptions = [15, 30, 60, 120, 300];
+    private static readonly int[] ChapterDetailCountOptions = [1, 2, 3, 4, 5];
+    private static readonly int[] SingleLargeChapterOptions = [900, 1800, 3600, 7200];
     private static readonly int[] ThresholdOptions = [50, 60, 70, 80, 90, 95, 100];
     private static readonly string[] LanguageOptions = ["English", "Spanish", "French", "German", "Japanese", "Original"];
     private static readonly string[] VideoQualityOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Original, PlaybackPreferenceValues.High, PlaybackPreferenceValues.Balanced, PlaybackPreferenceValues.DataSaver];
@@ -416,6 +440,9 @@ else if (_settings is not null)
 
     private static string FormatSpeed(decimal value) => $"{value:0.##}x";
     private static string OnOff(bool value) => value ? "On" : "Off";
+    private static string NormalizeIntroLabel(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Intro" : value.Trim();
+
     private static string GetInitials(string value)
     {
         var words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);

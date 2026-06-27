@@ -194,6 +194,11 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         {
             settings.Listening.AudiobookScanRates = [2d, 4d, 8d, 16d];
         }
+        settings.Listening.ShortIntroLabel = string.IsNullOrWhiteSpace(settings.Listening.ShortIntroLabel)
+            ? "Intro"
+            : settings.Listening.ShortIntroLabel.Trim();
+        settings.Listening.MinimumChaptersForChapterDetails = Math.Clamp(settings.Listening.MinimumChaptersForChapterDetails, 1, 10);
+        settings.Listening.SingleLargeChapterMinSeconds = Math.Clamp(settings.Listening.SingleLargeChapterMinSeconds, 300, 14400);
         settings.Watching.PreferredVideoQuality = NormalizeToken(settings.Watching.PreferredVideoQuality);
         settings.Listening.DefaultSleepTimer = NormalizeToken(settings.Listening.DefaultSleepTimer);
         settings.Listening.OutputPreference = NormalizeToken(settings.Listening.OutputPreference);
@@ -218,6 +223,9 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         RequireRange(settings.Watching.DefaultPlaybackSpeed, 0.5m, 2.0m, nameof(settings.Watching.DefaultPlaybackSpeed));
         RequireRange(settings.Listening.AudiobookDefaultSpeed, 0.5m, 3.0m, nameof(settings.Listening.AudiobookDefaultSpeed));
         RequireRange(settings.Listening.AudiobookListenQualificationSeconds, 15, 300, nameof(settings.Listening.AudiobookListenQualificationSeconds));
+        RequireRange(settings.Listening.ShortIntroMaxSeconds, 5, 120, nameof(settings.Listening.ShortIntroMaxSeconds));
+        RequireRange(settings.Listening.MinimumChaptersForChapterDetails, 1, 10, nameof(settings.Listening.MinimumChaptersForChapterDetails));
+        RequireRange(settings.Listening.SingleLargeChapterMinSeconds, 300, 14400, nameof(settings.Listening.SingleLargeChapterMinSeconds));
 
         RequireAllowed(settings.Watching.SkipBackSeconds, WatchingSkipBackValues, nameof(settings.Watching.SkipBackSeconds));
         RequireAllowed(settings.Watching.SkipForwardSeconds, WatchingSkipForwardValues, nameof(settings.Watching.SkipForwardSeconds));

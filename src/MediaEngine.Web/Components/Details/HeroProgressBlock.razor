@@ -5,13 +5,33 @@
 @if (Progress is not null)
 {
     <AppCssElement Tag="div" Class="tl-detail-hero-progress" Css="@ProgressStyle" aria-label="@ProgressLabel">
-        <div class="tl-detail-hero-progress__label">@ProgressLabel</div>
+        @if (HasStructuredProgress)
+        {
+            <div class="tl-detail-hero-progress__summary">
+                <span class="tl-detail-hero-progress__context">
+                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />
+                    <span>@Progress!.ContextLabel</span>
+                </span>
+                <span class="tl-detail-hero-progress__percent">@Progress.PercentLabel</span>
+            </div>
+        }
+        else
+        {
+            <div class="tl-detail-hero-progress__label">@ProgressLabel</div>
+        }
         <div class="tl-detail-hero-progress__track" role="progressbar"
              aria-valuemin="0"
              aria-valuemax="100"
              aria-valuenow="@ProgressPercent">
             <span class="tl-detail-hero-progress__fill"></span>
         </div>
+        @if (HasStructuredProgress)
+        {
+            <div class="tl-detail-hero-progress__meta">
+                <span>@Progress!.RemainingLabel</span>
+                <span>@Progress.SecondaryLabel</span>
+            </div>
+        }
     </AppCssElement>
 }
 
@@ -28,4 +48,7 @@
     private string ProgressLabel => string.IsNullOrWhiteSpace(Progress?.Label)
         ? $"{ProgressPercent}% watched"
         : Progress.Label;
+
+    private bool HasStructuredProgress =>
+        !string.IsNullOrWhiteSpace(Progress?.ContextLabel);
 }

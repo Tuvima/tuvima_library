@@ -146,6 +146,28 @@
         gap: 10px;
     }
 
+    .listen-player-shell--audiobook .listen-player {
+        border-color: rgba(245, 158, 11, 0.26);
+        background:
+            linear-gradient(180deg, rgba(9, 20, 34, 0.96), rgba(6, 13, 24, 0.98)),
+            var(--app-surface, #1e1f27);
+    }
+
+    .listen-player__transport-buttons--audiobook {
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .listen-player-shell--audiobook .listen-player__progress-slider,
+    .listen-player-shell--audiobook .listen-player__volume-slider {
+        accent-color: var(--tl-status-warning, #f59e0b);
+    }
+
+    .listen-player-shell--audiobook .listen-player__play {
+        background: var(--tl-status-warning, #f59e0b);
+        color: #07111f;
+    }
+
     .listen-player__progress {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr) auto;

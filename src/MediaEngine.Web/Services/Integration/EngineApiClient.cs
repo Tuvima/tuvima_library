@@ -49,13 +49,21 @@ public sealed class EngineApiClient : IEngineApiClient
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
 
-    public async Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default)
+    public async Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", Guid? profileId = null, CancellationToken ct = default)
     {
         var endpoint = $"GET /playback/{assetId}/manifest";
         try
         {
-            var encodedClient = Uri.EscapeDataString(string.IsNullOrWhiteSpace(client) ? "web" : client);
-            var response = await _http.GetAsync($"/playback/{assetId}/manifest?client={encodedClient}", ct);
+            var query = new List<string>
+            {
+                $"client={Uri.EscapeDataString(string.IsNullOrWhiteSpace(client) ? "web" : client)}",
+            };
+            if (profileId.HasValue)
+            {
+                query.Add($"profileId={profileId.Value:D}");
+            }
+
+            var response = await _http.GetAsync($"/playback/{assetId}/manifest?{string.Join("&", query)}", ct);
             if (!response.IsSuccessStatusCode)
             {
                 await RecordHttpFailureAsync(endpoint, response, ct);
@@ -269,6 +277,99 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "DELETE /player/audiobooks/bookmarks/{BookmarkId} failed", bookmarkId);
+            RecordExceptionFailure(endpoint, ex);
+            return false;
+        }
+    }
+
+    public async Task<AudiobookChapterNameSuggestionsDto?> SuggestAudiobookChapterNamesAsync(Guid workId, SuggestAudiobookChapterNamesRequestDto request, CancellationToken ct = default)
+    {
+        const string endpoint = "POST /player/audiobooks/{workId}/chapters/suggest-names";
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"/player/audiobooks/{workId:D}/chapters/suggest-names", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var suggestions = await response.Content.ReadFromJsonAsync<AudiobookChapterNameSuggestionsDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return suggestions;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "POST /player/audiobooks/{WorkId}/chapters/suggest-names failed", workId);
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<AudiobookChapterTitleOverrideDto>> GetAudiobookChapterTitleOverridesAsync(Guid workId, Guid? assetId = null, CancellationToken ct = default)
+    {
+        const string endpoint = "GET /player/audiobooks/{workId}/chapter-overrides";
+        try
+        {
+            var suffix = assetId.HasValue ? $"?assetId={assetId.Value:D}" : string.Empty;
+            var overrides = await _http.GetFromJsonAsync<List<AudiobookChapterTitleOverrideDto>>($"/player/audiobooks/{workId:D}/chapter-overrides{suffix}", ct);
+            ClearFailure(endpoint);
+            return overrides ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GET /player/audiobooks/{WorkId}/chapter-overrides failed", workId);
+            RecordExceptionFailure(endpoint, ex);
+            return [];
+        }
+    }
+
+    public async Task<AudiobookChapterTitleOverrideDto?> UpsertAudiobookChapterTitleOverrideAsync(Guid workId, UpsertAudiobookChapterTitleOverrideRequestDto request, CancellationToken ct = default)
+    {
+        const string endpoint = "POST /player/audiobooks/{workId}/chapter-overrides";
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"/player/audiobooks/{workId:D}/chapter-overrides", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var chapterOverride = await response.Content.ReadFromJsonAsync<AudiobookChapterTitleOverrideDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return chapterOverride;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "POST /player/audiobooks/{WorkId}/chapter-overrides failed", workId);
+            RecordExceptionFailure(endpoint, ex);
+            return null;
+        }
+    }
+
+    public async Task<bool> DeleteAudiobookChapterTitleOverrideAsync(Guid workId, Guid assetId, int chapterIndex, CancellationToken ct = default)
+    {
+        const string endpoint = "DELETE /player/audiobooks/{workId}/chapter-overrides/{assetId}/{chapterIndex}";
+        try
+        {
+            var response = await _http.DeleteAsync($"/player/audiobooks/{workId:D}/chapter-overrides/{assetId:D}/{chapterIndex}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return false;
+            }
+
+            ClearFailure(endpoint);
+            return true;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "DELETE /player/audiobooks/{WorkId}/chapter-overrides/{AssetId}/{ChapterIndex} failed", workId, assetId, chapterIndex);
             RecordExceptionFailure(endpoint, ex);
             return false;
         }
@@ -5130,6 +5231,7 @@ public sealed class EngineApiClient : IEngineApiClient
                     ChapterIndex = item.ChapterIndex,
                     StartSeconds = item.StartSeconds,
                     EndSeconds = item.EndSeconds,
+                    ResumePositionSeconds = item.ResumePositionSeconds,
                     IsExplicit = item.IsExplicit,
                     Quality = item.Quality,
                     ProgressPercent = item.ProgressPercent,

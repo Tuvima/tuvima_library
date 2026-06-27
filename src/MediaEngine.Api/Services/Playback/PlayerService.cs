@@ -499,7 +499,7 @@ public sealed class PlayerService
             };
         }
 
-        var manifest = await _playback.BuildManifestAsync(current.AssetId.Value, state.Client, ct);
+        var manifest = await _playback.BuildManifestAsync(current.AssetId.Value, state.Client, state.ProfileId, ct);
         if (manifest is null)
         {
             return state with { Capabilities = GetCapabilities() };

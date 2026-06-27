@@ -54,6 +54,12 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         Assert.Equal(10, settings.Listening.ResumeRewindSeconds);
         Assert.Equal(60, settings.Listening.AudiobookListenQualificationSeconds);
         Assert.Equal([2d, 4d, 8d, 16d], settings.Listening.AudiobookScanRates);
+        Assert.True(settings.Listening.DetectShortIntroChapters);
+        Assert.Equal(30, settings.Listening.ShortIntroMaxSeconds);
+        Assert.Equal("Intro", settings.Listening.ShortIntroLabel);
+        Assert.True(settings.Listening.HideSingleLargeChapterDetails);
+        Assert.Equal(2, settings.Listening.MinimumChaptersForChapterDetails);
+        Assert.Equal(1800, settings.Listening.SingleLargeChapterMinSeconds);
         Assert.Equal("Sepia", settings.Reading.Theme);
     }
 
@@ -96,6 +102,30 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         settings = await _service.GetAsync(_profileId);
         settings.Listening.AudiobookListenQualificationSeconds = 10;
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _service.UpdateAsync(_profileId, settings));
+
+        settings = await _service.GetAsync(_profileId);
+        settings.Listening.ShortIntroMaxSeconds = 4;
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _service.UpdateAsync(_profileId, settings));
+
+        settings = await _service.GetAsync(_profileId);
+        settings.Listening.ShortIntroMaxSeconds = 121;
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _service.UpdateAsync(_profileId, settings));
+
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NormalizesBlankIntroLabel()
+    {
+        var settings = await _service.GetAsync(_profileId);
+        settings.Listening.ShortIntroLabel = "   ";
+        settings.Listening.MinimumChaptersForChapterDetails = 0;
+        settings.Listening.SingleLargeChapterMinSeconds = 299;
+
+        var saved = await _service.UpdateAsync(_profileId, settings);
+
+        Assert.Equal("Intro", saved.Listening.ShortIntroLabel);
+        Assert.Equal(1, saved.Listening.MinimumChaptersForChapterDetails);
+        Assert.Equal(300, saved.Listening.SingleLargeChapterMinSeconds);
     }
 
     [Fact]

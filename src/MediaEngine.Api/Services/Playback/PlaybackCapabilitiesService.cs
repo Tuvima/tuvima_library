@@ -37,6 +37,8 @@ public sealed class PlaybackCapabilitiesService
     private readonly IDatabaseConnection _db;
     private readonly PlaybackStateRepository _playbackState;
     private readonly IPlaybackSegmentRepository _segments;
+    private readonly IUserPlaybackSettingsService _settings;
+    private readonly AudiobookChapterTitleOverrideRepository _chapterTitleOverrides;
     private readonly ILogger<PlaybackCapabilitiesService> _logger;
 
     public PlaybackCapabilitiesService(
@@ -45,6 +47,8 @@ public sealed class PlaybackCapabilitiesService
         IDatabaseConnection db,
         PlaybackStateRepository playbackState,
         IPlaybackSegmentRepository segments,
+        IUserPlaybackSettingsService settings,
+        AudiobookChapterTitleOverrideRepository chapterTitleOverrides,
         ILogger<PlaybackCapabilitiesService> logger)
     {
         _assets = assets;
@@ -52,10 +56,12 @@ public sealed class PlaybackCapabilitiesService
         _db = db;
         _playbackState = playbackState;
         _segments = segments;
+        _settings = settings;
+        _chapterTitleOverrides = chapterTitleOverrides;
         _logger = logger;
     }
 
-    public async Task<PlaybackManifestDto?> BuildManifestAsync(Guid assetId, string? client, CancellationToken ct = default)
+    public async Task<PlaybackManifestDto?> BuildManifestAsync(Guid assetId, string? client, Guid? profileId = null, CancellationToken ct = default)
     {
         var asset = await _assets.FindByIdAsync(assetId, ct);
         if (asset is null)
@@ -148,7 +154,7 @@ public sealed class PlaybackCapabilitiesService
             Profile = profile,
             AudioTracks = BuildAudioTracks(mediaInfo, probe),
             SubtitleTracks = BuildSubtitleTracks(mediaInfo, probe),
-            Chapters = BuildChapters(mediaInfo, probe),
+            Chapters = await BuildChaptersAsync(assetId, mediaInfo, probe, profileId, ct),
             OfflineVariants = variants,
             Resume = await LoadResumeAsync(assetId, ct),
             Segments = (await _segments.ListByAssetAsync(assetId, ct)).Select(ToSegmentDto).ToList(),
@@ -443,7 +449,48 @@ public sealed class PlaybackCapabilitiesService
         }).ToList();
     }
 
-    private static IReadOnlyList<PlaybackChapterDto> BuildChapters(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
+    private async Task<IReadOnlyList<PlaybackChapterDto>> BuildChaptersAsync(
+        Guid assetId,
+        MediaInfoWrapper? mediaInfo,
+        MediaProbeResult? probe,
+        Guid? profileId,
+        CancellationToken ct)
+    {
+        var chapters = BuildRawChapters(mediaInfo, probe);
+        if (chapters.Count == 0)
+        {
+            return [];
+        }
+
+        var settings = await LoadListeningSettingsAsync(profileId, ct);
+        var overrides = (await _chapterTitleOverrides.GetByAssetAsync(assetId, ct))
+            .GroupBy(item => item.ChapterIndex)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.UpdatedAt).First());
+        var normalized = AudiobookChapterNormalizer.Normalize(chapters, settings, overrides);
+        return AudiobookChapterNormalizer.ShouldExposeChapterDetails(normalized, settings)
+            ? normalized
+            : [];
+    }
+
+    private async Task<ListeningSettingsDto> LoadListeningSettingsAsync(Guid? profileId, CancellationToken ct)
+    {
+        if (!profileId.HasValue || profileId.Value == Guid.Empty)
+        {
+            return new ListeningSettingsDto();
+        }
+
+        try
+        {
+            return (await _settings.GetOrCreateDefaultsAsync(profileId.Value, ct)).Listening ?? new ListeningSettingsDto();
+        }
+        catch (Exception ex) when (ex is KeyNotFoundException or ArgumentException)
+        {
+            _logger.LogDebug(ex, "Falling back to default listening settings for playback manifest profile {ProfileId}", profileId);
+            return new ListeningSettingsDto();
+        }
+    }
+
+    private static IReadOnlyList<PlaybackChapterDto> BuildRawChapters(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
     {
         if (probe?.Chapters.Count > 0)
         {
@@ -452,6 +499,7 @@ public sealed class PlaybackCapabilitiesService
                 {
                     Index = chapter.Index,
                     Title = FirstNonBlank(chapter.Title, $"Chapter {chapter.Index + 1}"),
+                    OriginalTitle = chapter.Title,
                     StartSeconds = chapter.StartSeconds,
                     EndSeconds = chapter.EndSeconds,
                 }),
@@ -474,6 +522,7 @@ public sealed class PlaybackCapabilitiesService
                     {
                         Index = index,
                         Title = FirstNonBlank(chapter.Name, $"Chapter {index + 1}"),
+                        OriginalTitle = chapter.Name,
                         StartSeconds = Math.Max(0, startSeconds.Value),
                         EndSeconds = endSeconds,
                     };

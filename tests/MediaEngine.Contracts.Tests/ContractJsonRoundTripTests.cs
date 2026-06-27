@@ -28,6 +28,15 @@ public sealed class ContractJsonRoundTripTests
                 PrimaryColor = "#101820",
                 DominantColors = ["#101820", "#f2aa4c"],
             },
+            Progress = new ProgressViewModel
+            {
+                Percent = 42.5,
+                Label = "Continue listening",
+                ContextLabel = "Chapter 8 of 50",
+                PercentLabel = "43%",
+                RemainingLabel = "8h 15m left",
+                SecondaryLabel = "42 chapters remaining",
+            },
             Metadata =
             [
                 new MetadataPill
@@ -74,6 +83,7 @@ public sealed class ContractJsonRoundTripTests
                             ChapterIndex = 0,
                             StartSeconds = 12.5,
                             EndSeconds = 1800,
+                            ResumePositionSeconds = 420.25,
                             IsFavorite = true,
                         },
                     ],
@@ -90,10 +100,13 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal(dto.Id, roundTrip.Id);
         Assert.Equal(dto.EntityType, roundTrip.EntityType);
         Assert.Equal(dto.Artwork.CoverUrl, roundTrip.Artwork.CoverUrl);
+        Assert.Equal("Chapter 8 of 50", roundTrip.Progress?.ContextLabel);
+        Assert.Equal("8h 15m left", roundTrip.Progress?.RemainingLabel);
         Assert.Equal(dto.Metadata[0].Label, roundTrip.Metadata[0].Label);
         Assert.Equal(dto.OwnedFormats[0].FormatType, roundTrip.OwnedFormats[0].FormatType);
         Assert.Equal("asset-1", roundTrip.MediaGroups[0].Items[0].AssetId);
         Assert.Equal(12.5, roundTrip.MediaGroups[0].Items[0].StartSeconds);
+        Assert.Equal(420.25, roundTrip.MediaGroups[0].Items[0].ResumePositionSeconds);
         Assert.True(roundTrip.MediaGroups[0].Items[0].IsFavorite);
         Assert.Contains("\"entityType\":", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"EntityType\"", json, StringComparison.Ordinal);
@@ -305,6 +318,9 @@ public sealed class ContractJsonRoundTripTests
                         {
                             Index = 1,
                             Title = "Chapter 1",
+                            OriginalTitle = "001",
+                            Kind = PlaybackChapterKinds.Chapter,
+                            TitleSource = PlaybackChapterTitleSources.Generated,
                             StartSeconds = 0,
                             EndSeconds = 1800,
                         },
@@ -349,11 +365,15 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal("The Expanse", roundTrip.Queue[0].Series);
         Assert.Equal("/playback/stream/44444444-4444-4444-4444-444444444444", roundTrip.Queue[0].StreamUrl);
         Assert.Equal("Chapter 1", roundTrip.Queue[0].Chapters[0].Title);
+        Assert.Equal("001", roundTrip.Queue[0].Chapters[0].OriginalTitle);
+        Assert.Equal(PlaybackChapterKinds.Chapter, roundTrip.Queue[0].Chapters[0].Kind);
+        Assert.Equal(PlaybackChapterTitleSources.Generated, roundTrip.Queue[0].Chapters[0].TitleSource);
         Assert.Equal("Chapter 4", roundTrip.AudiobookHistory[0].ChapterTitle);
         Assert.Contains("\"positionSeconds\":1842.25", json, StringComparison.Ordinal);
         Assert.Contains("\"progressPct\":25.59", json, StringComparison.Ordinal);
         Assert.Contains("\"experience\":\"audiobook\"", json, StringComparison.Ordinal);
         Assert.Contains("\"streamUrl\":\"/playback/stream/44444444-4444-4444-4444-444444444444\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"originalTitle\":\"001\"", json, StringComparison.Ordinal);
 
         var mutation = new PlayerQueueMutationDto
         {
@@ -378,6 +398,65 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal(1842.25, mutationRoundTrip.Items[0].PositionSeconds);
         Assert.Contains("\"items\":[", mutationJson, StringComparison.Ordinal);
         Assert.Contains("\"startIndex\":0", mutationJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AudiobookChapterNamingDtos_RoundTripRepresentativeShape()
+    {
+        var workId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var assetId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var profileId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var suggestions = new AudiobookChapterNameSuggestionsDto
+        {
+            WorkId = workId,
+            AssetId = assetId,
+            Suggestions =
+            [
+                new AudiobookChapterNameSuggestionDto
+                {
+                    ChapterIndex = 1,
+                    CurrentTitle = "Chapter 1",
+                    OriginalTitle = "002",
+                    SuggestedTitle = "Chapter One",
+                    Confidence = 0.82,
+                    Reason = "Matched the local ebook table of contents.",
+                },
+            ],
+            Warnings = ["display names only"],
+        };
+        var overrideRequest = new UpsertAudiobookChapterTitleOverrideRequestDto
+        {
+            AssetId = assetId,
+            ChapterIndex = 1,
+            Title = "Chapter One",
+            TitleSource = PlaybackChapterTitleSources.AiSuggested,
+        };
+        var suggestRequest = new SuggestAudiobookChapterNamesRequestDto
+        {
+            AssetId = assetId,
+            ProfileId = profileId,
+        };
+
+        var suggestionsJson = JsonSerializer.Serialize(suggestions, JsonOptions);
+        var overrideJson = JsonSerializer.Serialize(overrideRequest, JsonOptions);
+        var suggestJson = JsonSerializer.Serialize(suggestRequest, JsonOptions);
+
+        var suggestionsRoundTrip = JsonSerializer.Deserialize<AudiobookChapterNameSuggestionsDto>(suggestionsJson, JsonOptions);
+        var overrideRoundTrip = JsonSerializer.Deserialize<UpsertAudiobookChapterTitleOverrideRequestDto>(overrideJson, JsonOptions);
+        var suggestRoundTrip = JsonSerializer.Deserialize<SuggestAudiobookChapterNamesRequestDto>(suggestJson, JsonOptions);
+
+        Assert.NotNull(suggestionsRoundTrip);
+        Assert.Equal(workId, suggestionsRoundTrip.WorkId);
+        Assert.Equal(assetId, suggestionsRoundTrip.AssetId);
+        Assert.Equal("Chapter One", suggestionsRoundTrip.Suggestions[0].SuggestedTitle);
+        Assert.Equal("display names only", suggestionsRoundTrip.Warnings[0]);
+        Assert.NotNull(overrideRoundTrip);
+        Assert.Equal(PlaybackChapterTitleSources.AiSuggested, overrideRoundTrip.TitleSource);
+        Assert.NotNull(suggestRoundTrip);
+        Assert.Equal(profileId, suggestRoundTrip.ProfileId);
+        Assert.Contains("\"suggestedTitle\":\"Chapter One\"", suggestionsJson, StringComparison.Ordinal);
+        Assert.Contains("\"titleSource\":\"AiSuggested\"", overrideJson, StringComparison.Ordinal);
+        Assert.Contains("\"profileId\":\"33333333-3333-3333-3333-333333333333\"", suggestJson, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -6,7 +6,7 @@
 @inject ListenPlaybackService Playback
 @implements IDisposable
 
-<aside class="listen-now-panel" aria-label="Now playing" @ondragover:preventDefault="true" @ondrop="QueueDraggedItemsAsync">
+<aside class="@PanelClass" aria-label="Now playing" @ondragover:preventDefault="true" @ondrop="QueueDraggedItemsAsync">
     <div class="listen-now-panel__header">
         <span>Now Playing</span>
         <MudIcon Icon="@Icons.Material.Outlined.ExpandLess" Class="tl-u-font-size-18px" />
@@ -29,14 +29,27 @@
 
             <div class="listen-now-panel__meta">
                 <h2>@current.Title</h2>
-                <p>@FirstNonBlank(current.Subtitle, current.Album, current.MediaType)</p>
-                @if (!string.IsNullOrWhiteSpace(current.Album) && !string.Equals(current.Album, current.Subtitle, StringComparison.OrdinalIgnoreCase))
+                <p>@PlayerSubtitle(current)</p>
+                @if (!Playback.IsAudiobookMode
+                    && !string.IsNullOrWhiteSpace(current.Album)
+                    && !string.Equals(current.Album, current.Title, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(current.Album, current.Subtitle, StringComparison.OrdinalIgnoreCase))
                 {
                     <span>@current.Album</span>
                 }
             </div>
 
             <div class="listen-now-panel__progress">
+                @if (Playback.IsAudiobookMode && !string.IsNullOrWhiteSpace(CurrentChapterProgressLabel))
+                {
+                    <div class="listen-now-panel__chapter-row">
+                        <span>
+                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-20px" />
+                            <strong>@CurrentChapterProgressLabel</strong>
+                        </span>
+                        <span>@ProgressPercentLabel</span>
+                    </div>
+                }
                 <AppNativeInput Type="range"
                                 Min="0"
                                 Max="@ProgressMax"
@@ -50,21 +63,44 @@
                 </div>
             </div>
 
-            <div class="listen-now-panel__controls" aria-label="Playback controls">
-                <AppNativeButton Type="button" Class="listen-now-panel__mini" OnClick="@(() => Playback.CyclePlaybackRateAsync())" AriaLabel="Playback speed">@FormatSpeed(Playback.PlaybackRate)</AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PreviousAsync" Disabled="@(!Playback.IsAudiobookMode && Playback.CurrentIndex <= 0)" AriaLabel="Previous">
-                    <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.Replay10 : Icons.Material.Outlined.SkipPrevious)" Class="tl-u-font-size-20px" />
-                </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause">
-                    <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-30px" />
-                </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="NextAsync" Disabled="@(!Playback.IsAudiobookMode && Playback.CurrentIndex >= Playback.Queue.Count - 1)" AriaLabel="Next">
-                    <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.Forward30 : Icons.Material.Outlined.SkipNext)" Class="tl-u-font-size-20px" />
-                </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-now-panel__icon" AriaLabel="Sleep timer" title="Sleep timer">
-                    <MudIcon Icon="@Icons.Material.Outlined.Timer" Class="tl-u-font-size-18px" />
-                </AppNativeButton>
-            </div>
+            @if (Playback.IsAudiobookMode)
+            {
+                <div class="listen-now-panel__controls listen-now-panel__controls--audiobook" aria-label="Audiobook playback controls">
+                    <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PlayPreviousChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Previous chapter" title="Previous chapter">
+                        <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-32px" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="@(() => Playback.SkipBackAsync())" AriaLabel="Back 15 seconds" title="Back 15 seconds">
+                        <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="tl-u-font-size-38px" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause">
+                        <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-42px" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="@(() => Playback.SkipForwardAsync())" AriaLabel="Forward 15 seconds" title="Forward 15 seconds">
+                        <MudIcon Icon="@Icons.Material.Outlined.Forward" Class="tl-u-font-size-38px" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PlayNextChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Next chapter" title="Next chapter">
+                        <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-32px" />
+                    </AppNativeButton>
+                </div>
+            }
+            else
+            {
+                <div class="listen-now-panel__controls" aria-label="Playback controls">
+                    <AppNativeButton Type="button" Class="listen-now-panel__mini" OnClick="@(() => Playback.CyclePlaybackRateAsync())" AriaLabel="Playback speed">@FormatSpeed(Playback.PlaybackRate)</AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)" AriaLabel="Previous">
+                        <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause">
+                        <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-30px" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="NextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)" AriaLabel="Next">
+                        <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Class="tl-u-font-size-20px" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="listen-now-panel__icon" AriaLabel="Queue options" title="Queue options">
+                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-18px" />
+                    </AppNativeButton>
+                </div>
+            }
 
             <div class="listen-now-panel__volume">
                 <AppNativeButton Type="button" Class="listen-now-panel__volume-button" OnClick="ToggleMuteAsync" AriaLabel="Mute">
@@ -81,28 +117,133 @@
 
             @if (Playback.IsAudiobookMode)
             {
-                <div class="listen-now-panel__queue-header">
-                    <span>Recent listening</span>
+                <div class="listen-now-panel__audiobook-actions" aria-label="Audiobook tools">
+                    @AudiobookActionButton("speed", $"Speed {FormatSpeed(Playback.PlaybackRate)}", Icons.Material.Outlined.Speed)
+                    @AudiobookActionButton("chapters", "Chapters", Icons.Material.Outlined.FormatListBulleted)
+                    @AudiobookActionButton("history", "History", Icons.Material.Outlined.History)
+                    @AudiobookActionButton("bookmarks", "Bookmark", Icons.Material.Outlined.BookmarkBorder)
+                    @AudiobookActionButton("sleep", "Sleep timer", Icons.Material.Outlined.Timer)
                 </div>
 
-                @if (Playback.AudiobookHistory.Count == 0)
+                @if (_activeAudiobookSheet is not null)
                 {
-                    <div class="listen-now-panel__empty">Recent listening positions will appear here.</div>
-                }
-                else
-                {
-                    <div class="listen-now-panel__queue">
-                        @foreach (var item in Playback.AudiobookHistory)
+                    <section class="listen-now-panel__sheet" aria-label="@AudiobookSheetTitle">
+                        <div class="listen-now-panel__sheet-grabber"></div>
+                        <div class="listen-now-panel__sheet-header">
+                            <div>
+                                <span>@AudiobookSheetTitle</span>
+                                <p>@AudiobookSheetSubtitle</p>
+                            </div>
+                            <div class="listen-now-panel__sheet-actions">
+                                <span class="listen-now-panel__sheet-status">@SheetStatus</span>
+                                <AppNativeButton Type="button" Class="listen-now-panel__sheet-close" OnClick="CloseAudiobookSheet" AriaLabel="Close sheet" title="Close sheet">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-28px" />
+                                </AppNativeButton>
+                            </div>
+                        </div>
+
+                        @switch (_activeAudiobookSheet)
                         {
-                            <AppNativeButton Type="button" Class="listen-now-panel__history-row" OnClick="@(() => PlayHistoryAsync(item))">
-                                <span class="listen-now-panel__queue-copy">
-                                    <strong>@($"{FirstNonBlank(item.ChapterTitle, item.Title)} - {FormatTimestamp(item.PositionSeconds)}")</strong>
-                                    <span>@item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</span>
-                                </span>
-                                <span class="listen-now-panel__queue-duration">Resume</span>
-                            </AppNativeButton>
+                            case "speed":
+                                <div class="listen-now-panel__sheet-list listen-now-panel__sheet-list--speed">
+                                    @foreach (var rate in SpeedRates)
+                                    {
+                                        <AppNativeButton Type="button" Class="@($"listen-now-panel__sheet-row listen-now-panel__sheet-row--speed {(Math.Abs(rate - Playback.PlaybackRate) < 0.01d ? "is-active" : null)}")" OnClick="@(() => SetSpeedAsync(rate))" AriaLabel="@($"Set speed to {FormatSpeed(rate)}")" title="@($"Set speed to {FormatSpeed(rate)}")">
+                                            <span class="listen-now-panel__radio"></span>
+                                            <strong>@FormatSpeed(rate)</strong>
+                                        </AppNativeButton>
+                                    }
+                                </div>
+                                break;
+                            case "chapters":
+                                <div class="listen-now-panel__sheet-list">
+                                    @if (CurrentChapters.Count == 0)
+                                    {
+                                        <div class="listen-now-panel__empty">No timed chapters were found for this audiobook.</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var chapter in CurrentChapters)
+                                        {
+                                            var isActive = IsCurrentChapter(chapter);
+                                            <AppNativeButton Type="button" Class="@($"listen-now-panel__sheet-row {(isActive ? "is-active" : null)}")" OnClick="@(() => PlayChapterAsync(chapter))" AriaLabel="@($"Play {chapter.Title}")" title="@($"Play {chapter.Title}")">
+                                                <span class="listen-now-panel__queue-copy">
+                                                    <strong>@chapter.Title</strong>
+                                                    <span>@ChapterDuration(chapter)</span>
+                                                </span>
+                                                <MudIcon Icon="@(isActive ? Icons.Material.Filled.VolumeUp : Icons.Material.Filled.ChevronRight)" Class="tl-u-font-size-22px" />
+                                            </AppNativeButton>
+                                        }
+                                    }
+                                </div>
+                                break;
+                            case "history":
+                                <div class="listen-now-panel__sheet-list">
+                                    @if (Playback.AudiobookHistory.Count == 0)
+                                    {
+                                        <div class="listen-now-panel__empty">Recent listening positions will appear here.</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var item in Playback.AudiobookHistory)
+                                        {
+                                            <AppNativeButton Type="button" Class="listen-now-panel__sheet-row" OnClick="@(() => PlayHistoryAsync(item))" AriaLabel="@($"Resume from {HistoryTitle(item)}")" title="@($"Resume from {HistoryTitle(item)}")">
+                                                <span class="listen-now-panel__queue-copy">
+                                                    <strong>@HistoryTitle(item)</strong>
+                                                    <span>@HistorySubtitle(item)</span>
+                                                </span>
+                                                <span class="listen-now-panel__queue-duration">Resume</span>
+                                            </AppNativeButton>
+                                        }
+                                    }
+                                </div>
+                                break;
+                            case "bookmarks":
+                                <div class="listen-now-panel__sheet-toolbar">
+                                    <AppNativeButton Type="button" Class="listen-now-panel__sheet-primary" OnClick="AddBookmarkAsync" AriaLabel="Add bookmark at current position" title="Add bookmark at current position">
+                                        <MudIcon Icon="@Icons.Material.Outlined.BookmarkAdd" Class="tl-u-font-size-20px" />
+                                        <span>Add bookmark at @FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+                                    </AppNativeButton>
+                                </div>
+                                <div class="listen-now-panel__sheet-list">
+                                    @if (Playback.AudiobookBookmarks.Count == 0)
+                                    {
+                                        <div class="listen-now-panel__empty">No bookmarks yet.</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var bookmark in Playback.AudiobookBookmarks)
+                                        {
+                                            <div class="listen-now-panel__bookmark-row">
+                                                <AppNativeButton Type="button" Class="listen-now-panel__sheet-row listen-now-panel__sheet-row--bookmark" OnClick="@(() => PlayBookmarkAsync(bookmark))" AriaLabel="@($"Resume bookmark {BookmarkTitle(bookmark)}")" title="@($"Resume bookmark {BookmarkTitle(bookmark)}")">
+                                                    <span class="listen-now-panel__queue-copy">
+                                                        <strong>@BookmarkTitle(bookmark)</strong>
+                                                        <span>@bookmark.CreatedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</span>
+                                                    </span>
+                                                    <span class="listen-now-panel__queue-duration">Resume</span>
+                                                </AppNativeButton>
+                                                <AppNativeButton Type="button" Class="listen-now-panel__delete" OnClick="@(() => DeleteBookmarkAsync(bookmark.Id))" AriaLabel="Delete bookmark" title="Delete bookmark">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Delete" Class="tl-u-font-size-20px" />
+                                                </AppNativeButton>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                                break;
+                            case "sleep":
+                                <div class="listen-now-panel__timer-grid">
+                                    @TimerButton("Off", null, null)
+                                    @TimerButton("5 min", 5, null)
+                                    @TimerButton("10 min", 10, null)
+                                    @TimerButton("15 min", 15, null)
+                                    @TimerButton("30 min", 30, null)
+                                    @TimerButton("45 min", 45, null)
+                                    @TimerButton("60 min", 60, null)
+                                    @TimerButton("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
+                                </div>
+                                break;
                         }
-                    </div>
+                    </section>
                 }
             }
             else
@@ -163,7 +304,53 @@
 </aside>
 
 @code {
+    private static readonly IReadOnlyList<double> SpeedRates = Enumerable.Range(5, 26).Select(value => value / 10d).ToList();
+    private string? _activeAudiobookSheet = "history";
+
     private double ProgressMax => Playback.DurationSeconds > 0 ? Playback.DurationSeconds : 1;
+    private IReadOnlyList<PlaybackChapterDto> CurrentChapters =>
+        Playback.CurrentItem is { Chapters.Count: > 1 } item ? item.Chapters : [];
+    private bool HasChapters => CurrentChapters.Count > 0;
+    private string PanelClass => Playback.IsAudiobookMode ? "listen-now-panel listen-now-panel--audiobook" : "listen-now-panel";
+    private string AudiobookSheetTitle => _activeAudiobookSheet switch
+    {
+        "speed" => "Speed",
+        "chapters" => "Chapters",
+        "history" => "History",
+        "bookmarks" => "Bookmarks",
+        "sleep" => "Sleep Timer",
+        _ => "Audiobook",
+    };
+    private string AudiobookSheetSubtitle => _activeAudiobookSheet switch
+    {
+        "speed" => "Choose playback speed",
+        "chapters" => "Jump to a chapter",
+        "history" => "Recent listening positions",
+        "bookmarks" => "Saved audiobook positions",
+        "sleep" => "Stop playback automatically",
+        _ => string.Empty,
+    };
+    private string SheetStatus => _activeAudiobookSheet switch
+    {
+        "speed" => FormatSpeed(Playback.PlaybackRate),
+        "chapters" => CurrentChapters.Count == 1 ? "1 chapter" : $"{CurrentChapters.Count} chapters",
+        "history" => Playback.AudiobookHistory.Count == 1 ? "1 item" : $"{Playback.AudiobookHistory.Count} items",
+        "bookmarks" => Playback.AudiobookBookmarks.Count == 1 ? "1 saved" : $"{Playback.AudiobookBookmarks.Count} saved",
+        "sleep" => SleepTimerDisplay,
+        _ => string.Empty,
+    };
+    private string SleepTimerDisplay => Playback.SleepTimerMode switch
+    {
+        ListenSleepTimerModes.EndOfChapter => "End of chapter",
+        ListenSleepTimerModes.Timer when Playback.SleepTimerEndsAtUtc.HasValue => $"{Math.Max(1, (int)Math.Ceiling((Playback.SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalMinutes))} min",
+        _ => "Off",
+    };
+    private string CurrentChapterProgressLabel =>
+        Playback.CurrentChapter is { } chapter && CurrentChapters.Count > 1
+            ? $"{chapter.Title} of {CurrentChapters.Count}"
+            : string.Empty;
+    private string ProgressPercentLabel =>
+        $"{Math.Clamp((int)Math.Round(Playback.CurrentTimeSeconds / ProgressMax * 100d, MidpointRounding.AwayFromZero), 0, 100)}%";
 
     protected override void OnInitialized()
     {
@@ -172,23 +359,57 @@
 
     private void HandlePlaybackChanged() => _ = InvokeAsync(StateHasChanged);
 
+    private RenderFragment AudiobookActionButton(string sheet, string label, string icon) => @<AppNativeButton Type="button" Class="@($"listen-now-panel__action {(_activeAudiobookSheet == sheet ? "is-active" : null)}")" OnClick="@(() => ToggleAudiobookSheet(sheet))" AriaLabel="@label" title="@label">
+        <MudIcon Icon="@icon" Class="tl-u-font-size-38px" />
+    </AppNativeButton>;
+
+    private void ToggleAudiobookSheet(string sheet) =>
+        _activeAudiobookSheet = _activeAudiobookSheet == sheet ? null : sheet;
+
+    private void CloseAudiobookSheet() => _activeAudiobookSheet = null;
+
+    private RenderFragment TimerButton(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-now-panel__timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">@label</AppNativeButton>;
+
     private Task TogglePlayAsync() => Playback.RequestTransportCommandAsync(new("toggle-play"));
 
     private Task NextAsync() =>
-        Playback.IsAudiobookMode
-            ? Playback.SkipForwardAsync()
-            : Playback.RequestTransportCommandAsync(new("play-next"));
+        Playback.RequestTransportCommandAsync(new("play-next"));
 
     private Task PreviousAsync() =>
-        Playback.IsAudiobookMode
-            ? Playback.SkipBackAsync()
-            : Playback.RequestTransportCommandAsync(new("play-previous"));
+        Playback.RequestTransportCommandAsync(new("play-previous"));
+
+    private Task PlayNextChapterAsync() => Playback.PlayNextChapterAsync();
+
+    private Task PlayPreviousChapterAsync() => Playback.PlayPreviousChapterAsync();
+
+    private Task PlayChapterAsync(PlaybackChapterDto chapter) =>
+        Playback.PlayAudiobookChapterAsync(chapter.Index);
 
     private Task ToggleMuteAsync() => Playback.RequestTransportCommandAsync(new("toggle-mute"));
 
     private Task PlayFromQueueAsync(int index) => Playback.PlayIndexAsync(index);
 
     private Task PlayHistoryAsync(AudiobookListenHistoryItemDto item) => Playback.PlayAudiobookHistoryAsync(item);
+
+    private Task SetSpeedAsync(double rate) => Playback.SetPlaybackRateAsync(rate);
+
+    private Task AddBookmarkAsync() => Playback.AddAudiobookBookmarkAsync();
+
+    private Task PlayBookmarkAsync(AudiobookBookmarkDto bookmark) => Playback.PlayAudiobookBookmarkAsync(bookmark);
+
+    private Task DeleteBookmarkAsync(Guid bookmarkId) => Playback.DeleteAudiobookBookmarkAsync(bookmarkId);
+
+    private Task SetTimerAsync(int? minutes, string? mode)
+    {
+        if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
+        {
+            return Playback.SetSleepTimerEndOfChapterAsync();
+        }
+
+        return minutes.HasValue
+            ? Playback.SetSleepTimerAsync(TimeSpan.FromMinutes(minutes.Value))
+            : Playback.CancelSleepTimerAsync();
+    }
 
     private Task SeekAsync(ChangeEventArgs args)
     {
@@ -234,7 +455,47 @@
     }
 
     private static string FormatSpeed(double rate) =>
-        $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";
+        $"{Math.Clamp(rate, 0.5d, 3d).ToString("0.##", CultureInfo.InvariantCulture)}x";
+
+    private string PlayerSubtitle(ListenQueueItem item) =>
+        Playback.IsAudiobookMode
+            ? FirstDistinctFrom(item.Title, item.Subtitle, item.Album, item.MediaType)
+            : FirstNonBlank(item.Subtitle, item.Album, item.MediaType);
+
+    private bool IsTimerActive(int? minutes, string? mode)
+    {
+        if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
+        {
+            return Playback.SleepTimerMode == ListenSleepTimerModes.EndOfChapter;
+        }
+
+        if (!minutes.HasValue)
+        {
+            return Playback.SleepTimerMode == ListenSleepTimerModes.Off;
+        }
+
+        return Playback.SleepTimerMode == ListenSleepTimerModes.Timer
+            && Playback.SleepTimerEndsAtUtc.HasValue
+            && Math.Abs((Playback.SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalMinutes - minutes.Value) < 1.2d;
+    }
+
+    private bool IsCurrentChapter(PlaybackChapterDto chapter) =>
+        Playback.CurrentTimeSeconds >= chapter.StartSeconds - 0.5d
+        && (!chapter.EndSeconds.HasValue || Playback.CurrentTimeSeconds < chapter.EndSeconds.Value - 0.5d);
+
+    private static string ChapterDuration(PlaybackChapterDto chapter) =>
+        chapter.EndSeconds is > 0 && chapter.EndSeconds.Value > chapter.StartSeconds
+            ? FormatTimestamp(chapter.EndSeconds.Value - chapter.StartSeconds)
+            : string.Empty;
+
+    private static string HistoryTitle(AudiobookListenHistoryItemDto item) =>
+        item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture);
+
+    private static string HistorySubtitle(AudiobookListenHistoryItemDto item) =>
+        $"Left off at {FormatTimestamp(item.PositionSeconds)}";
+
+    private static string BookmarkTitle(AudiobookBookmarkDto item) =>
+        FirstNonBlank(item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");
 
     private static string FallbackIconFor(ListenQueueItem item) =>
         item.MediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase)
@@ -243,6 +504,10 @@
 
     private static string FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
+
+    private static string FirstDistinctFrom(string? primary, params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)
+            && !string.Equals(value, primary, StringComparison.OrdinalIgnoreCase)) ?? "Audiobook";
 
     public void Dispose()
     {
