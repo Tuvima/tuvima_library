@@ -13,6 +13,9 @@
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.3" />
+    <!-- Pin the runtime bundle directly so restore uses SQLitePCLRaw 3.x native assets
+         instead of the vulnerable SQLitePCLRaw.lib.e_sqlite3 2.1.11 package. -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
     <!-- Swashbuckle 7.x: kept at 7.x intentionally — upgrading to 10.x requires

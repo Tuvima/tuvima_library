@@ -23,7 +23,7 @@ The authoritative package version list is `Directory.Packages.props`; the projec
 | .NET, ASP.NET Core, Blazor Server | Runtime, API host, and Dashboard framework |
 | MudBlazor | Dashboard UI components |
 | SignalR | Live Engine-to-Dashboard updates |
-| SQLite and Microsoft.Data.Sqlite | Local database |
+| SQLite, SQLitePCLRaw, and Microsoft.Data.Sqlite | Local database |
 | Dapper | Data access |
 | Serilog | Structured logging |
 | Polly / Microsoft.Extensions.Http.Resilience | Resilient outbound HTTP calls |
