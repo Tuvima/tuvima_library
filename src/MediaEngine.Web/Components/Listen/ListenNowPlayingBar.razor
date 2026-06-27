@@ -13,6 +13,18 @@
 @inject NavigationManager Nav
 @implements IAsyncDisposable
 
+<audio @ref="_audioRef"
+       class="listen-player__audio-native"
+       src="@Playback.CurrentBrowserStreamUrl"
+       @onloadedmetadata="HandleAudioMetricsChangedAsync"
+       @ondurationchange="HandleAudioMetricsChangedAsync"
+       @ontimeupdate="HandleAudioMetricsChangedAsync"
+       @onplay="HandleAudioStarted"
+       @onpause="HandleAudioPaused"
+       @onerror="HandleAudioErrorAsync"
+       @onended="HandleAudioEndedAsync">
+</audio>
+
 @if (Playback.HasQueue && Playback.CurrentItem is not null)
 {
     <div class="@PlayerShellClass">
@@ -167,20 +179,6 @@
         }
 
         <div class="listen-player">
-            <audio @ref="_audioRef"
-                   @key="Playback.CurrentBrowserStreamUrl"
-                   class="listen-player__audio-native"
-                   src="@Playback.CurrentBrowserStreamUrl"
-                   autoplay
-                   @onloadedmetadata="HandleAudioMetricsChangedAsync"
-                   @ondurationchange="HandleAudioMetricsChangedAsync"
-                   @ontimeupdate="HandleAudioMetricsChangedAsync"
-                   @onplay="HandleAudioStarted"
-                   @onpause="HandleAudioPaused"
-                   @onerror="HandleAudioErrorAsync"
-                   @onended="HandleAudioEndedAsync">
-            </audio>
-
             <div class="listen-player__meta">
                 <div class="listen-player__thumb">
                     @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
@@ -401,6 +399,8 @@
     private async Task SyncAudioAsync()
     {
         var browserStreamUrl = Playback.CurrentBrowserStreamUrl;
+        var targetPositionSeconds = Playback.CurrentTimeSeconds;
+        var targetPlaybackRate = Playback.PlaybackRate;
         var startVersionChanged = _lastAppliedStartVersion != Playback.PlaybackStartVersion;
         if (startVersionChanged)
         {
@@ -431,22 +431,20 @@
             _lastAppliedMuteState = Playback.IsMuted;
         }
 
-        if (!_lastAppliedPlaybackRate.HasValue || Math.Abs(_lastAppliedPlaybackRate.Value - Playback.PlaybackRate) >= 0.01d)
+        if (!_lastAppliedPlaybackRate.HasValue || Math.Abs(_lastAppliedPlaybackRate.Value - targetPlaybackRate) >= 0.01d)
         {
-            await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, Playback.PlaybackRate);
-            _lastAppliedPlaybackRate = Playback.PlaybackRate;
+            await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _audioRef, targetPlaybackRate);
+            _lastAppliedPlaybackRate = targetPlaybackRate;
         }
 
-        var shouldSeek = Playback.CurrentTimeSeconds > 0
+        var shouldSeek = targetPositionSeconds > 0
             && (!string.Equals(_lastSeekedStreamUrl, browserStreamUrl, StringComparison.Ordinal)
-                || !_lastSeekedPositionSeconds.HasValue
-                || Math.Abs(_lastSeekedPositionSeconds.Value - Playback.CurrentTimeSeconds) >= 0.5d
                 || startVersionChanged);
         if (shouldSeek)
         {
-            await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, Playback.CurrentTimeSeconds);
+            await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, targetPositionSeconds);
             _lastSeekedStreamUrl = browserStreamUrl;
-            _lastSeekedPositionSeconds = Playback.CurrentTimeSeconds;
+            _lastSeekedPositionSeconds = targetPositionSeconds;
         }
 
         if (_lastAppliedPlayingState != Playback.IsPlaying)
@@ -524,6 +522,51 @@
         }
     }
 
+    private async Task StartAudioAsync(ListenTransportCommand command)
+    {
+        var streamUrl = FirstNonBlank(command.StreamUrl, Playback.CurrentBrowserStreamUrl);
+        var positionSeconds = Math.Max(0, command.PositionSeconds ?? command.Value ?? Playback.CurrentTimeSeconds);
+        var playbackRate = command.PlaybackRate ?? Playback.PlaybackRate;
+        var started = await JS.InvokeAsync<bool>(
+            "listenPlayback.startAudio",
+            _audioRef,
+            new
+            {
+                streamUrl,
+                positionSeconds,
+                playbackRate,
+                volume = Playback.Volume,
+                muted = Playback.IsMuted,
+            });
+
+        if (!string.IsNullOrWhiteSpace(streamUrl))
+        {
+            _lastAppliedStreamUrl = streamUrl;
+            _lastSeekedStreamUrl = streamUrl;
+        }
+
+        _lastSeekedPositionSeconds = positionSeconds;
+        _lastAppliedPlaybackRate = playbackRate;
+        _lastAppliedVolume = Playback.Volume;
+        _lastAppliedMuteState = Playback.IsMuted;
+        _lastAppliedPlayingState = started;
+
+        if (started)
+        {
+            Playback.UpdateTransportState(
+                currentTimeSeconds: positionSeconds,
+                isPlaying: true,
+                playbackRate: playbackRate,
+                needsUserGestureToStart: false);
+            Playback.MarkPlaybackStarted();
+            await Playback.ReportHeartbeatAsync(force: true);
+        }
+        else
+        {
+            Playback.MarkNeedsUserGestureToStart();
+        }
+    }
+
     private async Task PauseAudioAsync()
     {
         await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _audioRef);
@@ -572,6 +615,8 @@
         }
 
         await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, seconds);
+        _lastSeekedStreamUrl = Playback.CurrentBrowserStreamUrl;
+        _lastSeekedPositionSeconds = seconds;
         Playback.UpdateTransportState(currentTimeSeconds: seconds);
         await Playback.ReportHeartbeatAsync(force: true);
     }
@@ -693,6 +738,8 @@
                 break;
             case "seek" when command.Value.HasValue:
                 await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
+                _lastSeekedStreamUrl = Playback.CurrentBrowserStreamUrl;
+                _lastSeekedPositionSeconds = command.Value.Value;
                 Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
                 await Playback.ReportHeartbeatAsync(force: true);
                 break;
@@ -755,8 +802,13 @@
                 break;
             case "seek" when command.Value.HasValue:
                 await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
+                _lastSeekedStreamUrl = Playback.CurrentBrowserStreamUrl;
+                _lastSeekedPositionSeconds = command.Value.Value;
                 Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
                 await Playback.ReportHeartbeatAsync(force: true);
+                break;
+            case "start":
+                await StartAudioAsync(command);
                 break;
             case "set-volume" when command.Value.HasValue:
                 Playback.UpdateTransportState(volume: command.Value.Value, isMuted: command.Value.Value <= 0);

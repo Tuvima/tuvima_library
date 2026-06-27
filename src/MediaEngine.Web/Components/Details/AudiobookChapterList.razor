@@ -5,36 +5,53 @@
 @using MediaEngine.Web.Services.Playback
 @inject ListenPlaybackService Playback
 
-@if (ChapterItems.Count > 0)
+@{
+    var rows = ChapterRows;
+}
+
+@if (rows.Count > 0)
 {
     <section class="tl-audiobook-chapters" aria-label="@($"{AudiobookTitle} chapters")">
         <div class="tl-audiobook-chapters__header">
             <div>
                 <h2>Chapters</h2>
-                <p>@ChapterItems.Count chapter@(ChapterItems.Count == 1 ? string.Empty : "s") available in the player</p>
+                <p>@rows.Count chapter@(rows.Count == 1 ? string.Empty : "s") available in the player</p>
             </div>
         </div>
 
         <div class="tl-audiobook-chapters__list">
-            @for (var index = 0; index < ChapterItems.Count; index++)
+            @foreach (var row in rows)
             {
-                var item = ChapterItems[index];
-                var chapter = ToPlaybackChapter(item, index);
-                var isCurrent = IsCurrentChapter(item);
+                var isPlaying = row.IsCurrent && Playback.IsPlaying && !Playback.NeedsUserGestureToStart;
+                var statusLabel = StatusLabelFor(row, isPlaying);
                 <AppNativeButton Type="button"
-                                 Class="@($"tl-audiobook-chapters__row {(isCurrent ? "is-current" : null)}")"
-                                 OnClick="@(() => PlayChapterAsync(item, chapter))"
-                                 AriaLabel="@($"Play {chapter.Title}")"
-                                 title="@($"Play {chapter.Title}")">
+                                 Class="@($"tl-audiobook-chapters__row {(row.IsCurrent ? "is-current" : null)} {(row.IsIntro ? "is-intro" : null)}")"
+                                 OnClick="@(() => ActivateChapterAsync(row))"
+                                 Disabled="@(!row.Item.IsOwned)"
+                                 AriaLabel="@ActionLabel(row.Chapter, row.IsCurrent, isPlaying)"
+                                 title="@ActionLabel(row.Chapter, row.IsCurrent, isPlaying)">
                     <span class="tl-audiobook-chapters__copy">
-                        <strong>@chapter.Title</strong>
-                        <span>@ChapterDuration(item, chapter)</span>
+                        <strong>@row.Chapter.Title</strong>
+                        @if (!string.IsNullOrWhiteSpace(row.SubtitleLabel))
+                        {
+                            <span>@row.SubtitleLabel</span>
+                        }
                     </span>
-                    @if (item.ProgressPercent is > 0 and < 100)
-                    {
-                        <span class="tl-audiobook-chapters__progress">@($"{Math.Round(item.ProgressPercent.Value):0}%")</span>
-                    }
-                    <MudIcon Icon="@(isCurrent ? Icons.Material.Filled.VolumeUp : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-22px" />
+                    <span class="tl-audiobook-chapters__status">
+                        @if (row.IsCurrent)
+                        {
+                            <span class="@($"tl-audiobook-chapters__equalizer {(isPlaying ? "is-playing" : null)}")" aria-hidden="true">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </span>
+                        }
+                        <span>@statusLabel</span>
+                    </span>
+                    <span class="tl-audiobook-chapters__duration">@row.DurationLabel</span>
+                    <span class="tl-audiobook-chapters__action" aria-hidden="true">
+                        <MudIcon Icon="@(isPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
+                    </span>
                 </AppNativeButton>
             }
         </div>
@@ -54,29 +71,60 @@
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private Task PlayChapterAsync(MediaGroupingItemViewModel item, PlaybackChapterDto chapter)
+    private IReadOnlyList<ChapterRow> ChapterRows => BuildChapterRows(ChapterItems);
+
+    private IReadOnlyList<ChapterRow> BuildChapterRows(IReadOnlyList<MediaGroupingItemViewModel> items)
     {
-        if (!item.IsOwned)
+        var rows = new List<ChapterRow>(items.Count);
+
+        for (var ordinal = 0; ordinal < items.Count; ordinal++)
+        {
+            var item = items[ordinal];
+            var chapter = ToPlaybackChapter(item, ordinal);
+            var isIntro = IsIntroChapter(item, chapter);
+            var isCurrent = IsCurrentChapter(item);
+
+            rows.Add(new ChapterRow(
+                item,
+                chapter,
+                DisplayDuration(item, chapter),
+                ProgressLabelFor(item),
+                string.Empty,
+                isCurrent,
+                isIntro));
+        }
+
+        return rows;
+    }
+
+    private Task ActivateChapterAsync(ChapterRow row)
+    {
+        if (!row.Item.IsOwned)
         {
             return Task.CompletedTask;
         }
 
-        return Playback.PlayAudiobookChapterAsync(ToQueueItem(item, chapter), chapter, AudiobookTitle);
+        if (row.IsCurrent)
+        {
+            return Playback.RequestTransportCommandAsync(new("toggle-play"));
+        }
+
+        return Playback.PlayAudiobookChapterAsync(ToQueueItem(row), row.Chapter, AudiobookTitle);
     }
 
-    private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel item, PlaybackChapterDto chapter) => new()
+    private ListenQueueItem ToQueueItem(ChapterRow row) => new()
     {
-        WorkId = ItemId(item),
-        AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
+        WorkId = ItemId(row.Item),
+        AssetId = Guid.TryParse(row.Item.AssetId, out var assetId) ? assetId : null,
         MediaType = "Audiobooks",
         Title = AudiobookTitle,
-        Subtitle = chapter.Title,
+        Subtitle = row.Chapter.Title,
         Album = AudiobookTitle,
-        CoverUrl = item.ArtworkUrl ?? AudiobookArtworkUrl,
-        Duration = DisplayDuration(item, chapter),
-        InitialPositionSeconds = chapter.StartSeconds,
-        Chapters = ChapterItems.Select(chapterItem => ToPlaybackChapter(chapterItem)).ToList(),
-        ChapterIndex = chapter.Index,
+        CoverUrl = row.Item.ArtworkUrl ?? AudiobookArtworkUrl,
+        Duration = row.DurationLabel,
+        InitialPositionSeconds = row.Chapter.StartSeconds,
+        Chapters = ChapterRows.Select(chapterRow => chapterRow.Chapter).ToList(),
+        ChapterIndex = row.Chapter.Index,
         StartAtExactPosition = true,
     };
 
@@ -104,6 +152,16 @@
         return Math.Max(0, item.ChapterIndex ?? 0);
     }
 
+    private static bool IsIntroChapter(MediaGroupingItemViewModel item, PlaybackChapterDto chapter) =>
+        item.ChapterIndex == 0
+        && string.Equals(chapter.Title, "Intro", StringComparison.OrdinalIgnoreCase)
+        && chapter.StartSeconds <= 5;
+
+    private static string ActionLabel(PlaybackChapterDto chapter, bool isCurrent, bool isPlaying) =>
+        isCurrent
+            ? isPlaying ? $"Pause {chapter.Title}" : $"Resume {chapter.Title}"
+            : $"Play {chapter.Title}";
+
     private bool IsCurrentChapter(MediaGroupingItemViewModel item)
     {
         if (!Playback.IsAudiobookMode || Playback.CurrentItem is null)
@@ -128,9 +186,6 @@
             && (!item.EndSeconds.HasValue || current < item.EndSeconds.Value - 0.5d);
     }
 
-    private static string ChapterDuration(MediaGroupingItemViewModel item, PlaybackChapterDto chapter) =>
-        DisplayDuration(item, chapter);
-
     private static string DisplayDuration(MediaGroupingItemViewModel item, PlaybackChapterDto chapter)
     {
         if (chapter.EndSeconds is > 0 && chapter.EndSeconds.Value > chapter.StartSeconds)
@@ -154,6 +209,52 @@
             : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
+    private static string ProgressLabelFor(MediaGroupingItemViewModel item)
+    {
+        if (!item.ProgressPercent.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var percent = Math.Clamp(item.ProgressPercent.Value, 0d, 100d);
+        if (percent <= 0)
+        {
+            return string.Empty;
+        }
+
+        if (percent >= 99.5d)
+        {
+            return "Done";
+        }
+
+        if (percent < 1d)
+        {
+            return "Started";
+        }
+
+        var rounded = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 1, 99);
+        return $"{rounded}% listened";
+    }
+
+    private static string StatusLabelFor(ChapterRow row, bool isPlaying)
+    {
+        if (!row.IsCurrent)
+        {
+            return row.StatusLabel;
+        }
+
+        return isPlaying ? "Now playing" : "Current position";
+    }
+
     private static Guid ItemId(MediaGroupingItemViewModel item) =>
         Guid.TryParse(item.Id, out var id) ? id : Guid.Empty;
+
+    private sealed record ChapterRow(
+        MediaGroupingItemViewModel Item,
+        PlaybackChapterDto Chapter,
+        string DurationLabel,
+        string StatusLabel,
+        string SubtitleLabel,
+        bool IsCurrent,
+        bool IsIntro);
 }

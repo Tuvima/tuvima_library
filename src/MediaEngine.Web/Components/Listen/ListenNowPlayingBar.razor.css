@@ -170,11 +170,20 @@
 
     .listen-player__progress {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-columns: 4.75rem minmax(0, 1fr) 4.75rem;
         gap: 10px;
         align-items: center;
         color: var(--tl-text-secondary);
         font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .listen-player__progress span:first-child {
+        text-align: right;
+    }
+
+    .listen-player__progress span:last-child {
+        text-align: left;
     }
 
     .listen-player__progress-slider,
@@ -195,7 +204,7 @@
     .listen-player-panel__text-action {
         border: 0;
         cursor: pointer;
-        transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+        transition: background 0.16s ease, color 0.16s ease;
     }
 
     .listen-player__icon,
@@ -228,7 +237,7 @@
     .listen-player-panel__item-remove:hover,
     .listen-player-panel__tab:hover,
     .listen-player-panel__text-action:hover {
-        transform: translateY(-1px);
+        background: var(--app-surface-3, rgba(148, 163, 184, 0.18));
     }
 
     .listen-player-panel-backdrop {

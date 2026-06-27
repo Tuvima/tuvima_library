@@ -1134,6 +1134,67 @@ window.listenPlayback = (function () {
                 return false;
             }
         },
+        startAudio: async function (element, options) {
+            if (!element) return false;
+
+            var payload = options || {};
+            var streamUrl = payload.streamUrl || payload.StreamUrl || '';
+            var positionSeconds = payload.positionSeconds ?? payload.PositionSeconds ?? 0;
+            var playbackRate = payload.playbackRate ?? payload.PlaybackRate ?? 1;
+            var volume = payload.volume ?? payload.Volume;
+            var muted = payload.muted ?? payload.Muted;
+
+            try {
+                if (streamUrl && element.getAttribute('src') !== streamUrl) {
+                    element.setAttribute('src', streamUrl);
+                    element.load();
+                } else if (streamUrl && element.readyState === 0) {
+                    element.load();
+                }
+
+                if (typeof volume === 'number') {
+                    element.volume = Math.max(0, Math.min(1, volume));
+                }
+
+                if (typeof muted === 'boolean') {
+                    element.muted = muted;
+                }
+
+                if (typeof playbackRate === 'number' && isFinite(playbackRate)) {
+                    element.playbackRate = playbackRate;
+                }
+
+                var target = Math.max(0, positionSeconds || 0);
+                if (target > 0) {
+                    if (element.readyState < 1) {
+                        await new Promise(function (resolve) {
+                            var done = false;
+                            var finish = function () {
+                                if (done) return;
+                                done = true;
+                                element.removeEventListener('loadedmetadata', finish);
+                                resolve();
+                            };
+
+                            element.addEventListener('loadedmetadata', finish, { once: true });
+                            window.setTimeout(finish, 1200);
+                        });
+                    }
+
+                    try {
+                        element.currentTime = target;
+                    } catch (seekError) {
+                        console.debug("Audio start seek was rejected.", seekError);
+                    }
+                }
+
+                await element.play();
+                return true;
+            } catch (error) {
+                console.debug("Audio start request was rejected.", error);
+                return false;
+            }
+        },
         pauseAudio: function (element) {
             if (!element) return;
             element.pause();

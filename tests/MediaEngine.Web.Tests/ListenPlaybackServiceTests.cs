@@ -149,6 +149,52 @@ public sealed class ListenPlaybackServiceTests
     }
 
     [Fact]
+    public async Task PlayAudiobookAsync_CreatesStartCommandWithBootstrappedStreamAndResumePosition()
+    {
+        var service = new ListenPlaybackService(null!, null!);
+        var assetId = Guid.NewGuid();
+        ListenTransportCommand? command = null;
+        service.OnTransportCommandRequested += next =>
+        {
+            command = next;
+            return Task.CompletedTask;
+        };
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://placeholder") with
+        {
+            AssetId = assetId,
+            StreamUrl = null,
+            InitialPositionSeconds = 123,
+            Chapters =
+            [
+                new PlaybackChapterDto
+                {
+                    Index = 0,
+                    Title = "Intro",
+                    StartSeconds = 0,
+                    EndSeconds = 15,
+                },
+                new PlaybackChapterDto
+                {
+                    Index = 1,
+                    Title = "Chapter 1",
+                    StartSeconds = 15,
+                    EndSeconds = 1255,
+                },
+            ],
+        };
+
+        await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
+
+        Assert.NotNull(command);
+        Assert.Equal("start", command.Action);
+        Assert.Equal($"/engine-stream/{assetId:D}", command.StreamUrl);
+        Assert.Equal(113, command.PositionSeconds);
+        Assert.Equal(1.25d, command.PlaybackRate);
+        Assert.Equal(service.PlaybackStartVersion, command.RequestId);
+        Assert.Equal(113, service.CurrentTimeSeconds);
+    }
+
+    [Fact]
     public async Task SetPlaybackRateAsync_SetsExactSelectedRate()
     {
         var service = new ListenPlaybackService(null!, null!);

@@ -128,6 +128,7 @@ public sealed class ListenPlaybackService
     {
         ArgumentNullException.ThrowIfNull(item);
 
+        item = BootstrapDirectStream(item);
         RememberCurrentItem();
         _queue.Clear();
         _queue.Add(item);
@@ -142,13 +143,16 @@ public sealed class ListenPlaybackService
         NeedsUserGestureToStart = false;
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
-        await RefreshAudiobookHistoryAsync(ct);
+        if (string.IsNullOrWhiteSpace(CurrentBrowserStreamUrl))
+        {
+            NotifyChanged();
+            return;
+        }
+
         MarkPlaybackStart();
         NotifyChanged();
-        if (CurrentTimeSeconds > 0)
-        {
-            await RequestTransportCommandAsync(new("seek", CurrentTimeSeconds));
-        }
+        await RequestTransportCommandAsync(CreateStartCommand());
+        await RefreshAudiobookHistoryAsync(ct);
         await SyncReplaceQueueAsync([_queue[CurrentIndex]], 0, SourceLabel, false, ct);
     }
 
@@ -188,6 +192,7 @@ public sealed class ListenPlaybackService
 
         RememberCurrentItem();
 
+        items = items.Select(BootstrapDirectStream).ToList();
         if (shuffle)
         {
             var random = new Random();
@@ -208,13 +213,16 @@ public sealed class ListenPlaybackService
         NeedsUserGestureToStart = false;
         CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
-        await RefreshAudiobookHistoryAsync(ct);
+        if (string.IsNullOrWhiteSpace(CurrentBrowserStreamUrl))
+        {
+            NotifyChanged();
+            return;
+        }
+
         MarkPlaybackStart();
         NotifyChanged();
-        if (CurrentTimeSeconds > 0)
-        {
-            await RequestTransportCommandAsync(new("seek", CurrentTimeSeconds));
-        }
+        await RequestTransportCommandAsync(CreateStartCommand());
+        await RefreshAudiobookHistoryAsync(ct);
         await SyncReplaceQueueAsync(items, CurrentIndex, sourceLabel, shuffle, ct);
     }
 
@@ -223,6 +231,7 @@ public sealed class ListenPlaybackService
         var item = CreateQueueItem(work);
         if (_queue.Count == 0)
         {
+            item = BootstrapDirectStream(item);
             _queue.Add(item);
             CurrentIndex = 0;
             SourceLabel = work.Album ?? work.Title;
@@ -234,9 +243,16 @@ public sealed class ListenPlaybackService
             CurrentTimeSeconds = await InitialPositionForAsync(item, ct);
             PlaybackRate = await InitialPlaybackRateForAsync(item, ct);
             await EnsurePlayableAsync(CurrentIndex, ct);
+            if (string.IsNullOrWhiteSpace(CurrentBrowserStreamUrl))
+            {
+                NotifyChanged();
+                return;
+            }
+
             MarkPlaybackStart();
             NotifyChanged();
-            await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
+            await RequestTransportCommandAsync(CreateStartCommand());
+            await SyncReplaceQueueAsync([_queue[CurrentIndex]], 0, SourceLabel, false, ct);
             return;
         }
 
@@ -564,6 +580,14 @@ public sealed class ListenPlaybackService
             await OnTransportCommandRequested.Invoke(command);
         }
     }
+
+    private ListenTransportCommand CreateStartCommand() => new(
+        "start",
+        Value: CurrentTimeSeconds,
+        StreamUrl: CurrentBrowserStreamUrl,
+        PositionSeconds: CurrentTimeSeconds,
+        PlaybackRate: PlaybackRate,
+        RequestId: PlaybackStartVersion);
 
     public async Task SkipBackAsync(CancellationToken ct = default)
     {
@@ -1049,6 +1073,16 @@ public sealed class ListenPlaybackService
         CurrentError = null;
     }
 
+    private static ListenQueueItem BootstrapDirectStream(ListenQueueItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.StreamUrl) || !item.AssetId.HasValue)
+        {
+            return item;
+        }
+
+        return item with { StreamUrl = $"/stream/{item.AssetId.Value:D}" };
+    }
+
     private string? NormalizeStreamUrl(string? streamUrl)
     {
         if (string.IsNullOrWhiteSpace(streamUrl))
@@ -1500,7 +1534,13 @@ public static class ListenSleepTimerModes
     public const string EndOfChapter = "chapter";
 }
 
-public sealed record ListenTransportCommand(string Action, double? Value = null);
+public sealed record ListenTransportCommand(
+    string Action,
+    double? Value = null,
+    string? StreamUrl = null,
+    double? PositionSeconds = null,
+    double? PlaybackRate = null,
+    long? RequestId = null);
 
 public sealed record ListenQueueItem
 {
