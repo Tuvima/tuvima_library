@@ -5,7 +5,7 @@
     <div class="tl-detail-primary-actions">
         @foreach (var action in PrimaryActions)
         {
-            <AppNativeButton Type="button" Class="tl-detail-action tl-detail-action--primary" Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))">
+            <AppNativeButton Type="button" Class="tl-detail-action tl-detail-action--primary" Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
                 <MudIcon Icon="@IconFor(action)" Size="Size.Medium" />
                 <span>@PrimaryLabel(action)</span>
             </AppNativeButton>
@@ -177,6 +177,7 @@
     [Parameter] public DetailAction? InlineEditAction { get; set; }
     [Parameter] public bool UsePrimaryHeroChrome { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+    [Parameter] public Func<DetailAction, IReadOnlyDictionary<string, object>?>? ActionAttributes { get; set; }
 
     private bool IsWatchActionRow => PrimaryActions.Any(action => action.Key == "watch");
     private bool IsPrimaryHeroActionRow => IsWatchActionRow || UsePrimaryHeroChrome;
@@ -187,6 +188,9 @@
 
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);
+
+    private IReadOnlyDictionary<string, object>? AttributesFor(DetailAction action) =>
+        ActionAttributes?.Invoke(action);
 
     private static string TooltipFor(DetailAction action)
         => action.Tooltip ?? (action.IsStub ? $"{action.Label} (coming soon)" : action.Label);

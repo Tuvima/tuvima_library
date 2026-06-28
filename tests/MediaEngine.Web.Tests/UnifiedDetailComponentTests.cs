@@ -587,9 +587,14 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("autoplay", playerBar);
         Assert.Contains("StartAudioAsync", playerBar);
         Assert.Contains("listenPlayback.startAudio", playerBar);
+        Assert.Contains("id=\"listen-audio-engine\"", playerBar);
         Assert.DoesNotContain("Math.Abs(_lastSeekedPositionSeconds.Value - targetPositionSeconds)", playerBar);
         Assert.DoesNotContain("@ontimeupdate=\"HandleAudioMetricsChangedAsync\"", playerBar);
-        Assert.Contains("startAudio: async function", playerScript);
+        Assert.Contains("startAudio: startAudioElement", playerScript);
+        Assert.Contains("data-listen-immediate-start", playerScript);
+        Assert.Contains("pointerdown", playerScript);
+        Assert.Contains("AudiobookActionAttributes", detailPage);
+        Assert.Contains("ActionAttributes=\"AudiobookActionAttributes\"", detailPage);
         Assert.Contains("registerAudioStateObserver: function", playerScript);
         Assert.Contains("grid-template-columns: 4.75rem minmax(0, 1fr) 4.75rem", playerStyles);
         Assert.Contains("FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook)", audioTable);

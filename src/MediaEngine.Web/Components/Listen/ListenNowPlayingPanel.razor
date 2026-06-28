@@ -78,11 +78,11 @@
                     <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PlayPreviousChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Previous chapter" title="Previous chapter">
                         <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-32px" />
                     </AppNativeButton>
-                    @SkipButton("back", Playback.SkipBackSeconds, () => Playback.SkipBackAsync())
+                    @SkipButton("back", Playback.SkipBackSeconds, SkipBackAsync)
                     <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause">
                         <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-42px" />
                     </AppNativeButton>
-                    @SkipButton("forward", Playback.SkipForwardSeconds, () => Playback.SkipForwardAsync())
+                    @SkipButton("forward", Playback.SkipForwardSeconds, SkipForwardAsync)
                     <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PlayNextChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Next chapter" title="Next chapter">
                         <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-32px" />
                     </AppNativeButton>
@@ -376,8 +376,11 @@
         var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
         var classes = $"listen-now-panel__skip {(isForward ? "listen-now-panel__skip--forward" : "listen-now-panel__skip--back")}";
         return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
-            <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="listen-now-panel__skip-icon" />
-            <span>@seconds</span>
+            <svg class="listen-skip-glyph" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                <path d="M17 9h-7v7" />
+                <path d="M10.8 16.1A17 17 0 1 0 17.7 9.4" />
+            </svg>
+            <span class="listen-skip-value">@seconds</span>
         </AppNativeButton>;
     }
 
@@ -412,6 +415,10 @@
     </AppNativeButton>;
 
     private Task TogglePlayAsync() => Playback.RequestTransportCommandAsync(new("toggle-play"));
+
+    private Task SkipBackAsync() => Playback.RequestTransportCommandAsync(new("skip-back"));
+
+    private Task SkipForwardAsync() => Playback.RequestTransportCommandAsync(new("skip-forward"));
 
     private async Task TogglePopupAsync()
     {

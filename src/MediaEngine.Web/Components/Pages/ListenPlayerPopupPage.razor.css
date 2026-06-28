@@ -1,5 +1,6 @@
 .listen-popup {
     --listen-accent: var(--tl-status-warning, #f59e0b);
+    --listen-skip-center-bg: #07111f;
     min-height: 100dvh;
     position: relative;
     overflow: hidden;
@@ -191,8 +192,8 @@
 
 .listen-popup__transport {
     width: 100%;
-    justify-content: space-between;
-    gap: 18px;
+    justify-content: center;
+    gap: clamp(24px, 6vw, 44px);
 }
 
 .listen-popup__transport-icon {
@@ -212,17 +213,7 @@
     height: 72px;
 }
 
-.listen-popup__skip-icon {
-    font-size: 48px !important;
-    width: 48px;
-    height: 48px;
-}
-
-.listen-popup__skip--forward .listen-popup__skip-icon {
-    transform: scaleX(-1);
-}
-
-.listen-popup__skip span {
+.listen-popup__skip .listen-skip-value {
     position: absolute;
     inset: 0;
     display: grid;
@@ -597,18 +588,47 @@
 
 ::deep .listen-popup__skip {
     position: relative;
-    width: 72px;
-    height: 72px;
+    width: 78px;
+    height: 78px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
-::deep .listen-popup__skip .listen-popup__skip-icon {
-    font-size: 48px !important;
-    width: 48px;
-    height: 48px;
+::deep .listen-popup__skip .listen-skip-glyph {
+    position: absolute;
+    width: 62px;
+    height: 62px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
-::deep .listen-popup__skip--forward .listen-popup__skip-icon {
+::deep .listen-popup__skip--forward .listen-skip-glyph {
     transform: scaleX(-1);
+    transform-origin: center;
+}
+
+::deep .listen-popup__skip .listen-skip-value {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 2rem;
+    height: 1.5rem;
+    display: grid;
+    place-items: center;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: var(--listen-skip-center-bg);
+    color: rgba(248, 250, 252, 0.98);
+    font-size: 1.18rem;
+    font-weight: 950;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
+    pointer-events: none;
 }
 
 ::deep .listen-popup__action--speed strong {
@@ -715,6 +735,20 @@
     ::deep .listen-popup__transport-icon {
         width: 62px;
         height: 62px;
+    }
+
+    ::deep .listen-popup__skip {
+        width: 72px;
+        height: 72px;
+    }
+
+    ::deep .listen-popup__skip .listen-skip-glyph {
+        width: 56px;
+        height: 56px;
+    }
+
+    ::deep .listen-popup__skip .listen-skip-value {
+        font-size: 1.08rem;
     }
 
     ::deep .listen-popup__play {

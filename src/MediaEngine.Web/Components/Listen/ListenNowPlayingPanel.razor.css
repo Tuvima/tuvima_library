@@ -3,9 +3,10 @@
     min-width: 0;
     height: 100%;
     min-height: 0;
-    --listen-skip-button-size: 4.3rem;
-    --listen-skip-icon-size: 3.45rem;
+    --listen-skip-button-size: 3.25rem;
+    --listen-skip-icon-size: 2.95rem;
     --listen-skip-text-size: 1rem;
+    --listen-skip-center-bg: #07111f;
     border-left: 1px solid rgba(148, 163, 184, 0.16);
     background:
         linear-gradient(180deg, rgba(15, 22, 36, 0.94), rgba(7, 11, 20, 0.98)),
@@ -183,17 +184,7 @@
     flex: 0 0 var(--listen-skip-button-size);
 }
 
-.listen-now-panel__skip-icon {
-    font-size: var(--listen-skip-icon-size) !important;
-    width: var(--listen-skip-icon-size);
-    height: var(--listen-skip-icon-size);
-}
-
-.listen-now-panel__skip--forward .listen-now-panel__skip-icon {
-    transform: scaleX(-1);
-}
-
-.listen-now-panel__skip span {
+.listen-now-panel__skip .listen-skip-value {
     position: absolute;
     inset: 0;
     display: grid;
@@ -370,13 +361,15 @@
 
 .listen-now-panel__controls--audiobook {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: 28px var(--listen-skip-button-size) 70px var(--listen-skip-button-size) 28px;
+    column-gap: 13px;
     align-items: center;
+    justify-content: center;
+    margin-inline: -4px;
 }
 
 .listen-now-panel__controls--audiobook .listen-now-panel__icon {
-    width: 54px;
+    width: 28px;
     height: 54px;
     justify-self: center;
     color: rgba(248, 250, 252, 0.9);
@@ -394,17 +387,7 @@
     color: rgba(248, 250, 252, 0.9);
 }
 
-.listen-now-panel__skip-icon {
-    font-size: var(--listen-skip-icon-size) !important;
-    width: var(--listen-skip-icon-size);
-    height: var(--listen-skip-icon-size);
-}
-
-.listen-now-panel__skip--forward .listen-now-panel__skip-icon {
-    transform: scaleX(-1);
-}
-
-.listen-now-panel__skip span {
+.listen-now-panel__skip .listen-skip-value {
     position: absolute;
     inset: 0;
     display: grid;
@@ -418,8 +401,8 @@
 }
 
 .listen-now-panel__controls--audiobook .listen-now-panel__play {
-    width: 82px;
-    height: 82px;
+    width: 70px;
+    height: 70px;
     background: var(--listen-audio-accent);
     color: #07111f;
     justify-self: center;
@@ -677,7 +660,7 @@
 }
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__icon {
-    width: 54px;
+    width: 28px;
     height: 54px;
     border-radius: 999px;
     display: inline-flex;
@@ -688,14 +671,14 @@
 }
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__icon .mud-icon-root {
-    font-size: 36px !important;
-    width: 36px;
-    height: 36px;
+    font-size: 30px !important;
+    width: 30px;
+    height: 30px;
 }
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__play {
-    width: 82px;
-    height: 82px;
+    width: 70px;
+    height: 70px;
     border: 0;
     border-radius: 999px;
     display: inline-flex;
@@ -708,9 +691,9 @@
 }
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__play .mud-icon-root {
-    font-size: 44px !important;
-    width: 44px;
-    height: 44px;
+    font-size: 42px !important;
+    width: 42px;
+    height: 42px;
 }
 
 ::deep .listen-now-panel__action {
@@ -776,6 +759,42 @@
     background: transparent;
     color: rgba(248, 250, 252, 0.9);
     cursor: pointer;
+}
+
+::deep .listen-now-panel__skip .listen-skip-glyph {
+    position: absolute;
+    width: var(--listen-skip-icon-size);
+    height: var(--listen-skip-icon-size);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+::deep .listen-now-panel__skip--forward .listen-skip-glyph {
+    transform: scaleX(-1);
+    transform-origin: center;
+}
+
+::deep .listen-now-panel__skip .listen-skip-value {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1.6rem;
+    height: 1.24rem;
+    display: grid;
+    place-items: center;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: var(--listen-skip-center-bg);
+    color: rgba(248, 250, 252, 0.98);
+    font-size: var(--listen-skip-text-size);
+    font-weight: 950;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
+    pointer-events: none;
 }
 
 ::deep .listen-now-panel__sheet-row--chapter {

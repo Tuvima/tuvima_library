@@ -365,8 +365,11 @@
         var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
         var classes = $"listen-popup__transport-icon listen-popup__skip {(isForward ? "listen-popup__skip--forward" : "listen-popup__skip--back")}";
         return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
-            <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="listen-popup__skip-icon" />
-            <span>@seconds</span>
+            <svg class="listen-skip-glyph" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                <path d="M17 9h-7v7" />
+                <path d="M10.8 16.1A17 17 0 1 0 17.7 9.4" />
+            </svg>
+            <span class="listen-skip-value">@seconds</span>
         </AppNativeButton>;
     }
 

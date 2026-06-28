@@ -182,6 +182,7 @@ public sealed class ListenPlaybackService
         IsPlaying = true;
         NeedsUserGestureToStart = false;
         CurrentError = null;
+        var startRequested = await TryStartCurrentAudioAsync();
         await EnsurePlayableAsync(CurrentIndex, ct);
         if (string.IsNullOrWhiteSpace(CurrentBrowserStreamUrl))
         {
@@ -189,9 +190,14 @@ public sealed class ListenPlaybackService
             return;
         }
 
-        MarkPlaybackStart();
-        NotifyChanged();
-        await RequestTransportCommandAsync(CreateStartCommand());
+        if (!startRequested)
+        {
+            await TryStartCurrentAudioAsync();
+        }
+        else
+        {
+            NotifyChanged();
+        }
         await RefreshAudiobookHistoryAsync(ct);
         await SyncReplaceQueueAsync([_queue[CurrentIndex]], 0, SourceLabel, false, ct);
     }
@@ -262,6 +268,7 @@ public sealed class ListenPlaybackService
         IsPlaying = true;
         NeedsUserGestureToStart = false;
         CurrentError = null;
+        var startRequested = await TryStartCurrentAudioAsync();
         await EnsurePlayableAsync(CurrentIndex, ct);
         if (string.IsNullOrWhiteSpace(CurrentBrowserStreamUrl))
         {
@@ -269,9 +276,14 @@ public sealed class ListenPlaybackService
             return;
         }
 
-        MarkPlaybackStart();
-        NotifyChanged();
-        await RequestTransportCommandAsync(CreateStartCommand());
+        if (!startRequested)
+        {
+            await TryStartCurrentAudioAsync();
+        }
+        else
+        {
+            NotifyChanged();
+        }
         await RefreshAudiobookHistoryAsync(ct);
         await SyncReplaceQueueAsync(items, CurrentIndex, sourceLabel, shuffle, ct);
     }
@@ -295,6 +307,7 @@ public sealed class ListenPlaybackService
             CurrentError = null;
             CurrentTimeSeconds = await InitialPositionForAsync(item, ct);
             PlaybackRate = await InitialPlaybackRateForAsync(item, ct);
+            var startRequested = await TryStartCurrentAudioAsync();
             await EnsurePlayableAsync(CurrentIndex, ct);
             if (string.IsNullOrWhiteSpace(CurrentBrowserStreamUrl))
             {
@@ -302,9 +315,14 @@ public sealed class ListenPlaybackService
                 return;
             }
 
-            MarkPlaybackStart();
-            NotifyChanged();
-            await RequestTransportCommandAsync(CreateStartCommand());
+            if (!startRequested)
+            {
+                await TryStartCurrentAudioAsync();
+            }
+            else
+            {
+                NotifyChanged();
+            }
             await SyncReplaceQueueAsync([_queue[CurrentIndex]], 0, SourceLabel, false, ct);
             return;
         }
@@ -333,6 +351,7 @@ public sealed class ListenPlaybackService
 
         if (_queue.Count == 0)
         {
+            item = BootstrapDirectStream(item);
             _queue.Add(item);
             CurrentIndex = 0;
             SourceLabel = item.Album ?? item.Title;
@@ -343,10 +362,17 @@ public sealed class ListenPlaybackService
             CurrentError = null;
             CurrentTimeSeconds = await InitialPositionForAsync(item, ct);
             PlaybackRate = await InitialPlaybackRateForAsync(item, ct);
+            var startRequested = await TryStartCurrentAudioAsync();
             await EnsurePlayableAsync(CurrentIndex, ct);
-            MarkPlaybackStart();
-            NotifyChanged();
-            await SyncReplaceQueueAsync([item], 0, SourceLabel, false, ct);
+            if (!startRequested)
+            {
+                await TryStartCurrentAudioAsync();
+            }
+            else
+            {
+                NotifyChanged();
+            }
+            await SyncReplaceQueueAsync([_queue[CurrentIndex]], 0, SourceLabel, false, ct);
             return;
         }
 
@@ -679,6 +705,19 @@ public sealed class ListenPlaybackService
         PlaybackRate: PlaybackRate,
         RequestId: PlaybackStartVersion,
         AudiobookStartKind: _currentAudiobookStartKind);
+
+    private async Task<bool> TryStartCurrentAudioAsync()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentBrowserStreamUrl))
+        {
+            return false;
+        }
+
+        MarkPlaybackStart();
+        await RequestTransportCommandAsync(CreateStartCommand());
+        NotifyChanged();
+        return true;
+    }
 
     public async Task SkipBackAsync(CancellationToken ct = default)
     {

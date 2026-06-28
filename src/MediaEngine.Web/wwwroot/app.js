@@ -1040,6 +1040,110 @@ window.listenPlayback = (function () {
         setAudioObserver(element, null);
     }
 
+    async function startAudioElement(element, options) {
+        if (!element) return false;
+
+        var payload = options || {};
+        var streamUrl = payload.streamUrl || payload.StreamUrl || '';
+        var positionSeconds = payload.positionSeconds ?? payload.PositionSeconds ?? 0;
+        var playbackRate = payload.playbackRate ?? payload.PlaybackRate ?? 1;
+        var volume = payload.volume ?? payload.Volume;
+        var muted = payload.muted ?? payload.Muted;
+
+        try {
+            if (streamUrl && element.getAttribute('src') !== streamUrl) {
+                element.setAttribute('src', streamUrl);
+                element.load();
+            } else if (streamUrl && element.readyState === 0) {
+                element.load();
+            }
+
+            if (typeof volume === 'number') {
+                element.volume = Math.max(0, Math.min(1, volume));
+            }
+
+            if (typeof muted === 'boolean') {
+                element.muted = muted;
+            }
+
+            if (typeof playbackRate === 'number' && isFinite(playbackRate)) {
+                element.playbackRate = playbackRate;
+            }
+
+            var target = Math.max(0, positionSeconds || 0);
+            var applyTargetSeek = function () {
+                if (target <= 0) return;
+                try {
+                    element.currentTime = target;
+                } catch (seekError) {
+                    console.debug("Audio start seek was rejected.", seekError);
+                }
+            };
+
+            if (target > 0 && element.readyState >= 1) {
+                applyTargetSeek();
+            } else if (target > 0) {
+                element.addEventListener('loadedmetadata', applyTargetSeek, { once: true });
+            }
+
+            await element.play();
+            if (target > 0 && element.readyState >= 1 && Math.abs((element.currentTime || 0) - target) > 0.75) {
+                applyTargetSeek();
+            }
+            return true;
+        } catch (error) {
+            console.debug("Audio start request was rejected.", error);
+            return false;
+        }
+    }
+
+    function numberFromDataset(value, fallback) {
+        var parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function boolFromDataset(value, fallback) {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return fallback;
+    }
+
+    var lastImmediateStartAction = null;
+    var lastImmediateStartAt = 0;
+
+    function startAudioFromImmediateAction(target, allowDuplicate) {
+        var action = target && target.closest ? target.closest('[data-listen-immediate-start="audiobook"]') : null;
+        if (!action || action.disabled || action.getAttribute('aria-disabled') === 'true') return;
+
+        var audio = document.getElementById('listen-audio-engine');
+        if (!audio) return;
+
+        var now = Date.now();
+        if (!allowDuplicate && action === lastImmediateStartAction && now - lastImmediateStartAt < 900) {
+            return;
+        }
+
+        lastImmediateStartAction = action;
+        lastImmediateStartAt = now;
+
+        startAudioElement(audio, {
+            streamUrl: action.dataset.listenStartUrl || '',
+            positionSeconds: numberFromDataset(action.dataset.listenStartPosition, 0),
+            playbackRate: numberFromDataset(action.dataset.listenStartRate, 1),
+            volume: numberFromDataset(action.dataset.listenStartVolume, undefined),
+            muted: boolFromDataset(action.dataset.listenStartMuted, undefined)
+        });
+    }
+
+    document.addEventListener('pointerdown', function (event) {
+        if (typeof event.button === 'number' && event.button !== 0) return;
+        startAudioFromImmediateAction(event.target, true);
+    }, true);
+
+    document.addEventListener('click', function (event) {
+        startAudioFromImmediateAction(event.target, false);
+    }, true);
+
     if (channel) {
         channel.onmessage = function (event) {
             if (!event || !event.data) return;
@@ -1214,67 +1318,7 @@ window.listenPlayback = (function () {
                 return false;
             }
         },
-        startAudio: async function (element, options) {
-            if (!element) return false;
-
-            var payload = options || {};
-            var streamUrl = payload.streamUrl || payload.StreamUrl || '';
-            var positionSeconds = payload.positionSeconds ?? payload.PositionSeconds ?? 0;
-            var playbackRate = payload.playbackRate ?? payload.PlaybackRate ?? 1;
-            var volume = payload.volume ?? payload.Volume;
-            var muted = payload.muted ?? payload.Muted;
-
-            try {
-                if (streamUrl && element.getAttribute('src') !== streamUrl) {
-                    element.setAttribute('src', streamUrl);
-                    element.load();
-                } else if (streamUrl && element.readyState === 0) {
-                    element.load();
-                }
-
-                if (typeof volume === 'number') {
-                    element.volume = Math.max(0, Math.min(1, volume));
-                }
-
-                if (typeof muted === 'boolean') {
-                    element.muted = muted;
-                }
-
-                if (typeof playbackRate === 'number' && isFinite(playbackRate)) {
-                    element.playbackRate = playbackRate;
-                }
-
-                var target = Math.max(0, positionSeconds || 0);
-                if (target > 0) {
-                    if (element.readyState < 1) {
-                        await new Promise(function (resolve) {
-                            var done = false;
-                            var finish = function () {
-                                if (done) return;
-                                done = true;
-                                element.removeEventListener('loadedmetadata', finish);
-                                resolve();
-                            };
-
-                            element.addEventListener('loadedmetadata', finish, { once: true });
-                            window.setTimeout(finish, 1200);
-                        });
-                    }
-
-                    try {
-                        element.currentTime = target;
-                    } catch (seekError) {
-                        console.debug("Audio start seek was rejected.", seekError);
-                    }
-                }
-
-                await element.play();
-                return true;
-            } catch (error) {
-                console.debug("Audio start request was rejected.", error);
-                return false;
-            }
-        },
+        startAudio: startAudioElement,
         pauseAudio: function (element) {
             if (!element) return;
             element.pause();

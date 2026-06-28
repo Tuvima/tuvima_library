@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Details
+@using System.Globalization
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Discovery
@@ -26,6 +27,7 @@
                                ActiveTab="@CurrentActiveTab"
                                ActiveTabChanged="SetActiveTabAsync"
                                OnActionSelected="HandleDetailActionAsync"
+                               ActionAttributes="AudiobookActionAttributes"
                                OnContainerSelected="HandleContainerSelectedAsync" />
         }
         else
@@ -511,6 +513,57 @@
                 resumePositionSeconds,
                 startItem.ChapterIndex,
                 Model.Title));
+    }
+
+    private IReadOnlyDictionary<string, object>? AudiobookActionAttributes(DetailAction action)
+    {
+        if (Model?.EntityType != DetailEntityType.Audiobook || action.IsDisabled || action.Key is not ("listen" or "continue"))
+        {
+            return null;
+        }
+
+        var chapters = Model.MediaGroups
+            .SelectMany(group => group.Items)
+            .Where(item => item.EntityType == DetailEntityType.Audiobook)
+            .OrderBy(TrackSortKey)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (chapters.Count == 0)
+        {
+            return null;
+        }
+
+        var preferResume = IsContinueAction(action);
+        var resumePositionSeconds = preferResume
+            ? ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent, Playback.AudiobookNearStartGuardSeconds)
+            : null;
+        var startItem = preferResume
+            ? ResolveAudiobookResumeItem(chapters, resumePositionSeconds)
+            : chapters.FirstOrDefault();
+        if (startItem is null || !Guid.TryParse(startItem.AssetId, out var assetId))
+        {
+            return null;
+        }
+
+        var positionSeconds = resumePositionSeconds ?? ResumePositionFor(startItem) ?? startItem.StartSeconds ?? 0;
+        if (preferResume && positionSeconds > 0)
+        {
+            positionSeconds = Math.Max(0, positionSeconds - new ListeningSettingsDto().ResumeRewindSeconds);
+        }
+
+        var playbackRate = Playback.IsAudiobookMode
+            ? Playback.PlaybackRate
+            : (double)new ListeningSettingsDto().AudiobookDefaultSpeed;
+
+        return new Dictionary<string, object>
+        {
+            ["data-listen-immediate-start"] = "audiobook",
+            ["data-listen-start-url"] = $"/engine-stream/{assetId:D}",
+            ["data-listen-start-position"] = positionSeconds.ToString("0.###", CultureInfo.InvariantCulture),
+            ["data-listen-start-rate"] = playbackRate.ToString("0.###", CultureInfo.InvariantCulture),
+            ["data-listen-start-volume"] = Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture),
+            ["data-listen-start-muted"] = Playback.IsMuted ? "true" : "false",
+        };
     }
 
     private static bool IsContinueAction(DetailAction action) =>

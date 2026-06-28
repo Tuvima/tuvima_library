@@ -14,6 +14,7 @@
 @implements IAsyncDisposable
 
 <audio @ref="_audioRef"
+       id="listen-audio-engine"
        class="listen-player__audio-native"
        src="@Playback.CurrentBrowserStreamUrl"
        @onloadedmetadata="HandleAudioMetricsChangedAsync"
@@ -207,11 +208,11 @@
                         <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayPreviousChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Previous chapter" title="Previous chapter">
                             <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-20px" />
                         </AppNativeButton>
-                        @SkipButton("back", Playback.SkipBackSeconds, () => Playback.SkipBackAsync())
+                        @SkipButton("back", Playback.SkipBackSeconds, SkipBackAsync)
                         <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync" AriaLabel="Play or pause" title="Play or pause">
                             <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
                         </AppNativeButton>
-                        @SkipButton("forward", Playback.SkipForwardSeconds, () => Playback.SkipForwardAsync())
+                        @SkipButton("forward", Playback.SkipForwardSeconds, SkipForwardAsync)
                         <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayNextChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Next chapter" title="Next chapter">
                             <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-20px" />
                         </AppNativeButton>
@@ -309,8 +310,11 @@
         var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
         var classes = $"listen-player__icon listen-player__skip {(isForward ? "listen-player__skip--forward" : "listen-player__skip--back")}";
         return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
-            <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="listen-player__skip-icon" />
-            <span>@seconds</span>
+            <svg class="listen-skip-glyph" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                <path d="M17 9h-7v7" />
+                <path d="M10.8 16.1A17 17 0 1 0 17.7 9.4" />
+            </svg>
+            <span class="listen-skip-value">@seconds</span>
         </AppNativeButton>;
     }
 
@@ -524,18 +528,29 @@
         if (Playback.IsPlaying && !Playback.NeedsUserGestureToStart)
         {
             await PauseAudioAsync();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Playback.CurrentBrowserStreamUrl))
+        {
+            await StartAudioAsync(new ListenTransportCommand(
+                "start",
+                Value: Playback.CurrentTimeSeconds,
+                StreamUrl: Playback.CurrentBrowserStreamUrl,
+                PositionSeconds: Playback.CurrentTimeSeconds,
+                PlaybackRate: Playback.PlaybackRate,
+                RequestId: Playback.PlaybackStartVersion));
+            return;
+        }
+
+        var started = await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
+        if (started)
+        {
+            Playback.MarkPlaybackStarted();
         }
         else
         {
-            var started = await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
-            if (started)
-            {
-                Playback.MarkPlaybackStarted();
-            }
-            else
-            {
-                Playback.MarkNeedsUserGestureToStart();
-            }
+            Playback.MarkNeedsUserGestureToStart();
         }
     }
 
@@ -608,17 +623,34 @@
     {
         if (Playback.IsAudiobookMode)
         {
-            await Playback.SkipForwardAsync();
+            await SkipForwardAsync();
             return;
         }
 
         await Playback.SkipNextAsync();
     }
 
-    private Task PlayPreviousAsync() =>
-        Playback.IsAudiobookMode
-            ? Playback.SkipBackAsync()
-            : Playback.SkipPreviousAsync();
+    private async Task PlayPreviousAsync()
+    {
+        if (Playback.IsAudiobookMode)
+        {
+            await SkipBackAsync();
+            return;
+        }
+
+        await Playback.SkipPreviousAsync();
+    }
+
+    private Task SkipBackAsync() => SeekRelativeOnHostAsync(-Playback.SkipBackSeconds);
+
+    private Task SkipForwardAsync() => SeekRelativeOnHostAsync(Playback.SkipForwardSeconds);
+
+    private Task SeekRelativeOnHostAsync(double deltaSeconds)
+    {
+        var max = Playback.DurationSeconds > 0 ? Playback.DurationSeconds : double.MaxValue;
+        var next = Math.Clamp(Playback.CurrentTimeSeconds + deltaSeconds, 0, max);
+        return SeekOnHostAsync(next);
+    }
 
     private void RemoveUpcoming(int absoluteIndex) => Playback.RemoveUpcomingAt(absoluteIndex);
 
@@ -631,10 +663,16 @@
             return;
         }
 
-        await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, seconds);
+        await SeekOnHostAsync(seconds);
+    }
+
+    private async Task SeekOnHostAsync(double seconds)
+    {
+        var next = Math.Max(0, seconds);
+        await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, next);
         _lastSeekedStreamUrl = Playback.CurrentBrowserStreamUrl;
-        _lastSeekedPositionSeconds = seconds;
-        Playback.UpdateTransportState(currentTimeSeconds: seconds);
+        _lastSeekedPositionSeconds = next;
+        Playback.UpdateTransportState(currentTimeSeconds: next);
         await Playback.ReportHeartbeatAsync(force: true);
     }
 
@@ -711,10 +749,10 @@
                 await Playback.PlayPreviousChapterAsync();
                 break;
             case "skip-back":
-                await Playback.SkipBackAsync();
+                await SkipBackAsync();
                 break;
             case "skip-forward":
-                await Playback.SkipForwardAsync();
+                await SkipForwardAsync();
                 break;
             case "play-chapter" when command.ChapterIndex.HasValue:
                 await Playback.PlayAudiobookChapterAsync(command.ChapterIndex.Value);
@@ -754,11 +792,7 @@
                 Playback.SetActiveTab(command.Tab);
                 break;
             case "seek" when command.Value.HasValue:
-                await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
-                _lastSeekedStreamUrl = Playback.CurrentBrowserStreamUrl;
-                _lastSeekedPositionSeconds = command.Value.Value;
-                Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
-                await Playback.ReportHeartbeatAsync(force: true);
+                await SeekOnHostAsync(command.Value.Value);
                 break;
             case "set-volume" when command.Value.HasValue:
                 Playback.UpdateTransportState(volume: command.Value.Value, isMuted: command.Value.Value <= 0);
@@ -812,17 +846,13 @@
                 await Playback.PlayPreviousChapterAsync();
                 break;
             case "skip-back":
-                await Playback.SkipBackAsync();
+                await SkipBackAsync();
                 break;
             case "skip-forward":
-                await Playback.SkipForwardAsync();
+                await SkipForwardAsync();
                 break;
             case "seek" when command.Value.HasValue:
-                await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
-                _lastSeekedStreamUrl = Playback.CurrentBrowserStreamUrl;
-                _lastSeekedPositionSeconds = command.Value.Value;
-                Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
-                await Playback.ReportHeartbeatAsync(force: true);
+                await SeekOnHostAsync(command.Value.Value);
                 break;
             case "start":
                 await StartAudioAsync(command);

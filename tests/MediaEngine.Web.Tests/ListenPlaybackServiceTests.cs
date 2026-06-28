@@ -195,6 +195,44 @@ public sealed class ListenPlaybackServiceTests
     }
 
     [Fact]
+    public async Task PlayAudiobookAsync_EmitsStartCommandBeforeManifestRefreshCompletes()
+    {
+        var assetId = Guid.NewGuid();
+        var handler = new BlockingManifestHandler(assetId);
+        var apiClient = new EngineApiClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://engine.test") },
+            NullLogger<EngineApiClient>.Instance);
+        var service = new ListenPlaybackService(null!, apiClient);
+        var commandSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ListenTransportCommand? command = null;
+        service.OnTransportCommandRequested += next =>
+        {
+            command = next;
+            commandSeen.TrySetResult();
+            return Task.CompletedTask;
+        };
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://placeholder") with
+        {
+            AssetId = assetId,
+            StreamUrl = null,
+            InitialPositionSeconds = 123,
+        };
+
+        var startTask = service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
+        var first = await Task.WhenAny(commandSeen.Task, Task.Delay(TimeSpan.FromSeconds(1)));
+
+        Assert.Same(commandSeen.Task, first);
+        Assert.False(startTask.IsCompleted);
+        Assert.NotNull(command);
+        Assert.Equal("start", command.Action);
+        Assert.Equal($"/engine-stream/{assetId:D}", command.StreamUrl);
+        Assert.Equal(113, command.PositionSeconds);
+
+        handler.ReleaseManifest();
+        await startTask;
+    }
+
+    [Fact]
     public async Task SetPlaybackRateAsync_SetsExactSelectedRate()
     {
         var service = new ListenPlaybackService(null!, null!);
@@ -358,6 +396,57 @@ public sealed class ListenPlaybackServiceTests
             {
                 Content = JsonContent.Create(payload),
             });
+        }
+    }
+
+    private sealed class BlockingManifestHandler : HttpMessageHandler
+    {
+        private readonly Guid _assetId;
+        private readonly TaskCompletionSource<PlaybackManifestDto> _manifest = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public BlockingManifestHandler(Guid assetId)
+        {
+            _assetId = assetId;
+        }
+
+        public void ReleaseManifest() =>
+            _manifest.TrySetResult(new PlaybackManifestDto
+            {
+                AssetId = _assetId,
+                MediaType = "Audiobooks",
+                DirectPlaySupported = true,
+                DirectStreamUrl = $"/stream/{_assetId:D}",
+                Chapters =
+                [
+                    new PlaybackChapterDto
+                    {
+                        Index = 0,
+                        Title = "Chapter 1",
+                        StartSeconds = 0,
+                        EndSeconds = 600,
+                    },
+                ],
+            });
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri?.AbsolutePath.Contains("/manifest", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                var manifest = await _manifest.Task.WaitAsync(cancellationToken);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(manifest),
+                };
+            }
+
+            object payload = request.RequestUri?.AbsolutePath.Contains("/history", StringComparison.OrdinalIgnoreCase) == true
+                ? Array.Empty<AudiobookListenHistoryItemDto>()
+                : new PlayerStateDto { Experience = PlayerExperienceModes.Audiobook, PlaybackRate = 1.25d };
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(payload),
+            };
         }
     }
 }
