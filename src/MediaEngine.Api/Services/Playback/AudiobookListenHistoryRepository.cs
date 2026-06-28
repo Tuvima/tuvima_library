@@ -6,9 +6,6 @@ namespace MediaEngine.Api.Services.Playback;
 
 public sealed class AudiobookListenHistoryRepository
 {
-    private static readonly TimeSpan ActiveSegmentGap = TimeSpan.FromSeconds(20);
-    private const double PositionJumpToleranceSeconds = 12d;
-
     private readonly IDatabaseConnection _db;
 
     public AudiobookListenHistoryRepository(IDatabaseConnection db)
@@ -26,6 +23,7 @@ public sealed class AudiobookListenHistoryRepository
         using var conn = _db.CreateConnection();
         EnsureTables(conn);
         var cappedLimit = Math.Clamp(limit, 1, 50);
+        var queryLimit = Math.Min(150, cappedLimit * 4);
         var rows = conn.Query<HistoryRow>("""
             SELECT id AS Id,
                    profile_id AS ProfileId,
@@ -46,9 +44,33 @@ public sealed class AudiobookListenHistoryRepository
               AND (@workId IS NULL OR work_id = @workId)
             ORDER BY ended_at DESC
             LIMIT @limit;
-            """, new { profileId, workId, limit = cappedLimit }).ToList();
+            """, new { profileId, workId, limit = queryLimit }).ToList();
 
-        return Task.FromResult<IReadOnlyList<AudiobookListenHistoryItemDto>>(rows.Select(ToDto).ToList());
+        var active = conn.Query<ActiveSegmentRow>("""
+            SELECT profile_id AS ProfileId,
+                   work_id AS WorkId,
+                   asset_id AS AssetId,
+                   queue_item_id AS QueueItemId,
+                   title AS Title,
+                   chapter_title AS ChapterTitle,
+                   chapter_index AS ChapterIndex,
+                   started_at AS StartedAt,
+                   started_position_seconds AS StartedPositionSeconds,
+                   last_position_seconds AS LastPositionSeconds,
+                   duration_seconds AS DurationSeconds,
+                   device_id AS DeviceId,
+                   client AS Client,
+                   last_heartbeat_at AS LastHeartbeatAt
+            FROM audiobook_listen_active_segments
+            WHERE profile_id = @profileId
+              AND (@workId IS NULL OR work_id = @workId);
+            """, new { profileId, workId }).ToList();
+
+        var items = rows.Select(ToDto)
+            .Concat(active.Select(ToDto))
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<AudiobookListenHistoryItemDto>>(Clean(items, cappedLimit));
     }
 
     public Task TrackHeartbeatAsync(
@@ -56,6 +78,9 @@ public sealed class AudiobookListenHistoryRepository
         PlayerQueueItemDto item,
         PlayerHeartbeatDto heartbeat,
         int qualificationSeconds,
+        int historyLimit,
+        int activeSegmentGapSeconds,
+        int positionJumpToleranceSeconds,
         string deviceId,
         string client,
         CancellationToken ct = default)
@@ -93,28 +118,31 @@ public sealed class AudiobookListenHistoryRepository
         {
             if (active is not null)
             {
-                FinalizeActive(conn, active, heartbeat.PositionSeconds, heartbeat.DurationSeconds, now, qualificationSeconds);
+                FinalizeActive(conn, active, heartbeat.PositionSeconds, heartbeat.DurationSeconds, now, qualificationSeconds, historyLimit);
                 ClearActive(conn, profileId);
             }
 
             return Task.CompletedTask;
         }
 
-        if (active is null || ShouldRestartSegment(active, item, heartbeat, now))
+        if (active is null || ShouldRestartSegment(active, item, heartbeat, now, activeSegmentGapSeconds, positionJumpToleranceSeconds))
         {
             if (active is not null)
             {
-                FinalizeActive(conn, active, active.LastPositionSeconds, active.DurationSeconds, now, qualificationSeconds);
+                FinalizeActive(conn, active, active.LastPositionSeconds, active.DurationSeconds, now, qualificationSeconds, historyLimit);
             }
 
             UpsertActive(conn, profileId, item, heartbeat, assetId, now, deviceId, client);
             return Task.CompletedTask;
         }
 
+        var chapter = ResolveChapter(item, heartbeat);
         conn.Execute("""
             UPDATE audiobook_listen_active_segments
             SET last_position_seconds = @positionSeconds,
                 duration_seconds = COALESCE(@durationSeconds, duration_seconds),
+                chapter_title = COALESCE(@chapterTitle, chapter_title),
+                chapter_index = COALESCE(@chapterIndex, chapter_index),
                 last_heartbeat_at = @now,
                 device_id = @deviceId,
                 client = @client
@@ -124,6 +152,8 @@ public sealed class AudiobookListenHistoryRepository
             profileId,
             positionSeconds = Math.Max(0, heartbeat.PositionSeconds),
             durationSeconds = heartbeat.DurationSeconds,
+            chapterTitle = FirstNonBlank(heartbeat.ChapterTitle, chapter?.Title),
+            chapterIndex = heartbeat.ChapterIndex ?? chapter?.Index,
             now,
             deviceId,
             client,
@@ -136,7 +166,9 @@ public sealed class AudiobookListenHistoryRepository
         ActiveSegmentRow active,
         PlayerQueueItemDto item,
         PlayerHeartbeatDto heartbeat,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        int activeSegmentGapSeconds,
+        int positionJumpToleranceSeconds)
     {
         if (item.AssetId != active.AssetId || item.WorkId != active.WorkId)
         {
@@ -150,14 +182,14 @@ public sealed class AudiobookListenHistoryRepository
             return true;
         }
 
-        if (now - active.LastHeartbeatAt > ActiveSegmentGap)
+        if (now - active.LastHeartbeatAt > TimeSpan.FromSeconds(Math.Clamp(activeSegmentGapSeconds, 5, 300)))
         {
             return true;
         }
 
         var elapsed = Math.Max(0, (now - active.LastHeartbeatAt).TotalSeconds);
         var expected = active.LastPositionSeconds + elapsed * Math.Max(0.5, heartbeat.PlaybackRate ?? 1d);
-        return Math.Abs(heartbeat.PositionSeconds - expected) > PositionJumpToleranceSeconds;
+        return Math.Abs(heartbeat.PositionSeconds - expected) > Math.Clamp(positionJumpToleranceSeconds, 1, 120);
     }
 
     private static void UpsertActive(
@@ -170,7 +202,7 @@ public sealed class AudiobookListenHistoryRepository
         string deviceId,
         string client)
     {
-        var chapter = ResolveChapter(item, heartbeat.PositionSeconds);
+        var chapter = ResolveChapter(item, heartbeat);
         conn.Execute("""
             INSERT INTO audiobook_listen_active_segments
                 (profile_id, work_id, asset_id, queue_item_id, title, chapter_title, chapter_index,
@@ -201,8 +233,8 @@ public sealed class AudiobookListenHistoryRepository
             assetId,
             queueItemId = heartbeat.QueueItemId ?? item.QueueItemId,
             title = item.Title,
-            chapterTitle = chapter?.Title,
-            chapterIndex = chapter?.Index,
+            chapterTitle = FirstNonBlank(heartbeat.ChapterTitle, chapter?.Title),
+            chapterIndex = heartbeat.ChapterIndex ?? chapter?.Index,
             now,
             positionSeconds = Math.Max(0, heartbeat.PositionSeconds),
             durationSeconds = heartbeat.DurationSeconds ?? item.DurationSeconds,
@@ -217,7 +249,8 @@ public sealed class AudiobookListenHistoryRepository
         double positionSeconds,
         double? durationSeconds,
         DateTimeOffset endedAt,
-        int qualificationSeconds)
+        int qualificationSeconds,
+        int historyLimit)
     {
         if ((endedAt - active.StartedAt).TotalSeconds < qualificationSeconds)
         {
@@ -265,9 +298,9 @@ public sealed class AudiobookListenHistoryRepository
                   WHERE profile_id = @profileId
                     AND work_id = @workId
                   ORDER BY ended_at DESC
-                  LIMIT 10
+                  LIMIT @limit
               );
-            """, new { profileId = active.ProfileId, workId = active.WorkId });
+            """, new { profileId = active.ProfileId, workId = active.WorkId, limit = Math.Clamp(historyLimit, 1, 50) });
     }
 
     private static void ClearActive(System.Data.IDbConnection conn, Guid profileId)
@@ -275,11 +308,21 @@ public sealed class AudiobookListenHistoryRepository
         conn.Execute("DELETE FROM audiobook_listen_active_segments WHERE profile_id = @profileId;", new { profileId });
     }
 
-    private static PlaybackChapterDto? ResolveChapter(PlayerQueueItemDto item, double positionSeconds)
+    private static PlaybackChapterDto? ResolveChapter(PlayerQueueItemDto item, PlayerHeartbeatDto heartbeat)
     {
+        if (!string.IsNullOrWhiteSpace(heartbeat.ChapterTitle) || heartbeat.ChapterIndex.HasValue)
+        {
+            return new PlaybackChapterDto
+            {
+                Index = heartbeat.ChapterIndex ?? -1,
+                Title = heartbeat.ChapterTitle ?? string.Empty,
+                StartSeconds = Math.Max(0, heartbeat.PositionSeconds),
+            };
+        }
+
         return item.Chapters.LastOrDefault(chapter =>
-            chapter.StartSeconds <= positionSeconds
-            && (!chapter.EndSeconds.HasValue || positionSeconds < chapter.EndSeconds.Value));
+            chapter.StartSeconds <= heartbeat.PositionSeconds
+            && (!chapter.EndSeconds.HasValue || heartbeat.PositionSeconds < chapter.EndSeconds.Value));
     }
 
     private static void EnsureTables(System.Data.IDbConnection conn)
@@ -340,6 +383,59 @@ public sealed class AudiobookListenHistoryRepository
         StartedAt = row.StartedAt,
         EndedAt = row.EndedAt,
     };
+
+    private static AudiobookListenHistoryItemDto ToDto(ActiveSegmentRow row)
+    {
+        var progress = row.DurationSeconds is > 0
+            ? Math.Clamp(row.LastPositionSeconds / row.DurationSeconds.Value * 100d, 0, 100)
+            : 0d;
+
+        return new AudiobookListenHistoryItemDto
+        {
+            Id = Guid.Empty,
+            ProfileId = row.ProfileId,
+            WorkId = row.WorkId,
+            AssetId = row.AssetId,
+            Title = row.Title,
+            ChapterTitle = row.ChapterTitle,
+            ChapterIndex = row.ChapterIndex,
+            PositionSeconds = Math.Max(0, row.LastPositionSeconds),
+            DurationSeconds = row.DurationSeconds,
+            ProgressPct = progress,
+            DeviceId = row.DeviceId,
+            Client = row.Client,
+            StartedAt = row.StartedAt,
+            EndedAt = row.LastHeartbeatAt,
+        };
+    }
+
+    private static IReadOnlyList<AudiobookListenHistoryItemDto> Clean(
+        IReadOnlyList<AudiobookListenHistoryItemDto> items,
+        int limit)
+    {
+        if (items.Count == 0)
+        {
+            return [];
+        }
+
+        var nonZero = items.Where(item => item.PositionSeconds > 0.5d).ToList();
+        var candidates = nonZero.Count > 0 ? nonZero : items.ToList();
+        return candidates
+            .OrderByDescending(item => item.EndedAt)
+            .GroupBy(item => new
+            {
+                item.WorkId,
+                item.AssetId,
+                Chapter = item.ChapterIndex ?? -1,
+                PositionBucket = (int)Math.Floor(item.PositionSeconds / 30d),
+            })
+            .Select(group => group.First())
+            .Take(Math.Clamp(limit, 1, 50))
+            .ToList();
+    }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private sealed record ActiveSegmentRow
     {

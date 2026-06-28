@@ -99,6 +99,14 @@ public static class PlaybackChapterTitleSources
     public const string AiSuggested = "AiSuggested";
 }
 
+public static class AudiobookStartKinds
+{
+    public const string Resume = "Resume";
+    public const string Chapter = "Chapter";
+    public const string History = "History";
+    public const string Bookmark = "Bookmark";
+}
+
 public sealed record PlaybackResumeDto
 {
     public double ProgressPct { get; init; }
@@ -321,6 +329,9 @@ public sealed record PlayerHeartbeatDto
     public bool? IsMuted { get; init; }
     public double? PlaybackRate { get; init; }
     public long? StateVersion { get; init; }
+    public int? ChapterIndex { get; init; }
+    public string? ChapterTitle { get; init; }
+    public string? AudiobookStartKind { get; init; }
 }
 
 public sealed record PlayerCapabilitiesDto
@@ -452,7 +463,14 @@ public sealed class ListeningSettingsDto
     public int SkipForwardSeconds { get; set; } = 15;
     public int ResumeRewindSeconds { get; set; } = 10;
     public int AudiobookListenQualificationSeconds { get; set; } = 60;
+    public int AudiobookHistoryLimit { get; set; } = 25;
+    public int AudiobookResumeRegressionGuardSeconds { get; set; } = 90;
+    public int AudiobookNearStartGuardSeconds { get; set; } = 30;
+    public int AudiobookHistoryActiveSegmentGapSeconds { get; set; } = 20;
+    public int AudiobookHistoryPositionJumpToleranceSeconds { get; set; } = 12;
     public List<double> AudiobookScanRates { get; set; } = [2d, 4d, 8d, 16d];
+    public List<int> SleepTimerOptionsMinutes { get; set; } = [5, 10, 15, 30, 45, 60];
+    public bool AllowEndOfChapterSleepTimer { get; set; } = true;
     public bool DetectShortIntroChapters { get; set; } = true;
     public int ShortIntroMaxSeconds { get; set; } = 30;
     public string ShortIntroLabel { get; set; } = "Intro";

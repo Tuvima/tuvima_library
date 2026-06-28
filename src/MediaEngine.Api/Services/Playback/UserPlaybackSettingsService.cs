@@ -18,6 +18,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
     private static readonly HashSet<int> ListeningSkipBackValues = [10, 15, 30];
     private static readonly HashSet<int> ListeningSkipForwardValues = [15, 30, 60];
     private static readonly HashSet<int> ListeningResumeRewindValues = [0, 5, 10, 15, 30];
+    private static readonly int[] DefaultSleepTimerOptionsMinutes = [5, 10, 15, 30, 45, 60];
     private static readonly HashSet<string> VideoQualityValues = BuildSet(
         PlaybackPreferenceValues.Auto,
         PlaybackPreferenceValues.Original,
@@ -26,6 +27,8 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         PlaybackPreferenceValues.DataSaver);
     private static readonly HashSet<string> SleepTimerValues = BuildSet(
         PlaybackPreferenceValues.Off,
+        "5",
+        "10",
         "15",
         "30",
         "45",
@@ -194,11 +197,26 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         {
             settings.Listening.AudiobookScanRates = [2d, 4d, 8d, 16d];
         }
+        settings.Listening.SleepTimerOptionsMinutes ??= [.. DefaultSleepTimerOptionsMinutes];
+        settings.Listening.SleepTimerOptionsMinutes = settings.Listening.SleepTimerOptionsMinutes
+            .Where(minutes => minutes is >= 1 and <= 240)
+            .Distinct()
+            .Order()
+            .ToList();
+        if (settings.Listening.SleepTimerOptionsMinutes.Count == 0)
+        {
+            settings.Listening.SleepTimerOptionsMinutes = [.. DefaultSleepTimerOptionsMinutes];
+        }
         settings.Listening.ShortIntroLabel = string.IsNullOrWhiteSpace(settings.Listening.ShortIntroLabel)
             ? "Intro"
             : settings.Listening.ShortIntroLabel.Trim();
         settings.Listening.MinimumChaptersForChapterDetails = Math.Clamp(settings.Listening.MinimumChaptersForChapterDetails, 1, 10);
         settings.Listening.SingleLargeChapterMinSeconds = Math.Clamp(settings.Listening.SingleLargeChapterMinSeconds, 300, 14400);
+        settings.Listening.AudiobookHistoryLimit = Math.Clamp(settings.Listening.AudiobookHistoryLimit, 1, 50);
+        settings.Listening.AudiobookResumeRegressionGuardSeconds = Math.Clamp(settings.Listening.AudiobookResumeRegressionGuardSeconds, 0, 3600);
+        settings.Listening.AudiobookNearStartGuardSeconds = Math.Clamp(settings.Listening.AudiobookNearStartGuardSeconds, 0, 300);
+        settings.Listening.AudiobookHistoryActiveSegmentGapSeconds = Math.Clamp(settings.Listening.AudiobookHistoryActiveSegmentGapSeconds, 5, 300);
+        settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds = Math.Clamp(settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds, 1, 120);
         settings.Watching.PreferredVideoQuality = NormalizeToken(settings.Watching.PreferredVideoQuality);
         settings.Listening.DefaultSleepTimer = NormalizeToken(settings.Listening.DefaultSleepTimer);
         settings.Listening.OutputPreference = NormalizeToken(settings.Listening.OutputPreference);
@@ -223,9 +241,18 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         RequireRange(settings.Watching.DefaultPlaybackSpeed, 0.5m, 2.0m, nameof(settings.Watching.DefaultPlaybackSpeed));
         RequireRange(settings.Listening.AudiobookDefaultSpeed, 0.5m, 3.0m, nameof(settings.Listening.AudiobookDefaultSpeed));
         RequireRange(settings.Listening.AudiobookListenQualificationSeconds, 15, 300, nameof(settings.Listening.AudiobookListenQualificationSeconds));
+        RequireRange(settings.Listening.AudiobookHistoryLimit, 1, 50, nameof(settings.Listening.AudiobookHistoryLimit));
+        RequireRange(settings.Listening.AudiobookResumeRegressionGuardSeconds, 0, 3600, nameof(settings.Listening.AudiobookResumeRegressionGuardSeconds));
+        RequireRange(settings.Listening.AudiobookNearStartGuardSeconds, 0, 300, nameof(settings.Listening.AudiobookNearStartGuardSeconds));
+        RequireRange(settings.Listening.AudiobookHistoryActiveSegmentGapSeconds, 5, 300, nameof(settings.Listening.AudiobookHistoryActiveSegmentGapSeconds));
+        RequireRange(settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds, 1, 120, nameof(settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds));
         RequireRange(settings.Listening.ShortIntroMaxSeconds, 5, 120, nameof(settings.Listening.ShortIntroMaxSeconds));
         RequireRange(settings.Listening.MinimumChaptersForChapterDetails, 1, 10, nameof(settings.Listening.MinimumChaptersForChapterDetails));
         RequireRange(settings.Listening.SingleLargeChapterMinSeconds, 300, 14400, nameof(settings.Listening.SingleLargeChapterMinSeconds));
+        foreach (var minutes in settings.Listening.SleepTimerOptionsMinutes)
+        {
+            RequireRange(minutes, 1, 240, $"{nameof(settings.Listening.SleepTimerOptionsMinutes)}[]");
+        }
 
         RequireAllowed(settings.Watching.SkipBackSeconds, WatchingSkipBackValues, nameof(settings.Watching.SkipBackSeconds));
         RequireAllowed(settings.Watching.SkipForwardSeconds, WatchingSkipForwardValues, nameof(settings.Watching.SkipForwardSeconds));

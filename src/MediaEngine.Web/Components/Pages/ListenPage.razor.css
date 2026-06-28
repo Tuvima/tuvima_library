@@ -1,7 +1,7 @@
 ﻿.listen-page {
     display: grid;
     grid-template-columns: 284px minmax(0, 1fr) 360px;
-    height: calc(100dvh - 64px);
+    height: calc(100dvh - var(--app-topbar-height, 65px));
     min-height: 0;
     padding-bottom: 0;
     background:

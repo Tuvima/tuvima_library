@@ -222,15 +222,16 @@
                         </div>
                         break;
                     case "sleep":
-                        <div class="listen-popup-sheet__timer-grid">
-                            @TimerButton("Off", null, null)
-                            @TimerButton("5 min", 5, null)
-                            @TimerButton("10 min", 10, null)
-                            @TimerButton("15 min", 15, null)
-                            @TimerButton("30 min", 30, null)
-                            @TimerButton("45 min", 45, null)
-                            @TimerButton("60 min", 60, null)
-                            @TimerButton("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
+                        <div class="listen-popup-sheet__list">
+                            @TimerRow("Off", null, null)
+                            @foreach (var minutes in _snapshot.SleepTimerOptionsMinutes)
+                            {
+                                @TimerRow($"{minutes} min", minutes, null)
+                            }
+                            @if (_snapshot.AllowEndOfChapterSleepTimer)
+                            {
+                                @TimerRow("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
+                            }
                         </div>
                         <div class="listen-popup-sheet__empty listen-popup-sheet__empty--compact">Current timer: @SleepTimerDisplay</div>
                         break;
@@ -384,7 +385,15 @@
         <MudIcon Icon="@icon" Class="tl-u-font-size-42px" />
     </AppNativeButton>;
 
-    private RenderFragment TimerButton(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-popup-sheet__timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">@label</AppNativeButton>;
+    private RenderFragment TimerRow(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-popup-sheet__row listen-popup-sheet__row--timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">
+        <span class="listen-popup-sheet__copy">
+            <strong>@label</strong>
+        </span>
+        @if (IsTimerActive(minutes, mode))
+        {
+            <span class="listen-popup-sheet__resume">Active</span>
+        }
+    </AppNativeButton>;
 
     private void ToggleSheet(string sheet)
     {
@@ -397,6 +406,8 @@
         _activeSheet = null;
         _showOverflowMenu = !_showOverflowMenu;
     }
+
+    private void CloseSheet() => _activeSheet = null;
 
     private Task CloseOverflowMenu()
     {
@@ -415,24 +426,56 @@
     private Task SkipBackAsync() => SendCommandAsync(new PopupCommand { Action = "skip-back" });
     private Task PlayNextChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-next-chapter" : "play-next" });
     private Task PlayPreviousChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-previous-chapter" : "play-previous" });
-    private Task PlayChapterAsync(int chapterIndex) => SendCommandAsync(new PopupCommand { Action = "play-chapter", ChapterIndex = chapterIndex });
-    private Task PlayAudiobookHistoryAsync(AudiobookListenHistoryItemDto item) => SendCommandAsync(new PopupCommand { Action = "play-audiobook-history", AudiobookHistoryItem = item });
-    private Task PlayBookmarkAsync(AudiobookBookmarkDto bookmark) => SendCommandAsync(new PopupCommand { Action = "play-audiobook-bookmark", AudiobookBookmark = bookmark });
-    private Task AddBookmarkAsync() => SendCommandAsync(new PopupCommand { Action = "add-audiobook-bookmark" });
+    private async Task PlayChapterAsync(int chapterIndex)
+    {
+        await SendCommandAsync(new PopupCommand { Action = "play-chapter", ChapterIndex = chapterIndex });
+        CloseSheet();
+    }
+
+    private async Task PlayAudiobookHistoryAsync(AudiobookListenHistoryItemDto item)
+    {
+        await SendCommandAsync(new PopupCommand { Action = "play-audiobook-history", AudiobookHistoryItem = item });
+        CloseSheet();
+    }
+
+    private async Task PlayBookmarkAsync(AudiobookBookmarkDto bookmark)
+    {
+        await SendCommandAsync(new PopupCommand { Action = "play-audiobook-bookmark", AudiobookBookmark = bookmark });
+        CloseSheet();
+    }
+
+    private async Task AddBookmarkAsync()
+    {
+        await SendCommandAsync(new PopupCommand { Action = "add-audiobook-bookmark" });
+        CloseSheet();
+    }
     private Task DeleteBookmarkAsync(Guid bookmarkId) => SendCommandAsync(new PopupCommand { Action = "delete-audiobook-bookmark", BookmarkId = bookmarkId });
     private Task ToggleMuteAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-mute" });
-    private Task SetSpeedAsync(double rate) => SendCommandAsync(new PopupCommand { Action = "set-speed", Value = rate });
+    private async Task SetSpeedAsync(double rate)
+    {
+        await SendCommandAsync(new PopupCommand { Action = "set-speed", Value = rate });
+        CloseSheet();
+    }
 
-    private Task SetTimerAsync(int? minutes, string? mode)
+    private async Task SetTimerAsync(int? minutes, string? mode)
     {
         if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
         {
-            return SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMode = mode });
+            await SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMode = mode });
+            CloseSheet();
+            return;
         }
 
-        return minutes.HasValue
-            ? SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMinutes = minutes })
-            : SendCommandAsync(new PopupCommand { Action = "cancel-sleep-timer" });
+        if (minutes.HasValue)
+        {
+            await SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMinutes = minutes });
+        }
+        else
+        {
+            await SendCommandAsync(new PopupCommand { Action = "cancel-sleep-timer" });
+        }
+
+        CloseSheet();
     }
 
     private async Task ClosePopupWindowAsync()

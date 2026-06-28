@@ -208,6 +208,8 @@
 
 .listen-popup__skip {
     position: relative;
+    width: 72px;
+    height: 72px;
 }
 
 .listen-popup__skip-icon {
@@ -227,7 +229,7 @@
     place-items: center;
     padding-top: 2px;
     color: rgba(248, 250, 252, 0.96);
-    font-size: 0.86rem;
+    font-size: 1rem;
     font-weight: 900;
     font-variant-numeric: tabular-nums;
     pointer-events: none;
@@ -595,6 +597,8 @@
 
 ::deep .listen-popup__skip {
     position: relative;
+    width: 72px;
+    height: 72px;
 }
 
 ::deep .listen-popup__skip .listen-popup__skip-icon {

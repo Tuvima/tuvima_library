@@ -1,8 +1,11 @@
 .listen-now-panel {
     position: relative;
     min-width: 0;
-    height: calc(100dvh - 64px);
+    height: 100%;
     min-height: 0;
+    --listen-skip-button-size: 4.3rem;
+    --listen-skip-icon-size: 3.45rem;
+    --listen-skip-text-size: 1rem;
     border-left: 1px solid rgba(148, 163, 184, 0.16);
     background:
         linear-gradient(180deg, rgba(15, 22, 36, 0.94), rgba(7, 11, 20, 0.98)),
@@ -171,6 +174,36 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+.listen-now-panel__controls--audiobook .listen-now-panel__skip {
+    position: relative;
+    width: var(--listen-skip-button-size);
+    height: var(--listen-skip-button-size);
+    flex: 0 0 var(--listen-skip-button-size);
+}
+
+.listen-now-panel__skip-icon {
+    font-size: var(--listen-skip-icon-size) !important;
+    width: var(--listen-skip-icon-size);
+    height: var(--listen-skip-icon-size);
+}
+
+.listen-now-panel__skip--forward .listen-now-panel__skip-icon {
+    transform: scaleX(-1);
+}
+
+.listen-now-panel__skip span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding-top: 0.12rem;
+    color: inherit;
+    font-size: var(--listen-skip-text-size);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
 }
 
 .listen-now-panel__top-icon {
@@ -350,8 +383,8 @@
 }
 
 .listen-now-panel__controls--audiobook .listen-now-panel__skip {
-    width: 58px;
-    height: 58px;
+    width: var(--listen-skip-button-size);
+    height: var(--listen-skip-button-size);
     justify-self: center;
 }
 
@@ -362,9 +395,9 @@
 }
 
 .listen-now-panel__skip-icon {
-    font-size: 42px !important;
-    width: 42px;
-    height: 42px;
+    font-size: var(--listen-skip-icon-size) !important;
+    width: var(--listen-skip-icon-size);
+    height: var(--listen-skip-icon-size);
 }
 
 .listen-now-panel__skip--forward .listen-now-panel__skip-icon {
@@ -378,7 +411,7 @@
     place-items: center;
     padding-top: 2px;
     color: rgba(248, 250, 252, 0.96);
-    font-size: 0.72rem;
+    font-size: var(--listen-skip-text-size);
     font-weight: 900;
     font-variant-numeric: tabular-nums;
     pointer-events: none;
@@ -732,8 +765,8 @@
 
 ::deep .listen-now-panel__skip {
     position: relative;
-    width: 58px;
-    height: 58px;
+    width: var(--listen-skip-button-size);
+    height: var(--listen-skip-button-size);
     border: 0;
     border-radius: 999px;
     display: inline-flex;

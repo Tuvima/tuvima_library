@@ -140,6 +140,11 @@ else if (_settings is not null)
                             @IntSelect("Skip forward", _settings.Listening.SkipForwardSeconds, ListeningSkipForwardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SkipForwardSeconds = v), " seconds")
                             @IntSelect("Resume rewind", _settings.Listening.ResumeRewindSeconds, ListeningResumeRewindOptions, v => UpdateAndSaveAsync(() => _settings.Listening.ResumeRewindSeconds = v), " seconds")
                             @IntSelect("Listen history threshold", _settings.Listening.AudiobookListenQualificationSeconds, ListeningQualificationOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookListenQualificationSeconds = v), " seconds")
+                            @IntSelect("History limit", _settings.Listening.AudiobookHistoryLimit, ListeningHistoryLimitOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookHistoryLimit = v), " positions")
+                            @IntSelect("Resume regression guard", _settings.Listening.AudiobookResumeRegressionGuardSeconds, ListeningResumeGuardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookResumeRegressionGuardSeconds = v), " seconds")
+                            @IntSelect("Near-start guard", _settings.Listening.AudiobookNearStartGuardSeconds, ListeningNearStartGuardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookNearStartGuardSeconds = v), " seconds")
+                            @IntSelect("History segment gap", _settings.Listening.AudiobookHistoryActiveSegmentGapSeconds, ListeningSegmentGapOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookHistoryActiveSegmentGapSeconds = v), " seconds")
+                            @IntSelect("History jump tolerance", _settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds, ListeningJumpToleranceOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds = v), " seconds")
                             @BoolRow(Icons.Material.Outlined.VolumeOff, "Skip silence", "Reduce long silent gaps when supported.", _settings.Listening.SkipSilence, v => UpdateAndSaveAsync(() => _settings.Listening.SkipSilence = v))
                         </SettingsSectionPanel>
                     </MudItem>
@@ -179,6 +184,7 @@ else if (_settings is not null)
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Sleep & Output" Icon="@Icons.Material.Outlined.Bedtime">
                             @StringSelect("Sleep timer", _settings.Listening.DefaultSleepTimer, SleepTimerOptions, v => UpdateAndSaveAsync(() => _settings.Listening.DefaultSleepTimer = v), SleepLabel)
+                            @BoolRow(Icons.Material.Outlined.Timer, "End-of-chapter timer", "Allow sleep timer to stop at the end of the current chapter.", _settings.Listening.AllowEndOfChapterSleepTimer, v => UpdateAndSaveAsync(() => _settings.Listening.AllowEndOfChapterSleepTimer = v))
                             @StringSelect("Output preference", _settings.Listening.OutputPreference, OutputOptions, v => UpdateAndSaveAsync(() => _settings.Listening.OutputPreference = v))
                         </SettingsSectionPanel>
                     </MudItem>
@@ -269,12 +275,17 @@ else if (_settings is not null)
     private static readonly int[] ListeningSkipForwardOptions = [15, 30, 60];
     private static readonly int[] ListeningResumeRewindOptions = [0, 5, 10, 15, 30];
     private static readonly int[] ListeningQualificationOptions = [15, 30, 60, 120, 300];
+    private static readonly int[] ListeningHistoryLimitOptions = [10, 25, 50];
+    private static readonly int[] ListeningResumeGuardOptions = [0, 30, 60, 90, 180, 300];
+    private static readonly int[] ListeningNearStartGuardOptions = [0, 15, 30, 60, 120];
+    private static readonly int[] ListeningSegmentGapOptions = [10, 20, 30, 60, 120];
+    private static readonly int[] ListeningJumpToleranceOptions = [5, 12, 20, 30, 60];
     private static readonly int[] ChapterDetailCountOptions = [1, 2, 3, 4, 5];
     private static readonly int[] SingleLargeChapterOptions = [900, 1800, 3600, 7200];
     private static readonly int[] ThresholdOptions = [50, 60, 70, 80, 90, 95, 100];
     private static readonly string[] LanguageOptions = ["English", "Spanish", "French", "German", "Japanese", "Original"];
     private static readonly string[] VideoQualityOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Original, PlaybackPreferenceValues.High, PlaybackPreferenceValues.Balanced, PlaybackPreferenceValues.DataSaver];
-    private static readonly string[] SleepTimerOptions = [PlaybackPreferenceValues.Off, "15", "30", "45", "60", PlaybackPreferenceValues.EndOfChapter, PlaybackPreferenceValues.EndOfEpisode];
+    private static readonly string[] SleepTimerOptions = [PlaybackPreferenceValues.Off, "5", "10", "15", "30", "45", "60", PlaybackPreferenceValues.EndOfChapter, PlaybackPreferenceValues.EndOfEpisode];
     private static readonly string[] OutputOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Headphones, PlaybackPreferenceValues.Speakers, PlaybackPreferenceValues.Bluetooth];
     private static readonly string[] ReadingModeOptions = [PlaybackPreferenceValues.Paginated, PlaybackPreferenceValues.Scroll];
     private static readonly string[] ThemeOptions = [PlaybackPreferenceValues.Dark, PlaybackPreferenceValues.Sepia, PlaybackPreferenceValues.Light, PlaybackPreferenceValues.System];

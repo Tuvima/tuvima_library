@@ -248,20 +248,38 @@ public sealed class PlayerService
             assetId = current?.Queue.FirstOrDefault(item => item.QueueItemId == heartbeat.QueueItemId.Value)?.AssetId;
         }
 
+        UserPlaybackSettingsDto? settings = null;
         if (assetId.HasValue)
         {
-            await SaveResumeAsync(profileId, assetId.Value, position, duration, progress, state, heartbeat.SessionId, deviceId, client, ct);
+            settings = await GetPlaybackSettingsOrDefaultAsync(profileId, ct);
+            await SaveResumeAsync(
+                profileId,
+                assetId.Value,
+                position,
+                duration,
+                progress,
+                state,
+                heartbeat.SessionId,
+                deviceId,
+                client,
+                settings.Listening,
+                heartbeat.AudiobookStartKind,
+                ct);
         }
 
         var historyItem = ResolveHistoryItem(priorState, heartbeat, assetId);
         if (historyItem is not null && IsAudiobook(historyItem.MediaType))
         {
-            var settings = await GetPlaybackSettingsOrDefaultAsync(profileId, ct);
+            settings ??= await GetPlaybackSettingsOrDefaultAsync(profileId, ct);
+            historyItem = await EnrichHistoryItemAsync(historyItem, profileId, ct);
             await _history.TrackHeartbeatAsync(
                 profileId,
                 historyItem,
                 heartbeat,
                 settings.Listening.AudiobookListenQualificationSeconds,
+                settings.Listening.AudiobookHistoryLimit,
+                settings.Listening.AudiobookHistoryActiveSegmentGapSeconds,
+                settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds,
                 deviceId,
                 client,
                 ct);
@@ -526,7 +544,11 @@ public sealed class PlayerService
             Experience = ExperienceFor(queue),
             Capabilities = GetCapabilities(),
             AudiobookHistory = IsAudiobook(enrichedCurrent.MediaType)
-                ? await _history.GetRecentAsync(state.ProfileId, enrichedCurrent.WorkId, 10, ct)
+                ? await _history.GetRecentAsync(
+                    state.ProfileId,
+                    enrichedCurrent.WorkId,
+                    (await GetPlaybackSettingsOrDefaultAsync(state.ProfileId, ct)).Listening.AudiobookHistoryLimit,
+                    ct)
                 : [],
             Warnings = manifest.Warnings,
         };
@@ -542,10 +564,24 @@ public sealed class PlayerService
         Guid? sessionId,
         string deviceId,
         string client,
+        ListeningSettingsDto listeningSettings,
+        string? audiobookStartKind,
         CancellationToken ct)
     {
         var asset = await _assets.FindByIdAsync(assetId, ct);
         if (asset is null)
+        {
+            return;
+        }
+
+        var prior = await _userStates.GetAsync(profileId, assetId, ct);
+        if (ShouldPreservePriorResume(
+            prior,
+            positionSeconds,
+            durationSeconds,
+            progressPct,
+            listeningSettings,
+            audiobookStartKind))
         {
             return;
         }
@@ -558,6 +594,11 @@ public sealed class PlayerService
             ["player_client"] = client,
             ["updated_at"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
         };
+
+        if (!string.IsNullOrWhiteSpace(audiobookStartKind))
+        {
+            extended["audiobook_start_kind"] = NormalizeAudiobookStartKind(audiobookStartKind);
+        }
 
         if (durationSeconds.HasValue)
         {
@@ -580,6 +621,61 @@ public sealed class PlayerService
         }, ct);
     }
 
+    private static bool ShouldPreservePriorResume(
+        UserState? prior,
+        double nextPositionSeconds,
+        double? nextDurationSeconds,
+        double nextProgressPct,
+        ListeningSettingsDto settings,
+        string? audiobookStartKind)
+    {
+        if (prior is null
+            || string.IsNullOrWhiteSpace(audiobookStartKind)
+            || !string.Equals(NormalizeAudiobookStartKind(audiobookStartKind), AudiobookStartKinds.Resume, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var priorPosition = ReadPositionSeconds(prior, nextDurationSeconds);
+        if (priorPosition is not > 0)
+        {
+            return false;
+        }
+
+        var nearStartSeconds = Math.Max(0, settings.AudiobookNearStartGuardSeconds);
+        var regressionGuardSeconds = Math.Max(0, settings.AudiobookResumeRegressionGuardSeconds);
+        var regressionSeconds = priorPosition.Value - nextPositionSeconds;
+        var nearStartRegression = nearStartSeconds > 0
+            && nextPositionSeconds <= nearStartSeconds
+            && priorPosition.Value > nearStartSeconds;
+
+        return nearStartRegression
+            || (regressionGuardSeconds > 0 && regressionSeconds >= regressionGuardSeconds && prior.ProgressPct > nextProgressPct);
+    }
+
+    private static double? ReadPositionSeconds(UserState state, double? currentDurationSeconds)
+    {
+        if (state.ExtendedProperties.TryGetValue("position_seconds", out var rawPosition)
+            && double.TryParse(rawPosition, NumberStyles.Float, CultureInfo.InvariantCulture, out var position)
+            && position > 0)
+        {
+            return position;
+        }
+
+        var duration = currentDurationSeconds;
+        if (!duration.HasValue
+            && state.ExtendedProperties.TryGetValue("duration_seconds", out var rawDuration)
+            && double.TryParse(rawDuration, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedDuration)
+            && parsedDuration > 0)
+        {
+            duration = parsedDuration;
+        }
+
+        return duration is > 0 && state.ProgressPct is > 0 and < 100
+            ? duration.Value * state.ProgressPct / 100d
+            : null;
+    }
+
     private static PlayerStateDto EmptyState(Guid profileId, string deviceId, string client) => new()
     {
         ProfileId = profileId,
@@ -593,14 +689,19 @@ public sealed class PlayerService
         IsStale = true,
     };
 
-    public Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookHistoryAsync(
+    public async Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookHistoryAsync(
         Guid? profileId,
         Guid workId,
         int? limit,
         CancellationToken ct = default)
     {
         var normalizedProfile = ResolveProfileId(profileId);
-        return _history.GetRecentAsync(normalizedProfile, workId, limit ?? 10, ct);
+        var settings = await GetPlaybackSettingsOrDefaultAsync(normalizedProfile, ct);
+        return await _history.GetRecentAsync(
+            normalizedProfile,
+            workId,
+            limit ?? settings.Listening.AudiobookHistoryLimit,
+            ct);
     }
 
     public Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(
@@ -707,6 +808,51 @@ public sealed class PlayerService
             ? state.Queue.FirstOrDefault(item => item.AssetId == assetId.Value)
             : null;
     }
+
+    private async Task<PlayerQueueItemDto> EnrichHistoryItemAsync(PlayerQueueItemDto item, Guid profileId, CancellationToken ct)
+    {
+        if (item.AssetId is not Guid assetId || item.Chapters.Count > 0)
+        {
+            return item;
+        }
+
+        try
+        {
+            var manifest = await _playback.BuildManifestAsync(assetId, "web", profileId, ct);
+            if (manifest is null)
+            {
+                return item;
+            }
+
+            var duration = item.DurationSeconds
+                ?? manifest.Chapters
+                    .Where(chapter => chapter.EndSeconds.HasValue)
+                    .Select(chapter => chapter.EndSeconds!.Value)
+                    .DefaultIfEmpty()
+                    .Max();
+
+            return item with
+            {
+                Chapters = manifest.Chapters,
+                DurationSeconds = duration > 0 ? duration : item.DurationSeconds,
+                StreamUrl = manifest.DirectStreamUrl ?? item.StreamUrl,
+            };
+        }
+        catch
+        {
+            // History enrichment is best-effort; heartbeat persistence should still succeed if manifest lookup fails.
+            return item;
+        }
+    }
+
+    private static string NormalizeAudiobookStartKind(string? value) =>
+        value?.Trim() switch
+        {
+            AudiobookStartKinds.Chapter => AudiobookStartKinds.Chapter,
+            AudiobookStartKinds.History => AudiobookStartKinds.History,
+            AudiobookStartKinds.Bookmark => AudiobookStartKinds.Bookmark,
+            _ => AudiobookStartKinds.Resume,
+        };
 
     private async Task<UserPlaybackSettingsDto> GetPlaybackSettingsOrDefaultAsync(Guid profileId, CancellationToken ct)
     {

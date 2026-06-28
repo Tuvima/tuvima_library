@@ -1691,6 +1691,13 @@ public sealed class DetailComposerService
         {
             positionSeconds = durationSeconds.Value * Math.Clamp(progressPct.Value, 0, 100) / 100d;
         }
+        if (positionSeconds is >= 0
+            && progressPct is > 1 and < 100
+            && durationSeconds is > 0
+            && positionSeconds.Value <= new MediaEngine.Contracts.Playback.ListeningSettingsDto().AudiobookNearStartGuardSeconds)
+        {
+            positionSeconds = durationSeconds.Value * Math.Clamp(progressPct.Value, 0, 100) / 100d;
+        }
         if (positionSeconds.HasValue)
         {
             positionSeconds = durationSeconds is > 0

@@ -187,7 +187,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 10, CancellationToken ct = default)
+    public async Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default)
     {
         const string endpoint = "GET /player/audiobooks/{workId}/history";
         try

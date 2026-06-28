@@ -316,6 +316,7 @@
 
     protected override void OnInitialized()
     {
+        Playback.SetTransportHostNotReady();
         Playback.OnChanged += HandlePlaybackChanged;
         Playback.OnTransportCommandRequested += HandleTransportCommandAsync;
         Nav.LocationChanged += HandleLocationChanged;
@@ -350,6 +351,7 @@
             }
 
             _restored = true;
+            await Playback.SetTransportHostReadyAsync();
         }
 
         if (Playback.CurrentItem is not null && !string.IsNullOrWhiteSpace(Playback.CurrentBrowserStreamUrl))
@@ -918,6 +920,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Playback.SetTransportHostNotReady();
         Playback.OnChanged -= HandlePlaybackChanged;
         Playback.OnTransportCommandRequested -= HandleTransportCommandAsync;
         Nav.LocationChanged -= HandleLocationChanged;

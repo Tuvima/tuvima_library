@@ -8,7 +8,7 @@
 }
 
 .main-content-with-topbar--detail {
-    padding-top: 0 !important;
+    padding-top: var(--app-topbar-height, 65px) !important;
 }
 
 .layout-shell__appbar {
@@ -23,16 +23,9 @@
 }
 
 .layout-shell__appbar--detail {
-    background:
-        linear-gradient(
-            to bottom,
-            rgba(0, 3, 5, 0.72) 0%,
-            rgba(0, 3, 5, 0.44) 62%,
-            rgba(0, 3, 5, 0.00) 100%
-        ) !important;
-    border-bottom-color: transparent !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
+    background: var(--app-surface, #1e1f27) !important;
+    border-bottom-color: var(--app-border, #293036) !important;
+    box-shadow: var(--app-shadow, 0 1px 4px rgba(130, 143, 163, 0.15)) !important;
 }
 
 ::deep .layout-shell__appbar .mud-toolbar {

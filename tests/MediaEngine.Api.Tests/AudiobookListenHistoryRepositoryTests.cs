@@ -59,6 +59,9 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
                 PlaybackRate = 1.25,
             },
             qualificationSeconds: 0,
+            historyLimit: 25,
+            activeSegmentGapSeconds: 20,
+            positionJumpToleranceSeconds: 12,
             deviceId: "web-dashboard",
             client: "web");
 
@@ -75,6 +78,9 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
                 PlaybackRate = 1.25,
             },
             qualificationSeconds: 0,
+            historyLimit: 25,
+            activeSegmentGapSeconds: 20,
+            positionJumpToleranceSeconds: 12,
             deviceId: "web-dashboard",
             client: "web");
 
@@ -101,6 +107,53 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
         Assert.Equal("blob", keyTypes.ProfileType);
         Assert.Equal("blob", keyTypes.WorkType);
         Assert.Equal("blob", keyTypes.AssetType);
+    }
+
+    [Fact]
+    public async Task GetRecentAsync_IncludesActiveSegmentAndUsesHeartbeatChapterMetadata()
+    {
+        var ids = await CreateProfileAssetAsync();
+        var queueItemId = Guid.NewGuid();
+        var item = new PlayerQueueItemDto
+        {
+            QueueItemId = queueItemId,
+            WorkId = ids.WorkId,
+            AssetId = ids.AssetId,
+            MediaType = "Audiobooks",
+            Title = "Test Audiobook",
+            DurationSeconds = 3600,
+        };
+
+        var repository = new AudiobookListenHistoryRepository(_db);
+
+        await repository.TrackHeartbeatAsync(
+            ids.ProfileId,
+            item,
+            new PlayerHeartbeatDto
+            {
+                QueueItemId = queueItemId,
+                AssetId = ids.AssetId,
+                IsPlaying = true,
+                PositionSeconds = 925,
+                DurationSeconds = 3600,
+                PlaybackRate = 1.25,
+                ChapterIndex = 3,
+                ChapterTitle = "Chapter 4",
+            },
+            qualificationSeconds: 60,
+            historyLimit: 25,
+            activeSegmentGapSeconds: 20,
+            positionJumpToleranceSeconds: 12,
+            deviceId: "web-dashboard",
+            client: "web");
+
+        var history = await repository.GetRecentAsync(ids.ProfileId, ids.WorkId);
+
+        var entry = Assert.Single(history);
+        Assert.Equal(Guid.Empty, entry.Id);
+        Assert.Equal("Chapter 4", entry.ChapterTitle);
+        Assert.Equal(3, entry.ChapterIndex);
+        Assert.Equal(925, entry.PositionSeconds);
     }
 
     [Fact]

@@ -568,9 +568,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("HeroMetadataPills", audioLayout);
         Assert.DoesNotContain("<AudiobookChapterList Groups=\"Model.MediaGroups\"", audioLayout[..audioLayout.IndexOf("<DetailTabs", StringComparison.Ordinal)]);
         Assert.Contains("InitialPositionSeconds = ResumePositionFor(item)", audioTable);
-        Assert.Contains("ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent)", detailPage);
+        Assert.Contains("ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent, Playback.AudiobookNearStartGuardSeconds)", detailPage);
         Assert.Contains("item.ResumePositionSeconds is > 0", detailPage);
-        Assert.Contains("PlayAudiobookAsync(IsContinueAction(action))", detailPage);
+        Assert.Contains("StartAudiobookAsync", detailPage);
+        Assert.Contains("AudiobookStartKinds.Resume", detailPage);
         Assert.Contains("ResolveAudiobookResumeItem(chapters, resumePositionSeconds)", detailPage);
         Assert.Contains("InitialPositionSeconds = initialPositionSeconds ?? ResumePositionFor(item)", detailPage);
         Assert.Contains("!IsCompletedChapter(item) && !IsIntroChapter(item)", detailPage);

@@ -287,15 +287,16 @@
                         </div>
                         break;
                     case "sleep":
-                        <div class="listen-now-panel__timer-grid">
-                            @TimerButton("Off", null, null)
-                            @TimerButton("5 min", 5, null)
-                            @TimerButton("10 min", 10, null)
-                            @TimerButton("15 min", 15, null)
-                            @TimerButton("30 min", 30, null)
-                            @TimerButton("45 min", 45, null)
-                            @TimerButton("60 min", 60, null)
-                            @TimerButton("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
+                        <div class="listen-now-panel__sheet-list listen-now-panel__sheet-list--simple">
+                            @TimerRow("Off", null, null)
+                            @foreach (var minutes in Playback.SleepTimerOptionsMinutes)
+                            {
+                                @TimerRow($"{minutes} min", minutes, null)
+                            }
+                            @if (Playback.AllowEndOfChapterSleepTimer)
+                            {
+                                @TimerRow("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
+                            }
                         </div>
                         <div class="listen-now-panel__empty listen-now-panel__empty--compact">Current timer: @SleepTimerDisplay</div>
                         break;
@@ -400,7 +401,15 @@
 
     private void CloseAudiobookSheet() => _activeAudiobookSheet = null;
 
-    private RenderFragment TimerButton(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-now-panel__timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">@label</AppNativeButton>;
+    private RenderFragment TimerRow(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-now-panel__sheet-row listen-now-panel__sheet-row--timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">
+        <span class="listen-now-panel__queue-copy">
+            <strong>@label</strong>
+        </span>
+        @if (IsTimerActive(minutes, mode))
+        {
+            <span class="listen-now-panel__resume">Active</span>
+        }
+    </AppNativeButton>;
 
     private Task TogglePlayAsync() => Playback.RequestTransportCommandAsync(new("toggle-play"));
 
@@ -427,33 +436,61 @@
 
     private Task PlayPreviousChapterAsync() => Playback.PlayPreviousChapterAsync();
 
-    private Task PlayChapterAsync(PlaybackChapterDto chapter) =>
-        Playback.PlayAudiobookChapterAsync(chapter.Index);
+    private async Task PlayChapterAsync(PlaybackChapterDto chapter)
+    {
+        await Playback.PlayAudiobookChapterAsync(chapter.Index);
+        CloseAudiobookSheet();
+    }
 
     private Task ToggleMuteAsync() => Playback.RequestTransportCommandAsync(new("toggle-mute"));
 
     private Task PlayFromQueueAsync(int index) => Playback.PlayIndexAsync(index);
 
-    private Task PlayHistoryAsync(AudiobookListenHistoryItemDto item) => Playback.PlayAudiobookHistoryAsync(item);
+    private async Task PlayHistoryAsync(AudiobookListenHistoryItemDto item)
+    {
+        await Playback.PlayAudiobookHistoryAsync(item);
+        CloseAudiobookSheet();
+    }
 
-    private Task SetSpeedAsync(double rate) => Playback.SetPlaybackRateAsync(rate);
+    private async Task SetSpeedAsync(double rate)
+    {
+        await Playback.SetPlaybackRateAsync(rate);
+        CloseAudiobookSheet();
+    }
 
-    private Task AddBookmarkAsync() => Playback.AddAudiobookBookmarkAsync();
+    private async Task AddBookmarkAsync()
+    {
+        await Playback.AddAudiobookBookmarkAsync();
+        CloseAudiobookSheet();
+    }
 
-    private Task PlayBookmarkAsync(AudiobookBookmarkDto bookmark) => Playback.PlayAudiobookBookmarkAsync(bookmark);
+    private async Task PlayBookmarkAsync(AudiobookBookmarkDto bookmark)
+    {
+        await Playback.PlayAudiobookBookmarkAsync(bookmark);
+        CloseAudiobookSheet();
+    }
 
     private Task DeleteBookmarkAsync(Guid bookmarkId) => Playback.DeleteAudiobookBookmarkAsync(bookmarkId);
 
-    private Task SetTimerAsync(int? minutes, string? mode)
+    private async Task SetTimerAsync(int? minutes, string? mode)
     {
         if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
         {
-            return Playback.SetSleepTimerEndOfChapterAsync();
+            await Playback.SetSleepTimerEndOfChapterAsync();
+            CloseAudiobookSheet();
+            return;
         }
 
-        return minutes.HasValue
-            ? Playback.SetSleepTimerAsync(TimeSpan.FromMinutes(minutes.Value))
-            : Playback.CancelSleepTimerAsync();
+        if (minutes.HasValue)
+        {
+            await Playback.SetSleepTimerAsync(TimeSpan.FromMinutes(minutes.Value));
+        }
+        else
+        {
+            await Playback.CancelSleepTimerAsync();
+        }
+
+        CloseAudiobookSheet();
     }
 
     private Task SeekAsync(ChangeEventArgs args)

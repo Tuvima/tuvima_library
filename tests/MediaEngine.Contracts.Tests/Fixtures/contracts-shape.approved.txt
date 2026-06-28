@@ -532,6 +532,8 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookListenHis
   StartedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   EndedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookStartKinds
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.CreateAudiobookBookmarkRequestDto
   ProfileId: System.Guid? | nullability=nullable | accessors=get,init
   AssetId: System.Guid | nullability=not-null | accessors=get,init
@@ -564,7 +566,14 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.ListeningSettingsD
   SkipForwardSeconds: System.Int32 | nullability=not-null | accessors=get,set
   ResumeRewindSeconds: System.Int32 | nullability=not-null | accessors=get,set
   AudiobookListenQualificationSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  AudiobookHistoryLimit: System.Int32 | nullability=not-null | accessors=get,set
+  AudiobookResumeRegressionGuardSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  AudiobookNearStartGuardSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  AudiobookHistoryActiveSegmentGapSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  AudiobookHistoryPositionJumpToleranceSeconds: System.Int32 | nullability=not-null | accessors=get,set
   AudiobookScanRates: System.Collections.Generic.List<System.Double> | nullability=not-null | accessors=get,set
+  SleepTimerOptionsMinutes: System.Collections.Generic.List<System.Int32> | nullability=not-null | accessors=get,set
+  AllowEndOfChapterSleepTimer: System.Boolean | nullability=not-null | accessors=get,set
   DetectShortIntroChapters: System.Boolean | nullability=not-null | accessors=get,set
   ShortIntroMaxSeconds: System.Int32 | nullability=not-null | accessors=get,set
   ShortIntroLabel: System.String | nullability=not-null | accessors=get,set
@@ -757,6 +766,9 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerHeartbeatDto
   IsMuted: System.Boolean? | nullability=nullable | accessors=get,init
   PlaybackRate: System.Double? | nullability=nullable | accessors=get,init
   StateVersion: System.Int64? | nullability=nullable | accessors=get,init
+  ChapterIndex: System.Int32? | nullability=nullable | accessors=get,init
+  ChapterTitle: System.String | nullability=nullable | accessors=get,init
+  AudiobookStartKind: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerPlaybackStates
 
