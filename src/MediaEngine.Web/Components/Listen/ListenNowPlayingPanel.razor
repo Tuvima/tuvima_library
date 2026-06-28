@@ -15,13 +15,24 @@
             <AppNativeButton Type="button" Class="listen-now-panel__top-icon" Disabled="true" AriaLabel="Playback device" title="Playback device">
                 <MudIcon Icon="@Icons.Material.Outlined.Cast" Class="tl-u-font-size-24px" />
             </AppNativeButton>
-            <AppNativeButton Type="button" Class="listen-now-panel__top-icon" OnClick="TogglePopupAsync" AriaLabel="Pop out player" title="Pop out player">
+            <AppNativeButton Type="button" Class="listen-now-panel__top-icon" OnClick="TogglePopupAsync" AriaLabel="Pop out player" title="Pop out player" data-listen-popup-route="@(Playback.IsPopupOpen ? null : PopupRoute)">
                 <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Class="tl-u-font-size-24px" />
             </AppNativeButton>
         </div>
     </div>
 
-    @if (Playback.HasQueue && Playback.CurrentItem is not null)
+    @if (Playback.IsPopupOpen)
+    {
+        <div class="listen-now-panel__popped-out">
+            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="tl-u-font-size-42px" />
+            <strong>Player popped out</strong>
+            <span>Playback is active in the popup window.</span>
+            <AppNativeButton Type="button" Class="listen-now-panel__dock-button" OnClick="TogglePopupAsync" AriaLabel="Dock player" title="Dock player">
+                Dock player
+            </AppNativeButton>
+        </div>
+    }
+    else if (Playback.HasQueue && Playback.CurrentItem is not null)
     {
         var current = Playback.CurrentItem;
         <div class="listen-now-panel__body">
@@ -79,7 +90,13 @@
                         <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-32px" />
                     </AppNativeButton>
                     @SkipButton("back", Playback.SkipBackSeconds, SkipBackAsync)
-                    <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause">
+                    <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause"
+                                     data-listen-audio-toggle="true"
+                                     data-listen-start-url="@Playback.CurrentBrowserStreamUrl"
+                                     data-listen-start-position="@Playback.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
+                                     data-listen-start-rate="@Playback.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
+                                     data-listen-start-volume="@Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
+                                     data-listen-start-muted="@(Playback.IsMuted ? "true" : "false")">
                         <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-42px" />
                     </AppNativeButton>
                     @SkipButton("forward", Playback.SkipForwardSeconds, SkipForwardAsync)
@@ -95,7 +112,13 @@
                     <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="PreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)" AriaLabel="Previous">
                         <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
                     </AppNativeButton>
-                    <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause">
+                    <AppNativeButton Type="button" Class="listen-now-panel__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause"
+                                     data-listen-audio-toggle="true"
+                                     data-listen-start-url="@Playback.CurrentBrowserStreamUrl"
+                                     data-listen-start-position="@Playback.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
+                                     data-listen-start-rate="@Playback.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
+                                     data-listen-start-volume="@Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
+                                     data-listen-start-muted="@(Playback.IsMuted ? "true" : "false")">
                         <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-30px" />
                     </AppNativeButton>
                     <AppNativeButton Type="button" Class="listen-now-panel__icon" OnClick="NextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)" AriaLabel="Next">
@@ -322,7 +345,14 @@
     private IReadOnlyList<PlaybackChapterDto> CurrentChapters =>
         Playback.CurrentItem is { Chapters.Count: > 1 } item ? item.Chapters : [];
     private bool HasChapters => CurrentChapters.Count > 0;
-    private string PanelClass => Playback.IsAudiobookMode ? "listen-now-panel listen-now-panel--audiobook" : "listen-now-panel";
+    private string PanelClass
+    {
+        get
+        {
+            var classes = Playback.IsAudiobookMode ? "listen-now-panel listen-now-panel--audiobook" : "listen-now-panel";
+            return Playback.IsPopupOpen ? $"{classes} listen-now-panel--popped-out" : classes;
+        }
+    }
     private string AudiobookSheetTitle => _activeAudiobookSheet switch
     {
         "speed" => "Speed",
@@ -374,14 +404,13 @@
     {
         var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
         var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
-        var classes = $"listen-now-panel__skip {(isForward ? "listen-now-panel__skip--forward" : "listen-now-panel__skip--back")}";
-        return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
-            <svg class="listen-skip-glyph" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-                <path d="M17 9h-7v7" />
-                <path d="M10.8 16.1A17 17 0 1 0 17.7 9.4" />
-            </svg>
-            <span class="listen-skip-value">@seconds</span>
-        </AppNativeButton>;
+        var classes = $"listen-now-panel__skip audiobook-skip-control {(isForward ? "listen-now-panel__skip--forward" : "listen-now-panel__skip--back")}";
+        return @<span class="@classes">
+            <AppNativeButton Type="button" Class='@($"audiobook-skip-button {(isForward ? "audiobook-skip-button--forward" : "audiobook-skip-button--back")}")' OnClick="@action" AriaLabel="@label" title="@label" data-listen-seek-delta="@(isForward ? seconds : -seconds)">
+                <span class="audiobook-skip-button__value" aria-hidden="true">@seconds</span>
+                <span class="audiobook-skip-button__line" aria-hidden="true"></span>
+            </AppNativeButton>
+        </span>;
     }
 
     private RenderFragment AudiobookSpeedActionButton()
@@ -414,11 +443,62 @@
         }
     </AppNativeButton>;
 
-    private Task TogglePlayAsync() => Playback.RequestTransportCommandAsync(new("toggle-play"));
+    private async Task TogglePlayAsync()
+    {
+        if (await ConsumeImmediateToggleAsync())
+        {
+            return;
+        }
 
-    private Task SkipBackAsync() => Playback.RequestTransportCommandAsync(new("skip-back"));
+        await Playback.RequestTransportCommandAsync(new("toggle-play"));
+    }
 
-    private Task SkipForwardAsync() => Playback.RequestTransportCommandAsync(new("skip-forward"));
+    private Task SkipBackAsync() => SkipRelativeAsync(-Playback.SkipBackSeconds);
+
+    private Task SkipForwardAsync() => SkipRelativeAsync(Playback.SkipForwardSeconds);
+
+    private async Task SkipRelativeAsync(double deltaSeconds)
+    {
+        if (await ConsumeImmediateSeekAsync(deltaSeconds))
+        {
+            return;
+        }
+
+        await Playback.SeekRelativeAsync(deltaSeconds);
+    }
+
+    private async Task<bool> ConsumeImmediateToggleAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("listenPlayback.consumeImmediateToggleHandled");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> ConsumeImmediateSeekAsync(double deltaSeconds)
+    {
+        try
+        {
+            if (!await JS.InvokeAsync<bool>("listenPlayback.consumeImmediateSeekHandled"))
+            {
+                return false;
+            }
+
+            var max = Playback.DurationSeconds > 0 ? Playback.DurationSeconds : double.MaxValue;
+            var next = Math.Clamp(Playback.CurrentTimeSeconds + deltaSeconds, 0, max);
+            Playback.UpdateTransportState(currentTimeSeconds: next);
+            await Playback.ReportHeartbeatAsync(force: true);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private async Task TogglePopupAsync()
     {

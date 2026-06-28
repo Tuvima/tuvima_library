@@ -85,7 +85,13 @@
                     <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-36px" />
                 </AppNativeButton>
                 @SkipButton("back", _snapshot.SkipBackSeconds, SkipBackAsync)
-                <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause">
+                <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause"
+                                 data-listen-audio-toggle="true"
+                                 data-listen-start-url="@CurrentBrowserStreamUrl"
+                                 data-listen-start-position="@_snapshot.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
+                                 data-listen-start-rate="@_snapshot.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
+                                 data-listen-start-volume="@_snapshot.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
+                                 data-listen-start-muted="@(_snapshot.IsMuted ? "true" : "false")">
                     <MudIcon Icon="@(_snapshot.IsPlaying && !_snapshot.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-46px" />
                 </AppNativeButton>
                 @SkipButton("forward", _snapshot.SkipForwardSeconds, SkipForwardAsync)
@@ -280,6 +286,10 @@
     private IReadOnlyList<PlaybackChapterDto> CurrentChapters =>
         CurrentItem is { Chapters.Count: > 1 } item ? item.Chapters : [];
     private bool HasChapters => CurrentChapters.Count > 0;
+    private string? CurrentBrowserStreamUrl =>
+        !string.IsNullOrWhiteSpace(_snapshot.CurrentBrowserStreamUrl)
+            ? _snapshot.CurrentBrowserStreamUrl
+            : CurrentItem?.StreamUrl;
     private string PopupClass => IsAudiobookMode ? "listen-popup listen-popup--audiobook" : "listen-popup listen-popup--music";
     private string BackdropStyle => string.IsNullOrWhiteSpace(CurrentItem?.CoverUrl)
         ? string.Empty
@@ -363,14 +373,13 @@
     {
         var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
         var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
-        var classes = $"listen-popup__transport-icon listen-popup__skip {(isForward ? "listen-popup__skip--forward" : "listen-popup__skip--back")}";
-        return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
-            <svg class="listen-skip-glyph" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-                <path d="M17 9h-7v7" />
-                <path d="M10.8 16.1A17 17 0 1 0 17.7 9.4" />
-            </svg>
-            <span class="listen-skip-value">@seconds</span>
-        </AppNativeButton>;
+        var classes = $"listen-popup__skip audiobook-skip-control {(isForward ? "listen-popup__skip--forward" : "listen-popup__skip--back")}";
+        return @<span class="@classes">
+            <AppNativeButton Type="button" Class='@($"audiobook-skip-button {(isForward ? "audiobook-skip-button--forward" : "audiobook-skip-button--back")}")' OnClick="@action" AriaLabel="@label" title="@label" data-listen-seek-delta="@(isForward ? seconds : -seconds)">
+                <span class="audiobook-skip-button__value" aria-hidden="true">@seconds</span>
+                <span class="audiobook-skip-button__line" aria-hidden="true"></span>
+            </AppNativeButton>
+        </span>;
     }
 
     private RenderFragment SpeedActionButton()
@@ -424,9 +433,53 @@
         _activeSheet = "bookmarks";
         return Task.CompletedTask;
     }
-    private Task TogglePlayAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-play" });
-    private Task SkipForwardAsync() => SendCommandAsync(new PopupCommand { Action = "skip-forward" });
-    private Task SkipBackAsync() => SendCommandAsync(new PopupCommand { Action = "skip-back" });
+    private async Task TogglePlayAsync()
+    {
+        if (await ConsumeImmediateToggleAsync())
+        {
+            return;
+        }
+
+        await SendCommandAsync(new PopupCommand { Action = "toggle-play" });
+    }
+
+    private Task SkipForwardAsync() => SkipRelativeAsync("skip-forward");
+    private Task SkipBackAsync() => SkipRelativeAsync("skip-back");
+
+    private async Task SkipRelativeAsync(string command)
+    {
+        if (await ConsumeImmediateSeekAsync())
+        {
+            return;
+        }
+
+        await SendCommandAsync(new PopupCommand { Action = command });
+    }
+
+    private async Task<bool> ConsumeImmediateToggleAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("listenPlayback.consumeImmediateToggleHandled");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> ConsumeImmediateSeekAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("listenPlayback.consumeImmediateSeekHandled");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private Task PlayNextChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-next-chapter" : "play-next" });
     private Task PlayPreviousChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-previous-chapter" : "play-previous" });
     private async Task PlayChapterAsync(int chapterIndex)

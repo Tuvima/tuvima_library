@@ -193,7 +193,7 @@
 .listen-popup__transport {
     width: 100%;
     justify-content: center;
-    gap: clamp(24px, 6vw, 44px);
+    gap: clamp(18px, 5vw, 40px);
 }
 
 .listen-popup__transport-icon {
@@ -209,21 +209,11 @@
 
 .listen-popup__skip {
     position: relative;
-    width: 72px;
-    height: 72px;
-}
-
-.listen-popup__skip .listen-skip-value {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    padding-top: 2px;
-    color: rgba(248, 250, 252, 0.96);
-    font-size: 1rem;
-    font-weight: 900;
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
+    width: 56px;
+    height: 56px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .listen-popup__play {
@@ -588,47 +578,87 @@
 
 ::deep .listen-popup__skip {
     position: relative;
-    width: 78px;
-    height: 78px;
+    width: 56px;
+    height: 56px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 
-::deep .listen-popup__skip .listen-skip-glyph {
-    position: absolute;
-    width: 62px;
-    height: 62px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.7;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+::deep .listen-popup__skip .audiobook-skip-button {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(248, 250, 252, 0.96);
+    box-shadow: none;
+    transition: transform 110ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
 
-::deep .listen-popup__skip--forward .listen-skip-glyph {
-    transform: scaleX(-1);
-    transform-origin: center;
+::deep .listen-popup__skip .audiobook-skip-button:hover,
+::deep .listen-popup__skip .audiobook-skip-button:focus-visible {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--listen-accent);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14), 0 14px 30px rgba(245, 158, 11, 0.12);
 }
 
-::deep .listen-popup__skip .listen-skip-value {
+::deep .listen-popup__skip .audiobook-skip-button:active {
+    transform: scale(0.96);
+}
+
+::deep .listen-popup__skip .audiobook-skip-button__value {
     position: absolute;
     left: 50%;
-    top: 50%;
-    width: 2rem;
-    height: 1.5rem;
-    display: grid;
-    place-items: center;
+    top: 54%;
     transform: translate(-50%, -50%);
-    border-radius: 999px;
-    background: var(--listen-skip-center-bg);
+    z-index: 1;
     color: rgba(248, 250, 252, 0.98);
-    font-size: 1.18rem;
+    font-size: 1.02rem;
     font-weight: 950;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
     pointer-events: none;
+}
+
+::deep .listen-popup__skip .audiobook-skip-button__line {
+    position: absolute;
+    top: 12px;
+    width: 28px;
+    height: 12px;
+    border-top: 2.5px solid currentColor;
+    pointer-events: none;
+}
+
+::deep .listen-popup__skip .audiobook-skip-button--back .audiobook-skip-button__line {
+    right: 16px;
+}
+
+::deep .listen-popup__skip .audiobook-skip-button--forward .audiobook-skip-button__line {
+    left: 16px;
+}
+
+::deep .listen-popup__skip .audiobook-skip-button__line::after {
+    content: "";
+    position: absolute;
+    top: -6px;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+}
+
+::deep .listen-popup__skip .audiobook-skip-button--back .audiobook-skip-button__line::after {
+    left: -1px;
+    border-right: 8px solid currentColor;
+}
+
+::deep .listen-popup__skip .audiobook-skip-button--forward .audiobook-skip-button__line::after {
+    right: -1px;
+    border-left: 8px solid currentColor;
 }
 
 ::deep .listen-popup__action--speed strong {
@@ -738,17 +768,14 @@
     }
 
     ::deep .listen-popup__skip {
-        width: 72px;
-        height: 72px;
-    }
-
-    ::deep .listen-popup__skip .listen-skip-glyph {
         width: 56px;
         height: 56px;
     }
 
-    ::deep .listen-popup__skip .listen-skip-value {
-        font-size: 1.08rem;
+    ::deep .listen-popup__skip .audiobook-skip-button {
+        width: 56px;
+        height: 56px;
+        min-width: 56px;
     }
 
     ::deep .listen-popup__play {

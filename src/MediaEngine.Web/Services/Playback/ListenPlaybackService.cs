@@ -68,6 +68,7 @@ public sealed class ListenPlaybackService
     public string? CurrentError { get; private set; }
     public int SkipBackSeconds { get; private set; } = 15;
     public int SkipForwardSeconds { get; private set; } = 15;
+    public int ResumeRewindSeconds { get; private set; } = 10;
     public int AudiobookNearStartGuardSeconds { get; private set; } = 30;
     public IReadOnlyList<int> SleepTimerOptionsMinutes { get; private set; } = [5, 10, 15, 30, 45, 60];
     public bool AllowEndOfChapterSleepTimer { get; private set; } = true;
@@ -1117,6 +1118,7 @@ public sealed class ListenPlaybackService
         AudiobookBookmarks = _audiobookBookmarks.ToList(),
         CurrentIndex = CurrentIndex,
         SourceLabel = SourceLabel,
+        CurrentBrowserStreamUrl = CurrentBrowserStreamUrl,
         Experience = Experience,
         IsPanelOpen = IsPanelOpen,
         ActiveTab = ActiveTab,
@@ -1421,6 +1423,7 @@ public sealed class ListenPlaybackService
             var defaults = UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
             SkipBackSeconds = defaults.Listening.SkipBackSeconds;
             SkipForwardSeconds = defaults.Listening.SkipForwardSeconds;
+            ResumeRewindSeconds = defaults.Listening.ResumeRewindSeconds;
             AudiobookNearStartGuardSeconds = defaults.Listening.AudiobookNearStartGuardSeconds;
             SleepTimerOptionsMinutes = NormalizeSleepTimerOptions(defaults.Listening.SleepTimerOptionsMinutes);
             AllowEndOfChapterSleepTimer = defaults.Listening.AllowEndOfChapterSleepTimer;
@@ -1430,6 +1433,7 @@ public sealed class ListenPlaybackService
         var settings = await _preferences.GetAsync(ct) ?? UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
         SkipBackSeconds = settings.Listening.SkipBackSeconds;
         SkipForwardSeconds = settings.Listening.SkipForwardSeconds;
+        ResumeRewindSeconds = settings.Listening.ResumeRewindSeconds;
         AudiobookNearStartGuardSeconds = settings.Listening.AudiobookNearStartGuardSeconds;
         SleepTimerOptionsMinutes = NormalizeSleepTimerOptions(settings.Listening.SleepTimerOptionsMinutes);
         AllowEndOfChapterSleepTimer = settings.Listening.AllowEndOfChapterSleepTimer;
@@ -1806,6 +1810,9 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("source_label")]
     public string? SourceLabel { get; init; }
+
+    [JsonPropertyName("current_browser_stream_url")]
+    public string? CurrentBrowserStreamUrl { get; init; }
 
     [JsonPropertyName("experience")]
     public string Experience { get; init; } = PlayerExperienceModes.Music;

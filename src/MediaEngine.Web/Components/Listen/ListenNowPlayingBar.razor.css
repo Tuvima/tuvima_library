@@ -33,6 +33,14 @@
         box-shadow: var(--app-shadow-lg, 0 -18px 36px rgba(0, 0, 0, 0.3));
     }
 
+    .listen-player-shell--popped-out .listen-player,
+    .listen-player-shell--popped-out .listen-player-panel,
+    .listen-player-shell--popped-out .listen-player-panel-backdrop {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(110%);
+    }
+
     .listen-player__audio-native {
         display: none;
     }
@@ -243,22 +251,12 @@
 
     .listen-player__skip {
         position: relative;
-        width: 46px;
-        height: 46px;
+        width: 56px;
+        height: 56px;
         border-radius: 999px;
-    }
-
-    .listen-player__skip .listen-skip-value {
-        position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        padding-top: 1px;
-        color: inherit;
-        font-size: 0.82rem;
-        font-weight: 900;
-        font-variant-numeric: tabular-nums;
-        pointer-events: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .listen-player-panel-backdrop {
@@ -352,50 +350,80 @@
         background: rgba(255, 255, 255, 0.05);
     }
 
-    ::deep .listen-player__skip {
+    ::deep .listen-player__skip .audiobook-skip-button {
         position: relative;
-        width: 58px;
-        height: 58px;
+        width: 56px;
+        height: 56px;
+        min-width: 56px;
+        border: 0;
         border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        background: transparent;
+        color: rgba(248, 250, 252, 0.96);
+        box-shadow: none;
+        transition: transform 110ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
     }
 
-    ::deep .listen-player__skip .listen-skip-glyph {
-        position: absolute;
-        width: 46px;
-        height: 46px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 2.8;
-        stroke-linecap: round;
-        stroke-linejoin: round;
+    ::deep .listen-player__skip .audiobook-skip-button:hover,
+    ::deep .listen-player__skip .audiobook-skip-button:focus-visible {
+        background: rgba(245, 158, 11, 0.12);
+        color: var(--tl-status-warning, #f59e0b);
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14), 0 14px 30px rgba(245, 158, 11, 0.12);
     }
 
-    ::deep .listen-player__skip--forward .listen-skip-glyph {
-        transform: scaleX(-1);
-        transform-origin: center;
+    ::deep .listen-player__skip .audiobook-skip-button:active {
+        transform: scale(0.96);
     }
 
-    ::deep .listen-player__skip .listen-skip-value {
+    .listen-player__skip .audiobook-skip-button__value {
         position: absolute;
         left: 50%;
-        top: 50%;
-        width: 1.56rem;
-        height: 1.2rem;
-        display: grid;
-        place-items: center;
+        top: 54%;
         transform: translate(-50%, -50%);
-        border-radius: 999px;
-        background: var(--listen-skip-center-bg, var(--app-surface, #07111f));
-        color: inherit;
-        font-size: 1rem;
+        z-index: 1;
+        color: rgba(248, 250, 252, 0.98);
+        font-size: 0.95rem;
         font-weight: 950;
         font-variant-numeric: tabular-nums;
         line-height: 1;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.34);
         pointer-events: none;
+    }
+
+    .listen-player__skip .audiobook-skip-button__line {
+        position: absolute;
+        top: 12px;
+        width: 28px;
+        height: 12px;
+        border-top: 2.5px solid currentColor;
+        pointer-events: none;
+    }
+
+    .listen-player__skip .audiobook-skip-button--back .audiobook-skip-button__line {
+        right: 16px;
+    }
+
+    .listen-player__skip .audiobook-skip-button--forward .audiobook-skip-button__line {
+        left: 16px;
+    }
+
+    .listen-player__skip .audiobook-skip-button__line::after {
+        content: "";
+        position: absolute;
+        top: -6px;
+        width: 0;
+        height: 0;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+    }
+
+    .listen-player__skip .audiobook-skip-button--back .audiobook-skip-button__line::after {
+        left: -1px;
+        border-right: 8px solid currentColor;
+    }
+
+    .listen-player__skip .audiobook-skip-button--forward .audiobook-skip-button__line::after {
+        right: -1px;
+        border-left: 8px solid currentColor;
     }
 
     .listen-player-panel__item-duration {

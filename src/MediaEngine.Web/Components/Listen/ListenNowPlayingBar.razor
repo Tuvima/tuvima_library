@@ -209,7 +209,13 @@
                             <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-20px" />
                         </AppNativeButton>
                         @SkipButton("back", Playback.SkipBackSeconds, SkipBackAsync)
-                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync" AriaLabel="Play or pause" title="Play or pause">
+                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync" AriaLabel="Play or pause" title="Play or pause"
+                                         data-listen-audio-toggle="true"
+                                         data-listen-start-url="@Playback.CurrentBrowserStreamUrl"
+                                         data-listen-start-position="@Playback.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
+                                         data-listen-start-rate="@Playback.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
+                                         data-listen-start-volume="@Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
+                                         data-listen-start-muted="@(Playback.IsMuted ? "true" : "false")">
                             <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
                         </AppNativeButton>
                         @SkipButton("forward", Playback.SkipForwardSeconds, SkipForwardAsync)
@@ -224,7 +230,13 @@
                         <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)">
                             <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
                         </AppNativeButton>
-                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync">
+                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync"
+                                         data-listen-audio-toggle="true"
+                                         data-listen-start-url="@Playback.CurrentBrowserStreamUrl"
+                                         data-listen-start-position="@Playback.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
+                                         data-listen-start-rate="@Playback.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
+                                         data-listen-start-volume="@Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
+                                         data-listen-start-muted="@(Playback.IsMuted ? "true" : "false")">
                             <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
                         </AppNativeButton>
                         <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
@@ -254,7 +266,7 @@
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="Playback.TogglePanel">
                     <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.History : Icons.Material.Outlined.QueueMusic)" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync">
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync" data-listen-popup-route="@(Playback.IsPopupOpen ? null : PopupRoute)">
                     <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ClosePlayerAsync">
@@ -292,6 +304,11 @@
                 ? "listen-player-shell listen-player-shell--listen-route"
                 : "listen-player-shell";
 
+            if (Playback.IsPopupOpen)
+            {
+                classes = $"{classes} listen-player-shell--popped-out";
+            }
+
             return Playback.IsAudiobookMode
                 ? $"{classes} listen-player-shell--audiobook"
                 : classes;
@@ -308,14 +325,13 @@
     {
         var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
         var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
-        var classes = $"listen-player__icon listen-player__skip {(isForward ? "listen-player__skip--forward" : "listen-player__skip--back")}";
-        return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
-            <svg class="listen-skip-glyph" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-                <path d="M17 9h-7v7" />
-                <path d="M10.8 16.1A17 17 0 1 0 17.7 9.4" />
-            </svg>
-            <span class="listen-skip-value">@seconds</span>
-        </AppNativeButton>;
+        var classes = $"listen-player__skip audiobook-skip-control {(isForward ? "listen-player__skip--forward" : "listen-player__skip--back")}";
+        return @<span class="@classes">
+            <AppNativeButton Type="button" Class='@($"audiobook-skip-button {(isForward ? "audiobook-skip-button--forward" : "audiobook-skip-button--back")}")' OnClick="@action" AriaLabel="@label" title="@label" data-listen-seek-delta="@(isForward ? seconds : -seconds)">
+                <span class="audiobook-skip-button__value" aria-hidden="true">@seconds</span>
+                <span class="audiobook-skip-button__line" aria-hidden="true"></span>
+            </AppNativeButton>
+        </span>;
     }
 
     protected override void OnInitialized()
@@ -429,7 +445,7 @@
             _lastSeekedStreamUrl = null;
             _lastSeekedPositionSeconds = null;
             _lastAppliedPlayingState = null;
-            await JS.InvokeVoidAsync("listenPlayback.loadAudio", _audioRef);
+            await JS.InvokeVoidAsync("listenPlayback.ensureAudioSource", _audioRef, browserStreamUrl);
         }
 
         if (_lastAppliedVolume != Playback.Volume)
@@ -525,6 +541,11 @@
 
     private async Task TogglePlayPauseAsync()
     {
+        if (await ConsumeImmediateToggleAsync())
+        {
+            return;
+        }
+
         if (Playback.IsPlaying && !Playback.NeedsUserGestureToStart)
         {
             await PauseAudioAsync();
@@ -641,9 +662,57 @@
         await Playback.SkipPreviousAsync();
     }
 
-    private Task SkipBackAsync() => SeekRelativeOnHostAsync(-Playback.SkipBackSeconds);
+    private Task SkipBackAsync() => SkipRelativeAsync(-Playback.SkipBackSeconds);
 
-    private Task SkipForwardAsync() => SeekRelativeOnHostAsync(Playback.SkipForwardSeconds);
+    private Task SkipForwardAsync() => SkipRelativeAsync(Playback.SkipForwardSeconds);
+
+    private async Task SkipRelativeAsync(double deltaSeconds)
+    {
+        if (await ConsumeImmediateSeekAsync())
+        {
+            return;
+        }
+
+        await SeekRelativeOnHostAsync(deltaSeconds);
+    }
+
+    private async Task<bool> ConsumeImmediateToggleAsync()
+    {
+        try
+        {
+            if (!await JS.InvokeAsync<bool>("listenPlayback.consumeImmediateToggleHandled"))
+            {
+                return false;
+            }
+
+            await HandleAudioMetricsChangedAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not consume immediate audio toggle.");
+            return false;
+        }
+    }
+
+    private async Task<bool> ConsumeImmediateSeekAsync()
+    {
+        try
+        {
+            if (!await JS.InvokeAsync<bool>("listenPlayback.consumeImmediateSeekHandled"))
+            {
+                return false;
+            }
+
+            await HandleAudioMetricsChangedAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not consume immediate audio seek.");
+            return false;
+        }
+    }
 
     private Task SeekRelativeOnHostAsync(double deltaSeconds)
     {

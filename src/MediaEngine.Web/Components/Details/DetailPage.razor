@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Details
 @using System.Globalization
+@using System.Text.RegularExpressions
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Discovery
@@ -193,7 +194,9 @@
             return;
         }
 
-        if (Model?.EntityType == DetailEntityType.Audiobook && (action.Key is "listen" or "continue"))
+        var isAudiobookListenAction = string.Equals(action.Key, "listen", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action.Label, "Listen", StringComparison.OrdinalIgnoreCase);
+        if (Model?.EntityType == DetailEntityType.Audiobook && (isAudiobookListenAction || IsContinueAction(action)))
         {
             await PlayAudiobookAsync(IsContinueAction(action));
             return;
@@ -493,8 +496,9 @@
         if (chapters.Count == 0)
             return;
 
+        var totalDurationSeconds = ResolveAudiobookTotalSeconds(chapters);
         var resumePositionSeconds = preferResume
-            ? ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent, Playback.AudiobookNearStartGuardSeconds)
+            ? ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent, Playback.AudiobookNearStartGuardSeconds, totalDurationSeconds)
             : null;
         var startItem = preferResume
             ? ResolveAudiobookResumeItem(chapters, resumePositionSeconds)
@@ -517,7 +521,9 @@
 
     private IReadOnlyDictionary<string, object>? AudiobookActionAttributes(DetailAction action)
     {
-        if (Model?.EntityType != DetailEntityType.Audiobook || action.IsDisabled || action.Key is not ("listen" or "continue"))
+        var isListenAction = string.Equals(action.Key, "listen", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action.Label, "Listen", StringComparison.OrdinalIgnoreCase);
+        if (Model?.EntityType != DetailEntityType.Audiobook || action.IsDisabled || (!isListenAction && !IsContinueAction(action)))
         {
             return null;
         }
@@ -534,8 +540,9 @@
         }
 
         var preferResume = IsContinueAction(action);
+        var totalDurationSeconds = ResolveAudiobookTotalSeconds(chapters);
         var resumePositionSeconds = preferResume
-            ? ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent, Playback.AudiobookNearStartGuardSeconds)
+            ? ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent, Playback.AudiobookNearStartGuardSeconds, totalDurationSeconds)
             : null;
         var startItem = preferResume
             ? ResolveAudiobookResumeItem(chapters, resumePositionSeconds)
@@ -548,7 +555,7 @@
         var positionSeconds = resumePositionSeconds ?? ResumePositionFor(startItem) ?? startItem.StartSeconds ?? 0;
         if (preferResume && positionSeconds > 0)
         {
-            positionSeconds = Math.Max(0, positionSeconds - new ListeningSettingsDto().ResumeRewindSeconds);
+            positionSeconds = Math.Max(0, positionSeconds - Playback.ResumeRewindSeconds);
         }
 
         var playbackRate = Playback.IsAudiobookMode
@@ -558,8 +565,12 @@
         return new Dictionary<string, object>
         {
             ["data-listen-immediate-start"] = "audiobook",
+            ["data-listen-start-kind"] = preferResume ? AudiobookStartKinds.Resume : AudiobookStartKinds.Chapter,
             ["data-listen-start-url"] = $"/engine-stream/{assetId:D}",
             ["data-listen-start-position"] = positionSeconds.ToString("0.###", CultureInfo.InvariantCulture),
+            ["data-listen-start-progress"] = (Model.Progress?.Percent ?? 0).ToString("0.###", CultureInfo.InvariantCulture),
+            ["data-listen-start-duration"] = (totalDurationSeconds ?? 0).ToString("0.###", CultureInfo.InvariantCulture),
+            ["data-listen-start-rewind"] = (preferResume ? Playback.ResumeRewindSeconds : 0).ToString(CultureInfo.InvariantCulture),
             ["data-listen-start-rate"] = playbackRate.ToString("0.###", CultureInfo.InvariantCulture),
             ["data-listen-start-volume"] = Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture),
             ["data-listen-start-muted"] = Playback.IsMuted ? "true" : "false",
@@ -570,9 +581,6 @@
         string.Equals(action.Key, "continue", StringComparison.OrdinalIgnoreCase)
         || string.Equals(action.Label, "Continue", StringComparison.OrdinalIgnoreCase)
         || string.Equals(action.Label, "Continue Listening", StringComparison.OrdinalIgnoreCase);
-
-    private static MediaGroupingItemViewModel? ResolveAudiobookResumeItem(IReadOnlyList<MediaGroupingItemViewModel> chapters) =>
-        ResolveAudiobookResumeItem(chapters, ResolveAudiobookResumePosition(chapters, null, new ListeningSettingsDto().AudiobookNearStartGuardSeconds));
 
     private static MediaGroupingItemViewModel? ResolveAudiobookResumeItem(
         IReadOnlyList<MediaGroupingItemViewModel> chapters,
@@ -598,12 +606,15 @@
     private static double? ResolveAudiobookResumePosition(
         IReadOnlyList<MediaGroupingItemViewModel> chapters,
         double? pageProgressPercent,
-        int nearStartGuardSeconds)
+        int nearStartGuardSeconds,
+        double? knownTotalSeconds = null)
     {
         double? inferredPagePosition = null;
         if (pageProgressPercent is > 0 and < 99.5)
         {
-            var totalSeconds = TotalAudiobookSeconds(chapters);
+            var totalSeconds = knownTotalSeconds is > 0
+                ? knownTotalSeconds
+                : TotalAudiobookSeconds(chapters);
             if (totalSeconds is > 0)
             {
                 inferredPagePosition = totalSeconds.Value * Math.Clamp(pageProgressPercent.Value, 0, 100) / 100d;
@@ -646,6 +657,37 @@
         return null;
     }
 
+    private double? ResolveAudiobookTotalSeconds(IReadOnlyList<MediaGroupingItemViewModel> chapters)
+    {
+        var total = TotalAudiobookSeconds(chapters);
+        if (total is > 0)
+        {
+            return total;
+        }
+
+        foreach (var label in Model?.Metadata
+                     .Where(item => string.Equals(item.Kind, "duration", StringComparison.OrdinalIgnoreCase))
+                     .Select(item => item.Label) ?? [])
+        {
+            if (TryParseDurationSeconds(label) is { } seconds)
+            {
+                return seconds;
+            }
+        }
+
+        foreach (var runtime in Model?.OwnedFormats
+                     .Where(item => item.FormatType == MediaFormatType.Audiobook)
+                     .Select(item => item.Runtime) ?? [])
+        {
+            if (TryParseDurationSeconds(runtime) is { } seconds)
+            {
+                return seconds;
+            }
+        }
+
+        return null;
+    }
+
     private static MediaGroupingItemViewModel? ChapterAtPosition(
         IReadOnlyList<MediaGroupingItemViewModel> chapters,
         double positionSeconds) =>
@@ -668,7 +710,69 @@
             .DefaultIfEmpty()
             .Max();
 
-        return maxEnd > 0 ? maxEnd : null;
+        if (maxEnd > 0)
+        {
+            return maxEnd;
+        }
+
+        var durations = chapters
+            .Select(item => item.DurationSeconds)
+            .Where(seconds => seconds is > 0)
+            .Select(seconds => seconds!.Value)
+            .ToList();
+        return durations.Count == chapters.Count && durations.Count > 0
+            ? durations.Sum()
+            : null;
+    }
+
+    private static double? TryParseDurationSeconds(string? duration)
+    {
+        if (string.IsNullOrWhiteSpace(duration))
+        {
+            return null;
+        }
+
+        var trimmed = duration.Trim();
+        var clockParts = trimmed.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (clockParts.Length is 2 or 3 && clockParts.All(part => double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out _)))
+        {
+            var total = 0d;
+            foreach (var part in clockParts)
+            {
+                total = total * 60d + double.Parse(part, NumberStyles.Float, CultureInfo.InvariantCulture);
+            }
+
+            return total > 0 ? total : null;
+        }
+
+        var matches = Regex.Matches(
+            trimmed,
+            @"(?<value>\d+(?:\.\d+)?)\s*(?<unit>hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (matches.Count == 0)
+        {
+            return null;
+        }
+
+        var seconds = 0d;
+        foreach (Match match in matches)
+        {
+            if (!double.TryParse(match.Groups["value"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                continue;
+            }
+
+            var unit = match.Groups["unit"].Value.ToLowerInvariant();
+            seconds += unit[0] switch
+            {
+                'h' => value * 3600d,
+                'm' => value * 60d,
+                's' => value,
+                _ => 0d,
+            };
+        }
+
+        return seconds > 0 ? seconds : null;
     }
 
     private static bool IsCompletedChapter(MediaGroupingItemViewModel item) =>
