@@ -216,7 +216,10 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, ct)", source);
+        Assert.Contains("ResolveAudiobookTotalDurationSeconds(row, chapters)", source);
+        Assert.Contains("LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, totalDurationSeconds, ct)", source);
+        Assert.Contains("NormalizeAudiobookResumePosition(fallback, durationSeconds)", source);
+        Assert.Contains("durationSeconds.Value * Math.Clamp(progressPct.Value, 0, 100) / 100d", source);
         Assert.Contains("FROM audiobook_listen_active_segments", source);
         Assert.Contains("FROM audiobook_listen_history", source);
         Assert.Contains("IsMeaningfulAudiobookResume", source);

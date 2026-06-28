@@ -31,7 +31,7 @@
                 <AppNativeButton Type="button" Class="listen-popup__top-icon" Disabled="true" AriaLabel="Playback device" title="Playback device">
                     <MudIcon Icon="@Icons.Material.Outlined.Cast" Class="tl-u-font-size-28px" />
                 </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-popup__top-icon" AriaLabel="More options" title="More options">
+                <AppNativeButton Type="button" Class="@($"listen-popup__top-icon {(_showOverflowMenu ? "is-active" : null)}")" OnClick="ToggleOverflowMenu" AriaLabel="More options" title="More options">
                     <MudIcon Icon="@Icons.Material.Outlined.MoreVert" Class="tl-u-font-size-30px" />
                 </AppNativeButton>
             </div>
@@ -84,15 +84,11 @@
                 <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="PlayPreviousChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Previous chapter" title="Previous chapter">
                     <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-36px" />
                 </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="SkipBackAsync" AriaLabel="Back 15 seconds" title="Back 15 seconds">
-                    <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="tl-u-font-size-42px" />
-                </AppNativeButton>
+                @SkipButton("back", _snapshot.SkipBackSeconds, SkipBackAsync)
                 <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause">
                     <MudIcon Icon="@(_snapshot.IsPlaying && !_snapshot.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-46px" />
                 </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="SkipForwardAsync" AriaLabel="Forward 15 seconds" title="Forward 15 seconds">
-                    <MudIcon Icon="@Icons.Material.Outlined.Forward" Class="tl-u-font-size-42px" />
-                </AppNativeButton>
+                @SkipButton("forward", _snapshot.SkipForwardSeconds, SkipForwardAsync)
                 <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="PlayNextChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Next chapter" title="Next chapter">
                     <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-36px" />
                 </AppNativeButton>
@@ -101,7 +97,7 @@
             @if (IsAudiobookMode)
             {
                 <section class="listen-popup__actions" aria-label="Audiobook tools">
-                    @ActionButton("speed", $"Speed {FormatSpeed(_snapshot.PlaybackRate)}", Icons.Material.Outlined.Speed)
+                    @SpeedActionButton()
                     @ActionButton("chapters", "Chapters", Icons.Material.Outlined.FormatListBulleted)
                     @ActionButton("history", "History", Icons.Material.Outlined.History)
                     @ActionButton("bookmarks", "Bookmark", Icons.Material.Outlined.BookmarkBorder)
@@ -162,9 +158,8 @@
                                     <AppNativeButton Type="button" Class="@($"listen-popup-sheet__row listen-popup-sheet__row--chapter {(isActive ? "is-active" : null)}")" OnClick="@(() => PlayChapterAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")" title="@($"Play {chapter.Title}")">
                                         <span class="listen-popup-sheet__copy">
                                             <strong>@chapter.Title</strong>
-                                            <span>@ChapterDuration(chapter)</span>
                                         </span>
-                                        <MudIcon Icon="@(isActive ? Icons.Material.Filled.VolumeUp : Icons.Material.Filled.ChevronRight)" Class="tl-u-font-size-28px" />
+                                        <span class="listen-popup-sheet__duration">@ChapterDuration(chapter)</span>
                                     </AppNativeButton>
                                 }
                             }
@@ -242,6 +237,27 @@
                 }
             </section>
         }
+
+        @if (_showOverflowMenu)
+        {
+            <div class="listen-popup-menu__backdrop" @onclick="CloseOverflowMenu"></div>
+            <section class="listen-popup-menu" aria-label="More options" aria-modal="true">
+                <div class="listen-popup-menu__grabber"></div>
+                <AppNativeButton Type="button" Class="listen-popup-menu__row" OnClick="CloseOverflowMenu" AriaLabel="Title details" title="Title details">
+                    <MudIcon Icon="@Icons.Material.Outlined.Article" Class="tl-u-font-size-26px" />
+                    <span>Title Details</span>
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup-menu__row" OnClick="CloseOverflowMenu" AriaLabel="Manage in Library" title="Manage in Library">
+                    <MudIcon Icon="@Icons.Material.Outlined.LibraryBooks" Class="tl-u-font-size-26px" />
+                    <span>Manage in Library</span>
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup-menu__row" OnClick="ShowBookmarksFromMenu" AriaLabel="Bookmarks" title="Bookmarks">
+                    <MudIcon Icon="@Icons.Material.Outlined.BookmarkBorder" Class="tl-u-font-size-26px" />
+                    <span>Bookmarks</span>
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="listen-popup-menu__cancel" OnClick="CloseOverflowMenu" AriaLabel="Cancel" title="Cancel">Cancel</AppNativeButton>
+            </section>
+        }
     }
 </AppCssElement>
 
@@ -251,6 +267,7 @@
     private ListenPlaybackSnapshot _snapshot = new();
     private DotNetObjectReference<ListenPlayerPopupPage>? _selfReference;
     private string? _activeSheet;
+    private bool _showOverflowMenu;
 
     private ListenQueueItem? CurrentItem =>
         _snapshot.CurrentIndex >= 0 && _snapshot.CurrentIndex < _snapshot.Queue.Count
@@ -287,7 +304,7 @@
     private string SheetSubtitle => _activeSheet switch
     {
         "speed" => "Choose playback speed",
-        "chapters" => "Jump to a chapter",
+        "chapters" => string.Empty,
         "history" => "Recent listening positions",
         "bookmarks" => "Saved audiobook positions",
         "sleep" => "Stop playback automatically",
@@ -341,13 +358,58 @@
         return Task.CompletedTask;
     }
 
+    private RenderFragment SkipButton(string direction, int seconds, Func<Task> action)
+    {
+        var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
+        var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
+        var classes = $"listen-popup__transport-icon listen-popup__skip {(isForward ? "listen-popup__skip--forward" : "listen-popup__skip--back")}";
+        return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
+            <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="listen-popup__skip-icon" />
+            <span>@seconds</span>
+        </AppNativeButton>;
+    }
+
+    private RenderFragment SpeedActionButton()
+    {
+        const string sheet = "speed";
+        var speed = FormatSpeed(_snapshot.PlaybackRate);
+        var label = $"Speed {speed}";
+        var classes = $"listen-popup__action listen-popup__action--speed {(_activeSheet == sheet ? "is-active" : null)}";
+        return @<AppNativeButton Type="button" Class="@classes" OnClick="@(() => ToggleSheet(sheet))" AriaLabel="@label" title="@label">
+            <strong>@speed</strong>
+        </AppNativeButton>;
+    }
+
     private RenderFragment ActionButton(string sheet, string label, string icon) => @<AppNativeButton Type="button" Class="@($"listen-popup__action {(_activeSheet == sheet ? "is-active" : null)}")" OnClick="@(() => ToggleSheet(sheet))" AriaLabel="@label" title="@label">
         <MudIcon Icon="@icon" Class="tl-u-font-size-42px" />
     </AppNativeButton>;
 
     private RenderFragment TimerButton(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-popup-sheet__timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">@label</AppNativeButton>;
 
-    private void ToggleSheet(string sheet) => _activeSheet = _activeSheet == sheet ? null : sheet;
+    private void ToggleSheet(string sheet)
+    {
+        _showOverflowMenu = false;
+        _activeSheet = _activeSheet == sheet ? null : sheet;
+    }
+
+    private void ToggleOverflowMenu()
+    {
+        _activeSheet = null;
+        _showOverflowMenu = !_showOverflowMenu;
+    }
+
+    private Task CloseOverflowMenu()
+    {
+        _showOverflowMenu = false;
+        return Task.CompletedTask;
+    }
+
+    private Task ShowBookmarksFromMenu()
+    {
+        _showOverflowMenu = false;
+        _activeSheet = "bookmarks";
+        return Task.CompletedTask;
+    }
     private Task TogglePlayAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-play" });
     private Task SkipForwardAsync() => SendCommandAsync(new PopupCommand { Action = "skip-forward" });
     private Task SkipBackAsync() => SendCommandAsync(new PopupCommand { Action = "skip-back" });
@@ -441,11 +503,15 @@
             ? FormatTimestamp(chapter.EndSeconds.Value - chapter.StartSeconds)
             : string.Empty;
 
-    private static string HistoryTitle(AudiobookListenHistoryItemDto item) =>
-        item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture);
+    private static string HistoryTitle(AudiobookListenHistoryItemDto item)
+    {
+        var position = FormatTimestamp(item.PositionSeconds);
+        var chapter = FirstNonBlank(item.ChapterTitle, $"Position {position}");
+        return $"{chapter} - Left off at {position}";
+    }
 
     private static string HistorySubtitle(AudiobookListenHistoryItemDto item) =>
-        $"Left off at {FormatTimestamp(item.PositionSeconds)}";
+        item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture);
 
     private static string BookmarkTitle(AudiobookBookmarkDto item) =>
         FirstNonBlank(item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");

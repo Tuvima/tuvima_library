@@ -970,6 +970,7 @@ window.listenPlayback = (function () {
     var commandHandler = null;
     var popupWindow = null;
     var popupUnloadHandler = null;
+    var audioObservers = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
 
     function notifyState(json) {
         if (stateHandler && json) {
@@ -981,6 +982,62 @@ window.listenPlayback = (function () {
         if (commandHandler && json) {
             commandHandler.invokeMethodAsync('HandlePlaybackCommand', json);
         }
+    }
+
+    function readAudioElementState(element) {
+        if (!element) {
+            return {
+                currentTime: 0,
+                duration: 0,
+                volume: 0.8,
+                muted: false,
+                paused: true,
+                playbackRate: 1
+            };
+        }
+
+        return {
+            currentTime: element.currentTime || 0,
+            duration: isFinite(element.duration) ? element.duration : 0,
+            volume: typeof element.volume === 'number' ? element.volume : 0.8,
+            muted: !!element.muted,
+            paused: !!element.paused,
+            playbackRate: typeof element.playbackRate === 'number' ? element.playbackRate : 1
+        };
+    }
+
+    function audioObserverFor(element) {
+        return audioObservers ? audioObservers.get(element) : element && element.__listenAudioObserver;
+    }
+
+    function setAudioObserver(element, observer) {
+        if (!element) return;
+        if (audioObservers) {
+            if (observer) {
+                audioObservers.set(element, observer);
+            } else {
+                audioObservers.delete(element);
+            }
+            return;
+        }
+
+        if (observer) {
+            element.__listenAudioObserver = observer;
+        } else {
+            delete element.__listenAudioObserver;
+        }
+    }
+
+    function removeAudioObserver(element) {
+        var observer = audioObserverFor(element);
+        if (!element || !observer) return;
+
+        element.removeEventListener('timeupdate', observer.onTimeUpdate);
+        element.removeEventListener('durationchange', observer.onMetadataChanged);
+        element.removeEventListener('loadedmetadata', observer.onMetadataChanged);
+        element.removeEventListener('ratechange', observer.onMetadataChanged);
+        element.removeEventListener('volumechange', observer.onMetadataChanged);
+        setAudioObserver(element, null);
     }
 
     if (channel) {
@@ -1096,25 +1153,48 @@ window.listenPlayback = (function () {
             window.close();
         },
         readAudioState: function (element) {
-            if (!element) {
-                return {
-                    currentTime: 0,
-                    duration: 0,
-                    volume: 0.8,
-                    muted: false,
-                    paused: true
-                };
-            }
+            return readAudioElementState(element);
+        },
+        registerAudioStateObserver: function (element, dotNetRef, intervalMs) {
+            if (!element || !dotNetRef) return;
+            removeAudioObserver(element);
 
-                return {
-                    currentTime: element.currentTime || 0,
-                    duration: isFinite(element.duration) ? element.duration : 0,
-                    volume: typeof element.volume === 'number' ? element.volume : 0.8,
-                    muted: !!element.muted,
-                    paused: !!element.paused,
-                    playbackRate: typeof element.playbackRate === 'number' ? element.playbackRate : 1
-                };
-            },
+            var interval = Math.max(500, intervalMs || 1200);
+            var lastNotifiedAt = 0;
+            var notify = function (force) {
+                var now = Date.now();
+                if (!force && now - lastNotifiedAt < interval) {
+                    return;
+                }
+
+                lastNotifiedAt = now;
+                try {
+                    var invocation = dotNetRef.invokeMethodAsync('HandleObservedAudioState', readAudioElementState(element));
+                    if (invocation && typeof invocation.catch === 'function') {
+                        invocation.catch(function (error) {
+                            console.debug('Could not report listen audio state.', error);
+                        });
+                    }
+                } catch (error) {
+                    console.debug('Could not report listen audio state.', error);
+                }
+            };
+            var observer = {
+                onTimeUpdate: function () { notify(false); },
+                onMetadataChanged: function () { notify(true); }
+            };
+
+            element.addEventListener('timeupdate', observer.onTimeUpdate);
+            element.addEventListener('durationchange', observer.onMetadataChanged);
+            element.addEventListener('loadedmetadata', observer.onMetadataChanged);
+            element.addEventListener('ratechange', observer.onMetadataChanged);
+            element.addEventListener('volumechange', observer.onMetadataChanged);
+            setAudioObserver(element, observer);
+            notify(true);
+        },
+        unregisterAudioStateObserver: function (element) {
+            removeAudioObserver(element);
+        },
         loadAudio: function (element) {
             if (!element) return;
             try {

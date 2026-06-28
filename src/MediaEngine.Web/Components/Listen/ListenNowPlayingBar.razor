@@ -18,7 +18,6 @@
        src="@Playback.CurrentBrowserStreamUrl"
        @onloadedmetadata="HandleAudioMetricsChangedAsync"
        @ondurationchange="HandleAudioMetricsChangedAsync"
-       @ontimeupdate="HandleAudioMetricsChangedAsync"
        @onplay="HandleAudioStarted"
        @onpause="HandleAudioPaused"
        @onerror="HandleAudioErrorAsync"
@@ -208,15 +207,11 @@
                         <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayPreviousChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Previous chapter" title="Previous chapter">
                             <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-20px" />
                         </AppNativeButton>
-                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.SkipBackAsync())" AriaLabel="Back 15 seconds" title="Back 15 seconds">
-                            <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="tl-u-font-size-22px" />
-                        </AppNativeButton>
+                        @SkipButton("back", Playback.SkipBackSeconds, () => Playback.SkipBackAsync())
                         <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync" AriaLabel="Play or pause" title="Play or pause">
                             <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
                         </AppNativeButton>
-                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.SkipForwardAsync())" AriaLabel="Forward 15 seconds" title="Forward 15 seconds">
-                            <MudIcon Icon="@Icons.Material.Outlined.Forward" Class="tl-u-font-size-22px" />
-                        </AppNativeButton>
+                        @SkipButton("forward", Playback.SkipForwardSeconds, () => Playback.SkipForwardAsync())
                         <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayNextChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Next chapter" title="Next chapter">
                             <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-20px" />
                         </AppNativeButton>
@@ -308,6 +303,17 @@
 
     private LrcDisplayLine? ActiveLyricLine => _lyricsLines.LastOrDefault(line => line.StartSeconds <= Playback.CurrentTimeSeconds + 0.25);
 
+    private RenderFragment SkipButton(string direction, int seconds, Func<Task> action)
+    {
+        var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
+        var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
+        var classes = $"listen-player__icon listen-player__skip {(isForward ? "listen-player__skip--forward" : "listen-player__skip--back")}";
+        return @<AppNativeButton Type="button" Class="@classes" OnClick="@action" AriaLabel="@label" title="@label">
+            <MudIcon Icon="@Icons.Material.Outlined.Replay" Class="listen-player__skip-icon" />
+            <span>@seconds</span>
+        </AppNativeButton>;
+    }
+
     protected override void OnInitialized()
     {
         Playback.OnChanged += HandlePlaybackChanged;
@@ -324,6 +330,7 @@
         {
             _selfReference = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("listenPlayback.registerCommandHandler", _selfReference);
+            await JS.InvokeVoidAsync("listenPlayback.registerAudioStateObserver", _audioRef, _selfReference, 1200);
 
             try
             {
@@ -469,6 +476,14 @@
     private async Task HandleAudioMetricsChangedAsync()
     {
         var state = await JS.InvokeAsync<AudioMetrics>("listenPlayback.readAudioState", _audioRef);
+        await ApplyAudioMetricsAsync(state);
+    }
+
+    [JSInvokable]
+    public Task HandleObservedAudioState(AudioMetrics state) => ApplyAudioMetricsAsync(state);
+
+    private async Task ApplyAudioMetricsAsync(AudioMetrics state)
+    {
         Playback.UpdateTransportState(
             currentTimeSeconds: state.CurrentTime,
             durationSeconds: state.Duration,
@@ -909,6 +924,7 @@
 
         try
         {
+            await JS.InvokeVoidAsync("listenPlayback.unregisterAudioStateObserver", _audioRef);
             await JS.InvokeVoidAsync("listenPlayback.unregisterCommandHandler", _selfReference);
         }
         catch (JSDisconnectedException)
@@ -922,7 +938,7 @@
         _selfReference?.Dispose();
     }
 
-    private sealed class AudioMetrics
+    public sealed class AudioMetrics
     {
         public double CurrentTime { get; set; }
         public double Duration { get; set; }

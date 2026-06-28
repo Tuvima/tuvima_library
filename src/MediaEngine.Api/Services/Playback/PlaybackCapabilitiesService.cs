@@ -140,6 +140,9 @@ public sealed class PlaybackCapabilitiesService
         }
 
         var variants = await _playbackState.ListOfflineVariantsAsync(assetId, sourceHash, ct);
+        var chapters = await BuildChaptersAsync(assetId, mediaInfo, probe, profileId, ct);
+        var durationSeconds = ResolveManifestDurationSeconds(chapters, mediaInfo, probe);
+        var resume = NormalizeResumePosition(await LoadResumeAsync(assetId, ct), durationSeconds);
 
         return new PlaybackManifestDto
         {
@@ -154,9 +157,9 @@ public sealed class PlaybackCapabilitiesService
             Profile = profile,
             AudioTracks = BuildAudioTracks(mediaInfo, probe),
             SubtitleTracks = BuildSubtitleTracks(mediaInfo, probe),
-            Chapters = await BuildChaptersAsync(assetId, mediaInfo, probe, profileId, ct),
+            Chapters = chapters,
             OfflineVariants = variants,
-            Resume = await LoadResumeAsync(assetId, ct),
+            Resume = resume,
             Segments = (await _segments.ListByAssetAsync(assetId, ct)).Select(ToSegmentDto).ToList(),
             Warnings = warnings,
             ConversionReason = conversionReason,
@@ -261,6 +264,65 @@ public sealed class PlaybackCapabilitiesService
             LastAccessed = DateTimeOffset.TryParse(row.LastAccessed, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
                 ? parsed
                 : null,
+        };
+    }
+
+    private static double? ResolveManifestDurationSeconds(
+        IReadOnlyList<PlaybackChapterDto> chapters,
+        MediaInfoWrapper? mediaInfo,
+        MediaProbeResult? probe)
+    {
+        var chapterEnd = chapters
+            .Where(chapter => chapter.EndSeconds is > 0)
+            .Select(chapter => chapter.EndSeconds!.Value)
+            .DefaultIfEmpty()
+            .Max();
+        if (chapterEnd > 0)
+        {
+            return chapterEnd;
+        }
+
+        if (mediaInfo?.Duration is > 0)
+        {
+            return mediaInfo.Duration;
+        }
+
+        return probe?.Duration.TotalSeconds is > 0
+            ? probe.Duration.TotalSeconds
+            : null;
+    }
+
+    private static PlaybackResumeDto? NormalizeResumePosition(PlaybackResumeDto? resume, double? durationSeconds)
+    {
+        if (resume is null)
+        {
+            return null;
+        }
+
+        var duration = durationSeconds is > 0 ? durationSeconds.Value : (double?)null;
+        var progress = Math.Clamp(resume.ProgressPct, 0, 100);
+        var position = resume.PositionSeconds;
+        if (!position.HasValue && progress is > 0 and < 100 && duration.HasValue)
+        {
+            position = duration.Value * progress / 100d;
+        }
+
+        if (position.HasValue)
+        {
+            position = duration.HasValue
+                ? Math.Clamp(position.Value, 0, duration.Value)
+                : Math.Max(0, position.Value);
+
+            if (duration.HasValue && progress <= 0)
+            {
+                progress = Math.Clamp(position.Value / duration.Value * 100d, 0, 100);
+            }
+        }
+
+        return resume with
+        {
+            PositionSeconds = position,
+            ProgressPct = progress,
         };
     }
 

@@ -568,9 +568,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("HeroMetadataPills", audioLayout);
         Assert.DoesNotContain("<AudiobookChapterList Groups=\"Model.MediaGroups\"", audioLayout[..audioLayout.IndexOf("<DetailTabs", StringComparison.Ordinal)]);
         Assert.Contains("InitialPositionSeconds = ResumePositionFor(item)", audioTable);
+        Assert.Contains("ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent)", detailPage);
         Assert.Contains("item.ResumePositionSeconds is > 0", detailPage);
         Assert.Contains("PlayAudiobookAsync(IsContinueAction(action))", detailPage);
-        Assert.Contains("ResolveAudiobookResumeItem(chapters)", detailPage);
+        Assert.Contains("ResolveAudiobookResumeItem(chapters, resumePositionSeconds)", detailPage);
+        Assert.Contains("InitialPositionSeconds = initialPositionSeconds ?? ResumePositionFor(item)", detailPage);
         Assert.Contains("!IsCompletedChapter(item) && !IsIntroChapter(item)", detailPage);
         Assert.Contains("item.ResumePositionSeconds is > 0", audioTable);
         Assert.Contains("Chapters = chapters.Select(ToPlaybackChapter).ToList()", detailPage);
@@ -585,7 +587,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("StartAudioAsync", playerBar);
         Assert.Contains("listenPlayback.startAudio", playerBar);
         Assert.DoesNotContain("Math.Abs(_lastSeekedPositionSeconds.Value - targetPositionSeconds)", playerBar);
+        Assert.DoesNotContain("@ontimeupdate=\"HandleAudioMetricsChangedAsync\"", playerBar);
         Assert.Contains("startAudio: async function", playerScript);
+        Assert.Contains("registerAudioStateObserver: function", playerScript);
         Assert.Contains("grid-template-columns: 4.75rem minmax(0, 1fr) 4.75rem", playerStyles);
         Assert.Contains("FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook)", audioTable);
         Assert.Contains("FormatChapterTimeRange(item.StartSeconds.Value, item.EndSeconds)", audioTable);
@@ -636,8 +640,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("play-chapter", popup);
         Assert.Contains("add-audiobook-bookmark", popup);
         Assert.Contains("set-sleep-timer", popup);
-        Assert.Contains("AriaLabel=\"Back 15 seconds\"", popup);
-        Assert.Contains("AriaLabel=\"Forward 15 seconds\"", popup);
+        Assert.Contains("SkipButton(\"back\", _snapshot.SkipBackSeconds", popup);
+        Assert.Contains("SkipButton(\"forward\", _snapshot.SkipForwardSeconds", popup);
+        Assert.Contains("listen-popup-menu", popup);
         Assert.Contains("listen-popup-sheet__close", popup);
         Assert.Contains("play-next-chapter", host);
         Assert.Contains("play-previous-chapter", host);

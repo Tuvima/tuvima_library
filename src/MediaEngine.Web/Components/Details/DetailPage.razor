@@ -491,13 +491,16 @@
         if (chapters.Count == 0)
             return;
 
+        var resumePositionSeconds = preferResume
+            ? ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent)
+            : null;
         var startItem = preferResume
-            ? ResolveAudiobookResumeItem(chapters)
+            ? ResolveAudiobookResumeItem(chapters, resumePositionSeconds)
             : chapters.FirstOrDefault();
         if (startItem is null)
             return;
 
-        var item = ToAudiobookQueueItem(startItem, chapters);
+        var item = ToAudiobookQueueItem(startItem, chapters, resumePositionSeconds);
         if (item.WorkId == Guid.Empty)
             return;
 
@@ -510,11 +513,91 @@
         || string.Equals(action.Label, "Continue Listening", StringComparison.OrdinalIgnoreCase);
 
     private static MediaGroupingItemViewModel? ResolveAudiobookResumeItem(IReadOnlyList<MediaGroupingItemViewModel> chapters) =>
-        chapters.FirstOrDefault(item => item.ResumePositionSeconds is > 0)
-        ?? chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 99.5)
-        ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item) && !IsIntroChapter(item))
-        ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item))
-        ?? chapters.FirstOrDefault();
+        ResolveAudiobookResumeItem(chapters, ResolveAudiobookResumePosition(chapters, null));
+
+    private static MediaGroupingItemViewModel? ResolveAudiobookResumeItem(
+        IReadOnlyList<MediaGroupingItemViewModel> chapters,
+        double? resumePositionSeconds)
+    {
+        if (resumePositionSeconds is > 0)
+        {
+            return ChapterAtPosition(chapters, resumePositionSeconds.Value)
+                ?? chapters.FirstOrDefault(item => item.ResumePositionSeconds is > 0)
+                ?? chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 99.5)
+                ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item) && !IsIntroChapter(item))
+                ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item))
+                ?? chapters.FirstOrDefault();
+        }
+
+        return chapters.FirstOrDefault(item => item.ResumePositionSeconds is > 0)
+            ?? chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 99.5)
+            ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item) && !IsIntroChapter(item))
+            ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item))
+            ?? chapters.FirstOrDefault();
+    }
+
+    private static double? ResolveAudiobookResumePosition(
+        IReadOnlyList<MediaGroupingItemViewModel> chapters,
+        double? pageProgressPercent)
+    {
+        var explicitPosition = chapters
+            .Where(item => item.ResumePositionSeconds is > 0)
+            .Select(item => item.ResumePositionSeconds!.Value)
+            .OrderDescending()
+            .FirstOrDefault();
+        if (explicitPosition > 0)
+        {
+            return explicitPosition;
+        }
+
+        var chapterProgressPosition = chapters
+            .Where(item => item.ProgressPercent is > 0 and < 99.5)
+            .Select(ResumePositionFor)
+            .Where(position => position is > 0)
+            .Select(position => position!.Value)
+            .OrderDescending()
+            .FirstOrDefault();
+        if (chapterProgressPosition > 0)
+        {
+            return chapterProgressPosition;
+        }
+
+        if (pageProgressPercent is > 0 and < 99.5)
+        {
+            var totalSeconds = TotalAudiobookSeconds(chapters);
+            if (totalSeconds is > 0)
+            {
+                return totalSeconds.Value * Math.Clamp(pageProgressPercent.Value, 0, 100) / 100d;
+            }
+        }
+
+        return null;
+    }
+
+    private static MediaGroupingItemViewModel? ChapterAtPosition(
+        IReadOnlyList<MediaGroupingItemViewModel> chapters,
+        double positionSeconds) =>
+        chapters.LastOrDefault(item =>
+        {
+            var start = Math.Max(0, item.StartSeconds ?? 0);
+            var end = item.EndSeconds ?? (item.DurationSeconds is > 0 ? start + item.DurationSeconds.Value : (double?)null);
+            return positionSeconds >= start - 0.5d
+                && (!end.HasValue || positionSeconds < end.Value - 0.5d);
+        });
+
+    private static double? TotalAudiobookSeconds(IReadOnlyList<MediaGroupingItemViewModel> chapters)
+    {
+        var maxEnd = chapters
+            .Select(item => item.EndSeconds ?? (item.StartSeconds.HasValue && item.DurationSeconds.HasValue
+                ? item.StartSeconds.Value + item.DurationSeconds.Value
+                : item.DurationSeconds))
+            .Where(seconds => seconds is > 0)
+            .Select(seconds => seconds!.Value)
+            .DefaultIfEmpty()
+            .Max();
+
+        return maxEnd > 0 ? maxEnd : null;
+    }
 
     private static bool IsCompletedChapter(MediaGroupingItemViewModel item) =>
         item.ProgressPercent is >= 99.5;
@@ -525,7 +608,7 @@
         && item.StartSeconds is null or <= 5
         && item.DurationSeconds is null or <= 120;
 
-    private ListenQueueItem ToAudiobookQueueItem(MediaGroupingItemViewModel item, IReadOnlyList<MediaGroupingItemViewModel> chapters)
+    private ListenQueueItem ToAudiobookQueueItem(MediaGroupingItemViewModel item, IReadOnlyList<MediaGroupingItemViewModel> chapters, double? initialPositionSeconds = null)
         => new()
         {
             WorkId = Guid.TryParse(item.Id, out var workId) ? workId : Guid.Empty,
@@ -536,7 +619,7 @@
             Album = Model?.Title,
             CoverUrl = item.ArtworkUrl ?? Model?.Artwork.CoverUrl ?? Model?.Artwork.PosterUrl,
             Duration = item.Duration,
-            InitialPositionSeconds = ResumePositionFor(item),
+            InitialPositionSeconds = initialPositionSeconds ?? ResumePositionFor(item),
             Chapters = chapters.Select(ToPlaybackChapter).ToList(),
             ChapterIndex = item.ChapterIndex,
         };

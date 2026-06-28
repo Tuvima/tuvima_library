@@ -8,6 +8,8 @@ namespace MediaEngine.Web.Services.Playback;
 
 public sealed class ListenPlaybackService
 {
+    private static readonly TimeSpan TransportUiUpdateInterval = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(10);
     private readonly UIOrchestratorService _orchestrator;
     private readonly IEngineApiClient _apiClient;
     private readonly ILogger<ListenPlaybackService>? _logger;
@@ -18,6 +20,7 @@ public sealed class ListenPlaybackService
     private readonly List<AudiobookBookmarkDto> _audiobookBookmarks = [];
     private readonly Guid _sessionId = Guid.NewGuid();
     private DateTimeOffset _lastHeartbeatAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastTransportUiNotificationAt = DateTimeOffset.MinValue;
     private CancellationTokenSource? _sleepTimerCts;
 
     public ListenPlaybackService(
@@ -60,6 +63,8 @@ public sealed class ListenPlaybackService
     public bool NeedsUserGestureToStart { get; private set; }
     public bool IsPopupOpen { get; private set; }
     public string? CurrentError { get; private set; }
+    public int SkipBackSeconds { get; private set; } = 15;
+    public int SkipForwardSeconds { get; private set; } = 15;
     public string SleepTimerMode { get; private set; } = ListenSleepTimerModes.Off;
     public DateTimeOffset? SleepTimerEndsAtUtc { get; private set; }
     public string SleepTimerLabel => SleepTimerMode switch
@@ -492,7 +497,9 @@ public sealed class ListenPlaybackService
         double? playbackRate = null,
         bool? needsUserGestureToStart = null)
     {
-        var changed = false;
+        var now = DateTimeOffset.UtcNow;
+        var positionChanged = false;
+        var structuralChanged = false;
 
         if (currentTimeSeconds.HasValue)
         {
@@ -500,7 +507,7 @@ public sealed class ListenPlaybackService
             if (Math.Abs(CurrentTimeSeconds - next) >= 1)
             {
                 CurrentTimeSeconds = next;
-                changed = true;
+                positionChanged = true;
             }
         }
 
@@ -510,7 +517,7 @@ public sealed class ListenPlaybackService
             if (Math.Abs(DurationSeconds - next) >= 1)
             {
                 DurationSeconds = next;
-                changed = true;
+                structuralChanged = true;
             }
         }
 
@@ -519,7 +526,7 @@ public sealed class ListenPlaybackService
             if (IsPlaying != isPlaying.Value)
             {
                 IsPlaying = isPlaying.Value;
-                changed = true;
+                structuralChanged = true;
             }
         }
 
@@ -529,7 +536,7 @@ public sealed class ListenPlaybackService
             if (Math.Abs(Volume - next) >= 0.01d)
             {
                 Volume = next;
-                changed = true;
+                structuralChanged = true;
             }
         }
 
@@ -538,7 +545,7 @@ public sealed class ListenPlaybackService
             if (IsMuted != isMuted.Value)
             {
                 IsMuted = isMuted.Value;
-                changed = true;
+                structuralChanged = true;
             }
         }
 
@@ -548,14 +555,14 @@ public sealed class ListenPlaybackService
             if (Math.Abs(PlaybackRate - next) >= 0.01d)
             {
                 PlaybackRate = next;
-                changed = true;
+                structuralChanged = true;
             }
         }
 
         if (needsUserGestureToStart.HasValue && NeedsUserGestureToStart != needsUserGestureToStart.Value)
         {
             NeedsUserGestureToStart = needsUserGestureToStart.Value;
-            changed = true;
+            structuralChanged = true;
         }
 
         if (SleepTimerMode == ListenSleepTimerModes.EndOfChapter
@@ -567,8 +574,9 @@ public sealed class ListenPlaybackService
             _ = ExpireSleepTimerAsync();
         }
 
-        if (changed)
+        if (structuralChanged || positionChanged && now - _lastTransportUiNotificationAt >= TransportUiUpdateInterval)
         {
+            _lastTransportUiNotificationAt = now;
             NotifyChanged();
         }
     }
@@ -812,7 +820,7 @@ public sealed class ListenPlaybackService
         }
 
         var now = DateTimeOffset.UtcNow;
-        if (!force && now - _lastHeartbeatAt < TimeSpan.FromSeconds(5))
+        if (!force && now - _lastHeartbeatAt < HeartbeatInterval)
         {
             return;
         }
@@ -943,6 +951,8 @@ public sealed class ListenPlaybackService
         IsPlaying = snapshot.IsPlaying && _queue.Count > 0;
         IsPopupOpen = snapshot.IsPopupOpen;
         CurrentError = snapshot.CurrentError;
+        SkipBackSeconds = snapshot.SkipBackSeconds > 0 ? snapshot.SkipBackSeconds : 15;
+        SkipForwardSeconds = snapshot.SkipForwardSeconds > 0 ? snapshot.SkipForwardSeconds : 15;
         PlaybackStartVersion = Math.Max(PlaybackStartVersion, snapshot.PlaybackStartVersion);
         SleepTimerMode = snapshot.SleepTimerMode is ListenSleepTimerModes.Timer or ListenSleepTimerModes.EndOfChapter
             ? snapshot.SleepTimerMode
@@ -980,6 +990,8 @@ public sealed class ListenPlaybackService
         IsPlaying = IsPlaying,
         IsPopupOpen = IsPopupOpen,
         CurrentError = CurrentError,
+        SkipBackSeconds = SkipBackSeconds,
+        SkipForwardSeconds = SkipForwardSeconds,
         PlaybackStartVersion = PlaybackStartVersion,
         SleepTimerMode = SleepTimerMode,
         SleepTimerEndsAtUtc = SleepTimerEndsAtUtc,
@@ -1264,10 +1276,16 @@ public sealed class ListenPlaybackService
     {
         if (_preferences is null)
         {
-            return UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
+            var defaults = UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
+            SkipBackSeconds = defaults.Listening.SkipBackSeconds;
+            SkipForwardSeconds = defaults.Listening.SkipForwardSeconds;
+            return defaults;
         }
 
-        return await _preferences.GetAsync(ct) ?? UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
+        var settings = await _preferences.GetAsync(ct) ?? UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
+        SkipBackSeconds = settings.Listening.SkipBackSeconds;
+        SkipForwardSeconds = settings.Listening.SkipForwardSeconds;
+        return settings;
     }
 
     private async Task<List<double>> SupportedPlaybackRatesAsync(CancellationToken ct)
@@ -1648,6 +1666,12 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("current_error")]
     public string? CurrentError { get; init; }
+
+    [JsonPropertyName("skip_back_seconds")]
+    public int SkipBackSeconds { get; init; } = 15;
+
+    [JsonPropertyName("skip_forward_seconds")]
+    public int SkipForwardSeconds { get; init; } = 15;
 
     [JsonPropertyName("playback_start_version")]
     public long PlaybackStartVersion { get; init; }

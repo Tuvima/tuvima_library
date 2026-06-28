@@ -1513,8 +1513,9 @@ public sealed class DetailComposerService
             }
         }
 
-        var resume = await LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, ct);
         var chapters = manifest?.Chapters ?? [];
+        var totalDurationSeconds = ResolveAudiobookTotalDurationSeconds(row, chapters);
+        var resume = await LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, totalDurationSeconds, ct);
         var resumeSeconds = resume?.PositionSeconds;
         var items = chapters.Count > 0
             ? chapters.Select(chapter => ToAudiobookChapterItem(row, chapter, resumeSeconds)).ToList()
@@ -1612,6 +1613,7 @@ public sealed class DetailComposerService
         Guid workId,
         Guid assetId,
         MediaEngine.Contracts.Playback.PlaybackResumeDto? fallback,
+        double? durationSeconds,
         CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -1653,38 +1655,52 @@ public sealed class DetailComposerService
 
         if (rows.Count == 0)
         {
-            return fallback;
+            return NormalizeAudiobookResumePosition(fallback, durationSeconds);
         }
 
         var resumes = rows
-            .Select(row => BuildAudiobookResume(row, fallback))
+            .Select(row => BuildAudiobookResume(row, fallback, durationSeconds))
             .Where(resume => resume is not null)
             .Select(resume => resume!)
             .ToList();
 
         return resumes.FirstOrDefault(IsMeaningfulAudiobookResume)
-            ?? (IsMeaningfulAudiobookResume(fallback) ? fallback : null)
+            ?? (IsMeaningfulAudiobookResume(NormalizeAudiobookResumePosition(fallback, durationSeconds))
+                ? NormalizeAudiobookResumePosition(fallback, durationSeconds)
+                : null)
             ?? resumes.FirstOrDefault()
-            ?? fallback;
+            ?? NormalizeAudiobookResumePosition(fallback, durationSeconds);
     }
 
     private static MediaEngine.Contracts.Playback.PlaybackResumeDto? BuildAudiobookResume(
         AudiobookResumeRow row,
-        MediaEngine.Contracts.Playback.PlaybackResumeDto? fallback)
+        MediaEngine.Contracts.Playback.PlaybackResumeDto? fallback,
+        double? knownDurationSeconds)
     {
         var positionSeconds = row.PositionSeconds
             ?? TryReadExtendedPropertyDouble(row.ExtendedProperties, "position_seconds")
             ?? (row.SourceRank == 2 ? fallback?.PositionSeconds : null);
         var durationSeconds = row.DurationSeconds
-            ?? TryReadExtendedPropertyDouble(row.ExtendedProperties, "duration_seconds");
+            ?? TryReadExtendedPropertyDouble(row.ExtendedProperties, "duration_seconds")
+            ?? knownDurationSeconds;
         var progressPct = row.ProgressPct
             ?? (positionSeconds.HasValue && durationSeconds is > 0
                 ? positionSeconds.Value / durationSeconds.Value * 100d
                 : fallback?.ProgressPct);
+        if (!positionSeconds.HasValue && progressPct is > 0 and < 100 && durationSeconds is > 0)
+        {
+            positionSeconds = durationSeconds.Value * Math.Clamp(progressPct.Value, 0, 100) / 100d;
+        }
+        if (positionSeconds.HasValue)
+        {
+            positionSeconds = durationSeconds is > 0
+                ? Math.Clamp(positionSeconds.Value, 0, durationSeconds.Value)
+                : Math.Max(0, positionSeconds.Value);
+        }
 
         if (!positionSeconds.HasValue && !progressPct.HasValue)
         {
-            return fallback;
+            return NormalizeAudiobookResumePosition(fallback, knownDurationSeconds);
         }
 
         return new MediaEngine.Contracts.Playback.PlaybackResumeDto
@@ -1694,6 +1710,59 @@ public sealed class DetailComposerService
             LastAccessed = DateTimeOffset.TryParse(row.LastAccessed, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
                 ? parsed
                 : fallback?.LastAccessed,
+        };
+    }
+
+    private static double? ResolveAudiobookTotalDurationSeconds(
+        AudiobookAssetRow row,
+        IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackChapterDto> chapters)
+    {
+        var chapterEnd = chapters
+            .Where(chapter => chapter.EndSeconds is > 0)
+            .Select(chapter => chapter.EndSeconds!.Value)
+            .DefaultIfEmpty()
+            .Max();
+        if (chapterEnd > 0)
+        {
+            return chapterEnd;
+        }
+
+        return TryParseAudioDurationSeconds(row.DurationSecondsValue)
+            ?? TryParseDurationSeconds(row.Duration);
+    }
+
+    private static MediaEngine.Contracts.Playback.PlaybackResumeDto? NormalizeAudiobookResumePosition(
+        MediaEngine.Contracts.Playback.PlaybackResumeDto? resume,
+        double? durationSeconds)
+    {
+        if (resume is null)
+        {
+            return null;
+        }
+
+        var duration = durationSeconds is > 0 ? durationSeconds.Value : (double?)null;
+        var progress = Math.Clamp(resume.ProgressPct, 0, 100);
+        var position = resume.PositionSeconds;
+        if (!position.HasValue && progress is > 0 and < 100 && duration.HasValue)
+        {
+            position = duration.Value * progress / 100d;
+        }
+
+        if (position.HasValue)
+        {
+            position = duration.HasValue
+                ? Math.Clamp(position.Value, 0, duration.Value)
+                : Math.Max(0, position.Value);
+            if (duration.HasValue && progress <= 0)
+            {
+                progress = Math.Clamp(position.Value / duration.Value * 100d, 0, 100);
+            }
+        }
+
+        return resume with
+        {
+            PositionSeconds = position,
+            ProgressPct = progress,
         };
     }
 
