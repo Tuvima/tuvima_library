@@ -586,7 +586,7 @@ Non-UI logic the Dashboard needs, organised by concern.
 | `Integration/` | `EngineApiClient.cs` + `IEngineApiClient.cs`, `UIOrchestratorService.cs`, `UniverseStateContainer.cs`, `UniverseMapper.cs`, `ProviderCatalogueService.cs`, `IntercomEvents.cs` | All HTTP + SignalR communication with the Engine |
 | `Narration/` | `PhraseTemplateService.cs` + interface | Narrated-copy phrase templates |
 | `Navigation/` | `MediaNavigation.cs`, `ListenNavigation.cs` | Route-building helpers |
-| `Playback/` | `ListenPlaybackService.cs`, `ReadingProgressService.cs`, `ReaderSettingsService.cs`, `MediaReactionService.cs`, `WatchlistService.cs` | Playback session state |
+| `Playback/` | `PlaybackSessionController.cs`, `PlaybackModels.cs`, `MediaKindClassifier.cs`, `PlaybackQueue.cs`, `PlaybackStateMachine.cs`, `ReadingProgressService.cs`, `ReaderSettingsService.cs`, `MediaReactionService.cs`, `WatchlistService.cs` | Playback session state, typed commands, queue/session primitives |
 | `Theming/` | `ThemeService.cs`, `DeviceContextService.cs`, `PaletteProvider.cs`, `SocialUriHelper.cs` | Dark-mode theme, device cascade, palette, Actionable-URI helpers |
 
 ### 6.2 — Components (`src/MediaEngine.Web/Components/`)
@@ -603,7 +603,7 @@ Reusable visual components, organised by feature slice.
 | `MediaTiles/` | `MediaTile`, `MediaTileGrid`, `MediaTileShelf` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
 | `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, and status pills. Do not add all-in-one management workflow components here. |
-| `Listen/` | `ListenNowPlayingBar`, `ListenTrackDataGrid` |
+| `Listen/` | `ListenNowPlayingBar`, `ListenNowPlayingPanel`, `ListenTransportControls`, `ListenTrackDataGrid` |
 | `MediaEditor/` | `SharedMediaEditorShell`, `SharedMediaBatchConfirmDialog` |
 | `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |
 | `Pages/` | All routed pages — see §6.4 |
@@ -661,8 +661,9 @@ Reusable visual components, organised by feature slice.
 | Settings section | `Components/Settings/<Name>Tab.razor` + register in `SettingsNav` |
 | Review-queue surface component | `Components/Library/` |
 | Inspector / cards reused by Library or Universe | `Components/LibraryItems/` |
-| Media-player component | `Components/Playback/` |
-| Media-playback session service | `Services/Playback/` |
+| Reader-player component | `Components/Playback/` |
+| Listen/player transport controls | `Components/Listen/ListenTransportControls.razor` |
+| Media-playback session controller or primitives | `Services/Playback/` |
 | Route-building helper | `Services/Navigation/` |
 | Editor launcher or state | `Services/Editing/` |
 | Theme or device setting | `Services/Theming/` |

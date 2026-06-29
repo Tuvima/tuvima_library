@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last updated: 2026-05-23
+> Last updated: 2026-06-28
 
 ---
 
@@ -33,7 +33,9 @@ The removed all-in-one management workflow must not be recreated. Do not add rou
 | `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` | Review Queue exception workflow. |
 | `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` | Ingestion operations dashboard. |
 | `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` | Normal, Review, and Batch media editing shell. |
+| `src/MediaEngine.Web/Components/Listen/ListenTransportControls.razor` | Shared Listen transport controls for bottom bar, side panel, and popup. |
 | `src/MediaEngine.Web/Services/Editing/MediaEditorLauncherService.cs` | Central editor launch and return path. |
+| `src/MediaEngine.Web/Services/Playback/PlaybackSessionController.cs` | Listen playback session controller, command dispatch, queue/session state, and transport command boundary. |
 | `src/MediaEngine.Web/Services/Integration/EngineApiClient.cs` | Engine HTTP and SignalR integration. |
 
 ---
@@ -51,6 +53,7 @@ The removed all-in-one management workflow must not be recreated. Do not add rou
 | Settings/Admin tab | `Components/Settings/` |
 | Cross-cutting primitive | `Components/Shared/` |
 | Navigation/search shell | `Components/Navigation/` or `Shared/MainLayout.razor` |
+| Listen transport controls | `Components/Listen/ListenTransportControls.razor` |
 
 Use existing feature folders before introducing new abstractions.
 
@@ -74,6 +77,8 @@ Use existing feature folders before introducing new abstractions.
 - Dashboard view models live under `Models/ViewDTOs/`; do not pass storage implementation models into UI.
 - Razor components must not contain direct SQL.
 - Settings/Admin pages should call Engine APIs or typed services, not storage repositories.
+- Listen playback UI should use `PlaybackSessionController` state and typed commands. Browser transport work stays behind the persistent Web audio host and the `listenPlayback` JS bridge.
+- Do not duplicate Listen play/pause, skip, previous/next, or chapter controls outside `ListenTransportControls.razor`.
 
 ---
 

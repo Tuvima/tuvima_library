@@ -31,7 +31,7 @@ public partial class ListenPage
 
     [Inject] private IEngineApiClient ApiClient { get; set; } = default!;
     [Inject] private UIOrchestratorService Orchestrator { get; set; } = default!;
-    [Inject] private ListenPlaybackService Playback { get; set; } = default!;
+    [Inject] private PlaybackSessionController Playback { get; set; } = default!;
     [Inject] private ListenAudioDragService AudioDrag { get; set; } = default!;
     [Inject] private FavoriteService Favorites { get; set; } = default!;
     [Inject] private MediaReactionService Reactions { get; set; } = default!;
@@ -1751,7 +1751,7 @@ public partial class ListenPage
 
         var draggingItems = CurrentTrackSurfaceTracks
             .Where(work => _draggingTrackIds.Contains(work.Id))
-            .Select(ListenPlaybackService.CreateQueueItem)
+            .Select(ListenQueueItemFactory.Create)
             .ToList();
         AudioDrag.BeginDrag(_draggingTrackIds, draggingItems);
 

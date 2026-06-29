@@ -450,7 +450,7 @@ public sealed class AudiobookListenHistoryRepository
         public double StartedPositionSeconds { get; init; }
         public double LastPositionSeconds { get; init; }
         public double? DurationSeconds { get; init; }
-        public string DeviceId { get; init; } = "web-dashboard";
+        public string DeviceId { get; init; } = "web";
         public string Client { get; init; } = "web";
         public DateTimeOffset LastHeartbeatAt { get; init; }
     }
@@ -467,7 +467,7 @@ public sealed class AudiobookListenHistoryRepository
         public double PositionSeconds { get; init; }
         public double? DurationSeconds { get; init; }
         public double ProgressPct { get; init; }
-        public string DeviceId { get; init; } = "web-dashboard";
+        public string DeviceId { get; init; } = "web";
         public string Client { get; init; } = "web";
         public DateTimeOffset StartedAt { get; init; }
         public DateTimeOffset EndedAt { get; init; }

@@ -335,6 +335,24 @@ Library display preferences used by browse and discovery surfaces.
 
 Each `lane_group_display` entry supports `enabled`, `shelf_key`, `title`, `subtitle`, and `see_all_route`.
 
+### config/ui/playback-client.json
+
+Browser playback mechanics for the Dashboard Listen host. These are not user listening preferences.
+
+| Field | Type | Description |
+|---|---|---|
+| `popup_width` / `popup_height` | int | Mini-player popup dimensions. |
+| `immediate_action_dedup_milliseconds` | int | Debounce window for immediate DOM audio actions. |
+| `immediate_action_consume_milliseconds` | int | Window for treating immediate DOM actions as already handled by the host. |
+| `audio_observer_interval_milliseconds` | int | Browser audio state observer cadence. |
+| `audio_observer_minimum_interval_milliseconds` | int | Lower bound for observer cadence. |
+| `seek_tolerance_seconds` | number | Allowed difference between target and actual audio position before applying a corrective seek. |
+| `volume_step` | number | Keyboard and slider volume step. |
+| `transport_ui_update_interval_milliseconds` | int | Minimum UI tick cadence for position-only transport updates. |
+| `heartbeat_interval_seconds` | int | Player heartbeat interval for Engine progress sync. |
+| `pending_transport_command_limit` | int | Maximum queued host transport commands while the Web audio host is unavailable. |
+| `default_volume` | number | Initial Web player volume from 0 to 1. |
+
 ## Related
 
 - [How to Configure Metadata Providers](../guides/configuring-providers.md)

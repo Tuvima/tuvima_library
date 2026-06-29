@@ -962,8 +962,20 @@ window.libraryItemSettings = {
 };
 
 window.listenPlayback = (function () {
-    var stateKey = 'listen-playback-state';
-    var commandKey = 'listen-playback-command';
+    var playbackConfig = {
+        popupWidth: 420,
+        popupHeight: 720,
+        immediateActionDedupMilliseconds: 900,
+        immediateActionConsumeMilliseconds: 1800,
+        audioObserverIntervalMilliseconds: 1200,
+        audioObserverMinimumIntervalMilliseconds: 500,
+        seekToleranceSeconds: 0.75,
+        volumeStep: 0.05,
+        defaultVolume: 0.8
+    };
+    var stateKey = 'tuvima.playback.v2.state';
+    var commandKey = 'tuvima.playback.v2.command';
+    var deviceIdKey = 'tuvima.playback.v2.device-id';
     var popupName = 'tuvima-listen-mini-player';
     var channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('tuvima-listen-playback') : null;
     var stateHandler = null;
@@ -971,6 +983,53 @@ window.listenPlayback = (function () {
     var popupWindow = null;
     var popupUnloadHandler = null;
     var audioObservers = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+    var playerShortcutHandlers = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+
+    function readConfigValue(options, camelName, snakeName, fallback) {
+        if (!options) return fallback;
+        if (Object.prototype.hasOwnProperty.call(options, camelName)) return options[camelName];
+        var pascalName = camelName.charAt(0).toUpperCase() + camelName.slice(1);
+        if (Object.prototype.hasOwnProperty.call(options, pascalName)) return options[pascalName];
+        if (snakeName && Object.prototype.hasOwnProperty.call(options, snakeName)) return options[snakeName];
+        return fallback;
+    }
+
+    function asFiniteNumber(value, fallback, min, max) {
+        var next = typeof value === 'number' ? value : Number.parseFloat(value);
+        if (!Number.isFinite(next)) return fallback;
+        if (typeof min === 'number') next = Math.max(min, next);
+        if (typeof max === 'number') next = Math.min(max, next);
+        return next;
+    }
+
+    function configure(options) {
+        playbackConfig.popupWidth = asFiniteNumber(readConfigValue(options, 'popupWidth', 'popup_width', playbackConfig.popupWidth), playbackConfig.popupWidth, 280, 1200);
+        playbackConfig.popupHeight = asFiniteNumber(readConfigValue(options, 'popupHeight', 'popup_height', playbackConfig.popupHeight), playbackConfig.popupHeight, 360, 1400);
+        playbackConfig.immediateActionDedupMilliseconds = asFiniteNumber(readConfigValue(options, 'immediateActionDedupMilliseconds', 'immediate_action_dedup_milliseconds', playbackConfig.immediateActionDedupMilliseconds), playbackConfig.immediateActionDedupMilliseconds, 100, 5000);
+        playbackConfig.immediateActionConsumeMilliseconds = asFiniteNumber(readConfigValue(options, 'immediateActionConsumeMilliseconds', 'immediate_action_consume_milliseconds', playbackConfig.immediateActionConsumeMilliseconds), playbackConfig.immediateActionConsumeMilliseconds, 100, 10000);
+        playbackConfig.audioObserverIntervalMilliseconds = asFiniteNumber(readConfigValue(options, 'audioObserverIntervalMilliseconds', 'audio_observer_interval_milliseconds', playbackConfig.audioObserverIntervalMilliseconds), playbackConfig.audioObserverIntervalMilliseconds, 100, 10000);
+        playbackConfig.audioObserverMinimumIntervalMilliseconds = asFiniteNumber(readConfigValue(options, 'audioObserverMinimumIntervalMilliseconds', 'audio_observer_minimum_interval_milliseconds', playbackConfig.audioObserverMinimumIntervalMilliseconds), playbackConfig.audioObserverMinimumIntervalMilliseconds, 100, 5000);
+        playbackConfig.seekToleranceSeconds = asFiniteNumber(readConfigValue(options, 'seekToleranceSeconds', 'seek_tolerance_seconds', playbackConfig.seekToleranceSeconds), playbackConfig.seekToleranceSeconds, 0.05, 10);
+        playbackConfig.volumeStep = asFiniteNumber(readConfigValue(options, 'volumeStep', 'volume_step', playbackConfig.volumeStep), playbackConfig.volumeStep, 0.01, 0.5);
+        playbackConfig.defaultVolume = asFiniteNumber(readConfigValue(options, 'defaultVolume', 'default_volume', playbackConfig.defaultVolume), playbackConfig.defaultVolume, 0, 1);
+    }
+
+    function createDeviceId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+
+        return 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+    }
+
+    function getOrCreateDeviceId() {
+        var existing = localStorage.getItem(deviceIdKey);
+        if (existing) return existing;
+
+        var next = createDeviceId();
+        localStorage.setItem(deviceIdKey, next);
+        return next;
+    }
 
     function notifyState(json) {
         if (stateHandler && json) {
@@ -989,7 +1048,7 @@ window.listenPlayback = (function () {
             return {
                 currentTime: 0,
                 duration: 0,
-                volume: 0.8,
+                volume: playbackConfig.defaultVolume,
                 muted: false,
                 paused: true,
                 playbackRate: 1
@@ -1001,7 +1060,7 @@ window.listenPlayback = (function () {
         if (Number.isFinite(pendingStart) && pendingStart > 0) {
             var pendingStartedAt = Number.parseFloat(element.dataset.listenPendingStartAt || '');
             var pendingAge = Number.isFinite(pendingStartedAt) ? Date.now() - pendingStartedAt : 0;
-            if (currentTime >= pendingStart - 0.75 || pendingAge > 8000) {
+            if (currentTime >= pendingStart - playbackConfig.seekToleranceSeconds || pendingAge > 8000) {
                 delete element.dataset.listenPendingStartPosition;
                 delete element.dataset.listenPendingStartAt;
             } else {
@@ -1012,7 +1071,7 @@ window.listenPlayback = (function () {
         return {
             currentTime: currentTime,
             duration: isFinite(element.duration) ? element.duration : 0,
-            volume: typeof element.volume === 'number' ? element.volume : 0.8,
+            volume: typeof element.volume === 'number' ? element.volume : playbackConfig.defaultVolume,
             muted: !!element.muted,
             paused: !!element.paused,
             playbackRate: typeof element.playbackRate === 'number' ? element.playbackRate : 1
@@ -1051,6 +1110,69 @@ window.listenPlayback = (function () {
         element.removeEventListener('ratechange', observer.onMetadataChanged);
         element.removeEventListener('volumechange', observer.onMetadataChanged);
         setAudioObserver(element, null);
+    }
+
+    function shortcutHandlerFor(element) {
+        return playerShortcutHandlers ? playerShortcutHandlers.get(element) : element && element.__listenPlaybackShortcutHandler;
+    }
+
+    function setShortcutHandler(element, handler) {
+        if (!element) return;
+        if (playerShortcutHandlers) {
+            if (handler) {
+                playerShortcutHandlers.set(element, handler);
+            } else {
+                playerShortcutHandlers.delete(element);
+            }
+            return;
+        }
+
+        if (handler) {
+            element.__listenPlaybackShortcutHandler = handler;
+        } else {
+            delete element.__listenPlaybackShortcutHandler;
+        }
+    }
+
+    function isEditableShortcutTarget(target) {
+        if (!target) return false;
+        var tagName = (target.tagName || '').toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') return true;
+        if (target.isContentEditable) return true;
+        return !!(target.closest && target.closest('[contenteditable="true"]'));
+    }
+
+    function unregisterPlayerShortcuts(element) {
+        var handler = shortcutHandlerFor(element);
+        if (!element || !handler) return;
+        element.removeEventListener('keydown', handler);
+        setShortcutHandler(element, null);
+    }
+
+    function registerPlayerShortcuts(element, dotNetRef) {
+        if (!element || !dotNetRef) return;
+        unregisterPlayerShortcuts(element);
+
+        var handler = function (event) {
+            if (!event || isEditableShortcutTarget(event.target)) return;
+
+            var action = null;
+            if (event.code === 'Space' || event.key === ' ') action = 'toggle-play';
+            if (event.key === 'ArrowLeft') action = 'skip-back';
+            if (event.key === 'ArrowRight') action = 'skip-forward';
+            if (event.key === 'ArrowUp') action = 'volume-up';
+            if (event.key === 'ArrowDown') action = 'volume-down';
+            if (!action) return;
+
+            event.preventDefault();
+            dotNetRef.invokeMethodAsync('HandlePlayerShortcut', action)
+                .catch(function (error) {
+                    console.debug('Could not dispatch playback shortcut.', error);
+                });
+        };
+
+        element.addEventListener('keydown', handler);
+        setShortcutHandler(element, handler);
     }
 
     function audioEngineElement() {
@@ -1123,10 +1245,10 @@ window.listenPlayback = (function () {
             }
 
             await element.play();
-            if (target > 0 && element.readyState >= 1 && Math.abs((element.currentTime || 0) - target) > 0.75) {
+            if (target > 0 && element.readyState >= 1 && Math.abs((element.currentTime || 0) - target) > playbackConfig.seekToleranceSeconds) {
                 applyTargetSeek();
             }
-            if (target <= 0 || (element.currentTime || 0) >= target - 0.75) {
+            if (target <= 0 || (element.currentTime || 0) >= target - playbackConfig.seekToleranceSeconds) {
                 delete element.dataset.listenPendingStartPosition;
                 delete element.dataset.listenPendingStartAt;
             }
@@ -1185,7 +1307,7 @@ window.listenPlayback = (function () {
         popupWindow = window.open(
             url,
             popupName,
-            'popup=yes,width=420,height=720,resizable=yes,scrollbars=no'
+            'popup=yes,width=' + Math.round(playbackConfig.popupWidth) + ',height=' + Math.round(playbackConfig.popupHeight) + ',resizable=yes,scrollbars=no'
         );
 
         if (popupWindow && typeof popupWindow.focus === 'function') {
@@ -1193,6 +1315,15 @@ window.listenPlayback = (function () {
         }
 
         return !!popupWindow;
+    }
+
+    function focusPopup() {
+        window.requestAnimationFrame(function () {
+            var target = document.querySelector('.listen-popup button:not([disabled]), .listen-popup input:not([disabled]), main button:not([disabled]), main input:not([disabled])');
+            if (target && typeof target.focus === 'function') {
+                target.focus({ preventScroll: true });
+            }
+        });
     }
 
     var lastImmediateStartAction = null;
@@ -1208,7 +1339,7 @@ window.listenPlayback = (function () {
         if (!audio) return;
 
         var now = Date.now();
-        if (!allowDuplicate && action === lastImmediateStartAction && now - lastImmediateStartAt < 900) {
+        if (!allowDuplicate && action === lastImmediateStartAction && now - lastImmediateStartAt < playbackConfig.immediateActionDedupMilliseconds) {
             return;
         }
 
@@ -1236,7 +1367,7 @@ window.listenPlayback = (function () {
         if (!audio) return;
 
         var now = Date.now();
-        if (!allowDuplicate && action === lastImmediateToggleAction && now - lastImmediateToggleAt < 900) {
+        if (!allowDuplicate && action === lastImmediateToggleAction && now - lastImmediateToggleAt < playbackConfig.immediateActionDedupMilliseconds) {
             return;
         }
 
@@ -1277,7 +1408,7 @@ window.listenPlayback = (function () {
         if (!audio) return;
 
         var now = Date.now();
-        if (!allowDuplicate && action === lastImmediateSeekAction && now - lastImmediateSeekAt < 900) {
+        if (!allowDuplicate && action === lastImmediateSeekAction && now - lastImmediateSeekAt < playbackConfig.immediateActionDedupMilliseconds) {
             return;
         }
 
@@ -1306,7 +1437,7 @@ window.listenPlayback = (function () {
         if (!route) return;
 
         var now = Date.now();
-        if (!allowDuplicate && action === lastImmediatePopupAction && now - lastImmediatePopupAt < 900) {
+        if (!allowDuplicate && action === lastImmediatePopupAction && now - lastImmediatePopupAt < playbackConfig.immediateActionDedupMilliseconds) {
             return;
         }
 
@@ -1349,6 +1480,8 @@ window.listenPlayback = (function () {
     });
 
     return {
+        configure: configure,
+        getOrCreateDeviceId: getOrCreateDeviceId,
         getState: function () {
             return localStorage.getItem(stateKey);
         },
@@ -1414,6 +1547,7 @@ window.listenPlayback = (function () {
 
             window.addEventListener('beforeunload', popupUnloadHandler);
         },
+        focusPopup: focusPopup,
         unregisterPopupWindow: function () {
             if (!popupUnloadHandler) return;
             window.removeEventListener('beforeunload', popupUnloadHandler);
@@ -1429,7 +1563,9 @@ window.listenPlayback = (function () {
             if (!element || !dotNetRef) return;
             removeAudioObserver(element);
 
-            var interval = Math.max(500, intervalMs || 1200);
+            var interval = Math.max(
+                playbackConfig.audioObserverMinimumIntervalMilliseconds,
+                intervalMs || playbackConfig.audioObserverIntervalMilliseconds);
             var lastNotifiedAt = 0;
             var notify = function (force) {
                 var now = Date.now();
@@ -1465,6 +1601,8 @@ window.listenPlayback = (function () {
         unregisterAudioStateObserver: function (element) {
             removeAudioObserver(element);
         },
+        registerPlayerShortcuts: registerPlayerShortcuts,
+        unregisterPlayerShortcuts: unregisterPlayerShortcuts,
         loadAudio: function (element) {
             if (!element) return;
             try {
@@ -1476,7 +1614,7 @@ window.listenPlayback = (function () {
         ensureAudioSource: ensureAudioSource,
         consumeImmediateToggleHandled: function () {
             var now = Date.now();
-            if (immediateToggleConsumedAt && now - immediateToggleConsumedAt < 1800) {
+            if (immediateToggleConsumedAt && now - immediateToggleConsumedAt < playbackConfig.immediateActionConsumeMilliseconds) {
                 immediateToggleConsumedAt = 0;
                 return true;
             }
@@ -1485,7 +1623,7 @@ window.listenPlayback = (function () {
         },
         consumeImmediateSeekHandled: function () {
             var now = Date.now();
-            if (immediateSeekConsumedAt && now - immediateSeekConsumedAt < 1800) {
+            if (immediateSeekConsumedAt && now - immediateSeekConsumedAt < playbackConfig.immediateActionConsumeMilliseconds) {
                 immediateSeekConsumedAt = 0;
                 return true;
             }

@@ -94,6 +94,7 @@ Current UI entry points:
 7. `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` for the exception queue.
 8. `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` for normal, review, and batch editing.
 9. `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` for the Ingestion dashboard at `/settings/ingestion`; it uses the Engine `GET /ingestion/operations` snapshot plus SignalR ingestion progress.
+10. `src/MediaEngine.Web/Services/Playback/PlaybackSessionController.cs` and `src/MediaEngine.Web/Components/Listen/ListenTransportControls.razor` for Listen playback state, typed commands, and shared transport controls.
 
 Treat stale references to old all-in-one workspace components, retired CSS prefixes, broad management workbenches, or removed-workspace docs as cleanup candidates.
 
@@ -102,6 +103,7 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 - Do not recreate the old all-in-one management workflow. No new routes, implementation types, navigation labels, docs as current product behavior, or all-in-one media correction workbenches for it.
 - Do not add backward compatibility, legacy fallback paths, compatibility readers/writers, migration shims, old route aliases, old config-key support, dual-schema support, or old workflow facades unless the user explicitly asks for that exact compatibility behavior. Prefer failing fast with a clear error or removing unsupported legacy state. If compatibility is explicitly approved, document the request, scope, sunset/removal criteria, and tests in the same change. Legacy database backup/reset is allowed as data safety, but not as in-place migration support.
 - Normal media fixes belong inline on the media surface where the issue appears. Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch editing modes.
+- Listen playback UI should go through `PlaybackSessionController` state/commands and `ListenTransportControls`; browser-specific transport belongs behind the persistent Web audio host and `listenPlayback` JS bridge.
 - Review Queue is the exception workflow for blocked, uncertain, low-confidence, or unresolved items. Settings/Admin is for configuration and operational state, not a normal media correction workspace.
 - Use `IDatabaseConnection.CreateConnection()` for normal repository, read-service, endpoint, background-job, and request-path database work. Dispose each short-lived connection with `using`.
 - `IDatabaseConnection.Open()` is startup/schema/integrity-only. New uses outside `DatabaseConnection`, Engine startup, or explicitly documented test fixtures should fail guardrail tests.

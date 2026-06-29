@@ -736,7 +736,7 @@ public sealed class PlayerService
         profileId.GetValueOrDefault() == Guid.Empty ? DefaultProfileId : profileId!.Value;
 
     private static string NormalizeDeviceId(string? deviceId) =>
-        string.IsNullOrWhiteSpace(deviceId) ? "web-dashboard" : deviceId.Trim();
+        string.IsNullOrWhiteSpace(deviceId) ? "web" : deviceId.Trim();
 
     private static string NormalizeClient(string? client) =>
         string.IsNullOrWhiteSpace(client) ? "web" : client.Trim().ToLowerInvariant();

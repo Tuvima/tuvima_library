@@ -6,7 +6,7 @@
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Services.Playback
 @using MediaEngine.Web.Services.Integration
-@inject ListenPlaybackService Playback
+@inject PlaybackSessionController Playback
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @inject ILogger<ListenNowPlayingBar> Logger
@@ -27,7 +27,7 @@
 
 @if (Playback.HasQueue && Playback.CurrentItem is not null)
 {
-    <div class="@PlayerShellClass">
+    <div class="@PlayerShellClass" @ref="_playerShellRef" tabindex="0">
         @if (Playback.IsPanelOpen)
         {
             <div class="listen-player-panel-backdrop" @onclick="Playback.ClosePanel"></div>
@@ -202,74 +202,53 @@
             </div>
 
             <div class="listen-player__transport">
-                @if (Playback.IsAudiobookMode)
-                {
-                    <div class="listen-player__transport-buttons listen-player__transport-buttons--audiobook">
-                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayPreviousChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Previous chapter" title="Previous chapter">
-                            <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-20px" />
-                        </AppNativeButton>
-                        @SkipButton("back", Playback.SkipBackSeconds, SkipBackAsync)
-                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync" AriaLabel="Play or pause" title="Play or pause"
-                                         data-listen-audio-toggle="true"
-                                         data-listen-start-url="@Playback.CurrentBrowserStreamUrl"
-                                         data-listen-start-position="@Playback.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
-                                         data-listen-start-rate="@Playback.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
-                                         data-listen-start-volume="@Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
-                                         data-listen-start-muted="@(Playback.IsMuted ? "true" : "false")">
-                            <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
-                        </AppNativeButton>
-                        @SkipButton("forward", Playback.SkipForwardSeconds, SkipForwardAsync)
-                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.PlayNextChapterAsync())" Disabled="@(Playback.CurrentItem?.Chapters.Count is not > 0)" AriaLabel="Next chapter" title="Next chapter">
-                            <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-20px" />
-                        </AppNativeButton>
-                    </div>
-                }
-                else
-                {
-                    <div class="listen-player__transport-buttons">
-                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayPreviousAsync" Disabled="@(Playback.CurrentIndex <= 0)">
-                            <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="tl-u-font-size-20px" />
-                        </AppNativeButton>
-                        <AppNativeButton Type="button" Class="listen-player__play" OnClick="TogglePlayPauseAsync"
-                                         data-listen-audio-toggle="true"
-                                         data-listen-start-url="@Playback.CurrentBrowserStreamUrl"
-                                         data-listen-start-position="@Playback.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
-                                         data-listen-start-rate="@Playback.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
-                                         data-listen-start-volume="@Playback.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
-                                         data-listen-start-muted="@(Playback.IsMuted ? "true" : "false")">
-                            <MudIcon Icon="@(Playback.IsPlaying && !Playback.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-24px" />
-                        </AppNativeButton>
-                        <AppNativeButton Type="button" Class="listen-player__icon" OnClick="PlayNextAsync" Disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
-                            <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Class="tl-u-font-size-20px" />
-                        </AppNativeButton>
-                    </div>
-                }
+                <ListenTransportControls Variant="bar"
+                                         IsAudiobookMode="@Playback.IsAudiobookMode"
+                                         IsPlaying="@Playback.IsPlaying"
+                                         NeedsUserGestureToStart="@Playback.NeedsUserGestureToStart"
+                                         IsMuted="@Playback.IsMuted"
+                                         HasChapters="@(Playback.CurrentItem?.Chapters.Count is > 0)"
+                                         CanPreviousTrack="@(Playback.CurrentIndex > 0)"
+                                         CanNextTrack="@(Playback.CurrentIndex < Playback.Queue.Count - 1)"
+                                         SkipBackSeconds="@Playback.SkipBackSeconds"
+                                         SkipForwardSeconds="@Playback.SkipForwardSeconds"
+                                         CurrentBrowserStreamUrl="@Playback.CurrentBrowserStreamUrl"
+                                         CurrentTimeSeconds="@Playback.CurrentTimeSeconds"
+                                         PlaybackRate="@Playback.PlaybackRate"
+                                         Volume="@Playback.Volume"
+                                         OnTogglePlay="TogglePlayPauseAsync"
+                                         OnPreviousTrack="PlayPreviousAsync"
+                                         OnNextTrack="PlayNextAsync"
+                                         OnPreviousChapter="PlayPreviousChapterAsync"
+                                         OnNextChapter="PlayNextChapterAsync"
+                                         OnSkipBack="SkipBackAsync"
+                                         OnSkipForward="SkipForwardAsync" />
 
                 <div class="listen-player__progress">
                     <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
-                    <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)" Class="listen-player__progress-slider" OnInput="SeekAsync" />
+                    <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)" Class="listen-player__progress-slider" OnChange="SeekAsync" AriaLabel="Playback position" aria-valuetext="@ProgressValueText" />
                     <span>@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
                 </div>
             </div>
 
             <div class="listen-player__actions">
-                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMuteAsync">
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute" title="Mute or unmute">
                     <AppMaterialIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Css="font-size: 18px;"  />
                 </AppNativeButton>
-                <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@Playback.Volume" Class="listen-player__volume-slider" OnInput="SetVolumeAsync" />
+                <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@Playback.Volume" Class="listen-player__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
                 @if (Playback.IsAudiobookMode)
                 {
                     <AppNativeButton Type="button" Class="listen-player__icon" OnClick="@(() => Playback.CyclePlaybackRateAsync())" AriaLabel="Playback speed">
                         <span>@FormatSpeed(Playback.PlaybackRate)</span>
                     </AppNativeButton>
                 }
-                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="Playback.TogglePanel">
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="Playback.TogglePanel" AriaLabel="Open queue panel" title="Open queue panel">
                     <MudIcon Icon="@(Playback.IsAudiobookMode ? Icons.Material.Outlined.History : Icons.Material.Outlined.QueueMusic)" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync" data-listen-popup-route="@(Playback.IsPopupOpen ? null : PopupRoute)">
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync" AriaLabel="Pop out player" title="Pop out player" data-listen-popup-route="@(Playback.IsPopupOpen ? null : PopupRoute)">
                     <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
-                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ClosePlayerAsync">
+                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ClosePlayerAsync" AriaLabel="Close player" title="Close player">
                     <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
                 </AppNativeButton>
             </div>
@@ -282,6 +261,7 @@
 
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
     private ElementReference _audioRef;
+    private ElementReference _playerShellRef;
     private DotNetObjectReference<ListenNowPlayingBar>? _selfReference;
     private bool _restored;
     private string? _lastAppliedStreamUrl;
@@ -294,6 +274,7 @@
     private double? _lastAppliedPlaybackRate;
     private Guid? _lyricsAssetId;
     private bool _lyricsLoading;
+    private bool _shortcutsRegistered;
     private List<LrcDisplayLine> _lyricsLines = [];
 
     private string PlayerShellClass
@@ -318,27 +299,17 @@
     private bool IsListenRoute => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.StartsWith("/listen", StringComparison.OrdinalIgnoreCase);
 
     private double ProgressMax => Playback.DurationSeconds > 0 ? Playback.DurationSeconds : 1;
+    private string VolumeStep => Playback.ClientSettings.VolumeStep.ToString("0.###", CultureInfo.InvariantCulture);
+    private string ProgressValueText => $"{FormatTimestamp(Playback.CurrentTimeSeconds)} of {FormatTimestamp(ProgressMax)}";
+    private string VolumeValueText => $"{Math.Clamp((int)Math.Round(Playback.Volume * 100d), 0, 100)}%";
 
     private LrcDisplayLine? ActiveLyricLine => _lyricsLines.LastOrDefault(line => line.StartSeconds <= Playback.CurrentTimeSeconds + 0.25);
-
-    private RenderFragment SkipButton(string direction, int seconds, Func<Task> action)
-    {
-        var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
-        var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
-        var classes = $"listen-player__skip audiobook-skip-control {(isForward ? "listen-player__skip--forward" : "listen-player__skip--back")}";
-        return @<span class="@classes">
-            <AppNativeButton Type="button" Class='@($"audiobook-skip-button {(isForward ? "audiobook-skip-button--forward" : "audiobook-skip-button--back")}")' OnClick="@action" AriaLabel="@label" title="@label" data-listen-seek-delta="@(isForward ? seconds : -seconds)">
-                <span class="audiobook-skip-button__value" aria-hidden="true">@seconds</span>
-                <span class="audiobook-skip-button__line" aria-hidden="true"></span>
-            </AppNativeButton>
-        </span>;
-    }
 
     protected override void OnInitialized()
     {
         Playback.SetTransportHostNotReady();
-        Playback.OnChanged += HandlePlaybackChanged;
-        Playback.OnTransportCommandRequested += HandleTransportCommandAsync;
+        Playback.Changed += HandlePlaybackChanged;
+        Playback.TransportCommandRequested += HandleTransportCommandAsync;
         Nav.LocationChanged += HandleLocationChanged;
     }
 
@@ -350,8 +321,14 @@
         if (firstRender)
         {
             _selfReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("listenPlayback.configure", Playback.ClientSettings);
+            await ConfigurePlaybackClientContextAsync();
             await JS.InvokeVoidAsync("listenPlayback.registerCommandHandler", _selfReference);
-            await JS.InvokeVoidAsync("listenPlayback.registerAudioStateObserver", _audioRef, _selfReference, 1200);
+            await JS.InvokeVoidAsync(
+                "listenPlayback.registerAudioStateObserver",
+                _audioRef,
+                _selfReference,
+                Playback.ClientSettings.AudioObserverIntervalMilliseconds);
 
             try
             {
@@ -374,13 +351,35 @@
             await Playback.SetTransportHostReadyAsync();
         }
 
+        if (Playback.HasQueue && !_shortcutsRegistered && _selfReference is not null)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.registerPlayerShortcuts", _playerShellRef, _selfReference);
+            _shortcutsRegistered = true;
+        }
+
         if (Playback.CurrentItem is not null && !string.IsNullOrWhiteSpace(Playback.CurrentBrowserStreamUrl))
         {
             await SyncAudioAsync();
         }
     }
 
-    private void HandlePlaybackChanged()
+    private async Task ConfigurePlaybackClientContextAsync()
+    {
+        try
+        {
+            var deviceId = await JS.InvokeAsync<string>("listenPlayback.getOrCreateDeviceId");
+            Playback.SetClientContext(PlaybackClientContext.WebDefault with
+            {
+                DeviceId = deviceId,
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not load playback device identity from browser storage.");
+        }
+    }
+
+    private void HandlePlaybackChanged(PlaybackChangeKind changeKind)
     {
         _ = InvokeAsync(async () =>
         {
@@ -504,6 +503,29 @@
     [JSInvokable]
     public Task HandleObservedAudioState(AudioMetrics state) => ApplyAudioMetricsAsync(state);
 
+    [JSInvokable]
+    public async Task HandlePlayerShortcut(string action)
+    {
+        switch (action)
+        {
+            case "toggle-play":
+                await TogglePlayPauseAsync();
+                break;
+            case "skip-back":
+                await SkipBackAsync();
+                break;
+            case "skip-forward":
+                await SkipForwardAsync();
+                break;
+            case "volume-up":
+                await SetVolumeOnHostAsync(Playback.Volume + Playback.ClientSettings.VolumeStep);
+                break;
+            case "volume-down":
+                await SetVolumeOnHostAsync(Playback.Volume - Playback.ClientSettings.VolumeStep);
+                break;
+        }
+    }
+
     private async Task ApplyAudioMetricsAsync(AudioMetrics state)
     {
         Playback.UpdateTransportState(
@@ -554,7 +576,7 @@
 
         if (!string.IsNullOrWhiteSpace(Playback.CurrentBrowserStreamUrl))
         {
-            await StartAudioAsync(new ListenTransportCommand(
+            await StartAudioAsync(new PlaybackTransportCommand(
                 "start",
                 Value: Playback.CurrentTimeSeconds,
                 StreamUrl: Playback.CurrentBrowserStreamUrl,
@@ -575,7 +597,7 @@
         }
     }
 
-    private async Task StartAudioAsync(ListenTransportCommand command)
+    private async Task StartAudioAsync(PlaybackTransportCommand command)
     {
         var streamUrl = FirstNonBlank(command.StreamUrl, Playback.CurrentBrowserStreamUrl);
         var positionSeconds = Math.Max(0, command.PositionSeconds ?? command.Value ?? Playback.CurrentTimeSeconds);
@@ -661,6 +683,10 @@
 
         await Playback.SkipPreviousAsync();
     }
+
+    private Task PlayNextChapterAsync() => Playback.DispatchAsync(new PlaybackCommand(PlaybackCommandKind.PlayNextChapter));
+
+    private Task PlayPreviousChapterAsync() => Playback.DispatchAsync(new PlaybackCommand(PlaybackCommandKind.PlayPreviousChapter));
 
     private Task SkipBackAsync() => SkipRelativeAsync(-Playback.SkipBackSeconds);
 
@@ -752,8 +778,15 @@
             return;
         }
 
+        await SetVolumeOnHostAsync(volume);
+    }
+
+    private async Task SetVolumeOnHostAsync(double volume)
+    {
         volume = Math.Clamp(volume, 0d, 1d);
+        await JS.InvokeVoidAsync("listenPlayback.setVolume", _audioRef, volume);
         Playback.UpdateTransportState(volume: volume, isMuted: volume <= 0 ? true : false);
+        _lastAppliedVolume = volume;
         await Playback.ReportHeartbeatAsync(force: true);
     }
 
@@ -892,7 +925,7 @@
         }
     }
 
-    private async Task HandleTransportCommandAsync(ListenTransportCommand command)
+    private async Task HandleTransportCommandAsync(PlaybackTransportCommand command)
     {
         switch (command.Action)
         {
@@ -977,8 +1010,7 @@
         $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";
 
     private static bool IsAudiobook(ListenQueueItem item)
-        => item.MediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(item.MediaType, "M4B", StringComparison.OrdinalIgnoreCase);
+        => MediaKindClassifier.IsAudiobook(item.MediaType);
 
     private static string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
@@ -1020,13 +1052,14 @@
     public async ValueTask DisposeAsync()
     {
         Playback.SetTransportHostNotReady();
-        Playback.OnChanged -= HandlePlaybackChanged;
-        Playback.OnTransportCommandRequested -= HandleTransportCommandAsync;
+        Playback.Changed -= HandlePlaybackChanged;
+        Playback.TransportCommandRequested -= HandleTransportCommandAsync;
         Nav.LocationChanged -= HandleLocationChanged;
 
         try
         {
             await JS.InvokeVoidAsync("listenPlayback.unregisterAudioStateObserver", _audioRef);
+            await JS.InvokeVoidAsync("listenPlayback.unregisterPlayerShortcuts", _playerShellRef);
             await JS.InvokeVoidAsync("listenPlayback.unregisterCommandHandler", _selfReference);
         }
         catch (JSDisconnectedException)

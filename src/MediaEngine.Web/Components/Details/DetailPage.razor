@@ -13,7 +13,7 @@
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject IDialogService DialogService
 @inject FavoriteService Favorites
-@inject ListenPlaybackService Playback
+@inject PlaybackSessionController Playback
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
@@ -805,7 +805,7 @@
         {
             Index = Math.Max(0, item.ChapterIndex ?? 0),
             Title = string.IsNullOrWhiteSpace(item.Title)
-                ? ListenPlaybackService.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
+                ? PlaybackSessionController.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
                 : item.Title.Trim(),
             StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
             EndSeconds = item.EndSeconds,

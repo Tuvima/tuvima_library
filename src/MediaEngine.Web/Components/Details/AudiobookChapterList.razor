@@ -3,7 +3,7 @@
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Services.Playback
-@inject ListenPlaybackService Playback
+@inject PlaybackSessionController Playback
 
 @{
     var rows = ChapterRows;
@@ -131,7 +131,7 @@
     private PlaybackChapterDto ToPlaybackChapter(MediaGroupingItemViewModel item, int ordinal) => new()
     {
         Index = ordinal,
-        Title = string.IsNullOrWhiteSpace(item.Title) ? ListenPlaybackService.CleanChapterTitle(item.Title, ordinal) : item.Title.Trim(),
+        Title = string.IsNullOrWhiteSpace(item.Title) ? PlaybackSessionController.CleanChapterTitle(item.Title, ordinal) : item.Title.Trim(),
         StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
         EndSeconds = item.EndSeconds,
     };

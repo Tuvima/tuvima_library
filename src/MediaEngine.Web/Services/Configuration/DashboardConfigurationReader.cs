@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MediaEngine.Domain.Models;
+using MediaEngine.Web.Services.Playback;
 
 namespace MediaEngine.Web.Services.Configuration;
 
@@ -24,6 +25,9 @@ public sealed class DashboardConfigurationReader
 
     public PaletteConfiguration LoadPalette() =>
         LoadJson<PaletteConfiguration>(Path.Combine("ui", "palette.json")) ?? new();
+
+    public ListenPlaybackClientSettings LoadPlaybackClientSettings() =>
+        (LoadJson<ListenPlaybackClientSettings>(Path.Combine("ui", "playback-client.json")) ?? new()).Normalize();
 
     private T? LoadJson<T>(string relativePath)
     {

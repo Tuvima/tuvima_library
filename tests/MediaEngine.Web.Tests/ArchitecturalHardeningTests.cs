@@ -190,7 +190,7 @@ public sealed class ArchitecturalHardeningTests
     public void Dashboard_ProxiesEngineMediaStreamsForBrowserPlayback()
     {
         var program = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Program.cs"));
-        var playback = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Services/Playback/ListenPlaybackService.cs"));
+        var playback = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Services/Playback/PlaybackSessionController.cs"));
         var host = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor"));
 
         Assert.Contains("app.MapMethods(\"/engine-stream/{assetId:guid}\"", program, StringComparison.Ordinal);

@@ -9,7 +9,7 @@
 @using MudBlazor
 @inject FavoriteService Favorites
 @inject ListenAudioDragService AudioDrag
-@inject ListenPlaybackService Playback
+@inject PlaybackSessionController Playback
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 
@@ -342,7 +342,7 @@
         {
             Index = Math.Max(0, item.ChapterIndex ?? 0),
             Title = string.IsNullOrWhiteSpace(item.Title)
-                ? ListenPlaybackService.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
+                ? PlaybackSessionController.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
                 : item.Title.Trim(),
             StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
             EndSeconds = item.EndSeconds,

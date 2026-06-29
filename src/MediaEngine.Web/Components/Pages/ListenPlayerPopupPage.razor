@@ -4,10 +4,12 @@
 @using System.Text.Json
 @using Microsoft.JSInterop
 @using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Services.Playback
 @inject IJSRuntime JS
 @inject IStringLocalizer<SharedStrings> L
 @inject ILogger<ListenPlayerPopupPage> Logger
+@inject ListenPlaybackClientSettings PlaybackClientSettings
 @implements IAsyncDisposable
 
 <PageTitle>@L["Listen_MiniPlayerTitle"]</PageTitle>
@@ -71,8 +73,9 @@
                                 Step="1"
                                 Value="@Math.Min(_snapshot.CurrentTimeSeconds, ProgressMax)"
                                 Class="listen-popup__progress-slider"
-                                OnInput="SeekAsync"
-                                aria-label="Seek" />
+                                OnChange="SeekAsync"
+                                AriaLabel="Playback position"
+                                aria-valuetext="@ProgressValueText" />
                 <div class="listen-popup__time-row">
                     <span>@FormatTimestamp(_snapshot.CurrentTimeSeconds)</span>
                     <span>@RemainingLabel</span>
@@ -80,25 +83,27 @@
                 </div>
             </section>
 
-            <section class="listen-popup__transport" aria-label="Playback controls">
-                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="PlayPreviousChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Previous chapter" title="Previous chapter">
-                    <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="tl-u-font-size-36px" />
-                </AppNativeButton>
-                @SkipButton("back", _snapshot.SkipBackSeconds, SkipBackAsync)
-                <AppNativeButton Type="button" Class="listen-popup__play" OnClick="TogglePlayAsync" AriaLabel="Play or pause" title="Play or pause"
-                                 data-listen-audio-toggle="true"
-                                 data-listen-start-url="@CurrentBrowserStreamUrl"
-                                 data-listen-start-position="@_snapshot.CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
-                                 data-listen-start-rate="@_snapshot.PlaybackRate.ToString("0.###", CultureInfo.InvariantCulture)"
-                                 data-listen-start-volume="@_snapshot.Volume.ToString("0.###", CultureInfo.InvariantCulture)"
-                                 data-listen-start-muted="@(_snapshot.IsMuted ? "true" : "false")">
-                    <MudIcon Icon="@(_snapshot.IsPlaying && !_snapshot.NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="tl-u-font-size-46px" />
-                </AppNativeButton>
-                @SkipButton("forward", _snapshot.SkipForwardSeconds, SkipForwardAsync)
-                <AppNativeButton Type="button" Class="listen-popup__transport-icon" OnClick="PlayNextChapterAsync" Disabled="@(!HasChapters)" AriaLabel="Next chapter" title="Next chapter">
-                    <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="tl-u-font-size-36px" />
-                </AppNativeButton>
-            </section>
+            <ListenTransportControls Variant="popup"
+                                     IsAudiobookMode="@IsAudiobookMode"
+                                     IsPlaying="@_snapshot.IsPlaying"
+                                     NeedsUserGestureToStart="@_snapshot.NeedsUserGestureToStart"
+                                     IsMuted="@_snapshot.IsMuted"
+                                     HasChapters="@HasChapters"
+                                     CanPreviousTrack="@(_snapshot.CurrentIndex > 0)"
+                                     CanNextTrack="@(_snapshot.CurrentIndex < _snapshot.Queue.Count - 1)"
+                                     SkipBackSeconds="@_snapshot.SkipBackSeconds"
+                                     SkipForwardSeconds="@_snapshot.SkipForwardSeconds"
+                                     CurrentBrowserStreamUrl="@CurrentBrowserStreamUrl"
+                                     CurrentTimeSeconds="@_snapshot.CurrentTimeSeconds"
+                                     PlaybackRate="@_snapshot.PlaybackRate"
+                                     Volume="@_snapshot.Volume"
+                                     OnTogglePlay="TogglePlayAsync"
+                                     OnPreviousTrack="PreviousAsync"
+                                     OnNextTrack="NextAsync"
+                                     OnPreviousChapter="PlayPreviousChapterAsync"
+                                     OnNextChapter="PlayNextChapterAsync"
+                                     OnSkipBack="SkipBackAsync"
+                                     OnSkipForward="SkipForwardAsync" />
 
             @if (IsAudiobookMode)
             {
@@ -113,11 +118,11 @@
             else
             {
                 <section class="listen-popup__music-actions" aria-label="Music controls">
-                    <AppNativeButton Type="button" Class="listen-popup__sheet-action" OnClick="ToggleMuteAsync" AriaLabel="Mute" title="Mute">
+                    <AppNativeButton Type="button" Class="listen-popup__sheet-action" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute" title="Mute or unmute">
                         <MudIcon Icon="@(_snapshot.IsMuted || _snapshot.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Class="tl-u-font-size-24px" />
                         <span>Volume</span>
                     </AppNativeButton>
-                    <AppNativeInput Type="range" Min="0" Max="1" Step="0.05" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnInput="SetVolumeAsync" aria-label="Volume" />
+                    <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
                 </section>
             }
         </main>
@@ -283,6 +288,9 @@
 
     private bool IsAudiobookMode => string.Equals(_snapshot.Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase);
     private double ProgressMax => _snapshot.DurationSeconds > 0 ? _snapshot.DurationSeconds : TryParseDurationSeconds(CurrentItem?.Duration) ?? 1;
+    private string VolumeStep => PlaybackClientSettings.VolumeStep.ToString("0.###", CultureInfo.InvariantCulture);
+    private string ProgressValueText => $"{FormatTimestamp(_snapshot.CurrentTimeSeconds)} of {FormatTimestamp(ProgressMax)}";
+    private string VolumeValueText => $"{Math.Clamp((int)Math.Round(_snapshot.Volume * 100d), 0, 100)}%";
     private IReadOnlyList<PlaybackChapterDto> CurrentChapters =>
         CurrentItem is { Chapters.Count: > 1 } item ? item.Chapters : [];
     private bool HasChapters => CurrentChapters.Count > 0;
@@ -336,8 +344,10 @@
         }
 
         _selfReference = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("listenPlayback.configure", PlaybackClientSettings);
         await JS.InvokeVoidAsync("listenPlayback.registerStateHandler", _selfReference);
         await JS.InvokeVoidAsync("listenPlayback.registerPopupWindow");
+        await JS.InvokeVoidAsync("listenPlayback.focusPopup");
 
         try
         {
@@ -367,19 +377,6 @@
 
         StateHasChanged();
         return Task.CompletedTask;
-    }
-
-    private RenderFragment SkipButton(string direction, int seconds, Func<Task> action)
-    {
-        var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
-        var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
-        var classes = $"listen-popup__skip audiobook-skip-control {(isForward ? "listen-popup__skip--forward" : "listen-popup__skip--back")}";
-        return @<span class="@classes">
-            <AppNativeButton Type="button" Class='@($"audiobook-skip-button {(isForward ? "audiobook-skip-button--forward" : "audiobook-skip-button--back")}")' OnClick="@action" AriaLabel="@label" title="@label" data-listen-seek-delta="@(isForward ? seconds : -seconds)">
-                <span class="audiobook-skip-button__value" aria-hidden="true">@seconds</span>
-                <span class="audiobook-skip-button__line" aria-hidden="true"></span>
-            </AppNativeButton>
-        </span>;
     }
 
     private RenderFragment SpeedActionButton()
@@ -482,6 +479,9 @@
 
     private Task PlayNextChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-next-chapter" : "play-next" });
     private Task PlayPreviousChapterAsync() => SendCommandAsync(new PopupCommand { Action = IsAudiobookMode ? "play-previous-chapter" : "play-previous" });
+    private Task NextAsync() => SendCommandAsync(new PopupCommand { Action = "play-next" });
+    private Task PreviousAsync() => SendCommandAsync(new PopupCommand { Action = "play-previous" });
+
     private async Task PlayChapterAsync(int chapterIndex)
     {
         await SendCommandAsync(new PopupCommand { Action = "play-chapter", ChapterIndex = chapterIndex });

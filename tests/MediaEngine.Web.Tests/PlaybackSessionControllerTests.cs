@@ -7,12 +7,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class ListenPlaybackServiceTests
+public sealed class PlaybackSessionControllerTests
 {
     [Fact]
     public void CreateSnapshot_RoundTripsQueueHistoryAndTransportState()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         var snapshot = new ListenPlaybackSnapshot
         {
             Queue =
@@ -91,7 +91,7 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public async Task PlayAudiobookAsync_UsesSingleItemModeAndAppliesResumeRewind()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://dungeon-crawler-carl") with
         {
             InitialPositionSeconds = 123,
@@ -111,7 +111,7 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public async Task PlayAudiobookChapterAsync_UsesExactChapterStartWithoutResumeRewind()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         var chapter = new PlaybackChapterDto
         {
             Index = 2,
@@ -136,7 +136,7 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public async Task PlayAudiobookAsync_IncrementsPlaybackStartVersionForSameStreamStarts()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://dungeon-crawler-carl");
 
         await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
@@ -151,10 +151,10 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public async Task PlayAudiobookAsync_CreatesStartCommandWithBootstrappedStreamAndResumePosition()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         var assetId = Guid.NewGuid();
-        ListenTransportCommand? command = null;
-        service.OnTransportCommandRequested += next =>
+        PlaybackTransportCommand? command = null;
+        service.TransportCommandRequested += next =>
         {
             command = next;
             return Task.CompletedTask;
@@ -202,10 +202,10 @@ public sealed class ListenPlaybackServiceTests
         var apiClient = new EngineApiClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://engine.test") },
             NullLogger<EngineApiClient>.Instance);
-        var service = new ListenPlaybackService(null!, apiClient);
+        var service = new PlaybackSessionController(null!, apiClient);
         var commandSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        ListenTransportCommand? command = null;
-        service.OnTransportCommandRequested += next =>
+        PlaybackTransportCommand? command = null;
+        service.TransportCommandRequested += next =>
         {
             command = next;
             commandSeen.TrySetResult();
@@ -235,7 +235,7 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public async Task SetPlaybackRateAsync_SetsExactSelectedRate()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
 
         await service.SetPlaybackRateAsync(1.3d);
 
@@ -245,15 +245,15 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public void CleanChapterTitle_UsesReadableFallbackForNumericEmbeddedTitles()
     {
-        Assert.Equal("Chapter 1", ListenPlaybackService.CleanChapterTitle("001", 0));
-        Assert.Equal("Dedication", ListenPlaybackService.CleanChapterTitle("Dedication", 1));
-        Assert.Equal("Chapter 3", ListenPlaybackService.CleanChapterTitle("", 2));
+        Assert.Equal("Chapter 1", PlaybackSessionController.CleanChapterTitle("001", 0));
+        Assert.Equal("Dedication", PlaybackSessionController.CleanChapterTitle("Dedication", 1));
+        Assert.Equal("Chapter 3", PlaybackSessionController.CleanChapterTitle("", 2));
     }
 
     [Fact]
     public async Task AddQueueItemAsync_Audiobook_ReplacesMusicQueueInsteadOfAppending()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         await service.AddQueueItemAsync(CreateQueueItem("Current Song", "stream://song"));
 
         await service.AddQueueItemAsync(CreateAudiobookItem("Dungeon Crawler Carl", "stream://book"));
@@ -271,7 +271,7 @@ public sealed class ListenPlaybackServiceTests
         var apiClient = new EngineApiClient(
             new HttpClient(new PlayerSyncHandler()) { BaseAddress = new Uri("http://engine.test") },
             NullLogger<EngineApiClient>.Instance);
-        var service = new ListenPlaybackService(null!, apiClient);
+        var service = new PlaybackSessionController(null!, apiClient);
         var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "/stream/312274cc-8cf0-4ead-9934-1aa78eb2b195");
 
         await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
@@ -285,7 +285,7 @@ public sealed class ListenPlaybackServiceTests
         var apiClient = new EngineApiClient(
             new HttpClient(new PlayerSyncHandler()) { BaseAddress = new Uri("http://engine.test") },
             NullLogger<EngineApiClient>.Instance);
-        var service = new ListenPlaybackService(null!, apiClient);
+        var service = new PlaybackSessionController(null!, apiClient);
         var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "/stream/312274cc-8cf0-4ead-9934-1aa78eb2b195");
 
         await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
@@ -297,7 +297,7 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public void ClearUpcoming_RemovesOnlyFutureQueueItems()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         service.RestoreState(new ListenPlaybackSnapshot
         {
             Queue =
@@ -318,7 +318,7 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public void RemoveUpcomingAt_DoesNotRemoveCurrentItem()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         service.RestoreState(new ListenPlaybackSnapshot
         {
             Queue =
@@ -342,7 +342,7 @@ public sealed class ListenPlaybackServiceTests
     [Fact]
     public void ClosePlayer_ClearsQueueAndHistory()
     {
-        var service = new ListenPlaybackService(null!, null!);
+        var service = new PlaybackSessionController(null!, null!);
         service.RestoreState(new ListenPlaybackSnapshot
         {
             Queue = [CreateQueueItem("Current", "stream://current")],

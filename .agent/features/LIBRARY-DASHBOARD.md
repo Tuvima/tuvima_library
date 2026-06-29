@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 3.11 and Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last audited: 2026-05-23 | Auditor: Codex
+> Last audited: 2026-06-28 | Auditor: Codex
 
 ---
 
@@ -36,6 +36,8 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 | Review Queue | `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` |
 | Shared editor | `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` |
 | Ingestion dashboard | `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` |
+| Listen playback controller | `src/MediaEngine.Web/Services/Playback/PlaybackSessionController.cs` |
+| Shared Listen transport controls | `src/MediaEngine.Web/Components/Listen/ListenTransportControls.razor` |
 
 ---
 
@@ -49,6 +51,7 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 | Review exception | Review Queue is only for blocked, uncertain, low-confidence, or unresolved items. |
 | Settings/Admin scope | Settings/Admin is for folders, providers, profiles, roles, ingestion, health, logs, diagnostics, plugins, AI, and review. |
 | No removed management workflow | Do not recreate all-in-one management routes, implementation types, navigation labels, or media correction workbenches. |
+| Playback controller boundary | Listen playback UI reads the session controller and uses shared transport controls; browser mechanics stay behind the Web audio host and `listenPlayback` bridge. |
 
 ---
 

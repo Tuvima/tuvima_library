@@ -763,6 +763,21 @@ public sealed class PlaybackCapabilitiesService
             SupportsSubtitles = true,
             SupportsOfflineDownloads = true,
         },
+        "ios" => new PlaybackProfileDto
+        {
+            Key = "ios",
+            DisplayName = "iOS",
+            PreferredDelivery = PlaybackDeliveryModes.DirectStream,
+            SupportedContainers = ["mp4", "m4v", "mp3", "m4a", "m4b", "aac", "epub", "pdf", "cbz"],
+            SupportedVideoCodecs = ["h264", "hevc"],
+            SupportedAudioCodecs = ["aac", "mp3", "alac"],
+            SupportedSubtitleFormats = ["vtt"],
+            MaxHeight = 2160,
+            SupportsPlaybackSpeed = true,
+            SupportsAlternateAudio = true,
+            SupportsSubtitles = true,
+            SupportsOfflineDownloads = true,
+        },
         "android-tv" => new PlaybackProfileDto
         {
             Key = "android-tv",

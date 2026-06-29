@@ -89,6 +89,18 @@ public sealed class PlayerEndpointRouteTests
     }
 
     [Fact]
+    public void PlaybackCapabilities_DefinesAndroidAndIosMobileProfiles()
+    {
+        var source = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Api/Services/Playback/PlaybackCapabilitiesService.cs"));
+
+        Assert.Contains("Key = \"android\"", source, StringComparison.Ordinal);
+        Assert.Contains("Key = \"ios\"", source, StringComparison.Ordinal);
+        Assert.Contains("DisplayName = \"iOS\"", source, StringComparison.Ordinal);
+        Assert.Contains("SupportedContainers = [\"mp4\", \"m4v\", \"mp3\", \"m4a\", \"m4b\", \"aac\", \"epub\", \"pdf\", \"cbz\"]", source, StringComparison.Ordinal);
+        Assert.Contains("SupportsOfflineDownloads = true", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PlaybackCapabilities_UsesTimedProbeChaptersInsteadOfUntimedPlaceholders()
     {
         var source = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Api/Services/Playback/PlaybackCapabilitiesService.cs"));

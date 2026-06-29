@@ -62,7 +62,7 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
             historyLimit: 25,
             activeSegmentGapSeconds: 20,
             positionJumpToleranceSeconds: 12,
-            deviceId: "web-dashboard",
+            deviceId: "web",
             client: "web");
 
         await repository.TrackHeartbeatAsync(
@@ -81,7 +81,7 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
             historyLimit: 25,
             activeSegmentGapSeconds: 20,
             positionJumpToleranceSeconds: 12,
-            deviceId: "web-dashboard",
+            deviceId: "web",
             client: "web");
 
         var history = await repository.GetRecentAsync(ids.ProfileId, ids.WorkId);
@@ -144,7 +144,7 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
             historyLimit: 25,
             activeSegmentGapSeconds: 20,
             positionJumpToleranceSeconds: 12,
-            deviceId: "web-dashboard",
+            deviceId: "web",
             client: "web");
 
         var history = await repository.GetRecentAsync(ids.ProfileId, ids.WorkId);

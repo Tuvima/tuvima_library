@@ -33,6 +33,14 @@ The Dashboard is organized around discovery and media use, not a separate media 
 
 Persistent playback stays in the shell so it survives navigation. Media editing does not live in the shell.
 
+## Listen Playback
+
+Listen playback is coordinated through `PlaybackSessionController` in `Services/Playback`. UI components should read controller state, dispatch typed `PlaybackCommand` intent where possible, and let the persistent Web audio host execute `PlaybackTransportCommand` work against the hidden `<audio>` element.
+
+`ListenTransportControls.razor` is the shared control surface for the bottom bar, persistent side panel, and popup. Do not duplicate play/pause, skip, previous/next, or chapter-control markup in those surfaces.
+
+Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` bridge and is configured by `config/ui/playback-client.json`. User-facing listening settings remain in the playback settings API.
+
 ## Primary surfaces
 
 - `/` is Home/discovery, rendered by `LibraryBrowsePage`.

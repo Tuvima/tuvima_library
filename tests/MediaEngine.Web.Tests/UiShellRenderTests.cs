@@ -50,7 +50,8 @@ public sealed class UiShellRenderTests : TestContext
         Services.AddScoped<UIOrchestratorService>();
         Services.AddScoped<CollectionEditorLauncherService>();
         Services.AddScoped<MediaTileComposerService>();
-        Services.AddScoped<ListenPlaybackService>();
+        Services.AddSingleton(new ListenPlaybackClientSettings());
+        Services.AddScoped<PlaybackSessionController>();
         Services.AddScoped<ListenAudioDragService>();
         Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
         Services.AddScoped<MediaReactionService>();
@@ -526,7 +527,7 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("Now Playing", panelSource, StringComparison.Ordinal);
         Assert.Contains("Up Next", panelSource, StringComparison.Ordinal);
         Assert.Contains("Drag tracks here", panelSource, StringComparison.Ordinal);
-        Assert.Contains("OnTransportCommandRequested", hostSource, StringComparison.Ordinal);
+        Assert.Contains("TransportCommandRequested", hostSource, StringComparison.Ordinal);
         Assert.Contains("ReportHeartbeatAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("listen-player-shell--listen-route", hostSource, StringComparison.Ordinal);
         Assert.Contains("@media (min-width: 1181px)", hostCss, StringComparison.Ordinal);

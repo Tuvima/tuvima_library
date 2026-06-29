@@ -156,7 +156,7 @@ public sealed record AudiobookListenHistoryItemDto
     public double PositionSeconds { get; init; }
     public double? DurationSeconds { get; init; }
     public double ProgressPct { get; init; }
-    public string DeviceId { get; init; } = "web-dashboard";
+    public string DeviceId { get; init; } = "web";
     public string Client { get; init; } = "web";
     public DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset EndedAt { get; init; }

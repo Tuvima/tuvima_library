@@ -51,7 +51,7 @@ Content served via `GET /comic/{assetId}/page/{pageNum}` - individual images ext
 
 ### Audiobook Player
 
-Rendered as a persistent bottom bar in `MainLayout.razor` - survives page navigation. A `PlaybackStateService` (scoped per circuit, in `Services/Playback/`) manages the active audio session and exposes play/pause/seek to any component.
+Rendered as a persistent bottom bar in `MainLayout.razor` - survives page navigation. `PlaybackSessionController` (scoped per circuit, in `Services/Playback/`) manages the active audio session with typed commands and state. Shared controls live in `ListenTransportControls.razor`.
 
 - Play/pause, skip +/-30 seconds
 - Playback speed (0.5x - 3x)
