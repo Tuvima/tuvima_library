@@ -49,13 +49,15 @@
 
             <div class="listen-now-panel__meta">
                 <h2>@current.Title</h2>
-                <p>@PlayerSubtitle(current)</p>
-                @if (!Playback.IsAudiobookMode
-                    && !string.IsNullOrWhiteSpace(current.Album)
-                    && !string.Equals(current.Album, current.Title, StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(current.Album, current.Subtitle, StringComparison.OrdinalIgnoreCase))
+                @if (!Playback.IsAudiobookMode)
                 {
-                    <span>@current.Album</span>
+                    <p>@PlayerSubtitle(current)</p>
+                    @if (!string.IsNullOrWhiteSpace(current.Album)
+                        && !string.Equals(current.Album, current.Title, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(current.Album, current.Subtitle, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <span>@current.Album</span>
+                    }
                 }
             </div>
 

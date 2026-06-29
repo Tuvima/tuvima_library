@@ -345,9 +345,9 @@ public sealed record ListenPlaybackSnapshot
 public sealed record ListenPlaybackClientSettings
 {
     [JsonPropertyName("popup_width")]
-    public int PopupWidth { get; init; } = 420;
+    public int PopupWidth { get; init; } = 460;
     [JsonPropertyName("popup_height")]
-    public int PopupHeight { get; init; } = 720;
+    public int PopupHeight { get; init; } = 820;
     [JsonPropertyName("immediate_action_dedup_milliseconds")]
     public int ImmediateActionDedupMilliseconds { get; init; } = 900;
     [JsonPropertyName("immediate_action_consume_milliseconds")]

@@ -125,13 +125,27 @@ public sealed class PlaybackPrimitiveTests
         var panel = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/ListenNowPlayingPanel.razor"));
         var popup = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor"));
         var shared = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/ListenTransportControls.razor"));
+        var skip = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/AudiobookSkipButton.razor"));
+        var skipStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/AudiobookSkipButton.razor.css"));
+        var playbackConfig = File.ReadAllText(Path.Combine(root, "config/ui/playback-client.json"));
 
         Assert.Contains("<ListenTransportControls", bar, StringComparison.Ordinal);
         Assert.Contains("<ListenTransportControls", panel, StringComparison.Ordinal);
         Assert.Contains("<ListenTransportControls", popup, StringComparison.Ordinal);
+        Assert.Contains("<AudiobookSkipButton", shared, StringComparison.Ordinal);
         Assert.Contains("AriaLabel=\"Play or pause\"", shared, StringComparison.Ordinal);
         Assert.Contains("AriaLabel=\"Previous track\"", shared, StringComparison.Ordinal);
         Assert.Contains("AriaLabel=\"Next track\"", shared, StringComparison.Ordinal);
+        Assert.Contains("audiobook-skip-button__ring", skip, StringComparison.Ordinal);
+        Assert.Contains("audiobook-skip-button__arc", skip, StringComparison.Ordinal);
+        Assert.Contains("audiobook-skip-button__arrow", skip, StringComparison.Ordinal);
+        Assert.Contains("audiobook-skip-button__number", skip, StringComparison.Ordinal);
+        Assert.Contains("data-listen-seek-delta", skip, StringComparison.Ordinal);
+        Assert.DoesNotContain("audiobook-skip-button__line", shared + skip + skipStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("audiobook-skip-button__unit", shared + skip + skipStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("title=\"@label\"", shared + skip, StringComparison.Ordinal);
+        Assert.Contains("\"popup_width\": 460", playbackConfig, StringComparison.Ordinal);
+        Assert.Contains("\"popup_height\": 820", playbackConfig, StringComparison.Ordinal);
         Assert.DoesNotContain("private RenderFragment SkipButton", bar, StringComparison.Ordinal);
         Assert.DoesNotContain("private RenderFragment SkipButton", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("private RenderFragment SkipButton", popup, StringComparison.Ordinal);

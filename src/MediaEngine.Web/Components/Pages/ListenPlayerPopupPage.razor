@@ -53,7 +53,10 @@
 
             <section class="listen-popup__identity">
                 <h1>@current.Title</h1>
-                <p>@PlayerSubtitle(current)</p>
+                @if (!IsAudiobookMode)
+                {
+                    <p>@PlayerSubtitle(current)</p>
+                }
             </section>
 
             <section class="listen-popup__timeline" aria-label="Playback progress">

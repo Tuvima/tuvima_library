@@ -7,8 +7,8 @@
         <AppNativeButton Type="button" Class="@IconButtonClass" OnClick="OnPreviousChapter" Disabled="@(!HasChapters)" AriaLabel="Previous chapter" title="Previous chapter">
             <MudIcon Icon="@Icons.Material.Filled.SkipPrevious" Class="@SkipIconClass" />
         </AppNativeButton>
-        @SkipButton("back", SkipBackSeconds, OnSkipBack)
-        <AppNativeButton Type="button" Class="@PlayButtonClass" OnClick="OnTogglePlay" AriaLabel="Play or pause" title="Play or pause"
+        <AudiobookSkipButton Seconds="@SkipBackSeconds" IsForward="false" Variant="@Variant" OnClick="@OnSkipBack" />
+        <AppNativeButton Type="button" Class="@PlayButtonClass" Css="@PlayButtonStyle" OnClick="OnTogglePlay" AriaLabel="Play or pause" title="Play or pause"
                          data-listen-audio-toggle="true"
                          data-listen-start-url="@CurrentBrowserStreamUrl"
                          data-listen-start-position="@CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
@@ -17,7 +17,7 @@
                          data-listen-start-muted="@(IsMuted ? "true" : "false")">
             <MudIcon Icon="@(IsPlaying && !NeedsUserGestureToStart ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Class="@PlayIconClass" />
         </AppNativeButton>
-        @SkipButton("forward", SkipForwardSeconds, OnSkipForward)
+        <AudiobookSkipButton Seconds="@SkipForwardSeconds" IsForward="true" Variant="@Variant" OnClick="@OnSkipForward" />
         <AppNativeButton Type="button" Class="@IconButtonClass" OnClick="OnNextChapter" Disabled="@(!HasChapters)" AriaLabel="Next chapter" title="Next chapter">
             <MudIcon Icon="@Icons.Material.Filled.SkipNext" Class="@SkipIconClass" />
         </AppNativeButton>
@@ -31,7 +31,7 @@
         <AppNativeButton Type="button" Class="@IconButtonClass" OnClick="OnPreviousTrack" Disabled="@(!CanPreviousTrack)" AriaLabel="Previous track" title="Previous track">
             <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="@TrackIconClass" />
         </AppNativeButton>
-        <AppNativeButton Type="button" Class="@PlayButtonClass" OnClick="OnTogglePlay" AriaLabel="Play or pause" title="Play or pause"
+        <AppNativeButton Type="button" Class="@PlayButtonClass" Css="@PlayButtonStyle" OnClick="OnTogglePlay" AriaLabel="Play or pause" title="Play or pause"
                          data-listen-audio-toggle="true"
                          data-listen-start-url="@CurrentBrowserStreamUrl"
                          data-listen-start-position="@CurrentTimeSeconds.ToString("0.###", CultureInfo.InvariantCulture)"
@@ -80,13 +80,11 @@
     [Parameter] public EventCallback OnQueue { get; set; }
 
     private string AriaLabel => IsAudiobookMode ? "Audiobook playback controls" : "Playback controls";
-    private bool IsPanel => string.Equals(Variant, "panel", StringComparison.OrdinalIgnoreCase);
-    private bool IsPopup => string.Equals(Variant, "popup", StringComparison.OrdinalIgnoreCase);
     private string RootClass => Variant switch
     {
-        "panel" => $"listen-now-panel__controls {(IsAudiobookMode ? "listen-now-panel__controls--audiobook" : null)}",
-        "popup" => "listen-popup__transport",
-        _ => $"listen-player__transport-buttons {(IsAudiobookMode ? "listen-player__transport-buttons--audiobook" : null)}",
+        "panel" => $"listen-transport listen-transport--panel listen-now-panel__controls {(IsAudiobookMode ? "listen-now-panel__controls--audiobook" : null)}",
+        "popup" => "listen-transport listen-transport--popup listen-popup__transport",
+        _ => $"listen-transport listen-transport--bar listen-player__transport-buttons {(IsAudiobookMode ? "listen-player__transport-buttons--audiobook" : null)}",
     };
     private string IconButtonClass => Variant switch
     {
@@ -104,6 +102,13 @@
         "panel" => "listen-now-panel__play",
         "popup" => "listen-popup__play",
         _ => "listen-player__play",
+    };
+    private string? PlayButtonStyle => Variant switch
+    {
+        "popup" => "background: var(--listen-accent, var(--tl-status-warning, #f59e0b)); color: #07111f;",
+        "panel" when IsAudiobookMode => "background: var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)); color: #07111f;",
+        _ when IsAudiobookMode => "background: var(--tl-status-warning, #f59e0b); color: #07111f;",
+        _ => null,
     };
     private string TrackIconClass => Variant switch
     {
@@ -123,25 +128,6 @@
         "popup" => "tl-u-font-size-46px",
         _ => "tl-u-font-size-24px",
     };
-
-    private RenderFragment SkipButton(string direction, int seconds, EventCallback callback)
-    {
-        var isForward = string.Equals(direction, "forward", StringComparison.OrdinalIgnoreCase);
-        var label = isForward ? $"Forward {seconds} seconds" : $"Back {seconds} seconds";
-        var wrapperClass = Variant switch
-        {
-            "panel" => $"listen-now-panel__skip audiobook-skip-control {(isForward ? "listen-now-panel__skip--forward" : "listen-now-panel__skip--back")}",
-            "popup" => $"listen-popup__skip audiobook-skip-control {(isForward ? "listen-popup__skip--forward" : "listen-popup__skip--back")}",
-            _ => $"listen-player__skip audiobook-skip-control {(isForward ? "listen-player__skip--forward" : "listen-player__skip--back")}",
-        };
-
-        return @<span class="@wrapperClass">
-            <AppNativeButton Type="button" Class='@($"audiobook-skip-button {(isForward ? "audiobook-skip-button--forward" : "audiobook-skip-button--back")}")' OnClick="@callback" AriaLabel="@label" title="@label" data-listen-seek-delta="@(isForward ? seconds : -seconds)">
-                <span class="audiobook-skip-button__value" aria-hidden="true">@seconds</span>
-                <span class="audiobook-skip-button__line" aria-hidden="true"></span>
-            </AppNativeButton>
-        </span>;
-    }
 
     private static string FormatSpeed(double rate) =>
         $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";

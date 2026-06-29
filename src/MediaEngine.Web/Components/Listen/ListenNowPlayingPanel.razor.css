@@ -3,7 +3,7 @@
     min-width: 0;
     height: 100%;
     min-height: 0;
-    --listen-skip-button-size: 56px;
+    --listen-skip-button-size: 58px;
     --listen-skip-text-size: 1rem;
     --listen-skip-center-bg: #07111f;
     border-left: 1px solid rgba(148, 163, 184, 0.16);
@@ -347,16 +347,17 @@
 
 .listen-now-panel__controls--audiobook {
     display: grid;
-    grid-template-columns: 30px var(--listen-skip-button-size) 72px var(--listen-skip-button-size) 30px;
-    column-gap: 12px;
+    grid-template-columns: 34px var(--listen-skip-button-size) 74px var(--listen-skip-button-size) 34px;
+    width: min(100%, 300px);
+    column-gap: 8px;
     align-items: center;
     justify-content: center;
-    margin-inline: -4px;
+    margin-inline: auto;
 }
 
 .listen-now-panel__controls--audiobook .listen-now-panel__icon {
-    width: 28px;
-    height: 54px;
+    width: 34px;
+    height: 58px;
     justify-self: center;
     color: rgba(248, 250, 252, 0.9);
 }
@@ -374,8 +375,8 @@
 }
 
 .listen-now-panel__controls--audiobook .listen-now-panel__play {
-    width: 72px;
-    height: 72px;
+    width: 74px;
+    height: 74px;
     background: var(--listen-audio-accent);
     color: #07111f;
     justify-self: center;
@@ -668,8 +669,8 @@
 }
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__icon {
-    width: 28px;
-    height: 54px;
+    width: 34px;
+    height: 58px;
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
@@ -685,8 +686,8 @@
 }
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__play {
-    width: 72px;
-    height: 72px;
+    width: 74px;
+    height: 74px;
     border: 0;
     border-radius: 999px;
     display: inline-flex;
@@ -702,6 +703,7 @@
     font-size: 42px !important;
     width: 42px;
     height: 42px;
+    color: #07111f !important;
 }
 
 ::deep .listen-now-panel__action {
@@ -763,82 +765,6 @@
     align-items: center;
     justify-content: center;
     justify-self: center;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button {
-    position: relative;
-    width: 56px;
-    height: 56px;
-    min-width: 56px;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: rgba(248, 250, 252, 0.96);
-    box-shadow: none;
-    transition: transform 110ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button:hover,
-::deep .listen-now-panel__skip .audiobook-skip-button:focus-visible {
-    background: rgba(245, 158, 11, 0.12);
-    color: var(--listen-audio-accent);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14), 0 14px 30px rgba(245, 158, 11, 0.12);
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button:active {
-    transform: scale(0.96);
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button__value {
-    position: absolute;
-    left: 50%;
-    top: 54%;
-    transform: translate(-50%, -50%);
-    z-index: 1;
-    color: rgba(248, 250, 252, 0.98);
-    font-size: var(--listen-skip-text-size);
-    font-weight: 950;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
-    pointer-events: none;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button__line {
-    position: absolute;
-    top: 12px;
-    width: 28px;
-    height: 12px;
-    border-top: 2.5px solid currentColor;
-    pointer-events: none;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button--back .audiobook-skip-button__line {
-    right: 16px;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button--forward .audiobook-skip-button__line {
-    left: 16px;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button__line::after {
-    content: "";
-    position: absolute;
-    top: -6px;
-    width: 0;
-    height: 0;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button--back .audiobook-skip-button__line::after {
-    left: -1px;
-    border-right: 8px solid currentColor;
-}
-
-::deep .listen-now-panel__skip .audiobook-skip-button--forward .audiobook-skip-button__line::after {
-    right: -1px;
-    border-left: 8px solid currentColor;
 }
 
 ::deep .listen-now-panel__sheet-row--chapter {

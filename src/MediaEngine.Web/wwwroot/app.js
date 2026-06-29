@@ -963,8 +963,8 @@ window.libraryItemSettings = {
 
 window.listenPlayback = (function () {
     var playbackConfig = {
-        popupWidth: 420,
-        popupHeight: 720,
+        popupWidth: 460,
+        popupHeight: 820,
         immediateActionDedupMilliseconds: 900,
         immediateActionConsumeMilliseconds: 1800,
         audioObserverIntervalMilliseconds: 1200,
