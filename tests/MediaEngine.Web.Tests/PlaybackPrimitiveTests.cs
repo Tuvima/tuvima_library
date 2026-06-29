@@ -141,6 +141,10 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("audiobook-skip-button__arrow", skip, StringComparison.Ordinal);
         Assert.Contains("audiobook-skip-button__number", skip, StringComparison.Ordinal);
         Assert.Contains("data-listen-seek-delta", skip, StringComparison.Ordinal);
+        Assert.Contains("<AppNativeButton", skip, StringComparison.Ordinal);
+        Assert.DoesNotContain("<button", skip, StringComparison.Ordinal);
+        Assert.Contains(".audiobook-skip-control ::deep .audiobook-skip-button", skipStyles, StringComparison.Ordinal);
+        Assert.Contains(".audiobook-skip-control ::deep .audiobook-skip-button__ring", skipStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("audiobook-skip-button__line", shared + skip + skipStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("audiobook-skip-button__unit", shared + skip + skipStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("title=\"@label\"", shared + skip, StringComparison.Ordinal);

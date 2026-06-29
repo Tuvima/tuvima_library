@@ -3,7 +3,7 @@
 <span class="@RootClass">
     <AppNativeButton Type="button"
                      Class="@ButtonClass"
-                     OnClick="@OnClick"
+                     OnClick="@HandleClickAsync"
                      AriaLabel="@AriaLabel"
                      data-listen-seek-delta="@SeekDelta">
         <svg class="@RingClass" viewBox="0 0 64 64" focusable="false" aria-hidden="true">
@@ -39,4 +39,5 @@
 
     private string ButtonClass => $"audiobook-skip-button audiobook-skip-button--{Direction}";
     private string RingClass => $"audiobook-skip-button__ring audiobook-skip-button__ring--{Direction}";
+    private Task HandleClickAsync(MouseEventArgs _) => OnClick.InvokeAsync();
 }
