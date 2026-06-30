@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Listen
 @using System.Globalization
 @using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Services.Playback
 @using Microsoft.JSInterop
 @inject ListenAudioDragService AudioDrag
@@ -64,13 +65,11 @@
             <div class="listen-now-panel__progress">
                 @if (Playback.IsAudiobookMode && !string.IsNullOrWhiteSpace(CurrentChapterProgressLabel))
                 {
-                    <div class="listen-now-panel__chapter-row">
-                        <span>
-                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-20px" />
-                            <strong>@CurrentChapterProgressLabel</strong>
-                        </span>
-                        <span>@ProgressPercentLabel</span>
-                    </div>
+                    <PlaybackTimelineMetaRow Icon="@Icons.Material.Outlined.MenuBook"
+                                             Label="@CurrentChapterProgressLabel"
+                                             TrailingText="@ProgressPercentLabel"
+                                             Size="standard"
+                                             Class="listen-now-panel__chapter-row" />
                 }
                 <AppNativeInput Type="range"
                                 Min="0"

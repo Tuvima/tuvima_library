@@ -439,13 +439,6 @@ body {
     transform: none !important;
 }
 
-.listen-player__play {
-    color: #fff !important;
-    background: var(--app-primary) !important;
-    border-radius: 999px !important;
-    box-shadow: none !important;
-}
-
 .listen-player__progress-slider,
 .listen-player__volume-slider {
     accent-color: var(--app-primary) !important;
@@ -2302,8 +2295,7 @@ body,
 
 .tl-button-primary,
 .mud-button-filled-primary,
-.collection-primary-cta,
-.listen-player__play {
+.collection-primary-cta {
     color: var(--tl-text-on-accent) !important;
     background: var(--tl-gradient-primary) !important;
     border-color: var(--tl-accent-primary-border) !important;

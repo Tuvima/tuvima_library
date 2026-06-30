@@ -118,29 +118,6 @@
     gap: 8px;
 }
 
-.listen-now-panel__chapter-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    color: var(--listen-audio-accent, var(--tl-status-warning, #f59e0b));
-    font-size: 0.92rem;
-    font-weight: 800;
-}
-
-.listen-now-panel__chapter-row > span {
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.listen-now-panel__chapter-row strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .listen-now-panel__slider {
     width: 100%;
     accent-color: var(--tl-status-warning, #f59e0b);
@@ -204,20 +181,6 @@
 .listen-now-panel__top-icon:disabled {
     cursor: default;
     opacity: 0.58;
-}
-
-.listen-now-panel__play {
-    width: 58px;
-    height: 58px;
-    border: 0;
-    border-radius: 999px;
-    background: rgba(248, 250, 252, 0.96);
-    color: #0f172a;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 12px 28px rgba(245, 158, 11, 0.18);
 }
 
 .listen-now-panel__mini {
@@ -372,15 +335,6 @@
     position: relative;
     border-radius: 999px;
     color: rgba(248, 250, 252, 0.9);
-}
-
-.listen-now-panel__controls--audiobook .listen-now-panel__play {
-    width: 74px;
-    height: 74px;
-    background: var(--listen-audio-accent);
-    color: #07111f;
-    justify-self: center;
-    box-shadow: 0 16px 36px rgba(245, 158, 11, 0.28);
 }
 
 .listen-now-panel__audiobook-actions {
@@ -683,27 +637,6 @@
     font-size: 30px !important;
     width: 30px;
     height: 30px;
-}
-
-::deep .listen-now-panel__controls--audiobook .listen-now-panel__play {
-    width: 74px;
-    height: 74px;
-    border: 0;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    justify-self: center;
-    background: var(--listen-audio-accent);
-    color: #07111f;
-    box-shadow: 0 16px 36px rgba(245, 158, 11, 0.28);
-}
-
-::deep .listen-now-panel__controls--audiobook .listen-now-panel__play .mud-icon-root {
-    font-size: 42px !important;
-    width: 42px;
-    height: 42px;
-    color: #07111f !important;
 }
 
 ::deep .listen-now-panel__action {

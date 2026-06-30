@@ -1,0 +1,65 @@
+.playback-primary-button-shell {
+    --playback-primary-size: 74px;
+    --playback-primary-icon-size: 42px;
+    --playback-primary-shadow: 0 18px 42px rgba(245, 158, 11, 0.32);
+    align-self: center;
+    display: inline-flex;
+    height: var(--playback-primary-size);
+    justify-content: center;
+    justify-self: center;
+    width: var(--playback-primary-size);
+}
+
+.playback-primary-button-shell--compact {
+    --playback-primary-size: 52px;
+    --playback-primary-icon-size: 30px;
+    --playback-primary-shadow: 0 12px 28px rgba(245, 158, 11, 0.28);
+}
+
+.playback-primary-button-shell--large {
+    --playback-primary-size: 96px;
+    --playback-primary-icon-size: 48px;
+    --playback-primary-shadow: 0 18px 44px rgba(245, 158, 11, 0.36);
+}
+
+.playback-primary-button-shell ::deep .playback-primary-button {
+    align-items: center;
+    background: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b))) !important;
+    border: 0;
+    border-radius: 999px;
+    box-shadow: var(--playback-primary-shadow);
+    color: #07111f !important;
+    cursor: pointer;
+    display: inline-flex;
+    height: var(--playback-primary-size);
+    justify-content: center;
+    min-height: var(--playback-primary-size);
+    min-width: var(--playback-primary-size);
+    opacity: 1 !important;
+    padding: 0;
+    transition: background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+    width: var(--playback-primary-size);
+}
+
+.playback-primary-button-shell ::deep .playback-primary-button:hover {
+    background: var(--listen-accent-strong, #ffb020) !important;
+    box-shadow: 0 20px 48px rgba(245, 158, 11, 0.42);
+    transform: translateY(-1px);
+}
+
+.playback-primary-button-shell ::deep .playback-primary-button:active {
+    transform: translateY(0);
+}
+
+.playback-primary-button-shell ::deep .playback-primary-button:focus-visible {
+    outline: 3px solid rgba(147, 197, 253, 0.72);
+    outline-offset: 4px;
+}
+
+.playback-primary-button-shell ::deep .playback-primary-button__icon {
+    color: #07111f !important;
+    fill: #07111f !important;
+    font-size: var(--playback-primary-icon-size) !important;
+    height: var(--playback-primary-icon-size);
+    width: var(--playback-primary-icon-size);
+}

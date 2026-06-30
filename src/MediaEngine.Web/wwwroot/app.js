@@ -1401,7 +1401,7 @@ window.listenPlayback = (function () {
     var immediateSeekConsumedAt = 0;
 
     function seekAudioFromImmediateAction(target, allowDuplicate) {
-        var action = target && target.closest ? target.closest('[data-listen-seek-delta]') : null;
+        var action = target && target.closest ? target.closest('[data-playback-seek-delta]') : null;
         if (!action || action.disabled || action.getAttribute('aria-disabled') === 'true') return;
 
         var audio = audioEngineElement();
@@ -1412,7 +1412,7 @@ window.listenPlayback = (function () {
             return;
         }
 
-        var delta = numberFromDataset(action.dataset.listenSeekDelta, 0);
+        var delta = numberFromDataset(action.dataset.playbackSeekDelta, 0);
         if (!delta) return;
 
         lastImmediateSeekAction = action;

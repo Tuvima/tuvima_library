@@ -1,0 +1,70 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Web
+
+<span class="@RootClass">
+    <AppNativeButton Type="button"
+                     Class="playback-primary-button"
+                     Css="@Css"
+                     OnClick="@HandleClickAsync"
+                     AriaLabel="@ResolvedAriaLabel"
+                     @attributes="AdditionalAttributes">
+        <MudIcon Icon="@Icon" Class="playback-primary-button__icon" />
+    </AppNativeButton>
+</span>
+
+@code {
+    [Parameter]
+    public bool IsPlaying { get; set; }
+
+    [Parameter]
+    public bool NeedsUserGestureToStart { get; set; }
+
+    [Parameter]
+    public string Size { get; set; } = "standard";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public string? Css { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Play or pause";
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string NormalizedSize => Size switch
+    {
+        "compact" => "compact",
+        "large" => "large",
+        _ => "standard"
+    };
+
+    private string Icon => IsPlaying && !NeedsUserGestureToStart
+        ? Icons.Material.Filled.Pause
+        : Icons.Material.Filled.PlayArrow;
+
+    private string ResolvedAriaLabel => string.IsNullOrWhiteSpace(AriaLabel)
+        ? "Play or pause"
+        : AriaLabel;
+
+    private string RootClass => string.Join(
+        " ",
+        new[]
+        {
+            "playback-primary-button-shell",
+            $"playback-primary-button-shell--{NormalizedSize}",
+            IsPlaying && !NeedsUserGestureToStart ? "is-playing" : null,
+            Class
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClickAsync(MouseEventArgs _)
+    {
+        return OnClick.InvokeAsync();
+    }
+}

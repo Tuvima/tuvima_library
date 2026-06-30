@@ -61,7 +61,6 @@
 
 .listen-popup__top-icon,
 .listen-popup__transport-icon,
-.listen-popup__play,
 .listen-popup__action,
 .listen-popup__sheet-action,
 .listen-popup-sheet__close,
@@ -157,29 +156,6 @@
     gap: 8px;
 }
 
-.listen-popup__chapter-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    color: var(--listen-accent);
-    font-size: clamp(0.92rem, 1.8vw, 1.04rem);
-    font-weight: 850;
-}
-
-.listen-popup__chapter-row > span {
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.listen-popup__chapter-row strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .listen-popup__progress-slider,
 .listen-popup__volume-slider {
     width: 100%;
@@ -221,18 +197,6 @@
     align-items: center;
     justify-content: center;
     justify-self: center;
-}
-
-.listen-popup__play {
-    width: 96px;
-    height: 96px;
-    border-radius: 999px;
-    background: var(--listen-accent);
-    color: #07111f;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 18px 42px rgba(245, 158, 11, 0.28);
 }
 
 .listen-popup__actions {
@@ -601,27 +565,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-::deep .listen-popup__play {
-    width: 96px;
-    height: 96px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--listen-accent);
-    color: #07111f;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 18px 42px rgba(245, 158, 11, 0.28);
-    cursor: pointer;
-}
-
-::deep .listen-popup__play .mud-icon-root {
-    font-size: 48px !important;
-    width: 48px;
-    height: 48px;
-    color: #07111f !important;
-}
-
 ::deep .listen-popup__action {
     width: 72px;
     height: 72px;
@@ -675,18 +618,13 @@
     }
 
     .listen-popup__transport {
-        grid-template-columns: 48px 56px 86px 56px 48px;
+        grid-template-columns: 48px 56px 96px 56px 48px;
         column-gap: 4px;
     }
 
     .listen-popup__transport-icon {
         width: 48px;
         height: 62px;
-    }
-
-    .listen-popup__play {
-        width: 86px;
-        height: 86px;
     }
 
     .listen-popup__actions {
@@ -708,11 +646,6 @@
     ::deep .listen-popup__skip {
         width: 56px;
         height: 56px;
-    }
-
-    ::deep .listen-popup__play {
-        width: 86px;
-        height: 86px;
     }
 
     ::deep .listen-popup__action {

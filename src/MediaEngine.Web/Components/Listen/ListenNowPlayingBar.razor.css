@@ -175,13 +175,6 @@
         accent-color: var(--tl-status-warning, #f59e0b);
     }
 
-    .listen-player-shell--audiobook .listen-player__play {
-        width: 52px;
-        height: 52px;
-        background: var(--tl-status-warning, #f59e0b);
-        color: #07111f;
-    }
-
     .listen-player__progress {
         display: grid;
         grid-template-columns: 4.75rem minmax(0, 1fr) 4.75rem;
@@ -211,7 +204,6 @@
     }
 
     .listen-player__icon,
-    .listen-player__play,
     .listen-player-panel__close,
     .listen-player-panel__item-remove,
     .listen-player-panel__tab,
@@ -234,19 +226,7 @@
         justify-content: center;
     }
 
-    .listen-player__play {
-        width: 44px;
-        height: 44px;
-        border-radius: 999px;
-        background: var(--app-primary, #236dc9);
-        color: white;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
     .listen-player__icon:hover,
-    .listen-player__play:hover,
     .listen-player-panel__close:hover,
     .listen-player-panel__item-remove:hover,
     .listen-player-panel__tab:hover,

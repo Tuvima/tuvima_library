@@ -5,6 +5,7 @@
 @using Microsoft.JSInterop
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Listen
+@using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Services.Playback
 @inject IJSRuntime JS
 @inject IStringLocalizer<SharedStrings> L
@@ -62,13 +63,11 @@
             <section class="listen-popup__timeline" aria-label="Playback progress">
                 @if (IsAudiobookMode && !string.IsNullOrWhiteSpace(CurrentChapterProgressLabel))
                 {
-                    <div class="listen-popup__chapter-row">
-                        <span>
-                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-24px" />
-                            <strong>@CurrentChapterProgressLabel</strong>
-                        </span>
-                        <span>@ProgressPercentLabel</span>
-                    </div>
+                    <PlaybackTimelineMetaRow Icon="@Icons.Material.Outlined.MenuBook"
+                                             Label="@CurrentChapterProgressLabel"
+                                             TrailingText="@ProgressPercentLabel"
+                                             Size="large"
+                                             Class="listen-popup__chapter-row" />
                 }
                 <AppNativeInput Type="range"
                                 Min="0"

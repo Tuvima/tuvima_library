@@ -1,0 +1,65 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<span class="@RootClass">
+    <AppNativeButton Type="button"
+                     Class="@ButtonClass"
+                     OnClick="@HandleClickAsync"
+                     AriaLabel="@AriaLabel"
+                     data-playback-seek-delta="@SeekDelta">
+        <svg class="playback-relative-skip__svg" width="56" height="56" viewBox="0 0 56 56" focusable="false" aria-hidden="true">
+            <g class="playback-relative-skip__glyph">
+                <path class="playback-relative-skip__arc" d="@ArcPath" />
+                <path class="playback-relative-skip__arrow" d="@ArrowPath" />
+            </g>
+            <text class="@NumberClass" x="28" y="29.4" text-anchor="middle" dominant-baseline="middle">@NormalizedSeconds</text>
+        </svg>
+    </AppNativeButton>
+</span>
+
+@code {
+    [Parameter] public int Seconds { get; set; }
+    [Parameter] public string Direction { get; set; } = "forward";
+    [Parameter] public string Size { get; set; } = "standard";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private int NormalizedSeconds => Math.Clamp(Math.Abs(Seconds), 1, 999);
+    private bool IsForward => !string.Equals(Direction, "back", StringComparison.OrdinalIgnoreCase);
+    private string NormalizedDirection => IsForward ? "forward" : "back";
+    private string NormalizedSize => Size switch
+    {
+        "compact" => "compact",
+        "large" => "large",
+        _ => "standard",
+    };
+
+    private int SeekDelta => IsForward ? NormalizedSeconds : -NormalizedSeconds;
+    private string AriaLabel => IsForward
+        ? $"Skip forward {NormalizedSeconds} seconds"
+        : $"Skip back {NormalizedSeconds} seconds";
+    private string ArcPath => IsForward
+        ? "M47 29A19 19 0 1 1 28 9"
+        : "M9 29A19 19 0 1 0 28 9";
+    private string ArrowPath => IsForward
+        ? "M27 4.8L36.5 8.5L27 12.2Z"
+        : "M29 4.8L19.5 8.5L29 12.2Z";
+    private int DigitCount => NormalizedSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
+    private string DigitClass => DigitCount switch
+    {
+        1 => "playback-relative-skip__number--one-digit",
+        3 => "playback-relative-skip__number--three-digit",
+        _ => "playback-relative-skip__number--two-digit",
+    };
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-relative-skip",
+        $"playback-relative-skip--{NormalizedSize}",
+        $"playback-relative-skip--{NormalizedDirection}",
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string ButtonClass => $"playback-relative-skip__button playback-relative-skip__button--{NormalizedDirection}";
+    private string NumberClass => $"playback-relative-skip__number {DigitClass}";
+    private Task HandleClickAsync(MouseEventArgs _) => OnClick.InvokeAsync();
+}
