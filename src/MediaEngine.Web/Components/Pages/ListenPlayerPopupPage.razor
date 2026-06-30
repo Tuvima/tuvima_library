@@ -15,7 +15,7 @@
 
 <PageTitle>@L["Listen_MiniPlayerTitle"]</PageTitle>
 
-<AppCssElement Tag="div" Class="@PopupClass" Css="@BackdropStyle">
+<AppCssElement Tag="div" Class="@PopupClass" Css="@BackdropStyle" OnKeyDown="HandlePopupKeyDown" tabindex="-1">
     @if (CurrentItem is null)
     {
         <div class="listen-popup__empty">
@@ -109,13 +109,11 @@
 
             @if (IsAudiobookMode)
             {
-                <section class="listen-popup__actions" aria-label="Audiobook tools">
-                    @SpeedActionButton()
-                    @ActionButton("chapters", "Chapters", Icons.Material.Outlined.FormatListBulleted)
-                    @ActionButton("history", "History", Icons.Material.Outlined.History)
-                    @ActionButton("bookmarks", "Bookmark", Icons.Material.Outlined.BookmarkBorder)
-                    @ActionButton("sleep", "Sleep timer", Icons.Material.Outlined.Timer)
-                </section>
+                <PlaybackControlStrip Controls="@AudiobookToolControls"
+                                      Size="large"
+                                      Class="listen-popup__actions"
+                                      AriaLabel="Audiobook tools"
+                                      OnControl="HandleAudiobookToolControl" />
             }
             else
             {
@@ -131,18 +129,12 @@
 
         @if (IsAudiobookMode && _activeSheet is not null)
         {
-            <section class="listen-popup-sheet" aria-label="@SheetTitle">
-                <div class="listen-popup-sheet__grabber"></div>
-                <div class="listen-popup-sheet__header">
-                    <div>
-                        <h2>@SheetTitle</h2>
-                        <p>@SheetSubtitle</p>
-                    </div>
-                    <AppNativeButton Type="button" Class="listen-popup-sheet__close" OnClick="@(() => _activeSheet = null)" AriaLabel="Close sheet" title="Close">
-                        <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-34px" />
-                    </AppNativeButton>
-                </div>
-
+            <div class="listen-popup-sheet__backdrop" @onclick="CloseSheet"></div>
+            <PlaybackToolSheet Title="@SheetTitle"
+                               Subtitle="@SheetSubtitle"
+                               Surface="popup"
+                               Class="listen-popup-sheet"
+                               OnClose="CloseSheet">
                 @switch (_activeSheet)
                 {
                     case "speed":
@@ -249,7 +241,7 @@
                         <div class="listen-popup-sheet__empty listen-popup-sheet__empty--compact">Current timer: @SleepTimerDisplay</div>
                         break;
                 }
-            </section>
+            </PlaybackToolSheet>
         }
 
         @if (_showOverflowMenu)
@@ -331,6 +323,17 @@
         "sleep" => "Stop playback automatically",
         _ => string.Empty,
     };
+    private IReadOnlyList<PlaybackControlDefinition> AudiobookToolControls =>
+        PlaybackControlCatalog.BuildToolStrip(
+            PlaybackExperience.Audiobook,
+            PlaybackControlSurface.Popup,
+            new PlaybackControlState(
+                ActiveSheet: _activeSheet,
+                PlaybackRate: _snapshot.PlaybackRate,
+                HasChapters: HasChapters,
+                IsSleepTimerActive: _snapshot.SleepTimerMode != ListenSleepTimerModes.Off,
+                HistoryCount: _snapshot.AudiobookHistory.Count,
+                BookmarkCount: _snapshot.AudiobookBookmarks.Count));
     private string SleepTimerDisplay => _snapshot.SleepTimerMode switch
     {
         ListenSleepTimerModes.EndOfChapter => "End of chapter",
@@ -381,20 +384,15 @@
         return Task.CompletedTask;
     }
 
-    private RenderFragment SpeedActionButton()
+    private void HandleAudiobookToolControl(PlaybackControlDefinition control)
     {
-        const string sheet = "speed";
-        var speed = FormatSpeed(_snapshot.PlaybackRate);
-        var label = $"Speed {speed}";
-        var classes = $"listen-popup__action listen-popup__action--speed {(_activeSheet == sheet ? "is-active" : null)}";
-        return @<AppNativeButton Type="button" Class="@classes" OnClick="@(() => ToggleSheet(sheet))" AriaLabel="@label" title="@label">
-            <strong>@speed</strong>
-        </AppNativeButton>;
-    }
+        if (control.IsDisabled || string.IsNullOrWhiteSpace(control.Sheet))
+        {
+            return;
+        }
 
-    private RenderFragment ActionButton(string sheet, string label, string icon) => @<AppNativeButton Type="button" Class="@($"listen-popup__action {(_activeSheet == sheet ? "is-active" : null)}")" OnClick="@(() => ToggleSheet(sheet))" AriaLabel="@label" title="@label">
-        <MudIcon Icon="@icon" Class="tl-u-font-size-42px" />
-    </AppNativeButton>;
+        ToggleSheet(control.Sheet);
+    }
 
     private RenderFragment TimerRow(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-popup-sheet__row listen-popup-sheet__row--timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">
         <span class="listen-popup-sheet__copy">
@@ -419,6 +417,22 @@
     }
 
     private void CloseSheet() => _activeSheet = null;
+
+    private Task HandlePopupKeyDown(KeyboardEventArgs args)
+    {
+        if (!string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            return Task.CompletedTask;
+        }
+
+        if (_activeSheet is not null)
+        {
+            CloseSheet();
+            return Task.CompletedTask;
+        }
+
+        return _showOverflowMenu ? CloseOverflowMenu() : Task.CompletedTask;
+    }
 
     private Task CloseOverflowMenu()
     {

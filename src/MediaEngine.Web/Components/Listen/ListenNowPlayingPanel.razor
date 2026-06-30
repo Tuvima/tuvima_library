@@ -129,14 +129,11 @@
 
             @if (Playback.IsAudiobookMode)
             {
-                <div class="listen-now-panel__audiobook-actions" aria-label="Audiobook tools">
-                    @AudiobookSpeedActionButton()
-                    @AudiobookActionButton("chapters", "Chapters", Icons.Material.Outlined.FormatListBulleted)
-                    @AudiobookActionButton("history", "History", Icons.Material.Outlined.History)
-                    @AudiobookActionButton("bookmarks", "Bookmark", Icons.Material.Outlined.BookmarkBorder)
-                    @AudiobookActionButton("sleep", "Sleep timer", Icons.Material.Outlined.Timer)
-                </div>
-
+                <PlaybackControlStrip Controls="@AudiobookToolControls"
+                                      Size="standard"
+                                      Class="listen-now-panel__audiobook-actions"
+                                      AriaLabel="Audiobook tools"
+                                      OnControl="HandleAudiobookToolControl" />
             }
             else
             {
@@ -188,21 +185,11 @@
 
         @if (Playback.IsAudiobookMode && _activeAudiobookSheet is not null)
         {
-            <section class="listen-now-panel__sheet" aria-label="@AudiobookSheetTitle" aria-modal="true">
-                <div class="listen-now-panel__sheet-grabber"></div>
-                <div class="listen-now-panel__sheet-header">
-                    <div>
-                        <span>@AudiobookSheetTitle</span>
-                        @if (!string.IsNullOrWhiteSpace(AudiobookSheetSubtitle))
-                        {
-                            <p>@AudiobookSheetSubtitle</p>
-                        }
-                    </div>
-                    <AppNativeButton Type="button" Class="listen-now-panel__sheet-close" OnClick="CloseAudiobookSheet" AriaLabel="Close sheet" title="Close sheet">
-                        <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-30px" />
-                    </AppNativeButton>
-                </div>
-
+            <PlaybackToolSheet Title="@AudiobookSheetTitle"
+                               Subtitle="@AudiobookSheetSubtitle"
+                               Surface="panel"
+                               Class="listen-now-panel__sheet"
+                               OnClose="CloseAudiobookSheet">
                 @switch (_activeAudiobookSheet)
                 {
                     case "speed":
@@ -308,7 +295,7 @@
                         <div class="listen-now-panel__empty listen-now-panel__empty--compact">Current timer: @SleepTimerDisplay</div>
                         break;
                 }
-            </section>
+            </PlaybackToolSheet>
         }
     }
     else
@@ -358,15 +345,17 @@
         "sleep" => "Stop playback automatically",
         _ => string.Empty,
     };
-    private string SheetStatus => _activeAudiobookSheet switch
-    {
-        "speed" => FormatSpeed(Playback.PlaybackRate),
-        "chapters" => CurrentChapters.Count == 1 ? "1 chapter" : $"{CurrentChapters.Count} chapters",
-        "history" => Playback.AudiobookHistory.Count == 1 ? "1 item" : $"{Playback.AudiobookHistory.Count} items",
-        "bookmarks" => Playback.AudiobookBookmarks.Count == 1 ? "1 saved" : $"{Playback.AudiobookBookmarks.Count} saved",
-        "sleep" => SleepTimerDisplay,
-        _ => string.Empty,
-    };
+    private IReadOnlyList<PlaybackControlDefinition> AudiobookToolControls =>
+        PlaybackControlCatalog.BuildToolStrip(
+            PlaybackExperience.Audiobook,
+            PlaybackControlSurface.SidePanel,
+            new PlaybackControlState(
+                ActiveSheet: _activeAudiobookSheet,
+                PlaybackRate: Playback.PlaybackRate,
+                HasChapters: HasChapters,
+                IsSleepTimerActive: Playback.SleepTimerMode != ListenSleepTimerModes.Off,
+                HistoryCount: Playback.AudiobookHistory.Count,
+                BookmarkCount: Playback.AudiobookBookmarks.Count));
     private string SleepTimerDisplay => Playback.SleepTimerMode switch
     {
         ListenSleepTimerModes.EndOfChapter => "End of chapter",
@@ -387,20 +376,15 @@
 
     private void HandlePlaybackChanged(PlaybackChangeKind changeKind) => _ = InvokeAsync(StateHasChanged);
 
-    private RenderFragment AudiobookSpeedActionButton()
+    private void HandleAudiobookToolControl(PlaybackControlDefinition control)
     {
-        const string sheet = "speed";
-        var speed = FormatSpeed(Playback.PlaybackRate);
-        var label = $"Speed {speed}";
-        var classes = $"listen-now-panel__action listen-now-panel__action--speed {(_activeAudiobookSheet == sheet ? "is-active" : null)}";
-        return @<AppNativeButton Type="button" Class="@classes" OnClick="@(() => ToggleAudiobookSheet(sheet))" AriaLabel="@label" title="@label">
-            <strong>@speed</strong>
-        </AppNativeButton>;
-    }
+        if (control.IsDisabled || string.IsNullOrWhiteSpace(control.Sheet))
+        {
+            return;
+        }
 
-    private RenderFragment AudiobookActionButton(string sheet, string label, string icon) => @<AppNativeButton Type="button" Class="@($"listen-now-panel__action {(_activeAudiobookSheet == sheet ? "is-active" : null)}")" OnClick="@(() => ToggleAudiobookSheet(sheet))" AriaLabel="@label" title="@label">
-        <MudIcon Icon="@icon" Class="tl-u-font-size-38px" />
-    </AppNativeButton>;
+        ToggleAudiobookSheet(control.Sheet);
+    }
 
     private void ToggleAudiobookSheet(string sheet) =>
         _activeAudiobookSheet = _activeAudiobookSheet == sheet ? null : sheet;

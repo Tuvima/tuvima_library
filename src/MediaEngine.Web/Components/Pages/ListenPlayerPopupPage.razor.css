@@ -42,10 +42,8 @@
 
 .listen-popup__top-actions,
 .listen-popup__transport,
-.listen-popup__actions,
 .listen-popup__music-actions,
 .listen-popup__time-row,
-.listen-popup-sheet__header,
 .listen-popup-sheet__row,
 .listen-popup-sheet__row-main,
 .listen-popup-sheet__toolbar,
@@ -61,9 +59,7 @@
 
 .listen-popup__top-icon,
 .listen-popup__transport-icon,
-.listen-popup__action,
 .listen-popup__sheet-action,
-.listen-popup-sheet__close,
 .listen-popup-sheet__row,
 .listen-popup-sheet__row-main,
 .listen-popup-sheet__delete,
@@ -199,13 +195,6 @@
     justify-self: center;
 }
 
-.listen-popup__actions {
-    width: 100%;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.listen-popup__action,
 .listen-popup__sheet-action {
     width: 62px;
     height: 62px;
@@ -224,25 +213,6 @@
 .listen-popup__sheet-action span {
     color: rgba(203, 213, 225, 0.74);
     font-size: 0.9rem;
-}
-
-.listen-popup__action strong,
-.listen-popup__action span {
-    display: none;
-}
-
-.listen-popup__action--speed strong {
-    display: block;
-    color: inherit;
-    font-size: 1.18rem;
-    font-weight: 850;
-    font-variant-numeric: tabular-nums;
-}
-
-.listen-popup__action.is-active,
-.listen-popup__action.is-active strong,
-.listen-popup__action.is-active span {
-    color: var(--listen-accent);
 }
 
 .listen-popup__music-actions {
@@ -266,33 +236,6 @@
     flex-direction: column;
 }
 
-.listen-popup-sheet__grabber {
-    width: 74px;
-    height: 8px;
-    margin: 18px auto 8px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.44);
-}
-
-.listen-popup-sheet__header {
-    justify-content: space-between;
-    gap: 18px;
-    padding: 20px 34px 16px;
-}
-
-.listen-popup-sheet__header h2 {
-    margin: 0;
-    font-size: clamp(1.45rem, 3vw, 2.1rem);
-    font-weight: 850;
-}
-
-.listen-popup-sheet__header p {
-    margin: 6px 0 0;
-    color: rgba(203, 213, 225, 0.72);
-    font-size: 1.02rem;
-}
-
-.listen-popup-sheet__close,
 .listen-popup-sheet__delete {
     width: 52px;
     height: 52px;
@@ -302,6 +245,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+.listen-popup-sheet__backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: rgba(2, 6, 12, 0.48);
 }
 
 .listen-popup-sheet__list {
@@ -557,47 +507,11 @@
     justify-self: center;
 }
 
-::deep .listen-popup__action--speed strong {
-    display: block;
-    color: inherit;
-    font-size: 1.18rem;
-    font-weight: 850;
-    font-variant-numeric: tabular-nums;
-}
-
-::deep .listen-popup__action {
-    width: 72px;
-    height: 72px;
-    min-width: 72px;
-    min-height: 72px;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: rgba(226, 232, 240, 0.82);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    text-align: center;
-    cursor: pointer;
-}
-
-::deep .listen-popup__action.is-active {
-    color: var(--listen-accent);
-}
-
-::deep .listen-popup__action .mud-icon-root {
-    font-size: 42px !important;
-    width: 42px;
-    height: 42px;
-}
-
 ::deep .listen-popup-sheet__row,
 ::deep .listen-popup-sheet__row-main,
 ::deep .listen-popup-sheet__speed-row,
 ::deep .listen-popup-sheet__primary,
 ::deep .listen-popup-sheet__timer,
-::deep .listen-popup-sheet__close,
 ::deep .listen-popup-sheet__delete {
     border: 0;
     cursor: pointer;
@@ -627,17 +541,6 @@
         height: 62px;
     }
 
-    .listen-popup__actions {
-        gap: 8px;
-    }
-
-    .listen-popup__action {
-        width: 58px;
-        height: 58px;
-        min-width: 58px;
-        min-height: 58px;
-    }
-
     ::deep .listen-popup__transport-icon {
         width: 48px;
         height: 62px;
@@ -648,19 +551,11 @@
         height: 56px;
     }
 
-    ::deep .listen-popup__action {
-        width: 58px;
-        height: 58px;
-        min-width: 58px;
-        min-height: 58px;
-    }
-
     .listen-popup-sheet {
         max-height: 52vh;
         border-radius: 24px 24px 0 0;
     }
 
-    .listen-popup-sheet__header,
     .listen-popup-sheet__toolbar,
     .listen-popup-sheet__timer-grid {
         padding-inline: 20px;

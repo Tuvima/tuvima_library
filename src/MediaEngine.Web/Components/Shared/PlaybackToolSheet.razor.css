@@ -1,0 +1,64 @@
+.playback-tool-sheet {
+    background:
+        linear-gradient(180deg, rgba(13, 25, 40, 0.98), rgba(7, 13, 24, 0.99)),
+        #07111f;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.44);
+    color: rgba(248, 250, 252, 0.94);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.playback-tool-sheet--panel {
+    border-radius: 0;
+    inset: 0;
+    position: absolute;
+    z-index: 5;
+}
+
+.playback-tool-sheet--popup {
+    border-bottom: 0;
+    border-radius: 28px 28px 0 0;
+    margin-top: auto;
+    max-height: min(50vh, 560px);
+    position: relative;
+    width: 100%;
+    z-index: 3;
+}
+
+.playback-tool-sheet__header {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    display: grid;
+    gap: 4px;
+    padding: 8px 24px 16px;
+    text-align: center;
+}
+
+.playback-tool-sheet__header h2 {
+    font-size: clamp(1.18rem, 2.4vw, 1.72rem);
+    font-weight: 850;
+    line-height: 1.1;
+    margin: 0;
+}
+
+.playback-tool-sheet__header p {
+    color: rgba(203, 213, 225, 0.72);
+    font-size: 0.92rem;
+    margin: 0;
+}
+
+.playback-tool-sheet__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.playback-tool-sheet ::deep .listen-now-panel__sheet-list,
+.playback-tool-sheet ::deep .listen-popup-sheet__list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}

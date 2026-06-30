@@ -1,0 +1,53 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+
+<section class="@RootClass" aria-label="@Title" aria-modal="true" @attributes="AdditionalAttributes">
+    <PlaybackSheetHandleButton Class="playback-tool-sheet__handle" OnClick="@OnClose" />
+    <div class="playback-tool-sheet__header">
+        <h2>@Title</h2>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p>@Subtitle</p>
+        }
+    </div>
+    <div class="playback-tool-sheet__content">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "Playback tools";
+
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    [Parameter]
+    public string Surface { get; set; } = "panel";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string NormalizedSurface => Surface switch
+    {
+        "popup" => "popup",
+        "fullscreen" => "fullscreen",
+        _ => "panel",
+    };
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-tool-sheet",
+        $"playback-tool-sheet--{NormalizedSurface}",
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

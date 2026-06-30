@@ -1,3 +1,4 @@
+using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Services.Playback;
 
 namespace MediaEngine.Web.Tests;
@@ -16,6 +17,38 @@ public sealed class PlaybackPrimitiveTests
     public void MediaKindClassifier_MapsKnownStringsToPlaybackExperience(string mediaType, PlaybackExperience expected)
     {
         Assert.Equal(expected, MediaKindClassifier.Classify(mediaType));
+    }
+
+    [Fact]
+    public void PlaybackControlCatalog_BuildsCrossMediaControlMatrix()
+    {
+        var music = PlaybackControlCatalog.Build(
+            PlaybackExperience.Music,
+            PlaybackControlSurface.Popup,
+            new PlaybackControlState(HasQueue: true, HasLyrics: true));
+        var audiobook = PlaybackControlCatalog.Build(
+            PlaybackExperience.Audiobook,
+            PlaybackControlSurface.Popup,
+            new PlaybackControlState(PlaybackRate: 1.5d, HasChapters: true, IsSleepTimerActive: true));
+        var video = PlaybackControlCatalog.Build(
+            PlaybackExperience.Video,
+            PlaybackControlSurface.Fullscreen,
+            new PlaybackControlState(PlaybackRate: 1.25d, HasChapters: true, HasQueue: true));
+
+        AssertCommonControls(music);
+        AssertCommonControls(audiobook);
+        AssertCommonControls(video);
+
+        AssertContainsKeys(music, PlaybackControlKey.Queue, PlaybackControlKey.History, PlaybackControlKey.Lyrics, PlaybackControlKey.Shuffle, PlaybackControlKey.Repeat);
+        Assert.DoesNotContain(music, control => control.Key == PlaybackControlKey.SleepTimer);
+
+        AssertContainsKeys(audiobook, PlaybackControlKey.SkipBack, PlaybackControlKey.SkipForward, PlaybackControlKey.Speed, PlaybackControlKey.Chapters, PlaybackControlKey.History, PlaybackControlKey.Bookmarks, PlaybackControlKey.SleepTimer);
+        Assert.DoesNotContain(audiobook, control => control.Key == PlaybackControlKey.Queue);
+        Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.Speed && control.ValueText == "1.5x");
+        Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.SleepTimer && control.IsActive);
+        Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.Chapters && !control.IsDisabled);
+
+        AssertContainsKeys(video, PlaybackControlKey.SkipBack, PlaybackControlKey.SkipForward, PlaybackControlKey.Queue, PlaybackControlKey.History, PlaybackControlKey.Speed, PlaybackControlKey.Chapters, PlaybackControlKey.Captions, PlaybackControlKey.AudioTrack, PlaybackControlKey.Quality, PlaybackControlKey.Fullscreen, PlaybackControlKey.PictureInPicture, PlaybackControlKey.SkipIntro, PlaybackControlKey.SkipCredits);
     }
 
     [Fact]
@@ -132,6 +165,11 @@ public sealed class PlaybackPrimitiveTests
         var primaryStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackPrimaryButton.razor.css"));
         var timeline = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackTimelineMetaRow.razor"));
         var timelineStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackTimelineMetaRow.razor.css"));
+        var controlCatalog = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackControlCatalog.cs"));
+        var controlStrip = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackControlStrip.razor"));
+        var iconButton = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackIconButton.razor"));
+        var toolSheet = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackToolSheet.razor"));
+        var sheetHandle = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackSheetHandleButton.razor"));
         var barStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor.css"));
         var panelStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/ListenNowPlayingPanel.razor.css"));
         var popupStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor.css"));
@@ -154,6 +192,30 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("<PlaybackTimelineMetaRow", popup, StringComparison.Ordinal);
         Assert.Contains("playback-timeline-meta-row", timeline, StringComparison.Ordinal);
         Assert.Contains("color: rgba(248, 250, 252, 0.94);", timelineStyles, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackControlStrip", panel, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackControlStrip", popup, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackToolSheet", panel, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackToolSheet", popup, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlCatalog.BuildToolStrip", panel, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlCatalog.BuildToolStrip", popup, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlKey.Captions", controlCatalog, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlKey.AudioTrack", controlCatalog, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlKey.Quality", controlCatalog, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackIconButton", controlStrip, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackSheetHandleButton", toolSheet, StringComparison.Ordinal);
+        Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", iconButton, StringComparison.Ordinal);
+        Assert.Contains("@attributes=\"AdditionalAttributes\"", iconButton, StringComparison.Ordinal);
+        Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", sheetHandle, StringComparison.Ordinal);
+        Assert.Contains("@attributes=\"AdditionalAttributes\"", sheetHandle, StringComparison.Ordinal);
+        Assert.Contains("OnKeyDown=\"HandlePopupKeyDown\"", popup, StringComparison.Ordinal);
+        Assert.Contains("listen-popup-sheet__backdrop", popup + popupStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("SpeedActionButton", panel + popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("AudiobookActionButton", panel + popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("private RenderFragment ActionButton", popup, StringComparison.Ordinal);
+        Assert.DoesNotContain("listen-popup-sheet__grabber", popup + popupStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("listen-popup-sheet__close", popup + popupStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain(".listen-popup__action strong", popupStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("display: none", popupStyles, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-popup__chapter-row", popupStyles, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-now-panel__chapter-row", panelStyles, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-player__play {", barStyles, StringComparison.Ordinal);
@@ -206,6 +268,28 @@ public sealed class PlaybackPrimitiveTests
         MediaType = "Music",
         Title = title,
     };
+
+    private static void AssertCommonControls(IReadOnlyList<PlaybackControlDefinition> controls)
+    {
+        AssertContainsKeys(
+            controls,
+            PlaybackControlKey.PlayPause,
+            PlaybackControlKey.Timeline,
+            PlaybackControlKey.PreviousItem,
+            PlaybackControlKey.NextItem,
+            PlaybackControlKey.Volume,
+            PlaybackControlKey.Mute,
+            PlaybackControlKey.Cast,
+            PlaybackControlKey.More);
+    }
+
+    private static void AssertContainsKeys(IReadOnlyList<PlaybackControlDefinition> controls, params PlaybackControlKey[] keys)
+    {
+        foreach (var key in keys)
+        {
+            Assert.Contains(controls, control => control.Key == key);
+        }
+    }
 
     private static string FindRepoRoot()
     {

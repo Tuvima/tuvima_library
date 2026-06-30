@@ -1,0 +1,73 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Web
+
+<span class="@RootClass">
+    <AppNativeButton Type="button"
+                     Class="@ButtonClass"
+                     Disabled="@Control.IsDisabled"
+                     OnClick="@HandleClickAsync"
+                     AriaLabel="@Control.AriaLabel"
+                     title="@Control.AriaLabel"
+                     aria-pressed="@AriaPressed"
+                     @attributes="AdditionalAttributes">
+        <span class="playback-icon-button__visual" aria-hidden="true">
+            @if (!string.IsNullOrWhiteSpace(Control.ValueText))
+            {
+                <strong class="playback-icon-button__value">@Control.ValueText</strong>
+            }
+            else
+            {
+                <MudIcon Icon="@Control.Icon" Class="playback-icon-button__icon" />
+            }
+        </span>
+        <span class="playback-icon-button__label">@Control.Label</span>
+    </AppNativeButton>
+</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public PlaybackControlDefinition Control { get; set; } = null!;
+
+    [Parameter]
+    public string Size { get; set; } = "standard";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string NormalizedSize => Size switch
+    {
+        "compact" => "compact",
+        "large" => "large",
+        _ => "standard",
+    };
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-icon-button-shell",
+        $"playback-icon-button-shell--{NormalizedSize}",
+        Control.IsActive ? "is-active" : null,
+        Control.IsDisabled ? "is-disabled" : null,
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string ButtonClass => string.Join(" ", new[]
+    {
+        "playback-icon-button",
+        $"playback-icon-button--{NormalizedSize}",
+        Control.IsActive ? "is-active" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string? AriaPressed => Control.IsActive ? "true" : null;
+
+    private Task HandleClickAsync(MouseEventArgs _)
+    {
+        return OnClick.InvokeAsync();
+    }
+}

@@ -1,0 +1,42 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+
+<div class="@RootClass" role="toolbar" aria-label="@AriaLabel">
+    @foreach (var control in Controls)
+    {
+        <PlaybackIconButton Control="@control"
+                            Size="@Size"
+                            OnClick="@(() => OnControl.InvokeAsync(control))" />
+    }
+</div>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<PlaybackControlDefinition> Controls { get; set; } = [];
+
+    [Parameter]
+    public string Size { get; set; } = "standard";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Playback tools";
+
+    [Parameter]
+    public EventCallback<PlaybackControlDefinition> OnControl { get; set; }
+
+    private string NormalizedSize => Size switch
+    {
+        "compact" => "compact",
+        "large" => "large",
+        _ => "standard",
+    };
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-control-strip",
+        $"playback-control-strip--{NormalizedSize}",
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

@@ -1,0 +1,84 @@
+.playback-icon-button-shell {
+    min-width: 0;
+}
+
+.playback-icon-button-shell ::deep .playback-icon-button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: rgba(226, 232, 240, 0.84);
+    cursor: pointer;
+    display: grid;
+    gap: 4px;
+    grid-template-rows: 34px minmax(1.9em, auto);
+    justify-items: center;
+    min-height: 66px;
+    min-width: 0;
+    padding: 6px 4px;
+    text-align: center;
+    width: 100%;
+}
+
+.playback-icon-button-shell--large ::deep .playback-icon-button {
+    grid-template-rows: 40px minmax(2em, auto);
+    min-height: 76px;
+}
+
+.playback-icon-button-shell ::deep .playback-icon-button:hover,
+.playback-icon-button-shell ::deep .playback-icon-button.is-active {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
+}
+
+.playback-icon-button-shell ::deep .playback-icon-button:focus-visible {
+    outline: 2px solid rgba(147, 197, 253, 0.72);
+    outline-offset: 3px;
+}
+
+.playback-icon-button-shell ::deep .playback-icon-button:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.playback-icon-button__visual {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-width: 0;
+}
+
+.playback-icon-button-shell ::deep .playback-icon-button__icon {
+    color: currentColor !important;
+    fill: currentColor !important;
+    font-size: 32px !important;
+    height: 32px;
+    width: 32px;
+}
+
+.playback-icon-button-shell--large ::deep .playback-icon-button__icon {
+    font-size: 36px !important;
+    height: 36px;
+    width: 36px;
+}
+
+.playback-icon-button__value {
+    color: inherit;
+    font-size: 0.98rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.playback-icon-button-shell--large .playback-icon-button__value {
+    font-size: 1.1rem;
+}
+
+.playback-icon-button__label {
+    color: currentColor;
+    font-size: 0.68rem;
+    font-weight: 760;
+    line-height: 1.12;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}

@@ -1,0 +1,17 @@
+.playback-control-strip {
+    --playback-control-min: 56px;
+    align-items: stretch;
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(var(--playback-control-min), 1fr));
+    width: 100%;
+}
+
+.playback-control-strip--compact {
+    --playback-control-min: 48px;
+}
+
+.playback-control-strip--large {
+    --playback-control-min: 64px;
+    gap: 8px;
+}
