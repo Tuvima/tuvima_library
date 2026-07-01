@@ -15,7 +15,12 @@
 
 <PageTitle>@L["Listen_MiniPlayerTitle"]</PageTitle>
 
-<AppCssElement Tag="div" Class="@PopupClass" Css="@BackdropStyle" OnKeyDown="HandlePopupKeyDown" tabindex="-1">
+<PlaybackPopoutShell Experience="@CurrentExperience"
+                     Class="@PopupClass"
+                     Css="@BackdropStyle"
+                     IsSheetOpen="@(_activeSheet is not null || _showOverflowMenu)"
+                     OnKeyDown="HandlePopupKeyDown"
+                     tabindex="-1">
     @if (CurrentItem is null)
     {
         <div class="listen-popup__empty">
@@ -40,7 +45,7 @@
             </div>
         </div>
 
-        <main class="listen-popup__stage" aria-label="Audiobook player">
+        <main class="listen-popup__stage" aria-label="@PopoutAriaLabel">
             <div class="listen-popup__cover">
                 @if (!string.IsNullOrWhiteSpace(current.CoverUrl))
                 {
@@ -110,7 +115,7 @@
             @if (IsAudiobookMode)
             {
                 <PlaybackControlStrip Controls="@AudiobookToolControls"
-                                      Size="large"
+                                      Size="standard"
                                       Class="listen-popup__actions"
                                       AriaLabel="Audiobook tools"
                                       OnControl="HandleAudiobookToolControl" />
@@ -133,23 +138,24 @@
             <PlaybackToolSheet Title="@SheetTitle"
                                Subtitle="@SheetSubtitle"
                                Surface="popup"
+                               Presentation="full-overlay"
                                Class="listen-popup-sheet"
                                OnClose="CloseSheet">
                 @switch (_activeSheet)
                 {
                     case "speed":
-                        <div class="listen-popup-sheet__list listen-popup-sheet__list--speed">
+                        <PlaybackSheetList Class="listen-popup-sheet__list" Variant="speed">
                             @foreach (var rate in SpeedRates)
                             {
-                                <AppNativeButton Type="button" Class="@($"listen-popup-sheet__speed-row {(Math.Abs(rate - _snapshot.PlaybackRate) < 0.01d ? "is-active" : null)}")" OnClick="@(() => SetSpeedAsync(rate))" AriaLabel="@($"Set speed to {FormatSpeed(rate)}")" title="@($"Set speed to {FormatSpeed(rate)}")">
-                                    <span class="listen-popup-sheet__radio"></span>
+                                <PlaybackSheetRow Variant="select" Class="listen-popup-sheet__speed-row" IsActive="@(Math.Abs(rate - _snapshot.PlaybackRate) < 0.01d)" OnClick="@(() => SetSpeedAsync(rate))" AriaLabel="@($"Set speed to {FormatSpeed(rate)}")">
+                                    <span class="playback-sheet-row__radio"></span>
                                     <span>@FormatSpeed(rate)</span>
-                                </AppNativeButton>
+                                </PlaybackSheetRow>
                             }
-                        </div>
+                        </PlaybackSheetList>
                         break;
                     case "chapters":
-                        <div class="listen-popup-sheet__list">
+                        <PlaybackSheetList Class="listen-popup-sheet__list">
                             @if (CurrentChapters.Count == 0)
                             {
                                 <div class="listen-popup-sheet__empty">No timed chapters were found for this audiobook.</div>
@@ -160,18 +166,18 @@
                                 {
                                     var chapter = CurrentChapters[index];
                                     var isActive = IsCurrentChapter(chapter);
-                                    <AppNativeButton Type="button" Class="@($"listen-popup-sheet__row listen-popup-sheet__row--chapter {(isActive ? "is-active" : null)}")" OnClick="@(() => PlayChapterAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")" title="@($"Play {chapter.Title}")">
-                                        <span class="listen-popup-sheet__copy">
+                                    <PlaybackSheetRow Variant="chapter" Class="listen-popup-sheet__row listen-popup-sheet__row--chapter" IsActive="@isActive" OnClick="@(() => PlayChapterAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")">
+                                        <span class="playback-sheet-row__copy listen-popup-sheet__copy">
                                             <strong>@chapter.Title</strong>
                                         </span>
-                                        <span class="listen-popup-sheet__duration">@ChapterDuration(chapter)</span>
-                                    </AppNativeButton>
+                                        <span class="playback-sheet-row__duration listen-popup-sheet__duration">@ChapterDuration(chapter)</span>
+                                    </PlaybackSheetRow>
                                 }
                             }
-                        </div>
+                        </PlaybackSheetList>
                         break;
                     case "history":
-                        <div class="listen-popup-sheet__list">
+                        <PlaybackSheetList Class="listen-popup-sheet__list">
                             @if (_snapshot.AudiobookHistory.Count == 0)
                             {
                                 <div class="listen-popup-sheet__empty">Recent listening positions will appear here.</div>
@@ -181,18 +187,18 @@
                                 @for (var index = 0; index < _snapshot.AudiobookHistory.Count; index++)
                                 {
                                     var item = _snapshot.AudiobookHistory[index];
-                                    <AppNativeButton Type="button" Class="listen-popup-sheet__row" OnClick="@(() => PlayAudiobookHistoryAsync(item))" AriaLabel="@($"Resume from {HistoryTitle(item)}")" title="@($"Resume from {HistoryTitle(item)}")">
-                                        <span class="listen-popup-sheet__index">@($"{index + 1}")</span>
-                                        <span class="listen-popup-sheet__copy">
+                                    <PlaybackSheetRow Variant="history" Class="listen-popup-sheet__row" OnClick="@(() => PlayAudiobookHistoryAsync(item))" AriaLabel="@($"Resume from {HistoryTitle(item)}")">
+                                        <span class="playback-sheet-row__index listen-popup-sheet__index">@($"{index + 1}")</span>
+                                        <span class="playback-sheet-row__copy listen-popup-sheet__copy">
                                             <strong>@HistoryTitle(item)</strong>
                                             <span>@HistorySubtitle(item)</span>
                                         </span>
-                                        <span class="listen-popup-sheet__resume">Resume here</span>
+                                        <span class="playback-sheet-row__resume listen-popup-sheet__resume">Resume here</span>
                                         <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="tl-u-font-size-28px" />
-                                    </AppNativeButton>
+                                    </PlaybackSheetRow>
                                 }
                             }
-                        </div>
+                        </PlaybackSheetList>
                         break;
                     case "bookmarks":
                         <div class="listen-popup-sheet__toolbar">
@@ -201,7 +207,7 @@
                                 <span>Add bookmark at @FormatTimestamp(_snapshot.CurrentTimeSeconds)</span>
                             </AppNativeButton>
                         </div>
-                        <div class="listen-popup-sheet__list">
+                        <PlaybackSheetList Class="listen-popup-sheet__list">
                             @if (_snapshot.AudiobookBookmarks.Count == 0)
                             {
                                 <div class="listen-popup-sheet__empty">No bookmarks yet.</div>
@@ -210,24 +216,24 @@
                             {
                                 @foreach (var bookmark in _snapshot.AudiobookBookmarks)
                                 {
-                                    <div class="listen-popup-sheet__row listen-popup-sheet__row--split">
-                                        <AppNativeButton Type="button" Class="listen-popup-sheet__row-main" OnClick="@(() => PlayBookmarkAsync(bookmark))" AriaLabel="@($"Resume bookmark {BookmarkTitle(bookmark)}")" title="@($"Resume bookmark {BookmarkTitle(bookmark)}")">
-                                            <span class="listen-popup-sheet__copy">
+                                    <PlaybackSheetRow Variant="split" Class="listen-popup-sheet__row listen-popup-sheet__row--split" IsButton="false">
+                                        <AppNativeButton Type="button" Class="playback-sheet-row__main listen-popup-sheet__row-main" OnClick="@(() => PlayBookmarkAsync(bookmark))" AriaLabel="@($"Resume bookmark {BookmarkTitle(bookmark)}")" title="@($"Resume bookmark {BookmarkTitle(bookmark)}")">
+                                            <span class="playback-sheet-row__copy listen-popup-sheet__copy">
                                                 <strong>@BookmarkTitle(bookmark)</strong>
                                                 <span>@bookmark.CreatedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</span>
                                             </span>
-                                            <span class="listen-popup-sheet__resume">Resume</span>
+                                            <span class="playback-sheet-row__resume listen-popup-sheet__resume">Resume</span>
                                         </AppNativeButton>
-                                        <AppNativeButton Type="button" Class="listen-popup-sheet__delete" OnClick="@(() => DeleteBookmarkAsync(bookmark.Id))" AriaLabel="Delete bookmark" title="Delete bookmark">
+                                        <AppNativeButton Type="button" Class="playback-sheet-row__delete listen-popup-sheet__delete" OnClick="@(() => DeleteBookmarkAsync(bookmark.Id))" AriaLabel="Delete bookmark" title="Delete bookmark">
                                             <MudIcon Icon="@Icons.Material.Outlined.Delete" Class="tl-u-font-size-24px" />
                                         </AppNativeButton>
-                                    </div>
+                                    </PlaybackSheetRow>
                                 }
                             }
-                        </div>
+                        </PlaybackSheetList>
                         break;
                     case "sleep":
-                        <div class="listen-popup-sheet__list">
+                        <PlaybackSheetList Class="listen-popup-sheet__list">
                             @TimerRow("Off", null, null)
                             @foreach (var minutes in _snapshot.SleepTimerOptionsMinutes)
                             {
@@ -237,7 +243,7 @@
                             {
                                 @TimerRow("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
                             }
-                        </div>
+                        </PlaybackSheetList>
                         <div class="listen-popup-sheet__empty listen-popup-sheet__empty--compact">Current timer: @SleepTimerDisplay</div>
                         break;
                 }
@@ -265,7 +271,7 @@
             </section>
         }
     }
-</AppCssElement>
+</PlaybackPopoutShell>
 
 @code {
     private static readonly IReadOnlyList<double> SpeedRates = Enumerable.Range(5, 26).Select(value => value / 10d).ToList();
@@ -292,6 +298,8 @@
         !string.IsNullOrWhiteSpace(_snapshot.CurrentBrowserStreamUrl)
             ? _snapshot.CurrentBrowserStreamUrl
             : CurrentItem?.StreamUrl;
+    private PlaybackExperience CurrentExperience => IsAudiobookMode ? PlaybackExperience.Audiobook : PlaybackExperience.Music;
+    private string PopoutAriaLabel => IsAudiobookMode ? "Audiobook player" : "Music player";
     private string PopupClass => IsAudiobookMode ? "listen-popup listen-popup--audiobook" : "listen-popup listen-popup--music";
     private string BackdropStyle => string.IsNullOrWhiteSpace(CurrentItem?.CoverUrl)
         ? string.Empty
@@ -394,15 +402,15 @@
         ToggleSheet(control.Sheet);
     }
 
-    private RenderFragment TimerRow(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-popup-sheet__row listen-popup-sheet__row--timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">
-        <span class="listen-popup-sheet__copy">
+    private RenderFragment TimerRow(string label, int? minutes, string? mode) => @<PlaybackSheetRow Variant="timer" Class="listen-popup-sheet__row listen-popup-sheet__row--timer" IsActive="@IsTimerActive(minutes, mode)" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")">
+        <span class="playback-sheet-row__copy listen-popup-sheet__copy">
             <strong>@label</strong>
         </span>
         @if (IsTimerActive(minutes, mode))
         {
-            <span class="listen-popup-sheet__resume">Active</span>
+            <span class="playback-sheet-row__resume listen-popup-sheet__resume">Active</span>
         }
-    </AppNativeButton>;
+    </PlaybackSheetRow>;
 
     private void ToggleSheet(string sheet)
     {

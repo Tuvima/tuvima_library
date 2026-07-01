@@ -2,14 +2,16 @@
 @using System.Linq
 @using Microsoft.AspNetCore.Components.Web
 
-<AppNativeButton Type="button"
-                 Class="@ButtonClass"
-                 OnClick="@HandleClickAsync"
-                 AriaLabel="@Label"
-                 title="@Label"
-                 @attributes="AdditionalAttributes">
-    <span class="playback-sheet-handle-button__bar"></span>
-</AppNativeButton>
+<span class="playback-sheet-handle-button-shell">
+    <AppNativeButton Type="button"
+                     Class="@ButtonClass"
+                     OnClick="@HandleClickAsync"
+                     AriaLabel="@Label"
+                     title="@Label"
+                     @attributes="AdditionalAttributes">
+        <span class="playback-sheet-handle-button__bar"></span>
+    </AppNativeButton>
+</span>
 
 @code {
     [Parameter]

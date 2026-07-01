@@ -722,29 +722,70 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void AudiobookPopupUsesImmersivePlayerSheetsAndAccessibleActions()
+    public void PlaybackPopoutUsesGenericShellAndAccessibleActions()
     {
         var popup = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor");
         var popupCss = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor.css");
         var host = ReadSource("src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor");
+        var hostCss = ReadSource("src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor.css");
         var transportControls = ReadSource("src/MediaEngine.Web/Components/Listen/ListenTransportControls.razor");
         var controlStrip = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackControlStrip.razor");
+        var controlStripCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackControlStrip.razor.css");
+        var iconButtonCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackIconButton.razor.css");
         var toolSheet = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackToolSheet.razor");
+        var toolSheetCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackToolSheet.razor.css");
         var sheetHandle = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetHandleButton.razor");
+        var sheetHandleCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetHandleButton.razor.css");
+        var popoutShell = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackPopoutShell.razor");
+        var miniPlayer = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackMiniPlayer.razor");
+        var valueToolButton = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackValueToolButton.razor");
+        var sheetList = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetList.razor");
+        var sheetListCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetList.razor.css");
+        var sheetRow = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetRow.razor");
+        var sheetRowCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetRow.razor.css");
 
         Assert.Contains("listen-popup__stage", popup);
+        Assert.Contains("<PlaybackPopoutShell", popup);
         Assert.Contains("<PlaybackControlStrip", popup);
         Assert.Contains("<PlaybackToolSheet", popup);
+        Assert.Contains("Presentation=\"full-overlay\"", popup);
+        Assert.Contains("<PlaybackSheetList", popup);
+        Assert.Contains("<PlaybackSheetRow", popup);
+        Assert.Contains("playback-popout-shell", popoutShell);
+        Assert.Contains("playback-mini-player", miniPlayer);
+        Assert.Contains("playback-value-tool-button", valueToolButton);
+        Assert.Contains("playback-sheet-list", sheetList);
+        Assert.Contains("padding: 4px 12px 18px;", sheetListCss);
+        Assert.Contains("playback-sheet-row", sheetRow);
+        Assert.Contains("playback-sheet-row-shell", sheetRow);
+        Assert.Contains(".playback-sheet-row-shell ::deep .playback-sheet-row", sheetRowCss);
+        Assert.Contains("justify-content: space-between;", sheetRowCss);
         Assert.Contains("listen-popup__actions", popup);
+        Assert.Contains("Size=\"standard\"", popup);
+        Assert.Contains("grid-template-columns: repeat(5, minmax(44px, 1fr));", popupCss);
+        Assert.Contains(".playback-control-strip.listen-popup__actions", controlStripCss);
+        Assert.Contains("grid-template-columns: repeat(5, minmax(44px, 1fr));", controlStripCss);
         Assert.Contains("Speed", popup);
         Assert.Contains("Chapters", popup);
         Assert.Contains("History", popup);
         Assert.Contains("Bookmark", popup);
         Assert.Contains("Sleep Timer", popup);
         Assert.Contains("<PlaybackIconButton", controlStrip);
+        Assert.Contains("::deep .playback-icon-button__label", iconButtonCss);
+        Assert.Contains("::deep .playback-icon-button__value", iconButtonCss);
         Assert.Contains("<PlaybackSheetHandleButton", toolSheet);
+        Assert.Contains("NormalizedPresentation", toolSheet);
+        Assert.Contains("full-overlay", toolSheet);
+        Assert.Contains("playback-tool-sheet--full-overlay", toolSheetCss);
+        Assert.Contains("playback-tool-sheet-roll-up", toolSheetCss);
+        Assert.Contains("prefers-reduced-motion", toolSheetCss);
         Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", sheetHandle);
         Assert.Contains("@attributes=\"AdditionalAttributes\"", sheetHandle);
+        Assert.Contains("playback-sheet-handle-button-shell", sheetHandle);
+        Assert.Contains(".playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button", sheetHandleCss);
+        Assert.Contains("height: 56px;", sheetHandleCss);
+        Assert.Contains("margin: 20px auto 0;", sheetHandleCss);
+        Assert.Contains("padding: 12px 36px 10px;", sheetHandleCss);
         Assert.Contains("listen-popup-sheet__backdrop", popup);
         Assert.Contains("OnKeyDown=\"HandlePopupKeyDown\"", popup);
         Assert.DoesNotContain("listen-popup-sheet__grabber", popup + popupCss);
@@ -760,6 +801,17 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<PlaybackRelativeSkipButton Seconds=\"@SkipBackSeconds\" Direction=\"back\"", transportControls);
         Assert.Contains("<PlaybackRelativeSkipButton Seconds=\"@SkipForwardSeconds\" Direction=\"forward\"", transportControls);
         Assert.Contains("listen-popup-menu", popup);
+        Assert.Contains("<PlaybackControlStrip", host);
+        Assert.Contains("<PlaybackMiniPlayer", host);
+        Assert.Contains("<PlaybackValueToolButton", host);
+        Assert.Contains("OpenAudiobookPanelAsync(\"speed\")", host);
+        Assert.Contains("AriaLabel=\"Open audiobook speed and tools\"", host);
+        Assert.Contains("Close audiobook tools", host);
+        Assert.Contains("listen-player-panel__audiobook-actions", hostCss);
+        Assert.Contains("::deep .listen-player-panel__tool-row", hostCss);
+        Assert.DoesNotContain("Playback.CyclePlaybackRateAsync()", host);
+        Assert.DoesNotContain("Icons.Material.Outlined.MoreHoriz", host);
+        Assert.DoesNotContain("BottomPanelAriaLabel", host);
         Assert.Contains("play-next-chapter", host);
         Assert.Contains("play-previous-chapter", host);
         Assert.Contains("ApplyPlaybackRateAsync", host);

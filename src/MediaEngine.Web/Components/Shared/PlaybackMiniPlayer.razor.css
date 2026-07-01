@@ -1,0 +1,32 @@
+.playback-mini-player {
+    align-items: center;
+    background: var(--app-surface, #1e1f27);
+    border-top: 1px solid var(--app-border, #293036);
+    box-shadow: var(--app-shadow-lg, 0 -18px 36px rgba(0, 0, 0, 0.3));
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr) auto;
+    padding: 14px 18px;
+    pointer-events: auto;
+}
+
+.playback-mini-player--audiobook {
+    --listen-skip-center-bg: #07111f;
+    background:
+        linear-gradient(180deg, rgba(9, 20, 34, 0.96), rgba(6, 13, 24, 0.98)),
+        var(--app-surface, #1e1f27);
+    border-color: rgba(245, 158, 11, 0.26);
+}
+
+.listen-player-shell--popped-out .playback-mini-player {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(110%);
+}
+
+@media (max-width: 960px) {
+    .playback-mini-player {
+        gap: 14px;
+        grid-template-columns: 1fr;
+    }
+}

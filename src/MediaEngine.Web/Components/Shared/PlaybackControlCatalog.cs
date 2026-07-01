@@ -31,12 +31,15 @@ public enum PlaybackControlKey
     Repeat,
     Favorite,
     Close,
+    Expand,
+    Resume,
     SkipIntro,
     SkipCredits,
 }
 
 public enum PlaybackControlSurface
 {
+    /// <summary>Persistent minimized player surface for music, audiobooks, and future video miniplayers.</summary>
     Bottom,
     SidePanel,
     Popup,
@@ -169,6 +172,12 @@ public static class PlaybackControlCatalog
                 controls.Add(new(PlaybackControlKey.PictureInPicture, "PiP", "Picture in picture", Icons.Material.Outlined.PictureInPictureAlt, PlaybackControlPlacement.Utility, "picture-in-picture"));
                 controls.Add(new(PlaybackControlKey.SkipIntro, "Intro", "Skip intro", Icons.Material.Outlined.FastForward, PlaybackControlPlacement.Utility, "skip-intro", IsDisabled: true));
                 controls.Add(new(PlaybackControlKey.SkipCredits, "Credits", "Skip credits", Icons.Material.Outlined.FastForward, PlaybackControlPlacement.Utility, "skip-credits", IsDisabled: true));
+                if (surface == PlaybackControlSurface.Bottom)
+                {
+                    controls.Add(new(PlaybackControlKey.Expand, "Expand", "Expand player", Icons.Material.Outlined.OpenInFull, PlaybackControlPlacement.Utility, "expand-player"));
+                    controls.Add(new(PlaybackControlKey.Resume, "Resume", "Resume video", Icons.Material.Outlined.PlayCircle, PlaybackControlPlacement.Utility, "resume-video"));
+                    controls.Add(new(PlaybackControlKey.Close, "Close", "Close mini player", Icons.Material.Outlined.Close, PlaybackControlPlacement.Utility, "close-player"));
+                }
                 break;
         }
     }

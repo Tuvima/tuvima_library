@@ -1,0 +1,55 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Web
+
+<AppNativeButton Type="button"
+                 Class="@RootClass"
+                 OnClick="@HandleClickAsync"
+                 AriaLabel="@ResolvedAriaLabel"
+                 title="@ResolvedAriaLabel"
+                 @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Class="playback-value-tool-button__icon" />
+    }
+    <span class="playback-value-tool-button__copy">
+        <strong>@ValueText</strong>
+        <span>@Label</span>
+    </span>
+    <MudIcon Icon="@Icons.Material.Outlined.ExpandLess" Class="playback-value-tool-button__chevron" />
+</AppNativeButton>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = "Playback tools";
+
+    [Parameter]
+    public string ValueText { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Icon { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ResolvedAriaLabel => string.IsNullOrWhiteSpace(AriaLabel)
+        ? $"{Label}: {ValueText}"
+        : AriaLabel;
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-value-tool-button",
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClickAsync(MouseEventArgs _) => OnClick.InvokeAsync();
+}

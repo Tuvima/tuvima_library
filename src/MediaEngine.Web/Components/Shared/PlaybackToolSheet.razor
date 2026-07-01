@@ -2,7 +2,7 @@
 @using System.Linq
 
 <section class="@RootClass" aria-label="@Title" aria-modal="true" @attributes="AdditionalAttributes">
-    <PlaybackSheetHandleButton Class="playback-tool-sheet__handle" OnClick="@OnClose" />
+    <PlaybackSheetHandleButton Class="playback-tool-sheet__handle" Label="@CloseLabel" OnClick="@OnClose" />
     <div class="playback-tool-sheet__header">
         <h2>@Title</h2>
         @if (!string.IsNullOrWhiteSpace(Subtitle))
@@ -26,6 +26,9 @@
     public string Surface { get; set; } = "panel";
 
     [Parameter]
+    public string Presentation { get; set; } = "inline";
+
+    [Parameter]
     public string? Class { get; set; }
 
     [Parameter]
@@ -37,6 +40,10 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    private string CloseLabel => Surface == "popup" || Presentation == "full-overlay"
+        ? "Collapse sheet"
+        : "Close sheet";
+
     private string NormalizedSurface => Surface switch
     {
         "popup" => "popup",
@@ -44,10 +51,18 @@
         _ => "panel",
     };
 
+    private string NormalizedPresentation => Presentation switch
+    {
+        "full-overlay" => "full-overlay",
+        "rollup" => "full-overlay",
+        _ => "inline",
+    };
+
     private string RootClass => string.Join(" ", new[]
     {
         "playback-tool-sheet",
         $"playback-tool-sheet--{NormalizedSurface}",
+        $"playback-tool-sheet--{NormalizedPresentation}",
         Class,
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 }

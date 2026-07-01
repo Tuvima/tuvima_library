@@ -1,16 +1,23 @@
-.playback-sheet-handle-button {
+.playback-sheet-handle-button-shell {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button {
     align-items: center;
     background: transparent;
     border: 0;
     cursor: pointer;
     display: inline-flex;
-    height: 32px;
+    height: 56px;
     justify-content: center;
-    margin: 8px auto 0;
-    padding: 0 24px;
+    margin: 20px auto 0;
+    padding: 12px 36px 10px;
+    touch-action: manipulation;
 }
 
-.playback-sheet-handle-button:focus-visible {
+.playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button:focus-visible {
     outline: 2px solid rgba(147, 197, 253, 0.72);
     outline-offset: 2px;
 }
@@ -24,8 +31,8 @@
     width: 68px;
 }
 
-.playback-sheet-handle-button:hover .playback-sheet-handle-button__bar,
-.playback-sheet-handle-button:focus-visible .playback-sheet-handle-button__bar {
+.playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button:hover .playback-sheet-handle-button__bar,
+.playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button:focus-visible .playback-sheet-handle-button__bar {
     background: rgba(248, 250, 252, 0.72);
     transform: scaleX(1.08);
 }

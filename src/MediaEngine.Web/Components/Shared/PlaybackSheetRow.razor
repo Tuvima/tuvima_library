@@ -1,0 +1,83 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Web
+
+@if (IsButton)
+{
+    <span class="@ShellClass">
+        <AppNativeButton Type="button"
+                         Class="@RootClass"
+                         OnClick="@HandleClickAsync"
+                         AriaLabel="@AriaLabel"
+                         title="@ResolvedTitle"
+                         @attributes="AdditionalAttributes">
+            @ChildContent
+        </AppNativeButton>
+    </span>
+}
+else
+{
+    <div class="@ShellClass">
+        <div class="@RootClass" @attributes="AdditionalAttributes">
+            @ChildContent
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsButton { get; set; } = true;
+
+    [Parameter]
+    public bool IsActive { get; set; }
+
+    [Parameter]
+    public string Variant { get; set; } = "default";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string NormalizedVariant => Variant switch
+    {
+        "chapter" => "chapter",
+        "history" => "history",
+        "select" => "select",
+        "split" => "split",
+        "timer" => "timer",
+        _ => "default",
+    };
+
+    private string? ResolvedTitle => Title ?? AriaLabel;
+
+    private string ShellClass => string.Join(" ", new[]
+    {
+        "playback-sheet-row-shell",
+        $"playback-sheet-row-shell--{NormalizedVariant}",
+        IsActive ? "is-active" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-sheet-row",
+        $"playback-sheet-row--{NormalizedVariant}",
+        IsActive ? "is-active" : null,
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClickAsync(MouseEventArgs _) => OnClick.InvokeAsync();
+}

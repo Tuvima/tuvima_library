@@ -15,3 +15,12 @@
     --playback-control-min: 64px;
     gap: 8px;
 }
+
+.playback-control-strip.listen-popup__actions,
+.playback-control-strip.listen-now-panel__audiobook-actions,
+.playback-control-strip.listen-player-panel__audiobook-actions {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
+    width: 100%;
+}

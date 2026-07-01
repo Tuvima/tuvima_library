@@ -1,0 +1,34 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+
+<div class="@RootClass" @attributes="AdditionalAttributes">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public string Variant { get; set; } = "default";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string NormalizedVariant => Variant switch
+    {
+        "compact" => "compact",
+        "speed" => "speed",
+        _ => "default",
+    };
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-sheet-list",
+        $"playback-sheet-list--{NormalizedVariant}",
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

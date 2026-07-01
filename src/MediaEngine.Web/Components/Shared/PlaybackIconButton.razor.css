@@ -41,7 +41,7 @@
     opacity: 0.45;
 }
 
-.playback-icon-button__visual {
+.playback-icon-button-shell ::deep .playback-icon-button__visual {
     align-items: center;
     display: inline-flex;
     justify-content: center;
@@ -62,7 +62,7 @@
     width: 36px;
 }
 
-.playback-icon-button__value {
+.playback-icon-button-shell ::deep .playback-icon-button__value {
     color: inherit;
     font-size: 0.98rem;
     font-weight: 900;
@@ -70,11 +70,11 @@
     line-height: 1;
 }
 
-.playback-icon-button-shell--large .playback-icon-button__value {
+.playback-icon-button-shell--large ::deep .playback-icon-button__value {
     font-size: 1.1rem;
 }
 
-.playback-icon-button__label {
+.playback-icon-button-shell ::deep .playback-icon-button__label {
     color: currentColor;
     font-size: 0.68rem;
     font-weight: 760;

@@ -1,0 +1,37 @@
+.playback-popout-shell {
+    --listen-accent: var(--tl-status-warning, #f59e0b);
+    --listen-skip-center-bg: #07111f;
+    background:
+        radial-gradient(circle at 50% 12%, rgba(245, 158, 11, 0.18), transparent 24rem),
+        linear-gradient(180deg, rgba(8, 18, 32, 0.92), rgba(4, 10, 19, 0.98)),
+        #07111f;
+    color: rgba(248, 250, 252, 0.94);
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.playback-popout-shell::before {
+    background-image: var(--listen-popup-cover);
+    background-position: center;
+    background-size: cover;
+    content: "";
+    filter: blur(30px) saturate(1.08);
+    inset: -28px;
+    opacity: 0.24;
+    position: absolute;
+    transform: scale(1.08);
+    z-index: 0;
+}
+
+.playback-popout-shell > * {
+    position: relative;
+    z-index: 1;
+}
+
+.playback-popout-shell--sheet-open {
+    overscroll-behavior: contain;
+}

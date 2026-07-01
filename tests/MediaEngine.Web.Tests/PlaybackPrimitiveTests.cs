@@ -32,7 +32,7 @@ public sealed class PlaybackPrimitiveTests
             new PlaybackControlState(PlaybackRate: 1.5d, HasChapters: true, IsSleepTimerActive: true));
         var video = PlaybackControlCatalog.Build(
             PlaybackExperience.Video,
-            PlaybackControlSurface.Fullscreen,
+            PlaybackControlSurface.Bottom,
             new PlaybackControlState(PlaybackRate: 1.25d, HasChapters: true, HasQueue: true));
 
         AssertCommonControls(music);
@@ -48,7 +48,7 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.SleepTimer && control.IsActive);
         Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.Chapters && !control.IsDisabled);
 
-        AssertContainsKeys(video, PlaybackControlKey.SkipBack, PlaybackControlKey.SkipForward, PlaybackControlKey.Queue, PlaybackControlKey.History, PlaybackControlKey.Speed, PlaybackControlKey.Chapters, PlaybackControlKey.Captions, PlaybackControlKey.AudioTrack, PlaybackControlKey.Quality, PlaybackControlKey.Fullscreen, PlaybackControlKey.PictureInPicture, PlaybackControlKey.SkipIntro, PlaybackControlKey.SkipCredits);
+        AssertContainsKeys(video, PlaybackControlKey.SkipBack, PlaybackControlKey.SkipForward, PlaybackControlKey.Queue, PlaybackControlKey.History, PlaybackControlKey.Speed, PlaybackControlKey.Chapters, PlaybackControlKey.Captions, PlaybackControlKey.AudioTrack, PlaybackControlKey.Quality, PlaybackControlKey.Fullscreen, PlaybackControlKey.PictureInPicture, PlaybackControlKey.Expand, PlaybackControlKey.Resume, PlaybackControlKey.Close, PlaybackControlKey.SkipIntro, PlaybackControlKey.SkipCredits);
     }
 
     [Fact]
@@ -167,9 +167,20 @@ public sealed class PlaybackPrimitiveTests
         var timelineStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackTimelineMetaRow.razor.css"));
         var controlCatalog = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackControlCatalog.cs"));
         var controlStrip = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackControlStrip.razor"));
+        var controlStripStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackControlStrip.razor.css"));
         var iconButton = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackIconButton.razor"));
+        var iconButtonStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackIconButton.razor.css"));
         var toolSheet = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackToolSheet.razor"));
+        var toolSheetStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackToolSheet.razor.css"));
         var sheetHandle = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackSheetHandleButton.razor"));
+        var sheetHandleStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackSheetHandleButton.razor.css"));
+        var popoutShell = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackPopoutShell.razor"));
+        var miniPlayer = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackMiniPlayer.razor"));
+        var valueToolButton = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackValueToolButton.razor"));
+        var sheetList = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackSheetList.razor"));
+        var sheetListStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackSheetList.razor.css"));
+        var sheetRow = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackSheetRow.razor"));
+        var sheetRowStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Shared/PlaybackSheetRow.razor.css"));
         var barStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/ListenNowPlayingBar.razor.css"));
         var panelStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Listen/ListenNowPlayingPanel.razor.css"));
         var popupStyles = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor.css"));
@@ -194,21 +205,66 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("color: rgba(248, 250, 252, 0.94);", timelineStyles, StringComparison.Ordinal);
         Assert.Contains("<PlaybackControlStrip", panel, StringComparison.Ordinal);
         Assert.Contains("<PlaybackControlStrip", popup, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackControlStrip", bar, StringComparison.Ordinal);
         Assert.Contains("<PlaybackToolSheet", panel, StringComparison.Ordinal);
         Assert.Contains("<PlaybackToolSheet", popup, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackPopoutShell", popup, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackMiniPlayer", bar, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackValueToolButton", bar, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackSheetList", popup, StringComparison.Ordinal);
+        Assert.Contains("<PlaybackSheetRow", popup, StringComparison.Ordinal);
+        Assert.Contains("Presentation=\"full-overlay\"", popup, StringComparison.Ordinal);
+        Assert.Contains("playback-popout-shell", popoutShell, StringComparison.Ordinal);
+        Assert.Contains("playback-mini-player", miniPlayer, StringComparison.Ordinal);
+        Assert.Contains("playback-value-tool-button", valueToolButton, StringComparison.Ordinal);
+        Assert.Contains("playback-sheet-list", sheetList, StringComparison.Ordinal);
+        Assert.Contains("padding: 4px 12px 18px;", sheetListStyles, StringComparison.Ordinal);
+        Assert.Contains("playback-sheet-row", sheetRow, StringComparison.Ordinal);
+        Assert.Contains("playback-sheet-row-shell", sheetRow, StringComparison.Ordinal);
+        Assert.Contains(".playback-sheet-row-shell ::deep .playback-sheet-row", sheetRowStyles, StringComparison.Ordinal);
+        Assert.Contains("justify-content: space-between;", sheetRowStyles, StringComparison.Ordinal);
         Assert.Contains("PlaybackControlCatalog.BuildToolStrip", panel, StringComparison.Ordinal);
         Assert.Contains("PlaybackControlCatalog.BuildToolStrip", popup, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlCatalog.BuildToolStrip", bar, StringComparison.Ordinal);
         Assert.Contains("PlaybackControlKey.Captions", controlCatalog, StringComparison.Ordinal);
         Assert.Contains("PlaybackControlKey.AudioTrack", controlCatalog, StringComparison.Ordinal);
         Assert.Contains("PlaybackControlKey.Quality", controlCatalog, StringComparison.Ordinal);
         Assert.Contains("<PlaybackIconButton", controlStrip, StringComparison.Ordinal);
+        Assert.Contains(".playback-control-strip.listen-popup__actions", controlStripStyles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: repeat(5, minmax(44px, 1fr));", controlStripStyles, StringComparison.Ordinal);
         Assert.Contains("<PlaybackSheetHandleButton", toolSheet, StringComparison.Ordinal);
+        Assert.Contains("NormalizedPresentation", toolSheet, StringComparison.Ordinal);
+        Assert.Contains("full-overlay", toolSheet, StringComparison.Ordinal);
+        Assert.Contains("playback-tool-sheet--full-overlay", toolSheetStyles, StringComparison.Ordinal);
+        Assert.Contains("playback-tool-sheet-roll-up", toolSheetStyles, StringComparison.Ordinal);
+        Assert.Contains("prefers-reduced-motion", toolSheetStyles, StringComparison.Ordinal);
         Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", iconButton, StringComparison.Ordinal);
         Assert.Contains("@attributes=\"AdditionalAttributes\"", iconButton, StringComparison.Ordinal);
+        Assert.Contains("::deep .playback-icon-button__value", iconButtonStyles, StringComparison.Ordinal);
+        Assert.Contains("::deep .playback-icon-button__label", iconButtonStyles, StringComparison.Ordinal);
         Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", sheetHandle, StringComparison.Ordinal);
         Assert.Contains("@attributes=\"AdditionalAttributes\"", sheetHandle, StringComparison.Ordinal);
+        Assert.Contains("playback-sheet-handle-button-shell", sheetHandle, StringComparison.Ordinal);
+        Assert.Contains(".playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 56px;", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("margin: 20px auto 0;", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("padding: 12px 36px 10px;", sheetHandleStyles, StringComparison.Ordinal);
         Assert.Contains("OnKeyDown=\"HandlePopupKeyDown\"", popup, StringComparison.Ordinal);
         Assert.Contains("listen-popup-sheet__backdrop", popup + popupStyles, StringComparison.Ordinal);
+        Assert.Contains("Size=\"standard\"", popup, StringComparison.Ordinal);
+        Assert.Contains("listen-popup__actions", popupStyles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: repeat(5, minmax(44px, 1fr));", popupStyles, StringComparison.Ordinal);
+        Assert.Contains("OpenAudiobookPanelAsync(\"speed\")", bar, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Open audiobook speed and tools\"", bar, StringComparison.Ordinal);
+        Assert.Contains("Close audiobook tools", bar, StringComparison.Ordinal);
+        Assert.Contains("listen-player-panel__audiobook-actions", barStyles, StringComparison.Ordinal);
+        Assert.Contains("::deep .listen-player-panel__tool-row", barStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("Playback.CyclePlaybackRateAsync()", bar, StringComparison.Ordinal);
+        Assert.DoesNotContain("Icons.Material.Outlined.MoreHoriz", bar, StringComparison.Ordinal);
+        Assert.DoesNotContain("BottomPanelAriaLabel", bar, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlKey.Expand", controlCatalog, StringComparison.Ordinal);
+        Assert.Contains("PlaybackControlKey.Resume", controlCatalog, StringComparison.Ordinal);
+        Assert.Contains("surface == PlaybackControlSurface.Bottom", controlCatalog, StringComparison.Ordinal);
         Assert.DoesNotContain("SpeedActionButton", panel + popup, StringComparison.Ordinal);
         Assert.DoesNotContain("AudiobookActionButton", panel + popup, StringComparison.Ordinal);
         Assert.DoesNotContain("private RenderFragment ActionButton", popup, StringComparison.Ordinal);

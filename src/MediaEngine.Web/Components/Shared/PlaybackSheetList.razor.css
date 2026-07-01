@@ -1,0 +1,16 @@
+.playback-sheet-list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+    padding: 4px 12px 18px;
+}
+
+.playback-sheet-list--compact {
+    padding: 10px 8px 14px;
+}
+
+.playback-sheet-list--speed {
+    padding-inline: 12px;
+}
