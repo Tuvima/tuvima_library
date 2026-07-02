@@ -232,18 +232,14 @@
                             }
                             else
                             {
-                                @for (var index = 0; index < Playback.AudiobookHistory.Count; index++)
+                                @foreach (var item in Playback.AudiobookHistory)
                                 {
-                                    var item = Playback.AudiobookHistory[index];
-                                    <AppNativeButton Type="button" Class="listen-now-panel__sheet-row listen-now-panel__sheet-row--history" OnClick="@(() => PlayHistoryAsync(item))" AriaLabel="@($"Resume from {HistoryTitle(item)}")" title="@($"Resume from {HistoryTitle(item)}")">
-                                        <span class="listen-now-panel__history-index">@($"{index + 1}")</span>
-                                        <span class="listen-now-panel__queue-copy">
-                                            <strong>@HistoryTitle(item)</strong>
-                                            <span>@HistorySubtitle(item)</span>
-                                        </span>
-                                        <span class="listen-now-panel__resume">Resume here</span>
-                                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="tl-u-font-size-24px" />
-                                    </AppNativeButton>
+                                    <PlaybackHistoryRow Class="listen-now-panel__history-row"
+                                                        Title="@HistoryTitle(item)"
+                                                        PositionText="@HistoryPositionText(item)"
+                                                        TimestampText="@HistorySubtitle(item)"
+                                                        OnClick="@(() => PlayHistoryAsync(item))"
+                                                        AriaLabel="@($"Resume {HistoryTitle(item)} from {HistoryPositionText(item)}")" />
                                 }
                             }
                         </div>
@@ -624,14 +620,13 @@
             : string.Empty;
 
     private static string HistoryTitle(AudiobookListenHistoryItemDto item)
-    {
-        var position = FormatTimestamp(item.PositionSeconds);
-        var chapter = FirstNonBlank(item.ChapterTitle, $"Position {position}");
-        return $"{chapter} - Left off at {position}";
-    }
+        => FirstNonBlank(item.ChapterTitle, $"Position {FormatTimestamp(item.PositionSeconds)}");
+
+    private static string HistoryPositionText(AudiobookListenHistoryItemDto item) =>
+        $"Left off at {FormatTimestamp(item.PositionSeconds)}";
 
     private static string HistorySubtitle(AudiobookListenHistoryItemDto item) =>
-        item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture);
+        $"{item.EndedAt.LocalDateTime.ToString("MMM d, yyyy", CultureInfo.CurrentCulture)} - {item.EndedAt.LocalDateTime.ToString("h:mm tt", CultureInfo.CurrentCulture)}";
 
     private static string BookmarkTitle(AudiobookBookmarkDto item) =>
         FirstNonBlank(item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");

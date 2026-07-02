@@ -305,15 +305,6 @@
     color: var(--listen-accent);
 }
 
-.listen-popup-sheet__index {
-    width: 42px;
-    color: var(--listen-accent);
-    font-size: 1.28rem;
-    font-weight: 850;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-}
-
 .listen-popup-sheet__copy {
     min-width: 0;
     flex: 1;

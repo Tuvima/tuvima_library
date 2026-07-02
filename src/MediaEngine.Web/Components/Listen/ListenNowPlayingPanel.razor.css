@@ -404,21 +404,6 @@
     border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
-.listen-now-panel__sheet-row--history {
-    display: grid;
-    grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;
-    border-radius: 8px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.listen-now-panel__history-index {
-    color: var(--listen-audio-accent);
-    font-size: 1.1rem;
-    font-weight: 900;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-}
-
 .listen-now-panel__resume {
     color: var(--listen-audio-accent);
     font-size: 0.82rem;
@@ -596,12 +581,6 @@
 ::deep .listen-now-panel__sheet-row--chapter {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 4.75rem;
-    border-radius: 8px;
-}
-
-::deep .listen-now-panel__sheet-row--history {
-    display: grid;
-    grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;
     border-radius: 8px;
 }
 

@@ -609,6 +609,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("@if (!Playback.IsAudiobookMode)", nowPlayingPanel);
         Assert.DoesNotContain("<h2>@current.Title</h2>\n                <p>@PlayerSubtitle(current)</p>", nowPlayingPanel.Replace("\r\n", "\n", StringComparison.Ordinal));
         Assert.Contains("HistorySubtitle(item)", nowPlayingPanel);
+        Assert.Contains("HistoryPositionText(item)", nowPlayingPanel);
+        Assert.Contains("<PlaybackHistoryRow", nowPlayingPanel);
+        Assert.DoesNotContain("listen-now-panel__history-index", nowPlayingPanel);
         Assert.Contains("CurrentChapterProgressLabel", nowPlayingPanel);
         Assert.Contains("<PlaybackControlStrip", nowPlayingPanel);
         Assert.Contains("<PlaybackToolSheet", nowPlayingPanel);
@@ -634,6 +637,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("@if (!IsAudiobookMode)", popupPlayer);
         Assert.DoesNotContain("<h1>@current.Title</h1>\n                <p>@PlayerSubtitle(current)</p>", popupPlayer.Replace("\r\n", "\n", StringComparison.Ordinal));
         Assert.Contains("HistorySubtitle(item)", popupPlayer);
+        Assert.Contains("HistoryPositionText(item)", popupPlayer);
+        Assert.Contains("<PlaybackHistoryRow", popupPlayer);
+        Assert.DoesNotContain("playback-sheet-row__index", popupPlayer);
+        Assert.DoesNotContain("listen-popup-sheet__index", popupPlayer);
+        Assert.DoesNotContain("Variant=\"history\"", popupPlayer);
         Assert.Contains("CurrentChapterProgressLabel", popupPlayer);
         Assert.DoesNotContain("FormatChapterTimeRange", chapterList);
         Assert.Contains("SupplementalActiveTab is \"chapters\"", audioLayout);
@@ -743,6 +751,8 @@ public sealed class UnifiedDetailComponentTests
         var sheetListCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetList.razor.css");
         var sheetRow = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetRow.razor");
         var sheetRowCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackSheetRow.razor.css");
+        var historyRow = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackHistoryRow.razor");
+        var historyRowCss = ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackHistoryRow.razor.css");
 
         Assert.Contains("listen-popup__stage", popup);
         Assert.Contains("<PlaybackPopoutShell", popup);
@@ -751,9 +761,16 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Presentation=\"full-overlay\"", popup);
         Assert.Contains("<PlaybackSheetList", popup);
         Assert.Contains("<PlaybackSheetRow", popup);
+        Assert.Contains("<PlaybackHistoryRow", popup);
         Assert.Contains("playback-popout-shell", popoutShell);
         Assert.Contains("playback-mini-player", miniPlayer);
         Assert.Contains("playback-value-tool-button", valueToolButton);
+        Assert.Contains("playback-history-row", historyRow);
+        Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", historyRow);
+        Assert.Contains("@attributes=\"AdditionalAttributes\"", historyRow);
+        Assert.Contains("Icons.Material.Outlined.CalendarMonth", historyRow);
+        Assert.Contains("playback-history-row__action-ring", historyRowCss);
+        Assert.Contains("var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)))", historyRowCss);
         Assert.Contains("playback-sheet-list", sheetList);
         Assert.Contains("padding: 4px 12px 18px;", sheetListCss);
         Assert.Contains("playback-sheet-row", sheetRow);
@@ -794,6 +811,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("listen-popup-sheet__close", popup + popupCss);
         Assert.DoesNotContain("SpeedActionButton", popup);
         Assert.DoesNotContain("private RenderFragment ActionButton", popup);
+        Assert.DoesNotContain("playback-sheet-row__index", popup + sheetRowCss);
+        Assert.DoesNotContain("listen-popup-sheet__index", popup + popupCss);
+        Assert.DoesNotContain("Variant=\"history\"", popup);
         Assert.DoesNotContain(".listen-popup__action strong", popupCss);
         Assert.DoesNotContain("display: none", popupCss);
         Assert.Contains("play-chapter", popup);

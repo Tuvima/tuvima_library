@@ -39,11 +39,6 @@
     grid-template-columns: minmax(0, 1fr) 5rem;
 }
 
-.playback-sheet-row-shell ::deep .playback-sheet-row--history {
-    display: grid;
-    grid-template-columns: 2.4rem minmax(0, 1fr) auto auto;
-}
-
 .playback-sheet-row-shell ::deep .playback-sheet-row--split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -77,14 +72,6 @@
     color: var(--listen-accent, var(--tl-status-warning, #f59e0b));
     font-weight: 800;
     white-space: nowrap;
-}
-
-.playback-sheet-row-shell ::deep .playback-sheet-row__index {
-    color: var(--listen-accent, var(--tl-status-warning, #f59e0b));
-    font-size: 1.12rem;
-    font-weight: 900;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
 }
 
 .playback-sheet-row-shell ::deep .playback-sheet-row__duration {

@@ -426,13 +426,6 @@
         border-radius: var(--app-radius-md, 5px);
     }
 
-    ::deep .listen-player-panel__tool-row--history {
-        display: grid;
-        grid-template-columns: 2rem minmax(0, 1fr) auto;
-        align-items: center;
-        border-radius: var(--app-radius-md, 5px);
-    }
-
     ::deep .listen-player-panel__tool-row--bookmark {
         min-height: 56px;
         border-bottom: 0;
@@ -461,14 +454,6 @@
 
     .listen-player-panel__tool-duration {
         text-align: right;
-        font-variant-numeric: tabular-nums;
-    }
-
-    .listen-player-panel__history-index {
-        color: var(--tl-status-warning, #f59e0b);
-        font-size: 1rem;
-        font-weight: 900;
-        text-align: center;
         font-variant-numeric: tabular-nums;
     }
 

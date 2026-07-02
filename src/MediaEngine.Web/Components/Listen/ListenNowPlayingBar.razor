@@ -119,17 +119,15 @@
                                 }
                                 else
                                 {
-                                    @for (var index = 0; index < Playback.AudiobookHistory.Count; index++)
+                                    @foreach (var item in Playback.AudiobookHistory)
                                     {
-                                        var item = Playback.AudiobookHistory[index];
-                                        <AppNativeButton Type="button" Class="listen-player-panel__tool-row listen-player-panel__tool-row--history" OnClick="@(() => PlayAudiobookHistoryFromPanelAsync(item))" AriaLabel="@($"Resume from {HistoryTitle(item)}")" title="@($"Resume from {HistoryTitle(item)}")">
-                                            <span class="listen-player-panel__history-index">@($"{index + 1}")</span>
-                                            <span class="listen-player-panel__tool-copy">
-                                                <strong>@HistoryTitle(item)</strong>
-                                                <span>@HistorySubtitle(item)</span>
-                                            </span>
-                                            <span class="listen-player-panel__resume">Resume</span>
-                                        </AppNativeButton>
+                                        <PlaybackHistoryRow Class="listen-player-panel__history-row"
+                                                            Size="compact"
+                                                            Title="@HistoryTitle(item)"
+                                                            PositionText="@HistoryPositionText(item)"
+                                                            TimestampText="@HistorySubtitle(item)"
+                                                            OnClick="@(() => PlayAudiobookHistoryFromPanelAsync(item))"
+                                                            AriaLabel="@($"Resume {HistoryTitle(item)} from {HistoryPositionText(item)}")" />
                                     }
                                 }
                             </div>
@@ -1285,14 +1283,13 @@
             : string.Empty;
 
     private static string HistoryTitle(AudiobookListenHistoryItemDto item)
-    {
-        var position = FormatTimestamp(item.PositionSeconds);
-        var chapter = FirstNonBlank(item.ChapterTitle, $"Position {position}");
-        return $"{chapter} - Left off at {position}";
-    }
+        => FirstNonBlank(item.ChapterTitle, $"Position {FormatTimestamp(item.PositionSeconds)}");
+
+    private static string HistoryPositionText(AudiobookListenHistoryItemDto item) =>
+        $"Left off at {FormatTimestamp(item.PositionSeconds)}";
 
     private static string HistorySubtitle(AudiobookListenHistoryItemDto item) =>
-        item.EndedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture);
+        $"{item.EndedAt.LocalDateTime.ToString("MMM d, yyyy", CultureInfo.CurrentCulture)} - {item.EndedAt.LocalDateTime.ToString("h:mm tt", CultureInfo.CurrentCulture)}";
 
     private static string BookmarkTitle(AudiobookBookmarkDto item) =>
         FirstNonBlank(item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");
