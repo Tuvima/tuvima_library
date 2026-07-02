@@ -5,15 +5,16 @@
 }
 
 .playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button {
-    align-items: center;
+    align-items: flex-start;
     background: transparent;
     border: 0;
+    box-sizing: border-box;
     cursor: pointer;
     display: inline-flex;
-    height: 56px;
+    height: 44px;
     justify-content: center;
-    margin: 20px auto 0;
-    padding: 12px 36px 10px;
+    margin: 8px auto 0;
+    padding: 4px 36px 0;
     touch-action: manipulation;
 }
 

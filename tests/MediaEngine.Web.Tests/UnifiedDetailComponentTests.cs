@@ -783,9 +783,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("@attributes=\"AdditionalAttributes\"", sheetHandle);
         Assert.Contains("playback-sheet-handle-button-shell", sheetHandle);
         Assert.Contains(".playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button", sheetHandleCss);
-        Assert.Contains("height: 56px;", sheetHandleCss);
-        Assert.Contains("margin: 20px auto 0;", sheetHandleCss);
-        Assert.Contains("padding: 12px 36px 10px;", sheetHandleCss);
+        Assert.Contains("align-items: flex-start;", sheetHandleCss);
+        Assert.Contains("box-sizing: border-box;", sheetHandleCss);
+        Assert.Contains("height: 44px;", sheetHandleCss);
+        Assert.Contains("margin: 8px auto 0;", sheetHandleCss);
+        Assert.Contains("padding: 4px 36px 0;", sheetHandleCss);
         Assert.Contains("listen-popup-sheet__backdrop", popup);
         Assert.Contains("OnKeyDown=\"HandlePopupKeyDown\"", popup);
         Assert.DoesNotContain("listen-popup-sheet__grabber", popup + popupCss);

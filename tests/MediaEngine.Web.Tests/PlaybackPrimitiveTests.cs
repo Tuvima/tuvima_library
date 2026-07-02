@@ -246,9 +246,11 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("@attributes=\"AdditionalAttributes\"", sheetHandle, StringComparison.Ordinal);
         Assert.Contains("playback-sheet-handle-button-shell", sheetHandle, StringComparison.Ordinal);
         Assert.Contains(".playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button", sheetHandleStyles, StringComparison.Ordinal);
-        Assert.Contains("height: 56px;", sheetHandleStyles, StringComparison.Ordinal);
-        Assert.Contains("margin: 20px auto 0;", sheetHandleStyles, StringComparison.Ordinal);
-        Assert.Contains("padding: 12px 36px 10px;", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("align-items: flex-start;", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("box-sizing: border-box;", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 44px;", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("margin: 8px auto 0;", sheetHandleStyles, StringComparison.Ordinal);
+        Assert.Contains("padding: 4px 36px 0;", sheetHandleStyles, StringComparison.Ordinal);
         Assert.Contains("OnKeyDown=\"HandlePopupKeyDown\"", popup, StringComparison.Ordinal);
         Assert.Contains("listen-popup-sheet__backdrop", popup + popupStyles, StringComparison.Ordinal);
         Assert.Contains("Size=\"standard\"", popup, StringComparison.Ordinal);
