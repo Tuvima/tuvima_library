@@ -1,0 +1,170 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Web
+
+<span class="@ShellClass">
+    <AppNativeButton Type="button"
+                     Class="@ButtonClass"
+                     OnClick="@HandleClickAsync"
+                     AriaLabel="@ResolvedAriaLabel"
+                     title="@ResolvedAriaLabel"
+                     @attributes="AdditionalAttributes">
+        @if (!string.IsNullOrWhiteSpace(LeadingIcon))
+        {
+            <span class="playback-position-row__leading" aria-hidden="true">
+                <MudIcon Icon="@LeadingIcon" Class="playback-position-row__leading-icon" />
+            </span>
+        }
+        <span class="playback-position-row__copy">
+            <strong class="playback-position-row__title">@Title</strong>
+            @if (!string.IsNullOrWhiteSpace(PositionText))
+            {
+                <span class="playback-position-row__position">@PositionText</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(TimestampText))
+            {
+                <span class="playback-position-row__meta">
+                    <MudIcon Icon="@TimestampIcon" Class="playback-position-row__meta-icon" />
+                    <span>@TimestampText</span>
+                </span>
+            }
+        </span>
+        <span class="playback-position-row__action" aria-hidden="true">
+            <span class="playback-position-row__action-ring">
+                <MudIcon Icon="@ActionIcon" Class="playback-position-row__action-icon" />
+            </span>
+            @if (!string.IsNullOrWhiteSpace(ActionLabel))
+            {
+                <span class="playback-position-row__action-label">@ActionLabel</span>
+            }
+        </span>
+    </AppNativeButton>
+    @if (HasSecondaryAction)
+    {
+        <AppNativeButton Type="button"
+                         Class="playback-position-row__secondary"
+                         OnClick="@HandleSecondaryClickAsync"
+                         AriaLabel="@ResolvedSecondaryActionLabel"
+                         title="@ResolvedSecondaryActionLabel">
+            <MudIcon Icon="@SecondaryActionIcon" Class="playback-position-row__secondary-icon" />
+        </AppNativeButton>
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? PositionText { get; set; }
+
+    [Parameter]
+    public string? TimestampText { get; set; }
+
+    [Parameter]
+    public string? LeadingIcon { get; set; }
+
+    [Parameter]
+    public string Kind { get; set; } = "position";
+
+    [Parameter]
+    public string Presentation { get; set; } = "card";
+
+    [Parameter]
+    public string ActionLabel { get; set; } = "Resume";
+
+    [Parameter]
+    public string ActionIcon { get; set; } = Icons.Material.Filled.PlayArrow;
+
+    [Parameter]
+    public string ActionVariant { get; set; } = "circle";
+
+    [Parameter]
+    public string TimestampIcon { get; set; } = Icons.Material.Outlined.CalendarMonth;
+
+    [Parameter]
+    public string? SecondaryActionLabel { get; set; }
+
+    [Parameter]
+    public string SecondaryActionIcon { get; set; } = Icons.Material.Outlined.Delete;
+
+    [Parameter]
+    public EventCallback OnSecondaryActionClick { get; set; }
+
+    [Parameter]
+    public string Size { get; set; } = "standard";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool HasLeadingIcon => !string.IsNullOrWhiteSpace(LeadingIcon);
+
+    private bool HasSecondaryAction => OnSecondaryActionClick.HasDelegate;
+
+    private string NormalizedSize => Size switch
+    {
+        "compact" => "compact",
+        "large" => "large",
+        _ => "standard",
+    };
+
+    private string NormalizedActionVariant => ActionVariant switch
+    {
+        "plain" => "plain",
+        _ => "circle",
+    };
+
+    private string NormalizedKind => Kind switch
+    {
+        "add" => "add",
+        _ => "position",
+    };
+
+    private string NormalizedPresentation => Presentation switch
+    {
+        "list" => "list",
+        _ => "card",
+    };
+
+    private string ResolvedAriaLabel => string.IsNullOrWhiteSpace(AriaLabel)
+        ? string.Join(" ", new[] { ActionLabel, Title, PositionText }.Where(value => !string.IsNullOrWhiteSpace(value)))
+        : AriaLabel;
+
+    private string ResolvedSecondaryActionLabel => string.IsNullOrWhiteSpace(SecondaryActionLabel)
+        ? $"Remove {Title}"
+        : SecondaryActionLabel;
+
+    private string ShellClass => string.Join(" ", new[]
+    {
+        "playback-position-row-shell",
+        $"playback-position-row-shell--{NormalizedSize}",
+        $"playback-position-row-shell--{NormalizedKind}",
+        $"playback-position-row-shell--{NormalizedPresentation}",
+        HasSecondaryAction ? "has-secondary" : null,
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string ButtonClass => string.Join(" ", new[]
+    {
+        "playback-position-row",
+        $"playback-position-row--{NormalizedSize}",
+        $"playback-position-row--{NormalizedKind}",
+        $"playback-position-row--{NormalizedPresentation}",
+        $"playback-position-row--action-{NormalizedActionVariant}",
+        HasLeadingIcon ? "has-leading" : null,
+        HasSecondaryAction ? "has-secondary" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private Task HandleClickAsync(MouseEventArgs _) => OnClick.InvokeAsync();
+
+    private Task HandleSecondaryClickAsync(MouseEventArgs _) => OnSecondaryActionClick.InvokeAsync();
+}

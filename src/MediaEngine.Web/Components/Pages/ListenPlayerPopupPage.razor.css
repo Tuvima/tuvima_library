@@ -45,10 +45,8 @@
 .listen-popup__music-actions,
 .listen-popup__time-row,
 .listen-popup-sheet__row,
-.listen-popup-sheet__row-main,
 .listen-popup-sheet__toolbar,
-.listen-popup-sheet__speed-row,
-.listen-popup-sheet__primary {
+.listen-popup-sheet__speed-row {
     display: flex;
     align-items: center;
 }
@@ -61,10 +59,7 @@
 .listen-popup__transport-icon,
 .listen-popup__sheet-action,
 .listen-popup-sheet__row,
-.listen-popup-sheet__row-main,
-.listen-popup-sheet__delete,
 .listen-popup-sheet__speed-row,
-.listen-popup-sheet__primary,
 .listen-popup-sheet__timer {
     border: 0;
     cursor: pointer;
@@ -243,17 +238,6 @@
     flex-direction: column;
 }
 
-.listen-popup-sheet__delete {
-    width: 52px;
-    height: 52px;
-    border-radius: 999px;
-    background: transparent;
-    color: rgba(248, 250, 252, 0.9);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
 .listen-popup-sheet__backdrop {
     position: absolute;
     inset: 0;
@@ -331,23 +315,6 @@
     white-space: nowrap;
 }
 
-.listen-popup-sheet__row--split {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 0;
-}
-
-.listen-popup-sheet__row-main {
-    min-width: 0;
-    min-height: 72px;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 12px 10px;
-    background: transparent;
-    color: inherit;
-    text-align: left;
-}
-
 .listen-popup-sheet__radio {
     width: 22px;
     height: 22px;
@@ -364,16 +331,6 @@
 
 .listen-popup-sheet__toolbar {
     padding: 0 34px 18px;
-}
-
-.listen-popup-sheet__primary {
-    min-height: 48px;
-    border-radius: 999px;
-    background: var(--listen-accent);
-    color: #07111f;
-    gap: 8px;
-    padding: 0 18px;
-    font-weight: 850;
 }
 
 .listen-popup-sheet__timer-grid {
@@ -506,11 +463,8 @@
 }
 
 ::deep .listen-popup-sheet__row,
-::deep .listen-popup-sheet__row-main,
 ::deep .listen-popup-sheet__speed-row,
-::deep .listen-popup-sheet__primary,
-::deep .listen-popup-sheet__timer,
-::deep .listen-popup-sheet__delete {
+::deep .listen-popup-sheet__timer {
     border: 0;
     cursor: pointer;
 }

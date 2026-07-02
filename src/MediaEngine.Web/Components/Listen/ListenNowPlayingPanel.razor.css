@@ -344,9 +344,7 @@
 }
 
 .listen-now-panel__sheet-row,
-.listen-now-panel__sheet-primary,
-.listen-now-panel__timer,
-.listen-now-panel__delete {
+.listen-now-panel__timer {
     border: 0;
     background: transparent;
     color: rgba(226, 232, 240, 0.84);
@@ -420,45 +418,12 @@
     justify-content: flex-start;
 }
 
-.listen-now-panel__sheet-row--bookmark {
-    min-width: 0;
-    flex: 1;
-    border-bottom: 0;
-}
-
 .listen-now-panel__empty--compact {
     padding-top: 0;
 }
 
 .listen-now-panel__sheet-toolbar {
     padding: 12px 14px 0;
-}
-
-.listen-now-panel__sheet-primary {
-    width: 100%;
-    min-height: 44px;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: rgba(245, 158, 11, 0.16);
-    color: var(--listen-audio-accent);
-    font-weight: 800;
-}
-
-.listen-now-panel__bookmark-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.listen-now-panel__delete {
-    width: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: rgba(203, 213, 225, 0.72);
 }
 
 .listen-now-panel__radio {
@@ -546,9 +511,7 @@
 }
 
 ::deep .listen-now-panel__sheet-row,
-::deep .listen-now-panel__sheet-primary,
-::deep .listen-now-panel__timer,
-::deep .listen-now-panel__delete {
+::deep .listen-now-panel__timer {
     border: 0;
     background: transparent;
     color: rgba(226, 232, 240, 0.84);

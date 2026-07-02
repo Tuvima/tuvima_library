@@ -119,25 +119,34 @@
                                 }
                                 else
                                 {
-                                    @foreach (var item in Playback.AudiobookHistory)
-                                    {
-                                        <PlaybackHistoryRow Class="listen-player-panel__history-row"
-                                                            Size="compact"
-                                                            Title="@HistoryTitle(item)"
-                                                            PositionText="@HistoryPositionText(item)"
-                                                            TimestampText="@HistorySubtitle(item)"
-                                                            OnClick="@(() => PlayAudiobookHistoryFromPanelAsync(item))"
-                                                            AriaLabel="@($"Resume {HistoryTitle(item)} from {HistoryPositionText(item)}")" />
-                                    }
+                                    <PlaybackPositionList Class="listen-player-panel__position-list">
+                                        @foreach (var item in Playback.AudiobookHistory)
+                                        {
+                                            <PlaybackPositionRow Class="listen-player-panel__history-row"
+                                                                 Size="compact"
+                                                                 Presentation="list"
+                                                                 Title="@HistoryTitle(item)"
+                                                                 PositionText="@HistoryPositionText(item)"
+                                                                 TimestampText="@HistorySubtitle(item)"
+                                                                 OnClick="@(() => PlayAudiobookHistoryFromPanelAsync(item))"
+                                                                 AriaLabel="@($"Resume {HistoryTitle(item)} from {HistoryPositionText(item)}")" />
+                                        }
+                                    </PlaybackPositionList>
                                 }
                             </div>
                             break;
                         case "bookmarks":
                             <div class="listen-player-panel__sheet-toolbar">
-                                <AppNativeButton Type="button" Class="listen-player-panel__tool-primary" OnClick="AddAudiobookBookmarkFromPanelAsync" AriaLabel="Add bookmark at current position" title="Add bookmark at current position">
-                                    <MudIcon Icon="@Icons.Material.Outlined.BookmarkAdd" Class="tl-u-font-size-20px" />
-                                    <span>Add bookmark at @FormatTimestamp(Playback.CurrentTimeSeconds)</span>
-                                </AppNativeButton>
+                                <PlaybackPositionRow Class="listen-player-panel__bookmark-add"
+                                                     Kind="add"
+                                                     Size="compact"
+                                                     Title="@($"Add bookmark at {FormatTimestamp(Playback.CurrentTimeSeconds)}")"
+                                                     LeadingIcon="@Icons.Material.Outlined.BookmarkAdd"
+                                                     ActionIcon="@Icons.Material.Outlined.ChevronRight"
+                                                     ActionLabel=""
+                                                     ActionVariant="plain"
+                                                     OnClick="AddAudiobookBookmarkFromPanelAsync"
+                                                     AriaLabel="Add bookmark at current position" />
                             </div>
                             <div class="listen-player-panel__tool-list">
                                 @if (Playback.AudiobookBookmarks.Count == 0)
@@ -146,21 +155,21 @@
                                 }
                                 else
                                 {
-                                    @foreach (var bookmark in Playback.AudiobookBookmarks)
-                                    {
-                                        <div class="listen-player-panel__bookmark-row">
-                                            <AppNativeButton Type="button" Class="listen-player-panel__tool-row listen-player-panel__tool-row--bookmark" OnClick="@(() => PlayAudiobookBookmarkFromPanelAsync(bookmark))" AriaLabel="@($"Resume bookmark {BookmarkTitle(bookmark)}")" title="@($"Resume bookmark {BookmarkTitle(bookmark)}")">
-                                                <span class="listen-player-panel__tool-copy">
-                                                    <strong>@BookmarkTitle(bookmark)</strong>
-                                                    <span>@bookmark.CreatedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</span>
-                                                </span>
-                                                <span class="listen-player-panel__resume">Resume</span>
-                                            </AppNativeButton>
-                                            <AppNativeButton Type="button" Class="listen-player-panel__item-remove" OnClick="@(() => DeleteAudiobookBookmarkFromPanelAsync(bookmark.Id))" AriaLabel="Delete bookmark" title="Delete bookmark">
-                                                <MudIcon Icon="@Icons.Material.Outlined.Delete" Class="tl-u-font-size-18px" />
-                                            </AppNativeButton>
-                                        </div>
-                                    }
+                                    <PlaybackPositionList Class="listen-player-panel__position-list">
+                                        @foreach (var bookmark in Playback.AudiobookBookmarks)
+                                        {
+                                            <PlaybackPositionRow Class="listen-player-panel__bookmark-row"
+                                                                 Size="compact"
+                                                                 Presentation="list"
+                                                                 Title="@BookmarkTitle(bookmark)"
+                                                                 PositionText="@BookmarkPositionText(bookmark)"
+                                                                 TimestampText="@BookmarkSubtitle(bookmark)"
+                                                                 LeadingIcon="@Icons.Material.Outlined.BookmarkBorder"
+                                                                 ActionLabel="Go to"
+                                                                 OnClick="@(() => PlayAudiobookBookmarkFromPanelAsync(bookmark))"
+                                                                 AriaLabel="@($"Go to bookmark {BookmarkTitle(bookmark)} at {BookmarkPositionText(bookmark)}")" />
+                                        }
+                                    </PlaybackPositionList>
                                 }
                             </div>
                             break;
@@ -1293,6 +1302,12 @@
 
     private static string BookmarkTitle(AudiobookBookmarkDto item) =>
         FirstNonBlank(item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");
+
+    private static string BookmarkPositionText(AudiobookBookmarkDto item) =>
+        $"Position {FormatTimestamp(item.PositionSeconds)}";
+
+    private static string BookmarkSubtitle(AudiobookBookmarkDto item) =>
+        $"{item.CreatedAt.LocalDateTime.ToString("MMM d, yyyy", CultureInfo.CurrentCulture)} - {item.CreatedAt.LocalDateTime.ToString("h:mm tt", CultureInfo.CurrentCulture)}";
 
     private static bool IsAudiobook(ListenQueueItem item)
         => MediaKindClassifier.IsAudiobook(item.MediaType);

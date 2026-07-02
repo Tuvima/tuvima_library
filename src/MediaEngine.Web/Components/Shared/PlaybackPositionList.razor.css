@@ -1,0 +1,7 @@
+.playback-position-list {
+    background: rgba(15, 30, 48, 0.58);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+    width: 100%;
+}
