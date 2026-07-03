@@ -118,18 +118,8 @@
         "panel" => "standard",
         _ => "compact",
     };
-    private string TrackIconClass => Variant switch
-    {
-        "panel" => "tl-u-font-size-20px",
-        "popup" => "tl-u-font-size-36px",
-        _ => "tl-u-font-size-20px",
-    };
-    private string SkipIconClass => Variant switch
-    {
-        "panel" => "tl-u-font-size-32px",
-        "popup" => "tl-u-font-size-36px",
-        _ => "tl-u-font-size-20px",
-    };
+    private string TrackIconClass => "listen-transport__secondary-icon";
+    private string SkipIconClass => "listen-transport__secondary-icon";
     private string SkipButtonSize => Variant switch
     {
         "popup" => "large",

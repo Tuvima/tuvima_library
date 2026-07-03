@@ -25,9 +25,9 @@
 
     <PlaybackRangeSlider Value="@SliderValue"
                          Min="0"
-                         Max="@SliderMaxIndex"
-                         Step="1"
-                         InputStep="1"
+                         Max="@SliderMaxMinutes"
+                         Step="@SliderStepMinutes"
+                         InputStep="@SliderStepMinutes"
                          TickValues="@SliderTicks"
                          SnapValueToStep="@(!IsTimerActive)"
                          AriaLabel="Sleep timer minutes"
@@ -91,7 +91,6 @@
                              AriaLabel="@($"Decrease sleep timer by {FineStepMinutes} minutes")">
                 <span>- @FineStepMinutes min</span>
             </AppNativeButton>
-            <span class="playback-sleep-timer__step-label">Adjust in @FineStepMinutes-minute steps</span>
             <AppNativeButton Type="button"
                              Class="playback-sleep-timer__step playback-sleep-timer__step--increase"
                              OnClick="@(() => AdjustTimerAsync(FineStepMinutes))"
@@ -170,16 +169,16 @@
 
     private IReadOnlyList<SleepTimerStop> SliderStops =>
         new[] { new SleepTimerStop(0, null, "Off") }
-            .Concat(MajorPresetMinutes.Select((minutes, index) => new SleepTimerStop(index + 1, minutes, $"{minutes}\nmin")))
+            .Concat(MajorPresetMinutes.Select(minutes => new SleepTimerStop(minutes, minutes, $"{minutes}\nmin")))
             .ToList();
 
     private IReadOnlyList<double> SliderTicks => SliderStops
-        .Select(stop => (double)stop.Index)
+        .Select(stop => (double)stop.Value)
         .ToList();
 
-    private int SliderMaxIndex => Math.Max(1, SliderStops[^1].Index);
-
     private int SliderStepMinutes => Math.Max(1, FineStepMinutes);
+
+    private int SliderMaxMinutes => Math.Max(SliderStepMinutes, SliderStops[^1].Value);
 
     private int RemainingMinutes
     {
@@ -204,7 +203,7 @@
     private bool IsEndOfSectionActive =>
         string.Equals(Mode, EndOfSectionMode, StringComparison.Ordinal);
 
-    private double SliderValue => IsTimerActive ? PositionForRemainingMinutes(RemainingMinutes) : 0d;
+    private double SliderValue => IsTimerActive ? Math.Clamp(RemainingMinutes, 0, SliderMaxMinutes) : 0d;
 
     private bool CanDecrease => IsTimerActive && RemainingMinutes > 0;
 
@@ -263,9 +262,8 @@
 
     private Task SetTimerFromSliderAsync(double value)
     {
-        var index = Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 0, SliderMaxIndex);
-        var stop = SliderStops.FirstOrDefault(item => item.Index == index);
-        return SetTimerMinutesAsync(stop?.Minutes);
+        var minutes = ClampToTimerStep((int)Math.Round(value, MidpointRounding.AwayFromZero));
+        return SetTimerMinutesAsync(minutes <= 0 ? null : minutes);
     }
 
     private Task SetTimerMinutesAsync(int? minutes) =>
@@ -284,40 +282,16 @@
     private bool IsPresetActive(int minutes) =>
         IsTimerActive && ActivePresetMinutes == minutes;
 
-    private double PositionForRemainingMinutes(int minutes)
+    private int ClampToTimerStep(int minutes)
     {
-        if (minutes <= 0 || SliderStops.Count <= 1)
+        var clamped = Math.Clamp(minutes, 0, SliderMaxMinutes);
+        if (SliderStepMinutes <= 1)
         {
-            return 0d;
+            return clamped;
         }
 
-        var minuteStops = SliderStops.Where(stop => stop.Minutes.HasValue).ToList();
-        if (minuteStops.Count == 0)
-        {
-            return 0d;
-        }
-
-        if (minutes <= minuteStops[0].Minutes!.Value)
-        {
-            return minuteStops[0].Index;
-        }
-
-        for (var i = 1; i < minuteStops.Count; i++)
-        {
-            var previous = minuteStops[i - 1];
-            var next = minuteStops[i];
-            if (minutes > next.Minutes!.Value)
-            {
-                continue;
-            }
-
-            var span = next.Minutes.Value - previous.Minutes!.Value;
-            return span <= 0
-                ? next.Index
-                : previous.Index + (double)(minutes - previous.Minutes.Value) / span;
-        }
-
-        return minuteStops[^1].Index;
+        var snapped = (int)Math.Round(clamped / (double)SliderStepMinutes, MidpointRounding.AwayFromZero) * SliderStepMinutes;
+        return Math.Clamp(snapped, 0, SliderMaxMinutes);
     }
 
     private string PresetClass(bool isActive) => string.Join(" ", new[]
@@ -333,15 +307,14 @@
             return $"{RemainingMinutes} minutes remaining";
         }
 
-        var index = Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 0, SliderMaxIndex);
-        var stop = SliderStops.FirstOrDefault(item => item.Index == index);
-        return stop?.Minutes is { } minutes ? $"{minutes} minutes" : "Off";
+        var minutes = ClampToTimerStep((int)Math.Round(value, MidpointRounding.AwayFromZero));
+        return minutes > 0 ? $"{minutes} minutes" : "Off";
     }
 
     private string FormatSliderTick(double value)
     {
-        var index = Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 0, SliderMaxIndex);
-        return SliderStops.FirstOrDefault(item => item.Index == index)?.Label ?? string.Empty;
+        var minutes = (int)Math.Round(value, MidpointRounding.AwayFromZero);
+        return SliderStops.FirstOrDefault(item => item.Value == minutes)?.Label ?? string.Empty;
     }
 
     public void Dispose()
@@ -355,5 +328,5 @@
         _refreshTimer = null;
     }
 
-    private sealed record SleepTimerStop(int Index, int? Minutes, string Label);
+    private sealed record SleepTimerStop(int Value, int? Minutes, string Label);
 }

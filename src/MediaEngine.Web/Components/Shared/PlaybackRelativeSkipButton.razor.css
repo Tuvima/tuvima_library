@@ -1,29 +1,31 @@
 .playback-relative-skip {
+    --playback-relative-skip-size: 58px;
+    --playback-relative-skip-svg-size: 54px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     align-self: center;
     justify-self: center;
-    width: 66px;
-    height: 58px;
+    width: var(--playback-relative-skip-size);
+    height: var(--playback-relative-skip-size);
     color: rgba(248, 250, 252, 0.96);
 }
 
 .playback-relative-skip--compact {
-    width: 62px;
-    height: 54px;
+    --playback-relative-skip-size: 50px;
+    --playback-relative-skip-svg-size: 48px;
 }
 
 .playback-relative-skip--large {
-    width: 72px;
-    height: 64px;
+    --playback-relative-skip-size: 64px;
+    --playback-relative-skip-svg-size: 60px;
 }
 
 .playback-relative-skip ::deep .playback-relative-skip__button {
     position: relative;
-    width: 58px;
-    height: 58px;
-    min-width: 58px;
+    width: var(--playback-relative-skip-size);
+    height: var(--playback-relative-skip-size);
+    min-width: var(--playback-relative-skip-size);
     border: 0;
     border-radius: 999px;
     background: transparent;
@@ -35,18 +37,6 @@
     padding: 0;
     box-shadow: none;
     transition: transform 110ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
-}
-
-.playback-relative-skip--compact ::deep .playback-relative-skip__button {
-    width: 50px;
-    height: 50px;
-    min-width: 50px;
-}
-
-.playback-relative-skip--large ::deep .playback-relative-skip__button {
-    width: 62px;
-    height: 62px;
-    min-width: 62px;
 }
 
 .playback-relative-skip ::deep .playback-relative-skip__button:hover,
@@ -62,20 +52,10 @@
 
 .playback-relative-skip ::deep .playback-relative-skip__svg {
     display: block;
-    width: 56px;
-    height: 56px;
+    width: var(--playback-relative-skip-svg-size);
+    height: var(--playback-relative-skip-svg-size);
     pointer-events: none;
     overflow: visible;
-}
-
-.playback-relative-skip--compact ::deep .playback-relative-skip__svg {
-    width: 48px;
-    height: 48px;
-}
-
-.playback-relative-skip--large ::deep .playback-relative-skip__svg {
-    width: 60px;
-    height: 60px;
 }
 
 .playback-relative-skip ::deep .playback-relative-skip__glyph {
@@ -117,18 +97,7 @@
 
 @media (max-width: 640px) {
     .playback-relative-skip--large {
-        width: 62px;
-        height: 58px;
-    }
-
-    .playback-relative-skip--large ::deep .playback-relative-skip__button {
-        width: 54px;
-        height: 54px;
-        min-width: 54px;
-    }
-
-    .playback-relative-skip--large ::deep .playback-relative-skip__svg {
-        width: 52px;
-        height: 52px;
+        --playback-relative-skip-size: 58px;
+        --playback-relative-skip-svg-size: 54px;
     }
 }
