@@ -1,0 +1,92 @@
+.playback-range-slider {
+    width: 100%;
+}
+
+.playback-range-slider__rail {
+    position: relative;
+    padding: 18px 4px 8px;
+}
+
+.playback-range-slider__input {
+    --playback-range-accent: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
+    appearance: none;
+    background: linear-gradient(
+        to right,
+        var(--playback-range-accent) 0%,
+        var(--playback-range-accent) var(--playback-range-percent),
+        rgba(148, 163, 184, 0.34) var(--playback-range-percent),
+        rgba(148, 163, 184, 0.34) 100%);
+    border-radius: 999px;
+    cursor: pointer;
+    display: block;
+    height: 4px;
+    position: relative;
+    width: 100%;
+    z-index: 2;
+}
+
+.playback-range-slider__input:focus-visible {
+    outline: 2px solid rgba(147, 197, 253, 0.72);
+    outline-offset: 12px;
+}
+
+.playback-range-slider__input::-webkit-slider-thumb {
+    appearance: none;
+    background: rgba(13, 25, 40, 0.98);
+    border: 4px solid var(--playback-range-accent);
+    border-radius: 999px;
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.2), 0 0 22px rgba(245, 158, 11, 0.42);
+    height: 34px;
+    width: 34px;
+}
+
+.playback-range-slider__input::-moz-range-thumb {
+    background: rgba(13, 25, 40, 0.98);
+    border: 4px solid var(--playback-range-accent);
+    border-radius: 999px;
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.2), 0 0 22px rgba(245, 158, 11, 0.42);
+    height: 26px;
+    width: 26px;
+}
+
+.playback-range-slider__ticks {
+    inset: 6px 4px auto;
+    pointer-events: none;
+    position: absolute;
+    z-index: 1;
+}
+
+.playback-range-slider__ticks span {
+    background: rgba(203, 213, 225, 0.5);
+    display: block;
+    height: 28px;
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    width: 2px;
+}
+
+.playback-range-slider__labels {
+    color: rgba(203, 213, 225, 0.82);
+    font-size: 0.92rem;
+    font-weight: 750;
+    height: 38px;
+    line-height: 1.2;
+    margin-top: 8px;
+    position: relative;
+}
+
+.playback-range-slider__labels span {
+    position: absolute;
+    text-align: center;
+    transform: translateX(-50%);
+    white-space: pre-line;
+}
+
+.playback-range-slider__labels span:first-child {
+    transform: translateX(0);
+}
+
+.playback-range-slider__labels span:last-child {
+    transform: translateX(-100%);
+}

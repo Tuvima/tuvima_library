@@ -414,28 +414,12 @@
     font-variant-numeric: tabular-nums;
 }
 
-.listen-now-panel__sheet-row--speed {
-    justify-content: flex-start;
-}
-
 .listen-now-panel__empty--compact {
     padding-top: 0;
 }
 
 .listen-now-panel__sheet-toolbar {
     padding: 12px 14px 0;
-}
-
-.listen-now-panel__radio {
-    width: 18px;
-    height: 18px;
-    border: 2px solid rgba(203, 213, 225, 0.68);
-    border-radius: 999px;
-    display: inline-block;
-}
-
-.listen-now-panel__sheet-row--speed.is-active .listen-now-panel__radio {
-    border: 6px solid var(--listen-audio-accent);
 }
 
 .listen-now-panel__timer-grid {

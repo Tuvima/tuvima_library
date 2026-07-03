@@ -413,10 +413,6 @@
         color: var(--tl-status-warning, #f59e0b);
     }
 
-    ::deep .listen-player-panel__tool-row--speed {
-        justify-content: flex-start;
-    }
-
     ::deep .listen-player-panel__tool-row--chapter {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 4.5rem;
@@ -455,18 +451,6 @@
         font-size: 0.8rem;
         font-weight: 800;
         white-space: nowrap;
-    }
-
-    .listen-player-panel__radio {
-        width: 18px;
-        height: 18px;
-        flex: 0 0 auto;
-        border: 2px solid rgba(226, 232, 240, 0.72);
-        border-radius: 999px;
-    }
-
-    ::deep .listen-player-panel__tool-row--speed.is-active .listen-player-panel__radio {
-        border: 6px solid var(--tl-status-warning, #f59e0b);
     }
 
     .listen-player-panel__empty--compact {

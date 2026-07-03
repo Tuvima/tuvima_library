@@ -80,15 +80,10 @@
                     @switch (_activeAudiobookPanelTool)
                     {
                         case "speed":
-                            <div class="listen-player-panel__tool-list">
-                                @foreach (var rate in SpeedRates)
-                                {
-                                    <AppNativeButton Type="button" Class="@($"listen-player-panel__tool-row listen-player-panel__tool-row--speed {(Math.Abs(rate - Playback.PlaybackRate) < 0.01d ? "is-active" : null)}")" OnClick="@(() => SetAudiobookSpeedAsync(rate))" AriaLabel="@($"Set speed to {FormatSpeed(rate)}")" title="@($"Set speed to {FormatSpeed(rate)}")">
-                                        <span class="listen-player-panel__radio"></span>
-                                        <strong>@FormatSpeed(rate)</strong>
-                                    </AppNativeButton>
-                                }
-                            </div>
+                            <PlaybackSpeedControl Value="@Playback.PlaybackRate"
+                                                  ValueChanged="SetAudiobookSpeedAsync"
+                                                  Size="compact"
+                                                  Class="listen-player-panel__speed-control" />
                             break;
                         case "chapters":
                             <div class="listen-player-panel__tool-list">
@@ -174,18 +169,17 @@
                             </div>
                             break;
                         case "sleep":
-                            <div class="listen-player-panel__tool-list">
-                                @SleepTimerRow("Off", null, null)
-                                @foreach (var minutes in Playback.SleepTimerOptionsMinutes)
-                                {
-                                    @SleepTimerRow($"{minutes} min", minutes, null)
-                                }
-                                @if (Playback.AllowEndOfChapterSleepTimer)
-                                {
-                                    @SleepTimerRow("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
-                                }
-                                <div class="listen-player-panel__empty listen-player-panel__empty--compact">Current timer: @Playback.SleepTimerLabel</div>
-                            </div>
+                            <PlaybackSleepTimerControl OptionsMinutes="@Playback.SleepTimerOptionsMinutes"
+                                                       Mode="@Playback.SleepTimerMode"
+                                                       TimerMode="@ListenSleepTimerModes.Timer"
+                                                       OffMode="@ListenSleepTimerModes.Off"
+                                                       EndOfSectionMode="@ListenSleepTimerModes.EndOfChapter"
+                                                       EndsAtUtc="@Playback.SleepTimerEndsAtUtc"
+                                                       AllowEndOfSection="@Playback.AllowEndOfChapterSleepTimer"
+                                                       TimerMinutesChanged="SetAudiobookSleepTimerMinutesAsync"
+                                                       EndOfSectionChanged="SetAudiobookSleepTimerEndOfChapterAsync"
+                                                       Size="compact"
+                                                       Class="listen-player-panel__sleep-control" />
                             break;
                     }
                 }
@@ -402,7 +396,6 @@
     private const string PopupRoute = "/listen/player-popup";
 
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly IReadOnlyList<double> SpeedRates = Enumerable.Range(5, 26).Select(value => value / 10d).ToList();
     private ElementReference _audioRef;
     private ElementReference _playerShellRef;
     private DotNetObjectReference<ListenNowPlayingBar>? _selfReference;
@@ -991,7 +984,6 @@
     private async Task SetAudiobookSpeedAsync(double rate)
     {
         await ApplyPlaybackRateAsync(rate);
-        Playback.ClosePanel();
     }
 
     private async Task PlayAudiobookChapterFromPanelAsync(int chapterIndex)
@@ -1021,22 +1013,17 @@
     private Task DeleteAudiobookBookmarkFromPanelAsync(Guid bookmarkId) =>
         Playback.DeleteAudiobookBookmarkAsync(bookmarkId);
 
-    private RenderFragment SleepTimerRow(string label, int? minutes, string? mode) => @<AppNativeButton Type="button" Class="@($"listen-player-panel__tool-row listen-player-panel__tool-row--timer {(IsTimerActive(minutes, mode) ? "is-active" : null)}")" OnClick="@(() => SetAudiobookSleepTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")" title="@($"Set sleep timer to {label}")">
-        <span class="listen-player-panel__tool-copy">
-            <strong>@label</strong>
-        </span>
-        @if (IsTimerActive(minutes, mode))
-        {
-            <span class="listen-player-panel__resume">Active</span>
-        }
-    </AppNativeButton>;
+    private Task SetAudiobookSleepTimerMinutesAsync(int? minutes) =>
+        SetAudiobookSleepTimerAsync(minutes, null);
+
+    private Task SetAudiobookSleepTimerEndOfChapterAsync() =>
+        SetAudiobookSleepTimerAsync(null, ListenSleepTimerModes.EndOfChapter);
 
     private async Task SetAudiobookSleepTimerAsync(int? minutes, string? mode)
     {
         if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
         {
             await Playback.SetSleepTimerEndOfChapterAsync();
-            Playback.ClosePanel();
             return;
         }
 
@@ -1048,25 +1035,6 @@
         {
             await Playback.CancelSleepTimerAsync();
         }
-
-        Playback.ClosePanel();
-    }
-
-    private bool IsTimerActive(int? minutes, string? mode)
-    {
-        if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
-        {
-            return Playback.SleepTimerMode == ListenSleepTimerModes.EndOfChapter;
-        }
-
-        if (!minutes.HasValue)
-        {
-            return Playback.SleepTimerMode == ListenSleepTimerModes.Off;
-        }
-
-        return Playback.SleepTimerMode == ListenSleepTimerModes.Timer
-            && Playback.SleepTimerEndsAtUtc.HasValue
-            && Math.Abs((Playback.SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalMinutes - minutes.Value) < 1.2d;
     }
 
     private bool IsCurrentChapter(PlaybackChapterDto chapter) =>

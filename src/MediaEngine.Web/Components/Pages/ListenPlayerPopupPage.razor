@@ -144,15 +144,9 @@
                 @switch (_activeSheet)
                 {
                     case "speed":
-                        <PlaybackSheetList Class="listen-popup-sheet__list" Variant="speed">
-                            @foreach (var rate in SpeedRates)
-                            {
-                                <PlaybackSheetRow Variant="select" Class="listen-popup-sheet__speed-row" IsActive="@(Math.Abs(rate - _snapshot.PlaybackRate) < 0.01d)" OnClick="@(() => SetSpeedAsync(rate))" AriaLabel="@($"Set speed to {FormatSpeed(rate)}")">
-                                    <span class="playback-sheet-row__radio"></span>
-                                    <span>@FormatSpeed(rate)</span>
-                                </PlaybackSheetRow>
-                            }
-                        </PlaybackSheetList>
+                        <PlaybackSpeedControl Value="@_snapshot.PlaybackRate"
+                                              ValueChanged="SetSpeedAsync"
+                                              Class="listen-popup-sheet__speed-control" />
                         break;
                     case "chapters":
                         <PlaybackSheetList Class="listen-popup-sheet__list">
@@ -237,18 +231,16 @@
                         </PlaybackSheetList>
                         break;
                     case "sleep":
-                        <PlaybackSheetList Class="listen-popup-sheet__list">
-                            @TimerRow("Off", null, null)
-                            @foreach (var minutes in _snapshot.SleepTimerOptionsMinutes)
-                            {
-                                @TimerRow($"{minutes} min", minutes, null)
-                            }
-                            @if (_snapshot.AllowEndOfChapterSleepTimer)
-                            {
-                                @TimerRow("End of chapter", null, ListenSleepTimerModes.EndOfChapter)
-                            }
-                        </PlaybackSheetList>
-                        <div class="listen-popup-sheet__empty listen-popup-sheet__empty--compact">Current timer: @SleepTimerDisplay</div>
+                        <PlaybackSleepTimerControl OptionsMinutes="@_snapshot.SleepTimerOptionsMinutes"
+                                                   Mode="@_snapshot.SleepTimerMode"
+                                                   TimerMode="@ListenSleepTimerModes.Timer"
+                                                   OffMode="@ListenSleepTimerModes.Off"
+                                                   EndOfSectionMode="@ListenSleepTimerModes.EndOfChapter"
+                                                   EndsAtUtc="@_snapshot.SleepTimerEndsAtUtc"
+                                                   AllowEndOfSection="@_snapshot.AllowEndOfChapterSleepTimer"
+                                                   TimerMinutesChanged="SetTimerMinutesAsync"
+                                                   EndOfSectionChanged="SetTimerEndOfChapterAsync"
+                                                   Class="listen-popup-sheet__sleep-control" />
                         break;
                 }
             </PlaybackToolSheet>
@@ -278,7 +270,6 @@
 </PlaybackPopoutShell>
 
 @code {
-    private static readonly IReadOnlyList<double> SpeedRates = Enumerable.Range(5, 26).Select(value => value / 10d).ToList();
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
     private ListenPlaybackSnapshot _snapshot = new();
     private DotNetObjectReference<ListenPlayerPopupPage>? _selfReference;
@@ -328,7 +319,7 @@
     };
     private string SheetSubtitle => _activeSheet switch
     {
-        "speed" => "Choose playback speed",
+        "speed" => "Adjust playback speed",
         "chapters" => string.Empty,
         "history" => "Recent listening positions",
         "bookmarks" => "Saved audiobook positions",
@@ -346,13 +337,6 @@
                 IsSleepTimerActive: _snapshot.SleepTimerMode != ListenSleepTimerModes.Off,
                 HistoryCount: _snapshot.AudiobookHistory.Count,
                 BookmarkCount: _snapshot.AudiobookBookmarks.Count));
-    private string SleepTimerDisplay => _snapshot.SleepTimerMode switch
-    {
-        ListenSleepTimerModes.EndOfChapter => "End of chapter",
-        ListenSleepTimerModes.Timer when _snapshot.SleepTimerEndsAtUtc.HasValue => $"{Math.Max(1, (int)Math.Ceiling((_snapshot.SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalMinutes))} min",
-        _ => "Off",
-    };
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -405,16 +389,6 @@
 
         ToggleSheet(control.Sheet);
     }
-
-    private RenderFragment TimerRow(string label, int? minutes, string? mode) => @<PlaybackSheetRow Variant="timer" Class="listen-popup-sheet__row listen-popup-sheet__row--timer" IsActive="@IsTimerActive(minutes, mode)" OnClick="@(() => SetTimerAsync(minutes, mode))" AriaLabel="@($"Set sleep timer to {label}")">
-        <span class="playback-sheet-row__copy listen-popup-sheet__copy">
-            <strong>@label</strong>
-        </span>
-        @if (IsTimerActive(minutes, mode))
-        {
-            <span class="playback-sheet-row__resume listen-popup-sheet__resume">Active</span>
-        }
-    </PlaybackSheetRow>;
 
     private void ToggleSheet(string sheet)
     {
@@ -537,29 +511,35 @@
     private Task ToggleMuteAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-mute" });
     private async Task SetSpeedAsync(double rate)
     {
+        _snapshot = _snapshot with { PlaybackRate = Math.Clamp(rate, 0.5d, 2.5d) };
         await SendCommandAsync(new PopupCommand { Action = "set-speed", Value = rate });
-        CloseSheet();
     }
+
+    private Task SetTimerMinutesAsync(int? minutes) =>
+        SetTimerAsync(minutes, null);
+
+    private Task SetTimerEndOfChapterAsync() =>
+        SetTimerAsync(null, ListenSleepTimerModes.EndOfChapter);
 
     private async Task SetTimerAsync(int? minutes, string? mode)
     {
         if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
         {
+            _snapshot = _snapshot with { SleepTimerMode = ListenSleepTimerModes.EndOfChapter, SleepTimerEndsAtUtc = null };
             await SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMode = mode });
-            CloseSheet();
             return;
         }
 
         if (minutes.HasValue)
         {
+            _snapshot = _snapshot with { SleepTimerMode = ListenSleepTimerModes.Timer, SleepTimerEndsAtUtc = DateTimeOffset.UtcNow.AddMinutes(minutes.Value) };
             await SendCommandAsync(new PopupCommand { Action = "set-sleep-timer", TimerMinutes = minutes });
         }
         else
         {
+            _snapshot = _snapshot with { SleepTimerMode = ListenSleepTimerModes.Off, SleepTimerEndsAtUtc = null };
             await SendCommandAsync(new PopupCommand { Action = "cancel-sleep-timer" });
         }
-
-        CloseSheet();
     }
 
     private async Task ClosePopupWindowAsync()
@@ -593,23 +573,6 @@
 
     private Task SendCommandAsync(PopupCommand command)
         => JS.InvokeVoidAsync("listenPlayback.sendCommand", JsonSerializer.Serialize(command, _jsonOptions)).AsTask();
-
-    private bool IsTimerActive(int? minutes, string? mode)
-    {
-        if (string.Equals(mode, ListenSleepTimerModes.EndOfChapter, StringComparison.Ordinal))
-        {
-            return _snapshot.SleepTimerMode == ListenSleepTimerModes.EndOfChapter;
-        }
-
-        if (!minutes.HasValue)
-        {
-            return _snapshot.SleepTimerMode == ListenSleepTimerModes.Off;
-        }
-
-        return _snapshot.SleepTimerMode == ListenSleepTimerModes.Timer
-            && _snapshot.SleepTimerEndsAtUtc.HasValue
-            && Math.Abs((_snapshot.SleepTimerEndsAtUtc.Value - DateTimeOffset.UtcNow).TotalMinutes - minutes.Value) < 1.2d;
-    }
 
     private bool IsCurrentChapter(PlaybackChapterDto chapter) =>
         _snapshot.CurrentTimeSeconds >= chapter.StartSeconds - 0.5d

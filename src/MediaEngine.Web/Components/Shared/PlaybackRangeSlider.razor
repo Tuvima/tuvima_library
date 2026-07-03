@@ -1,0 +1,187 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Globalization
+@using System.Linq
+@using Microsoft.AspNetCore.Components
+
+<div class="@RootClass">
+    <div class="playback-range-slider__rail">
+        <input type="range"
+               class="playback-range-slider__input"
+               min="@FormatNumber(Min)"
+               max="@FormatNumber(Max)"
+               step="@FormatNumber(ResolvedInputStep)"
+               value="@FormatNumber(CurrentValue)"
+               aria-label="@AriaLabel"
+               aria-valuemin="@FormatNumber(Min)"
+               aria-valuemax="@FormatNumber(Max)"
+               aria-valuenow="@FormatNumber(CurrentValue)"
+               aria-valuetext="@FormattedValue"
+               style="@TrackStyle"
+               @oninput="HandleInputAsync"
+               @onchange="HandleInputAsync"
+               @attributes="AdditionalAttributes" />
+        @if (ShowTicks)
+        {
+            <div class="playback-range-slider__ticks" aria-hidden="true">
+                @foreach (var tick in ResolvedTicks)
+                {
+                    <span style="@TickStyle(tick)"></span>
+                }
+            </div>
+        }
+    </div>
+    @if (ShowTicks)
+    {
+        <div class="playback-range-slider__labels" aria-hidden="true">
+            @foreach (var tick in ResolvedTicks)
+            {
+                <span style="@TickStyle(tick)">@FormatTick(tick)</span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public double Value { get; set; }
+
+    [Parameter]
+    public double Min { get; set; }
+
+    [Parameter]
+    public double Max { get; set; } = 1d;
+
+    [Parameter]
+    public double Step { get; set; } = 0.1d;
+
+    [Parameter]
+    public double TickStep { get; set; } = 0.5d;
+
+    [Parameter]
+    public IReadOnlyList<double>? TickValues { get; set; }
+
+    [Parameter]
+    public bool ShowTicks { get; set; } = true;
+
+    [Parameter]
+    public bool SnapValueToStep { get; set; } = true;
+
+    [Parameter]
+    public double? InputStep { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Playback value";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public Func<double, string>? ValueFormatter { get; set; }
+
+    [Parameter]
+    public Func<double, string>? TickFormatter { get; set; }
+
+    [Parameter]
+    public EventCallback<double> ValueChanged { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private double? _interactiveValue;
+
+    private double CurrentValue => _interactiveValue ?? ExternalValue;
+
+    private double ExternalValue => SnapValueToStep ? ClampToStep(Value) : Math.Clamp(Value, Min, Max);
+
+    private double ResolvedInputStep => InputStep ?? Step;
+
+    private string FormattedValue => FormatTick(CurrentValue);
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-range-slider",
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string TrackStyle => $"--playback-range-percent: {FormatNumber(Percent)}%;";
+
+    private double Percent => Max <= Min
+        ? 0d
+        : Math.Clamp((CurrentValue - Min) / (Max - Min) * 100d, 0d, 100d);
+
+    private IReadOnlyList<double> ResolvedTicks
+    {
+        get
+        {
+            if (TickValues is { Count: > 0 })
+            {
+                return TickValues
+                    .Where(value => value >= Min - 0.001d && value <= Max + 0.001d)
+                    .Distinct()
+                    .Order()
+                    .ToList();
+            }
+
+            if (TickStep <= 0 || Max <= Min)
+            {
+                return [Min, Max];
+            }
+
+            var count = (int)Math.Floor((Max - Min) / TickStep);
+            var ticks = Enumerable.Range(0, count + 1)
+                .Select(index => Math.Round(Min + index * TickStep, 3))
+                .Where(value => value >= Min - 0.001d && value <= Max + 0.001d)
+                .ToList();
+
+            if (ticks.Count == 0 || Math.Abs(ticks[0] - Min) > 0.001d)
+            {
+                ticks.Insert(0, Min);
+            }
+
+            if (Math.Abs(ticks[^1] - Max) > 0.001d)
+            {
+                ticks.Add(Max);
+            }
+
+            return ticks;
+        }
+    }
+
+    private async Task HandleInputAsync(ChangeEventArgs args)
+    {
+        if (args.Value is null || !double.TryParse(args.Value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var next))
+        {
+            return;
+        }
+
+        var snapped = ClampToStep(next);
+        _interactiveValue = snapped;
+        await ValueChanged.InvokeAsync(snapped);
+    }
+
+    protected override void OnParametersSet()
+    {
+        _interactiveValue = null;
+    }
+
+    private double ClampToStep(double value)
+    {
+        var clamped = Math.Clamp(value, Min, Max);
+        if (Step <= 0)
+        {
+            return clamped;
+        }
+
+        var steps = Math.Round((clamped - Min) / Step, MidpointRounding.AwayFromZero);
+        return Math.Round(Min + steps * Step, 3);
+    }
+
+    private string TickStyle(double tick) =>
+        $"left: {FormatNumber(Max <= Min ? 0d : Math.Clamp((tick - Min) / (Max - Min) * 100d, 0d, 100d))}%;";
+
+    private string FormatTick(double value) =>
+        TickFormatter?.Invoke(value) ?? ValueFormatter?.Invoke(value) ?? FormatNumber(value);
+
+    private static string FormatNumber(double value) =>
+        value.ToString("0.###", CultureInfo.InvariantCulture);
+}

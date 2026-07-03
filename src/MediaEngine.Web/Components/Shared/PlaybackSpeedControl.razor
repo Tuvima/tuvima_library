@@ -1,0 +1,127 @@
+@namespace MediaEngine.Web.Components.Shared
+@using System.Globalization
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Web
+
+<section class="@RootClass" aria-label="Playback speed" @attributes="AdditionalAttributes">
+    <div class="playback-speed-control__value">@FormatSpeed(CurrentValue)</div>
+
+    <PlaybackRangeSlider Value="@CurrentValue"
+                         Min="@Min"
+                         Max="@Max"
+                         Step="@Step"
+                         TickStep="0.5"
+                         AriaLabel="Playback speed"
+                         ValueFormatter="FormatSpeed"
+                         ValueChanged="SetValueAsync"
+                         Class="playback-speed-control__slider" />
+
+    <section class="playback-speed-control__section" aria-label="Quick presets">
+        <h3>Quick presets</h3>
+        <div class="playback-speed-control__presets">
+            @foreach (var preset in Presets)
+            {
+                var isActive = Math.Abs(CurrentValue - preset) < 0.01d;
+                <AppNativeButton Type="button"
+                                 Class="@PresetClass(isActive)"
+                                 OnClick="@(() => SetValueAsync(preset))"
+                                 AriaLabel="@($"Set speed to {FormatSpeed(preset)}")"
+                                 aria-pressed="@(isActive ? "true" : null)">
+                    @FormatSpeed(preset)
+                </AppNativeButton>
+            }
+        </div>
+    </section>
+
+    <section class="playback-speed-control__section playback-speed-control__fine" aria-label="Fine adjustment">
+        <h3>Fine adjustment</h3>
+        <div class="playback-speed-control__stepper">
+            <AppNativeButton Type="button" Class="playback-speed-control__step" Disabled="@(CurrentValue <= Min + 0.001d)" OnClick="@(() => AdjustAsync(-Step))" AriaLabel="@($"Decrease speed by {FormatSpeed(Step)}")">
+                <span aria-hidden="true">-</span>
+            </AppNativeButton>
+            <span class="playback-speed-control__step-label">@FormatSpeed(Step) steps</span>
+            <AppNativeButton Type="button" Class="playback-speed-control__step" Disabled="@(CurrentValue >= Max - 0.001d)" OnClick="@(() => AdjustAsync(Step))" AriaLabel="@($"Increase speed by {FormatSpeed(Step)}")">
+                <span aria-hidden="true">+</span>
+            </AppNativeButton>
+        </div>
+    </section>
+
+    <AppNativeButton Type="button" Class="playback-speed-control__reset" Disabled="@(Math.Abs(CurrentValue - ResetValue) < 0.01d)" OnClick="@(() => SetValueAsync(ResetValue))" AriaLabel="@($"Reset speed to {FormatSpeed(ResetValue)}")">
+        <MudIcon Icon="@Icons.Material.Outlined.RestartAlt" Class="playback-speed-control__reset-icon" />
+        <span>Reset to @FormatSpeed(ResetValue)</span>
+    </AppNativeButton>
+</section>
+
+@code {
+    [Parameter]
+    public double Value { get; set; } = 1d;
+
+    [Parameter]
+    public double Min { get; set; } = 0.5d;
+
+    [Parameter]
+    public double Max { get; set; } = 2.5d;
+
+    [Parameter]
+    public double Step { get; set; } = 0.1d;
+
+    [Parameter]
+    public double ResetValue { get; set; } = 1d;
+
+    [Parameter]
+    public IReadOnlyList<double> Presets { get; set; } = [0.8d, 1d, 1.2d, 1.5d, 1.8d, 2d];
+
+    [Parameter]
+    public string Size { get; set; } = "standard";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public EventCallback<double> ValueChanged { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private double CurrentValue => ClampToStep(Value);
+
+    private string NormalizedSize => Size switch
+    {
+        "compact" => "compact",
+        _ => "standard",
+    };
+
+    private string RootClass => string.Join(" ", new[]
+    {
+        "playback-speed-control",
+        $"playback-speed-control--{NormalizedSize}",
+        Class,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private async Task AdjustAsync(double delta) =>
+        await SetValueAsync(CurrentValue + delta);
+
+    private async Task SetValueAsync(double value) =>
+        await ValueChanged.InvokeAsync(ClampToStep(value));
+
+    private double ClampToStep(double value)
+    {
+        var clamped = Math.Clamp(value, Min, Max);
+        if (Step <= 0)
+        {
+            return clamped;
+        }
+
+        var steps = Math.Round((clamped - Min) / Step, MidpointRounding.AwayFromZero);
+        return Math.Round(Min + steps * Step, 3);
+    }
+
+    private string PresetClass(bool isActive) => string.Join(" ", new[]
+    {
+        "playback-speed-control__preset",
+        isActive ? "is-active" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string FormatSpeed(double rate) =>
+        $"{Math.Clamp(rate, 0.1d, 32d).ToString("0.0", CultureInfo.InvariantCulture)}x";
+}
