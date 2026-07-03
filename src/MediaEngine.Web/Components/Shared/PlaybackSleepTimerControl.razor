@@ -19,20 +19,19 @@
             else
             {
                 <strong>Off</strong>
-                <span>0 min</span>
             }
         </div>
     </div>
 
     <PlaybackRangeSlider Value="@SliderValue"
                          Min="0"
-                         Max="@SliderMax"
-                         Step="@SliderStepMinutes"
+                         Max="@SliderMaxIndex"
+                         Step="1"
                          InputStep="1"
                          TickValues="@SliderTicks"
                          SnapValueToStep="@(!IsTimerActive)"
                          AriaLabel="Sleep timer minutes"
-                         ValueFormatter="FormatMinutesValue"
+                         ValueFormatter="FormatSliderValue"
                          TickFormatter="FormatSliderTick"
                          ValueChanged="SetTimerFromSliderAsync"
                          Class="playback-sleep-timer__slider" />
@@ -47,9 +46,8 @@
                              aria-pressed="@(IsOffActive ? "true" : "false")">
                 <MudIcon Icon="@Icons.Material.Outlined.Block" Class="playback-sleep-timer__preset-icon" />
                 <strong>Off</strong>
-                <span>0 min</span>
             </AppNativeButton>
-            @foreach (var minutes in PresetMinutes)
+            @foreach (var minutes in MajorPresetMinutes)
             {
                 var isActive = IsPresetActive(minutes);
                 <AppNativeButton Type="button"
@@ -87,7 +85,7 @@
         <h3>Fine adjustment</h3>
         <div class="playback-sleep-timer__stepper">
             <AppNativeButton Type="button"
-                             Class="playback-sleep-timer__step"
+                             Class="playback-sleep-timer__step playback-sleep-timer__step--decrease"
                              Disabled="@(!CanDecrease)"
                              OnClick="@(() => AdjustTimerAsync(-FineStepMinutes))"
                              AriaLabel="@($"Decrease sleep timer by {FineStepMinutes} minutes")">
@@ -95,7 +93,7 @@
             </AppNativeButton>
             <span class="playback-sleep-timer__step-label">Adjust in @FineStepMinutes-minute steps</span>
             <AppNativeButton Type="button"
-                             Class="playback-sleep-timer__step"
+                             Class="playback-sleep-timer__step playback-sleep-timer__step--increase"
                              OnClick="@(() => AdjustTimerAsync(FineStepMinutes))"
                              AriaLabel="@($"Increase sleep timer by {FineStepMinutes} minutes")">
                 <span>+ @FineStepMinutes min</span>
@@ -161,13 +159,25 @@
         .Order()
         .ToList();
 
-    private IReadOnlyList<double> SliderTicks => new[] { 0d }
-        .Concat(PresetMinutes.Select(minutes => (double)minutes))
-        .Distinct()
-        .Order()
+    private IReadOnlyList<int> MajorPresetMinutes
+    {
+        get
+        {
+            var major = PresetMinutes.Where(minutes => minutes >= 15).ToList();
+            return major.Count > 0 ? major : PresetMinutes;
+        }
+    }
+
+    private IReadOnlyList<SleepTimerStop> SliderStops =>
+        new[] { new SleepTimerStop(0, null, "Off") }
+            .Concat(MajorPresetMinutes.Select((minutes, index) => new SleepTimerStop(index + 1, minutes, $"{minutes}\nmin")))
+            .ToList();
+
+    private IReadOnlyList<double> SliderTicks => SliderStops
+        .Select(stop => (double)stop.Index)
         .ToList();
 
-    private int SliderMax => Math.Max(PresetMinutes.Count > 0 ? PresetMinutes[^1] : 90, RemainingMinutes);
+    private int SliderMaxIndex => Math.Max(1, SliderStops[^1].Index);
 
     private int SliderStepMinutes => Math.Max(1, FineStepMinutes);
 
@@ -194,7 +204,7 @@
     private bool IsEndOfSectionActive =>
         string.Equals(Mode, EndOfSectionMode, StringComparison.Ordinal);
 
-    private double SliderValue => IsTimerActive ? RemainingMinutes : 0d;
+    private double SliderValue => IsTimerActive ? PositionForRemainingMinutes(RemainingMinutes) : 0d;
 
     private bool CanDecrease => IsTimerActive && RemainingMinutes > 0;
 
@@ -202,12 +212,12 @@
     {
         get
         {
-            if (!IsTimerActive || PresetMinutes.Count == 0)
+            if (!IsTimerActive || MajorPresetMinutes.Count == 0)
             {
                 return 0;
             }
 
-            return PresetMinutes.FirstOrDefault(minutes => RemainingMinutes <= minutes, PresetMinutes[^1]);
+            return MajorPresetMinutes.FirstOrDefault(minutes => RemainingMinutes <= minutes, MajorPresetMinutes[^1]);
         }
     }
 
@@ -253,8 +263,9 @@
 
     private Task SetTimerFromSliderAsync(double value)
     {
-        var minutes = (int)Math.Round(value, MidpointRounding.AwayFromZero);
-        return SetTimerMinutesAsync(minutes <= 0 ? null : minutes);
+        var index = Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 0, SliderMaxIndex);
+        var stop = SliderStops.FirstOrDefault(item => item.Index == index);
+        return SetTimerMinutesAsync(stop?.Minutes);
     }
 
     private Task SetTimerMinutesAsync(int? minutes) =>
@@ -265,12 +276,49 @@
 
     private Task AdjustTimerAsync(int delta)
     {
-        var next = Math.Clamp((IsTimerActive ? RemainingMinutes : 0) + delta, 0, SliderMax);
+        var maxMinutes = MajorPresetMinutes.Count > 0 ? MajorPresetMinutes[^1] : 90;
+        var next = Math.Clamp((IsTimerActive ? RemainingMinutes : 0) + delta, 0, maxMinutes);
         return SetTimerMinutesAsync(next <= 0 ? null : next);
     }
 
     private bool IsPresetActive(int minutes) =>
         IsTimerActive && ActivePresetMinutes == minutes;
+
+    private double PositionForRemainingMinutes(int minutes)
+    {
+        if (minutes <= 0 || SliderStops.Count <= 1)
+        {
+            return 0d;
+        }
+
+        var minuteStops = SliderStops.Where(stop => stop.Minutes.HasValue).ToList();
+        if (minuteStops.Count == 0)
+        {
+            return 0d;
+        }
+
+        if (minutes <= minuteStops[0].Minutes!.Value)
+        {
+            return minuteStops[0].Index;
+        }
+
+        for (var i = 1; i < minuteStops.Count; i++)
+        {
+            var previous = minuteStops[i - 1];
+            var next = minuteStops[i];
+            if (minutes > next.Minutes!.Value)
+            {
+                continue;
+            }
+
+            var span = next.Minutes.Value - previous.Minutes!.Value;
+            return span <= 0
+                ? next.Index
+                : previous.Index + (double)(minutes - previous.Minutes.Value) / span;
+        }
+
+        return minuteStops[^1].Index;
+    }
 
     private string PresetClass(bool isActive) => string.Join(" ", new[]
     {
@@ -278,16 +326,22 @@
         isActive ? "is-active" : null,
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private static string FormatMinutesValue(double value)
+    private string FormatSliderValue(double value)
     {
-        var minutes = Math.Max(0, (int)Math.Round(value, MidpointRounding.AwayFromZero));
-        return minutes <= 0 ? "Off, 0 minutes" : $"{minutes} minutes";
+        if (IsTimerActive)
+        {
+            return $"{RemainingMinutes} minutes remaining";
+        }
+
+        var index = Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 0, SliderMaxIndex);
+        var stop = SliderStops.FirstOrDefault(item => item.Index == index);
+        return stop?.Minutes is { } minutes ? $"{minutes} minutes" : "Off";
     }
 
-    private static string FormatSliderTick(double value)
+    private string FormatSliderTick(double value)
     {
-        var minutes = Math.Max(0, (int)Math.Round(value, MidpointRounding.AwayFromZero));
-        return minutes <= 0 ? "Off\n0 min" : $"{minutes}\nmin";
+        var index = Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 0, SliderMaxIndex);
+        return SliderStops.FirstOrDefault(item => item.Index == index)?.Label ?? string.Empty;
     }
 
     public void Dispose()
@@ -300,4 +354,6 @@
         _refreshTimer?.Dispose();
         _refreshTimer = null;
     }
+
+    private sealed record SleepTimerStop(int Index, int? Minutes, string Label);
 }

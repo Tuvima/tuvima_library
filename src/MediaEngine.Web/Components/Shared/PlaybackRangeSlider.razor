@@ -3,39 +3,58 @@
 @using System.Linq
 @using Microsoft.AspNetCore.Components
 
-<div class="@RootClass">
+<div class="@RootClass" style="@TrackStyle">
     <div class="playback-range-slider__rail">
+        <div class="playback-range-slider__visual" aria-hidden="true">
+            <div class="playback-range-slider__track">
+                <span class="playback-range-slider__fill"></span>
+            </div>
+            @if (ShowTicks)
+            {
+                <div class="playback-range-slider__ticks">
+                    @foreach (var tick in ResolvedTicks)
+                    {
+                        <span class="@TickMarkerClass(tick)" style="@TickStyle(tick)"></span>
+                    }
+                </div>
+            }
+            <span class="playback-range-slider__thumb" style="@TickStyle(CurrentValue)"></span>
+        </div>
         <input type="range"
                class="playback-range-slider__input"
                min="@FormatNumber(Min)"
                max="@FormatNumber(Max)"
-               step="@FormatNumber(ResolvedInputStep)"
+               step="@ResolvedInputStepText"
                value="@FormatNumber(CurrentValue)"
                aria-label="@AriaLabel"
                aria-valuemin="@FormatNumber(Min)"
                aria-valuemax="@FormatNumber(Max)"
                aria-valuenow="@FormatNumber(CurrentValue)"
                aria-valuetext="@FormattedValue"
-               style="@TrackStyle"
                @oninput="HandleInputAsync"
                @onchange="HandleInputAsync"
                @attributes="AdditionalAttributes" />
-        @if (ShowTicks)
-        {
-            <div class="playback-range-slider__ticks" aria-hidden="true">
-                @foreach (var tick in ResolvedTicks)
-                {
-                    <span style="@TickStyle(tick)"></span>
-                }
-            </div>
-        }
     </div>
     @if (ShowTicks)
     {
-        <div class="playback-range-slider__labels" aria-hidden="true">
+        <div class="playback-range-slider__labels">
             @foreach (var tick in ResolvedTicks)
             {
-                <span style="@TickStyle(tick)">@FormatTick(tick)</span>
+                var label = FormatTick(tick);
+                if (string.IsNullOrWhiteSpace(label))
+                {
+                    <span class="playback-range-slider__label-spacer" style="@TickStyle(tick)" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <AppNativeButton Type="button"
+                                     Class="@TickLabelClass(tick)"
+                                     InlineStyle="@TickStyle(tick)"
+                                     OnClick="@(() => SelectTickAsync(tick))"
+                                     AriaLabel="@TickButtonAriaLabel(label)">
+                        @label
+                    </AppNativeButton>
+                }
             }
         </div>
     }
@@ -94,6 +113,8 @@
     private double ExternalValue => SnapValueToStep ? ClampToStep(Value) : Math.Clamp(Value, Min, Max);
 
     private double ResolvedInputStep => InputStep ?? Step;
+
+    private string ResolvedInputStepText => SnapValueToStep ? FormatNumber(ResolvedInputStep) : "any";
 
     private string FormattedValue => FormatTick(CurrentValue);
 
@@ -159,6 +180,13 @@
         await ValueChanged.InvokeAsync(snapped);
     }
 
+    private async Task SelectTickAsync(double tick)
+    {
+        var snapped = ClampToStep(tick);
+        _interactiveValue = snapped;
+        await ValueChanged.InvokeAsync(snapped);
+    }
+
     protected override void OnParametersSet()
     {
         _interactiveValue = null;
@@ -181,6 +209,28 @@
 
     private string FormatTick(double value) =>
         TickFormatter?.Invoke(value) ?? ValueFormatter?.Invoke(value) ?? FormatNumber(value);
+
+    private string TickMarkerClass(double tick) => string.Join(" ", new[]
+    {
+        "playback-range-slider__tick",
+        tick <= CurrentValue + 0.001d ? "is-past" : null,
+        Math.Abs(tick - CurrentValue) < 0.001d ? "is-active" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string TickLabelClass(double tick) => string.Join(" ", new[]
+    {
+        "playback-range-slider__label",
+        Math.Abs(tick - CurrentValue) < 0.001d ? "is-active" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string TickButtonAriaLabel(string label)
+    {
+        var normalizedLabel = label
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal)
+            .Trim();
+        return $"Set {AriaLabel.ToLowerInvariant()} to {normalizedLabel}";
+    }
 
     private static string FormatNumber(double value) =>
         value.ToString("0.###", CultureInfo.InvariantCulture);

@@ -10,9 +10,11 @@
                          Min="@Min"
                          Max="@Max"
                          Step="@Step"
+                         InputStep="@Step"
                          TickStep="0.5"
                          AriaLabel="Playback speed"
                          ValueFormatter="FormatSpeed"
+                         TickFormatter="FormatSpeedTick"
                          ValueChanged="SetValueAsync"
                          Class="playback-speed-control__slider" />
 
@@ -53,6 +55,8 @@
 </section>
 
 @code {
+    private double? _pendingValue;
+
     [Parameter]
     public double Value { get; set; } = 1d;
 
@@ -83,7 +87,7 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private double CurrentValue => ClampToStep(Value);
+    private double CurrentValue => _pendingValue ?? ClampToStep(Value);
 
     private string NormalizedSize => Size switch
     {
@@ -101,8 +105,20 @@
     private async Task AdjustAsync(double delta) =>
         await SetValueAsync(CurrentValue + delta);
 
-    private async Task SetValueAsync(double value) =>
-        await ValueChanged.InvokeAsync(ClampToStep(value));
+    protected override void OnParametersSet()
+    {
+        if (_pendingValue.HasValue && Math.Abs(ClampToStep(Value) - _pendingValue.Value) < 0.001d)
+        {
+            _pendingValue = null;
+        }
+    }
+
+    private async Task SetValueAsync(double value)
+    {
+        var next = ClampToStep(value);
+        _pendingValue = next;
+        await ValueChanged.InvokeAsync(next);
+    }
 
     private double ClampToStep(double value)
     {
@@ -124,4 +140,11 @@
 
     private static string FormatSpeed(double rate) =>
         $"{Math.Clamp(rate, 0.1d, 32d).ToString("0.0", CultureInfo.InvariantCulture)}x";
+
+    private static string FormatSpeedTick(double rate)
+    {
+        var rounded = Math.Round(rate, 1);
+        var tenths = (int)Math.Round(rounded * 10d);
+        return tenths % 5 == 0 ? FormatSpeed(rounded) : string.Empty;
+    }
 }
