@@ -1,7 +1,7 @@
 .playback-primary-button-shell {
-    --playback-primary-size: 66px;
-    --playback-primary-icon-size: 36px;
-    --playback-primary-shadow: 0 14px 34px rgba(245, 158, 11, 0.28);
+    --playback-primary-size: 58px;
+    --playback-primary-icon-size: 32px;
+    --playback-primary-shadow: 0 12px 28px rgba(245, 158, 11, 0.26);
     align-self: center;
     display: inline-flex;
     height: var(--playback-primary-size);
@@ -11,15 +11,15 @@
 }
 
 .playback-primary-button-shell--compact {
-    --playback-primary-size: 56px;
-    --playback-primary-icon-size: 30px;
-    --playback-primary-shadow: 0 12px 28px rgba(245, 158, 11, 0.26);
+    --playback-primary-size: 54px;
+    --playback-primary-icon-size: 28px;
+    --playback-primary-shadow: 0 10px 24px rgba(245, 158, 11, 0.24);
 }
 
 .playback-primary-button-shell--large {
-    --playback-primary-size: 74px;
-    --playback-primary-icon-size: 40px;
-    --playback-primary-shadow: 0 16px 40px rgba(245, 158, 11, 0.34);
+    --playback-primary-size: 64px;
+    --playback-primary-icon-size: 34px;
+    --playback-primary-shadow: 0 14px 34px rgba(245, 158, 11, 0.3);
 }
 
 .playback-primary-button-shell ::deep .playback-primary-button {

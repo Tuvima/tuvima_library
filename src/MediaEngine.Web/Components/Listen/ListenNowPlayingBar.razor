@@ -368,12 +368,11 @@
                 <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@Playback.Volume" Class="listen-player__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
                 @if (Playback.IsAudiobookMode)
                 {
-                    <PlaybackValueToolButton Class="listen-player__tool-pill"
-                                             Icon="@Icons.Material.Outlined.Speed"
-                                             Label="Speed"
-                                             ValueText="@FormatSpeed(Playback.PlaybackRate)"
-                                             OnClick="@(() => OpenAudiobookPanelAsync("speed"))"
-                                             AriaLabel="Open audiobook speed and tools" />
+                    <PlaybackControlStrip Controls="@AudiobookPanelControls"
+                                          Size="compact"
+                                          Class="listen-player__audiobook-actions"
+                                          AriaLabel="Audiobook tools"
+                                          OnControl="HandleAudiobookPanelControl" />
                 }
                 else
                 {
@@ -447,12 +446,20 @@
             PlaybackExperience.Audiobook,
             PlaybackControlSurface.Bottom,
             new PlaybackControlState(
-                ActiveSheet: _activeAudiobookPanelTool,
+                ActiveSheet: Playback.IsPanelOpen ? _activeAudiobookPanelTool : null,
                 PlaybackRate: Playback.PlaybackRate,
                 HasChapters: CurrentChapters.Count > 0,
                 IsSleepTimerActive: Playback.SleepTimerMode != ListenSleepTimerModes.Off,
+                SleepTimerValueText: BottomSleepTimerValueText,
                 HistoryCount: Playback.AudiobookHistory.Count,
                 BookmarkCount: Playback.AudiobookBookmarks.Count));
+
+    private string? BottomSleepTimerValueText => Playback.SleepTimerMode switch
+    {
+        ListenSleepTimerModes.EndOfChapter => "Ch",
+        ListenSleepTimerModes.Timer => ShortSleepTimerLabel(Playback.SleepTimerLabel),
+        _ => null,
+    };
 
     private LrcDisplayLine? ActiveLyricLine => _lyricsLines.LastOrDefault(line => line.StartSeconds <= Playback.CurrentTimeSeconds + 0.25);
 
@@ -979,6 +986,10 @@
         }
 
         _activeAudiobookPanelTool = control.Sheet;
+        if (!Playback.IsPanelOpen)
+        {
+            Playback.TogglePanel();
+        }
     }
 
     private async Task SetAudiobookSpeedAsync(double rate)
@@ -1253,6 +1264,19 @@
 
     private static string FormatSpeed(double rate) =>
         $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";
+
+    private static string ShortSleepTimerLabel(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label) || string.Equals(label, "Off", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        return label.Replace(" minutes", "m", StringComparison.OrdinalIgnoreCase)
+            .Replace(" minute", "m", StringComparison.OrdinalIgnoreCase)
+            .Replace(" min", "m", StringComparison.OrdinalIgnoreCase)
+            .Trim();
+    }
 
     private static string ChapterDuration(PlaybackChapterDto chapter) =>
         chapter.EndSeconds is > 0 && chapter.EndSeconds.Value > chapter.StartSeconds

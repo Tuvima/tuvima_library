@@ -3,8 +3,8 @@
     min-width: 0;
     height: 100%;
     min-height: 0;
-    --listen-skip-button-size: 58px;
-    --listen-transport-primary-size: 66px;
+    --listen-skip-button-size: 50px;
+    --listen-transport-primary-size: 58px;
     --listen-skip-text-size: 1rem;
     --listen-skip-center-bg: #07111f;
     border-left: 1px solid rgba(148, 163, 184, 0.16);
@@ -314,7 +314,7 @@
     grid-template-columns: var(--listen-skip-button-size) var(--listen-skip-button-size) var(--listen-transport-primary-size) var(--listen-skip-button-size) var(--listen-skip-button-size);
     width: max-content;
     max-width: 100%;
-    column-gap: 8px;
+    column-gap: 6px;
     align-items: center;
     justify-content: center;
     margin-inline: auto;
@@ -322,7 +322,7 @@
 
 .listen-now-panel__controls--audiobook .listen-now-panel__icon {
     width: var(--listen-skip-button-size);
-    height: 58px;
+    height: var(--listen-skip-button-size);
     justify-self: center;
     color: rgba(248, 250, 252, 0.9);
 }
@@ -481,7 +481,7 @@
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__icon {
     width: var(--listen-skip-button-size);
-    height: 58px;
+    height: var(--listen-skip-button-size);
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
@@ -491,9 +491,9 @@
 }
 
 ::deep .listen-now-panel__controls--audiobook .listen-now-panel__icon .mud-icon-root {
-    font-size: 30px !important;
-    width: 30px;
-    height: 30px;
+    font-size: 28px !important;
+    width: 28px;
+    height: 28px;
 }
 
 ::deep .listen-now-panel__sheet-row,

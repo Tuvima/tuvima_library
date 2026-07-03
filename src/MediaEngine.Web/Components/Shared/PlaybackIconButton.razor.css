@@ -74,6 +74,15 @@
     font-size: 1.1rem;
 }
 
+.playback-icon-button-shell ::deep .playback-icon-button__badge {
+    color: var(--playback-icon-button-badge-color, currentColor);
+    font-size: 0.68rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-top: -4px;
+}
+
 .playback-icon-button-shell ::deep .playback-icon-button__label {
     color: currentColor;
     font-size: 0.68rem;
@@ -81,4 +90,10 @@
     line-height: 1.12;
     max-width: 100%;
     overflow-wrap: anywhere;
+}
+
+.playback-icon-button-shell ::deep .playback-icon-button--sleep-timer.is-active {
+    --playback-icon-button-badge-color: #c084fc;
+    background: rgba(168, 85, 247, 0.16);
+    color: #d8b4fe;
 }

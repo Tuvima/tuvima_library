@@ -63,6 +63,7 @@ public sealed record PlaybackControlState(
     bool HasQueue = true,
     bool HasLyrics = false,
     bool IsSleepTimerActive = false,
+    string? SleepTimerValueText = null,
     int HistoryCount = 0,
     int BookmarkCount = 0);
 
@@ -75,6 +76,7 @@ public sealed record PlaybackControlDefinition(
     string Command,
     string? Sheet = null,
     string? ValueText = null,
+    string? BadgeText = null,
     bool IsActive = false,
     bool IsDisabled = false);
 
@@ -158,7 +160,7 @@ public static class PlaybackControlCatalog
                 controls.Add(Tool(PlaybackControlKey.Chapters, "Chapters", Icons.Material.Outlined.FormatListBulleted, "chapters", state, IsDisabled: !state.HasChapters));
                 controls.Add(Tool(PlaybackControlKey.History, "History", Icons.Material.Outlined.History, "history", state));
                 controls.Add(Tool(PlaybackControlKey.Bookmarks, "Bookmark", Icons.Material.Outlined.BookmarkBorder, "bookmarks", state));
-                controls.Add(Tool(PlaybackControlKey.SleepTimer, "Sleep", Icons.Material.Outlined.Timer, "sleep", state, IsActive: state.IsSleepTimerActive));
+                controls.Add(Tool(PlaybackControlKey.SleepTimer, "Sleep", Icons.Material.Outlined.Timer, "sleep", state, BadgeText: state.SleepTimerValueText, IsActive: state.IsSleepTimerActive));
                 break;
             case PlaybackExperience.Video:
                 controls.Add(Tool(PlaybackControlKey.Speed, "Speed", Icons.Material.Outlined.Speed, "speed", state, ValueText: FormatSpeed(state.PlaybackRate)));
@@ -189,6 +191,7 @@ public static class PlaybackControlCatalog
         string sheet,
         PlaybackControlState state,
         string? ValueText = null,
+        string? BadgeText = null,
         bool IsActive = false,
         bool IsDisabled = false)
     {
@@ -201,6 +204,7 @@ public static class PlaybackControlCatalog
             $"open-{sheet}",
             sheet,
             ValueText,
+            BadgeText,
             IsActive || string.Equals(state.ActiveSheet, sheet, StringComparison.Ordinal),
             IsDisabled);
     }

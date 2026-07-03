@@ -161,15 +161,15 @@
 .listen-popup__transport {
     width: 100%;
     display: grid;
-    grid-template-columns: 64px 64px 74px 64px 64px;
+    grid-template-columns: 54px 54px 64px 54px 54px;
     justify-content: center;
     align-items: center;
-    column-gap: clamp(6px, 2vw, 12px);
+    column-gap: clamp(4px, 1.4vw, 8px);
 }
 
 .listen-popup__transport-icon {
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     border-radius: 999px;
     background: transparent;
     color: rgba(248, 250, 252, 0.9);
@@ -180,8 +180,8 @@
 
 .listen-popup__skip {
     position: relative;
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -412,8 +412,8 @@
 }
 
 ::deep .listen-popup__transport-icon {
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     border: 0;
     border-radius: 999px;
     background: transparent;
@@ -425,15 +425,15 @@
 }
 
 ::deep .listen-popup__transport-icon .mud-icon-root {
-    font-size: 34px !important;
-    width: 34px;
-    height: 34px;
+    font-size: 30px !important;
+    width: 30px;
+    height: 30px;
 }
 
 ::deep .listen-popup__skip {
     position: relative;
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -461,23 +461,23 @@
     }
 
     .listen-popup__transport {
-        grid-template-columns: 58px 58px 66px 58px 58px;
+        grid-template-columns: 50px 50px 58px 50px 50px;
         column-gap: 2px;
     }
 
     .listen-popup__transport-icon {
-        width: 58px;
-        height: 58px;
+        width: 50px;
+        height: 50px;
     }
 
     ::deep .listen-popup__transport-icon {
-        width: 58px;
-        height: 58px;
+        width: 50px;
+        height: 50px;
     }
 
     ::deep .listen-popup__skip {
-        width: 58px;
-        height: 58px;
+        width: 50px;
+        height: 50px;
     }
 
     .listen-popup-sheet {

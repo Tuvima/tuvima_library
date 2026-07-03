@@ -24,10 +24,10 @@
     .listen-player {
         pointer-events: auto;
         display: grid;
-        grid-template-columns: minmax(0, 300px) minmax(0, 1fr) auto;
-        gap: 20px;
+        grid-template-columns: minmax(0, 260px) minmax(300px, 1fr) minmax(590px, auto);
+        gap: 16px;
         align-items: center;
-        padding: 14px 18px;
+        padding: 10px 18px;
         border-top: 1px solid var(--app-border, #293036);
         background: var(--app-surface, #1e1f27);
         box-shadow: var(--app-shadow-lg, 0 -18px 36px rgba(0, 0, 0, 0.3));
@@ -144,14 +144,19 @@
         min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 6px;
+        align-items: center;
     }
 
     .listen-player__transport-buttons,
     .listen-player__actions {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
+    }
+
+    .listen-player__actions {
+        justify-content: flex-end;
     }
 
     .listen-player-shell--audiobook .listen-player {
@@ -164,10 +169,10 @@
 
     .listen-player__transport-buttons--audiobook {
         display: grid;
-        grid-template-columns: 50px 50px 56px 50px 50px;
+        grid-template-columns: 46px 46px 54px 46px 46px;
         align-items: center;
         justify-content: center;
-        column-gap: 6px;
+        column-gap: 5px;
     }
 
     .listen-player-shell--audiobook .listen-player__progress-slider,
@@ -177,12 +182,13 @@
 
     .listen-player__progress {
         display: grid;
-        grid-template-columns: 4.75rem minmax(0, 1fr) 4.75rem;
-        gap: 10px;
+        grid-template-columns: 4.35rem minmax(0, 1fr) 4.35rem;
+        gap: 8px;
         align-items: center;
         color: var(--tl-text-secondary);
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-variant-numeric: tabular-nums;
+        width: min(100%, 440px);
     }
 
     .listen-player__progress span:first-child {
@@ -197,6 +203,10 @@
     .listen-player__volume-slider {
         width: 100%;
         accent-color: var(--app-primary, #236dc9);
+    }
+
+    .listen-player__progress-slider {
+        height: 12px;
     }
 
     .listen-player__volume-slider {
@@ -236,8 +246,8 @@
 
     .listen-player__skip {
         position: relative;
-        width: 50px;
-        height: 50px;
+        width: 46px;
+        height: 46px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
@@ -375,6 +385,50 @@
         width: 100%;
     }
 
+    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions {
+        --playback-control-min: 50px;
+        flex: 0 1 350px;
+        grid-template-columns: repeat(5, minmax(62px, 1fr)) !important;
+        min-width: 330px;
+        width: min(350px, 32vw) !important;
+    }
+
+    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button {
+        border-radius: 6px;
+        gap: 1px;
+        grid-template-rows: 24px 10px 12px;
+        min-height: 52px;
+        padding: 2px 4px;
+    }
+
+    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__visual {
+        grid-row: 1;
+    }
+
+    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__icon {
+        font-size: 24px !important;
+        height: 24px;
+        width: 24px;
+    }
+
+    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__value {
+        font-size: 0.88rem;
+    }
+
+    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__badge {
+        grid-row: 2;
+        font-size: 0.62rem;
+        margin-top: 0;
+    }
+
+    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__label {
+        grid-row: 3;
+        font-size: 0.62rem;
+        line-height: 1;
+        overflow-wrap: normal;
+        white-space: nowrap;
+    }
+
     .listen-player-panel__tool-list {
         min-height: 0;
         flex: 1;
@@ -457,7 +511,7 @@
         padding-top: 0;
     }
 
-    @@media (max-width: 960px) {
+    @@media (max-width: 1240px) {
         .listen-player {
             grid-template-columns: 1fr;
             gap: 14px;
@@ -470,6 +524,10 @@
         .listen-player__volume-slider {
             flex: 1;
             max-width: 160px;
+        }
+
+        .listen-player__actions .playback-control-strip.listen-player__audiobook-actions {
+            width: min(350px, 100%) !important;
         }
 
         .listen-player-panel {

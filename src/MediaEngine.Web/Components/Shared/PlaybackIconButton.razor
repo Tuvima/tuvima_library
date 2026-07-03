@@ -21,6 +21,10 @@
                 <MudIcon Icon="@Control.Icon" Class="playback-icon-button__icon" />
             }
         </span>
+        @if (!string.IsNullOrWhiteSpace(Control.BadgeText))
+        {
+            <span class="playback-icon-button__badge" aria-hidden="true">@Control.BadgeText</span>
+        }
         <span class="playback-icon-button__label">@Control.Label</span>
     </AppNativeButton>
 </span>
@@ -52,6 +56,7 @@
     {
         "playback-icon-button-shell",
         $"playback-icon-button-shell--{NormalizedSize}",
+        $"playback-icon-button-shell--{ControlClassKey}",
         Control.IsActive ? "is-active" : null,
         Control.IsDisabled ? "is-disabled" : null,
         Class,
@@ -61,10 +66,19 @@
     {
         "playback-icon-button",
         $"playback-icon-button--{NormalizedSize}",
+        $"playback-icon-button--{ControlClassKey}",
         Control.IsActive ? "is-active" : null,
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private string? AriaPressed => Control.IsActive ? "true" : null;
+
+    private string ControlClassKey => Control.Key.ToString()
+        .Aggregate(string.Empty, (current, character) =>
+            current.Length == 0
+                ? char.ToLowerInvariant(character).ToString()
+                : char.IsUpper(character)
+                    ? $"{current}-{char.ToLowerInvariant(character)}"
+                    : $"{current}{character}");
 
     private Task HandleClickAsync(MouseEventArgs _)
     {

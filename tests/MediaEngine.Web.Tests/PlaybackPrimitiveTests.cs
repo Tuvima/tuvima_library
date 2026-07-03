@@ -29,7 +29,7 @@ public sealed class PlaybackPrimitiveTests
         var audiobook = PlaybackControlCatalog.Build(
             PlaybackExperience.Audiobook,
             PlaybackControlSurface.Popup,
-            new PlaybackControlState(PlaybackRate: 1.5d, HasChapters: true, IsSleepTimerActive: true));
+            new PlaybackControlState(PlaybackRate: 1.5d, HasChapters: true, IsSleepTimerActive: true, SleepTimerValueText: "30m"));
         var video = PlaybackControlCatalog.Build(
             PlaybackExperience.Video,
             PlaybackControlSurface.Bottom,
@@ -45,7 +45,7 @@ public sealed class PlaybackPrimitiveTests
         AssertContainsKeys(audiobook, PlaybackControlKey.SkipBack, PlaybackControlKey.SkipForward, PlaybackControlKey.Speed, PlaybackControlKey.Chapters, PlaybackControlKey.History, PlaybackControlKey.Bookmarks, PlaybackControlKey.SleepTimer);
         Assert.DoesNotContain(audiobook, control => control.Key == PlaybackControlKey.Queue);
         Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.Speed && control.ValueText == "1.5x");
-        Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.SleepTimer && control.IsActive);
+        Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.SleepTimer && control.IsActive && control.BadgeText == "30m");
         Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.Chapters && !control.IsDisabled);
 
         AssertContainsKeys(video, PlaybackControlKey.SkipBack, PlaybackControlKey.SkipForward, PlaybackControlKey.Queue, PlaybackControlKey.History, PlaybackControlKey.Speed, PlaybackControlKey.Chapters, PlaybackControlKey.Captions, PlaybackControlKey.AudioTrack, PlaybackControlKey.Quality, PlaybackControlKey.Fullscreen, PlaybackControlKey.PictureInPicture, PlaybackControlKey.Expand, PlaybackControlKey.Resume, PlaybackControlKey.Close, PlaybackControlKey.SkipIntro, PlaybackControlKey.SkipCredits);
@@ -206,26 +206,27 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("@attributes=\"AdditionalAttributes\"", primary, StringComparison.Ordinal);
         Assert.Contains("playback-primary-button-shell--compact", primaryStyles, StringComparison.Ordinal);
         Assert.Contains("playback-primary-button-shell--large", primaryStyles, StringComparison.Ordinal);
-        Assert.Contains("--playback-primary-size: 56px;", primaryStyles, StringComparison.Ordinal);
-        Assert.Contains("--playback-primary-size: 66px;", primaryStyles, StringComparison.Ordinal);
-        Assert.Contains("--playback-primary-size: 74px;", primaryStyles, StringComparison.Ordinal);
+        Assert.Contains("--playback-primary-size: 54px;", primaryStyles, StringComparison.Ordinal);
+        Assert.Contains("--playback-primary-size: 58px;", primaryStyles, StringComparison.Ordinal);
+        Assert.Contains("--playback-primary-size: 64px;", primaryStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("--playback-primary-size: 74px;", primaryStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("--playback-primary-size: 96px;", primaryStyles, StringComparison.Ordinal);
         Assert.Contains("\"popup\" => \"large\"", shared, StringComparison.Ordinal);
         Assert.Contains("\"panel\" => \"standard\"", shared, StringComparison.Ordinal);
         Assert.Contains("_ => \"compact\"", shared, StringComparison.Ordinal);
         Assert.Contains("listen-transport__secondary-icon", shared, StringComparison.Ordinal);
+        Assert.Contains("--listen-transport-secondary-size: 46px;", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("--listen-transport-primary-size: 54px;", sharedStyles, StringComparison.Ordinal);
         Assert.Contains("--listen-transport-secondary-size: 50px;", sharedStyles, StringComparison.Ordinal);
-        Assert.Contains("--listen-transport-primary-size: 56px;", sharedStyles, StringComparison.Ordinal);
-        Assert.Contains("--listen-transport-secondary-size: 58px;", sharedStyles, StringComparison.Ordinal);
-        Assert.Contains("--listen-transport-primary-size: 66px;", sharedStyles, StringComparison.Ordinal);
-        Assert.Contains("--listen-transport-secondary-size: 64px;", sharedStyles, StringComparison.Ordinal);
-        Assert.Contains("--listen-transport-primary-size: 74px;", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("--listen-transport-primary-size: 58px;", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("--listen-transport-secondary-size: 54px;", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("--listen-transport-primary-size: 64px;", sharedStyles, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) var(--listen-transport-primary-size) var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) !important;", sharedStyles, StringComparison.Ordinal);
         Assert.Contains("width: var(--listen-transport-secondary-size) !important;", sharedStyles, StringComparison.Ordinal);
         Assert.Contains("--playback-relative-skip-size: var(--listen-transport-secondary-size);", sharedStyles, StringComparison.Ordinal);
-        Assert.Contains("grid-template-columns: 50px 50px 56px 50px 50px;", barStyles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: 46px 46px 54px 46px 46px;", barStyles, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: var(--listen-skip-button-size) var(--listen-skip-button-size) var(--listen-transport-primary-size) var(--listen-skip-button-size) var(--listen-skip-button-size);", panelStyles, StringComparison.Ordinal);
-        Assert.Contains("grid-template-columns: 64px 64px 74px 64px 64px;", popupStyles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: 54px 54px 64px 54px 54px;", popupStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("grid-template-columns: 38px 54px 52px 54px 38px", barStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("grid-template-columns: 34px var(--listen-skip-button-size) 74px", panelStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("grid-template-columns: 72px 64px 104px 64px 72px", popupStyles, StringComparison.Ordinal);
@@ -236,11 +237,23 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("<PlaybackControlStrip", panel, StringComparison.Ordinal);
         Assert.Contains("<PlaybackControlStrip", popup, StringComparison.Ordinal);
         Assert.Contains("<PlaybackControlStrip", bar, StringComparison.Ordinal);
+        Assert.Contains("Class=\"listen-player__audiobook-actions\"", bar, StringComparison.Ordinal);
+        Assert.Contains("ActiveSheet: Playback.IsPanelOpen ? _activeAudiobookPanelTool : null", bar, StringComparison.Ordinal);
+        Assert.Contains("SleepTimerValueText: BottomSleepTimerValueText", bar, StringComparison.Ordinal);
+        Assert.Contains("Playback.TogglePanel();", bar, StringComparison.Ordinal);
+        Assert.Contains("ShortSleepTimerLabel", bar, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: minmax(0, 260px) minmax(300px, 1fr) minmax(590px, auto);", barStyles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: repeat(5, minmax(62px, 1fr)) !important;", barStyles, StringComparison.Ordinal);
+        Assert.Contains("width: min(350px, 32vw) !important;", barStyles, StringComparison.Ordinal);
+        Assert.Contains("@@media (max-width: 1240px)", barStyles, StringComparison.Ordinal);
+        Assert.Contains("width: min(100%, 440px);", barStyles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-rows: 24px 10px 12px;", barStyles, StringComparison.Ordinal);
+        Assert.Contains("min-height: 52px;", barStyles, StringComparison.Ordinal);
         Assert.Contains("<PlaybackToolSheet", panel, StringComparison.Ordinal);
         Assert.Contains("<PlaybackToolSheet", popup, StringComparison.Ordinal);
         Assert.Contains("<PlaybackPopoutShell", popup, StringComparison.Ordinal);
         Assert.Contains("<PlaybackMiniPlayer", bar, StringComparison.Ordinal);
-        Assert.Contains("<PlaybackValueToolButton", bar, StringComparison.Ordinal);
+        Assert.DoesNotContain("<PlaybackValueToolButton", bar, StringComparison.Ordinal);
         Assert.Contains("<PlaybackSheetList", popup, StringComparison.Ordinal);
         Assert.Contains("<PlaybackSheetRow", popup, StringComparison.Ordinal);
         Assert.Contains("<PlaybackPositionRow", panel, StringComparison.Ordinal);
@@ -383,6 +396,10 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("@attributes=\"AdditionalAttributes\"", iconButton, StringComparison.Ordinal);
         Assert.Contains("::deep .playback-icon-button__value", iconButtonStyles, StringComparison.Ordinal);
         Assert.Contains("::deep .playback-icon-button__label", iconButtonStyles, StringComparison.Ordinal);
+        Assert.Contains("Control.BadgeText", iconButton, StringComparison.Ordinal);
+        Assert.Contains("playback-icon-button__badge", iconButton + iconButtonStyles, StringComparison.Ordinal);
+        Assert.Contains("playback-icon-button--sleep-timer.is-active", iconButtonStyles, StringComparison.Ordinal);
+        Assert.Contains("#c084fc", iconButtonStyles, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", sheetHandle, StringComparison.Ordinal);
         Assert.Contains("@attributes=\"AdditionalAttributes\"", sheetHandle, StringComparison.Ordinal);
         Assert.Contains("playback-sheet-handle-button-shell", sheetHandle, StringComparison.Ordinal);
@@ -397,8 +414,9 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("Size=\"standard\"", popup, StringComparison.Ordinal);
         Assert.Contains("listen-popup__actions", popupStyles, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: repeat(5, minmax(44px, 1fr));", popupStyles, StringComparison.Ordinal);
-        Assert.Contains("OpenAudiobookPanelAsync(\"speed\")", bar, StringComparison.Ordinal);
-        Assert.Contains("AriaLabel=\"Open audiobook speed and tools\"", bar, StringComparison.Ordinal);
+        Assert.Contains("Class=\"listen-player__audiobook-actions\"", bar, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Audiobook tools\"", bar, StringComparison.Ordinal);
+        Assert.Contains("OnControl=\"HandleAudiobookPanelControl\"", bar, StringComparison.Ordinal);
         Assert.Contains("Close audiobook tools", bar, StringComparison.Ordinal);
         Assert.Contains("listen-player-panel__audiobook-actions", barStyles, StringComparison.Ordinal);
         Assert.Contains("::deep .listen-player-panel__tool-row", barStyles, StringComparison.Ordinal);
@@ -472,9 +490,9 @@ public sealed class PlaybackPrimitiveTests
         Assert.DoesNotContain("<button", skip, StringComparison.Ordinal);
         Assert.Contains(".playback-relative-skip ::deep .playback-relative-skip__button", skipStyles, StringComparison.Ordinal);
         Assert.Contains(".playback-relative-skip ::deep .playback-relative-skip__number", skipStyles, StringComparison.Ordinal);
+        Assert.Contains("--playback-relative-skip-size: 46px;", skipStyles, StringComparison.Ordinal);
         Assert.Contains("--playback-relative-skip-size: 50px;", skipStyles, StringComparison.Ordinal);
-        Assert.Contains("--playback-relative-skip-size: 58px;", skipStyles, StringComparison.Ordinal);
-        Assert.Contains("--playback-relative-skip-size: 64px;", skipStyles, StringComparison.Ordinal);
+        Assert.Contains("--playback-relative-skip-size: 54px;", skipStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("AudiobookSkipButton", shared + skip + skipStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("audiobook-skip-button", shared + skip + skipStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("audiobook-skip-button__line", shared + skip + skipStyles, StringComparison.Ordinal);
