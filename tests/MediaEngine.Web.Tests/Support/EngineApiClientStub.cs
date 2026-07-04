@@ -615,6 +615,11 @@ internal class EngineApiClientStub : DispatchProxy
                 var lane = args?[0]?.ToString();
                 var mediaType = args?[1]?.ToString();
                 var grouping = args?[2]?.ToString();
+                if (string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult<DisplayPageDto?>(CreateAudiobookDisplayPage());
+                }
+
                 var key = string.Equals(lane, "listen", StringComparison.OrdinalIgnoreCase)
                           && string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
                           && string.Equals(grouping, "home", StringComparison.OrdinalIgnoreCase)
@@ -685,6 +690,66 @@ internal class EngineApiClientStub : DispatchProxy
             Subtitle: null,
             Hero: new DisplayHeroDto(title, "Test Artist", "Library", artwork, null, [action]),
             Shelves: [new DisplayShelfDto("recently-added", "Recently Added", "Fresh arrivals", [card], "/listen/music/playlists/system/recently-added")],
+            Catalog: [card]);
+    }
+
+    private static DisplayPageDto CreateAudiobookDisplayPage()
+    {
+        var workId = Guid.Parse("92000000-0000-0000-0000-000000000001");
+        var action = new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/listen/audiobook/{workId:D}");
+        var artwork = new DisplayArtworkDto(
+            CoverUrl: "/art/dune-audiobook.jpg",
+            CoverSmallUrl: "/art/dune-audiobook-s.jpg",
+            CoverMediumUrl: "/art/dune-audiobook-m.jpg",
+            CoverLargeUrl: "/art/dune-audiobook-l.jpg",
+            SquareUrl: null,
+            SquareSmallUrl: null,
+            SquareMediumUrl: null,
+            SquareLargeUrl: null,
+            BannerUrl: null,
+            BannerSmallUrl: null,
+            BannerMediumUrl: null,
+            BannerLargeUrl: null,
+            BackgroundUrl: null,
+            BackgroundSmallUrl: null,
+            BackgroundMediumUrl: null,
+            BackgroundLargeUrl: null,
+            LogoUrl: null,
+            CoverWidthPx: null,
+            CoverHeightPx: null,
+            SquareWidthPx: null,
+            SquareHeightPx: null,
+            BannerWidthPx: null,
+            BannerHeightPx: null,
+            BackgroundWidthPx: null,
+            BackgroundHeightPx: null,
+            AccentColor: "#7C5CFF");
+        var card = new DisplayCardDto(
+            Id: workId,
+            WorkId: workId,
+            AssetId: null,
+            CollectionId: null,
+            MediaType: "Audiobook",
+            GroupingType: "work",
+            Title: "Dune Audiobook",
+            Subtitle: "Frank Herbert",
+            Facts: ["Dune", "21h 2m"],
+            Artwork: artwork,
+            PreferredShape: "cover",
+            Presentation: "work",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            SortTimestamp: DateTimeOffset.UtcNow.AddDays(-2));
+
+        return new DisplayPageDto(
+            Key: "audiobooks",
+            Title: "Audiobooks",
+            Subtitle: null,
+            Hero: null,
+            Shelves: [],
             Catalog: [card]);
     }
 

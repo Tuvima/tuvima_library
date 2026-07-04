@@ -778,8 +778,8 @@ else
                     <div class="audiobooks-toolbar" aria-label="Audiobook controls">
                         <label class="audiobooks-search">
                             <MudIcon Icon="@Icons.Material.Outlined.Search" Class="tl-u-font-size-20px" />
-                            <AppNativeInput @bind="_audiobookSearch"
-                                            @bind:event="oninput"
+                            <AppNativeInput Value="@_audiobookSearch"
+                                            OnInput="UpdateAudiobookSearch"
                                             Placeholder="Search audiobooks"
                                             AriaLabel="Search audiobooks" />
                         </label>
@@ -792,11 +792,9 @@ else
 
                         <div class="audiobooks-filters" aria-label="Audiobook filters">
                             <AppNativeButton Type="button" Class="@AudiobookFilterClass(_audiobookInProgressOnly)" aria-pressed="@(_audiobookInProgressOnly ? "true" : "false")" OnClick="ToggleAudiobookInProgress">
-                                <MudIcon Icon="@Icons.Material.Outlined.DownloadDone" Class="tl-u-font-size-18px" />
                                 <span>In Progress</span>
                             </AppNativeButton>
                             <AppNativeButton Type="button" Class="@AudiobookFilterClass(_audiobookUnreadOnly)" aria-pressed="@(_audiobookUnreadOnly ? "true" : "false")" OnClick="ToggleAudiobookUnread">
-                                <MudIcon Icon="@Icons.Material.Outlined.RadioButtonUnchecked" Class="tl-u-font-size-18px" />
                                 <span>Unread</span>
                             </AppNativeButton>
                             <AppNativeSelect Class="audiobooks-select" @bind="_audiobookLengthFilter" aria-label="Filter by length">
@@ -819,11 +817,9 @@ else
 
                         <div class="audiobooks-layout-toggle" role="group" aria-label="Audiobook layout">
                             <AppNativeButton Type="button" Class="@AudiobookLayoutToggleClass(LibraryLayoutMode.Card)" aria-pressed="@(_audiobookLayout == LibraryLayoutMode.Card ? "true" : "false")" OnClick="@(() => _audiobookLayout = LibraryLayoutMode.Card)">
-                                <MudIcon Icon="@Icons.Material.Outlined.GridView" Class="tl-u-font-size-18px" />
                                 <span>Cards</span>
                             </AppNativeButton>
                             <AppNativeButton Type="button" Class="@AudiobookLayoutToggleClass(LibraryLayoutMode.List)" aria-pressed="@(_audiobookLayout == LibraryLayoutMode.List ? "true" : "false")" OnClick="@(() => _audiobookLayout = LibraryLayoutMode.List)">
-                                <MudIcon Icon="@Icons.Material.Outlined.ViewList" Class="tl-u-font-size-18px" />
                                 <span>List</span>
                             </AppNativeButton>
                         </div>
@@ -851,13 +847,16 @@ else
                             <div class="audiobooks-continue-grid">
                                 @foreach (var item in AudiobookContinueCards)
                                 {
-                                    var work = item.Work;
+                                    var audiobook = item.Item;
+                                    var title = AudiobookTitle(audiobook);
+                                    var route = AudiobookRoute(audiobook);
+                                    var coverUrl = AudiobookCoverUrl(audiobook);
                                     var progress = AudiobookProgressPercent(item);
                                     <article class="audiobooks-continue-card">
-                                        <a class="audiobooks-continue-card__cover" href="@AudiobookRoute(work)">
-                                            @if (!string.IsNullOrWhiteSpace(work.CoverUrl))
+                                        <a class="audiobooks-continue-card__cover" href="@route">
+                                            @if (!string.IsNullOrWhiteSpace(coverUrl))
                                             {
-                                                <img src="@work.CoverUrl" alt="@work.Title" />
+                                                <img src="@coverUrl" alt="@title" />
                                             }
                                             else
                                             {
@@ -865,16 +864,16 @@ else
                                             }
                                         </a>
                                         <div class="audiobooks-continue-card__copy">
-                                            <a class="audiobooks-card-title" href="@AudiobookRoute(work)">@work.Title</a>
-                                            <span>@AudiobookCreatorLine(work)</span>
-                                            <span>@AudiobookNarratorLine(work)</span>
+                                            <a class="audiobooks-card-title" href="@route">@title</a>
+                                            <span>@AudiobookCreatorLine(audiobook)</span>
+                                            <span>@AudiobookSecondaryLine(audiobook)</span>
                                             <progress class="audiobooks-progress" value="@progress" max="100" aria-label="@AudiobookProgressLabel(item)"></progress>
                                             <div class="audiobooks-continue-card__meta">
                                                 <span>@AudiobookProgressLabel(item)</span>
                                                 <span>@AudiobookRemainingLabel(item)</span>
                                             </div>
                                         </div>
-                                        <AppNativeButton Type="button" Class="audiobooks-play-button" AriaLabel="@($"Play {work.Title}")" OnClick='@(() => PlaySingleWorkAsync(work, "Audiobooks"))'>
+                                        <AppNativeButton Type="button" Class="audiobooks-play-button" AriaLabel="@($"Play {title}")" OnClick='@(() => PlayAudiobookItemAsync(audiobook))'>
                                             <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Class="tl-u-font-size-28px" />
                                         </AppNativeButton>
                                     </article>
@@ -908,22 +907,19 @@ else
                                     {
                                         <article class="audiobooks-series-card">
                                             <div class="audiobooks-series-card__covers">
-                                                @foreach (var work in series.Works.Take(3))
-                                                {
-                                                    <span>
-                                                        @if (!string.IsNullOrWhiteSpace(work.CoverUrl))
-                                                        {
-                                                            <img src="@work.CoverUrl" alt="@work.Title" />
-                                                        }
-                                                        else
-                                                        {
-                                                            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-38px" />
-                                                        }
-                                                    </span>
-                                                }
+                                                <span>
+                                                    @if (!string.IsNullOrWhiteSpace(series.CoverUrl))
+                                                    {
+                                                        <img src="@series.CoverUrl" alt="@series.DisplayName" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-38px" />
+                                                    }
+                                                </span>
                                             </div>
                                             <div class="audiobooks-series-card__copy">
-                                                <h3>@series.Name</h3>
+                                                <h3>@series.DisplayName</h3>
                                                 <span>@AudiobookSeriesMeta(series)</span>
                                                 <p>@AudiobookSeriesDescription(series)</p>
                                                 <AppNativeButton Type="button" Class="audiobooks-series-card__action" OnClick="@(() => ViewAudiobookSeries(series))">View Series</AppNativeButton>
@@ -944,12 +940,13 @@ else
                                 <div class="audiobooks-author-grid">
                                     @foreach (var author in AudiobookAuthorGroups)
                                     {
-                                        var firstWork = author.Works.FirstOrDefault();
+                                        var firstItem = author.Items.FirstOrDefault();
+                                        var coverUrl = firstItem is null ? null : AudiobookCoverUrl(firstItem);
                                         <article class="audiobooks-author-card">
                                             <div class="audiobooks-author-card__cover">
-                                                @if (!string.IsNullOrWhiteSpace(firstWork?.CoverUrl))
+                                                @if (!string.IsNullOrWhiteSpace(coverUrl))
                                                 {
-                                                    <img src="@firstWork.CoverUrl" alt="@author.Name" />
+                                                    <img src="@coverUrl" alt="@author.Name" />
                                                 }
                                                 else
                                                 {
@@ -966,21 +963,24 @@ else
                                 </div>
                             }
                         }
-                        else if (AudiobookBrowseWorks.Count == 0)
+                        else if (AudiobookBrowseItems.Count == 0)
                         {
                             <div class="audiobooks-empty">No audiobooks match these filters.</div>
                         }
                         else
                         {
                             <div class="@AudiobookBooksLayoutClass">
-                                @foreach (var work in AudiobookBrowseWorks)
+                                @foreach (var audiobook in AudiobookBrowseItems)
                                 {
-                                    var progress = AudiobookProgressPercent(work);
+                                    var title = AudiobookTitle(audiobook);
+                                    var route = AudiobookRoute(audiobook);
+                                    var coverUrl = AudiobookCoverUrl(audiobook);
+                                    var progress = AudiobookProgressPercent(audiobook);
                                     <article class="audiobooks-book-card">
-                                        <a class="audiobooks-book-card__cover" href="@AudiobookRoute(work)">
-                                            @if (!string.IsNullOrWhiteSpace(work.CoverUrl))
+                                        <a class="audiobooks-book-card__cover" href="@route">
+                                            @if (!string.IsNullOrWhiteSpace(coverUrl))
                                             {
-                                                <img src="@work.CoverUrl" alt="@work.Title" />
+                                                <img src="@coverUrl" alt="@title" />
                                             }
                                             else
                                             {
@@ -988,19 +988,19 @@ else
                                             }
                                         </a>
                                         <div class="audiobooks-book-card__copy">
-                                            <a class="audiobooks-card-title" href="@AudiobookRoute(work)">@work.Title</a>
-                                            <span>@AudiobookCreatorLine(work)</span>
-                                            <span>@AudiobookNarratorLine(work)</span>
+                                            <a class="audiobooks-card-title" href="@route">@title</a>
+                                            <span>@AudiobookCreatorLine(audiobook)</span>
+                                            <span>@AudiobookSecondaryLine(audiobook)</span>
                                             <div class="audiobooks-book-card__badges">
-                                                <span>@AudiobookBadge(work)</span>
-                                                <span>@AudiobookDurationLabel(work)</span>
+                                                <span>@AudiobookBadge(audiobook)</span>
+                                                <span>@AudiobookDurationLabel(audiobook)</span>
                                             </div>
                                             <div class="audiobooks-book-card__progress-row">
-                                                <progress class="audiobooks-progress" value="@progress" max="100" aria-label="@AudiobookProgressLabel(work)"></progress>
-                                                <span>@AudiobookProgressLabel(work)</span>
+                                                <progress class="audiobooks-progress" value="@progress" max="100" aria-label="@AudiobookProgressLabel(audiobook)"></progress>
+                                                <span>@AudiobookProgressLabel(audiobook)</span>
                                             </div>
                                         </div>
-                                        <AppNativeButton Type="button" Class="audiobooks-card-menu" AriaLabel="@($"Play {work.Title}")" OnClick='@(() => PlaySingleWorkAsync(work, "Audiobooks"))'>
+                                        <AppNativeButton Type="button" Class="audiobooks-card-menu" AriaLabel="@($"Play {title}")" OnClick='@(() => PlayAudiobookItemAsync(audiobook))'>
                                             <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-20px" />
                                         </AppNativeButton>
                                     </article>
@@ -1025,22 +1025,19 @@ else
                                 {
                                     <article class="audiobooks-series-card audiobooks-series-card--featured">
                                         <div class="audiobooks-series-card__covers">
-                                            @foreach (var work in series.Works.Take(3))
-                                            {
-                                                <span>
-                                                    @if (!string.IsNullOrWhiteSpace(work.CoverUrl))
-                                                    {
-                                                        <img src="@work.CoverUrl" alt="@work.Title" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-38px" />
-                                                    }
-                                                </span>
-                                            }
+                                            <span>
+                                                @if (!string.IsNullOrWhiteSpace(series.CoverUrl))
+                                                {
+                                                    <img src="@series.CoverUrl" alt="@series.DisplayName" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-38px" />
+                                                }
+                                            </span>
                                         </div>
                                         <div class="audiobooks-series-card__copy">
-                                            <h3>@series.Name</h3>
+                                            <h3>@series.DisplayName</h3>
                                             <span>@AudiobookSeriesMeta(series)</span>
                                             <p>@AudiobookSeriesDescription(series)</p>
                                             <AppNativeButton Type="button" Class="audiobooks-series-card__action" OnClick="@(() => ViewAudiobookSeries(series))">View Series</AppNativeButton>

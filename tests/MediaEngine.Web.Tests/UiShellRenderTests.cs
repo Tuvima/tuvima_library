@@ -544,6 +544,9 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Continue Listening", cut.Markup);
             Assert.Contains("Browse All", cut.Markup);
             Assert.Contains("Featured Series", cut.Markup);
+            Assert.Contains("Dune Audiobook", cut.Markup);
+            Assert.Contains("Frank Herbert", cut.Markup);
+            Assert.DoesNotContain("Test Track", cut.Markup);
         });
     }
 
@@ -610,6 +613,8 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("NavigateTo(route, forceLoad: true)", source, StringComparison.Ordinal);
         Assert.Contains("target=\"_top\"", markup, StringComparison.Ordinal);
         Assert.Contains("NavigateRailLink(item.Route)", markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Icons.Material.Outlined.DownloadDone", markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Icons.Material.Outlined.RadioButtonUnchecked", markup, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-page--audiobooks .listen-rail", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-page--audiobooks ::deep .listen-now-panel", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-page--audiobooks {\r\n    grid-template-columns", css, StringComparison.Ordinal);

@@ -60,9 +60,11 @@ public partial class ListenPage : IDisposable
     private readonly List<WorkViewModel> _musicWorks = [];
     private readonly List<JourneyItemViewModel> _musicJourney = [];
     private readonly List<WorkViewModel> _audiobookWorks = [];
+    private readonly List<DisplayCardDto> _audiobookCards = [];
     private readonly List<JourneyItemViewModel> _audiobookJourney = [];
     private readonly List<ContentGroupViewModel> _albumGroups = [];
     private readonly List<ContentGroupViewModel> _artistGroups = [];
+    private readonly List<ContentGroupViewModel> _audiobookSeriesGroups = [];
     private readonly List<ManagedCollectionViewModel> _managedCollections = [];
     private readonly List<CollectionItemViewModel> _playlistItems = [];
     private readonly Dictionary<Guid, WorkViewModel> _workLookup = [];
@@ -203,15 +205,17 @@ public partial class ListenPage : IDisposable
     private IReadOnlyList<ContentGroupViewModel> FilteredArtistGroups => ApplyArtistFilters();
     private string ListenPageClass => IsAudiobooksMode ? "listen-page listen-page--audiobooks" : "listen-page";
     private IReadOnlyList<AudiobookListenItem> AudiobookContinueCards => BuildAudiobookContinueCards();
-    private IReadOnlyList<WorkViewModel> FilteredAudiobookWorks => ApplyAudiobookFilters();
-    private IReadOnlyList<WorkViewModel> AudiobookBrowseWorks => BuildAudiobookBrowseWorks();
-    private IReadOnlyList<AudiobookSeriesGroup> AudiobookSeriesGroups => BuildAudiobookSeriesGroups(FilteredAudiobookWorks);
-    private IReadOnlyList<AudiobookSeriesGroup> FeaturedAudiobookSeries => BuildAudiobookSeriesGroups(_audiobookWorks)
-        .OrderByDescending(group => group.Works.Max(work => work.CreatedAt))
-        .ThenBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+    private IReadOnlyList<AudiobookDisplayItem> AudiobookDisplayItems => BuildAudiobookDisplayItems();
+    private IReadOnlyList<AudiobookDisplayItem> FilteredAudiobookItems => ApplyAudiobookFilters();
+    private IReadOnlyList<AudiobookDisplayItem> AudiobookBrowseItems => BuildAudiobookBrowseItems();
+    private IReadOnlyList<ContentGroupViewModel> AudiobookSeriesGroups => ApplyAudiobookSeriesFilters();
+    private IReadOnlyList<ContentGroupViewModel> FeaturedAudiobookSeries => _audiobookSeriesGroups
+        .Where(group => group.WorkCount >= 2)
+        .OrderByDescending(group => group.WorkCount)
+        .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
         .Take(3)
         .ToList();
-    private IReadOnlyList<AudiobookAuthorGroup> AudiobookAuthorGroups => BuildAudiobookAuthorGroups(FilteredAudiobookWorks);
+    private IReadOnlyList<AudiobookAuthorGroup> AudiobookAuthorGroups => BuildAudiobookAuthorGroups(FilteredAudiobookItems);
     private string AudiobookBrowseTitle => _audiobookView switch
     {
         "series" => "Series",
@@ -223,7 +227,7 @@ public partial class ListenPage : IDisposable
     {
         "series" => AudiobookSeriesGroups.Count == 1 ? "1 series" : $"{AudiobookSeriesGroups.Count} series",
         "authors" => Pluralize(AudiobookAuthorGroups.Count, "author"),
-        _ => Pluralize(FilteredAudiobookWorks.Count, "audiobook"),
+        _ => Pluralize(FilteredAudiobookItems.Count, "audiobook"),
     };
     private string AudiobookBooksLayoutClass => _audiobookLayout == LibraryLayoutMode.List
         ? "audiobooks-books audiobooks-books--list"
@@ -237,7 +241,7 @@ public partial class ListenPage : IDisposable
         && string.Equals(_audiobookLengthFilter, "all", StringComparison.OrdinalIgnoreCase)
         && string.IsNullOrWhiteSpace(_audiobookSeriesFocus);
     private bool IsAudiobookBrowsePreviewTruncated => ShouldPreviewAudiobookBrowse
-        && FilteredAudiobookWorks.Count > AudiobookBrowsePreviewLimit;
+        && FilteredAudiobookItems.Count > AudiobookBrowsePreviewLimit;
     private IReadOnlyList<string> PlaylistCoverUrls => ActivePlaylistTracks.Select(track => track.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Distinct().Cast<string>().Take(4).ToList();
     private IReadOnlyList<ManagedCollectionViewModel> PlaylistCollections => _managedCollections
         .Where(IsUserVisiblePlaylist)
@@ -502,11 +506,22 @@ public partial class ListenPage : IDisposable
                     includeCatalog: false,
                     profileId: _activeProfileId)
                 : Task.FromResult<DisplayPageDto?>(null);
+            var audiobookBrowseTask = IsAudiobooksMode
+                ? ApiClient.GetDisplayBrowseAsync(
+                    mediaType: "Audiobooks",
+                    grouping: "all",
+                    offset: 0,
+                    limit: 240,
+                    profileId: _activeProfileId)
+                : Task.FromResult<DisplayPageDto?>(null);
+            var audiobookSeriesGroupsTask = IsAudiobooksMode
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Audiobooks", groupField: "series")
+                : Task.FromResult(new List<ContentGroupViewModel>());
             var collectionsTask = _activeProfileId.HasValue
                 ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
 
-            await Task.WhenAll(worksTask, journeyTask, albumGroupsTask, artistGroupsTask, musicHomeTask, collectionsTask);
+            await Task.WhenAll(worksTask, journeyTask, albumGroupsTask, artistGroupsTask, musicHomeTask, audiobookBrowseTask, audiobookSeriesGroupsTask, collectionsTask);
             if (!IsCurrentLoad(loadVersion))
             {
                 return;
@@ -520,6 +535,12 @@ public partial class ListenPage : IDisposable
 
             _audiobookWorks.Clear();
             _audiobookWorks.AddRange(_allWorks.Where(IsAudiobookWork).OrderBy(work => work.Author).ThenBy(work => work.Series).ThenBy(work => work.Title));
+
+            _audiobookCards.Clear();
+            if (audiobookBrowseTask.Result is not null)
+            {
+                _audiobookCards.AddRange(audiobookBrowseTask.Result.Catalog);
+            }
 
             _musicJourney.Clear();
             _musicJourney.AddRange(journeyTask.Result.Where(item => IsMusicWork(item.MediaType)));
@@ -542,6 +563,11 @@ public partial class ListenPage : IDisposable
             _artistGroups.AddRange(shouldLoadMusicBrowseData
                 ? artistGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
                 : BuildMusicGroupSummaries(_musicWorks, "artist"));
+
+            _audiobookSeriesGroups.Clear();
+            _audiobookSeriesGroups.AddRange(audiobookSeriesGroupsTask.Result
+                .Where(group => group.WorkCount >= 2)
+                .OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase));
 
             _managedCollections.Clear();
             _managedCollections.AddRange(collectionsTask.Result);
@@ -2402,8 +2428,7 @@ public partial class ListenPage : IDisposable
         var continueItems = _audiobookJourney
             .Where(item => item.ProgressPct is > 0 and < 99.5)
             .OrderByDescending(item => item.LastAccessed)
-            .Select(item => _workLookup.TryGetValue(item.WorkId, out var work) ? new AudiobookListenItem(work, item) : null)
-            .OfType<AudiobookListenItem>()
+            .Select(item => new AudiobookListenItem(ResolveAudiobookItem(item.WorkId, item), item))
             .Take(3)
             .ToList();
 
@@ -2412,136 +2437,262 @@ public partial class ListenPage : IDisposable
             return continueItems;
         }
 
-        return _audiobookWorks
-            .OrderByDescending(work => work.CreatedAt)
+        return AudiobookDisplayItems
+            .OrderByDescending(AudiobookSortTimestamp)
             .Take(3)
-            .Select(work => new AudiobookListenItem(work, null))
+            .Select(item => new AudiobookListenItem(item, null))
             .ToList();
     }
 
-    private IReadOnlyList<WorkViewModel> BuildAudiobookBrowseWorks()
+    private IReadOnlyList<AudiobookDisplayItem> BuildAudiobookDisplayItems()
     {
-        var works = FilteredAudiobookWorks;
-        return ShouldPreviewAudiobookBrowse
-            ? works.Take(AudiobookBrowsePreviewLimit).ToList()
-            : works;
+        if (_audiobookCards.Count > 0)
+        {
+            return _audiobookCards
+                .Select(card => new AudiobookDisplayItem(card, ResolveAudiobookWork(card.WorkId)))
+                .ToList();
+        }
+
+        return _audiobookWorks
+            .Select(work => new AudiobookDisplayItem(null, work))
+            .ToList();
     }
 
-    private IReadOnlyList<WorkViewModel> ApplyAudiobookFilters()
+    private AudiobookDisplayItem ResolveAudiobookItem(Guid workId, JourneyItemViewModel? journey)
     {
-        IEnumerable<WorkViewModel> works = _audiobookWorks;
+        var card = _audiobookCards.FirstOrDefault(candidate => candidate.WorkId == workId);
+        var work = ResolveAudiobookWork(workId);
+        if (card is not null || work is not null)
+        {
+            return new AudiobookDisplayItem(card, work);
+        }
+
+        var fallback = new DisplayCardDto(
+            Id: workId,
+            WorkId: workId,
+            AssetId: null,
+            CollectionId: null,
+            MediaType: "Audiobook",
+            GroupingType: "work",
+            Title: journey?.Title ?? "Audiobook",
+            Subtitle: journey?.Author,
+            Facts: [],
+            Artwork: new DisplayArtworkDto(
+                CoverUrl: journey?.CoverUrl,
+                CoverSmallUrl: null,
+                CoverMediumUrl: null,
+                CoverLargeUrl: null,
+                SquareUrl: null,
+                SquareSmallUrl: null,
+                SquareMediumUrl: null,
+                SquareLargeUrl: null,
+                BannerUrl: null,
+                BannerSmallUrl: null,
+                BannerMediumUrl: null,
+                BannerLargeUrl: null,
+                BackgroundUrl: null,
+                BackgroundSmallUrl: null,
+                BackgroundMediumUrl: null,
+                BackgroundLargeUrl: null,
+                LogoUrl: null,
+                CoverWidthPx: null,
+                CoverHeightPx: null,
+                SquareWidthPx: null,
+                SquareHeightPx: null,
+                BannerWidthPx: null,
+                BannerHeightPx: null,
+                BackgroundWidthPx: null,
+                BackgroundHeightPx: null,
+                AccentColor: null),
+            PreferredShape: "cover",
+            Presentation: "work",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: journey is null ? null : new DisplayProgressDto(journey.ProgressPct, journey.ProgressDisplay, journey.LastAccessed, null),
+            Actions: [new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/listen/audiobook/{workId:D}")],
+            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            SortTimestamp: journey?.LastAccessed ?? DateTimeOffset.MinValue);
+
+        return new AudiobookDisplayItem(fallback, null);
+    }
+
+    private WorkViewModel? ResolveAudiobookWork(Guid? workId)
+        => workId.HasValue && _workLookup.TryGetValue(workId.Value, out var work) && IsAudiobookWork(work)
+            ? work
+            : null;
+
+    private IReadOnlyList<AudiobookDisplayItem> BuildAudiobookBrowseItems()
+    {
+        var items = FilteredAudiobookItems;
+        return ShouldPreviewAudiobookBrowse
+            ? items.Take(AudiobookBrowsePreviewLimit).ToList()
+            : items;
+    }
+
+    private IReadOnlyList<AudiobookDisplayItem> ApplyAudiobookFilters()
+    {
+        IEnumerable<AudiobookDisplayItem> items = AudiobookDisplayItems;
 
         if (!string.IsNullOrWhiteSpace(_audiobookSeriesFocus))
         {
-            works = works.Where(work => string.Equals(work.Series, _audiobookSeriesFocus, StringComparison.OrdinalIgnoreCase));
+            items = items.Where(item => AudiobookMatchesSeries(item, _audiobookSeriesFocus));
         }
 
         var search = _audiobookSearch.Trim();
         if (!string.IsNullOrWhiteSpace(search))
         {
-            works = works.Where(work => AudiobookMatchesSearch(work, search));
+            items = items.Where(item => AudiobookMatchesSearch(item, search));
         }
 
         if (_audiobookInProgressOnly)
         {
-            works = works.Where(work => AudiobookProgressPercent(work) is > 0 and < 99.5);
+            items = items.Where(item => AudiobookProgressPercent(item) is > 0 and < 99.5);
         }
 
         if (_audiobookUnreadOnly)
         {
-            works = works.Where(work => AudiobookProgressPercent(work) <= 0);
+            items = items.Where(item => AudiobookProgressPercent(item) <= 0);
         }
 
-        works = _audiobookLengthFilter switch
+        items = _audiobookLengthFilter switch
         {
-            "short" => works.Where(work => GetTrackDurationSeconds(work) is > 0 and <= 21600),
-            "medium" => works.Where(work => GetTrackDurationSeconds(work) is > 21600 and <= 50400),
-            "long" => works.Where(work => GetTrackDurationSeconds(work) > 50400),
-            _ => works,
+            "short" => items.Where(item => AudiobookDurationSeconds(item) is > 0 and <= 21600),
+            "medium" => items.Where(item => AudiobookDurationSeconds(item) is > 21600 and <= 50400),
+            "long" => items.Where(item => AudiobookDurationSeconds(item) > 50400),
+            _ => items,
         };
 
         return _audiobookSort switch
         {
-            "title" => works.OrderBy(work => work.Title, StringComparer.OrdinalIgnoreCase).ToList(),
-            "author" => works.OrderBy(work => FirstNonBlankOrNull(work.Author, work.Artist, "Unknown"), StringComparer.OrdinalIgnoreCase)
-                .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            "title" => items.OrderBy(AudiobookTitle, StringComparer.OrdinalIgnoreCase).ToList(),
+            "author" => items.OrderBy(AudiobookCreatorLine, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(AudiobookTitle, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
-            "length" => works.OrderByDescending(GetTrackDurationSeconds)
-                .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            "length" => items.OrderByDescending(AudiobookDurationSeconds)
+                .ThenBy(AudiobookTitle, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
-            _ => works.OrderByDescending(work => work.CreatedAt)
-                .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            _ => items.OrderByDescending(AudiobookSortTimestamp)
+                .ThenBy(AudiobookTitle, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
         };
     }
 
-    private static bool AudiobookMatchesSearch(WorkViewModel work, string search)
+    private IReadOnlyList<ContentGroupViewModel> ApplyAudiobookSeriesFilters()
     {
-        return ContainsSearch(work.Title, search)
-               || ContainsSearch(work.Author, search)
-               || ContainsSearch(work.Artist, search)
-               || ContainsSearch(work.Narrator, search)
-               || ContainsSearch(work.Series, search)
-               || work.Genres.Any(genre => ContainsSearch(genre, search));
+        IEnumerable<ContentGroupViewModel> groups = _audiobookSeriesGroups;
+        var search = _audiobookSearch.Trim();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            groups = groups.Where(group =>
+                ContainsSearch(group.DisplayName, search)
+                || ContainsSearch(group.Creator, search)
+                || ContainsSearch(group.Description, search)
+                || ContainsSearch(group.Tagline, search));
+        }
+
+        return _audiobookSort switch
+        {
+            "title" or "author" => groups.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+            _ => groups.OrderByDescending(group => group.WorkCount).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+        };
+    }
+
+    private static bool AudiobookMatchesSearch(AudiobookDisplayItem item, string search)
+    {
+        var card = item.Card;
+        var work = item.Work;
+        return ContainsSearch(card?.Title, search)
+               || ContainsSearch(card?.Subtitle, search)
+               || (card?.Facts.Any(fact => ContainsSearch(fact, search)) ?? false)
+               || ContainsSearch(work?.Title, search)
+               || ContainsSearch(work?.Author, search)
+               || ContainsSearch(work?.Artist, search)
+               || ContainsSearch(work?.Narrator, search)
+               || ContainsSearch(work?.Series, search)
+               || (work?.Genres.Any(genre => ContainsSearch(genre, search)) ?? false);
+    }
+
+    private static bool AudiobookMatchesSeries(AudiobookDisplayItem item, string series)
+    {
+        return ContainsSearch(item.Work?.Series, series)
+               || (item.Card?.Facts.Any(fact => string.Equals(fact, series, StringComparison.OrdinalIgnoreCase)) ?? false);
     }
 
     private static bool ContainsSearch(string? value, string search)
         => !string.IsNullOrWhiteSpace(value)
            && value.Contains(search, StringComparison.OrdinalIgnoreCase);
 
-    private static IReadOnlyList<AudiobookSeriesGroup> BuildAudiobookSeriesGroups(IEnumerable<WorkViewModel> works)
-        => works
-            .Select(work => new { Work = work, Series = FirstNonBlankOrNull(work.Series) })
-            .Where(item => !string.IsNullOrWhiteSpace(item.Series))
-            .GroupBy(item => item.Series!, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new AudiobookSeriesGroup(
-                group.Key,
-                group.Select(item => item.Work)
-                    .OrderBy(work => ParseSeriesSortKey(work.SeriesPosition))
-                    .ThenBy(work => work.CreatedAt)
-                    .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
-                    .ToList()))
-            .Where(group => group.Works.Count >= 2)
-            .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-    private static IReadOnlyList<AudiobookAuthorGroup> BuildAudiobookAuthorGroups(IEnumerable<WorkViewModel> works)
-        => works
-            .SelectMany(work =>
+    private static IReadOnlyList<AudiobookAuthorGroup> BuildAudiobookAuthorGroups(IEnumerable<AudiobookDisplayItem> items)
+        => items
+            .SelectMany(item =>
             {
-                var authors = work.Authors.Count > 0 ? work.Authors : ["Unknown Author"];
-                return authors.Select(author => new { Author = author, Work = work });
+                var authors = AudiobookAuthorNames(item);
+                return authors.Select(author => new { Author = author, Item = item });
             })
             .GroupBy(item => item.Author, StringComparer.OrdinalIgnoreCase)
             .Select(group => new AudiobookAuthorGroup(
                 group.Key,
-                group.Select(item => item.Work)
-                    .OrderByDescending(work => work.CreatedAt)
-                    .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+                group.Select(item => item.Item)
+                    .OrderByDescending(AudiobookSortTimestamp)
+                    .ThenBy(AudiobookTitle, StringComparer.OrdinalIgnoreCase)
                     .ToList()))
             .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private static double ParseSeriesSortKey(string? value)
-        => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : double.MaxValue;
-
-    private JourneyItemViewModel? AudiobookJourneyFor(WorkViewModel work)
-        => _audiobookJourney
-            .Where(item => item.WorkId == work.Id)
-            .OrderByDescending(item => item.LastAccessed)
-            .FirstOrDefault();
-
-    private double AudiobookProgressPercent(WorkViewModel work)
-        => AudiobookJourneyFor(work)?.ProgressPct ?? 0;
-
-    private static double AudiobookProgressPercent(AudiobookListenItem item)
-        => item.Journey?.ProgressPct ?? 0;
-
-    private string AudiobookProgressLabel(WorkViewModel work)
+    private static IReadOnlyList<string> AudiobookAuthorNames(AudiobookDisplayItem item)
     {
-        var progress = AudiobookProgressPercent(work);
+        if (item.Work?.Authors.Count > 0)
+        {
+            return item.Work.Authors;
+        }
+
+        var creator = AudiobookCreatorLine(item);
+        return string.IsNullOrWhiteSpace(creator) || string.Equals(creator, "Unknown Author", StringComparison.OrdinalIgnoreCase)
+            ? ["Unknown Author"]
+            : [creator];
+    }
+
+    private JourneyItemViewModel? AudiobookJourneyFor(AudiobookDisplayItem item)
+    {
+        var workId = AudiobookWorkId(item);
+        return workId.HasValue
+            ? _audiobookJourney
+                .Where(journey => journey.WorkId == workId.Value)
+                .OrderByDescending(journey => journey.LastAccessed)
+                .FirstOrDefault()
+            : null;
+    }
+
+    private static Guid? AudiobookWorkId(AudiobookDisplayItem item)
+        => item.Card?.WorkId ?? item.Work?.Id;
+
+    private static string AudiobookTitle(AudiobookDisplayItem item)
+        => FirstNonBlankOrNull(item.Card?.Title, item.Work?.Title, "Audiobook") ?? "Audiobook";
+
+    private static string? AudiobookCoverUrl(AudiobookDisplayItem item)
+        => FirstNonBlankOrNull(
+            item.Card?.Artwork.CoverUrl,
+            item.Card?.Artwork.CoverMediumUrl,
+            item.Card?.Artwork.CoverSmallUrl,
+            item.Card?.Artwork.SquareUrl,
+            item.Card?.Artwork.BackgroundUrl,
+            item.Work?.CoverUrl,
+            item.Work?.CoverUrlMedium,
+            item.Work?.CoverUrlSmall,
+            item.Work?.SquareUrl);
+
+    private static DateTimeOffset AudiobookSortTimestamp(AudiobookDisplayItem item)
+        => item.Card?.SortTimestamp ?? item.Work?.CreatedAt ?? DateTimeOffset.MinValue;
+
+    private double AudiobookProgressPercent(AudiobookDisplayItem item)
+        => item.Card?.Progress?.Percent ?? AudiobookJourneyFor(item)?.ProgressPct ?? 0;
+
+    private double AudiobookProgressPercent(AudiobookListenItem item)
+        => item.Journey?.ProgressPct ?? AudiobookProgressPercent(item.Item);
+
+    private string AudiobookProgressLabel(AudiobookDisplayItem item)
+    {
+        var progress = AudiobookProgressPercent(item);
         return progress switch
         {
             >= 99.5 => "Complete",
@@ -2550,8 +2701,13 @@ public partial class ListenPage : IDisposable
         };
     }
 
-    private static string AudiobookProgressLabel(AudiobookListenItem item)
+    private string AudiobookProgressLabel(AudiobookListenItem item)
     {
+        if (!string.IsNullOrWhiteSpace(item.Journey?.ProgressDisplay))
+        {
+            return item.Journey.ProgressDisplay;
+        }
+
         var progress = AudiobookProgressPercent(item);
         return progress switch
         {
@@ -2563,7 +2719,7 @@ public partial class ListenPage : IDisposable
 
     private string AudiobookRemainingLabel(AudiobookListenItem item)
     {
-        var durationSeconds = GetTrackDurationSeconds(item.Work);
+        var durationSeconds = AudiobookDurationSeconds(item.Item);
         if (durationSeconds <= 0)
         {
             return item.Journey is null ? "Length unknown" : item.Journey.ProgressDisplay;
@@ -2584,8 +2740,24 @@ public partial class ListenPage : IDisposable
         return $"{FormatAudiobookDuration(remainingSeconds)} left";
     }
 
-    private static string AudiobookDurationLabel(WorkViewModel work)
-        => FormatAudiobookDuration(GetTrackDurationSeconds(work));
+    private static long AudiobookDurationSeconds(AudiobookDisplayItem item)
+        => item.Work is null ? 0 : GetTrackDurationSeconds(item.Work);
+
+    private static string AudiobookDurationLabel(AudiobookDisplayItem item)
+    {
+        var duration = FormatAudiobookDuration(AudiobookDurationSeconds(item));
+        if (!string.Equals(duration, "Length unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return duration;
+        }
+
+        return item.Card?.Facts.FirstOrDefault(IsDurationFact) ?? duration;
+    }
+
+    private static bool IsDurationFact(string value)
+        => value.Contains('h', StringComparison.OrdinalIgnoreCase)
+           || value.Contains("min", StringComparison.OrdinalIgnoreCase)
+           || value.Contains("hour", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatAudiobookDuration(long seconds)
     {
@@ -2606,37 +2778,58 @@ public partial class ListenPage : IDisposable
         return minutes > 0 ? $"{hours}h {minutes}m" : $"{hours}h";
     }
 
-    private static string AudiobookCreatorLine(WorkViewModel work)
-        => FirstNonBlankOrNull(work.Author, work.Artist, "Unknown Author") ?? "Unknown Author";
+    private static string AudiobookCreatorLine(AudiobookDisplayItem item)
+        => FirstNonBlankOrNull(item.Card?.Subtitle, item.Work?.Author, item.Work?.Artist, "Unknown Author") ?? "Unknown Author";
 
-    private static string AudiobookNarratorLine(WorkViewModel work)
-        => string.IsNullOrWhiteSpace(work.Narrator) ? "Narrator unknown" : $"Narrated by {work.Narrator}";
-
-    private static string AudiobookBadge(WorkViewModel work)
-        => !string.IsNullOrWhiteSpace(work.SeriesPosition)
-            ? $"Book {work.SeriesPosition}"
-            : !string.IsNullOrWhiteSpace(work.Series)
-                ? "Series"
-                : "Standalone";
-
-    private static string AudiobookSeriesMeta(AudiobookSeriesGroup series)
+    private static string AudiobookSecondaryLine(AudiobookDisplayItem item)
     {
-        var genre = series.Works.SelectMany(work => work.Genres).FirstOrDefault(genre => !string.IsNullOrWhiteSpace(genre));
-        var count = series.Works.Count == 1 ? "1 book" : $"{series.Works.Count} books";
-        return string.IsNullOrWhiteSpace(genre) ? count : $"{count} - {genre}";
+        if (!string.IsNullOrWhiteSpace(item.Work?.Narrator))
+        {
+            return $"Narrated by {item.Work.Narrator}";
+        }
+
+        var creator = AudiobookCreatorLine(item);
+        var fact = item.Card?.Facts.FirstOrDefault(candidate =>
+            !string.Equals(candidate, creator, StringComparison.OrdinalIgnoreCase)
+            && !IsDurationFact(candidate));
+        return string.IsNullOrWhiteSpace(fact) ? "Audiobook" : fact;
     }
 
-    private static string AudiobookSeriesDescription(AudiobookSeriesGroup series)
+    private static string AudiobookBadge(AudiobookDisplayItem item)
     {
-        var description = series.Works.Select(work => work.Description).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-        return description ?? $"{series.Name} includes {Pluralize(series.Works.Count, "audiobook")} in your library.";
+        if (!string.IsNullOrWhiteSpace(item.Work?.SeriesPosition))
+        {
+            return $"Book {item.Work.SeriesPosition}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.Work?.Series)
+            || string.Equals(item.Card?.Presentation, "audiobookSeries", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Series";
+        }
+
+        return item.Card?.Badges.FirstOrDefault()?.Label ?? "Audiobook";
     }
+
+    private static string AudiobookSeriesMeta(ContentGroupViewModel series)
+    {
+        var count = series.WorkCount == 1 ? "1 book" : $"{series.WorkCount} books";
+        return string.IsNullOrWhiteSpace(series.Creator) ? count : $"{count} - {series.Creator}";
+    }
+
+    private static string AudiobookSeriesDescription(ContentGroupViewModel series)
+        => FirstNonBlankOrNull(series.Description, series.Tagline)
+           ?? $"{series.DisplayName} includes {Pluralize(series.WorkCount, "audiobook")} in your library.";
 
     private static string AudiobookAuthorMeta(AudiobookAuthorGroup author)
-        => author.Works.Count == 1 ? "1 audiobook" : $"{author.Works.Count} audiobooks";
+        => author.Items.Count == 1 ? "1 audiobook" : $"{author.Items.Count} audiobooks";
 
-    private static string AudiobookRoute(WorkViewModel work)
-        => MediaNavigation.ForWork(work);
+    private static string AudiobookRoute(AudiobookDisplayItem item)
+        => item.Card?.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl
+           ?? (item.Work is null ? "/" : MediaNavigation.ForWork(item.Work));
+
+    private static string AudiobookSeriesRoute(ContentGroupViewModel series)
+        => $"/details/bookseries/{series.CollectionId:D}?context=read";
 
     private static string AudiobookTabClass(string view, string activeView)
         => string.Equals(view, activeView, StringComparison.OrdinalIgnoreCase)
@@ -2658,6 +2851,12 @@ public partial class ListenPage : IDisposable
         _audiobookShowAll = false;
     }
 
+    private void UpdateAudiobookSearch(ChangeEventArgs args)
+    {
+        _audiobookSearch = args.Value?.ToString() ?? string.Empty;
+        _audiobookShowAll = false;
+    }
+
     private void ToggleAudiobookInProgress()
     {
         _audiobookInProgressOnly = !_audiobookInProgressOnly;
@@ -2676,13 +2875,8 @@ public partial class ListenPage : IDisposable
         }
     }
 
-    private void ViewAudiobookSeries(AudiobookSeriesGroup series)
-    {
-        _audiobookView = "all";
-        _audiobookSearch = string.Empty;
-        _audiobookSeriesFocus = series.Name;
-        _audiobookShowAll = false;
-    }
+    private void ViewAudiobookSeries(ContentGroupViewModel series)
+        => Nav.NavigateTo(AudiobookSeriesRoute(series));
 
     private void ViewAudiobookAuthor(AudiobookAuthorGroup author)
     {
@@ -2700,6 +2894,17 @@ public partial class ListenPage : IDisposable
     private void ShowAllAudiobooks()
     {
         _audiobookShowAll = true;
+    }
+
+    private Task PlayAudiobookItemAsync(AudiobookDisplayItem item)
+    {
+        if (item.Work is not null)
+        {
+            return PlaySingleWorkAsync(item.Work, "Audiobooks");
+        }
+
+        Nav.NavigateTo(AudiobookRoute(item));
+        return Task.CompletedTask;
     }
 
     private static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)
@@ -2838,7 +3043,7 @@ public partial class ListenPage : IDisposable
     private sealed record ListenNavItem(string Label, string Route, string Icon, string? Meta = null, bool IsChild = false);
     private sealed record ListenPlaylistTrackRow(CollectionItemViewModel? Item, WorkViewModel Work, int Index);
     private sealed record PlaylistColumnDefinition(string Key, string Label);
-    private sealed record AudiobookListenItem(WorkViewModel Work, JourneyItemViewModel? Journey);
-    private sealed record AudiobookSeriesGroup(string Name, IReadOnlyList<WorkViewModel> Works);
-    private sealed record AudiobookAuthorGroup(string Name, IReadOnlyList<WorkViewModel> Works);
+    private sealed record AudiobookDisplayItem(DisplayCardDto? Card, WorkViewModel? Work);
+    private sealed record AudiobookListenItem(AudiobookDisplayItem Item, JourneyItemViewModel? Journey);
+    private sealed record AudiobookAuthorGroup(string Name, IReadOnlyList<AudiobookDisplayItem> Items);
 }
