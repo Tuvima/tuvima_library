@@ -36,8 +36,8 @@
                 @if (Playback.IsAudiobookMode)
                 {
                     <div class="listen-player-panel__sheet-header">
-                        <PlaybackSheetHandleButton Class="listen-player-panel__handle" Label="Close audiobook tools" OnClick="CloseBottomPanelAsync" />
-                        <div class="listen-player-panel__sheet-title">Audiobook tools</div>
+                        <PlaybackSheetHandleButton Class="listen-player-panel__handle" Label="Close playback tool" OnClick="CloseBottomPanelAsync" />
+                        <div class="listen-player-panel__sheet-title">@BottomPanelTitle</div>
                     </div>
                 }
                 else
@@ -69,14 +69,6 @@
 
                 @if (Playback.IsAudiobookMode)
                 {
-                    <div class="listen-player-panel__audiobook-tools">
-                        <PlaybackControlStrip Controls="@AudiobookPanelControls"
-                                              Size="compact"
-                                              Class="listen-player-panel__audiobook-actions"
-                                              AriaLabel="Audiobook tools"
-                                              OnControl="HandleAudiobookPanelControl" />
-                    </div>
-
                     @switch (_activeAudiobookPanelTool)
                     {
                         case "speed":
@@ -453,6 +445,16 @@
                 SleepTimerValueText: BottomSleepTimerValueText,
                 HistoryCount: Playback.AudiobookHistory.Count,
                 BookmarkCount: Playback.AudiobookBookmarks.Count));
+
+    private string BottomPanelTitle => _activeAudiobookPanelTool switch
+    {
+        "speed" => "Speed",
+        "chapters" => "Chapters",
+        "history" => "History",
+        "bookmarks" => "Bookmarks",
+        "sleep" => "Sleep Timer",
+        _ => "Playback Tool",
+    };
 
     private string? BottomSleepTimerValueText => Playback.SleepTimerMode switch
     {
@@ -952,18 +954,6 @@
     {
         Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
         await Playback.ReportHeartbeatAsync(force: true);
-    }
-
-    private Task OpenAudiobookPanelAsync(string tool)
-    {
-        _activeAudiobookPanelTool = tool;
-
-        if (!Playback.IsPanelOpen)
-        {
-            Playback.TogglePanel();
-        }
-
-        return Task.CompletedTask;
     }
 
     private Task ToggleMusicPanelAsync()

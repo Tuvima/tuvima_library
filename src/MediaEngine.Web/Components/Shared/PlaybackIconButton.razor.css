@@ -26,6 +26,7 @@
 }
 
 .playback-icon-button-shell ::deep .playback-icon-button:hover,
+.playback-icon-button-shell ::deep .playback-icon-button.is-selected,
 .playback-icon-button-shell ::deep .playback-icon-button.is-active {
     background: rgba(245, 158, 11, 0.12);
     color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));

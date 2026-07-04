@@ -58,6 +58,7 @@
         $"playback-icon-button-shell--{NormalizedSize}",
         $"playback-icon-button-shell--{ControlClassKey}",
         Control.IsActive ? "is-active" : null,
+        Control.IsSelected ? "is-selected" : null,
         Control.IsDisabled ? "is-disabled" : null,
         Class,
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
@@ -68,9 +69,10 @@
         $"playback-icon-button--{NormalizedSize}",
         $"playback-icon-button--{ControlClassKey}",
         Control.IsActive ? "is-active" : null,
+        Control.IsSelected ? "is-selected" : null,
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private string? AriaPressed => Control.IsActive ? "true" : null;
+    private string? AriaPressed => Control.IsActive || Control.IsSelected ? "true" : null;
 
     private string ControlClassKey => Control.Key.ToString()
         .Aggregate(string.Empty, (current, character) =>

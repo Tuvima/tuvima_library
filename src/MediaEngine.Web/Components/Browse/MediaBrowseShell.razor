@@ -20,31 +20,40 @@
 
 <BrowseShellStyles />
 
-<div class="browse-shell">
+<div class="@RootClass">
     <div class="browse-shell__toolbar-anchor">
         <div class="browse-shell__toolbar-panel">
-            <div class="browse-shell__tab-row">
-                <div class="browse-shell__title-block">
-                    <div class="browse-shell__title-eyebrow">@Preset.Title</div>
-                    <div class="browse-shell__title-text">@CurrentTab.Label</div>
-                </div>
+            @if (ShowHeaderRow)
+            {
+                <div class="browse-shell__tab-row">
+                    @if (ShowTitleBlock)
+                    {
+                        <div class="browse-shell__title-block">
+                            <div class="browse-shell__title-eyebrow">@Preset.Title</div>
+                            <div class="browse-shell__title-text">@CurrentTab.Label</div>
+                        </div>
+                    }
 
-                <div class="browse-shell__tabs-frame">
-                    <AppTabs ActivePanelIndex="@ActiveBrowseTabIndex"
-                             ActivePanelIndexChanged="OnBrowseTabChanged"
-                             Rounded="false"
-                             Border="false"
-                             Elevation="0"
-                             Class="browse-shell__tabs">
-                        @foreach (var tab in Preset.Tabs)
-                        {
-                            <MudTabPanel @key="tab.Id" Text="@tab.Label" />
-                        }
-                    </AppTabs>
+                    @if (ShowTabs)
+                    {
+                        <div class="browse-shell__tabs-frame">
+                            <AppTabs ActivePanelIndex="@ActiveBrowseTabIndex"
+                                     ActivePanelIndexChanged="OnBrowseTabChanged"
+                                     Rounded="false"
+                                     Border="false"
+                                     Elevation="0"
+                                     Class="browse-shell__tabs">
+                                @foreach (var tab in Preset.Tabs)
+                                {
+                                    <MudTabPanel @key="tab.Id" Text="@tab.Label" />
+                                }
+                            </AppTabs>
+                        </div>
+                    }
                 </div>
-            </div>
+            }
 
-            <div class="browse-shell__toolbar">
+            <div class="@ToolbarClass">
                 <AppTextField T="string"
                               @bind-Value="_searchText"
                               Placeholder="Search your library"
@@ -58,21 +67,20 @@
 
                 @if (CurrentTab.GroupingOptions.Count > 1)
                 {
-                    <MudChipSet T="string"
-                                SelectedValue="@_grouping"
-                                SelectedValueChanged="OnGroupingChanged"
-                                Class="browse-shell__groupings">
+                    <div class="browse-shell__groupings" role="group" aria-label="@($"{CurrentTab.Label} grouping")">
                         @foreach (var option in CurrentTab.GroupingOptions)
                         {
-                            <AppChip T="string"
-                                     @key="option.Value"
-                                     Value="@option.Value"
-                                     Class="@GroupingChipClass(option.Value)"
-                                     Variant="Variant.Text">
-                                @option.Label
-                            </AppChip>
+                            <AppNativeButton Type="button"
+                                             @key="option.Value"
+                                             Class="@GroupingChipClass(option.Value)"
+                                             AriaLabel="@option.Label"
+                                             aria-pressed="@(string.Equals(_grouping, option.Value, StringComparison.OrdinalIgnoreCase) ? "true" : "false")"
+                                             OnClick="@(() => SwitchGroupingAsync(option.Value))">
+                                <MudIcon Icon="@option.Icon" Class="browse-shell__grouping-icon" />
+                                <span>@option.Label</span>
+                            </AppNativeButton>
                         }
-                    </MudChipSet>
+                    </div>
                 }
 
                 <div class="browse-shell__controls">
@@ -198,6 +206,8 @@
 @code {
     [Parameter] public string? Tab { get; set; }
     [Parameter, EditorRequired] public LibraryBrowsePreset Preset { get; set; } = default!;
+    [Parameter] public bool Embedded { get; set; }
+    [Parameter] public bool ShowTitleBlock { get; set; } = true;
 
     private const int PageSize = 72;
 
@@ -223,6 +233,12 @@
         Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
         ?? Preset.Tabs[0];
 
+    private string RootClass =>
+        $"browse-shell {(Embedded ? "browse-shell--embedded" : string.Empty)}".Trim();
+    private bool ShowTabs => Preset.Tabs.Count > 1;
+    private bool ShowHeaderRow => ShowTitleBlock || ShowTabs;
+    private string ToolbarClass =>
+        ShowHeaderRow ? "browse-shell__toolbar" : "browse-shell__toolbar browse-shell__toolbar--standalone";
     private int ActiveBrowseTabIndex => GetSelectedIndex(Preset.Tabs.Select(tab => tab.Id), _activeTabId);
     private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
     private bool IsTvShowsGrouping =>
@@ -256,13 +272,11 @@
         await SwitchTabAsync(Preset.Tabs[index].Id);
     }
 
-    private Task OnGroupingChanged(string grouping) => SwitchGroupingAsync(grouping);
-
     private string LayoutToggleClass(LibraryLayoutMode mode) =>
         $"browse-shell__layout-button {(_layout == mode ? "is-active" : string.Empty)}";
 
     private string GroupingChipClass(string value) =>
-        $"browse-shell__grouping-chip {(string.Equals(_grouping, value, StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)}";
+        $"browse-shell__grouping-button {(string.Equals(_grouping, value, StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)}";
 
     private List<LibraryColumnDef> ActiveColumns =>
         IsContainerGrouping

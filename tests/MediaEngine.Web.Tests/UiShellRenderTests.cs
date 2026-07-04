@@ -516,6 +516,73 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
+    public void ListenPage_AudiobooksUsesEmbeddedBrowseWithoutDuplicateBrowseHeader()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen/audiobooks");
+
+        var cut = RenderListenPageWithProviders();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(cut.FindAll(".listen-page"));
+            Assert.Single(cut.FindAll(".browse-shell--embedded"));
+            Assert.Empty(cut.FindAll(".browse-shell__title-block"));
+            Assert.Empty(cut.FindAll(".browse-shell__tabs-frame"));
+            Assert.Contains("Search your library", cut.Markup);
+            Assert.Contains("All Audiobooks", cut.Markup);
+            Assert.Contains("Series", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void ListenPage_AudiobookSeriesGroupingChangesBrowseUrl()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen/audiobooks");
+
+        var cut = RenderListenPageWithProviders();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(cut.FindAll(".browse-shell--embedded"));
+            Assert.Contains("Series", cut.Markup);
+        });
+
+        var seriesButton = cut.FindAll(".browse-shell__grouping-button")
+            .Single(button => button.TextContent.Contains("Series", StringComparison.OrdinalIgnoreCase));
+        seriesButton.Click();
+
+        cut.WaitForAssertion(() =>
+            Assert.EndsWith("/listen/audiobooks?grouping=series", navigationManager.Uri, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ListenPage_LeftRailAudiobooksClickNavigatesOnFirstClick()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen");
+
+        var cut = RenderListenPageWithProviders();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(cut.FindAll(".listen-page"));
+            Assert.Contains("Audiobooks", cut.Markup);
+        });
+
+        var audiobooksButton = cut.FindAll(".listen-rail__item")
+            .Single(button => button.TextContent.Contains("Audiobooks", StringComparison.OrdinalIgnoreCase));
+        audiobooksButton.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.EndsWith("/listen/audiobooks", navigationManager.Uri, StringComparison.OrdinalIgnoreCase);
+            Assert.Single(cut.FindAll(".browse-shell--embedded"));
+        });
+    }
+
+    [Fact]
     public void ListenDesktopPlayer_UsesPersistentRightPanelAndHidesBottomHostOnListenRoutes()
     {
         var panelSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingPanel.razor"));
@@ -690,6 +757,18 @@ public sealed class UiShellRenderTests : TestContext
 
     private static string GetRepoFile(params string[] segments) =>
         Path.GetFullPath(Path.Combine(new[] { AppContext.BaseDirectory, "..", "..", "..", "..", ".." }.Concat(segments).ToArray()));
+
+    private IRenderedFragment RenderListenPageWithProviders() => Render(builder =>
+    {
+        builder.OpenComponent<MudPopoverProvider>(0);
+        builder.CloseComponent();
+        builder.OpenComponent<MudDialogProvider>(1);
+        builder.CloseComponent();
+        builder.OpenComponent<MudSnackbarProvider>(2);
+        builder.CloseComponent();
+        builder.OpenComponent<ListenPage>(3);
+        builder.CloseComponent();
+    });
 
     [Fact]
     public void SearchPage_RendersMudSearchResultsWithoutRawCards()

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using MediaEngine.Contracts.Display;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
@@ -425,16 +426,26 @@ public partial class ListenPage
             _playlistNavigationConfig = profile?.NavigationConfig;
             _playlistOrder = ReadPlaylistOrder(profile?.NavigationConfig);
 
+            var shouldLoadMusicBrowseData = IsMusicMode;
+            var shouldLoadMusicHome = IsMusicHome;
             var worksTask = Orchestrator.GetLibraryWorksAsync();
-            var journeyTask = Orchestrator.GetJourneyAsync(_activeProfileId, 48);
-            var albumGroupsTask = ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album");
-            var artistGroupsTask = ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist");
-            var musicHomeTask = ApiClient.GetDisplayBrowseAsync(
-                lane: "listen",
-                mediaType: "Music",
-                grouping: "home",
-                includeCatalog: false,
-                profileId: _activeProfileId);
+            var journeyTask = shouldLoadMusicBrowseData
+                ? Orchestrator.GetJourneyAsync(_activeProfileId, 48)
+                : Task.FromResult(new List<JourneyItemViewModel>());
+            var albumGroupsTask = shouldLoadMusicBrowseData
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album")
+                : Task.FromResult(new List<ContentGroupViewModel>());
+            var artistGroupsTask = shouldLoadMusicBrowseData
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist")
+                : Task.FromResult(new List<ContentGroupViewModel>());
+            var musicHomeTask = shouldLoadMusicHome
+                ? ApiClient.GetDisplayBrowseAsync(
+                    lane: "listen",
+                    mediaType: "Music",
+                    grouping: "home",
+                    includeCatalog: false,
+                    profileId: _activeProfileId)
+                : Task.FromResult<DisplayPageDto?>(null);
             var collectionsTask = _activeProfileId.HasValue
                 ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
@@ -460,18 +471,25 @@ public partial class ListenPage
             }
 
             _albumGroups.Clear();
-            _albumGroups.AddRange(albumGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase));
+            _albumGroups.AddRange(shouldLoadMusicBrowseData
+                ? albumGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+                : BuildMusicGroupSummaries(_musicWorks, "album"));
 
             _artistGroups.Clear();
-            _artistGroups.AddRange(artistGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase));
+            _artistGroups.AddRange(shouldLoadMusicBrowseData
+                ? artistGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+                : BuildMusicGroupSummaries(_musicWorks, "artist"));
 
             _managedCollections.Clear();
             _managedCollections.AddRange(collectionsTask.Result);
 
             _favoriteWorkIds = (await Favorites.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
             _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
-            _musicHomePage = MediaTileComposerService.FromDisplayPage(
-                musicHomeTask.Result ?? throw new InvalidOperationException("Display API did not return the music home page."));
+            if (shouldLoadMusicHome)
+            {
+                _musicHomePage = MediaTileComposerService.FromDisplayPage(
+                    musicHomeTask.Result ?? throw new InvalidOperationException("Display API did not return the music home page."));
+            }
 
             if (IsAlbumDetail)
             {
@@ -2228,6 +2246,45 @@ public partial class ListenPage
             "System" => Icons.Material.Outlined.SettingsSuggest,
             _ => Icons.Material.Outlined.QueueMusic,
         };
+
+    private static IReadOnlyList<ContentGroupViewModel> BuildMusicGroupSummaries(IEnumerable<WorkViewModel> works, string groupField)
+    {
+        var normalizedGroupField = groupField.Trim().ToLowerInvariant();
+        return works
+            .Select(work => new
+            {
+                Work = work,
+                Key = normalizedGroupField == "artist"
+                    ? FirstNonBlankOrNull(work.Artist, work.Author)
+                    : FirstNonBlankOrNull(work.Album),
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
+            .GroupBy(item => item.Key!, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var groupWorks = group.Select(item => item.Work).ToList();
+                var first = groupWorks.First();
+                var creator = normalizedGroupField == "album"
+                    ? FirstNonBlankOrNull(first.Artist, first.Author)
+                    : null;
+
+                return new ContentGroupViewModel
+                {
+                    CollectionId = GenerateDeterministicGuid($"music:{normalizedGroupField}:{group.Key}"),
+                    DisplayName = group.Key,
+                    PrimaryMediaType = "Music",
+                    WorkCount = groupWorks.Count,
+                    CoverUrl = FirstNonBlankOrNull(first.SquareUrl, first.CoverUrl),
+                    BackgroundUrl = first.BackgroundUrl,
+                    BannerUrl = first.BannerUrl,
+                    Creator = creator,
+                    ArtistPhotoUrl = normalizedGroupField == "artist" ? FirstNonBlankOrNull(first.SquareUrl, first.CoverUrl) : null,
+                    CreatedAt = groupWorks.Max(work => work.CreatedAt),
+                };
+            })
+            .OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     private static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)
     {

@@ -7,6 +7,12 @@
         linear-gradient(180deg, rgba(4, 9, 22, 0.24) 0%, rgba(4, 9, 22, 0) 260px);
 }
 
+.browse-shell--embedded {
+    min-height: 0;
+    padding: 0 0 44px;
+    background: transparent;
+}
+
 .browse-shell__toolbar-anchor {
     position: relative;
     top: auto;
@@ -42,6 +48,10 @@
 
 .browse-shell__toolbar {
     justify-content: flex-start;
+}
+
+.browse-shell__toolbar--standalone {
+    align-items: flex-end;
 }
 
 .browse-shell__tab-row {
@@ -232,38 +242,40 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
-.browse-shell__groupings ::deep .mud-chip-set {
-    gap: 8px;
-}
-
-.browse-shell__groupings ::deep .app-chip {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    min-height: 1.75rem !important;
-    padding: 0 0.72rem !important;
-    border-radius: 999px !important;
-    border: 1px solid rgba(148, 163, 184, 0.24) !important;
-    background: rgba(7, 12, 27, 0.56) !important;
-    color: var(--tl-text-secondary) !important;
-    font-size: 0.82rem;
-    font-weight: 850;
-    line-height: 1 !important;
-    box-sizing: border-box;
-}
-
-.browse-shell__groupings ::deep .mud-chip {
+.browse-shell__groupings ::deep .browse-shell__grouping-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     min-height: 2.4rem;
+    padding: 0 0.82rem;
+    border: 1px solid rgba(148, 163, 184, 0.24);
     border-radius: 999px;
     background: rgba(8, 14, 30, 0.46);
     color: var(--tl-text-secondary);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 850;
+    line-height: 1;
+    cursor: pointer;
 }
 
-.browse-shell__groupings ::deep .mud-chip.mud-chip-selected {
+.browse-shell__groupings ::deep .browse-shell__grouping-button:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--tl-text-primary);
+}
+
+.browse-shell__groupings ::deep .browse-shell__grouping-button.is-active {
     background: color-mix(in srgb, var(--tl-accent-primary) 24%, rgba(8, 14, 30, 0.82));
     color: var(--tl-text-primary);
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 44%, rgba(148, 163, 184, 0.24));
+}
+
+.browse-shell__groupings ::deep .browse-shell__grouping-icon {
+    font-size: 1.05rem;
 }
 
 .browse-shell__layout-toggle {

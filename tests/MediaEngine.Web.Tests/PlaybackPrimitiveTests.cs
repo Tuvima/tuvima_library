@@ -48,6 +48,14 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.SleepTimer && control.IsActive && control.BadgeText == "30m");
         Assert.Contains(audiobook, control => control.Key == PlaybackControlKey.Chapters && !control.IsDisabled);
 
+        var selectedSleepWithoutTimer = PlaybackControlCatalog.BuildToolStrip(
+            PlaybackExperience.Audiobook,
+            PlaybackControlSurface.Bottom,
+            new PlaybackControlState(ActiveSheet: "sleep", IsSleepTimerActive: false, SleepTimerValueText: null))
+            .Single(control => control.Key == PlaybackControlKey.SleepTimer);
+        Assert.True(selectedSleepWithoutTimer.IsSelected);
+        Assert.False(selectedSleepWithoutTimer.IsActive);
+
         AssertContainsKeys(video, PlaybackControlKey.SkipBack, PlaybackControlKey.SkipForward, PlaybackControlKey.Queue, PlaybackControlKey.History, PlaybackControlKey.Speed, PlaybackControlKey.Chapters, PlaybackControlKey.Captions, PlaybackControlKey.AudioTrack, PlaybackControlKey.Quality, PlaybackControlKey.Fullscreen, PlaybackControlKey.PictureInPicture, PlaybackControlKey.Expand, PlaybackControlKey.Resume, PlaybackControlKey.Close, PlaybackControlKey.SkipIntro, PlaybackControlKey.SkipCredits);
     }
 
@@ -243,10 +251,11 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("Playback.TogglePanel();", bar, StringComparison.Ordinal);
         Assert.Contains("ShortSleepTimerLabel", bar, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: minmax(0, 260px) minmax(300px, 1fr) minmax(590px, auto);", barStyles, StringComparison.Ordinal);
-        Assert.Contains("grid-template-columns: repeat(5, minmax(62px, 1fr)) !important;", barStyles, StringComparison.Ordinal);
-        Assert.Contains("width: min(350px, 32vw) !important;", barStyles, StringComparison.Ordinal);
+        Assert.Contains(".listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions", barStyles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: repeat(5, minmax(52px, 1fr)) !important;", barStyles, StringComparison.Ordinal);
+        Assert.Contains("width: clamp(300px, 24vw, 350px) !important;", barStyles, StringComparison.Ordinal);
         Assert.Contains("@@media (max-width: 1240px)", barStyles, StringComparison.Ordinal);
-        Assert.Contains("width: min(100%, 440px);", barStyles, StringComparison.Ordinal);
+        Assert.Contains("width: min(100%, 720px);", barStyles, StringComparison.Ordinal);
         Assert.Contains("grid-template-rows: 24px 10px 12px;", barStyles, StringComparison.Ordinal);
         Assert.Contains("min-height: 52px;", barStyles, StringComparison.Ordinal);
         Assert.Contains("<PlaybackToolSheet", panel, StringComparison.Ordinal);
@@ -398,6 +407,8 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("::deep .playback-icon-button__label", iconButtonStyles, StringComparison.Ordinal);
         Assert.Contains("Control.BadgeText", iconButton, StringComparison.Ordinal);
         Assert.Contains("playback-icon-button__badge", iconButton + iconButtonStyles, StringComparison.Ordinal);
+        Assert.Contains("Control.IsSelected ? \"is-selected\" : null", iconButton, StringComparison.Ordinal);
+        Assert.Contains(".playback-icon-button.is-selected", iconButtonStyles, StringComparison.Ordinal);
         Assert.Contains("playback-icon-button--sleep-timer.is-active", iconButtonStyles, StringComparison.Ordinal);
         Assert.Contains("#c084fc", iconButtonStyles, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", sheetHandle, StringComparison.Ordinal);
@@ -417,8 +428,10 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("Class=\"listen-player__audiobook-actions\"", bar, StringComparison.Ordinal);
         Assert.Contains("AriaLabel=\"Audiobook tools\"", bar, StringComparison.Ordinal);
         Assert.Contains("OnControl=\"HandleAudiobookPanelControl\"", bar, StringComparison.Ordinal);
-        Assert.Contains("Close audiobook tools", bar, StringComparison.Ordinal);
-        Assert.Contains("listen-player-panel__audiobook-actions", barStyles, StringComparison.Ordinal);
+        Assert.Contains("Close playback tool", bar, StringComparison.Ordinal);
+        Assert.Contains("BottomPanelTitle", bar, StringComparison.Ordinal);
+        Assert.DoesNotContain("Class=\"listen-player-panel__audiobook-actions\"", bar, StringComparison.Ordinal);
+        Assert.DoesNotContain("listen-player-panel__audiobook-actions", barStyles, StringComparison.Ordinal);
         Assert.Contains("::deep .listen-player-panel__tool-row", barStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("Playback.CyclePlaybackRateAsync()", bar, StringComparison.Ordinal);
         Assert.DoesNotContain("Icons.Material.Outlined.MoreHoriz", bar, StringComparison.Ordinal);

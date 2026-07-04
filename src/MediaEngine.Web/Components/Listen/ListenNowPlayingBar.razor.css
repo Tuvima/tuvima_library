@@ -146,6 +146,7 @@
         flex-direction: column;
         gap: 6px;
         align-items: center;
+        width: 100%;
     }
 
     .listen-player__transport-buttons,
@@ -188,7 +189,7 @@
         color: var(--tl-text-secondary);
         font-size: 0.78rem;
         font-variant-numeric: tabular-nums;
-        width: min(100%, 440px);
+        width: min(100%, 720px);
     }
 
     .listen-player__progress span:first-child {
@@ -357,10 +358,6 @@
         font-size: 0.88rem;
     }
 
-    .listen-player-panel__audiobook-tools {
-        padding: 14px 16px 0;
-    }
-
     .listen-player-panel__sheet-header {
         display: grid;
         gap: 4px;
@@ -378,22 +375,15 @@
         margin-top: 8px;
     }
 
-    .listen-player-panel__audiobook-actions {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(44px, 1fr));
-        gap: 6px;
-        width: 100%;
-    }
-
-    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions {
+    .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions {
         --playback-control-min: 50px;
-        flex: 0 1 350px;
-        grid-template-columns: repeat(5, minmax(62px, 1fr)) !important;
-        min-width: 330px;
-        width: min(350px, 32vw) !important;
+        flex: 0 0 clamp(300px, 24vw, 350px);
+        grid-template-columns: repeat(5, minmax(52px, 1fr)) !important;
+        min-width: 300px;
+        width: clamp(300px, 24vw, 350px) !important;
     }
 
-    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button {
+    .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions .playback-icon-button {
         border-radius: 6px;
         gap: 1px;
         grid-template-rows: 24px 10px 12px;
@@ -401,27 +391,27 @@
         padding: 2px 4px;
     }
 
-    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__visual {
+    .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions .playback-icon-button__visual {
         grid-row: 1;
     }
 
-    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__icon {
+    .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions .playback-icon-button__icon {
         font-size: 24px !important;
         height: 24px;
         width: 24px;
     }
 
-    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__value {
+    .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions .playback-icon-button__value {
         font-size: 0.88rem;
     }
 
-    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__badge {
+    .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions .playback-icon-button__badge {
         grid-row: 2;
         font-size: 0.62rem;
         margin-top: 0;
     }
 
-    .listen-player__actions .playback-control-strip.listen-player__audiobook-actions ::deep .playback-icon-button__label {
+    .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions .playback-icon-button__label {
         grid-row: 3;
         font-size: 0.62rem;
         line-height: 1;
@@ -526,7 +516,9 @@
             max-width: 160px;
         }
 
-        .listen-player__actions .playback-control-strip.listen-player__audiobook-actions {
+        .listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions {
+            flex: 1 1 300px;
+            min-width: 0;
             width: min(350px, 100%) !important;
         }
 

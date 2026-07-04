@@ -78,7 +78,8 @@ public sealed record PlaybackControlDefinition(
     string? ValueText = null,
     string? BadgeText = null,
     bool IsActive = false,
-    bool IsDisabled = false);
+    bool IsDisabled = false,
+    bool IsSelected = false);
 
 public static class PlaybackControlCatalog
 {
@@ -205,8 +206,9 @@ public static class PlaybackControlCatalog
             sheet,
             ValueText,
             BadgeText,
-            IsActive || string.Equals(state.ActiveSheet, sheet, StringComparison.Ordinal),
-            IsDisabled);
+            IsActive,
+            IsDisabled,
+            string.Equals(state.ActiveSheet, sheet, StringComparison.Ordinal));
     }
 
     private static string FormatSpeed(double rate) => $"{Math.Clamp(rate, 0.5d, 3d):0.#}x";
