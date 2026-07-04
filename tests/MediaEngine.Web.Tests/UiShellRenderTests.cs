@@ -516,7 +516,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void ListenPage_AudiobooksUsesEmbeddedBrowseWithoutDuplicateBrowseHeader()
+    public void ListenPage_AudiobooksUsesDedicatedDashboardWithoutBrowseShellChrome()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen/audiobooks");
@@ -526,17 +526,29 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Single(cut.FindAll(".listen-page"));
-            Assert.Single(cut.FindAll(".browse-shell--embedded"));
-            Assert.Empty(cut.FindAll(".browse-shell__title-block"));
-            Assert.Empty(cut.FindAll(".browse-shell__tabs-frame"));
-            Assert.Contains("Search your library", cut.Markup);
+            Assert.Single(cut.FindAll(".listen-page--audiobooks"));
+            Assert.Single(cut.FindAll(".audiobooks-dashboard"));
+            Assert.Empty(cut.FindAll(".browse-shell--embedded"));
+            Assert.Contains("Search audiobooks", cut.Markup);
             Assert.Contains("All Audiobooks", cut.Markup);
             Assert.Contains("Series", cut.Markup);
+            Assert.Contains("Authors", cut.Markup);
+            Assert.Contains("In Progress", cut.Markup);
+            Assert.Contains("Unread", cut.Markup);
+            Assert.Contains("Length", cut.Markup);
+            Assert.Contains("Recently Added", cut.Markup);
+            Assert.Contains("Title", cut.Markup);
+            Assert.Contains("Author", cut.Markup);
+            Assert.Contains("Cards", cut.Markup);
+            Assert.Contains("List", cut.Markup);
+            Assert.Contains("Continue Listening", cut.Markup);
+            Assert.Contains("Browse All", cut.Markup);
+            Assert.Contains("Featured Series", cut.Markup);
         });
     }
 
     [Fact]
-    public void ListenPage_AudiobookSeriesGroupingChangesBrowseUrl()
+    public void ListenPage_AudiobookSeriesTabChangesDashboardView()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen/audiobooks");
@@ -545,20 +557,24 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(cut.FindAll(".browse-shell--embedded"));
+            Assert.Single(cut.FindAll(".audiobooks-dashboard"));
             Assert.Contains("Series", cut.Markup);
         });
 
-        var seriesButton = cut.FindAll(".browse-shell__grouping-button")
+        var seriesButton = cut.FindAll(".audiobooks-tab")
             .Single(button => button.TextContent.Contains("Series", StringComparison.OrdinalIgnoreCase));
         seriesButton.Click();
 
         cut.WaitForAssertion(() =>
-            Assert.EndsWith("/listen/audiobooks?grouping=series", navigationManager.Uri, StringComparison.OrdinalIgnoreCase));
+        {
+            Assert.EndsWith("/listen/audiobooks", navigationManager.Uri, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(">Series<", cut.Markup);
+            Assert.Contains("No audiobook series match these filters.", cut.Markup);
+        });
     }
 
     [Fact]
-    public void ListenPage_LeftRailAudiobooksClickNavigatesOnFirstClick()
+    public void ListenPage_LeftRailAudiobooksUsesRealLinkForFirstClickNavigation()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen");
@@ -571,15 +587,33 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Audiobooks", cut.Markup);
         });
 
-        var audiobooksButton = cut.FindAll(".listen-rail__item")
-            .Single(button => button.TextContent.Contains("Audiobooks", StringComparison.OrdinalIgnoreCase));
-        audiobooksButton.Click();
+        var audiobooksLink = cut.FindAll("a.listen-rail__item[href='/listen/audiobooks']")
+            .Single(link => link.TextContent.Contains("Audiobooks", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("/listen/audiobooks", audiobooksLink.GetAttribute("href"));
+        Assert.Equal("_top", audiobooksLink.GetAttribute("target"));
+        Assert.Equal("false", audiobooksLink.GetAttribute("data-enhance-nav"));
+        Assert.Empty(cut.FindAll("button.listen-rail__item"));
+    }
 
-        cut.WaitForAssertion(() =>
-        {
-            Assert.EndsWith("/listen/audiobooks", navigationManager.Uri, StringComparison.OrdinalIgnoreCase);
-            Assert.Single(cut.FindAll(".browse-shell--embedded"));
-        });
+    [Fact]
+    public void ListenPage_RouteChangesReloadListenStateWithRaceGuard()
+    {
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor.cs"));
+        var markup = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));
+        var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor.css"));
+
+        Assert.Contains("Nav.LocationChanged += OnListenLocationChanged;", source, StringComparison.Ordinal);
+        Assert.Contains("Nav.LocationChanged -= OnListenLocationChanged;", source, StringComparison.Ordinal);
+        Assert.Contains("private int _listenLoadVersion;", source, StringComparison.Ordinal);
+        Assert.Contains("if (!IsCurrentLoad(loadVersion))", source, StringComparison.Ordinal);
+        Assert.Contains("private void NavigateRailLink(string route)", source, StringComparison.Ordinal);
+        Assert.Contains("NavigateTo(route, forceLoad: true)", source, StringComparison.Ordinal);
+        Assert.Contains("target=\"_top\"", markup, StringComparison.Ordinal);
+        Assert.Contains("NavigateRailLink(item.Route)", markup, StringComparison.Ordinal);
+        Assert.DoesNotContain(".listen-page--audiobooks .listen-rail", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".listen-page--audiobooks ::deep .listen-now-panel", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".listen-page--audiobooks {\r\n    grid-template-columns", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".listen-page--audiobooks {\n    grid-template-columns", css, StringComparison.Ordinal);
     }
 
     [Fact]
