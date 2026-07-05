@@ -1,0 +1,248 @@
+@namespace MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+@inject NavigationManager Nav
+
+<section class="@RootClass">
+    <AppCssElement Tag="div" Class="media-hero__accent-scope" Css="@AccentStyle">
+        @if (SupportsHero && ActiveHero is not null)
+        {
+            <div class="media-hero__backdrop">
+                @if (!string.IsNullOrWhiteSpace(BackdropUrl))
+                {
+                    <img src="@BackdropUrl" alt="" class="media-hero__backdrop-image" loading="eager" decoding="async" />
+                }
+            </div>
+        }
+
+        <div class="media-hero__vignette"></div>
+        <div class="media-hero__bottom-fade"></div>
+
+        <div class="media-hero__content">
+            <div class="media-hero__copy">
+                <div class="media-hero__page-heading">
+                    <h1>@Title</h1>
+                    @if (!string.IsNullOrWhiteSpace(Subtitle))
+                    {
+                        <p>@Subtitle</p>
+                    }
+                </div>
+
+                <MediaTypeSwitcher Modes="@AvailableModes"
+                                   SelectedMode="@SelectedMode"
+                                   Label="@($"{Title} media type")" />
+
+                @if (SupportsHero && ActiveHero is not null)
+                {
+                    <div class="media-hero__feature">
+                        @if (!string.IsNullOrWhiteSpace(ActiveHero.Eyebrow))
+                        {
+                            <div class="media-hero__eyebrow">@ActiveHero.Eyebrow</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(ActiveHero.LogoUrl) && SectionType == MediaHubSectionType.Watch)
+                        {
+                            <img src="@ActiveHero.LogoUrl" alt="@ActiveHero.Title" class="media-hero__logo" />
+                        }
+                        else
+                        {
+                            <h2>@ActiveHero.Title</h2>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(ActiveHero.Subtitle))
+                        {
+                            <div class="media-hero__subtitle">@ActiveHero.Subtitle</div>
+                        }
+
+                        @if (DisplayMetaPills.Count > 0)
+                        {
+                            <div class="media-hero__facts" aria-label="Featured item facts">
+                                @foreach (var fact in DisplayMetaPills)
+                                {
+                                    <span>@fact</span>
+                                }
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(DisplaySummary))
+                        {
+                            <p class="media-hero__description">@DisplaySummary</p>
+                        }
+
+                        @if (ActiveHero.ProgressPct is > 0)
+                        {
+                            <MediaProgressBar Value="@ActiveHero.ProgressPct.Value"
+                                              Label="@(ActiveHero.StatusText ?? "In progress")"
+                                              Class="media-hero__progress" />
+                        }
+
+                        <div class="media-hero__actions">
+                            <MediaActionButton Label="@ActiveHero.PrimaryActionLabel"
+                                               Icon="@PrimaryIcon"
+                                               Variant="primary"
+                                               OnClick="OpenPrimary" />
+
+                            @if (!string.IsNullOrWhiteSpace(ActiveHero.SecondaryNavigationUrl))
+                            {
+                                <MediaActionButton Label="@ActiveHero.SecondaryActionLabel"
+                                                   Icon="@Icons.Material.Outlined.Info"
+                                                   Variant="secondary"
+                                                   OnClick="OpenSecondary" />
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (ShowPreviewArtwork)
+            {
+                <MediaArtwork ImageUrl="@ActiveHero!.PreviewImageUrl"
+                              Alt="@ActiveHero.Title"
+                              Shape="@PreviewArtworkShape"
+                              FitMode="@ActiveHero.HoverImageFitMode"
+                              Loading="eager"
+                              Class="@PreviewClass" />
+            }
+        </div>
+
+        @if (Slides.Count > 1)
+        {
+            <div class="media-hero__carousel" aria-label="Featured media">
+                <div class="media-hero__dots">
+                    @for (var index = 0; index < Slides.Count; index++)
+                    {
+                        var slideIndex = index;
+                        <AppNativeButton Type="button"
+                                         Class="@($"media-hero__dot {(slideIndex == _activeIndex ? "is-active" : null)}")"
+                                         AriaLabel="@($"Show featured item {slideIndex + 1}")"
+                                         OnClick="@(() => SetSlide(slideIndex))" />
+                    }
+                </div>
+
+                <div class="media-hero__arrows">
+                    <AppNativeButton Type="button" Class="media-hero__arrow" AriaLabel="Previous featured item" OnClick="PreviousSlide">
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="media-hero__arrow" AriaLabel="Next featured item" OnClick="NextSlide">
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
+                    </AppNativeButton>
+                </div>
+            </div>
+        }
+    </AppCssElement>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public MediaHubSectionType SectionType { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string SelectedMode { get; set; } = "all";
+    [Parameter] public IReadOnlyList<MediaHubModeViewModel> AvailableModes { get; set; } = [];
+    [Parameter] public DiscoveryHeroViewModel? HeroItem { get; set; }
+    [Parameter] public IReadOnlyList<DiscoveryHeroViewModel> HeroItems { get; set; } = [];
+    [Parameter] public bool SupportsHero { get; set; } = true;
+
+    private int _activeIndex;
+
+    private IReadOnlyList<DiscoveryHeroViewModel> Slides
+    {
+        get
+        {
+            if (HeroItems.Count > 0)
+            {
+                return HeroItems;
+            }
+
+            return HeroItem is null ? [] : [HeroItem];
+        }
+    }
+
+    private DiscoveryHeroViewModel? ActiveHero => Slides.Count == 0
+        ? HeroItem
+        : Slides[Math.Clamp(_activeIndex, 0, Slides.Count - 1)];
+
+    private string RootClass => $"media-hero media-hero--{SectionType.ToString().ToLowerInvariant()} {(ActiveHero is null || !SupportsHero ? "media-hero--empty" : null)}";
+
+    private string AccentStyle => $"--media-hero-accent: {ActiveHero?.AccentColor ?? "var(--tl-accent-primary)"};";
+
+    private string? BackdropUrl => FirstNonBlank(
+        ActiveHero?.HeroBackgroundImageUrl,
+        ActiveHero?.BackgroundImageUrl,
+        ActiveHero?.BannerImageUrl,
+        ActiveHero?.PreviewImageUrl);
+
+    private string? DisplaySummary => ActiveHero?.Tldr ?? ActiveHero?.Description;
+
+    private IReadOnlyList<string> DisplayMetaPills => ActiveHero?.MetaPills
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(5)
+        .ToList() ?? [];
+
+    private bool ShowPreviewArtwork => SupportsHero
+        && ActiveHero is not null
+        && !string.IsNullOrWhiteSpace(ActiveHero.PreviewImageUrl)
+        && (SectionType != MediaHubSectionType.Watch || ActiveHero.SurfaceKind != MediaTileSurfaceKind.BannerLandscape);
+
+    private string PreviewClass => ActiveHero?.PreviewSurfaceKind switch
+    {
+        MediaTileSurfaceKind.CoverSquare or MediaTileSurfaceKind.ArtistPhotoSquare => "media-hero__preview media-hero__preview--square",
+        MediaTileSurfaceKind.BannerLandscape => "media-hero__preview media-hero__preview--landscape",
+        _ => "media-hero__preview media-hero__preview--portrait",
+    };
+
+    private MediaArtworkShape PreviewArtworkShape => ActiveHero?.PreviewSurfaceKind switch
+    {
+        MediaTileSurfaceKind.CoverSquare or MediaTileSurfaceKind.ArtistPhotoSquare => MediaArtworkShape.Square,
+        MediaTileSurfaceKind.BannerLandscape => MediaArtworkShape.Landscape,
+        _ when SectionType == MediaHubSectionType.Read => MediaArtworkShape.BookPortrait,
+        _ => MediaArtworkShape.Portrait,
+    };
+
+    private string PrimaryIcon => SectionType == MediaHubSectionType.Read
+        ? Icons.Material.Outlined.AutoStories
+        : Icons.Material.Filled.PlayArrow;
+
+    private void SetSlide(int index)
+    {
+        _activeIndex = Math.Clamp(index, 0, Math.Max(0, Slides.Count - 1));
+    }
+
+    private void PreviousSlide()
+    {
+        if (Slides.Count == 0)
+        {
+            return;
+        }
+
+        _activeIndex = (_activeIndex - 1 + Slides.Count) % Slides.Count;
+    }
+
+    private void NextSlide()
+    {
+        if (Slides.Count == 0)
+        {
+            return;
+        }
+
+        _activeIndex = (_activeIndex + 1) % Slides.Count;
+    }
+
+    private void OpenPrimary()
+    {
+        if (!string.IsNullOrWhiteSpace(ActiveHero?.PrimaryNavigationUrl))
+        {
+            Nav.NavigateTo(ActiveHero.PrimaryNavigationUrl);
+        }
+    }
+
+    private void OpenSecondary()
+    {
+        if (!string.IsNullOrWhiteSpace(ActiveHero?.SecondaryNavigationUrl))
+        {
+            Nav.NavigateTo(ActiveHero.SecondaryNavigationUrl);
+        }
+    }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+}

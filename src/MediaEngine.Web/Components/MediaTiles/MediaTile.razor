@@ -163,145 +163,157 @@
 
     @if (IsHoverEnabled)
     {
-        <div class='@($"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}")'
-             @onclick="OpenDetails"
-             @onclick:stopPropagation="true">
-            <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
+        <MediaTileOverlay>
+            <div class="@HoverPanelClass"
                  @onclick="OpenDetails"
                  @onclick:stopPropagation="true">
-                @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
-                {
-                    <img src="@ActiveHoverImageUrl"
-                         srcset="@Item.HoverImageSrcSet"
-                         sizes="@Item.HoverImageSizes"
-                         alt="@Item.Title"
-                         class="media-tile-hover-image @HoverImageFitClass"
-                         loading="lazy"
-                         decoding="async"
-                         @onerror="HandleHoverImageError" />
-                }
-                else
-                {
-                    <div class="media-tile-hover-fallback">
-                        <MudIcon Icon="@FallbackIcon" />
-                    </div>
-                }
-
-                @if (ShowHoverLogo)
-                {
-                    <img src="@Item.LogoUrl" alt="@Item.Title" class="media-tile-hover-logo" />
-                }
-
-                @if (ShowHoverSeriesStack)
-                {
-                    <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
-                                        Seed="@CollectionStackSeed"
-                                        Variant="ArtworkStackVariant.SeriesStrip"
-                                        MaxVisible="4"
-                                        IsDecorative="false"
-                                        AriaLabel="@($"{Item.Title} series preview")"
-                                        PreserveOrder="true"
-                                        Palette="@Item.ArtworkPalette"
-                                        Class="media-tile-hover-series-stack" />
-                }
-            </div>
-
-            @if (ShowExpandedHoverBody)
-            {
-                <div class="media-tile-hover-body">
-                    <div class="media-tile-hover-actions">
-                        <div class="media-tile-hover-actions-left">
-                            <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-primary" AriaLabel="@Item.PrimaryActionLabel" Title="@Item.PrimaryActionLabel" OnClick="OpenPrimary" StopPropagation="true">
-                                <MudIcon Icon="@PrimaryMudIcon" />
-                                <span class="media-tile-primary-action-label">@PrimaryActionDisplayLabel</span>
-                            </AppNativeButton>
-
-                            @if (Item.CanAddToCollection)
-                            {
-                                <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Add to collection" Title="Add to collection" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                </AppNativeButton>
-                            }
-
-                            @if (CanEdit)
-                            {
-                                <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Edit metadata" Title="Edit metadata" OnClick="OpenEditorAsync" StopPropagation="true">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Edit" />
-                                </AppNativeButton>
-                            }
-                        </div>
-                    </div>
-
-                    @if (ShowHoverHeading)
+                <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
+                     @onclick="OpenDetails"
+                     @onclick:stopPropagation="true">
+                    @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
                     {
-                        <div class="media-tile-hover-heading">
-                            <div class="media-tile-hover-title">@Item.Title</div>
-                            @if (ShowHoverSubtitle)
-                            {
-                                <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
-                            }
+                        <img src="@ActiveHoverImageUrl"
+                             srcset="@Item.HoverImageSrcSet"
+                             sizes="@Item.HoverImageSizes"
+                             alt="@Item.Title"
+                             class="media-tile-hover-image @HoverImageFitClass"
+                             loading="lazy"
+                             decoding="async"
+                             @onerror="HandleHoverImageError" />
+                    }
+                    else
+                    {
+                        <div class="media-tile-hover-fallback">
+                            <MudIcon Icon="@FallbackIcon" />
                         </div>
                     }
 
-                    @if (UseCompactHover || ShowRichHoverFacts)
+                    @if (ShowHoverLogo)
                     {
-                        <div class="media-tile-hover-facts">
-                            @foreach (var fact in CompactHoverFacts)
-                            {
-                                <span class="media-tile-hover-fact">@fact</span>
-                            }
-                        </div>
+                        <img src="@Item.LogoUrl" alt="@Item.Title" class="media-tile-hover-logo" />
                     }
 
-                    @if (Item.ProgressPct is > 0)
+                    @if (ShowHoverSeriesStack)
                     {
-                        <div class="media-tile-hover-progress" aria-label="@ProgressLabel">
-                            <progress class="media-tile-hover-progress-track"
-                                      value="@Math.Min(100, Item.ProgressPct.Value)"
-                                      max="100"></progress>
-                            <span>@ProgressLabel</span>
-                        </div>
-                    }
-
-                    @if (!UseCompactHover && !string.IsNullOrWhiteSpace(Item.StatusText))
-                    {
-                        <div class="media-tile-hover-status">@Item.StatusText</div>
-                    }
-
-                    @if (!UseCompactHover && ShowMetaRow)
-                    {
-                        <div class="media-tile-hover-meta-row">
-                            <div class="media-tile-hover-meta">@HoverMetaDisplay</div>
-                        </div>
-                    }
-
-                    @if (!UseCompactHover && ShowHoverContextLines)
-                    {
-                        <div class="media-tile-hover-context-list">
-                            @foreach (var line in Item.ContextLines)
-                            {
-                                <div class="media-tile-hover-context">@line</div>
-                            }
-                        </div>
-                    }
-
-                    @if (!UseCompactHover && DisplayChips.Count > 0)
-                    {
-                        <div class="media-tile-hover-chips">
-                            @foreach (var chip in DisplayChips)
-                            {
-                                <span class="media-tile-chip">@chip</span>
-                            }
-                        </div>
-                    }
-
-                    @if (!UseCompactHover && ShowHoverDescription)
-                    {
-                        <p class="media-tile-hover-description">@DisplaySummary</p>
+                        <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
+                                            Seed="@CollectionStackSeed"
+                                            Variant="ArtworkStackVariant.SeriesStrip"
+                                            MaxVisible="4"
+                                            IsDecorative="false"
+                                            AriaLabel="@($"{Item.Title} series preview")"
+                                            PreserveOrder="true"
+                                            Palette="@Item.ArtworkPalette"
+                                            Class="media-tile-hover-series-stack" />
                     }
                 </div>
-            }
-        </div>
+
+                @if (ShowExpandedHoverBody)
+                {
+                    <div class="media-tile-hover-body">
+                        <div class="media-tile-hover-actions">
+                            <div class="media-tile-hover-actions-left">
+                                <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-primary" AriaLabel="@PrimaryActionDisplayLabel" Title="@PrimaryActionDisplayLabel" OnClick="OpenPrimary" StopPropagation="true">
+                                    <MudIcon Icon="@PrimaryMudIcon" />
+                                    <span class="media-tile-primary-action-label">@PrimaryActionDisplayLabel</span>
+                                </AppNativeButton>
+
+                                <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-secondary media-tile-details-action" AriaLabel="Details" Title="Details" OnClick="OpenDetails" StopPropagation="true">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Info" />
+                                    <span class="media-tile-secondary-action-label">Details</span>
+                                </AppNativeButton>
+
+                                @if (Item.CanAddToCollection)
+                                {
+                                    <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-secondary media-tile-add-action" AriaLabel="Add to collection" Title="Add to collection" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
+                                        <span class="media-tile-secondary-action-label">Add to Collection</span>
+                                    </AppNativeButton>
+                                }
+
+                                @if (CanEdit)
+                                {
+                                    <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Edit metadata" Title="Edit metadata" OnClick="OpenEditorAsync" StopPropagation="true">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Edit" />
+                                    </AppNativeButton>
+                                }
+
+                                <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-more-action" AriaLabel="More actions" Title="More actions" OnClick="OpenDetails" StopPropagation="true">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" />
+                                </AppNativeButton>
+                            </div>
+                        </div>
+
+                        @if (ShowHoverHeading)
+                        {
+                            <div class="media-tile-hover-heading">
+                                <div class="media-tile-hover-title">@Item.Title</div>
+                                @if (ShowHoverSubtitle)
+                                {
+                                    <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
+                                }
+                            </div>
+                        }
+
+                        @if (UseCompactHover || ShowRichHoverFacts)
+                        {
+                            <div class="media-tile-hover-facts">
+                                @foreach (var fact in CompactHoverFacts)
+                                {
+                                    <span class="media-tile-hover-fact">@fact</span>
+                                }
+                            </div>
+                        }
+
+                        @if (Item.ProgressPct is > 0)
+                        {
+                            <div class="media-tile-hover-progress" aria-label="@ProgressLabel">
+                                <progress class="media-tile-hover-progress-track"
+                                          value="@Math.Min(100, Item.ProgressPct.Value)"
+                                          max="100"></progress>
+                                <span>@ProgressLabel</span>
+                            </div>
+                        }
+
+                        @if (!UseCompactHover && !string.IsNullOrWhiteSpace(Item.StatusText))
+                        {
+                            <div class="media-tile-hover-status">@Item.StatusText</div>
+                        }
+
+                        @if (!UseCompactHover && ShowMetaRow)
+                        {
+                            <div class="media-tile-hover-meta-row">
+                                <div class="media-tile-hover-meta">@HoverMetaDisplay</div>
+                            </div>
+                        }
+
+                        @if (!UseCompactHover && ShowHoverContextLines)
+                        {
+                            <div class="media-tile-hover-context-list">
+                                @foreach (var line in Item.ContextLines)
+                                {
+                                    <div class="media-tile-hover-context">@line</div>
+                                }
+                            </div>
+                        }
+
+                        @if (!UseCompactHover && DisplayChips.Count > 0)
+                        {
+                            <div class="media-tile-hover-chips">
+                                @foreach (var chip in DisplayChips)
+                                {
+                                    <span class="media-tile-chip">@chip</span>
+                                }
+                            </div>
+                        }
+
+                        @if (!UseCompactHover && ShowHoverDescription)
+                        {
+                            <p class="media-tile-hover-description">@DisplaySummary</p>
+                        }
+                    </div>
+                }
+            </div>
+        </MediaTileOverlay>
     }
 
     @if (ShowCaption)
@@ -351,6 +363,8 @@
         MediaTileHoverMode.Preview => "is-hover-preview",
         _ => "is-hover-expanded",
     };
+
+    private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
 
     private string ShapeClass => Item.Shape switch
     {
@@ -565,7 +579,7 @@
     private string PrimaryMudIcon => Item.MediaKind switch
     {
         "Movie" or "TV" => Icons.Material.Filled.PlayArrow,
-        "Music" or "Audiobook" => Icons.Material.Filled.GraphicEq,
+        "Music" or "Audiobook" => Icons.Material.Filled.PlayArrow,
         "Comic" or "Book" => Icons.Material.Filled.MenuBook,
         _ => Icons.Material.Filled.PlayArrow,
     };
@@ -574,25 +588,58 @@
     {
         get
         {
-            var label = Item.PrimaryActionLabel;
+            var label = Item.PrimaryActionLabel?.Trim();
             if (string.IsNullOrWhiteSpace(label))
             {
-                return "Open";
+                return Item.MediaKind switch
+                {
+                    "Book" or "Comic" => "Read",
+                    "Movie" or "TV" or "Music" or "Audiobook" => "Play",
+                    _ => "Open",
+                };
             }
 
-            if (label.Equals("Continue Reading", StringComparison.OrdinalIgnoreCase))
+            if (label.Contains("Resume", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Resume";
+            }
+
+            if (label.Contains("Continue", StringComparison.OrdinalIgnoreCase))
+            {
+                return Item.MediaKind switch
+                {
+                    "Book" or "Comic" => "Continue",
+                    "Movie" or "TV" or "Music" or "Audiobook" => "Resume",
+                    _ => "Continue",
+                };
+            }
+
+            if (label.Equals("Open Show", StringComparison.OrdinalIgnoreCase)
+                || label.Equals("Open Movie", StringComparison.OrdinalIgnoreCase)
+                || label.Equals("Watch", StringComparison.OrdinalIgnoreCase))
+            {
+                return Item.MediaKind is "Movie" or "TV" ? "Play" : label;
+            }
+
+            if (label.Equals("Listen", StringComparison.OrdinalIgnoreCase))
+            {
+                return Item.MediaKind is "Music" or "Audiobook" ? "Play" : label;
+            }
+
+            if (label.Equals("Open Book", StringComparison.OrdinalIgnoreCase)
+                || label.Equals("Open Comic", StringComparison.OrdinalIgnoreCase))
             {
                 return "Read";
             }
 
-            if (label.Equals("Continue Watching", StringComparison.OrdinalIgnoreCase))
+            if (label.Equals("Open", StringComparison.OrdinalIgnoreCase))
             {
-                return "Watch";
-            }
-
-            if (label.Equals("Continue Listening", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Listen";
+                return Item.MediaKind switch
+                {
+                    "Book" or "Comic" => "Read",
+                    "Movie" or "TV" or "Music" or "Audiobook" => "Play",
+                    _ => label,
+                };
             }
 
             return label;

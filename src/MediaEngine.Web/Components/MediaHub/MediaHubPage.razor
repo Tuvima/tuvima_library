@@ -1,0 +1,61 @@
+@namespace MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+
+<GlobalBackground Color="#05070C" />
+
+<section class="@RootClass"
+         data-media-hub="true"
+         data-media-hub-section="@SectionName">
+    <MediaHero SectionType="@SectionType"
+               Title="@Title"
+               Subtitle="@Subtitle"
+               SelectedMode="@SelectedMode"
+               AvailableModes="@AvailableModes"
+               HeroItem="@HeroItem"
+               HeroItems="@HeroItems"
+               SupportsHero="@SupportsHero" />
+
+    <div class="media-hub__shelves">
+        @if (VisibleShelves.Count == 0)
+        {
+            <EmptyShelfState Title="@EmptyTitle" Message="@EmptyMessage" />
+        }
+        else
+        {
+            @foreach (var shelf in VisibleShelves)
+            {
+                <MediaShelf Shelf="@shelf"
+                            SectionType="@SectionType"
+                            HideSourceBadges="@(SectionType == MediaHubSectionType.Watch)" />
+            }
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public MediaHubSectionType SectionType { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string SelectedMode { get; set; } = "all";
+    [Parameter] public IReadOnlyList<MediaHubModeViewModel> AvailableModes { get; set; } = [];
+    [Parameter] public DiscoveryHeroViewModel? HeroItem { get; set; }
+    [Parameter] public IReadOnlyList<DiscoveryHeroViewModel> HeroItems { get; set; } = [];
+    [Parameter] public IReadOnlyList<MediaHubShelfViewModel> Shelves { get; set; } = [];
+    [Parameter] public string? SearchPlaceholder { get; set; }
+    [Parameter] public string RouteBase { get; set; } = "/";
+    [Parameter] public bool SupportsHero { get; set; } = true;
+    [Parameter] public bool SupportsContinueRow { get; set; } = true;
+
+    private string SectionName => SectionType.ToString().ToLowerInvariant();
+
+    private string RootClass => $"media-hub media-hub--{SectionName}";
+
+    private IReadOnlyList<MediaHubShelfViewModel> VisibleShelves => Shelves
+        .Where(shelf => shelf.Items.Count > 0)
+        .Where(shelf => SupportsContinueRow || !shelf.IsContinueShelf)
+        .ToList();
+
+    private string EmptyTitle => $"{Title} is waiting for media";
+
+    private string EmptyMessage => $"Add items to your library and {Title.ToLowerInvariant()} will become a discovery hub.";
+}

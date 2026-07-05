@@ -16,6 +16,7 @@
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Components.Listen
+@using MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
@@ -37,6 +38,28 @@ else if (!string.IsNullOrWhiteSpace(_error))
         <p>@_error</p>
         <AppNativeButton Type="button" Class="listen-button listen-button--secondary" OnClick="ReloadAsync">Try again</AppNativeButton>
     </div>
+}
+else if (IsListenHub)
+{
+    @if (_loading)
+    {
+        <div class="listen-state">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-rgba-255-255-255-0-32" />
+        </div>
+    }
+    else
+    {
+        <MediaHubPage SectionType="MediaHubSectionType.Listen"
+                      Title="Listen"
+                      Subtitle="Music and audiobooks from your local library"
+                      SelectedMode="all"
+                      AvailableModes="@ListenHubModes"
+                      HeroItem="@_listenHubPage.Hero"
+                      HeroItems="@_listenHubPage.Spotlights"
+                      Shelves="@ListenHubShelves"
+                      SearchPlaceholder="Search music and audiobooks..."
+                      RouteBase="/listen" />
+    }
 }
 else
 {

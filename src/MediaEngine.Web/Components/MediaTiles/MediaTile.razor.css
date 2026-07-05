@@ -86,7 +86,7 @@
     .media-tile-progress::-webkit-progress-value { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
     .media-tile-progress::-moz-progress-bar { background:linear-gradient(90deg,var(--media-tile-accent) 0%,rgba(255,255,255,.92) 100%); border-radius:inherit; }
     .media-tile-touch-toggle, ::deep .media-tile-touch-toggle { position:absolute; top:12px; right:12px; width:38px; height:38px; border:none; border-radius:var(--app-radius-md); background:rgba(2,6,16,.62); color:rgba(248,250,252,.94); display:none; align-items:center; justify-content:center; z-index:3; }
-    .media-tile-hover-panel { position:absolute; left:var(--media-tile-hover-left, 0px); top:var(--media-tile-hover-top, 0px); width:min(calc(100vw - 32px),var(--media-tile-hover-panel-width, 360px)); max-width:420px; max-height:min(64vh,500px); opacity:0; visibility:hidden; pointer-events:none; z-index:80; transform:translateY(16px) scale(.94); transform-origin:center top; border:1px solid color-mix(in srgb,var(--media-tile-accent) 34%,rgba(255,255,255,.12)); border-radius:14px; background:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--media-tile-accent) 18%,transparent) 0%,transparent 42%),linear-gradient(180deg,rgba(18,23,34,.97) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 28px 70px rgba(0,0,0,.52),0 0 0 1px rgba(255,255,255,.035),0 0 42px color-mix(in srgb,var(--media-tile-accent) 20%,transparent); overflow:hidden; backdrop-filter:blur(24px) saturate(142%); cursor:pointer; will-change:transform,opacity; transition:opacity .34s cubic-bezier(.2,.8,.2,1),transform .38s cubic-bezier(.2,.8,.2,1),visibility 0s linear .38s; }
+    .media-tile-hover-panel { position:absolute; left:var(--media-tile-hover-left, 0px); top:var(--media-tile-hover-top, 0px); width:min(calc(100vw - 32px),var(--media-tile-hover-panel-width, 360px)); max-width:420px; max-height:min(64vh,500px); opacity:0; visibility:hidden; pointer-events:none; z-index:80; transform:translateY(16px) scale(.94); transform-origin:center top; border:1px solid color-mix(in srgb,var(--media-tile-accent) 46%,rgba(255,255,255,.16)); border-radius:14px; background:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--media-tile-accent) 22%,transparent) 0%,transparent 42%),linear-gradient(180deg,rgba(18,23,34,.985) 0%,rgba(7,10,18,.998) 100%); box-shadow:0 28px 70px rgba(0,0,0,.52),0 0 0 1px rgba(255,255,255,.035),0 0 42px color-mix(in srgb,var(--media-tile-accent) 26%,transparent); overflow:hidden; backdrop-filter:blur(24px) saturate(142%); cursor:pointer; will-change:transform,opacity; transition:opacity .22s cubic-bezier(.2,.8,.2,1),transform .26s cubic-bezier(.2,.8,.2,1),visibility 0s linear .26s; }
     .media-tile-hover-panel.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(212px, 16vw, 236px)); max-width:236px; max-height:min(72vh,560px); }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait { display:flex; flex-direction:column; width:min(calc(100vw - 32px), clamp(212px, 16vw, 236px)); max-width:236px; max-height:min(72vh,560px); }
     .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-square,
@@ -95,7 +95,7 @@
     .media-tile:not(.is-hover-js-enabled):hover .media-tile-hover-panel,
     .media-tile:not(.is-hover-js-enabled):focus-within .media-tile-hover-panel,
     .media-tile:not(.is-hover-js-enabled).is-expanded .media-tile-hover-panel,
-    .media-tile.is-hover-active .media-tile-hover-panel { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; box-shadow:var(--tl-shadow-hover-media); }
+    .media-tile.is-hover-active .media-tile-hover-panel { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; box-shadow:0 30px 82px rgba(0,0,0,.58),0 0 0 1px color-mix(in srgb,var(--media-tile-accent) 48%,rgba(255,255,255,.12)),0 0 38px color-mix(in srgb,var(--media-tile-accent) 32%,transparent); }
     .media-tile-hover-panel.is-hover-preview { width:min(84vw,var(--media-tile-hover-panel-width, 360px)); background:rgba(7,10,18,.98); }
     .media-tile-hover-panel.is-hover-preview .media-tile-hover-art { min-height:0; }
     .media-tile-hover-panel.is-banner-popover.is-landscape { width:var(--media-tile-hover-anchor-width, 100%); max-width:var(--media-tile-hover-anchor-width, 100%); }
@@ -139,13 +139,32 @@
     .media-tile-hover-actions, .media-tile-hover-meta-row { position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .media-tile-hover-actions, .media-tile-icon-button, ::deep .media-tile-icon-button { pointer-events:auto; }
     .media-tile-hover-actions-left, .media-tile-hover-chips { display:flex; align-items:center; gap:10px; }
+    .media-tile-hover-panel .media-tile-hover-actions-left { flex-wrap:wrap; align-items:stretch; width:100%; }
     .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-actions-left { flex-wrap:wrap; gap:8px; }
     .media-tile-hover-chips { flex-wrap:wrap; margin-top:2px; gap:8px; }
     .media-tile-icon-button, ::deep .media-tile-icon-button { width:42px; min-width:42px; height:42px; border:1px solid rgba(255,255,255,.16); border-radius:12px; background:rgba(255,255,255,.055); color:rgba(248,250,252,.94); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .22s ease,background .22s ease; }
     .media-tile-icon-button:hover, ::deep .media-tile-icon-button:hover { transform:translateY(-1px); border-color:rgba(255,255,255,.24); background:rgba(255,255,255,.08); }
     .media-tile-icon-button-primary, ::deep .media-tile-icon-button-primary { background:color-mix(in srgb,var(--media-tile-accent) 22%,rgba(255,255,255,.06)); border-color:color-mix(in srgb,var(--media-tile-accent) 44%,rgba(255,255,255,.16)); color:color-mix(in srgb,var(--media-tile-accent) 82%,white 18%); }
     .media-tile-icon-button-primary .mud-icon-root, ::deep .media-tile-icon-button-primary .mud-icon-root { font-size:1rem; }
-    .media-tile-primary-action-label { display:none; font-family:var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif)); font-size:.94rem; font-weight:850; line-height:1; white-space:nowrap; }
+    .media-tile-primary-action-label,
+    .media-tile-secondary-action-label { display:none; font-family:var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif)); font-size:.94rem; font-weight:850; line-height:1; white-space:nowrap; }
+    .media-tile-secondary-action-label { font-size:.78rem; font-weight:820; }
+    .media-tile-hover-panel .media-tile-primary-action-label,
+    .media-tile-hover-panel .media-tile-secondary-action-label { display:inline; }
+    .media-tile-hover-panel .media-tile-icon-button-primary,
+    .media-tile-hover-panel ::deep .media-tile-icon-button-primary,
+    .media-tile-hover-panel .media-tile-details-action,
+    .media-tile-hover-panel ::deep .media-tile-details-action { width:auto; min-width:96px; padding:0 13px; gap:8px; justify-content:center; }
+    .media-tile-hover-panel .media-tile-add-action,
+    .media-tile-hover-panel ::deep .media-tile-add-action { width:100%; min-width:100%; padding:0 13px; gap:8px; justify-content:flex-start; }
+    .media-tile-hover-panel .media-tile-more-action,
+    .media-tile-hover-panel ::deep .media-tile-more-action { width:42px; min-width:42px; padding:0; }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-hover-actions-left,
+    .media-tile-hover-panel.is-placement-bottom.is-art-popover.is-portrait .media-tile-hover-actions-left { flex-direction:column; align-items:stretch; gap:7px; }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-icon-button-primary,
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-details-action,
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-add-action { width:100%; min-width:0; justify-content:flex-start; }
+    .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-more-action { width:100%; min-width:0; justify-content:center; }
     .media-tile-hover-panel.is-art-popover .media-tile-icon-button-primary,
     .media-tile-hover-panel.is-art-popover ::deep .media-tile-icon-button-primary { width:auto; min-width:102px; padding:0 14px; gap:8px; justify-content:center; }
     .media-tile-hover-panel.is-art-popover.is-portrait .media-tile-icon-button-primary,

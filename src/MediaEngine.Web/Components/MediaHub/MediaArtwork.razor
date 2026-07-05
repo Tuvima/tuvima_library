@@ -1,0 +1,46 @@
+@namespace MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="@CssClass">
+    @if (!string.IsNullOrWhiteSpace(ImageUrl))
+    {
+        <img src="@ImageUrl"
+             srcset="@SrcSet"
+             sizes="@Sizes"
+             alt="@Alt"
+             class="@ImageClass"
+             loading="@Loading"
+             decoding="async" />
+    }
+    else
+    {
+        <div class="media-artwork__fallback">
+            <MudIcon Icon="@FallbackIcon" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public string? SrcSet { get; set; }
+    [Parameter] public string Sizes { get; set; } = "(max-width: 640px) 80vw, 320px";
+    [Parameter] public string Alt { get; set; } = string.Empty;
+    [Parameter] public MediaArtworkShape Shape { get; set; } = MediaArtworkShape.Portrait;
+    [Parameter] public MediaTileImageFitMode FitMode { get; set; } = MediaTileImageFitMode.Contain;
+    [Parameter] public string Loading { get; set; } = "lazy";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string FallbackIcon { get; set; } = Icons.Material.Outlined.Image;
+
+    private string CssClass => string.Join(
+        " ",
+        new[]
+        {
+            "media-artwork",
+            $"media-artwork--{Shape.ToString().ToLowerInvariant()}",
+            Class,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string ImageClass => FitMode == MediaTileImageFitMode.Fill
+        ? "media-artwork__image is-fill"
+        : "media-artwork__image is-contained";
+}

@@ -1,6 +1,7 @@
 ﻿@page "/read"
 @page "/read/{Tab}"
 @using MediaEngine.Web.Components.Browse
+@using MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.MediaTiles
 @inject MediaTileComposerService MediaTiles
@@ -25,10 +26,16 @@
     }
     else if (_landingPage is not null)
     {
-        <LaneLandingView Page="@_landingPage"
-                         Title="Read"
-                         Subtitle="Books and comics from your local library"
-                         BrowseAllRoute="/read/books" />
+        <MediaHubPage SectionType="MediaHubSectionType.Read"
+                      Title="Read"
+                      Subtitle="Books and comics from your local library"
+                      SelectedMode="all"
+                      AvailableModes="@ReadModes"
+                      HeroItem="@_landingPage.Hero"
+                      HeroItems="@_landingPage.Spotlights"
+                      Shelves="@ReadHubShelves"
+                      SearchPlaceholder="Search books and comics..."
+                      RouteBase="/read" />
     }
 }
 else
@@ -43,6 +50,21 @@ else
     private DiscoveryPageViewModel? _landingPage;
     private bool _loading = true;
     private bool _loadFailed;
+
+    private static readonly IReadOnlyList<MediaHubModeViewModel> ReadModes =
+    [
+        new("all", "All", "/read"),
+        new("books", "Books", "/read/books"),
+        new("comics", "Comics", "/read/comics"),
+    ];
+
+    private IReadOnlyList<MediaHubShelfViewModel> ReadHubShelves => _landingPage?.Shelves
+        .Where(shelf => !IsReadSeriesShelf(shelf))
+        .Select((shelf, index) => MediaHubShelfViewModel.FromShelf(
+            HubShelfKey(shelf, index),
+            shelf,
+            IsContinueShelf(shelf)))
+        .ToList() ?? [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -73,6 +95,19 @@ else
             _loading = false;
         }
     }
+
+    private static bool IsReadSeriesShelf(MediaTileShelfViewModel shelf) =>
+        string.Equals(shelf.Title, "Series & Reading Lists", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(shelf.Subtitle, "Book series, comic runs, and grouped reading", StringComparison.OrdinalIgnoreCase)
+        || shelf.SeeAllRoute?.Contains("grouping=series", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static bool IsContinueShelf(MediaTileShelfViewModel shelf) =>
+        shelf.Title.Contains("Continue", StringComparison.OrdinalIgnoreCase);
+
+    private static string HubShelfKey(MediaTileShelfViewModel shelf, int index) =>
+        string.IsNullOrWhiteSpace(shelf.Title)
+            ? $"read-shelf-{index}"
+            : $"read-{shelf.Title.ToLowerInvariant().Replace(' ', '-')}";
 
     private static readonly LibraryBrowsePreset Preset = new()
     {

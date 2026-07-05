@@ -122,13 +122,15 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("window.correctMediaTileHoverViewport", appJs);
         Assert.Contains("window.scheduleMediaTileHoverViewportCorrection(cardEl);", appJs);
         Assert.Contains("window.positionMediaTileHover(cardEl);", appJs);
-        Assert.Contains("}, 340);", appJs);
+        Assert.Contains("}, 220);", appJs);
+        Assert.Contains("hoverImage.loading = 'eager';", appJs);
         Assert.DoesNotContain("overflow:hidden auto", css);
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-image.is-contained"));
         Assert.Equal(2, cut.FindAll(".media-tile-chip").Count);
         Assert.DoesNotContain("A sharp indie record with close harmonies.", cut.Markup);
         Assert.Empty(cut.FindAll(".media-tile-hover-logo"));
-        Assert.Empty(cut.FindAll("button[aria-label='Details']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Details']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='More actions']"));
     }
 
     [Fact]
@@ -164,7 +166,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("max-height:min(72vh,560px)", css);
         Assert.DoesNotContain("A dreamlike horror comic with mythic scale.", cut.Markup);
         Assert.Empty(cut.FindAll(".media-tile-hover-context-list"));
-        Assert.Empty(cut.FindAll("button[aria-label='Details']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Details']"));
     }
 
     [Fact]
@@ -238,7 +240,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Empty(cut.FindAll(".media-tile-collection-title"));
         Assert.Empty(cut.FindAll(".media-tile-caption"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-body"));
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Open Show']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Play']"));
         Assert.Empty(cut.FindAll(".media-tile-hover-title"));
         Assert.Contains("New episodes added", cut.Markup);
     }

@@ -1,0 +1,17 @@
+@namespace MediaEngine.Web.Components.MediaHub
+
+<section class="empty-shelf-state">
+    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+    <div>
+        <h2>@Title</h2>
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <p>@Message</p>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Message { get; set; }
+}

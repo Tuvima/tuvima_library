@@ -1,0 +1,28 @@
+@namespace MediaEngine.Web.Components.MediaHub
+
+<div class="shelf-header">
+    <div class="shelf-header__copy">
+        <h2>@Title</h2>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p>@Subtitle</p>
+        }
+    </div>
+
+    @if (Count is > 0)
+    {
+        <span class="shelf-header__count">@Count</span>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Route))
+    {
+        <a href="@Route" class="shelf-header__link">View all</a>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public int? Count { get; set; }
+    [Parameter] public string? Route { get; set; }
+}

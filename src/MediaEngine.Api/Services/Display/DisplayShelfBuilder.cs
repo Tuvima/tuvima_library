@@ -21,14 +21,8 @@ public sealed class DisplayShelfBuilder
     {
         var take = Math.Max(1, shelfLimit);
         var shelves = new List<DisplayShelfDto>();
-        var groupShelf = _groupPolicy.GetShelf("read");
         AddShelf(shelves, "continue-reading", "Continue reading", "Books and comics already in motion",
             journey.Take(take).Select(item => _cards.FromJourney(item, "read")).ToList(), "/read/books");
-        if (groupShelf.Enabled)
-        {
-            AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,
-                _cards.BuildCollectionCards(works, "read", groupShelf.MinimumSeriesItems).Take(take).ToList(), groupShelf.SeeAllRoute);
-        }
 
         AddShelf(shelves, "recently-added", "Recently added to read", "Fresh pages and issues ready to pick up",
             works.Take(take).Select(work => _cards.FromWork(work, "read", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), "/read/books");
@@ -97,12 +91,19 @@ public sealed class DisplayShelfBuilder
         var shelves = new List<DisplayShelfDto>();
         AddShelf(shelves, "continue-listening", "Continue listening", "Resume music and audiobooks already in progress",
             journey.Take(take).Select(item => _cards.FromJourney(item, "listen")).ToList(), null);
-        AddShelf(shelves, "listen-collections", "Collections and mixes", "Albums, artists, and audiobook series from your library",
-            _cards.BuildCollectionCards(works, "listen").Take(take).ToList(), "/collections");
-        AddShelf(shelves, "music", "New music in your library", "Album art first for recent music",
+        AddShelf(shelves, "recently-added", "Recently added", "Fresh audio from your library",
+            works.Take(take).Select(work => _cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
+        AddShelf(shelves, "music", "Music", "Album art first for your music library",
             works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music").Take(take).Select(work => _cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
-        AddShelf(shelves, "audiobooks", "Audiobooks on deck", "Spoken-word titles ready to continue",
+        AddShelf(shelves, "audiobooks", "Audiobooks", "Spoken-word titles ready to continue",
             works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Audiobook").Take(take).Select(work => _cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
+        AddShelf(shelves, "audiobook-series", "Audiobook series", "Grouped audiobook runs from your library",
+            _cards.BuildCollectionCards(
+                    works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Audiobook").ToList(),
+                    "listen")
+                .Take(take)
+                .ToList(),
+            null);
         return shelves;
     }
 

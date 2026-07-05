@@ -121,8 +121,10 @@ public sealed class DisplayComposerServiceTests
         var page = await composer.BuildBrowseAsync("listen", null, "all", null, 0, 48);
 
         Assert.Contains(page.Shelves, shelf => shelf.Key == "continue-listening");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-added");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "music");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "audiobooks");
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "listen-collections");
 
         var musicCard = page.Shelves.Single(shelf => shelf.Key == "music").Items.Single();
         Assert.Equal(["boygenius", "The Record", "Track 6", "Indie Rock"], musicCard.Facts);
@@ -265,7 +267,7 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
-    public async Task ReadSeriesShelf_RequiresDistinctOwnedTitles()
+    public async Task ReadLane_DoesNotExposeSeriesShelfOnMainHub()
     {
         var singleCollectionId = Guid.Parse("77777777-9999-cccc-9999-777777777777");
         var multiCollectionId = Guid.Parse("77777777-9999-dddd-9999-777777777777");
@@ -280,9 +282,11 @@ public sealed class DisplayComposerServiceTests
 
         var page = await composer.BuildBrowseAsync("read", null, "all", null, 0, 48, includeCatalog: false);
 
-        var groups = page.Shelves.Single(shelf => shelf.Key == "series-and-reading-lists").Items;
-        Assert.Contains(groups, card => card.Title == "The Expanse");
-        Assert.DoesNotContain(groups, card => card.Title == "Studio Ghibli Feature Films");
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "series-and-reading-lists");
+        var recentlyAdded = page.Shelves.Single(shelf => shelf.Key == "recently-added").Items;
+        Assert.Contains(recentlyAdded, card => card.Title == "Leviathan Wakes");
+        Assert.Contains(recentlyAdded, card => card.Title == "Caliban's War");
+        Assert.Contains(recentlyAdded, card => card.Title == "Spirited Away");
     }
 
     [Fact]

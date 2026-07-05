@@ -508,8 +508,10 @@ window.correctMediaTileHoverViewport = function (cardEl) {
         panelLeft += overflowLeft;
     }
 
-    panel.style.setProperty('--media-tile-hover-left', Math.round(Math.max(gutter, panelLeft)) + 'px');
-    panel.style.setProperty('--media-tile-hover-top', Math.round(Math.max(gutter, panelTop)) + 'px');
+    var maxLeft = Math.max(gutter, viewportWidth - gutter - panelRect.width);
+    var maxTop = Math.max(gutter, viewportHeight - gutter - panelRect.height);
+    panel.style.setProperty('--media-tile-hover-left', Math.round(Math.min(Math.max(gutter, panelLeft), maxLeft)) + 'px');
+    panel.style.setProperty('--media-tile-hover-top', Math.round(Math.min(Math.max(gutter, panelTop), maxTop)) + 'px');
 };
 
 window.scheduleMediaTileHoverViewportCorrection = function (cardEl) {
@@ -691,6 +693,13 @@ window.showMediaTileHover = function (cardEl) {
     window.positionMediaTileHover(cardEl);
 
     var hoverImage = panel.querySelector('.media-tile-hover-image');
+    if (hoverImage) {
+        hoverImage.loading = 'eager';
+        if ('fetchPriority' in hoverImage) {
+            hoverImage.fetchPriority = 'high';
+        }
+    }
+
     if (hoverImage && !hoverImage.complete) {
         if (panel.__mediaTileHoverImageLoad) {
             hoverImage.removeEventListener('load', panel.__mediaTileHoverImageLoad);
@@ -711,6 +720,11 @@ window.showMediaTileHover = function (cardEl) {
                 window.requestAnimationFrame(function () {
                     window.positionMediaTileHover(cardEl);
                     window.scheduleMediaTileHoverViewportCorrection(cardEl);
+                    window.setTimeout(function () {
+                        if (cardEl.classList.contains('is-hover-active')) {
+                            window.correctMediaTileHoverViewport(cardEl);
+                        }
+                    }, 260);
                 });
             }
         });
@@ -788,7 +802,7 @@ window.registerMediaTileHover = function (cardEl) {
         cardEl.__mediaTileShowTimer = window.setTimeout(function () {
             cardEl.__mediaTileShowTimer = null;
             window.showMediaTileHover(cardEl);
-        }, 340);
+        }, 220);
     };
 
     var isWithinHoverSurface = function (target) {

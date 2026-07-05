@@ -1,0 +1,35 @@
+.media-progress-bar {
+    width: min(320px, 100%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(226, 232, 240, 0.78);
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.media-progress-bar progress {
+    appearance: none;
+    flex: 1;
+    height: 4px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    overflow: hidden;
+}
+
+.media-progress-bar progress::-webkit-progress-bar {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: inherit;
+}
+
+.media-progress-bar progress::-webkit-progress-value {
+    background: linear-gradient(90deg, var(--media-hero-accent, var(--tl-accent-primary)) 0%, rgba(255, 255, 255, 0.92) 100%);
+    border-radius: inherit;
+}
+
+.media-progress-bar progress::-moz-progress-bar {
+    background: linear-gradient(90deg, var(--media-hero-accent, var(--tl-accent-primary)) 0%, rgba(255, 255, 255, 0.92) 100%);
+    border-radius: inherit;
+}

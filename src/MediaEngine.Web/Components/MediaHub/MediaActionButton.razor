@@ -1,0 +1,29 @@
+@namespace MediaEngine.Web.Components.MediaHub
+
+<AppNativeButton Type="button"
+                 Class="@CssClass"
+                 AriaLabel="@Label"
+                 Title="@Label"
+                 OnClick="HandleClickAsync"
+                 Disabled="@Disabled">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" />
+    }
+    <span>@Label</span>
+</AppNativeButton>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Variant { get; set; } = "primary";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string CssClass => $"media-action-button media-action-button--{Variant}";
+
+    private async Task HandleClickAsync(MouseEventArgs _)
+    {
+        await OnClick.InvokeAsync();
+    }
+}

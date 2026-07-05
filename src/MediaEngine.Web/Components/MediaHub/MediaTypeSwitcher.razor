@@ -1,0 +1,23 @@
+@namespace MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (Modes.Count > 0)
+{
+    <nav class="media-type-switcher" aria-label="@Label">
+        @foreach (var mode in Modes)
+        {
+            var active = string.Equals(mode.Id, SelectedMode, StringComparison.OrdinalIgnoreCase);
+            <a href="@mode.Route"
+               class="@($"media-type-switcher__item {(active ? "is-active" : null)}")"
+               aria-current="@(active ? "page" : null)">
+                @mode.Label
+            </a>
+        }
+    </nav>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MediaHubModeViewModel> Modes { get; set; } = [];
+    [Parameter] public string SelectedMode { get; set; } = "all";
+    [Parameter] public string Label { get; set; } = "Media type";
+}

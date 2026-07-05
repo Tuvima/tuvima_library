@@ -1,0 +1,25 @@
+@namespace MediaEngine.Web.Components.MediaHub
+
+<div class="@CssClass" aria-label="@DisplayLabel">
+    <progress value="@ClampedValue" max="100"></progress>
+    @if (!string.IsNullOrWhiteSpace(DisplayLabel))
+    {
+        <span>@DisplayLabel</span>
+    }
+</div>
+
+@code {
+    [Parameter] public double Value { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private double ClampedValue => Math.Clamp(Value, 0, 100);
+
+    private string DisplayLabel => string.IsNullOrWhiteSpace(Label)
+        ? $"{ClampedValue:F0}%"
+        : Label;
+
+    private string CssClass => string.IsNullOrWhiteSpace(Class)
+        ? "media-progress-bar"
+        : $"media-progress-bar {Class}";
+}

@@ -465,6 +465,9 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void ListenPage_RendersPermanentRailWithoutDrawerControls()
     {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen/music/songs");
+
         var cut = RenderComponent<ListenPage>(parameters => parameters
             .Add(page => page.Section, "songs"));
 
@@ -482,8 +485,34 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
+    public void ListenPage_MainHubRendersWithoutSidebarOrNowPanel()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen");
+
+        var cut = RenderListenPageWithProviders();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(cut.FindAll(".media-hub--listen"));
+            Assert.Single(cut.FindAll("[data-media-hub='true']"));
+            Assert.Contains(">Listen<", cut.Markup);
+            Assert.Contains(">All<", cut.Markup);
+            Assert.Contains(">Music<", cut.Markup);
+            Assert.Contains(">Audiobooks<", cut.Markup);
+            Assert.Contains("Recently Added", cut.Markup);
+            Assert.Empty(cut.FindAll(".listen-rail-shell"));
+            Assert.Empty(cut.FindAll(".listen-now-panel"));
+            Assert.Empty(cut.FindAll(".listen-page"));
+        });
+    }
+
+    [Fact]
     public void ListenPage_RendersMusicQuickAccessAndPlaylistsInOrder()
     {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen/music/songs");
+
         var cut = RenderComponent<ListenPage>(parameters => parameters
             .Add(page => page.Section, "songs"));
 
@@ -580,7 +609,7 @@ public sealed class UiShellRenderTests : TestContext
     public void ListenPage_LeftRailAudiobooksUsesRealLinkForFirstClickNavigation()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        navigationManager.NavigateTo("/listen");
+        navigationManager.NavigateTo("/listen/music");
 
         var cut = RenderListenPageWithProviders();
 

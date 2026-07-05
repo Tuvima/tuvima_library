@@ -73,6 +73,7 @@ public partial class ListenPage : IDisposable
     private CollectionGroupDetailViewModel? _albumDetail;
     private CollectionGroupDetailViewModel? _artistDetail;
     private DetailPageViewModel? _audioDetail;
+    private DiscoveryPageViewModel _listenHubPage = new() { Key = "listen" };
     private DiscoveryPageViewModel _musicHomePage = new() { Key = "listen-music" };
     private ProfileViewModel? _activeProfile;
     private Guid? _activeProfileId;
@@ -151,13 +152,14 @@ public partial class ListenPage : IDisposable
     private string CurrentPath => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
     private bool IsDefaultEntry => string.Equals(CurrentPath, "/listen", StringComparison.OrdinalIgnoreCase);
+    private bool IsListenHub => IsDefaultEntry;
     private bool IsAudiobooksView => string.Equals(CurrentPath, AudiobooksRoute, StringComparison.OrdinalIgnoreCase);
     private bool IsAudiobookDetail => WorkId.HasValue && CurrentPath.StartsWith("/listen/audiobook/", StringComparison.OrdinalIgnoreCase);
     private bool IsAudiobooksMode => IsAudiobooksView || IsAudiobookDetail;
     private bool IsMusicMode => !IsAudiobooksMode;
     private bool IsMusicHome => IsMusicMode
-        && (string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase)
-            || IsDefaultEntry);
+        && !IsListenHub
+        && string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase);
     private bool IsAlbumsView => IsMusicMode && !CollectionId.HasValue && string.Equals(NormalizedSection, "albums", StringComparison.OrdinalIgnoreCase);
     private bool IsAlbumDetail => IsMusicMode
         && (CollectionId.HasValue || !string.IsNullOrWhiteSpace(AlbumKey))
@@ -297,6 +299,53 @@ public partial class ListenPage : IDisposable
     private string TrackSelectionStatusText => HasTrackSelection
         ? $"{SelectedTrackCount} selected"
         : "Single-click to select, ctrl/shift-click to add more, and use the play icon to start playback.";
+
+    private static readonly IReadOnlyList<MediaHubModeViewModel> ListenHubModes =
+    [
+        new("all", "All", "/listen"),
+        new("music", "Music", MusicHomeRoute),
+        new("audiobooks", "Audiobooks", AudiobooksRoute),
+    ];
+
+    private IReadOnlyList<MediaHubShelfViewModel> ListenHubShelves
+    {
+        get
+        {
+            var shelves = _listenHubPage.Shelves
+                .Where(shelf => !IsListenCollectionsShelf(shelf))
+                .Select((shelf, index) => MediaHubShelfViewModel.FromShelf(
+                    HubShelfKey("listen", shelf, index),
+                    shelf,
+                    IsContinueShelf(shelf)))
+                .ToList();
+
+            if (HomePlaylistTiles.Count > 0)
+            {
+                shelves.Add(new MediaHubShelfViewModel
+                {
+                    Key = "listen-playlists",
+                    Title = "Playlists",
+                    Subtitle = "Saved playlists and mixes from your library",
+                    Items = HomePlaylistTiles,
+                    SeeAllRoute = PlaylistsRoute,
+                });
+            }
+
+            return shelves;
+        }
+    }
+
+    private static bool IsListenCollectionsShelf(MediaTileShelfViewModel shelf) =>
+        shelf.SeeAllRoute?.Equals("/collections", StringComparison.OrdinalIgnoreCase) == true
+        || shelf.Title.Contains("Collections", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsContinueShelf(MediaTileShelfViewModel shelf) =>
+        shelf.Title.Contains("Continue", StringComparison.OrdinalIgnoreCase);
+
+    private static string HubShelfKey(string prefix, MediaTileShelfViewModel shelf, int index) =>
+        string.IsNullOrWhiteSpace(shelf.Title)
+            ? $"{prefix}-shelf-{index}"
+            : $"{prefix}-{shelf.Title.ToLowerInvariant().Replace(' ', '-')}";
 
     private ManagedCollectionViewModel? ActivePlaylistCollection => CollectionId.HasValue
         ? PlaylistCollections.FirstOrDefault(collection => collection.Id == CollectionId.Value)
@@ -485,13 +534,21 @@ public partial class ListenPage : IDisposable
             _playlistNavigationConfig = profile?.NavigationConfig;
             _playlistOrder = ReadPlaylistOrder(profile?.NavigationConfig);
 
-            var shouldLoadMusicBrowseData = IsMusicMode;
+            var shouldLoadListenHub = IsListenHub;
+            var shouldLoadMusicBrowseData = IsMusicMode && !shouldLoadListenHub;
             var shouldLoadMusicHome = IsMusicHome;
-            var shouldLoadJourney = IsMusicMode || IsAudiobooksMode;
+            var shouldLoadJourney = shouldLoadListenHub || IsMusicMode || IsAudiobooksMode;
             var worksTask = Orchestrator.GetLibraryWorksAsync();
             var journeyTask = shouldLoadJourney
                 ? Orchestrator.GetJourneyAsync(_activeProfileId, 48)
                 : Task.FromResult(new List<JourneyItemViewModel>());
+            var listenHubTask = shouldLoadListenHub
+                ? ApiClient.GetDisplayBrowseAsync(
+                    lane: "listen",
+                    grouping: "all",
+                    includeCatalog: false,
+                    profileId: _activeProfileId)
+                : Task.FromResult<DisplayPageDto?>(null);
             var albumGroupsTask = shouldLoadMusicBrowseData
                 ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album")
                 : Task.FromResult(new List<ContentGroupViewModel>());
@@ -521,7 +578,7 @@ public partial class ListenPage : IDisposable
                 ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
 
-            await Task.WhenAll(worksTask, journeyTask, albumGroupsTask, artistGroupsTask, musicHomeTask, audiobookBrowseTask, audiobookSeriesGroupsTask, collectionsTask);
+            await Task.WhenAll(worksTask, journeyTask, listenHubTask, albumGroupsTask, artistGroupsTask, musicHomeTask, audiobookBrowseTask, audiobookSeriesGroupsTask, collectionsTask);
             if (!IsCurrentLoad(loadVersion))
             {
                 return;
@@ -583,6 +640,12 @@ public partial class ListenPage : IDisposable
             {
                 _musicHomePage = MediaTileComposerService.FromDisplayPage(
                     musicHomeTask.Result ?? throw new InvalidOperationException("Display API did not return the music home page."));
+            }
+
+            if (shouldLoadListenHub)
+            {
+                _listenHubPage = MediaTileComposerService.FromDisplayPage(
+                    listenHubTask.Result ?? throw new InvalidOperationException("Display API did not return the listen hub page."));
             }
 
             if (IsAlbumDetail)

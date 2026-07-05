@@ -1,0 +1,30 @@
+.empty-shelf-state {
+    margin: clamp(22px, 3vw, 42px) clamp(18px, 3.2vw, 52px);
+    min-height: 140px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(8, 12, 22, 0.62);
+    color: rgba(248, 250, 252, 0.92);
+}
+
+.empty-shelf-state .mud-icon-root {
+    color: var(--tl-accent-primary);
+    font-size: 2rem;
+}
+
+.empty-shelf-state h2 {
+    margin: 0;
+    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-size: 1.05rem;
+    font-weight: 900;
+}
+
+.empty-shelf-state p {
+    margin: 6px 0 0;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    color: rgba(203, 213, 225, 0.78);
+}
