@@ -31,6 +31,7 @@ public partial class ListenPage : IDisposable
     private const string SongsRoute = ListenNavigation.SongsRoute;
     private const string PlaylistsRoute = ListenNavigation.PlaylistsRoute;
     private const string AudiobooksRoute = ListenNavigation.AudiobooksRoute;
+    private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(45);
 
     [Inject] private IEngineApiClient ApiClient { get; set; } = default!;
     [Inject] private UIOrchestratorService Orchestrator { get; set; } = default!;
@@ -523,7 +524,9 @@ public partial class ListenPage : IDisposable
 
         try
         {
-            var profile = await Orchestrator.GetActiveProfileAsync();
+            using var timeoutCts = new CancellationTokenSource(LoadTimeout);
+            var ct = timeoutCts.Token;
+            var profile = await Orchestrator.GetActiveProfileAsync(ct);
             if (!IsCurrentLoad(loadVersion))
             {
                 return;
@@ -538,22 +541,23 @@ public partial class ListenPage : IDisposable
             var shouldLoadMusicBrowseData = IsMusicMode && !shouldLoadListenHub;
             var shouldLoadMusicHome = IsMusicHome;
             var shouldLoadJourney = shouldLoadListenHub || IsMusicMode || IsAudiobooksMode;
-            var worksTask = Orchestrator.GetLibraryWorksAsync();
+            var worksTask = Orchestrator.GetLibraryWorksAsync(ct);
             var journeyTask = shouldLoadJourney
-                ? Orchestrator.GetJourneyAsync(_activeProfileId, 48)
+                ? Orchestrator.GetJourneyAsync(_activeProfileId, 48, ct: ct)
                 : Task.FromResult(new List<JourneyItemViewModel>());
             var listenHubTask = shouldLoadListenHub
                 ? ApiClient.GetDisplayBrowseAsync(
                     lane: "listen",
                     grouping: "all",
                     includeCatalog: false,
-                    profileId: _activeProfileId)
+                    profileId: _activeProfileId,
+                    ct: ct)
                 : Task.FromResult<DisplayPageDto?>(null);
             var albumGroupsTask = shouldLoadMusicBrowseData
-                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album")
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album", ct: ct)
                 : Task.FromResult(new List<ContentGroupViewModel>());
             var artistGroupsTask = shouldLoadMusicBrowseData
-                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist")
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist", ct: ct)
                 : Task.FromResult(new List<ContentGroupViewModel>());
             var musicHomeTask = shouldLoadMusicHome
                 ? ApiClient.GetDisplayBrowseAsync(
@@ -561,7 +565,8 @@ public partial class ListenPage : IDisposable
                     mediaType: "Music",
                     grouping: "home",
                     includeCatalog: false,
-                    profileId: _activeProfileId)
+                    profileId: _activeProfileId,
+                    ct: ct)
                 : Task.FromResult<DisplayPageDto?>(null);
             var audiobookBrowseTask = IsAudiobooksMode
                 ? ApiClient.GetDisplayBrowseAsync(
@@ -569,13 +574,14 @@ public partial class ListenPage : IDisposable
                     grouping: "all",
                     offset: 0,
                     limit: 240,
-                    profileId: _activeProfileId)
+                    profileId: _activeProfileId,
+                    ct: ct)
                 : Task.FromResult<DisplayPageDto?>(null);
             var audiobookSeriesGroupsTask = IsAudiobooksMode
-                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Audiobooks", groupField: "series")
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Audiobooks", groupField: "series", ct: ct)
                 : Task.FromResult(new List<ContentGroupViewModel>());
             var collectionsTask = _activeProfileId.HasValue
-                ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value)
+                ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value, ct)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
 
             await Task.WhenAll(worksTask, journeyTask, listenHubTask, albumGroupsTask, artistGroupsTask, musicHomeTask, audiobookBrowseTask, audiobookSeriesGroupsTask, collectionsTask);
@@ -612,14 +618,16 @@ public partial class ListenPage : IDisposable
             }
 
             _albumGroups.Clear();
-            _albumGroups.AddRange(shouldLoadMusicBrowseData
-                ? albumGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
-                : BuildMusicGroupSummaries(_musicWorks, "album"));
+            var albumGroups = shouldLoadMusicBrowseData
+                ? albumGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList()
+                : BuildMusicGroupSummaries(_musicWorks, "album");
+            _albumGroups.AddRange(albumGroups.Count > 0 ? albumGroups : BuildMusicGroupSummaries(_musicWorks, "album"));
 
             _artistGroups.Clear();
-            _artistGroups.AddRange(shouldLoadMusicBrowseData
-                ? artistGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
-                : BuildMusicGroupSummaries(_musicWorks, "artist"));
+            var artistGroups = shouldLoadMusicBrowseData
+                ? artistGroupsTask.Result.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList()
+                : BuildMusicGroupSummaries(_musicWorks, "artist");
+            _artistGroups.AddRange(artistGroups.Count > 0 ? artistGroups : BuildMusicGroupSummaries(_musicWorks, "artist"));
 
             _audiobookSeriesGroups.Clear();
             _audiobookSeriesGroups.AddRange(audiobookSeriesGroupsTask.Result
@@ -629,8 +637,8 @@ public partial class ListenPage : IDisposable
             _managedCollections.Clear();
             _managedCollections.AddRange(collectionsTask.Result);
 
-            _favoriteWorkIds = (await Favorites.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
-            _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
+            _favoriteWorkIds = (await Favorites.GetFavoriteWorkIdsAsync(_activeProfileId, ct)).ToHashSet();
+            _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId, ct)).ToHashSet();
             if (!IsCurrentLoad(loadVersion))
             {
                 return;
@@ -650,7 +658,7 @@ public partial class ListenPage : IDisposable
 
             if (IsAlbumDetail)
             {
-                _albumDetail = await LoadAlbumDetailAsync();
+                _albumDetail = await LoadAlbumDetailAsync(ct);
                 if (!IsCurrentLoad(loadVersion))
                 {
                     return;
@@ -665,7 +673,8 @@ public partial class ListenPage : IDisposable
                     DetailEntityType.Audiobook,
                     WorkId.Value,
                     DetailPresentationContext.Listen,
-                    profileId: _activeProfileId);
+                    profileId: _activeProfileId,
+                    ct: ct);
                 if (!IsCurrentLoad(loadVersion))
                 {
                     return;
@@ -674,7 +683,7 @@ public partial class ListenPage : IDisposable
 
             if (CollectionId.HasValue && IsPlaylistSurface)
             {
-                _playlistItems.AddRange(await ApiClient.GetCollectionItemsAsync(CollectionId.Value, 1000, _activeProfileId));
+                _playlistItems.AddRange(await ApiClient.GetCollectionItemsAsync(CollectionId.Value, 1000, _activeProfileId, ct));
                 if (!IsCurrentLoad(loadVersion))
                 {
                     return;
@@ -685,10 +694,20 @@ public partial class ListenPage : IDisposable
 
             if (IsArtistsSurface)
             {
-                await EnsureArtistSelectionAsync();
+                await EnsureArtistSelectionAsync(ct);
             }
 
             await HandleTrackQueryAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            if (!IsCurrentLoad(loadVersion))
+            {
+                return;
+            }
+
+            _error = "Listen took too long to load. Try again after the current background work settles.";
+            _loading = false;
         }
         catch (Exception ex)
         {
@@ -1136,7 +1155,7 @@ public partial class ListenPage : IDisposable
 
     private async Task ReloadAsync() => await LoadAsync();
 
-    private async Task EnsureArtistSelectionAsync()
+    private async Task EnsureArtistSelectionAsync(CancellationToken ct = default)
     {
         if (_artistGroups.Count == 0)
         {
@@ -1153,7 +1172,7 @@ public partial class ListenPage : IDisposable
             return;
         }
 
-        await SelectArtistAsync(desiredArtist, persistSelection: false);
+        await SelectArtistAsync(desiredArtist, persistSelection: false, ct);
     }
 
     private string? ResolveDesiredArtistName()
@@ -1183,7 +1202,7 @@ public partial class ListenPage : IDisposable
         => _artistGroups.FirstOrDefault(artist => string.Equals(artist.DisplayName, artistName, StringComparison.OrdinalIgnoreCase))?.DisplayName
            ?? artistName;
 
-    private async Task SelectArtistAsync(string artistName, bool persistSelection = true)
+    private async Task SelectArtistAsync(string artistName, bool persistSelection = true, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(artistName))
         {
@@ -1210,7 +1229,7 @@ public partial class ListenPage : IDisposable
         {
             if (!_artistDetailCache.TryGetValue(artistName, out var detail))
             {
-                detail = await ApiClient.GetArtistDetailByNameAsync(artistName);
+                detail = await ApiClient.GetArtistDetailByNameAsync(artistName, ct);
                 _artistDetailCache[artistName] = detail;
             }
 
@@ -1310,7 +1329,7 @@ public partial class ListenPage : IDisposable
         return Task.CompletedTask;
     }
 
-    private async Task<CollectionGroupDetailViewModel?> LoadAlbumDetailAsync()
+    private async Task<CollectionGroupDetailViewModel?> LoadAlbumDetailAsync(CancellationToken ct = default)
     {
         if (!string.IsNullOrWhiteSpace(AlbumKey))
         {
@@ -1319,7 +1338,8 @@ public partial class ListenPage : IDisposable
                 "album",
                 albumName,
                 mediaType: "Music",
-                artistName: string.IsNullOrWhiteSpace(AlbumArtist) ? null : Uri.UnescapeDataString(AlbumArtist));
+                artistName: string.IsNullOrWhiteSpace(AlbumArtist) ? null : Uri.UnescapeDataString(AlbumArtist),
+                ct: ct);
         }
 
         if (!CollectionId.HasValue)
@@ -1334,10 +1354,11 @@ public partial class ListenPage : IDisposable
                 "album",
                 selectedAlbum.DisplayName,
                 mediaType: "Music",
-                artistName: selectedAlbum.Creator);
+                artistName: selectedAlbum.Creator,
+                ct: ct);
         }
 
-        return await ApiClient.GetCollectionGroupDetailAsync(CollectionId.Value);
+        return await ApiClient.GetCollectionGroupDetailAsync(CollectionId.Value, ct);
     }
 
     private DetailPageViewModel? BuildAlbumDetailModel(CollectionGroupDetailViewModel? detail)

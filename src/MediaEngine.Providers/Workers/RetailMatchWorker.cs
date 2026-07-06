@@ -375,7 +375,6 @@ public sealed class RetailMatchWorker
                 title ?? "(unknown)", artist ?? "(unknown artist)", orderedGroupJobs.Count);
 
             trackSearchMatch = await _appleClient.SearchTrackAsync(artist, title, album, country, lang, ct);
-            collectionId = trackSearchMatch?.CollectionId;
 
             if (trackSearchMatch is { SingleTrackRelease: true, TitleExact: true, ArtistExact: true })
             {
@@ -396,6 +395,22 @@ public sealed class RetailMatchWorker
                     retailAmbiguousThreshold,
                     ct);
                 return;
+            }
+
+            if (trackSearchMatch is not null
+                && IsStrongMusicTrackAlbumAnchor(trackSearchMatch, album))
+            {
+                collectionId = trackSearchMatch.CollectionId;
+            }
+            else if (trackSearchMatch is not null)
+            {
+                _logger.LogInformation(
+                    "Music: ignored Apple track search collectionId={CollectionId} for '{Title}' because album '{Album}' was not corroborated (score={AlbumScore:F2}, exact={AlbumExact})",
+                    trackSearchMatch.CollectionId,
+                    title ?? "(unknown)",
+                    album ?? "(unknown album)",
+                    trackSearchMatch.AlbumScore,
+                    trackSearchMatch.AlbumExact);
             }
         }
         else
@@ -1912,9 +1927,21 @@ public sealed class RetailMatchWorker
         int queuedTrackCount)
     {
         if (queuedTrackCount <= 1)
-            return true;
+            return selection.AlbumExactCount > 0 || selection.TotalAlbumScore >= 0.92;
 
-        return selection.SupportCount >= Math.Min(2, queuedTrackCount);
+        return selection.SupportCount >= Math.Min(2, queuedTrackCount)
+               && (selection.AlbumExactCount > 0
+                   || selection.TotalAlbumScore / Math.Max(1, selection.SupportCount) >= 0.92);
+    }
+
+    private static bool IsStrongMusicTrackAlbumAnchor(
+        MediaEngine.Providers.Services.AppleTrackSearchMatch match,
+        string? album)
+    {
+        if (string.IsNullOrWhiteSpace(album))
+            return false;
+
+        return match.AlbumExact || match.AlbumScore >= 0.92;
     }
 
     private static bool TryGetNumericSeconds(string? value, bool preferMillisecondsForLargeValues, out double seconds)

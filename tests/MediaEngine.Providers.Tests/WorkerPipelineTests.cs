@@ -1068,6 +1068,175 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
+    public async Task RetailMatchWorker_MusicSingleTrack_IgnoresWrongCompilationBeforeAlbumSearch()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Beauty and the Beast", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Artist, Value = "David Bowie", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Album, Value = "Heroes", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.TrackNumber, Value = "2", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Year, Value = "1977", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var wrongTrackJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 551695,
+                  "collectionId": 696590528,
+                  "trackId": 696592230,
+                  "artistName": "David Bowie",
+                  "collectionName": "The Platinum Collection",
+                  "trackName": "Beauty and the Beast",
+                  "trackCount": 57,
+                  "trackNumber": 15,
+                  "trackTimeMillis": 215000,
+                  "releaseDate": "2005-11-07T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/platinum-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var albumSearchJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "collection",
+                  "collectionType": "Album",
+                  "artistId": 551695,
+                  "collectionId": 12345,
+                  "artistName": "David Bowie",
+                  "collectionName": "Heroes",
+                  "trackCount": 10,
+                  "releaseDate": "1977-10-14T12:00:00Z",
+                  "primaryGenreName": "Rock"
+                }
+              ]
+            }
+            """;
+
+        var albumLookupJson = """
+            {
+              "resultCount": 2,
+              "results": [
+                {
+                  "wrapperType": "collection",
+                  "collectionType": "Album",
+                  "artistId": 551695,
+                  "collectionId": 12345,
+                  "artistName": "David Bowie",
+                  "collectionName": "Heroes",
+                  "trackCount": 10,
+                  "releaseDate": "1977-10-14T12:00:00Z",
+                  "primaryGenreName": "Rock"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 551695,
+                  "collectionId": 12345,
+                  "trackId": 99902,
+                  "artistName": "David Bowie",
+                  "collectionName": "Heroes",
+                  "trackName": "Beauty and the Beast",
+                  "trackCount": 10,
+                  "trackNumber": 2,
+                  "trackTimeMillis": 215000,
+                  "releaseDate": "1977-10-14T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/heroes-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var requests = new List<string>();
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            [
+                new StubExternalMetadataProvider
+                {
+                    Name = "apple_api",
+                    ProviderId = providerId,
+                    Claims = [],
+                },
+            ],
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                new StubConfigurationLoader(),
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            new StubConfigurationLoader(),
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new RoutingHttpClientFactory(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requests.Add(url);
+
+                var body = url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase)
+                    ? albumLookupJson
+                    : url.Contains("entity=album", StringComparison.OrdinalIgnoreCase)
+                        ? albumSearchJson
+                        : wrongTrackJson;
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+            }),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"album_corroborates\":true", candidate.ScoreBreakdownJson);
+        Assert.Contains("entity=album", string.Join("\n", requests), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("lookup?id=12345", string.Join("\n", requests), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lookup?id=696590528", string.Join("\n", requests), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task RetailMatchWorker_MusicTrackSearch_TriesArtistQueryBeforeAlbumBiasedQuery()
     {
         var entityId = Guid.NewGuid();
@@ -2020,7 +2189,7 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
-    public void WikidataBridgeWorker_ComicLookupHints_PrefixSeriesAndFallbackWriter()
+    public void WikidataBridgeWorker_ComicLookupHints_UsesSeriesTitleAndFallbackWriter()
     {
         var entityId = Guid.NewGuid();
         var canonicals = new List<CanonicalValue>
@@ -2034,13 +2203,40 @@ public sealed class WorkerPipelineTests
 
         var hints = WikidataBridgeWorker.BuildLookupHints(MediaType.Comics, canonicals);
 
-        Assert.Equal("Saga Chapter One", hints.TitleHint);
+        Assert.Equal("Saga", hints.TitleHint);
         Assert.Equal("Brian K. Vaughan", hints.AuthorHint);
         Assert.Null(hints.AlbumHint);
         Assert.Null(hints.ArtistHint);
         Assert.Equal("Saga", hints.SeriesHint);
         Assert.Equal("ja", hints.LanguageHint);
         Assert.Equal("7", hints.IssueNumber);
+    }
+
+    [Fact]
+    public void WikidataBridgeWorker_ComicLookupHints_UsesParentTitleWhenSeriesClaimMissing()
+    {
+        var childWorkId = Guid.NewGuid();
+        var parentWorkId = Guid.NewGuid();
+        var canonicals = new List<CanonicalValue>
+        {
+            new() { EntityId = childWorkId, Key = MetadataFieldConstants.Title, Value = "Saga #2", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = childWorkId, Key = "issue_number", Value = "2", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = parentWorkId, Key = MetadataFieldConstants.Title, Value = "Saga", LastScoredAt = DateTimeOffset.UtcNow },
+        };
+
+        var hints = WikidataBridgeWorker.BuildLookupHints(MediaType.Comics, canonicals, parentWorkId);
+
+        Assert.Equal("Saga", hints.TitleHint);
+        Assert.Equal("Saga", hints.SeriesHint);
+        Assert.Equal("2", hints.IssueNumber);
+    }
+
+    [Fact]
+    public void WikidataBridgeWorker_BridgeYearHint_DropsComicIssueYearForSeriesLookup()
+    {
+        Assert.Null(WikidataBridgeWorker.BuildBridgeYearHint(MediaType.Comics, "Batman", "1987"));
+        Assert.Equal("1987", WikidataBridgeWorker.BuildBridgeYearHint(MediaType.Comics, null, "1987"));
+        Assert.Equal("2005", WikidataBridgeWorker.BuildBridgeYearHint(MediaType.Movies, "Batman in film", "2005"));
     }
 
     [Fact]

@@ -349,6 +349,127 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task ComicVine_FetchAsync_PrefersOriginalIssueAndDropsIssueDescription()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var issueResponse = """
+            {
+              "results": [
+                {
+                  "name": "Saga",
+                  "issue_number": "1",
+                  "id": 111,
+                  "cover_date": "2014-03-01",
+                  "volume": { "name": "Saga" },
+                  "description": "<p>Die fantastische Weltraum-Opera von Brian K. Vaughan und Fiona Staples.</p>",
+                  "image": { "original_url": "https://example.test/saga-de.jpg" }
+                },
+                {
+                  "name": "Chapter One",
+                  "issue_number": "1",
+                  "id": 222,
+                  "cover_date": "2012-03-14",
+                  "volume": { "name": "Saga" },
+                  "description": "<p>Alana and Marko try to protect their newborn child.</p>",
+                  "image": { "original_url": "https://example.test/saga-en.jpg" }
+                }
+              ]
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(_ => JsonResponse(issueResponse)));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Saga #1",
+            Series = "Saga",
+            Year = "2012",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Saga",
+                [MetadataFieldConstants.SeriesPosition] = "1",
+            },
+        });
+
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "222");
+        Assert.DoesNotContain(claims, c => c.Key == MetadataFieldConstants.Description);
+    }
+
+    [Fact]
+    public async Task AppleApi_FetchAsync_RejectsMusicTrackFromWrongAlbum()
+    {
+        var config = LoadExampleConfig("apple_api");
+
+        var requestedUrls = new List<string>();
+        var wrongTrackResponse = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 551695,
+                  "collectionId": 696590528,
+                  "trackId": 696592230,
+                  "artistName": "David Bowie",
+                  "collectionName": "The Platinum Collection",
+                  "trackName": "Beauty and the Beast",
+                  "trackCount": 57,
+                  "trackNumber": 15,
+                  "releaseDate": "2005-11-07T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/bowie-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var emptyResponse = """{ "resultCount": 0, "results": [] }""";
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+                return JsonResponse(url.Contains("entity=musicTrack", StringComparison.OrdinalIgnoreCase)
+                    ? wrongTrackResponse
+                    : emptyResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Music,
+            Title = "Beauty and the Beast",
+            Artist = "David Bowie",
+            Album = "Heroes",
+            BaseUrl = "https://itunes.apple.com",
+            Country = "us",
+            Language = "en",
+        });
+
+        Assert.Empty(claims);
+        Assert.Contains(requestedUrls, url => url.Contains("entity=musicTrack", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(requestedUrls, url => url.Contains("entity=album", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Tmdb_MovieSearch_StoresShortDescriptionButDoesNotSetGenericLanguage()
     {
         var config = LoadExampleConfig("tmdb");

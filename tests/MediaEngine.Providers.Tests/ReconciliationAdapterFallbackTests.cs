@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
@@ -198,6 +199,33 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
+    public void BuildBridgeResolutionRequest_AllowsConstrainedComicSeriesTextFallback()
+    {
+        var adapter = CreateAdapter();
+
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "batman-405",
+            MediaType = MediaType.Comics,
+            Title = "Batman 405",
+            SeriesTitle = "Batman",
+            IssueNumber = "405",
+            Year = "1987",
+            FileLanguage = "en-US",
+            IsEditionAware = true,
+            AllowConstrainedTextFallback = true,
+        };
+
+        var bridgeRequest = BuildBridgeRequest(adapter, request);
+
+        Assert.Equal("Batman", bridgeRequest.Title);
+        Assert.Equal("Batman", bridgeRequest.SeriesTitle);
+        Assert.Equal("405", bridgeRequest.IssueNumber);
+        Assert.Empty(bridgeRequest.BridgeIds);
+        Assert.Equal(BridgeMediaKind.ComicSeries, bridgeRequest.MediaKind);
+    }
+
+    [Fact]
     public void BuildBridgeResolutionRequest_AllowsConstrainedAudiobookFallbackFromArtistAndAlbum()
     {
         var adapter = CreateAdapter();
@@ -304,6 +332,21 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
+    public void ValidateP31ForMediaType_AcceptsGraphicNovelForComicMatches()
+    {
+        var adapter = CreateAdapter();
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "ValidateP31ForMediaType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q3297186", "Q7725634" }, "Q128444", MediaType.Comics])!;
+
+        Assert.True(accepted);
+    }
+
+    [Fact]
     public void ValidateP31ForMediaType_RejectsHumanForBookMatches()
     {
         var adapter = CreateAdapter();
@@ -374,6 +417,36 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
+    public void BuildBridgeCandidateAttempts_KeepsRankedFallbackAfterRejectedPrimary()
+    {
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "BuildBridgeCandidateAttempts",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var primary = new BridgeCandidate { Qid = "Q128444", Label = "Batman" };
+        var fallback = new BridgeCandidate { Qid = "Q2633138", Label = "Batman" };
+        var result = new BridgeResolutionResult
+        {
+            CorrelationKey = "batman-405",
+            Status = BridgeResolutionStatus.Resolved,
+            SelectedCandidate = primary,
+            Candidates = [primary, fallback],
+        };
+
+        var attempts = Assert.IsAssignableFrom<IEnumerable>(method!.Invoke(null, [result]))
+            .Cast<object>()
+            .ToList();
+
+        Assert.Equal(2, attempts.Count);
+        Assert.Equal("Q128444", GetAttemptQid(attempts[0]));
+        Assert.True(GetAttemptUsesPrimaryRollup(attempts[0]));
+        Assert.Equal("Q2633138", GetAttemptQid(attempts[1]));
+        Assert.False(GetAttemptUsesPrimaryRollup(attempts[1]));
+    }
+
+    [Fact]
     public async Task FetchAsync_PersonWithPreResolvedQid_DoesNotRequireName()
     {
         var adapter = CreateAdapter();
@@ -391,6 +464,12 @@ public sealed class ReconciliationAdapterFallbackTests
             claim.Value == "Q548823");
     }
 
+    private static string GetAttemptQid(object attempt) =>
+        (string)attempt.GetType().GetField("Item2")!.GetValue(attempt)!;
+
+    private static bool GetAttemptUsesPrimaryRollup(object attempt) =>
+        (bool)attempt.GetType().GetField("Item3")!.GetValue(attempt)!;
+
     private static ReconciliationAdapter CreateAdapter()
     {
         var config = new ReconciliationProviderConfig
@@ -400,7 +479,7 @@ public sealed class ReconciliationAdapterFallbackTests
                 ["Books"] = ["Q7725634", "Q571", "Q8261"],
                 ["Music"] = ["Q105543609", "Q207628", "Q482994"],
                 ["MusicAlbum"] = ["Q482994", "Q208569", "Q222910"],
-                ["Comics"] = ["Q1004", "Q14406742"],
+                ["Comics"] = ["Q1004", "Q14406742", "Q3297186"],
             },
             ExcludeClasses = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
             {

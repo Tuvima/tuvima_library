@@ -1,0 +1,903 @@
+Using launch settings from src\MediaEngine.Web\Properties\launchSettings.json...
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5016
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Web
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 731.2125ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 738.455ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.0756ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.1319ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.5691ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.6136ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 31.0617ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 31.1621ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 34.2054ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 34.2463ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 34.5501ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 34.5878ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 74.0018ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 74.0653ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.5315ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.6035ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7437ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.8064ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.9179ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.9969ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.9336ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.9777ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.8566ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.8837ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.676ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.7116ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.7172ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.7438ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 7.2368ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 7.2626ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 5.3189ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 5.3579ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.0289ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.0894ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4541ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5058ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4366ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4584ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.5375ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.5816ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4153ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4508ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3393ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3622ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.1346ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.1726ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom connected ? http://localhost:61495/intercom
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.8387ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.9019ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f4767a5a-22dd-46e7-9073-fd1b8facce0a Title="1984" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=7823751b-3976-4025-98a4-1a72ed2de2fd Title="Foundation" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=cd6cd424-ae23-4f58-9a17-a392c037c09c Title="Do Androids Dream of Electric Sheep?" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=1fd242bd-195e-4aca-afc0-ff47a51ad716 Title="Doctor Sleep" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=94fee8ba-0ea2-4a1c-bb99-bb294a4136d6 Title="Animal Farm" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=be3158b9-c59e-42ec-9b51-77f6325ca1d4 Title="A Clash of Kings" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d102bbf5-9993-4cf9-aab5-f2e659a230b2 Title="The Name of the Wind" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0b91eb1a-1005-4180-8bac-5f2332026f0c Title="The Last of Us" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=a2717c43-0345-4991-9b38-b0b2767a05e0 Title="Dune" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=a3517d2d-09ea-41e2-9b5b-2db85d6cd846 Title="Frankenstein" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=29ba29a6-39f4-4c3f-a54b-a61751f0bc99 Title="Foundation" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=02928f73-ac0e-4e0a-bfa7-14dab0ebe793 Title="Foundation and Empire" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.3866ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.4608ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? RetagSweepCompleted: 0 processed, 0 ok, 0 retry, 0 failed
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7975ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.9006ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=31bbff6d-cbd8-42d2-b72a-c6a5a0884876 Title="The Talisman" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=11a82b77-67ad-4213-b48c-2e888e289054 Title="Project Hail Mary" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0affb098-2d2b-474a-ba8a-b62286b3f049 Title="All Systems Red" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f2d289c6-8a4e-4ced-9f18-43e0af19270e Title="Ender's Game" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=29815e33-a1c3-44c2-9914-5272f96ac233 Title="Don Quijote de la Mancha" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=794a80fd-b98a-486b-b361-62a461507142 Title="Good Omens" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=dc65cb4b-276b-4853-a3c4-28d2e66f78f9 Title="Second Foundation" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=745ebc5f-733f-4dc7-9fab-9badeacfeaa5 Title="The Hobbit" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=32de8ab8-5acc-435d-aeea-4ff9c1618a97 Title="A Game of Thrones" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9f82ec9b-43a0-436b-9ad0-db932342846a Title="The Shining" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9965e26d-cb14-4574-9efd-a1ca2e4366b5 Title="Leviathan Wakes" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=6727e00c-5d3e-4a79-8297-77245659d61a Title="The Hitchhiker's Guide to the Galaxy" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ac52c839-0acd-491e-b0e2-9044b22c7165 Title="Wool" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=69cd077a-1571-4776-b599-83ab8702126a Title="Harry Potter and the Chamber of Secrets" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e4ec7d79-f0af-4e0e-a875-465d5788b347 Title="The Cuckoo's Calling" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=54391c9b-bc58-4630-b680-0feeea628a52 Title="The Martian" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=08aa2408-30d3-4ed5-ac02-dfa5a851aad1 Title="Project Hail Mary" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=7ef4a8eb-08ad-4dc9-a3a1-cb9e5473de4e Title="The Fellowship of the Ring" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5e4258d5-6c93-4cca-b03a-951117d32e18 Title="A Game of Thrones" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=07ca07c0-14f1-4340-bc8d-60c49b3e2c2e Title="The Hobbit" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5a9eb9a3-1094-4012-a2c6-4df91f4d2f15 Title="The Shining" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f9b643b1-25a2-49e6-942a-de533a28b035 Title="Harry Potter and the Philosopher's Stone" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.077ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.133ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=6c3222ef-f216-4c5c-a09d-e235760cd975 Title="Doctor Sleep" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9a37d481-320c-4606-b741-922df7c39c93 Title="Shōgun" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=cd527715-997e-482a-88f7-7353c578bf2e Title="Better Call Saul" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=21c874cf-b115-41ff-b1af-f423541fee02 Title="Better Call Saul" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b1c2f5c8-928b-4a3d-9efe-de74ec3f6a53 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9b9d289d-8169-4af1-83d6-eb6b2b7ac141 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=708eb3b0-39d1-45a2-b430-b291c0a7eb01 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=df85dd55-52cc-4fd3-9695-590d397686df Title="The Martian" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.9392ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.0009ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=607f30ea-da8c-4702-a459-771614a67f84 Title="Dune" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=4fdfa9f2-7e07-4102-b4a0-37f52915d005 Title="The Lord of the Rings: The Return of the King" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=62438de8-e845-4396-a290-116ab5db1a4b Title="Dune: Part Two" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=4e586650-6364-4a10-9410-1f1e931c698c Title="The Shawshank Redemption" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=1e09f901-2680-477a-8463-a2245421523c Title="Arrival" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=15e89fae-cca5-4c79-930a-9ac8ead2ade9 Title="The Lord of the Rings: The Fellowship of the Ring" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=83f8572e-fb6e-4676-b429-71aa2c9baf0f Title="The Martian" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=90998e54-57ad-4daf-9715-79c858931bd1 Title="Harry Potter and the Philosopher's Stone" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f220959f-a9ee-4297-8688-4bf63807990c Title="Alien" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=60014317-ba91-43ac-9c65-4c6141cb5fc9 Title="The Dark Knight" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=6f067c31-ba7b-48bd-8e6c-fc5341db5692 Title="Batman Begins" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=81ea2780-c12f-4190-a26b-adc6eccac119 Title="All Systems Red" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=aa7eaa9e-fd09-4c64-99f1-f6ed39644958 Title="Dune" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9f23ff9b-9d73-4570-8289-b562959c37c1 Title="The Lord of the Rings: The Two Towers" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c36af0e4-9b0c-4446-a3ed-c7fb1ee04831 Title="Blade Runner 2049" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=75912e37-617a-4e55-bd2e-fe701bae8c60 Title="Leviathan Wakes" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=2d2ae315-d964-4190-93e8-066375d5f268 Title="Interstellar" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e029f888-0828-47ca-93c2-4a27187ee440 Title="The Dark Knight Rises" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d58f062b-38d2-4ba5-88d7-5440c18a9ee8 Title="Blade Runner" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=a7889235-0229-4ef9-bd43-cfa4f690e016 Title="The Matrix" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d7cdbd2e-b40c-481a-8805-56ba66471921 Title="Aliens" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=89093602-de33-420a-8dbb-6b06e501d948 Title="The Empire Strikes Back" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d06cec08-e598-47c9-8a2f-b24cef823e8a Title="Oppenheimer" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=37f58dcd-cbda-4645-900b-25b8286f074e Title="Harry Potter and the Chamber of Secrets" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=bcdad85b-6a6b-4b56-bd40-43abf984ead3 Title="Watchmen #1: At Midnight, All the Agents..." Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=18db3f62-e5dd-4b38-95ea-5288eb788a2e Title="The Matrix Reloaded" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f4942d46-d848-4a68-9b42-92dde0db6986 Title="Caliban's War" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d34b4108-5f47-4b7a-aa31-75f85b550045 Title="Les Trois Mousquetaires" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b7ef5d71-274a-4891-9153-d2312b6f2765 Title="The Return of the King" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=2f4f3769-347d-4667-9544-16a40ff9a001 Title="The Two Towers" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=843462a1-f894-43b5-a418-9ba410b9f89a Title="Game of Thrones" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e744c249-472d-40e5-a15d-2f7b6e6ad865 Title="Game of Thrones" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=68dd092a-f15e-48cd-9808-1cb95936790e Title="Foundation" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ab0b7b31-931a-4074-b221-9db224c22b96 Title="Foundation" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=85f32606-55b3-48f7-8390-d0f61b93d23b Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=45decd59-8eae-425c-9f30-77479b86a8e7 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5f063a66-3905-49b6-864f-c6fcb30fa1bd Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=41322123-a245-445f-bf50-82660865b348 Title="Shōgun" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=2982d075-c936-41a2-9ebf-fa5f11c6d207 Title="Shōgun" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=bdd5a2dc-3ac0-4bb2-a905-6c1f0f1146d1 Title="The Last of Us" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0293c772-d66d-4078-b26e-e55131532537 Title="The Last of Us" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=acd92e87-f795-463d-9770-95754dd3a18e Title="Game of Thrones" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=650ccfff-56ea-45c0-b368-8a532433677f Title="The Expanse" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=79e87b13-2cb4-4f2f-881b-2ab62fc91a96 Title="The Expanse" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=99d796e8-027d-472a-83dc-ed7ce50a568c Title="The Expanse" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f293a268-521c-40ab-8cec-4133a9bb8998 Title="Five Years" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=6eb03935-0741-4a81-acd1-f474404e09a1 Title="BLOOD." Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=4208bdd1-c99b-4bce-a4ac-8647f4bf6c80 Title="Star Wars" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5e8b215b-f1fd-45a7-80ed-5b1d3fe31489 Title="Watchmen #2: Absent Friends" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ee4177e9-c2e4-473a-8fd9-edbde9ee1e3f Title="Akira #1" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=df9aca85-a270-44d8-abe8-d9a8ad3264b1 Title="Akira #2" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c8ff65f0-6484-49a2-a340-f3d138c2d1aa Title="Saga #1" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d7f66622-14c3-47cf-81cc-5809b4625392 Title="Batman #405: Year One Part 2 - War Is Declared" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c68a449b-1433-479e-a2a8-a487a4d15ec7 Title="The Fellowship of the Ring" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=538dbf76-95c4-4cc0-9ef2-37ef0abf9418 Title="Batman #406: Year One Part 3 - Black Dawn" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ae959c80-0798-49eb-943c-07f78674ea17 Title="Saga #3" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0f5af832-b543-4655-adfe-cad43d4b397d Title="The Hobbit: An Unexpected Journey" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c6a1a7bd-0838-42f7-b054-8debe44b08b7 Title="The Shining" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=2110dfb6-967e-4814-ac14-be2b28ce8299 Title="The Hobbit: The Desolation of Smaug" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d4646996-747c-4e65-a173-8db15e530cb5 Title="Doctor Sleep" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d3ece0f6-fead-476e-b0f4-5738f6547278 Title="Saga #2" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=3c8d7a52-a01f-4b5b-9e8a-0962b2ac0f6a Title="The Sandman #1: Sleep of the Just" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=a5f46075-f30e-4f44-8658-7ba7dad7ab31 Title="Batman #407: Year One Part 4 - Friend in Need" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=79e64fd2-f0ab-4a03-b10d-74897f9de950 Title="Soul Love" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f44165e7-2754-4fca-ae84-54c75b4731f5 Title="Airbag" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=48d20003-4200-4da9-a282-f6477894c318 Title="Paranoid Android" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=81173be2-2988-4079-b04b-cf7ab547e3d9 Title="Welcome to New York" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=64d3ff41-f3f9-4bb7-b512-a8ecd5aa82d9 Title="Blank Space" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=8ae755cb-df7b-4372-89b6-8db427cb8a9b Title="DNA." Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e7a87631-e3d3-49cb-9bb4-1c39b06641a0 Title="The Wasp Factory" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.5042ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.5511ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.5328ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.5579ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 6.7327ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 6.7449ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 10.8117ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 10.8269ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.7509ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.7767ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.8293ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.8393ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 167.0652ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 167.0918ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7569ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.7989ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3095ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3246ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.8048ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.8501ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.2564ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.2732ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.5731ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.5899ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 5.9018ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 5.9181ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.8998ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.9327ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 16.4505ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 16.4698ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 161.7705ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 161.7997ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.6176ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.6491ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3745ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3865ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7105ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.7492ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.3863ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.3991ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.2672ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.2787ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 6.8455ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 6.8592ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 12.2895ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 12.3106ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 12.625ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 12.6395ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 136.7543ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 136.7881ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7906ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.8195ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2959ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.307ms - 200

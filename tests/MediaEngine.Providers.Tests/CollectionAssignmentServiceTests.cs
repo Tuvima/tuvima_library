@@ -120,6 +120,24 @@ public sealed class CollectionAssignmentServiceTests
         MediaType.Books);
 
         Assert.Empty(bookCandidates);
+
+        var comicSelfCandidate = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
+            [],
+            MediaType.Comics,
+            resolvedWorkQid: "Q2633138",
+            resolvedWorkLabel: "Batman");
+
+        var comicCandidate = Assert.Single(comicSelfCandidate);
+        Assert.Equal("Q2633138", comicCandidate.Qid);
+        Assert.True(comicCandidate.RequireKnownImmediateContainer);
+
+        var movieSelfCandidate = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
+            [],
+            MediaType.Movies,
+            resolvedWorkQid: "Q184843",
+            resolvedWorkLabel: "Blade Runner");
+
+        Assert.Empty(movieSelfCandidate);
     }
 
     [Fact]

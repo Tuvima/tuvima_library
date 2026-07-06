@@ -1436,9 +1436,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // ── Music branch — album-aware grouping ─────────────────────────────
-        var title = r.MediaType == MediaType.Music && !string.IsNullOrWhiteSpace(r.AlbumTitle)
-            ? r.AlbumTitle
-            : r.Title;
+        var title = r.MediaType switch
+        {
+            MediaType.Music when !string.IsNullOrWhiteSpace(r.AlbumTitle) => r.AlbumTitle,
+            MediaType.Comics when !string.IsNullOrWhiteSpace(r.SeriesTitle) => r.SeriesTitle,
+            _ => r.Title,
+        };
 
         // ── Bridge branch — at least one real (non-sentinel) external ID ────
         // Sentinel keys (those starting with '_') are stripped here so the
@@ -1516,7 +1519,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return false;
 
         if (request.MediaType is not (MediaType.Books or MediaType.Audiobooks))
-            return false;
+        {
+            return request.MediaType == MediaType.Comics
+                && !string.IsNullOrWhiteSpace(request.SeriesTitle)
+                && !string.IsNullOrWhiteSpace(title);
+        }
 
         if (string.IsNullOrWhiteSpace(title))
             return false;
@@ -1542,7 +1549,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             : request.SeasonNumber.HasValue
                 ? BridgeMediaKind.TvSeason
                 : BridgeMediaKind.TvSeries,
-        MediaType.Comics => string.IsNullOrWhiteSpace(request.IssueNumber)
+        MediaType.Comics => !string.IsNullOrWhiteSpace(request.SeriesTitle)
+            ? BridgeMediaKind.ComicSeries
+            : string.IsNullOrWhiteSpace(request.IssueNumber)
             ? BridgeMediaKind.ComicSeries
             : BridgeMediaKind.ComicIssue,
         MediaType.Music => !string.IsNullOrWhiteSpace(request.AlbumTitle)
@@ -1848,30 +1857,37 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 continue;
             }
 
-            var finalQid = libResult.ResolvedEntityQid!;
-            var finalWorkQid = libResult.CanonicalWorkQid ?? finalQid;
-            var finalIsEdition = libResult.Rollup?.RelationshipPath.Any(step =>
-                string.Equals(step.PropertyId, "P629", StringComparison.OrdinalIgnoreCase)) == true
-                && string.Equals(finalQid, libResult.SelectedCandidate?.Qid, StringComparison.OrdinalIgnoreCase);
-            var finalEditionQid = finalIsEdition ? finalQid : null;
             WikidataResolveRequest? input = null;
             if (inputByCorrelationKey is not null)
                 inputByCorrelationKey.TryGetValue(correlationKey, out input);
 
-            var (claims, collectedBridgeIds, instanceOfQids) = await BuildClaimsForResolvedQidAsync(
-                finalQid,
-                finalIsEdition,
-                finalWorkQid,
-                finalEditionQid,
-                input?.FileLanguage,
+            var accepted = await SelectAcceptedBridgeCandidateAsync(
+                correlationKey,
+                libResult,
+                input,
                 ct).ConfigureAwait(false);
+
+            if (accepted is null)
+                continue;
+
+            var finalQid = accepted.FinalQid;
+            var finalWorkQid = accepted.FinalWorkQid;
+            var finalIsEdition = accepted.FinalIsEdition;
+            var finalEditionQid = accepted.FinalEditionQid;
+            var claims = accepted.Claims;
+            var collectedBridgeIds = accepted.CollectedBridgeIds;
+            var selectedCandidate = accepted.SelectedCandidate;
+            var bridgeRollup = accepted.BridgeRollup;
+            var bridgeSeries = accepted.BridgeSeries;
+            var bridgeRelationships = accepted.BridgeRelationships;
 
             // ── P31 media-type validation ─────────────────────────────────────
             // After the library resolves a QID (via bridge ID or text search),
             // verify the entity's P31 is valid for the requested media type.
             // Without this check, an ISBN shared between a novel and its film
             // adaptation can resolve to the film entity instead of the book.
-            if (input is not null && input.MediaType != MediaType.Unknown)
+            /*
+            if (false)
             {
                 if (!ValidateP31ForMediaType(instanceOfQids, finalWorkQid, input.MediaType))
                 {
@@ -1895,10 +1911,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
             }
 
-            if (inputByCorrelationKey is not null
-                && inputByCorrelationKey.TryGetValue(correlationKey, out var comicInput))
+            */
+            if (input is { MediaType: MediaType.Comics })
             {
-                var preferredComicSeriesQid = GetPreferredComicSeriesQid(comicInput, finalQid, claims);
+                var preferredComicSeriesQid = GetPreferredComicSeriesQid(input, finalQid, claims);
                 if (!string.IsNullOrWhiteSpace(preferredComicSeriesQid))
                 {
                     var childQid = finalQid;
@@ -1907,19 +1923,21 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     finalWorkQid = preferredComicSeriesQid;
                     finalEditionQid = null;
 
-                    (claims, collectedBridgeIds, instanceOfQids) = await BuildClaimsForResolvedQidAsync(
+                    var (parentClaims, parentCollectedBridgeIds, parentInstanceOfQids) = await BuildClaimsForResolvedQidAsync(
                         finalQid,
                         finalIsEdition,
                         finalWorkQid,
                         finalEditionQid,
-                        comicInput.FileLanguage,
+                        input.FileLanguage,
                         ct).ConfigureAwait(false);
+                    claims = parentClaims;
+                    collectedBridgeIds = parentCollectedBridgeIds;
 
-                    if (!ValidateP31ForMediaType(instanceOfQids, finalWorkQid, comicInput.MediaType))
+                    if (!ValidateP31ForMediaType(parentInstanceOfQids, finalWorkQid, input.MediaType))
                     {
                         _logger.LogInformation(
                             "{Provider}: Stage2 â€” rejected normalized comics parent {Key} â†’ {QID}: P31 does not match {MediaType}",
-                            Name, correlationKey, finalWorkQid, comicInput.MediaType);
+                            Name, correlationKey, finalWorkQid, input.MediaType);
                         continue;
                     }
 
@@ -1939,12 +1957,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 Claims              = claims,
                 CollectedBridgeIds  = collectedBridgeIds,
                 MatchedBy           = MapBridgeResolutionStrategy(libResult.MatchedBy),
-                PrimaryBridgeIdType = libResult.SelectedCandidate?.MatchedBridgeIdType,
+                PrimaryBridgeIdType = selectedCandidate?.MatchedBridgeIdType,
                 BridgeDiagnostics   = libResult.Diagnostics,
                 RankedBridgeCandidates = libResult.Candidates,
-                BridgeRollup        = libResult.Rollup,
-                BridgeSeries        = libResult.Series,
-                BridgeRelationships = libResult.Relationships,
+                BridgeRollup        = bridgeRollup,
+                BridgeSeries        = bridgeSeries,
+                BridgeRelationships = bridgeRelationships,
             };
 
             _logger.LogInformation(
@@ -1954,6 +1972,116 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 finalIsEdition, claims.Count, collectedBridgeIds.Count);
         }
     }
+
+    private async Task<AcceptedBridgeCandidate?> SelectAcceptedBridgeCandidateAsync(
+        string correlationKey,
+        BridgeResolutionResult libResult,
+        WikidataResolveRequest? input,
+        CancellationToken ct)
+    {
+        foreach (var attempt in BuildBridgeCandidateAttempts(libResult))
+        {
+            var finalQid = attempt.UsePrimaryRollup
+                ? libResult.ResolvedEntityQid!
+                : attempt.Qid;
+            var finalWorkQid = attempt.UsePrimaryRollup
+                ? libResult.CanonicalWorkQid ?? finalQid
+                : finalQid;
+            var finalIsEdition = attempt.UsePrimaryRollup
+                && libResult.Rollup?.RelationshipPath.Any(step =>
+                    string.Equals(step.PropertyId, "P629", StringComparison.OrdinalIgnoreCase)) == true
+                && string.Equals(finalQid, libResult.SelectedCandidate?.Qid, StringComparison.OrdinalIgnoreCase);
+            var finalEditionQid = finalIsEdition ? finalQid : null;
+
+            var (claims, collectedBridgeIds, instanceOfQids) = await BuildClaimsForResolvedQidAsync(
+                finalQid,
+                finalIsEdition,
+                finalWorkQid,
+                finalEditionQid,
+                input?.FileLanguage,
+                ct).ConfigureAwait(false);
+
+            if (input is not null && input.MediaType != MediaType.Unknown)
+            {
+                if (!ValidateP31ForMediaType(instanceOfQids, finalWorkQid, input.MediaType))
+                {
+                    _logger.LogInformation(
+                        "{Provider}: Stage2 - rejected {Key} -> {QID}: P31 does not match {MediaType}",
+                        Name, correlationKey, finalWorkQid, input.MediaType);
+                    continue;
+                }
+
+                if (!IsResolvedYearCompatible(input.Year, claims, input.MediaType))
+                {
+                    _logger.LogInformation(
+                        "{Provider}: Stage2 - rejected {Key} -> {QID}: year mismatch for {MediaType} (hint={HintYear}, resolved={ResolvedYear})",
+                        Name,
+                        correlationKey,
+                        finalWorkQid,
+                        input.MediaType,
+                        input.Year,
+                        GetResolvedClaimsYear(claims));
+                    continue;
+                }
+            }
+
+            if (!attempt.UsePrimaryRollup)
+            {
+                _logger.LogInformation(
+                    "{Provider}: Stage2 - accepted ranked fallback {Key} -> {QID} after rejecting higher candidate(s)",
+                    Name, correlationKey, finalWorkQid);
+            }
+
+            return new AcceptedBridgeCandidate(
+                finalQid,
+                finalWorkQid,
+                finalIsEdition,
+                finalEditionQid,
+                claims,
+                collectedBridgeIds,
+                attempt.Candidate,
+                attempt.UsePrimaryRollup ? libResult.Rollup : null,
+                attempt.UsePrimaryRollup ? libResult.Series : [],
+                attempt.UsePrimaryRollup ? libResult.Relationships : []);
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<(BridgeCandidate? Candidate, string Qid, bool UsePrimaryRollup)> BuildBridgeCandidateAttempts(
+        BridgeResolutionResult libResult)
+    {
+        var attempts = new List<(BridgeCandidate? Candidate, string Qid, bool UsePrimaryRollup)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(libResult.ResolvedEntityQid)
+            && seen.Add(libResult.ResolvedEntityQid!))
+        {
+            attempts.Add((libResult.SelectedCandidate, libResult.ResolvedEntityQid!, true));
+        }
+
+        foreach (var candidate in libResult.Candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate.Qid) || !seen.Add(candidate.Qid))
+                continue;
+
+            attempts.Add((candidate, candidate.Qid, false));
+        }
+
+        return attempts;
+    }
+
+    private sealed record AcceptedBridgeCandidate(
+        string FinalQid,
+        string FinalWorkQid,
+        bool FinalIsEdition,
+        string? FinalEditionQid,
+        IReadOnlyList<ProviderClaim> Claims,
+        IReadOnlyDictionary<string, string> CollectedBridgeIds,
+        BridgeCandidate? SelectedCandidate,
+        CanonicalRollup? BridgeRollup,
+        IReadOnlyList<BridgeSeriesInfo> BridgeSeries,
+        IReadOnlyList<BridgeRelationshipEdge> BridgeRelationships);
 
     internal static string? GetPreferredComicSeriesQid(
         WikidataResolveRequest request,
@@ -3094,7 +3222,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             // Use language fallback: try requested language, then English
             var fallbackLangs = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase)
-                ? null
+                ? (IReadOnlyList<string>)["en"]
                 : (IReadOnlyList<string>)["en"];
 
             var summaries = await _reconciler.GetWikipediaSummariesAsync(
@@ -3197,7 +3325,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             var lang = NormalizeLang(language);
             var fallbackLangs = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase)
-                ? null
+                ? (IReadOnlyList<string>)["en"]
                 : (IReadOnlyList<string>)["en"];
 
             var summaries = await _reconciler.GetWikipediaSummariesAsync(

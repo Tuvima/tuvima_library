@@ -845,6 +845,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             claims = ExtractClaims(resultNode, request.MediaType);
         }
 
+        claims = NormalizeClaimsForStrategy(strategy, request, claims);
+
         if (!ClaimsMatchRequest(claims, request, strategy))
             return [];
 
@@ -857,6 +859,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         ProviderLookupRequest request,
         SearchStrategyConfig strategy)
     {
+        if (request.MediaType == MediaType.Music && !MusicAlbumClaimsMatchRequest(claims, request, strategy))
+            return false;
+
         if (string.IsNullOrWhiteSpace(request.Title))
             return true;
 
@@ -890,6 +895,50 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             request.Author ?? "-",
             titleScore,
             authorScore);
+
+        return false;
+    }
+
+    private IReadOnlyList<ProviderClaim> NormalizeClaimsForStrategy(
+        SearchStrategyConfig strategy,
+        ProviderLookupRequest request,
+        IReadOnlyList<ProviderClaim> claims)
+    {
+        if (!string.Equals(Name, "comicvine", StringComparison.OrdinalIgnoreCase)
+            || request.MediaType != MediaType.Comics
+            || !strategy.Name.Contains("issue", StringComparison.OrdinalIgnoreCase))
+        {
+            return claims;
+        }
+
+        return claims
+            .Where(claim => !string.Equals(claim.Key, MetadataFieldConstants.Description, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private bool MusicAlbumClaimsMatchRequest(
+        IReadOnlyList<ProviderClaim> claims,
+        ProviderLookupRequest request,
+        SearchStrategyConfig strategy)
+    {
+        var requestedAlbum = GetRequestedAlbum(request);
+        if (string.IsNullOrWhiteSpace(requestedAlbum))
+            return true;
+
+        var candidateAlbum = claims.FirstOrDefault(c =>
+            string.Equals(c.Key, MetadataFieldConstants.Album, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (string.IsNullOrWhiteSpace(candidateAlbum))
+            return true;
+
+        if (IsStrongAlbumMatch(requestedAlbum, candidateAlbum))
+            return true;
+
+        _logger.LogInformation(
+            "{Provider}/{Strategy}: rejected music result from album '{CandidateAlbum}' for requested album '{RequestedAlbum}'",
+            Name,
+            strategy.Name,
+            candidateAlbum,
+            requestedAlbum);
 
         return false;
     }
@@ -1437,6 +1486,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (comicIssueResult is not null)
             return comicIssueResult;
 
+        if (ShouldApplyMusicAlbumGuard(strategy, request))
+            return TrySelectMusicAlbumScopedResult(arr, request);
+
         if (!string.IsNullOrWhiteSpace(request.Title))
         {
             // Clean the query title for matching — strip "(YYYY)" and "SxxExx" so
@@ -1567,13 +1619,84 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             var titleScore = string.IsNullOrWhiteSpace(candidateTitle)
                 ? 0.0
                 : ComputeWordOverlap(cleanedQueryTitle, candidateTitle);
-            scored.Add((node, 1.0 + titleScore * 0.01));
+            var candidateDescription = ExtractFirstString(node, ["description", "deck", "shortDescription", "longDescription"]);
+            var candidateYear = TryExtractYear(
+                ExtractFirstString(node, ["cover_date", "store_date", "date_added", "start_year", "year"]));
+            var requestedYear = TryExtractYear(
+                request.Year
+                ?? ExtractYearFromTitle(request.Title)
+                ?? request.Hints?.GetValueOrDefault("year"));
+            var yearScore = ScoreYearProximity(requestedYear, candidateYear);
+            var languageScore = LooksNonEnglishDescription(candidateDescription) ? -0.25 : 0.03;
+
+            scored.Add((node, 1.0 + titleScore * 0.02 + yearScore + languageScore));
         }
 
         return scored
             .OrderByDescending(item => item.Score)
+            .ThenBy(item => TryExtractYear(ExtractFirstString(item.Node, ["cover_date", "store_date", "date_added", "start_year", "year"])) ?? int.MaxValue)
             .Select(item => item.Node)
             .FirstOrDefault();
+    }
+
+    private static bool ShouldApplyMusicAlbumGuard(SearchStrategyConfig strategy, ProviderLookupRequest request)
+        => request.MediaType == MediaType.Music
+           && !string.IsNullOrWhiteSpace(GetRequestedAlbum(request))
+           && strategy.Name.StartsWith("music", StringComparison.OrdinalIgnoreCase);
+
+    private static JsonNode? TrySelectMusicAlbumScopedResult(JsonArray arr, ProviderLookupRequest request)
+    {
+        var requestedAlbum = GetRequestedAlbum(request);
+        if (string.IsNullOrWhiteSpace(requestedAlbum))
+            return null;
+
+        var requestedTitle = CleanTitleForSearch(request.Title) ?? request.Title;
+        var requestedArtist = request.Artist ?? request.Author ?? request.Composer;
+        var scored = new List<(JsonNode Node, double AlbumScore, double TitleScore, double ArtistScore)>();
+
+        foreach (var node in arr)
+        {
+            if (node is null)
+                continue;
+
+            var candidateAlbum = ExtractFirstString(node, ["collectionName", "album", "release.title"]);
+            if (string.IsNullOrWhiteSpace(candidateAlbum) || !IsStrongAlbumMatch(requestedAlbum, candidateAlbum))
+                continue;
+
+            var candidateTitle = ExtractFirstString(node, ["trackName", "title", "name"]);
+            var titleScore = !string.IsNullOrWhiteSpace(requestedTitle) && !string.IsNullOrWhiteSpace(candidateTitle)
+                ? ComputeWordOverlap(requestedTitle, candidateTitle)
+                : 0.0;
+            if (!string.IsNullOrWhiteSpace(candidateTitle) && titleScore < 0.40)
+                continue;
+
+            var candidateArtist = ExtractFirstString(node, ["artistName", "artist", "author"]);
+            var artistScore = !string.IsNullOrWhiteSpace(requestedArtist) && !string.IsNullOrWhiteSpace(candidateArtist)
+                ? ComputeWordOverlap(requestedArtist, candidateArtist)
+                : 0.0;
+
+            scored.Add((node, ComputeWordOverlap(requestedAlbum, candidateAlbum), titleScore, artistScore));
+        }
+
+        return scored
+            .OrderByDescending(item => item.TitleScore)
+            .ThenByDescending(item => item.ArtistScore)
+            .ThenByDescending(item => item.AlbumScore)
+            .Select(item => item.Node)
+            .FirstOrDefault();
+    }
+
+    private static string? GetRequestedAlbum(ProviderLookupRequest request)
+        => request.Album
+           ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.Album);
+
+    private static bool IsStrongAlbumMatch(string? requestedAlbum, string? candidateAlbum)
+    {
+        if (string.IsNullOrWhiteSpace(requestedAlbum) || string.IsNullOrWhiteSpace(candidateAlbum))
+            return false;
+
+        return RetailTextSimilarity.AreEquivalentNames(requestedAlbum, candidateAlbum)
+               || ComputeWordOverlap(requestedAlbum, candidateAlbum) >= 0.92;
     }
 
     private static string? GetComicIssueHint(ProviderLookupRequest request)
@@ -1615,6 +1738,45 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
         return match.Success ? match.Groups[1].Value : string.Empty;
+    }
+
+    private static int? TryExtractYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var match = Regex.Match(value, @"(?<!\d)(19|20)\d{2}(?!\d)");
+        return match.Success && int.TryParse(match.Value, out var year) ? year : null;
+    }
+
+    private static double ScoreYearProximity(int? requestedYear, int? candidateYear)
+    {
+        if (!requestedYear.HasValue || !candidateYear.HasValue)
+            return 0;
+
+        var delta = Math.Abs(requestedYear.Value - candidateYear.Value);
+        return delta switch
+        {
+            0 => 0.18,
+            1 => 0.10,
+            <= 3 => 0.04,
+            _ => -0.08,
+        };
+    }
+
+    private static bool LooksNonEnglishDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = $" {StripDiacritics(value).ToLowerInvariant()} ";
+        var markers = new[]
+        {
+            " der ", " die ", " das ", " und ", " eine ", " einem ", " einen ",
+            " von ", " mit ", " nicht ", " fur ", " uber ", " ist ", " sich "
+        };
+
+        return markers.Count(marker => normalized.Contains(marker, StringComparison.Ordinal)) >= 3;
     }
 
     /// <summary>

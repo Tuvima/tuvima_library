@@ -72,7 +72,7 @@ public sealed class WikidataSeriesManifestHydrationService
         var cacheKey = $"{context.IngestionRunId?.ToString("D") ?? "process"}:{candidate.Qid}";
         var lazy = _inFlight.GetOrAdd(
             cacheKey,
-            _ => new Lazy<Task>(() => HydrateCoreAsync(context, candidate.Qid, candidate.Label, ct)));
+            _ => new Lazy<Task>(() => HydrateCoreAsync(context, candidate, ct)));
 
         try
         {
@@ -87,12 +87,13 @@ public sealed class WikidataSeriesManifestHydrationService
 
     private async Task HydrateCoreAsync(
         SeriesManifestHydrationContext context,
-        string seriesQid,
-        string? seriesLabel,
+        SeriesManifestCandidate candidate,
         CancellationToken ct)
     {
         try
         {
+            var seriesQid = candidate.Qid;
+            var seriesLabel = candidate.Label;
             var ttlDays = Math.Max(1, _configLoader.LoadHydration().SeriesManifestRefreshDays);
             var language = NormalizeLanguage(_configLoader.LoadCore().Language.Metadata);
             var now = DateTimeOffset.UtcNow;
@@ -139,7 +140,8 @@ public sealed class WikidataSeriesManifestHydrationService
                 CreateManifestRequest(seriesQid, language),
                 ct).ConfigureAwait(false);
 
-            if (!IsImmediateManifestContainer(manifest.ContainerKind))
+            if (!IsImmediateManifestContainer(manifest.ContainerKind)
+                || (candidate.RequireKnownImmediateContainer && manifest.ContainerKind == WikidataContainerKind.Unknown))
             {
                 _logger.LogInformation(
                     "Skipping Wikidata manifest {SeriesQid} ({SeriesLabel}) because it is classified as {ContainerKind}, not an immediate shelf",
@@ -391,7 +393,11 @@ public sealed class WikidataSeriesManifestHydrationService
         SeriesManifestHydrationContext context,
         CancellationToken ct)
     {
-        var candidates = ResolveClaimedSeriesManifestCandidates(context.FullClaims, context.MediaType).ToList();
+        var candidates = ResolveClaimedSeriesManifestCandidates(
+            context.FullClaims,
+            context.MediaType,
+            context.ResolvedWorkQid,
+            context.SeriesHint ?? context.Title).ToList();
         if (candidates.Count > 0)
             return candidates;
 
@@ -424,7 +430,9 @@ public sealed class WikidataSeriesManifestHydrationService
 
     internal static IReadOnlyList<SeriesManifestCandidate> ResolveClaimedSeriesManifestCandidates(
         IReadOnlyList<ProviderClaim> claims,
-        MediaType mediaType)
+        MediaType mediaType,
+        string? resolvedWorkQid = null,
+        string? resolvedWorkLabel = null)
     {
         var candidates = new List<SeriesManifestCandidate>();
         foreach (var key in new[] { "series_qid", "part_of_the_series_qid", "part_of_series_qid" })
@@ -436,13 +444,25 @@ public sealed class WikidataSeriesManifestHydrationService
             }
         }
 
+        if (candidates.Count == 0
+            && mediaType == MediaType.Comics
+            && !string.IsNullOrWhiteSpace(resolvedWorkQid))
+        {
+            AddSeriesManifestCandidate(
+                candidates,
+                resolvedWorkQid,
+                resolvedWorkLabel,
+                requireKnownImmediateContainer: true);
+        }
+
         return candidates;
     }
 
     private static void AddSeriesManifestCandidate(
         List<SeriesManifestCandidate> candidates,
         string? qid,
-        string? label)
+        string? label,
+        bool requireKnownImmediateContainer = false)
     {
         if (string.IsNullOrWhiteSpace(qid)
             || IsUnsupportedSeriesCandidateLabel(label)
@@ -451,7 +471,7 @@ public sealed class WikidataSeriesManifestHydrationService
             return;
         }
 
-        candidates.Add(new SeriesManifestCandidate(qid, label));
+        candidates.Add(new SeriesManifestCandidate(qid, label, requireKnownImmediateContainer));
     }
 
     private static bool IsImmediateManifestContainer(WikidataContainerKind containerKind)
@@ -912,7 +932,10 @@ public sealed class WikidataSeriesManifestHydrationService
 
     internal sealed record OrderedSeriesManifestItem(SeriesManifestItem Item, int SortOrder);
 
-    internal sealed record SeriesManifestCandidate(string Qid, string? Label);
+    internal sealed record SeriesManifestCandidate(
+        string Qid,
+        string? Label,
+        bool RequireKnownImmediateContainer = false);
 
     internal sealed record ParentCollectionManifestCandidate(string Qid, string? Label);
 }

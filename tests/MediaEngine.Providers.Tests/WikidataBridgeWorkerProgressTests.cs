@@ -29,7 +29,29 @@ public sealed class WikidataBridgeWorkerProgressTests
         Assert.True(fetchStageIndex > qidResolvedIndex);
         Assert.True(postPipelineIndex > fetchStageIndex);
         Assert.True(successIndex > postPipelineIndex);
-        Assert.Contains("Persisting Wikidata claims and related people.", normalized, StringComparison.Ordinal);
+        Assert.Contains("Persisting Wikidata claims.", normalized, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BridgeFinalisationDoesNotBlockOnInlinePersonEnrichment()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(
+            @"src\MediaEngine.Providers\Workers\WikidataBridgeWorker.cs"));
+        var normalized = source.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var fullClaimBlockStart = normalized.IndexOf(
+            "if (fullClaims.Count > 0)",
+            StringComparison.Ordinal);
+        var manifestIndex = normalized.IndexOf(
+            "await TryHydrateSeriesManifestAsync(job, ctx, lineage, ctx.ResolvedQid, fullClaims, ct);",
+            StringComparison.Ordinal);
+
+        Assert.True(fullClaimBlockStart >= 0);
+        Assert.True(manifestIndex > fullClaimBlockStart);
+
+        var bridgeCriticalPath = normalized[fullClaimBlockStart..manifestIndex];
+        Assert.DoesNotContain("RunPostIdentityPersonPassAsync(", bridgeCriticalPath, StringComparison.Ordinal);
+        Assert.Contains("Quick hydration runs the people pass after QID resolution.", bridgeCriticalPath, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath)

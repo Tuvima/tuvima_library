@@ -2146,6 +2146,12 @@ public static class CollectionEndpoints
                 }
             }
 
+            if (result.Count == 0 && IsMusicSystemView(mediaType, groupField))
+            {
+                var fallbackGroups = await BuildMusicSystemViewFallbackGroupsAsync(conn, personRepo, groupField!, log, ct);
+                result.AddRange(fallbackGroups);
+            }
+
             log.LogInformation("[ByAlbum] Returning {Total} content groups for mediaType={MediaType} groupField={GroupField}",
                 result.Count, mediaType ?? "(none)", groupField ?? "(none)");
 
@@ -5312,6 +5318,200 @@ public static class CollectionEndpoints
     private static bool IsMusicAlbumSystemView(string? mediaType, string? groupField)
         => string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
            && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMusicSystemView(string? mediaType, string? groupField)
+        => string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+           && (string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(groupField, "artist", StringComparison.OrdinalIgnoreCase));
+
+    private static async Task<IReadOnlyList<ContentGroupDto>> BuildMusicSystemViewFallbackGroupsAsync(
+        System.Data.IDbConnection conn,
+        IPersonRepository personRepo,
+        string groupField,
+        ILogger log,
+        CancellationToken ct)
+    {
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var rows = (await conn.QueryAsync<MusicSystemViewGroupRow>(new CommandDefinition($"""
+            WITH work_assets AS (
+                SELECT
+                    w.id AS WorkId,
+                    ma.id AS AssetId,
+                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                    ma.file_path_root AS FilePathRoot
+                FROM works w
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                WHERE w.media_type = 'Music'
+                  AND COALESCE(w.is_catalog_only, 0) = 0
+                  AND {visibleAssetPredicate}
+            ),
+            resolved_values AS (
+                SELECT
+                    wa.WorkId,
+                    wa.AssetId,
+                    COALESCE(
+                        NULLIF(TRIM(root_album.value), ''),
+                        NULLIF(TRIM(work_album.value), ''),
+                        NULLIF(TRIM(asset_album.value), '')
+                    ) AS Album,
+                    COALESCE(
+                        NULLIF(TRIM(root_artist.value), ''),
+                        NULLIF(TRIM(work_artist.value), ''),
+                        NULLIF(TRIM(asset_artist.value), '')
+                    ) AS Artist,
+                    COALESCE(
+                        NULLIF(TRIM(asset_title.value), ''),
+                        NULLIF(TRIM(work_title.value), '')
+                    ) AS Title,
+                    COALESCE(
+                        NULLIF(TRIM(root_year.value), ''),
+                        NULLIF(TRIM(work_year.value), ''),
+                        NULLIF(TRIM(asset_year.value), '')
+                    ) AS Year,
+                    COALESCE(
+                        NULLIF(TRIM(root_description.value), ''),
+                        NULLIF(TRIM(work_description.value), ''),
+                        NULLIF(TRIM(asset_description.value), '')
+                    ) AS Description,
+                    COALESCE(
+                        NULLIF(TRIM(root_cover_aspect.value), ''),
+                        NULLIF(TRIM(work_cover_aspect.value), ''),
+                        NULLIF(TRIM(asset_cover_aspect.value), '')
+                    ) AS CoverAspectClass
+                FROM work_assets wa
+                LEFT JOIN canonical_values root_album ON root_album.entity_id = wa.RootWorkId AND root_album.key = 'album'
+                LEFT JOIN canonical_values work_album ON work_album.entity_id = wa.WorkId AND work_album.key = 'album'
+                LEFT JOIN canonical_values asset_album ON asset_album.entity_id = wa.AssetId AND asset_album.key = 'album'
+                LEFT JOIN canonical_values root_artist ON root_artist.entity_id = wa.RootWorkId AND root_artist.key = 'artist'
+                LEFT JOIN canonical_values work_artist ON work_artist.entity_id = wa.WorkId AND work_artist.key = 'artist'
+                LEFT JOIN canonical_values asset_artist ON asset_artist.entity_id = wa.AssetId AND asset_artist.key = 'artist'
+                LEFT JOIN canonical_values work_title ON work_title.entity_id = wa.WorkId AND work_title.key = 'title'
+                LEFT JOIN canonical_values asset_title ON asset_title.entity_id = wa.AssetId AND asset_title.key = 'title'
+                LEFT JOIN canonical_values root_year ON root_year.entity_id = wa.RootWorkId AND root_year.key = 'year'
+                LEFT JOIN canonical_values work_year ON work_year.entity_id = wa.WorkId AND work_year.key = 'year'
+                LEFT JOIN canonical_values asset_year ON asset_year.entity_id = wa.AssetId AND asset_year.key = 'year'
+                LEFT JOIN canonical_values root_description ON root_description.entity_id = wa.RootWorkId AND root_description.key = 'description'
+                LEFT JOIN canonical_values work_description ON work_description.entity_id = wa.WorkId AND work_description.key = 'description'
+                LEFT JOIN canonical_values asset_description ON asset_description.entity_id = wa.AssetId AND asset_description.key = 'description'
+                LEFT JOIN canonical_values root_cover_aspect ON root_cover_aspect.entity_id = wa.RootWorkId AND root_cover_aspect.key = 'cover_aspect_class'
+                LEFT JOIN canonical_values work_cover_aspect ON work_cover_aspect.entity_id = wa.WorkId AND work_cover_aspect.key = 'cover_aspect_class'
+                LEFT JOIN canonical_values asset_cover_aspect ON asset_cover_aspect.entity_id = wa.AssetId AND asset_cover_aspect.key = 'cover_aspect_class'
+            ),
+            grouped AS (
+                SELECT
+                    CASE
+                        WHEN @GroupField = 'artist' THEN Artist
+                        ELSE Album
+                    END AS GroupName,
+                    CASE
+                        WHEN @GroupField = 'album' THEN Artist
+                    END AS Creator,
+                    COUNT(DISTINCT WorkId) AS WorkCount,
+                    COUNT(DISTINCT COALESCE(NULLIF(Title, ''), hex(WorkId))) AS DistinctTitleCount,
+                    COUNT(DISTINCT COALESCE(NULLIF(Album, ''), hex(WorkId))) AS AlbumCount,
+                    MIN(AssetId) AS FirstAssetId,
+                    MIN(Year) AS Year,
+                    MIN(Description) AS Description,
+                    MIN(CoverAspectClass) AS CoverAspectClass
+                FROM resolved_values
+                WHERE CASE
+                        WHEN @GroupField = 'artist' THEN Artist
+                        ELSE Album
+                    END IS NOT NULL
+                GROUP BY
+                    CASE
+                        WHEN @GroupField = 'artist' THEN lower(Artist)
+                        ELSE lower(Album)
+                    END,
+                    CASE
+                        WHEN @GroupField = 'album' THEN lower(COALESCE(Artist, ''))
+                    END
+            )
+            SELECT
+                GroupName,
+                Creator,
+                WorkCount,
+                DistinctTitleCount,
+                AlbumCount,
+                FirstAssetId,
+                Year,
+                Description,
+                CoverAspectClass
+            FROM grouped
+            ORDER BY GroupName
+            """,
+            new { GroupField = groupField.ToLowerInvariant() },
+            cancellationToken: ct))).AsList();
+
+        log.LogInformation("[ByAlbum] Music canonical fallback for groupField={GroupField} returned {RowCount} distinct group(s)",
+            groupField, rows.Count);
+
+        var isArtistGroup = string.Equals(groupField, "artist", StringComparison.OrdinalIgnoreCase);
+        var result = new List<ContentGroupDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            string? artistPhotoUrl = null;
+            Guid? artistPersonId = null;
+
+            if (isArtistGroup && !string.IsNullOrWhiteSpace(row.GroupName))
+            {
+                try
+                {
+                    var person = await personRepo.FindByNameAsync(row.GroupName, ct);
+                    if (person is not null)
+                    {
+                        artistPersonId = person.Id;
+                        if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
+                        {
+                            artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.LogDebug(ex, "Artist lookup failed while building Music system-view fallback group {Artist}", row.GroupName);
+                }
+            }
+
+            result.Add(new ContentGroupDto
+            {
+                CollectionId = CreateDeterministicSystemViewGroupId($"Music|{groupField}|{row.GroupName}|{row.Creator}"),
+                DisplayName = row.GroupName,
+                WikidataQid = null,
+                PrimaryMediaType = "Music",
+                WorkCount = row.WorkCount,
+                DistinctTitleCount = row.DistinctTitleCount,
+                CoverUrl = row.FirstAssetId.HasValue ? $"/stream/{row.FirstAssetId.Value}/cover" : null,
+                CoverAspectClass = row.CoverAspectClass,
+                Description = row.Description,
+                Creator = row.Creator,
+                UniverseStatus = "Complete",
+                CreatedAt = DateTimeOffset.UtcNow,
+                ArtistPhotoUrl = artistPhotoUrl,
+                ArtistPersonId = artistPersonId,
+                Year = row.Year,
+                AlbumCount = isArtistGroup && row.AlbumCount > 0 ? row.AlbumCount : null,
+            });
+        }
+
+        return result;
+    }
+
+    private sealed class MusicSystemViewGroupRow
+    {
+        public string GroupName { get; init; } = string.Empty;
+        public string? Creator { get; init; }
+        public int WorkCount { get; init; }
+        public int DistinctTitleCount { get; init; }
+        public int AlbumCount { get; init; }
+        public Guid? FirstAssetId { get; init; }
+        public string? Year { get; init; }
+        public string? Description { get; init; }
+        public string? CoverAspectClass { get; init; }
+    }
 
     private static int CountDistinctWorkTitles(IEnumerable<Work> works)
     {

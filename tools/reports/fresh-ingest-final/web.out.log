@@ -1,0 +1,2297 @@
+Using launch settings from src\MediaEngine.Web\Properties\launchSettings.json...
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5016
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Web
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
+      Failed to determine the https port for redirect.
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 736.88ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 743.4545ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.2078ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.2603ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.1262ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.1646ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 33.653ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 33.7436ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 35.2797ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 35.406ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 35.3125ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 35.4514ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 76.1775ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 76.2459ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.0487ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.1262ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4949ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5325ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.9988ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.0744ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.2076ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.2466ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.5984ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.6361ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 6.4575ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 6.686ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 6.7194ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 6.4987ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 6.7208ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 6.7609ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 6.3684ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 6.4043ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.6717ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.7459ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7776ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.8291ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.559ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5925ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.0649ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.1048ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4719ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5188ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3627ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.397ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.1943ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.2346ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom connected ? http://localhost:61495/intercom
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.3308ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.3947ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=68bd1aff-d586-4f53-b331-6f3c108bcc3c Title="The Cuckoo's Calling" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f44737f6-3317-41d4-9ce8-67227f96784a Title="Children of Dune" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ec8caefe-efe1-4452-a603-92914ae85fd2 Title="All Systems Red" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5aab2a41-84f0-40d1-83a6-086ee3781090 Title="1984" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9f82bb2b-26b1-45e9-8e08-db57e2c3acda Title="Naked in Death" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9a70db26-2b5a-4658-8b27-8132c1cf690b Title="The Name of the Wind" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=47d5bc28-de2a-477e-9939-d6f15eca644e Title="Dune Messiah" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b739b0d0-a63f-41b9-b0fe-48174b9b5ce2 Title="Les Trois Mousquetaires" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0ac4b3ca-d01f-4444-b26e-a69da698faee Title="Dune" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.2833ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.3696ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? RetagSweepCompleted: 0 processed, 0 ok, 0 retry, 0 failed
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=db7c6041-dc8a-4b6f-a04e-c23704131ff8 Title="Good Omens" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b166ff35-830e-46a4-b83e-f4b12fffdeb9 Title="The Last of Us" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=179db3b7-7d59-4729-9393-e965bd057560 Title="Doctor Sleep" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=4c31905d-f3d6-4afa-976b-19846f3a2e8b Title="The Return of the King" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=3276c776-b7e9-4228-81cb-592ea8974fc8 Title="Second Foundation" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7514ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.8066ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=dad5c898-3813-4da4-839e-d62508f84bb4 Title="The Martian" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c1977440-fb69-4b36-9c47-c66de178acdb Title="Foundation" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=fc66f6b4-df29-4aee-a16f-c5272495e94d Title="Animal Farm" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9d7c91ae-456e-4469-9eff-71e59fffc7e0 Title="The Fellowship of the Ring" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=beaf14cb-a4b2-468e-822e-e0fc57c407e4 Title="Foundation" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ea8bf574-79a4-4ac8-b182-6e4eccb8d100 Title="Ender's Game" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.8075ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.867ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=04ab0444-1f13-450c-8c8f-2b4c4d7631d9 Title="Caliban's War" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=08fee5f5-4795-4dd0-ab88-8f2cadeb6249 Title="Harry Potter and the Chamber of Secrets" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c395ac70-7b31-455c-8aca-7ee1c0a81a01 Title="The Hitchhiker's Guide to the Galaxy" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=1c154e6f-2f41-4aa1-8aaa-2771d2634e59 Title="A Game of Thrones" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=6f4b8191-21ff-4ddf-8095-2183eafa5b91 Title="The Hobbit" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=26ca0fc7-fa56-4733-acc2-9a52093f7556 Title="Harry Potter and the Philosopher's Stone" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=117276b0-ee10-4a03-90dd-b05c11d2ea19 Title="The Martian" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=af7ce947-4330-4e11-8e1e-570596517be1 Title="Leviathan Wakes" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=198448c6-9b05-4388-8796-e6d134623970 Title="All Systems Red" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9802de51-b26f-40b5-93bc-c4e37f1fa82d Title="A Game of Thrones" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=4c4cb1bb-3989-44aa-bfd1-094b3ea6759a Title="The Hobbit" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.0714ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.1339ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5d54a336-4d69-4efc-b8b0-543a3ed764af Title="The Fellowship of the Ring" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e2747379-7eea-458b-a840-a5b555e15666 Title="Better Call Saul" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=a1baaf2e-c129-4002-811a-fbceffd92c45 Title="Shōgun" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=10141b0f-1b88-49c5-9fe7-74bb60cba490 Title="Game of Thrones" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=6bd66440-e275-4d7f-80af-e47e82039104 Title="Frankenstein" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d1219af6-256f-42d4-b2e3-22c102b67f5f Title="Project Hail Mary" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f34a0fe0-6ac8-49a0-8fc7-793ae218266d Title="Doctor Sleep" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=4ca8b8d0-dadd-4780-bd68-f031d5523312 Title="The Shining" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=dca14585-5d54-4b80-b7a9-fc1fbfb838dd Title="The Shining" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d748740c-23b9-4023-ab7d-1c8ca21d1128 Title="Dune: Part Two" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b14b6317-1c4c-46c6-8859-45d3dec5a2e4 Title="Wool" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f722ea31-8e99-4fd4-a111-84214a97effc Title="Doctor Sleep" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c8172edc-423d-4562-a91f-15286f1d72ee Title="Dune" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=7212f70c-f885-427a-9ed2-a01b1aade54c Title="Do Androids Dream of Electric Sheep?" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=aa8d14d7-f78d-4dc5-9111-3358c7ba5c12 Title="The Lord of the Rings: The Fellowship of the Ring" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=da49b6b8-1319-4770-ac94-93c40c816621 Title="Arrival" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d0f9615b-17ca-44aa-b840-dbd0ccb01e10 Title="Batman Begins" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ffabd3c3-cbd0-45c0-a4c7-21219f7733cf Title="The Dark Knight Rises" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=c7322c0f-82cb-4a4a-8d63-e3a6aa504f88 Title="The Martian" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=17cac9e1-18fc-4a2a-9598-2f1cc53bedc2 Title="Neuromancer" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5b425bb7-6734-4879-a069-c2e43147650a Title="The Lord of the Rings: The Return of the King" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=60668bb5-f100-435c-9260-6157e90b333a Title="The Dark Knight" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=dfa40519-d746-4382-8e3d-5b18c1f9caf4 Title="Blade Runner 2049" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=91fd839f-45f5-4dc9-b17e-97d12d20fdea Title="The Empire Strikes Back" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=92f85901-cf61-4370-95da-2ce9f3afb58a Title="The Lord of the Rings: The Two Towers" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5ed3f363-5da1-4008-bd45-622672d39ca2 Title="Harry Potter and the Chamber of Secrets" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b92fb72b-6e22-42cf-b731-83cc93fb5cfe Title="Alien" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=6b26de05-ce9e-4dae-9cd4-cf6c2d33e844 Title="The Shawshank Redemption" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=bdfe05a5-747a-476c-b513-802873484b0c Title="Dune" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=978ecf2b-fd1c-4d05-a31c-9a43ec0e07b4 Title="Leviathan Wakes" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=03e4b27b-4b7a-40b6-a89c-f56ce1337f34 Title="The Hobbit: The Desolation of Smaug" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=73aa21fa-9243-4319-b5dd-f65d7ec7505b Title="The Matrix Reloaded" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0936b308-635b-460c-9c57-a866b04ab3fc Title="Oppenheimer" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=5b4b81f7-dda4-4f93-b54d-019c05aee937 Title="The Hobbit: An Unexpected Journey" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=bfaa3972-3fd8-462c-b427-2b2ec5fe028c Title="Dune" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=12dc9eed-84c3-4ee2-b9cf-d554395b5286 Title="Foundation and Empire" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=2cf8cc62-41ed-4ecf-aa61-08cf9781eb49 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=103d530a-5545-4da4-9c3c-0d88f6e20689 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ff073f04-49ee-4e8d-9cd4-83c69448a1e6 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9c5132b1-d5dc-481e-af7b-a2e21549c8f7 Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=30b59043-7fd0-4149-bdf5-6da3a9fe0f8a Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0386fc29-da85-494a-9492-e01ffa0c65ff Title="Breaking Bad" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0aad5d48-5772-401d-81e8-bde0a387865e Title="Shōgun" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=36b84f9d-d4db-4710-bd5f-bb4543ec2274 Title="Shōgun" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=83dc6824-e693-410a-90b6-5d7fefddcb0a Title="Foundation" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9ce0c795-e40f-4a2e-b85d-253f4d3477d1 Title="Foundation" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=a328ec04-af72-4184-8a06-ea90ad98739a Title="Game of Thrones" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ce5e7cdd-f5d5-4eb9-ae0e-65a690bd650b Title="Game of Thrones" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e2111653-0471-4a4b-8fd6-662ac4436391 Title="The Expanse" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=be80ea3d-59bb-4907-becd-a54a56db938c Title="The Expanse" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e16effb3-2603-4505-8bab-9c3552af9f7c Title="Better Call Saul" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=852055c3-bf15-4864-ab8f-33ad16581c8c Title="The Last of Us" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b065c69c-ecae-4dcb-a0cc-629b570a135c Title="The Last of Us" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=96063f5a-25f7-45f6-b713-ffb6ef26dee5 Title="The Shining" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=90897edc-8ed3-4cfd-bfa8-6b12f6abae83 Title="Five Years" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=379c5111-ba36-446c-ae6e-c2ff22aeb3a9 Title="Soul Love" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=d1f55bae-1870-460b-923c-93f27485b2a2 Title="The Matrix" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=3af2b5b1-45d1-493f-bc98-795915febf22 Title="Aliens" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=af84cd7f-deb4-4d30-99c8-d4023a0d417f Title="Interstellar" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=702a6f07-2a74-42d3-b85d-5e4399310c40 Title="Star Wars" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=94de0899-f14f-4c50-b26b-6d3460fd2d40 Title="Saga #1" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=025f6390-0e21-4105-ba99-2aea2337f7a7 Title="Watchmen #1: At Midnight, All the Agents..." Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=44c0dfc9-b506-4cdb-ba38-1ec8078ca5d0 Title="Batman #406: Year One Part 3 - Black Dawn" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=3f1acf4b-fd24-46d8-a298-eaa6ea93a53c Title="Saga #2" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=dd83ad87-833a-45a4-bb31-02a29159e5d6 Title="Saga #3" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=20fdf319-f480-4bce-a096-e829a1d930fa Title="The Two Towers" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=e8559a27-8f8a-4614-a51d-992b3be9ab29 Title="Watchmen #2: Absent Friends" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=2a12d0f8-3740-490a-8593-b1bd314deb20 Title="Harry Potter and the Philosopher's Stone" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=87c1ade2-86b9-44d6-bba6-298cbdefd44a Title="Akira #1" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=a3699804-4d72-4aaa-8ac3-e68f1c332a3f Title="Project Hail Mary" Type=Books
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=ed4ee501-51f6-4e12-9271-112ae085e4b9 Title="The Sandman #1: Sleep of the Just" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=b9d72b55-ebe2-4cac-8fb5-09d4ce1843ea Title="Blade Runner" Type=Movies
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=cd96ee7a-fa38-4e18-962a-8330a40f41b7 Title="Akira #2" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=618b9cfb-7afc-4f6f-9c73-5f8170b95c24 Title="Batman #407: Year One Part 4 - Friend in Need" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=8d204c5b-d3fd-4055-9a3a-229879a98b17 Title="Batman #405: Year One Part 2 - War Is Declared" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=354bddb5-28fb-46c0-9b9c-4df1827cce5f Title="BLOOD." Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=2b9b0db5-1846-44c1-b00c-69378c5f1cf1 Title="DNA." Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=8aac4e18-c2d2-4534-b016-387c0d41fe47 Title="Airbag" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=021dda97-8783-45e8-81c2-7df764c9d06d Title="Paranoid Android" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=0c62e038-63c5-42f1-860b-cdd8f692166d Title="The Expanse" Type=TV
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9d5e16cf-5311-479c-abcc-aa06ed1ab1fe Title="Welcome to New York" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=7e934fc0-6c6c-4bbf-8ad4-765a2436dc6f Title="Blank Space" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=bf999875-6b78-4057-b3cb-67c738d45200 Title="The Wasp Factory" Type=Audiobooks
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=9244a2e7-29d3-4a72-b34c-1f165e9fbaad Title="Cornfield Chase" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=7e05603d-25c1-4719-99ce-3c8e93c11f3d Title="Beauty and the Beast" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=46cb29d9-4bf9-4b94-9ae9-3766f72c7fd3 Title="Dreaming of the Crash" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=3844da81-7630-450d-bb97-e36d1ea8f816 Title="Something" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=143578f1-451a-4a91-9aaa-030445bd4f79 Title="The Sandman" Type=Comics
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=8943c754-5f69-4f51-a1c5-894af80147d9 Title="Come Together" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? MediaAdded: WorkId=f7d7f3ee-3fc3-48cb-935b-6aee6e843abf Title="Moonage Daydream" Type=Music
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom ? IngestionCompleted: File="(null)" Type=(null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.0362ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.0948ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.0169ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.0332ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.3301ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.3515ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 12.2967ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 12.3306ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 20.0959ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 20.1109ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 20.2495ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 20.2619ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 160.4286ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 160.457ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7991ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.8588ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.323ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3364ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 16.7466ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 16.8073ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.0836ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.1286ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.8663ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.8779ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 15.8507ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 15.8639ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 16.697ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 16.7101ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 23.5243ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 23.5355ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 166.7665ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 166.7943ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4772ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5084ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4142ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4258ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.6065ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.6556ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.042ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.0701ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.3963ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.4111ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.7454ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.7998ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 7.7555ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 7.7708ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5218ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5513ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.6096ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.6244ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2355ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3125ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.4403ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.4548ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4558ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4698ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 16.8688ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 16.8794ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 17.1423ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 17.182ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4655ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4853ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2895ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3009ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom connected ? http://localhost:61495/intercom
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.8046ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.8287ms - 200
+warn: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom closed: (null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.0586ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.1087ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.5797ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.6979ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.8857ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.9257ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 15.4656ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 15.4803ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 16.0731ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 16.1394ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 19.8265ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 19.8602ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 8.2092ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 8.2409ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4531ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4886ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.316ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3397ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 24.6012ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 24.6216ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom connected ? http://localhost:61495/intercom
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 26.9216ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 26.9437ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3523ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3658ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 185.6418ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 185.6822ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4603ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4878ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3125ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3231ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4948ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5259ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3675ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3905ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.49ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.496ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.4322ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.4385ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.149ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.1595ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 5.3059ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 5.3161ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 8.1633ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 8.1805ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/0d106b7a-1fb6-4b8c-b33f-fe01c66a493c/group-detail
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/0d106b7a-1fb6-4b8c-b33f-fe01c66a493c/group-detail
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 187.0314ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 187.0632ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5165ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5457ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.1241ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.1322ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.8201ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.8281ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.6074ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.6176ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 5.0655ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 5.0734ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.5669ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.5903ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3956ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4181ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3403ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3488ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4951ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5257ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7003ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.7093ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.7593ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.7695ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.9248ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.9321ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.6775ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.6895ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.502ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.5131ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.423ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4401ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.229ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.241ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.1926ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2001ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2398ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.249ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 10.3722ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 10.3979ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom connected ? http://localhost:61495/intercom
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3182ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3295ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3322ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3445ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2762ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2807ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4568ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4895ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2528ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2636ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.6069ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.6146ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.0005ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.0087ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.4971ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.5065ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.2841ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.299ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 127.7357ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 127.7536ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1660.8995ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1660.9331ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5717ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.6081ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2393ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2483ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.425ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.4309ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.0888ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.1004ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.3154ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.3279ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 4.6232ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 4.6307ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.4352ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.4506ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4807ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5282ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4862ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.493ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.7675ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.7839ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.904ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.0528ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.7669ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.7754ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 7.577ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 7.5951ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4859ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5015ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.312ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3207ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4748ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5104ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5866ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5974ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.7802ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.7906ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.6801ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.7091ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.403ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.4126ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.8479ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.8561ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3201ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.338ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2083ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2169ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.1981ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2081ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2387ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2448ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom connected ? http://localhost:61495/intercom
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 9.9696ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 9.9876ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3042ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.315ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3065ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3212ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2983ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3047ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5007ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5323ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2136ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2212ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.6724ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.6782ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.8197ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.8269ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.3564ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.3689ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.6484ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.657ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 10.5771ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 10.5922ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 239.9349ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 239.9654ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5176ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5447ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.2228ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.2295ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.805ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.8138ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.4931ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.5041ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 10.3047ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 10.3216ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 142.7584ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 142.7798ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4902ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5131ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3254ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3347ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 242.0521ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 242.0919ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4461ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4747ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5839ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.615ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/library/works?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/progress/journey?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/system-views?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/ui/resolved?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.0447ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.0536ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 1.286ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 1.2909ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.7529ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.7601ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/settings/server-general
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4867ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4985ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 5.1705ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 5.1818ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 5.2784ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 5.2837ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2326ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.2474ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2429ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.253ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/review/count
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3518ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.36ms - 200
+info: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom connected ? http://localhost:61495/intercom
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/system/status
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3715ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3873ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 11.159ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 11.1813ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3987ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4162ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/collections/managed?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3296ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.338ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/audiobook/bfaa3972-3fd8-462c-b427-2b2ec5fe028c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 258.126ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 258.1518ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3556ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3789ms - 200
+fail: Microsoft.AspNetCore.Components.Server.Circuits.RemoteNavigationManager[4]
+      Navigation failed when changing the location to /listen/audiobooks
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at Microsoft.JSInterop.JSRuntime.InvokeAsync[TValue](Int64 targetInstanceId, String identifier, JSCallType callType, Object[] args)
+         at Microsoft.JSInterop.JSRuntimeExtensions.InvokeVoidAsync(IJSRuntime jsRuntime, String identifier, Object[] args)
+         at Microsoft.AspNetCore.Components.Server.Circuits.RemoteNavigationManager.<>c__DisplayClass18_0.<<NavigateToCore>g__PerformNavigationAsync|0>d.MoveNext()
+fail: Microsoft.AspNetCore.Components.Server.Circuits.CircuitHost[111]
+      Unhandled exception in circuit 'Awo8vEL4ZOgGibT3Q3gPcTBfRyGGsVjDqBZZOJIt8L8'.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at Microsoft.JSInterop.JSRuntime.InvokeAsync[TValue](Int64 targetInstanceId, String identifier, JSCallType callType, Object[] args)
+         at Microsoft.JSInterop.JSRuntimeExtensions.InvokeVoidAsync(IJSRuntime jsRuntime, String identifier, Object[] args)
+         at Microsoft.AspNetCore.Components.Server.Circuits.RemoteNavigationManager.<>c__DisplayClass18_0.<<NavigateToCore>g__PerformNavigationAsync|0>d.MoveNext()
+warn: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom closed: (null)
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 125.2967ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 125.3327ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4862ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5189ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/ed4ee501-51f6-4e12-9271-112ae085e4b9?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/ed4ee501-51f6-4e12-9271-112ae085e4b9?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 232.1973ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 232.2248ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2934ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3117ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.5401ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.5792ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4615ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4964ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/dd83ad87-833a-45a4-bb31-02a29159e5d6?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/dd83ad87-833a-45a4-bb31-02a29159e5d6?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 210.735ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 210.7646ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3125ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3326ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 149.5177ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 149.558ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.8081ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.844ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/8d204c5b-d3fd-4055-9a3a-229879a98b17?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/8d204c5b-d3fd-4055-9a3a-229879a98b17?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 203.1013ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 203.1278ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2986ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3188ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5008ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5311ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/comicissue/44c0dfc9-b506-4cdb-ba38-1ec8078ca5d0?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/comicissue/44c0dfc9-b506-4cdb-ba38-1ec8078ca5d0?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 216.1708ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 216.1984ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3084ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3311ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5109ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5495ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/comicissue/618b9cfb-7afc-4f6f-9c73-5f8170b95c24?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/comicissue/618b9cfb-7afc-4f6f-9c73-5f8170b95c24?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 220.8245ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 220.8505ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3359ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3637ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5049ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5384ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/comicissue/44c0dfc9-b506-4cdb-ba38-1ec8078ca5d0?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/comicissue/44c0dfc9-b506-4cdb-ba38-1ec8078ca5d0?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 199.9341ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 199.9782ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3503ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3771ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5347ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5725ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/8d204c5b-d3fd-4055-9a3a-229879a98b17?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/8d204c5b-d3fd-4055-9a3a-229879a98b17?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 178.6715ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 178.6962ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3501ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3744ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 165.809ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 165.8534ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4987ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5445ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/6f4b8191-21ff-4ddf-8095-2183eafa5b91?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/6f4b8191-21ff-4ddf-8095-2183eafa5b91?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 194.9462ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 194.9756ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3027ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3277ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 2.3891ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 2.4236ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5035ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5317ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/20fdf319-f480-4bce-a096-e829a1d930fa?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/20fdf319-f480-4bce-a096-e829a1d930fa?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 193.1087ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 193.1359ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3481ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3696ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 136.3685ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 136.4141ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.5227ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.557ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/1c154e6f-2f41-4aa1-8aaa-2771d2634e59?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/1c154e6f-2f41-4aa1-8aaa-2771d2634e59?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 177.88ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 177.9148ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.2992ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3169ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.7332ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.7646ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4529ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.4843ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/7212f70c-f885-427a-9ed2-a01b1aade54c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/7212f70c-f885-427a-9ed2-a01b1aade54c?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 181.2291ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 181.2552ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 118.6545ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 118.6922ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.4765ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.5181ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/details/work/025f6390-0e21-4105-ba99-2aea2337f7a7?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/details/work/025f6390-0e21-4105-ba99-2aea2337f7a7?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 182.4882ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 182.5153ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/profiles
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 0.3278ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 0.3498ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[100]
+      Start processing HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[100]
+      Sending HTTP request GET http://localhost:61495/api/v1/display/browse?*
+info: System.Net.Http.HttpClient.IEngineApiClient.ClientHandler[101]
+      Received HTTP response headers after 3.0225ms - 200
+info: System.Net.Http.HttpClient.IEngineApiClient.LogicalHandler[101]
+      End processing HTTP request after 3.0606ms - 200
+warn: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom closed: (null)
+warn: MediaEngine.Web.Services.Integration.UIOrchestratorService[0]
+      Intercom closed: (null)

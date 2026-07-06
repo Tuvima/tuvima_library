@@ -321,7 +321,10 @@ public sealed class WikidataBridgeWorker
                     languageHint,
                     seasonNumber,
                     episodeNumber,
-                    issueNumber) = BuildLookupHints(mediaType, canonicals);
+                    issueNumber) = BuildLookupHints(
+                        mediaType,
+                        canonicals,
+                        lineage?.TargetForParentScope);
 
                 var context = new JobContext(
                     Job: job,
@@ -372,7 +375,7 @@ public sealed class WikidataBridgeWorker
                     Artist             = ctx.ArtistHint,
                     Title              = ctx.TitleHint,
                     Author             = ctx.AuthorHint,
-                    Year               = ctx.YearHint,
+                    Year               = BuildBridgeYearHint(ctx.MediaType, ctx.SeriesHint, ctx.YearHint),
                     FileLanguage       = ctx.LanguageHint,
                     SeriesTitle        = ctx.SeriesHint,
                     SeasonNumber       = ctx.SeasonNumber,
@@ -781,7 +784,7 @@ public sealed class WikidataBridgeWorker
 
             if (fullClaims.Count > 0)
             {
-                await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.WritingArtifact, 85, "Persisting Wikidata claims and related people.", ct, new
+                await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.WritingArtifact, 85, "Persisting Wikidata claims.", ct, new
                 {
                     qid = ctx.ResolvedQid,
                     claim_count = fullClaims.Count,
@@ -800,7 +803,9 @@ public sealed class WikidataBridgeWorker
                 await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                     fullClaims, ct);
 
-                await RunPostIdentityPersonPassAsync(job.EntityId, ctx.ResolvedQid, ct);
+                // Quick hydration runs the people pass after QID resolution. Keeping
+                // it out of the bridge batch lets later media commit their QIDs
+                // without waiting on person/image enrichment for earlier items.
             }
 
             await TryHydrateSeriesManifestAsync(job, ctx, lineage, ctx.ResolvedQid, fullClaims, ct);
@@ -955,7 +960,10 @@ public sealed class WikidataBridgeWorker
             languageHint,
             seasonNumber,
             episodeNumber,
-            issueNumber) = BuildLookupHints(mediaType, canonicals);
+            issueNumber) = BuildLookupHints(
+                mediaType,
+                canonicals,
+                lineage?.TargetForParentScope);
 
         var ctx = new JobContext(
             Job:           job,
@@ -991,7 +999,7 @@ public sealed class WikidataBridgeWorker
                     Artist             = artistHint,
                     Title              = titleHint,
                     Author             = authorHint,
-                    Year               = yearHint,
+                    Year               = BuildBridgeYearHint(mediaType, seriesHint, yearHint),
                     FileLanguage       = languageHint,
                     SeriesTitle        = seriesHint,
                     SeasonNumber       = seasonNumber,
@@ -1062,11 +1070,21 @@ public sealed class WikidataBridgeWorker
         int? EpisodeNumber,
         string? IssueNumber) BuildLookupHints(
         MediaType mediaType,
-        IReadOnlyList<CanonicalValue> canonicals)
+        IReadOnlyList<CanonicalValue> canonicals,
+        Guid? parentScopeEntityId = null)
     {
         static string? GetCanonical(IReadOnlyList<CanonicalValue> values, string key)
         {
             var value = values.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+            return value is null ? null : TextEncodingRepair.RepairMojibake(value);
+        }
+
+        static string? GetCanonicalForEntity(IReadOnlyList<CanonicalValue> values, Guid entityId, string key)
+        {
+            var value = values.FirstOrDefault(c =>
+                    c.EntityId == entityId
+                    && string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
             return value is null ? null : TextEncodingRepair.RepairMojibake(value);
         }
 
@@ -1100,13 +1118,17 @@ public sealed class WikidataBridgeWorker
         }
         else if (mediaType == MediaType.Comics)
         {
-            seriesHint = GetCanonical(canonicals, MetadataFieldConstants.Series);
+            var parentTitle = parentScopeEntityId.HasValue
+                ? GetCanonicalForEntity(canonicals, parentScopeEntityId.Value, MetadataFieldConstants.Title)
+                : null;
+            seriesHint = GetCanonical(canonicals, MetadataFieldConstants.Series)
+                ?? parentTitle;
             issueNumber = FirstValue(
                 GetCanonical(canonicals, "issue_number"),
                 GetCanonical(canonicals, "issue"),
                 GetCanonical(canonicals, MetadataFieldConstants.SeriesPosition));
             if (!string.IsNullOrWhiteSpace(seriesHint))
-                titleHint = BuildComicTitleHint(seriesHint, titleHint);
+                titleHint = seriesHint;
 
             authorHint ??= GetCanonical(canonicals, "writer")
                 ?? GetCanonical(canonicals, MetadataFieldConstants.Illustrator);
@@ -1123,19 +1145,27 @@ public sealed class WikidataBridgeWorker
         return (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint, languageHint, seasonNumber, episodeNumber, issueNumber);
     }
 
+    internal static string? BuildBridgeYearHint(MediaType mediaType, string? seriesHint, string? yearHint)
+        => mediaType == MediaType.Comics && !string.IsNullOrWhiteSpace(seriesHint)
+            ? null
+            : yearHint;
+
     private static bool ShouldAllowConstrainedTextFallback(JobContext ctx)
     {
-        if (ctx.MediaType is not (MediaType.Books or MediaType.Audiobooks))
-            return false;
-
         if (!string.Equals(ctx.Job.State, IdentityJobState.RetailMatched.ToString(), StringComparison.OrdinalIgnoreCase))
             return false;
 
         if (string.IsNullOrWhiteSpace(ctx.TitleHint))
             return false;
 
-        return !string.IsNullOrWhiteSpace(ctx.AuthorHint)
-               || !string.IsNullOrWhiteSpace(ctx.SeriesHint);
+        return ctx.MediaType switch
+        {
+            MediaType.Books or MediaType.Audiobooks =>
+                !string.IsNullOrWhiteSpace(ctx.AuthorHint)
+                || !string.IsNullOrWhiteSpace(ctx.SeriesHint),
+            MediaType.Comics => !string.IsNullOrWhiteSpace(ctx.SeriesHint),
+            _ => false,
+        };
     }
 
     private static int? TryParsePositiveOrdinal(string? value)

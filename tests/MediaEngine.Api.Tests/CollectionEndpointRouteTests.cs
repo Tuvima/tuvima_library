@@ -29,6 +29,9 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("MapDelete(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
         Assert.Contains("UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType", source, StringComparison.Ordinal);
         Assert.Contains("UpdateCollectionSquareArtworkAsync(id, null, null", source, StringComparison.Ordinal);
+        Assert.Contains("BuildMusicSystemViewFallbackGroupsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("w.media_type = 'Music'", source, StringComparison.Ordinal);
+        Assert.Contains("AlbumCount = isArtistGroup && row.AlbumCount > 0 ? row.AlbumCount : null", source, StringComparison.Ordinal);
 
         var accessPolicySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionAccessPolicy.cs"));
         Assert.Contains("Smart", accessPolicySource, StringComparison.Ordinal);
