@@ -106,6 +106,8 @@ Wikidata is Stage 4. It is intentionally gated behind Stage 3: the Wikidata brid
 
 Stage 4 requires at least one real bridge ID. Title, creator, year, series, album, artist, and language hints help the resolver rank or roll up results, but they do not bypass the bridge-ID requirement.
 
+Wikidata relationship targets are classified before they become shelves. Ordered series, album releases, TV shows/seasons, comic series, and manga series can become immediate lane shelves. Franchises and universes are broader relationship context, and Wikimedia list articles or publisher/production lists are diagnostics only. A fresh ingestion uses this classification immediately; existing persisted rows are not backfilled or repaired in place.
+
 | Media type | Wikidata bridge IDs used | Hints sent with the bridge request | Wikidata media kind and filtering | Edition/rollup behavior |
 |---|---|---|---|---|
 | Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `open_library_id`, `goodreads_id` when present. | Title, author, year, language. | Book/literary work classes; excludes people, films, TV, and music classes. | Edition-aware; returns the work and edition when available. |

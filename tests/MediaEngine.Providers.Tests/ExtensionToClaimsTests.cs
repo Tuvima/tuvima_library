@@ -249,6 +249,21 @@ public sealed class ExtensionToClaimsTests
     }
 
     [Fact]
+    public void P179Series_WikimediaProductionList_Filtered()
+    {
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
+        {
+            ["P179"] = [EntityClaim("P179", "Q65071834", "list of Sony Pictures Animation productions")],
+        };
+        var labels = new Dictionary<string, string> { ["P179"] = "series" };
+
+        var claims = ConvertToClaims("Q2446049", properties, labels);
+
+        Assert.DoesNotContain(claims, c => c.Key == "series");
+        Assert.DoesNotContain(claims, c => c.Key == "series_qid");
+    }
+
+    [Fact]
     public void P179Series_NarrativeSeries_NotFiltered()
     {
         // P179 pointing to "Studio Ghibli Feature Films" should NOT be filtered — it's a real series.

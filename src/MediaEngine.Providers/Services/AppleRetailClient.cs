@@ -122,6 +122,10 @@ public sealed class AppleRetailClient
                 return null;
 
             double bestScore = 0.0;
+            double bestAlbumScore = 0.0;
+            double bestArtistScore = 0.0;
+            bool bestAlbumExact = false;
+            bool bestArtistExact = false;
             string? bestCollectionId = null;
 
             foreach (var result in results)
@@ -142,25 +146,37 @@ public sealed class AppleRetailClient
                 var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
                     ? RetailTextSimilarity.ComputeWordOverlap(artist, resultArtist)
                     : 0.0;
+                var albumExact = RetailTextSimilarity.AreEquivalentNames(album, resultCollection);
+                var artistExact = RetailTextSimilarity.AreEquivalentNames(artist, resultArtist);
                 var combined = albumScore * 0.7 + artistScore * 0.3;
                 if (combined > bestScore)
                 {
                     bestScore = combined;
+                    bestAlbumScore = albumScore;
+                    bestArtistScore = artistScore;
+                    bestAlbumExact = albumExact;
+                    bestArtistExact = artistExact;
                     bestCollectionId = resultId;
                 }
             }
 
-            if (bestScore >= 0.40)
+            var artistRequired = !string.IsNullOrWhiteSpace(artist);
+            var strongAlbumMatch = bestAlbumExact || bestAlbumScore >= 0.92;
+            var strongArtistMatch = !artistRequired || bestArtistExact || bestArtistScore >= 0.82;
+            if (bestCollectionId is not null
+                && strongAlbumMatch
+                && strongArtistMatch
+                && bestScore >= 0.76)
             {
                 _logger.LogInformation(
-                    "Music: Apple iTunes album search matched collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Album}'",
-                    bestCollectionId, bestScore, artist ?? "-", album ?? "-");
+                    "Music: Apple iTunes album search matched collectionId={Id} (score={Score:F2}, album={AlbumScore:F2}, artist={ArtistScore:F2}) for '{Artist}' / '{Album}'",
+                    bestCollectionId, bestScore, bestAlbumScore, bestArtistScore, artist ?? "-", album ?? "-");
                 return bestCollectionId;
             }
 
             _logger.LogInformation(
-                "Music: Apple iTunes album search - best score {Score:F2} below threshold for '{Artist}' / '{Album}'",
-                bestScore, artist ?? "-", album ?? "-");
+                "Music: Apple iTunes album search - best score {Score:F2} (album={AlbumScore:F2}, artist={ArtistScore:F2}) below strict album threshold for '{Artist}' / '{Album}'",
+                bestScore, bestAlbumScore, bestArtistScore, artist ?? "-", album ?? "-");
             return null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

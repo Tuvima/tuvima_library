@@ -8,6 +8,11 @@ public sealed class SeriesManifestViewDto
     [JsonPropertyName("series_qid")] public required string SeriesQid { get; init; }
     [JsonPropertyName("series_label")] public string? SeriesLabel { get; init; }
     [JsonPropertyName("last_hydrated_at")] public DateTimeOffset? LastHydratedAt { get; init; }
+    [JsonPropertyName("container_kind")] public string? ContainerKind { get; init; }
+    [JsonPropertyName("expected_total")] public int? ExpectedTotal { get; init; }
+    [JsonPropertyName("expected_total_kind")] public string? ExpectedTotalKind { get; init; }
+    [JsonPropertyName("expected_total_source")] public string? ExpectedTotalSource { get; init; }
+    [JsonPropertyName("expected_total_confidence")] public double? ExpectedTotalConfidence { get; init; }
     [JsonPropertyName("total_count")] public int TotalCount { get; init; }
     [JsonPropertyName("owned_count")] public int OwnedCount { get; init; }
     [JsonPropertyName("missing_count")] public int MissingCount { get; init; }

@@ -186,6 +186,12 @@ public sealed class CollectionGroupWorkDto
     [JsonPropertyName("track_number")]
     public string? TrackNumber { get; init; }
 
+    [JsonPropertyName("disc_number")]
+    public int? DiscNumber { get; init; }
+
+    [JsonPropertyName("apple_music_id")]
+    public string? AppleMusicId { get; init; }
+
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 

@@ -361,6 +361,8 @@ public static class CollectionEndpoints
                     string? season = GetCanonical(workDto, "season_number");
                     string? episode = GetCanonical(workDto, "episode_number");
                     string? trackNumber = GetCanonical(workDto, "track_number");
+                    string? discNumber = GetCanonical(workDto, "disc_number");
+                    string? appleMusicId = GetCanonical(workDto, BridgeIdKeys.AppleMusicId);
                     string? description = GetCanonical(workDto, "description");
                     string? director = GetCanonical(workDto, "director");
                     string? writer = GetCanonical(workDto, "writer");
@@ -411,6 +413,8 @@ public static class CollectionEndpoints
                         Season = season,
                         Episode = episode,
                         TrackNumber = trackNumber,
+                        DiscNumber = ParseNullableInt(discNumber),
+                        AppleMusicId = appleMusicId,
                         Status = status,
                         Description = description,
                         Director = director,
@@ -643,6 +647,8 @@ public static class CollectionEndpoints
                             CoverUrl = BuildCoverStreamUrl(w),
                             WikidataQid = w.WikidataQid,
                             TrackNumber = GetCanonical(wDto, "track_number"),
+                            DiscNumber = ParseNullableInt(GetCanonical(wDto, "disc_number")),
+                            AppleMusicId = GetCanonical(wDto, BridgeIdKeys.AppleMusicId),
                             Status = w.WikidataStatus switch
                             {
                                 "confirmed" => "Verified",
@@ -787,6 +793,8 @@ public static class CollectionEndpoints
                         MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
                         MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
                         MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
+                        MAX(CASE WHEN cv.key = 'disc_number' THEN cv.value END) AS disc_number,
+                        MAX(CASE WHEN cv.key = 'apple_music_id' THEN cv.value END) AS apple_music_id,
                         MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS release_year,
                         MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
                         MAX(CASE WHEN cv.key IN ('duration_seconds', 'duration_sec') THEN cv.value END) AS duration_seconds_value,
@@ -829,6 +837,8 @@ public static class CollectionEndpoints
                 var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
                 var album = reader.IsDBNull(reader.GetOrdinal("album")) ? null : reader.GetString(reader.GetOrdinal("album"));
                 var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
+                var discNum = reader.IsDBNull(reader.GetOrdinal("disc_number")) ? null : reader.GetString(reader.GetOrdinal("disc_number"));
+                var appleMusicId = reader.IsDBNull(reader.GetOrdinal("apple_music_id")) ? null : reader.GetString(reader.GetOrdinal("apple_music_id"));
                 var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
                 var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
                 var durationSecondsValue = reader.IsDBNull(reader.GetOrdinal("duration_seconds_value")) ? null : reader.GetString(reader.GetOrdinal("duration_seconds_value"));
@@ -882,6 +892,8 @@ public static class CollectionEndpoints
                     DurationSeconds = durationSeconds,
                     CoverUrl = cover,
                     TrackNumber = trackNum,
+                    DiscNumber = ParseNullableInt(discNum),
+                    AppleMusicId = appleMusicId,
                     Status = "Provisional",
                     IsOwned = true,
                 });
@@ -1090,6 +1102,8 @@ public static class CollectionEndpoints
                         MAX(CASE WHEN cv.key = 'author'              THEN cv.value END) AS author,
                         MAX(CASE WHEN cv.key = 'director'            THEN cv.value END) AS director,
                         MAX(CASE WHEN cv.key = 'track_number'        THEN cv.value END) AS track_number,
+                        MAX(CASE WHEN cv.key = 'disc_number'         THEN cv.value END) AS disc_number,
+                        MAX(CASE WHEN cv.key = 'apple_music_id'      THEN cv.value END) AS apple_music_id,
                         MAX(CASE WHEN cv.key = 'release_year'        THEN cv.value END) AS release_year,
                         MAX(CASE WHEN cv.key = 'year'                THEN cv.value END) AS year_val,
                         MAX(CASE WHEN cv.key IN ('duration_seconds', 'duration_sec') THEN cv.value END) AS duration_seconds_value,
@@ -1275,6 +1289,8 @@ public static class CollectionEndpoints
                 var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
                 var episodeNum = reader.IsDBNull(reader.GetOrdinal("episode_number")) ? null : reader.GetString(reader.GetOrdinal("episode_number"));
                 var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
+                var discNum = reader.IsDBNull(reader.GetOrdinal("disc_number")) ? null : reader.GetString(reader.GetOrdinal("disc_number"));
+                var appleMusicId = reader.IsDBNull(reader.GetOrdinal("apple_music_id")) ? null : reader.GetString(reader.GetOrdinal("apple_music_id"));
                 var seqIndex = reader.IsDBNull(reader.GetOrdinal("series_index")) ? null : reader.GetString(reader.GetOrdinal("series_index"));
                 var childJson = reader.IsDBNull(reader.GetOrdinal("child_entities_json")) ? null : reader.GetString(reader.GetOrdinal("child_entities_json"));
 
@@ -1349,6 +1365,8 @@ public static class CollectionEndpoints
                     HeroUrl = hero,
                     Episode = episodeNum,
                     TrackNumber = trackNum,
+                    DiscNumber = ParseNullableInt(discNum),
+                    AppleMusicId = appleMusicId,
                     Ordinal = int.TryParse(seqIndex, out var si) ? si : null,
                     Status = "Provisional",
                     IsOwned = true,
@@ -4316,9 +4334,13 @@ public static class CollectionEndpoints
             }
 
             // Build a lookup of owned tracks by normalized title for matching.
+            var ownedByAppleMusicId = ownedTracks
+                .Where(t => !string.IsNullOrWhiteSpace(t.AppleMusicId))
+                .GroupBy(t => t.AppleMusicId!, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
             var ownedByTitleAndNumber = ownedTracks
                 .Where(t => !string.IsNullOrWhiteSpace(t.Title))
-                .GroupBy(t => BuildTrackMatchKey(t.Title, ParseNullableInt(t.TrackNumber)))
+                .GroupBy(t => BuildTrackMatchKey(t.Title, t.DiscNumber, ParseNullableInt(t.TrackNumber)))
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
             var ownedByTitle = ownedTracks
                 .Where(t => !string.IsNullOrWhiteSpace(t.Title))
@@ -4339,10 +4361,23 @@ public static class CollectionEndpoints
                 }
 
                 var trackNumber = ReadJsonInt(trackEl, "track_number", "trackNumber", "number");
+                var discNumber = ReadJsonInt(trackEl, "disc_number", "discNumber");
                 var ordinal = ReadJsonInt(trackEl, "ordinal", "position") ?? trackNumber ?? manifestOrdinal;
                 var durationSeconds = ReadChildDurationSeconds(trackEl);
-                var owned = ownedByTitleAndNumber.GetValueOrDefault(BuildTrackMatchKey(title, trackNumber))
-                    ?? ownedByTitle.GetValueOrDefault(NormalizeTrackTitle(title));
+                var appleMusicId = ReadJsonString(trackEl, "apple_music_id", "appleMusicId", "trackId");
+                var owned = (!string.IsNullOrWhiteSpace(appleMusicId)
+                        ? ownedByAppleMusicId.GetValueOrDefault(appleMusicId)
+                        : null)
+                    ?? ownedByTitleAndNumber.GetValueOrDefault(BuildTrackMatchKey(title, discNumber, trackNumber));
+                if (owned is null)
+                {
+                    var titleMatch = ownedByTitle.GetValueOrDefault(NormalizeTrackTitle(title));
+                    if (titleMatch is not null
+                        && !HasKnownTrackIdentityConflict(titleMatch, discNumber, trackNumber, durationSeconds))
+                    {
+                        owned = titleMatch;
+                    }
+                }
                 if (owned is not null)
                 {
                     // Owned — keep the local row but normalise the track number from Wikidata.
@@ -4361,6 +4396,8 @@ public static class CollectionEndpoints
                         HeroUrl = owned.HeroUrl,
                         WikidataQid = owned.WikidataQid,
                         TrackNumber = FirstNonBlank(owned.TrackNumber, (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture)),
+                        DiscNumber = owned.DiscNumber ?? discNumber,
+                        AppleMusicId = FirstNonBlank(owned.AppleMusicId, appleMusicId),
                         Status = owned.Status,
                         Description = owned.Description,
                         Director = owned.Director,
@@ -4383,6 +4420,8 @@ public static class CollectionEndpoints
                         Title = title,
                         Ordinal = ordinal,
                         TrackNumber = (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture),
+                        DiscNumber = discNumber,
+                        AppleMusicId = appleMusicId,
                         Duration = FormatAudioDuration(durationSeconds, null),
                         DurationSeconds = durationSeconds,
                         CoverUrl = albumCover,
@@ -4503,7 +4542,7 @@ public static class CollectionEndpoints
         var ownedTitles = sectionMap.TryGetValue(sectionKey, out var existing)
             ? existing
                 .Where(w => w.IsOwned && !string.IsNullOrWhiteSpace(w.Title))
-                .Select(w => w.Title.Trim().ToLowerInvariant())
+                .Select(w => isEpisode ? w.Title.Trim().ToLowerInvariant() : NormalizeTrackTitle(w.Title))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -4526,14 +4565,17 @@ public static class CollectionEndpoints
             }
 
             // Skip if an owned row with the same title is already in this section.
-            if (ownedTitles.Contains(title.Trim().ToLowerInvariant()))
+            var titleKey = isEpisode ? title.Trim().ToLowerInvariant() : NormalizeTrackTitle(title);
+            if (ownedTitles.Contains(titleKey))
             {
                 continue;
             }
 
             var trackNumber = ReadJsonInt(el, "track_number", "trackNumber", "number");
+            var discNumber = ReadJsonInt(el, "disc_number", "discNumber");
             var ordinal = ReadJsonInt(el, "ordinal", "position") ?? trackNumber ?? wikiOrdinal;
             var durationSeconds = ReadChildDurationSeconds(el);
+            var appleMusicId = ReadJsonString(el, "apple_music_id", "appleMusicId", "trackId");
 
             var episodeNumStr = isEpisode
                 ? (ReadJsonInt(el, "episode_number", "episodeNumber") ?? ordinal).ToString(CultureInfo.InvariantCulture)
@@ -4546,6 +4588,8 @@ public static class CollectionEndpoints
                 Ordinal = ordinal,
                 Episode = episodeNumStr,
                 TrackNumber = isEpisode ? null : (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture),
+                DiscNumber = isEpisode ? null : discNumber,
+                AppleMusicId = isEpisode ? null : appleMusicId,
                 Duration = FormatAudioDuration(durationSeconds, null),
                 DurationSeconds = durationSeconds,
                 CoverUrl = fallbackCover,
@@ -4557,17 +4601,56 @@ public static class CollectionEndpoints
 
     private static List<CollectionGroupWorkDto> SortAlbumTracks(IEnumerable<CollectionGroupWorkDto> tracks)
         => tracks
-            .OrderBy(track => ParseNullableInt(track.TrackNumber) ?? track.Ordinal ?? int.MaxValue)
+            .OrderBy(track => track.DiscNumber ?? 1)
+            .ThenBy(track => ParseNullableInt(track.TrackNumber) ?? track.Ordinal ?? int.MaxValue)
             .ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
     private static string NormalizeTrackTitle(string? value)
-        => string.IsNullOrWhiteSpace(value)
-            ? string.Empty
-            : string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
 
-    private static string BuildTrackMatchKey(string? title, int? trackNumber)
-        => $"{NormalizeTrackTitle(title)}|{trackNumber?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}";
+        var normalized = value.Trim().ToLowerInvariant();
+        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"\s*[\(\[\{].*?[\)\]\}]\s*", " ");
+        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"\b(remaster(ed)?|remix|mono|stereo|explicit|clean|single version|album version)\b", " ");
+        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"[^\p{L}\p{Nd}]+", " ");
+        return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static string BuildTrackMatchKey(string? title, int? discNumber, int? trackNumber)
+        => $"{NormalizeTrackTitle(title)}|{discNumber?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{trackNumber?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}";
+
+    private static bool HasKnownTrackIdentityConflict(
+        CollectionGroupWorkDto owned,
+        int? manifestDiscNumber,
+        int? manifestTrackNumber,
+        double? manifestDurationSeconds)
+    {
+        if (owned.DiscNumber is { } ownedDisc
+            && manifestDiscNumber is { } manifestDisc
+            && ownedDisc != manifestDisc)
+        {
+            return true;
+        }
+
+        var ownedTrackNumber = ParseNullableInt(owned.TrackNumber);
+        if (ownedTrackNumber is { } ownedTrack
+            && manifestTrackNumber is { } manifestTrack
+            && ownedTrack != manifestTrack)
+        {
+            return true;
+        }
+
+        if (owned.DurationSeconds is { } ownedDuration
+            && manifestDurationSeconds is { } manifestDuration
+            && Math.Abs(ownedDuration - manifestDuration) > 3)
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     private static string? ReadJsonString(JsonElement element, params string[] keys)
     {
@@ -4894,9 +4977,17 @@ public static class CollectionEndpoints
         {
             foreach (var appleItem in appleItems)
             {
-                var existing = items.FirstOrDefault(item =>
-                    string.Equals(BuildTrackMatchKey(item.Title, item.TrackNumber), BuildTrackMatchKey(appleItem.Title, appleItem.TrackNumber), StringComparison.OrdinalIgnoreCase))
-                    ?? items.FirstOrDefault(item => string.Equals(NormalizeTrackTitle(item.Title), NormalizeTrackTitle(appleItem.Title), StringComparison.OrdinalIgnoreCase));
+                var existing = !string.IsNullOrWhiteSpace(appleItem.AppleMusicId)
+                    ? items.FirstOrDefault(item => string.Equals(item.AppleMusicId, appleItem.AppleMusicId, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                existing ??= items.FirstOrDefault(item =>
+                    string.Equals(
+                        BuildTrackMatchKey(item.Title, item.DiscNumber, item.TrackNumber),
+                        BuildTrackMatchKey(appleItem.Title, appleItem.DiscNumber, appleItem.TrackNumber),
+                        StringComparison.OrdinalIgnoreCase))
+                    ?? items.FirstOrDefault(item =>
+                        string.Equals(NormalizeTrackTitle(item.Title), NormalizeTrackTitle(appleItem.Title), StringComparison.OrdinalIgnoreCase)
+                        && !HasTrackManifestIdentityConflict(item, appleItem));
 
                 if (existing is null)
                 {
@@ -4945,6 +5036,34 @@ public static class CollectionEndpoints
         }
 
         return new JsonObject { ["tracks"] = array }.ToJsonString();
+    }
+
+    private static bool HasTrackManifestIdentityConflict(
+        AlbumTrackManifestItem existing,
+        AlbumTrackManifestItem incoming)
+    {
+        if (existing.DiscNumber is { } existingDisc
+            && incoming.DiscNumber is { } incomingDisc
+            && existingDisc != incomingDisc)
+        {
+            return true;
+        }
+
+        if (existing.TrackNumber is { } existingTrack
+            && incoming.TrackNumber is { } incomingTrack
+            && existingTrack != incomingTrack)
+        {
+            return true;
+        }
+
+        if (existing.DurationSeconds is { } existingDuration
+            && incoming.DurationSeconds is { } incomingDuration
+            && Math.Abs(existingDuration - incomingDuration) > 3)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static List<AlbumTrackManifestItem> ReadTrackManifest(string? json, string defaultSource)

@@ -422,18 +422,31 @@ public sealed class RetailMatchWorker
             if (trackSearchEvidence.Count > 0)
             {
                 var selection = SelectBestMusicGroupCollection(trackSearchEvidence);
-                collectionId = selection.CollectionId;
-                resolvedVia = selection.SupportCount > 1 ? "group track consensus" : "track search";
+                if (IsStrongMusicGroupCollectionSelection(selection, orderedGroupJobs.Count))
+                {
+                    collectionId = selection.CollectionId;
+                    resolvedVia = "group track consensus";
 
-                _logger.LogInformation(
-                    "Music: selected Apple collectionId={CollectionId} for '{Artist}' / '{Album}' from {SupportCount}/{TrackCount} queued track(s) (albumExact={AlbumExactCount}, score={Score:F2})",
-                    selection.CollectionId,
-                    artist ?? "(unknown artist)",
-                    album ?? "(unknown album)",
-                    selection.SupportCount,
-                    orderedGroupJobs.Count,
-                    selection.AlbumExactCount,
-                    selection.TotalScore);
+                    _logger.LogInformation(
+                        "Music: selected Apple collectionId={CollectionId} for '{Artist}' / '{Album}' from {SupportCount}/{TrackCount} queued track(s) (albumExact={AlbumExactCount}, score={Score:F2})",
+                        selection.CollectionId,
+                        artist ?? "(unknown artist)",
+                        album ?? "(unknown album)",
+                        selection.SupportCount,
+                        orderedGroupJobs.Count,
+                        selection.AlbumExactCount,
+                        selection.TotalScore);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Music: ignored weak Apple collectionId={CollectionId} for '{Artist}' / '{Album}' from {SupportCount}/{TrackCount} queued track(s); album manifest requires stronger evidence",
+                        selection.CollectionId,
+                        artist ?? "(unknown artist)",
+                        album ?? "(unknown album)",
+                        selection.SupportCount,
+                        orderedGroupJobs.Count);
+                }
             }
         }
 
@@ -527,6 +540,7 @@ public sealed class RetailMatchWorker
     {
         var fileTitle       = fileHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var fileTrackNumber = fileHints.GetValueOrDefault(MetadataFieldConstants.TrackNumber);
+        var fileDiscNumber  = fileHints.GetValueOrDefault("disc_number");
 
         var hasFileDuration = TryGetDurationSeconds(fileHints, out var fileDurationSeconds);
 
@@ -539,11 +553,15 @@ public sealed class RetailMatchWorker
         foreach (var track in allTracks)
         {
             var trackNumNode = track["trackNumber"]?.GetValue<long?>() is { } tn ? tn.ToString() : null;
+            var discNumNode = track["discNumber"]?.GetValue<long?>() is { } dn ? dn.ToString() : null;
             var trackName    = track["trackName"]?.GetValue<string>();
             var candidateHasDurationForMatch = TryGetDurationSeconds(track["trackTimeMillis"]?.GetValue<long?>(), out var candidateDurationSecondsForMatch);
             var trackNumberMatchesForMatch = !string.IsNullOrWhiteSpace(fileTrackNumber)
                 && !string.IsNullOrWhiteSpace(trackNumNode)
                 && string.Equals(fileTrackNumber.Trim(), trackNumNode.Trim(), StringComparison.Ordinal);
+            var discNumberMatchesForMatch = string.IsNullOrWhiteSpace(fileDiscNumber)
+                || string.IsNullOrWhiteSpace(discNumNode)
+                || string.Equals(fileDiscNumber.Trim(), discNumNode.Trim(), StringComparison.Ordinal);
             var durationCorroboratesForMatch = hasFileDuration
                 && candidateHasDurationForMatch
                 && DurationsCorroborate(fileDurationSeconds, candidateDurationSecondsForMatch);
@@ -552,13 +570,15 @@ public sealed class RetailMatchWorker
                 ? RetailTextSimilarity.ComputeWordOverlap(fileTitle, trackName)
                 : 0.0;
 
-            if (trackNumberMatchesForMatch)
+            if (trackNumberMatchesForMatch && discNumberMatchesForMatch)
                 matchScore += string.IsNullOrWhiteSpace(fileTitle) ? 0.70 : 0.25;
             else if (!string.IsNullOrWhiteSpace(fileTrackNumber) && !string.IsNullOrWhiteSpace(trackNumNode))
-                matchScore -= 0.10;
+                matchScore -= discNumberMatchesForMatch ? 0.10 : 0.25;
 
             if (durationCorroboratesForMatch)
                 matchScore += 0.15;
+            else if (trackNumberMatchesForMatch && !durationCorroboratesForMatch && hasFileDuration && candidateHasDurationForMatch)
+                matchScore -= 0.10;
 
             matchScore = Math.Clamp(matchScore, 0.0, 1.0);
 
@@ -1885,6 +1905,16 @@ public sealed class RetailMatchWorker
             .ThenByDescending(candidate => candidate.TotalAlbumScore)
             .ThenByDescending(candidate => candidate.TotalScore)
             .First();
+    }
+
+    private static bool IsStrongMusicGroupCollectionSelection(
+        MusicGroupCollectionSelection selection,
+        int queuedTrackCount)
+    {
+        if (queuedTrackCount <= 1)
+            return true;
+
+        return selection.SupportCount >= Math.Min(2, queuedTrackCount);
     }
 
     private static bool TryGetNumericSeconds(string? value, bool preferMillisecondsForLargeValues, out double seconds)

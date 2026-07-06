@@ -86,8 +86,9 @@ public sealed class CatalogUpsertService
             ct.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(child.Title)) continue;
 
+            var childOrdinal = ResolveChildOrdinal(childMediaType, child);
             Guid? existing = null;
-            if (child.Ordinal is { } ordinal)
+            if (childOrdinal is { } ordinal)
                 existing = await _works.FindChildByOrdinalAsync(parentWorkId, ordinal, ct);
 
             existing ??= await _works.FindChildByTitleAsync(parentWorkId, child.Title, ct);
@@ -105,7 +106,7 @@ public sealed class CatalogUpsertService
             var childWorkId = await _works.InsertCatalogChildAsync(
                 childMediaType,
                 parentWorkId,
-                child.Ordinal,
+                childOrdinal,
                 ids,
                 ct);
 
@@ -135,7 +136,36 @@ public sealed class CatalogUpsertService
         if (!string.IsNullOrWhiteSpace(child.Qid)) ids[BridgeIdKeys.WikidataQid] = child.Qid;
         if (!string.IsNullOrWhiteSpace(child.ImdbId)) ids[BridgeIdKeys.ImdbId] = child.ImdbId;
         if (!string.IsNullOrWhiteSpace(child.TmdbId)) ids[BridgeIdKeys.TmdbId] = child.TmdbId;
+        if (!string.IsNullOrWhiteSpace(child.AppleMusicId)) ids[BridgeIdKeys.AppleMusicId] = child.AppleMusicId;
         return ids.Count == 0 ? null : ids;
+    }
+
+    private static int? ResolveChildOrdinal(MediaType childMediaType, ChildEntity child)
+        => childMediaType switch
+        {
+            MediaType.Music => ComposeDiscTrackOrdinal(child.DiscNumber, child.TrackNumber ?? child.Ordinal),
+            MediaType.TV => ComposeSeasonEpisodeOrdinal(child.SeasonNumber, child.EpisodeNumber ?? child.Ordinal),
+            _ => child.Ordinal,
+        };
+
+    private static int? ComposeDiscTrackOrdinal(int? discNumber, int? trackNumber)
+    {
+        if (trackNumber is null)
+            return null;
+
+        return discNumber is > 1
+            ? discNumber.Value * 1000 + trackNumber.Value
+            : trackNumber.Value;
+    }
+
+    private static int? ComposeSeasonEpisodeOrdinal(int? seasonNumber, int? episodeNumber)
+    {
+        if (episodeNumber is null)
+            return null;
+
+        return seasonNumber is > 0
+            ? seasonNumber.Value * 1000 + episodeNumber.Value
+            : episodeNumber.Value;
     }
 
     private void AppendChildMetadata(
@@ -211,8 +241,12 @@ public sealed class CatalogUpsertService
                 break;
 
             case MediaType.Music:
-                if (child.Ordinal is { } trackNumber)
-                    Add(fields, MetadataFieldConstants.TrackNumber, trackNumber.ToString());
+                var trackNumber = child.TrackNumber ?? child.Ordinal;
+                if (trackNumber is { } trackNumberValue)
+                    Add(fields, MetadataFieldConstants.TrackNumber, trackNumberValue.ToString());
+                if (child.DiscNumber is { } discNumber)
+                    Add(fields, "disc_number", discNumber.ToString());
+                Add(fields, BridgeIdKeys.AppleMusicId, child.AppleMusicId);
                 break;
 
             case MediaType.Comics:
@@ -298,8 +332,17 @@ public sealed class CatalogUpsertService
         [JsonPropertyName("ordinal")]
         public int? Ordinal { get; set; }
 
+        [JsonPropertyName("track_number")]
+        public int? TrackNumber { get; set; }
+
+        [JsonPropertyName("disc_number")]
+        public int? DiscNumber { get; set; }
+
         [JsonPropertyName("qid")]
         public string? Qid { get; set; }
+
+        [JsonPropertyName("apple_music_id")]
+        public string? AppleMusicId { get; set; }
 
         [JsonPropertyName("imdb_id")]
         public string? ImdbId { get; set; }

@@ -3527,11 +3527,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 // publicly settable, so JSON cache round-trips preserve labels correctly.
                 (string? strVal, double confidence) = ExtractValueAndConfidence(claim, pCode);
 
-                // P179 (part_of_the_series): skip award lists, polls, and rankings.
+                // P179 (part_of_the_series): skip list-like and broad diagnostic containers.
                 if (string.Equals(pCode, "P179", StringComparison.OrdinalIgnoreCase))
                 {
                     var seriesLabel = strVal ?? claim.Value?.EntityLabel ?? claim.Value?.RawValue;
-                    if (!string.IsNullOrWhiteSpace(seriesLabel) && IsLikelyAwardList(seriesLabel))
+                    if (!string.IsNullOrWhiteSpace(seriesLabel) && IsUnsupportedSeriesContainerLabel(seriesLabel))
                         continue;
 
                     var seriesPosition = ExtractQualifierValue(claim, "P1545");
@@ -3669,12 +3669,25 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     };
 
     /// <summary>
-    /// Returns true when a P179 series label looks like an award list, poll, or ranking
-    /// rather than a narrative series. These should not be emitted as "series" claims.
+    /// Returns true when a P179 series label looks like a list article, publisher/
+    /// production list, broad franchise, award list, poll, or ranking rather than
+    /// an immediate narrative sequence.
     /// </summary>
-    private static bool IsLikelyAwardList(string label)
+    private static bool IsUnsupportedSeriesContainerLabel(string label)
     {
         var lower = label.ToLowerInvariant();
+        if (lower.StartsWith("list of ", StringComparison.Ordinal)
+            || lower.Contains("wikimedia list", StringComparison.Ordinal)
+            || lower.Contains("production list", StringComparison.Ordinal)
+            || lower.Contains("productions", StringComparison.Ordinal)
+            || lower.Contains("filmography", StringComparison.Ordinal)
+            || lower.Contains("franchise", StringComparison.Ordinal)
+            || lower.Contains("fictional universe", StringComparison.Ordinal)
+            || lower.Contains("shared universe", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
         string[] skipPatterns =
         [
             "greatest", "best of", "top ", "100 ", " 100", "poll", "ranking",

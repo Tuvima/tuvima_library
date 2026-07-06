@@ -291,6 +291,14 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
 
         var items = rows.Select(r => r.ToDto()).ToList();
         var warnings = DeserializeWarnings(hydration.WarningsJson);
+        var metadata = DeserializeApiMetadata(hydration.ApiMetadataJson);
+        var ownedCount = items.Count(i => i.OwnershipState == "Owned");
+        var provisionalCount = items.Count(i => i.OwnershipState == "Provisional");
+        var ambiguousCount = items.Count(i => i.OwnershipState == "Ambiguous");
+        var rowMissingCount = items.Count(i => i.OwnershipState == "Missing");
+        var totalCount = Math.Max(items.Count, metadata.ExpectedTotal ?? 0);
+        var expectedMissingCount = Math.Max(0, totalCount - ownedCount - provisionalCount - ambiguousCount);
+        var missingCount = Math.Max(rowMissingCount, expectedMissingCount);
 
         return Task.FromResult<SeriesManifestViewDto?>(new SeriesManifestViewDto
         {
@@ -298,11 +306,16 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             SeriesQid = hydration.SeriesQid,
             SeriesLabel = hydration.SeriesLabel,
             LastHydratedAt = DateTimeOffset.Parse(hydration.LastHydratedAt),
-            TotalCount = items.Count,
-            OwnedCount = items.Count(i => i.OwnershipState == "Owned"),
-            MissingCount = items.Count(i => i.OwnershipState == "Missing"),
-            ProvisionalCount = items.Count(i => i.OwnershipState == "Provisional"),
-            AmbiguousCount = items.Count(i => i.OwnershipState == "Ambiguous"),
+            ContainerKind = metadata.ContainerKind,
+            ExpectedTotal = metadata.ExpectedTotal,
+            ExpectedTotalKind = metadata.ExpectedTotalKind,
+            ExpectedTotalSource = metadata.ExpectedTotalSource,
+            ExpectedTotalConfidence = metadata.ExpectedTotalConfidence,
+            TotalCount = totalCount,
+            OwnedCount = ownedCount,
+            MissingCount = missingCount,
+            ProvisionalCount = provisionalCount,
+            AmbiguousCount = ambiguousCount,
             Warnings = warnings,
             Items = items,
         });
@@ -368,6 +381,85 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         {
             return [];
         }
+    }
+
+    private static ManifestApiMetadata DeserializeApiMetadata(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new ManifestApiMetadata();
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            return new ManifestApiMetadata
+            {
+                ContainerKind = ReadString(root, "containerKind", "container_kind"),
+                ExpectedTotal = ReadInt(root, "expectedTotal", "expected_total"),
+                ExpectedTotalKind = ReadString(root, "expectedTotalKind", "expected_total_kind"),
+                ExpectedTotalSource = ReadString(root, "expectedTotalSource", "expected_total_source"),
+                ExpectedTotalConfidence = ReadDouble(root, "expectedTotalConfidence", "expected_total_confidence"),
+            };
+        }
+        catch (JsonException)
+        {
+            // Metadata is diagnostic/cache state; row-level manifest data remains valid.
+            return new ManifestApiMetadata();
+        }
+    }
+
+    private static string? ReadString(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+                return value.GetString();
+        }
+
+        return null;
+    }
+
+    private static int? ReadInt(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var value))
+                continue;
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var parsed))
+                return parsed;
+
+            if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out parsed))
+                return parsed;
+        }
+
+        return null;
+    }
+
+    private static double? ReadDouble(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var value))
+                continue;
+
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var parsed))
+                return parsed;
+
+            if (value.ValueKind == JsonValueKind.String && double.TryParse(value.GetString(), out parsed))
+                return parsed;
+        }
+
+        return null;
+    }
+
+    private sealed class ManifestApiMetadata
+    {
+        public string? ContainerKind { get; init; }
+        public int? ExpectedTotal { get; init; }
+        public string? ExpectedTotalKind { get; init; }
+        public string? ExpectedTotalSource { get; init; }
+        public double? ExpectedTotalConfidence { get; init; }
     }
 
     private sealed class HydrationRow

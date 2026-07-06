@@ -62,6 +62,8 @@ Stage 3 intentionally combines retail lookup, quick metadata, and the first cove
 
 Stage 7 prefers explicit local, retail, or Wikidata series order values over Wikidata previous/next backlink consistency. If Book 1 and Book 2 both have clear series positions, the shelf can be correct even when Wikidata's public previous/next chain is incomplete. Those ordering warnings are stored as diagnostics for Activity and troubleshooting; they do not create Review Queue rows unless there is a local user-impacting conflict, such as multiple owned works claiming the same Wikidata identity.
 
+Stage 7 also separates owned children from external manifest/count facts. Sparse Wikidata manifests can still report expected totals such as issue, volume, chapter, episode, or track counts, so the UI can show owned-versus-total without creating fake owned media rows. Existing library data is not rewritten by this rule; the corrected behavior is proven by fresh ingestion.
+
 Stages 1 and 2 are sequential for each file. Stage 3 starts after Stage 2. Stage 4 starts per file as soon as Stage 3 has a retained retail identity and usable bridge data. Stage 6, Stage 7, and Stage 8 can run concurrently once their prerequisites exist, so their bars can move at the same time.
 
 Review is not shown as a progress row. The top **Need Review** metric is the source of truth for the current pending review total, and it shows a batch delta such as `+15 this batch` when the latest batch created new review items. Recent batch rows repeat that review count beside matched, people, artwork, and metadata totals.

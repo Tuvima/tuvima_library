@@ -31,7 +31,7 @@ public sealed class WikidataSeriesManifestHydrationService
 
     private const int ManifestMaxDepth = 2;
     private const int ManifestMaxItems = 500;
-    private const string ManifestScopeFilter = "media-and-edition-filtered";
+    private const string ManifestScopeFilter = "container-classified-v1";
 
     public WikidataSeriesManifestHydrationService(
         WikidataReconciler reconciler,
@@ -139,6 +139,16 @@ public sealed class WikidataSeriesManifestHydrationService
                 CreateManifestRequest(seriesQid, language),
                 ct).ConfigureAwait(false);
 
+            if (!IsImmediateManifestContainer(manifest.ContainerKind))
+            {
+                _logger.LogInformation(
+                    "Skipping Wikidata manifest {SeriesQid} ({SeriesLabel}) because it is classified as {ContainerKind}, not an immediate shelf",
+                    manifest.SeriesQid,
+                    manifest.SeriesLabel ?? seriesLabel,
+                    manifest.ContainerKind);
+                return;
+            }
+
             var collection = await UpsertCollectionAsync(
                 manifest.SeriesQid,
                 FirstNonBlank(manifest.SeriesLabel, seriesLabel, context.SeriesHint, manifest.SeriesQid),
@@ -186,18 +196,7 @@ public sealed class WikidataSeriesManifestHydrationService
                 ManifestHash = Hash(manifestJson),
                 KnownItemQidsHash = Hash(string.Join('\n', itemQids)),
                 WarningsJson = warningsJson,
-                ApiMetadataJson = JsonSerializer.Serialize(new
-                {
-                    language,
-                    includeCollections = true,
-                    expandCollections = true,
-                    includePublicationDate = true,
-                    includeDescriptions = true,
-                    scopeFilter = ManifestScopeFilter,
-                    maxDepth = ManifestMaxDepth,
-                    maxItems = ManifestMaxItems,
-                    completeness = manifest.Completeness.ToString(),
-                }, JsonOptions),
+                ApiMetadataJson = BuildApiMetadataJson(language, manifest),
                 LastHydratedAt = now,
                 CreatedAt = cachedHydration?.CreatedAt ?? now,
                 UpdatedAt = now,
@@ -304,6 +303,17 @@ public sealed class WikidataSeriesManifestHydrationService
             CreateManifestRequest(parent.Qid, language),
             ct).ConfigureAwait(false);
 
+        if (!IsImmediateManifestContainer(manifest.ContainerKind))
+        {
+            _logger.LogInformation(
+                "Skipping parent Wikidata manifest {SeriesQid} ({SeriesLabel}) from series {ChildSeriesQid} because it is classified as {ContainerKind}, not an immediate shelf",
+                manifest.SeriesQid,
+                manifest.SeriesLabel ?? parent.Label,
+                childSeriesQid,
+                manifest.ContainerKind);
+            return;
+        }
+
         var collection = await UpsertCollectionAsync(
             manifest.SeriesQid,
             FirstNonBlank(manifest.SeriesLabel, parent.Label, manifest.SeriesQid),
@@ -338,20 +348,11 @@ public sealed class WikidataSeriesManifestHydrationService
             ManifestHash = Hash(manifestJson),
             KnownItemQidsHash = Hash(string.Join('\n', itemQids)),
             WarningsJson = JsonSerializer.Serialize(warningDtos, JsonOptions),
-            ApiMetadataJson = JsonSerializer.Serialize(new
-            {
+            ApiMetadataJson = BuildApiMetadataJson(
                 language,
-                includeCollections = true,
-                expandCollections = true,
-                includePublicationDate = true,
-                includeDescriptions = true,
-                scopeFilter = ManifestScopeFilter,
-                sourceSeriesQid = childSeriesQid,
-                parentCollectionHydration = true,
-                maxDepth = ManifestMaxDepth,
-                maxItems = ManifestMaxItems,
-                completeness = manifest.Completeness.ToString(),
-            }, JsonOptions),
+                manifest,
+                sourceSeriesQid: childSeriesQid,
+                parentCollectionHydration: true),
             LastHydratedAt = now,
             CreatedAt = cachedHydration?.CreatedAt ?? now,
             UpdatedAt = now,
@@ -435,18 +436,6 @@ public sealed class WikidataSeriesManifestHydrationService
             }
         }
 
-        if (candidates.Count == 0 && mediaType is MediaType.Movies)
-        {
-            foreach (var key in new[] { "franchise_qid", "narrative_root_qid" })
-            {
-                foreach (var claim in claims.Where(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)))
-                {
-                    if (TryParseQidValue(claim.Value, out var qid, out var label))
-                        AddSeriesManifestCandidate(candidates, qid, label);
-                }
-            }
-        }
-
         return candidates;
     }
 
@@ -456,6 +445,7 @@ public sealed class WikidataSeriesManifestHydrationService
         string? label)
     {
         if (string.IsNullOrWhiteSpace(qid)
+            || IsUnsupportedSeriesCandidateLabel(label)
             || candidates.Any(candidate => string.Equals(candidate.Qid, qid, StringComparison.OrdinalIgnoreCase)))
         {
             return;
@@ -463,6 +453,68 @@ public sealed class WikidataSeriesManifestHydrationService
 
         candidates.Add(new SeriesManifestCandidate(qid, label));
     }
+
+    private static bool IsImmediateManifestContainer(WikidataContainerKind containerKind)
+        => containerKind is WikidataContainerKind.Unknown
+            or WikidataContainerKind.OrderedSeries
+            or WikidataContainerKind.AlbumRelease
+            or WikidataContainerKind.TvShow
+            or WikidataContainerKind.TvSeason
+            or WikidataContainerKind.ComicSeries
+            or WikidataContainerKind.MangaSeries;
+
+    private static bool IsUnsupportedSeriesCandidateLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+            return false;
+
+        var normalized = label.Trim().ToLowerInvariant();
+        return normalized.StartsWith("list of ", StringComparison.Ordinal)
+            || normalized.Contains("wikimedia list", StringComparison.Ordinal)
+            || normalized.Contains("production list", StringComparison.Ordinal)
+            || normalized.Contains("productions", StringComparison.Ordinal)
+            || normalized.Contains("filmography", StringComparison.Ordinal)
+            || normalized.Contains("franchise", StringComparison.Ordinal)
+            || normalized.Contains("fictional universe", StringComparison.Ordinal)
+            || normalized.Contains("shared universe", StringComparison.Ordinal);
+    }
+
+    private static string BuildApiMetadataJson(
+        string language,
+        SeriesManifestResult manifest,
+        string? sourceSeriesQid = null,
+        bool parentCollectionHydration = false)
+    {
+        var expectedTotal = SelectExpectedTotalFact(manifest.ExpectedCounts);
+        return JsonSerializer.Serialize(new
+        {
+            language,
+            includeCollections = true,
+            expandCollections = true,
+            includeFranchiseMembers = false,
+            includePublicationDate = true,
+            includeDescriptions = true,
+            scopeFilter = ManifestScopeFilter,
+            sourceSeriesQid,
+            parentCollectionHydration,
+            maxDepth = ManifestMaxDepth,
+            maxItems = ManifestMaxItems,
+            containerKind = manifest.ContainerKind.ToString(),
+            completeness = manifest.Completeness.ToString(),
+            expectedTotal = expectedTotal?.Count,
+            expectedTotalKind = expectedTotal?.Kind,
+            expectedTotalSource = expectedTotal?.Source,
+            expectedTotalConfidence = expectedTotal?.Confidence,
+            expectedCounts = manifest.ExpectedCounts,
+        }, JsonOptions);
+    }
+
+    private static ManifestCountFact? SelectExpectedTotalFact(IReadOnlyList<ManifestCountFact> expectedCounts)
+        => expectedCounts
+            .Where(fact => fact.Count > 0)
+            .OrderByDescending(fact => fact.Confidence)
+            .ThenByDescending(fact => fact.Count)
+            .FirstOrDefault();
 
     private static IEnumerable<SeriesManifestItem> FilterManifestItems(
         IReadOnlyList<SeriesManifestItem> items,

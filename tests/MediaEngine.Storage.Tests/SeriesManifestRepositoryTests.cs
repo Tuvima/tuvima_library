@@ -101,6 +101,52 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         Assert.Equal(1, item.SortOrder);
     }
 
+    [Fact]
+    public async Task GetViewByCollectionId_UsesExpectedTotalMetadataWhenManifestRowsAreSparse()
+    {
+        var repo = new SeriesManifestRepository(_db);
+        var collectionId = await CreateCollectionAsync("Q827099", "The Sandman");
+        var firstWorkId = await CreateWorkAsync("QIssue1");
+        var secondWorkId = await CreateWorkAsync("QIssue2");
+        var now = DateTimeOffset.UtcNow;
+
+        var items = new List<SeriesManifestItemRecord>
+        {
+            Item(collectionId, "Q827099", "QIssue1", "Sleep of the Just", 1, "Owned", firstWorkId, now),
+            Item(collectionId, "Q827099", "QIssue2", "Imperfect Hosts", 2, "Owned", secondWorkId, now),
+        };
+
+        await repo.UpsertManifestAsync(new SeriesManifestHydration
+        {
+            SeriesQid = "Q827099",
+            CollectionId = collectionId,
+            SeriesLabel = "The Sandman",
+            WarningsJson = "[]",
+            ApiMetadataJson = """
+                {
+                  "containerKind":"ComicSeries",
+                  "expectedTotal":75,
+                  "expectedTotalKind":"issues",
+                  "expectedTotalSource":"external-reference",
+                  "expectedTotalConfidence":0.9
+                }
+                """,
+            LastHydratedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+        }, items);
+
+        var view = await repo.GetViewByCollectionIdAsync(collectionId);
+
+        Assert.NotNull(view);
+        Assert.Equal("ComicSeries", view.ContainerKind);
+        Assert.Equal(75, view.ExpectedTotal);
+        Assert.Equal("issues", view.ExpectedTotalKind);
+        Assert.Equal(75, view.TotalCount);
+        Assert.Equal(2, view.OwnedCount);
+        Assert.Equal(73, view.MissingCount);
+    }
+
     private async Task<Guid> CreateCollectionAsync(string qid, string name)
     {
         var repo = new CollectionRepository(_db);

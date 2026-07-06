@@ -84,14 +84,14 @@ public sealed class CollectionAssignmentServiceTests
 
         var resolveSource = source[resolveStart..resolveEnd];
         Assert.Contains("\"series_qid\"", resolveSource, StringComparison.Ordinal);
-        Assert.Contains("candidates.Count == 0 && mediaType is MediaType.Movies", resolveSource, StringComparison.Ordinal);
-        Assert.Contains("\"franchise_qid\"", resolveSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("candidates.Count == 0 && mediaType is MediaType.Movies", resolveSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"franchise_qid\"", resolveSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"fictional_universe_qid\"", resolveSource, StringComparison.Ordinal);
         Assert.Contains("RelType, \"series\"", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SeriesManifestHydration_CollectsAllSeriesQidsAndUsesMovieFranchiseOnlyAsFallback()
+    public void SeriesManifestHydration_CollectsOnlyTrueSeriesQidsAndRejectsListsOrFranchises()
     {
         var spiderCandidates = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
         [
@@ -101,7 +101,8 @@ public sealed class CollectionAssignmentServiceTests
         ],
         MediaType.Movies);
 
-        Assert.Equal(["Q99601314", "Q65071834"], spiderCandidates.Select(candidate => candidate.Qid));
+        var spiderCandidate = Assert.Single(spiderCandidates);
+        Assert.Equal("Q99601314", spiderCandidate.Qid);
 
         var bladeRunnerCandidates = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
         [
@@ -110,9 +111,7 @@ public sealed class CollectionAssignmentServiceTests
         ],
         MediaType.Movies);
 
-        var candidate = Assert.Single(bladeRunnerCandidates);
-        Assert.Equal("Q48724847", candidate.Qid);
-        Assert.Equal("Blade Runner", candidate.Label);
+        Assert.Empty(bladeRunnerCandidates);
 
         var bookCandidates = WikidataSeriesManifestHydrationService.ResolveClaimedSeriesManifestCandidates(
         [
@@ -200,8 +199,8 @@ public sealed class CollectionAssignmentServiceTests
         Assert.Contains("itemRecords,\n                manifest.SeriesQid", normalizedSource, StringComparison.Ordinal);
         Assert.Contains(".Where(item => IsCurrentWorkManifestItem(item, context))", source, StringComparison.Ordinal);
         Assert.Contains("CreateManifestRequest(parent.Qid, language)", source, StringComparison.Ordinal);
-        Assert.Contains("sourceSeriesQid = childSeriesQid", source, StringComparison.Ordinal);
-        Assert.Contains("parentCollectionHydration = true", source, StringComparison.Ordinal);
+        Assert.Contains("sourceSeriesQid: childSeriesQid", source, StringComparison.Ordinal);
+        Assert.Contains("parentCollectionHydration: true", source, StringComparison.Ordinal);
 
         var candidates = WikidataSeriesManifestHydrationService.ResolveParentCollectionManifestCandidates(
         [
