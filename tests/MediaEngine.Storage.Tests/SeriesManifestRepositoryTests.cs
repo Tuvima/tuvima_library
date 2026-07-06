@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
+using Dapper;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -147,6 +148,57 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         Assert.Equal(73, view.MissingCount);
     }
 
+    [Fact]
+    public async Task LinkOwnedWorks_DoesNotAssignExpandedParentManifestAsLaneShelf()
+    {
+        var repo = new SeriesManifestRepository(_db);
+        var broadCollectionId = await CreateCollectionAsync("Q26214973", "Peter Jackson's Middle-earth film series");
+        var childCollectionId = await CreateCollectionAsync("Q74331", "The Hobbit trilogy");
+        var workId = await CreateWorkAsync("Q80379");
+        var now = DateTimeOffset.UtcNow;
+
+        var broadItems = new[]
+        {
+            Item(
+                broadCollectionId,
+                "Q26214973",
+                "Q80379",
+                "The Hobbit: An Unexpected Journey",
+                2,
+                "Owned",
+                workId,
+                now,
+                parentCollectionQid: "Q74331",
+                parentCollectionLabel: "The Hobbit trilogy",
+                isExpandedFromCollection: true),
+        };
+
+        await repo.UpsertManifestAsync(Hydration(broadCollectionId, "Q26214973", now), broadItems);
+        await repo.LinkOwnedWorksAsync(broadCollectionId, broadItems);
+
+        Assert.Null(await GetWorkCollectionIdAsync(workId));
+
+        await AssignWorkToCollectionAsync(workId, broadCollectionId);
+
+        var childItems = new[]
+        {
+            Item(
+                childCollectionId,
+                "Q74331",
+                "Q80379",
+                "The Hobbit: An Unexpected Journey",
+                1,
+                "Owned",
+                workId,
+                now.AddMinutes(1)),
+        };
+
+        await repo.UpsertManifestAsync(Hydration(childCollectionId, "Q74331", now.AddMinutes(1)), childItems);
+        await repo.LinkOwnedWorksAsync(childCollectionId, childItems);
+
+        Assert.Equal(childCollectionId, await GetWorkCollectionIdAsync(workId));
+    }
+
     private async Task<Guid> CreateCollectionAsync(string qid, string name)
     {
         var repo = new CollectionRepository(_db);
@@ -178,6 +230,22 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         return Task.FromResult(id);
     }
 
+    private async Task AssignWorkToCollectionAsync(Guid workId, Guid collectionId)
+    {
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            "UPDATE works SET collection_id = @collectionId WHERE id = @workId;",
+            new { collectionId, workId });
+    }
+
+    private async Task<Guid?> GetWorkCollectionIdAsync(Guid workId)
+    {
+        using var conn = _db.CreateConnection();
+        return await conn.ExecuteScalarAsync<Guid?>(
+            "SELECT collection_id FROM works WHERE id = @workId;",
+            new { workId });
+    }
+
     private int CountRows(string table)
     {
         using var conn = _db.CreateConnection();
@@ -206,7 +274,11 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         double sortOrder,
         string ownership,
         Guid? linkedWorkId,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        string? parentCollectionQid = null,
+        string? parentCollectionLabel = null,
+        bool isCollection = false,
+        bool isExpandedFromCollection = false)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -218,6 +290,10 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
             OrderSource = "SeriesOrdinal",
             OwnershipState = ownership,
             LinkedWorkId = linkedWorkId,
+            ParentCollectionQid = parentCollectionQid,
+            ParentCollectionLabel = parentCollectionLabel,
+            IsCollection = isCollection,
+            IsExpandedFromCollection = isExpandedFromCollection,
             SourcePropertiesJson = """["P179"]""",
             RelationshipsJson = "[]",
             LastHydratedAt = now,

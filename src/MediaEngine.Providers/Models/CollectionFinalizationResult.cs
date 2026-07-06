@@ -3,6 +3,7 @@ namespace MediaEngine.Providers.Models;
 public enum CollectionFinalizationReason
 {
     QuickHydration,
+    QidResolved,
     RetainedRetailIdentity,
     Backfill,
 }

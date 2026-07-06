@@ -628,14 +628,15 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void ListenPage_RouteChangesReloadListenStateWithRaceGuard()
+    public void ListenPage_RouteParametersReloadListenStateWithRaceGuard()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor.cs"));
         var markup = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));
         var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor.css"));
 
-        Assert.Contains("Nav.LocationChanged += OnListenLocationChanged;", source, StringComparison.Ordinal);
-        Assert.Contains("Nav.LocationChanged -= OnListenLocationChanged;", source, StringComparison.Ordinal);
+        Assert.Contains("protected override async Task OnParametersSetAsync()", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LocationChanged", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnListenLocationChanged", source, StringComparison.Ordinal);
         Assert.Contains("private int _listenLoadVersion;", source, StringComparison.Ordinal);
         Assert.Contains("if (!IsCurrentLoad(loadVersion))", source, StringComparison.Ordinal);
         Assert.Contains("private void NavigateRailLink(string route)", source, StringComparison.Ordinal);

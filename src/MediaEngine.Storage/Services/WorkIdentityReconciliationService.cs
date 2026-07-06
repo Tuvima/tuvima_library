@@ -43,7 +43,7 @@ public sealed class WorkIdentityReconciliationService
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 LEFT JOIN metadata_claims mc ON mc.entity_id = ma.id
                 WHERE w.work_kind IN ('standalone', 'child')
-                  AND w.media_type IN ('Books', 'Audiobooks', 'Comics')
+                  AND w.media_type IN ('Books', 'Audiobooks')
                 GROUP BY w.id
             )
             SELECT WorkId, CollectionId, MediaType, WorkKind, ParentWorkId, Ordinal,

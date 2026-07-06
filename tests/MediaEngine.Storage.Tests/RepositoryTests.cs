@@ -812,6 +812,63 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task WorkIdentityReconciliation_DoesNotMergeComicIssuesBySeriesQid()
+    {
+        var service = new WorkIdentityReconciliationService(_db);
+        var seriesQid = "Q2633138";
+        var firstWorkId = Guid.NewGuid();
+        var secondWorkId = Guid.NewGuid();
+        var firstEditionId = Guid.NewGuid();
+        var secondEditionId = Guid.NewGuid();
+        var firstAssetId = Guid.NewGuid();
+        var secondAssetId = Guid.NewGuid();
+
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind, wikidata_qid)
+                VALUES (@firstWorkId, 'Comics', 'child', @seriesQid),
+                       (@secondWorkId, 'Comics', 'child', @seriesQid);
+
+                INSERT INTO editions (id, work_id)
+                VALUES (@firstEditionId, @firstWorkId),
+                       (@secondEditionId, @secondWorkId);
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@firstAssetId, @firstEditionId, @firstHash, '/library/Comics/Batman 404.cbz', 'Normal'),
+                       (@secondAssetId, @secondEditionId, @secondHash, '/library/Comics/Batman 405.cbz', 'Normal');
+                """,
+                new
+                {
+                    seriesQid,
+                    firstWorkId,
+                    secondWorkId,
+                    firstEditionId,
+                    secondEditionId,
+                    firstAssetId,
+                    secondAssetId,
+                    firstHash = $"comic_{Guid.NewGuid():N}",
+                    secondHash = $"comic_{Guid.NewGuid():N}",
+                });
+        }
+
+        var merged = await service.MergeDuplicateReadWorksByQidAsync();
+
+        Assert.Equal(0, merged);
+        using var verify = _db.CreateConnection();
+        var workCount = await verify.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM works WHERE wikidata_qid = @seriesQid;",
+            new { seriesQid });
+        var editionWorkIds = (await verify.QueryAsync<Guid>(
+            "SELECT DISTINCT work_id FROM editions WHERE id IN (@firstEditionId, @secondEditionId);",
+            new { firstEditionId, secondEditionId })).ToList();
+
+        Assert.Equal(2, workCount);
+        Assert.Equal(2, editionWorkIds.Count);
+    }
+
+    [Fact]
     public async Task IdentityJob_CreateAsync_IgnoresDuplicateActiveJobForSameEntityAndPass()
     {
         var repo = new IdentityJobRepository(_db);

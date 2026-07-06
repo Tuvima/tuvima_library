@@ -52,6 +52,7 @@ public sealed class WikidataBridgeWorker
     private readonly WikidataSeriesManifestHydrationService? _seriesManifestHydration;
     private readonly CoverArtWorker _coverArt;
     private readonly CollectionFinalizationService? _collectionFinalization;
+    private readonly WorkIdentityReconciliationService? _workIdentityReconciliation;
     private readonly BatchProgressService? _batchProgress;
     private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly IMediaOperationTracker? _operationTracker;
@@ -93,7 +94,8 @@ public sealed class WikidataBridgeWorker
         PersonEnrichmentWorker? personEnrichment = null,
         IMediaOperationTracker? operationTracker = null,
         IEntityCapabilityStateRepository? capabilityStates = null,
-        CollectionFinalizationService? collectionFinalization = null)
+        CollectionFinalizationService? collectionFinalization = null,
+        WorkIdentityReconciliationService? workIdentityReconciliation = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -116,6 +118,7 @@ public sealed class WikidataBridgeWorker
         _seriesManifestHydration = seriesManifestHydration;
         _coverArt = coverArt;
         _collectionFinalization = collectionFinalization;
+        _workIdentityReconciliation = workIdentityReconciliation;
         _logger = logger;
         _batchProgress = batchProgress;
         _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
@@ -810,8 +813,18 @@ public sealed class WikidataBridgeWorker
 
             await TryHydrateSeriesManifestAsync(job, ctx, lineage, ctx.ResolvedQid, fullClaims, ct);
 
+            if (_collectionFinalization is not null)
+            {
+                await _collectionFinalization.FinalizeAsync(
+                    job.EntityId,
+                    CollectionFinalizationReason.QidResolved,
+                    job.IngestionRunId,
+                    ct).ConfigureAwait(false);
+            }
+
             await _postPipeline.EvaluateAndOrganizeAsync(
                 job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
+            await TryMergeReadWorkIdentitiesAsync(ctx.MediaType, ct).ConfigureAwait(false);
             await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
         }
         else
@@ -827,6 +840,31 @@ public sealed class WikidataBridgeWorker
             _logger.LogInformation(
                 "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity without review [entity {EntityId}]",
                 ctx.TitleHint ?? "(unknown)", ctx.MediaType, ctx.BridgeIds.Count, job.EntityId);
+        }
+    }
+
+    private async Task TryMergeReadWorkIdentitiesAsync(MediaType mediaType, CancellationToken ct)
+    {
+        if (_workIdentityReconciliation is null
+            || mediaType is not (MediaType.Books or MediaType.Audiobooks))
+        {
+            return;
+        }
+
+        try
+        {
+            var merged = await _workIdentityReconciliation.MergeDuplicateReadWorksByQidAsync(ct)
+                .ConfigureAwait(false);
+            if (merged > 0)
+            {
+                _logger.LogInformation(
+                    "Wikidata: merged {Count} duplicate read work(s) after QID finalization.",
+                    merged);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Read work identity merge failed after Wikidata finalization; ingestion will continue.");
         }
     }
 

@@ -2218,7 +2218,11 @@ public sealed class DetailComposerService
             """
             SELECT smi.series_qid AS ContainerId,
                    CAST(COALESCE(NULLIF(h.series_label, ''), NULLIF(c.display_name, ''), NULLIF(smi.parent_collection_label, ''), smi.series_qid) AS TEXT) AS ContainerTitle,
-                   COUNT(*) AS ItemCount,
+                   COALESCE(
+                       MAX(COALESCE(
+                           CAST(json_extract(h.api_metadata_json, '$.expectedTotal') AS INTEGER),
+                           CAST(json_extract(h.api_metadata_json, '$.expected_total') AS INTEGER))),
+                       COUNT(*)) AS ItemCount,
                    MIN(CASE WHEN smi.parsed_ordinal IS NOT NULL OR NULLIF(smi.raw_ordinal, '') IS NOT NULL THEN 0 ELSE 1 END) AS HasOrderingRank
             FROM series_manifest_items smi
             LEFT JOIN series_manifest_hydrations h ON h.series_qid = smi.series_qid

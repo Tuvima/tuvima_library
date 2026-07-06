@@ -75,6 +75,15 @@ public sealed class CollectionAssignmentService
         var canonicalEntityId = lineage?.TargetForParentScope ?? workId.Value;
         var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
         var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+        if (canonicalEntityId != entityId)
+        {
+            var assetCanonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+            foreach (var value in assetCanonicals)
+            {
+                lookup.TryAdd(value.Key, value.Value);
+            }
+        }
+
         var mediaType = lineage?.MediaType ?? ResolveMediaType(lookup);
 
         // Try to find an immediate shelf identity. Broader franchise/universe
@@ -111,6 +120,27 @@ public sealed class CollectionAssignmentService
                     existingCollection.Id,
                     RelationshipsAdded: relationshipsAdded,
                     IdentityKey: shelf.Qid ?? shelf.ProviderKey);
+            }
+
+            if (existingCollection is not null
+                && mediaType is MediaType.Movies
+                && string.IsNullOrWhiteSpace(shelf.Qid)
+                && !string.IsNullOrWhiteSpace(existingCollection.WikidataQid))
+            {
+                var relationshipsAdded = await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
+
+                _logger.LogDebug(
+                    "CollectionAssignment: keeping existing Wikidata movie shelf '{CollectionName}' ({CollectionQid}) for work {WorkId}",
+                    existingCollection.DisplayName,
+                    existingCollection.WikidataQid,
+                    workId);
+                return new CollectionAssignmentResult(
+                    CollectionAssignmentOutcome.AlreadyAssigned,
+                    entityId,
+                    workId.Value,
+                    existingCollection.Id,
+                    RelationshipsAdded: relationshipsAdded,
+                    IdentityKey: existingCollection.WikidataQid);
             }
 
             if (existingCollection is not null)
@@ -254,12 +284,38 @@ public sealed class CollectionAssignmentService
     {
         var relationshipKeys = BuildRelationshipKeys(lookup);
 
+        if (mediaType is MediaType.Movies)
+        {
+            var movieProviderKey = ResolveProviderKey(lookup, mediaType);
+            var movieProviderLabel = ResolveProviderLabel(lookup, mediaType);
+            if (!string.IsNullOrWhiteSpace(movieProviderKey) && !string.IsNullOrWhiteSpace(movieProviderLabel))
+                return new ShelfIdentity(mediaType, movieProviderLabel, null, movieProviderKey, relationshipKeys);
+        }
+
         if (TryGetQid(lookup, "series", out var qid, out var label))
         {
             return new ShelfIdentity(
                 mediaType,
                 label,
                 qid,
+                ResolveProviderKey(lookup, mediaType),
+                relationshipKeys);
+        }
+
+        if (mediaType is MediaType.Comics
+            && TryGetValue(lookup, "wikidata_qid", out var rawComicSeriesQid)
+            && IsQidLike(NormalizeQid(rawComicSeriesQid)))
+        {
+            var comicSeriesQid = NormalizeQid(rawComicSeriesQid);
+            var comicSeriesLabel = FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.Series),
+                ValueOrNull(lookup, MetadataFieldConstants.Title),
+                comicSeriesQid);
+
+            return new ShelfIdentity(
+                mediaType,
+                comicSeriesLabel!,
+                comicSeriesQid,
                 ResolveProviderKey(lookup, mediaType),
                 relationshipKeys);
         }
@@ -382,6 +438,12 @@ public sealed class CollectionAssignmentService
            && value.Length > 1
            && value[0] is 'Q'
            && char.IsDigit(value[1]);
+
+    private static string NormalizeQid(string value)
+    {
+        var qid = value.Contains('/') ? value.Split('/')[^1] : value;
+        return qid.Contains("::") ? qid.Split("::", 2)[0] : qid;
+    }
 
     private static string NormalizeKey(string value)
     {

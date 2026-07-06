@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Contracts.Display;
-using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
@@ -22,7 +21,7 @@ using MudBlazor;
 
 namespace MediaEngine.Web.Components.Pages;
 
-public partial class ListenPage : IDisposable
+public partial class ListenPage
 {
     private const int AudiobookBrowsePreviewLimit = 12;
     private const string MusicHomeRoute = ListenNavigation.MusicHomeRoute;
@@ -440,30 +439,10 @@ public partial class ListenPage : IDisposable
         new("All Audiobooks", AudiobooksRoute, Icons.Material.Outlined.Headphones, _audiobookWorks.Count.ToString(CultureInfo.InvariantCulture)),
     ];
 
-    protected override void OnInitialized()
-    {
-        Nav.LocationChanged += OnListenLocationChanged;
-    }
-
     protected override async Task OnParametersSetAsync()
     {
         ApplyAudiobookQueryState();
         await LoadAsync();
-    }
-
-    private void OnListenLocationChanged(object? sender, LocationChangedEventArgs args)
-    {
-        var path = Nav.ToAbsoluteUri(args.Location).AbsolutePath;
-        if (!path.StartsWith("/listen", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _ = InvokeAsync(async () =>
-        {
-            ApplyAudiobookQueryState();
-            await LoadAsync();
-        });
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -3117,11 +3096,6 @@ public partial class ListenPage : IDisposable
     {
         var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value));
         return new Guid(bytes);
-    }
-
-    public void Dispose()
-    {
-        Nav.LocationChanged -= OnListenLocationChanged;
     }
 
     private sealed record ListenNavItem(string Label, string Route, string Icon, string? Meta = null, bool IsChild = false);

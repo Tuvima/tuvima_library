@@ -200,7 +200,10 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             using var conn = _db.CreateConnection();
             using var tx = conn.BeginTransaction();
 
-            foreach (var item in items.Where(i => i.OwnershipState == "Owned"))
+            foreach (var item in items.Where(i =>
+                         i.OwnershipState == "Owned"
+                         && !i.IsCollection
+                         && !i.IsExpandedFromCollection))
             {
                 if (item.LinkedWorkId is not { } workId)
                 {
@@ -228,13 +231,33 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     UPDATE works
                     SET collection_id = @collectionId
                     WHERE id = @workId
-                      AND (collection_id IS NULL OR collection_id = @collectionId);
+                      AND (
+                          collection_id IS NULL
+                          OR collection_id = @collectionId
+                          OR EXISTS (
+                              SELECT 1
+                              FROM collections current_collection
+                              LEFT JOIN series_manifest_items current_item
+                                ON current_item.collection_id = current_collection.id
+                               AND current_item.linked_work_id = @workId
+                              WHERE current_collection.id = works.collection_id
+                                AND current_collection.collection_type = 'ContentGroup'
+                                AND (
+                                    current_collection.wikidata_qid IS NULL
+                                    OR (
+                                        current_item.is_expanded_from_collection = 1
+                                        AND current_item.parent_collection_qid = @seriesQid
+                                    )
+                                )
+                          )
+                      );
                     """,
                     new
                     {
                         id = Guid.NewGuid(),
                         collectionId,
                         workId,
+                        seriesQid = item.SeriesQid,
                         sortOrder,
                         addedAt = DateTimeOffset.UtcNow.ToString("O"),
                     },

@@ -29,6 +29,23 @@ public sealed class WikidataSeriesManifestHydrationService
         WriteIndented = false,
     };
 
+    private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> KnownMovieSeriesItemQids =
+        new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Q74331"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Q80379",
+                "Q719915",
+                "Q919649",
+            },
+            ["Q190214"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Q127367",
+                "Q164963",
+                "Q131074",
+            },
+        };
+
     private const int ManifestMaxDepth = 2;
     private const int ManifestMaxItems = 500;
     private const string ManifestScopeFilter = "container-classified-v1";
@@ -505,7 +522,8 @@ public sealed class WikidataSeriesManifestHydrationService
         string? sourceSeriesQid = null,
         bool parentCollectionHydration = false)
     {
-        var expectedTotal = SelectExpectedTotalFact(manifest.ExpectedCounts);
+        var expectedCounts = ExpectedCountsFor(manifest.SeriesQid, manifest.ExpectedCounts);
+        var expectedTotal = SelectExpectedTotalFact(expectedCounts);
         return JsonSerializer.Serialize(new
         {
             language,
@@ -525,8 +543,29 @@ public sealed class WikidataSeriesManifestHydrationService
             expectedTotalKind = expectedTotal?.Kind,
             expectedTotalSource = expectedTotal?.Source,
             expectedTotalConfidence = expectedTotal?.Confidence,
-            expectedCounts = manifest.ExpectedCounts,
+            expectedCounts,
         }, JsonOptions);
+    }
+
+    private static IReadOnlyList<ManifestCountFact> ExpectedCountsFor(
+        string seriesQid,
+        IReadOnlyList<ManifestCountFact> expectedCounts)
+    {
+        if (!KnownMovieSeriesItemQids.TryGetValue(seriesQid, out var itemQids))
+            return expectedCounts;
+
+        var trilogyFact = new ManifestCountFact
+        {
+            Kind = "films",
+            Count = itemQids.Count,
+            Source = "tuvima-known-film-trilogy",
+            Confidence = 0.95,
+            Note = "Known film trilogy total used to keep broader Wikidata film graph rows out of the immediate shelf count.",
+        };
+
+        return new[] { trilogyFact }
+            .Concat(expectedCounts.Where(fact => !string.Equals(fact.Kind, "films", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
     }
 
     private static ManifestCountFact? SelectExpectedTotalFact(IReadOnlyList<ManifestCountFact> expectedCounts)
@@ -543,6 +582,13 @@ public sealed class WikidataSeriesManifestHydrationService
     {
         foreach (var item in items)
         {
+            if (context.MediaType == MediaType.Movies
+                && KnownMovieSeriesItemQids.TryGetValue(seriesQid, out var allowedQids)
+                && !allowedQids.Contains(item.Qid))
+            {
+                continue;
+            }
+
             if (!IsManifestItemInScope(item, context, seriesQid))
                 continue;
 

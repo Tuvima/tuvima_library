@@ -20,6 +20,8 @@ public sealed class CollectionAssignmentServiceTests
 
         var resolveSource = source[resolveStart..resolveEnd];
         Assert.Contains("TryGetQid(lookup, \"series\"", resolveSource, StringComparison.Ordinal);
+        Assert.Contains("mediaType is MediaType.Comics", resolveSource, StringComparison.Ordinal);
+        Assert.Contains("TryGetValue(lookup, \"wikidata_qid\"", resolveSource, StringComparison.Ordinal);
         Assert.DoesNotContain("TryGetQid(lookup, \"franchise\"", resolveSource, StringComparison.Ordinal);
         Assert.DoesNotContain("TryGetQid(lookup, \"fictional_universe\"", resolveSource, StringComparison.Ordinal);
         Assert.Contains("multiple shelves share them", source, StringComparison.Ordinal);
@@ -54,6 +56,7 @@ public sealed class CollectionAssignmentServiceTests
 
         Assert.Contains("CollectionFinalizationService", quickHydration, StringComparison.Ordinal);
         Assert.Contains("CollectionFinalizationReason.QuickHydration", quickHydration, StringComparison.Ordinal);
+        Assert.Contains("CollectionFinalizationReason.QidResolved", wikidataBridge, StringComparison.Ordinal);
         Assert.Contains("CollectionFinalizationReason.RetainedRetailIdentity", wikidataBridge, StringComparison.Ordinal);
         Assert.Contains("ResolveParentCollectionAsync", finalizer, StringComparison.Ordinal);
         Assert.Contains("CollectionAssignmentFailed", finalizer, StringComparison.Ordinal);
@@ -312,6 +315,40 @@ public sealed class CollectionAssignmentServiceTests
             method!.Invoke(null, [items, context, "QSeries"]));
 
         Assert.Equal(["QBook1", "QBook2"], filtered.Select(item => item.Qid));
+    }
+
+    [Fact]
+    public void SeriesManifestHydration_FiltersKnownFilmTrilogiesToImmediateFilms()
+    {
+        var items = new List<SeriesManifestItem>
+        {
+            new() { Qid = "Q127367", Label = "The Lord of the Rings: The Fellowship of the Ring", ParsedSeriesOrdinal = 1 },
+            new() { Qid = "Q164963", Label = "The Lord of the Rings: The Two Towers", ParsedSeriesOrdinal = 2 },
+            new() { Qid = "Q131074", Label = "The Lord of the Rings: The Return of the King", ParsedSeriesOrdinal = 3 },
+            new() { Qid = "Q107210110", Label = "The Lord of the Rings: The War of the Rohirrim", ParsedSeriesOrdinal = 4 },
+            new() { Qid = "Q125858982", Label = "The Lord of the Rings: The Hunt for Gollum", ParsedSeriesOrdinal = 5 },
+        };
+
+        var context = new SeriesManifestHydrationContext(
+            AssetId: Guid.NewGuid(),
+            WorkId: Guid.NewGuid(),
+            ResolvedWorkQid: "Q127367",
+            MediaType: MediaType.Movies,
+            Title: "The Lord of the Rings: The Fellowship of the Ring",
+            SeriesHint: "The Lord of the Rings",
+            IngestionRunId: null,
+            Lineage: null,
+            FullClaims: []);
+
+        var method = typeof(WikidataSeriesManifestHydrationService).GetMethod(
+            "FilterManifestItems",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        var filtered = Assert.IsAssignableFrom<IEnumerable<SeriesManifestItem>>(
+            method!.Invoke(null, [items, context, "Q190214"]));
+
+        Assert.Equal(["Q127367", "Q164963", "Q131074"], filtered.Select(item => item.Qid));
     }
 
     private static string GetRepoFilePath(string relativePath) =>
