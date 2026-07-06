@@ -171,10 +171,20 @@
             ? ActiveGroup?.Items ?? []
             : Placement.OrderedItems;
 
-    private bool IsLongSequence => ActiveItems.Count >= LongSequenceThreshold;
+    private bool IsLongSequence => TotalItems >= LongSequenceThreshold;
     private int OwnedCount => ActiveItems.Count(item => item.IsOwned);
-    private int MissingCount => Math.Max(0, ActiveItems.Count - OwnedCount);
-    private int TotalItems => ActiveItems.Count;
+    private int MissingCount => Math.Max(0, TotalItems - OwnedCount);
+    private int TotalItems => ShowGroupSelector
+        ? ActiveItems.Count
+        : Math.Max(ActiveItems.Count, Placement.TotalKnownItems ?? ActiveItems.Count);
+    private bool HasCurrentPosition => FirstNonBlank(
+        Placement.PositionText,
+        Placement.CurrentItem.PositionText,
+        Placement.PositionLabel,
+        Placement.CurrentItem.PositionLabel,
+        Placement.PositionNumber?.ToString(CultureInfo.InvariantCulture),
+        Placement.CurrentItem.PositionNumber?.ToString(CultureInfo.InvariantCulture),
+        SequenceNumberOrNull(Placement.CurrentItem)) is not null;
     private string CurrentPositionText => FirstNonBlank(
         Placement.PositionText,
         Placement.CurrentItem.PositionText,
@@ -182,10 +192,12 @@
         Placement.CurrentItem.PositionLabel,
         Placement.PositionNumber?.ToString(CultureInfo.InvariantCulture),
         Placement.CurrentItem.PositionNumber?.ToString(CultureInfo.InvariantCulture),
-        SequenceNumber(Placement.CurrentItem),
+        SequenceNumberOrNull(Placement.CurrentItem),
+        !HasCurrentPosition && TotalItems > 0 ? OwnedCount.ToString(CultureInfo.InvariantCulture) : null,
         "?")!;
     private string PositionSummary => FirstNonBlank(
         Placement.PositionSummary,
+        !HasCurrentPosition && TotalItems > 0 ? $"{OwnedCount} owned of {TotalItems} in {LowerContainerLabel}" : null,
         TotalItems > 0 ? $"{CurrentPositionText} of {TotalItems} in {LowerContainerLabel}" : null,
         ContainerTitleDisplay)!;
     private string ContainerTitleDisplay => TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel);
@@ -326,6 +338,12 @@
             item.PositionLabel,
             item.PositionNumber?.ToString(CultureInfo.InvariantCulture),
             "?")!;
+
+    private static string? SequenceNumberOrNull(SequenceItemViewModel item)
+        => FirstNonBlank(
+            item.PositionText,
+            item.PositionLabel,
+            item.PositionNumber?.ToString(CultureInfo.InvariantCulture));
 
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));

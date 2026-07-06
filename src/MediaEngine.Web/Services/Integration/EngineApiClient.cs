@@ -5149,6 +5149,7 @@ public sealed class EngineApiClient : IEngineApiClient
             Tagline = detail.Tagline,
             Description = detail.Description,
             DescriptionAttribution = detail.DescriptionAttribution,
+            SourceLinks = detail.SourceLinks,
             PersonDetails = detail.PersonDetails,
             Artwork = new ArtworkSet
             {

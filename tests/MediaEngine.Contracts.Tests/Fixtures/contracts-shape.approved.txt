@@ -89,6 +89,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   Tagline: System.String | nullability=nullable | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
   DescriptionAttribution: MediaEngine.Contracts.Details.DescriptionAttributionViewModel | nullability=nullable | accessors=get,init
+  SourceLinks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.ExternalSourceLinkViewModel> | nullability=not-null | accessors=get,init
   PersonDetails: MediaEngine.Contracts.Details.PersonDetailFacts | nullability=nullable | accessors=get,init
   Artwork: MediaEngine.Contracts.Details.ArtworkSet | nullability=not-null | accessors=get,init
   HeroBrand: MediaEngine.Contracts.Details.HeroBrandViewModel | nullability=nullable | accessors=get,init
@@ -136,6 +137,13 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.EntityCreditViewMode
   IsCanonical: System.Boolean | nullability=not-null | accessors=get,init
   SourceName: System.String | nullability=nullable | accessors=get,init
   SourceId: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ExternalSourceLinkViewModel
+  Key: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  Url: System.String | nullability=not-null | accessors=get,init
+  SourceName: System.String | nullability=not-null | accessors=get,init
+  Tooltip: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.HeroArtworkMode
 

@@ -252,7 +252,7 @@ public sealed class HierarchyResolverTests : IDisposable
         var second = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
         {
             ["title"]           = "Foundation and Empire",
-            ["author"]          = "Isaac Asimov",
+            ["author"]          = "Asimov, Isaac",
             ["series"]          = "Foundation",
             ["series_position"] = "2",
         });
@@ -263,6 +263,9 @@ public sealed class HierarchyResolverTests : IDisposable
         Assert.Equal(first.ParentWorkId, second.ParentWorkId);
         Assert.Equal(1, first.Ordinal);
         Assert.Equal(2, second.Ordinal);
+
+        using var conn = _db.CreateConnection();
+        Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM works WHERE work_kind = 'parent' AND media_type = 'Books';"));
     }
 
     // ── Standalone ────────────────────────────────────────────────────────────

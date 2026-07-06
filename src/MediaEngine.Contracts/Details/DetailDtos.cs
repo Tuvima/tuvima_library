@@ -12,6 +12,7 @@ public sealed class DetailPageViewModel
     public string? Tagline { get; init; }
     public string? Description { get; init; }
     public DescriptionAttributionViewModel? DescriptionAttribution { get; init; }
+    public IReadOnlyList<ExternalSourceLinkViewModel> SourceLinks { get; init; } = [];
     public PersonDetailFacts? PersonDetails { get; init; }
 
     public ArtworkSet Artwork { get; init; } = new();
@@ -59,6 +60,15 @@ public sealed class DescriptionAttributionViewModel
     public string LicenseName { get; init; } = string.Empty;
     public string? LicenseUrl { get; init; }
     public string Notice { get; init; } = string.Empty;
+}
+
+public sealed class ExternalSourceLinkViewModel
+{
+    public string Key { get; init; } = string.Empty;
+    public string Label { get; init; } = string.Empty;
+    public string Url { get; init; } = string.Empty;
+    public string SourceName { get; init; } = string.Empty;
+    public string? Tooltip { get; init; }
 }
 
 public enum DetailEntityType

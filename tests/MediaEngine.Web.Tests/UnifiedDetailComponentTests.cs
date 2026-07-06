@@ -406,7 +406,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-item__node", source);
         Assert.Contains("SequenceItemRoute(item)", source);
         Assert.Contains("href=\"@route\"", source);
-        Assert.Contains("private int TotalItems => ActiveItems.Count", source);
+        Assert.Contains("Placement.TotalKnownItems", source);
+        Assert.Contains("SequenceNumberOrNull", source);
+        Assert.Contains("owned of {TotalItems}", source);
         Assert.Contains("tl-series-placement--long", source);
         Assert.Contains("LongSequenceThreshold = 9", source);
         Assert.DoesNotContain("tl-series-item__owned-badge", source);
@@ -422,6 +424,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-item__current-badge", styles);
         Assert.DoesNotContain("tl-series-item__owned-badge", styles);
         Assert.Contains("tl-series-owned-summary", styles);
+        Assert.Contains("tl-source-links", styles);
         Assert.Contains("minmax(3rem, auto)", styles);
         Assert.Contains("-webkit-line-clamp: 4", styles);
         Assert.Contains("a.tl-series-item", styles);

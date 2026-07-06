@@ -163,7 +163,7 @@ public sealed class HierarchyResolver
         if (string.IsNullOrWhiteSpace(series))
             return await CreateStandaloneAsync(mediaType, ct);
 
-        var parentKey = MakeKey(author, series);
+        var parentKey = MakeKey(NormalizePersonNameForKey(author), series);
         var parentId  = await FindOrCreateParentAsync(mediaType, parentKey, null, null, ct);
         return await FindOrCreateChildAsync(mediaType, parentId, position, title, ct);
     }
@@ -238,6 +238,22 @@ public sealed class HierarchyResolver
         if (meta.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v))
             return v;
         return null;
+    }
+
+    private static string? NormalizePersonNameForKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        var parts = value.Split(',', 2, StringSplitOptions.TrimEntries);
+        return parts.Length == 2
+            && !string.IsNullOrWhiteSpace(parts[0])
+            && !string.IsNullOrWhiteSpace(parts[1])
+            && !parts[1].Contains(',', StringComparison.Ordinal)
+            ? $"{parts[1]} {parts[0]}"
+            : value;
     }
 
     private static int? ParseInt(string? raw)

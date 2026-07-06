@@ -1,0 +1,2141 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[12:54:32 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[12:54:32 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[12:54:32 INF] PriorityCascadeEngine: loaded 6 field priority override(s): [description, short_description, biography, cover, rating, content_rating]
+[12:54:32 INF] Model TextFast not found at C:/temp/tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf
+[12:54:32 INF] Model TextQuality not found at C:/temp/tuvima-models\llama\Qwen3-1.7B-Q8_0.gguf
+[12:54:32 INF] Model Audio not found at C:/temp/tuvima-models\whisper\ggml-medium.bin
+[12:54:32 INF] Model TextScholar not found at C:/temp/tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf
+[12:54:32 INF] Model TextCjk not found at C:/temp/tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf
+[12:54:32 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[12:54:33 INF] FolderHealthService started — checking every 30s
+[12:54:33 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[12:54:33 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[12:54:33 INF] RetagSweepWorker started
+[12:54:33 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[12:54:33 INF] IngestionEngine started
+[12:54:33 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[12:54:33 INF] Running startup reconciliation...
+[12:54:33 INF] Identity startup recovery released 1 interrupted job lease(s).
+[12:54:33 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[12:54:33 INF] EditionRecheckService started — first run in 00:05:00
+[12:54:33 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[12:54:33 INF] WikidataBridgeHostedService started
+[12:54:33 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[12:54:33 INF] QuickHydrationHostedService started
+[12:54:33 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[12:54:33 INF] RetailMatchHostedService started
+[12:54:33 INF] Hydration: starting for 'Dune: Part Two' — Q109228991 (entity bed81be2-39ba-4586-9479-befd96564f9f)
+[12:54:33 INF] Quick pass starting for entity bed81be2-39ba-4586-9479-befd96564f9f (QID Q109228991)
+[12:54:33 INF] CollectionAssignment: created ContentGroup collection '1989' (applemusic:album:1440935467) for work 3657cf56-c848-439a-b218-f7da7af92aaf
+[12:54:33 INF] CollectionAssignment: assigned work 3657cf56-c848-439a-b218-f7da7af92aaf to collection '1989' (applemusic:album:1440935467)
+[12:54:33 INF] CollectionAssignment: assigned work 5af151e7-652b-4d82-92fb-a5fcde40ed7a to collection '1989' (applemusic:album:1440935467)
+[12:54:33 INF] CollectionAssignment: created ContentGroup collection 'OK Computer' (applemusic:album:1097861387) for work 7ccfa04c-b4d3-476c-82eb-dab626d97570
+[12:54:33 INF] CollectionAssignment: assigned work 7ccfa04c-b4d3-476c-82eb-dab626d97570 to collection 'OK Computer' (applemusic:album:1097861387)
+[12:54:33 INF] CollectionAssignment: assigned work 90564834-2e82-4fb3-886a-5fa07292fe22 to collection 'OK Computer' (applemusic:album:1097861387)
+[12:54:33 INF] Collection backfill complete: 34/34 processed, 4 assigned, 2 created, 0 already assigned, 30 skipped, 0 failed in 101ms
+[12:54:33 INF] Reconciliation: collection backfill processed 34/34 candidate work(s), assigned 4, created 2, skipped 30, failed 0
+[12:54:33 INF] Cover art: skipped 'Dune: Part Two' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\8e2200a2-196b-444f-a4d1-8845516f06a9\cover\37a3ed1ad57642b2acc4e439bb0658e5.jpg)
+[12:54:33 INF] Person extraction for entity bed81be2-39ba-4586-9479-befd96564f9f: 22 person ref(s)
+[12:54:33 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:33 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:33 INF] Reconciliation complete: 130 scanned, 0 missing, 4 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 7 empty folders, 6 orphan people, 0 stale root sidecars, 600ms
+[12:54:33 INF] Startup reconciliation complete: 130 scanned, 0 missing
+[12:54:33 INF] Watching: C:\temp\tuvima-watch\books
+[12:54:33 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[12:54:33 INF] Watching: C:\temp\tuvima-watch\tv
+[12:54:33 INF] Watching: C:\temp\tuvima-watch\movies
+[12:54:33 INF] Watching: C:\temp\tuvima-watch\music
+[12:54:33 INF] Watching: C:\temp\tuvima-watch\comics
+[12:54:33 INF] Received HTTP response headers after 224.8345ms - 200
+[12:54:33 INF] End processing HTTP request after 242.8522ms - 200
+[12:54:33 INF] Initial scan: skipped 6 already-known or duplicate file(s) across 6 scan target(s)
+[12:54:33 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[12:54:33 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:33 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:34 INF] Received HTTP response headers after 354.8265ms - 200
+[12:54:34 INF] End processing HTTP request after 356.7472ms - 200
+[12:54:34 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:34 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:34 INF] Received HTTP response headers after 79.5081ms - 200
+[12:54:34 INF] End processing HTTP request after 82.5351ms - 200
+[12:54:34 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:34 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:34 INF] Received HTTP response headers after 85.8016ms - 200
+[12:54:34 INF] End processing HTTP request after 87.0888ms - 200
+[12:54:34 INF] wikidata_reconciliation: Wikipedia description for Q19877770 (en): 2105 chars
+[12:54:34 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:34 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:34 INF] Received HTTP response headers after 69.191ms - 200
+[12:54:34 INF] End processing HTTP request after 72.0945ms - 200
+[12:54:34 INF] wikidata_reconciliation: fetched 18 person claims for QID Q19877770
+[12:54:34 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Timoth%C3%A9e%20Chalamet-63541%20%28cropped%29.jpg
+[12:54:34 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Timoth%C3%A9e%20Chalamet-63541%20%28cropped%29.jpg
+[12:54:35 INF] Now listening on: https://localhost:61494
+[12:54:35 INF] Now listening on: http://localhost:61495
+[12:54:35 INF] Application started. Press Ctrl+C to shut down.
+[12:54:35 INF] Hosting environment: Development
+[12:54:35 INF] Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api
+[12:54:35 INF] Received HTTP response headers after 216.6183ms - 200
+[12:54:35 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 239.5408ms
+[12:54:35 INF] End processing HTTP request after 294.9784ms - 200
+[12:54:35 INF] Person Timothée Chalamet: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\8b2d2bb4-1683-4fcd-acdf-410a06b7f238\headshot.jpg
+[12:54:35 INF] [PERF] Person enrichment 8b2d2bb4-1683-4fcd-acdf-410a06b7f238 ("Timothée Chalamet"): 692ms (QID=Q19877770, pseudonym=False)
+[12:54:35 INF] Harvested 18 claims from wikidata_reconciliation for entity 8b2d2bb4-1683-4fcd-acdf-410a06b7f238
+[12:54:35 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:35 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:35 INF] Received HTTP response headers after 46.4071ms - 200
+[12:54:35 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 47.5115ms
+[12:54:35 INF] End processing HTTP request after 49.4685ms - 200
+[12:54:35 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/1190668/images?*
+[12:54:35 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/1190668/images?*
+[12:54:35 INF] Received HTTP response headers after 53.0866ms - 200
+[12:54:35 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 53.8996ms
+[12:54:35 INF] End processing HTTP request after 55.6463ms - 200
+[12:54:35 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/dFxpwRpmzpVfP1zjluH68DeQhyj.jpg
+[12:54:35 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/dFxpwRpmzpVfP1zjluH68DeQhyj.jpg
+[12:54:35 INF] Received HTTP response headers after 90.7627ms - 200
+[12:54:35 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 91.563ms
+[12:54:35 INF] End processing HTTP request after 92.4672ms - 200
+[12:54:35 INF] Person 8b2d2bb4-1683-4fcd-acdf-410a06b7f238: upgraded headshot from TMDB profile 1190668 (709x1063)
+[12:54:35 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:35 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:35 INF] Received HTTP response headers after 75.599ms - 200
+[12:54:35 INF] End processing HTTP request after 76.7124ms - 200
+[12:54:36 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:36 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:36 INF] Received HTTP response headers after 250.6663ms - 200
+[12:54:36 INF] End processing HTTP request after 252.0302ms - 200
+[12:54:36 INF] Artwork rendition repair completed: 1 assets repaired, 63 canonical sets refreshed.
+[12:54:36 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:36 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:36 INF] Received HTTP response headers after 80.2998ms - 200
+[12:54:36 INF] End processing HTTP request after 82.7368ms - 200
+[12:54:36 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:36 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:36 INF] Received HTTP response headers after 61.82ms - 200
+[12:54:36 INF] End processing HTTP request after 63.8362ms - 200
+[12:54:36 INF] wikidata_reconciliation: Wikipedia description for Q189489 (en): 1894 chars
+[12:54:37 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:37 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:37 INF] Received HTTP response headers after 90.7405ms - 200
+[12:54:37 INF] End processing HTTP request after 92.1236ms - 200
+[12:54:37 INF] wikidata_reconciliation: fetched 29 person claims for QID Q189489
+[12:54:37 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Zendaya%20-%202019%20by%20Glenn%20Francis.jpg
+[12:54:37 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Zendaya%20-%202019%20by%20Glenn%20Francis.jpg
+[12:54:37 INF] Received HTTP response headers after 157.2732ms - 200
+[12:54:37 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 157.9954ms
+[12:54:37 INF] End processing HTTP request after 158.9126ms - 200
+[12:54:37 INF] Person Zendaya: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\a8388125-b006-4d8c-b392-909d5b44d959\headshot.jpg
+[12:54:37 INF] [PERF] Person enrichment a8388125-b006-4d8c-b392-909d5b44d959 ("Zendaya"): 235ms (QID=Q189489, pseudonym=False)
+[12:54:37 INF] Harvested 29 claims from wikidata_reconciliation for entity a8388125-b006-4d8c-b392-909d5b44d959
+[12:54:37 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:37 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:37 INF] Received HTTP response headers after 5.9572ms - 200
+[12:54:37 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.7821ms
+[12:54:37 INF] End processing HTTP request after 7.4584ms - 200
+[12:54:37 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/505710/images?*
+[12:54:37 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/505710/images?*
+[12:54:37 INF] Received HTTP response headers after 47.6552ms - 200
+[12:54:37 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 49.0917ms
+[12:54:37 INF] End processing HTTP request after 51.8336ms - 200
+[12:54:37 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/3WdOloHpjtjL96uVOhFRRCcYSwq.jpg
+[12:54:37 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/3WdOloHpjtjL96uVOhFRRCcYSwq.jpg
+[12:54:37 INF] Received HTTP response headers after 29.3505ms - 200
+[12:54:37 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 31.2804ms
+[12:54:37 INF] End processing HTTP request after 33.1373ms - 200
+[12:54:37 INF] Person a8388125-b006-4d8c-b392-909d5b44d959: upgraded headshot from TMDB profile 505710 (1000x1500)
+[12:54:37 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:37 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:37 INF] Received HTTP response headers after 74.5274ms - 200
+[12:54:37 INF] End processing HTTP request after 75.6378ms - 200
+[12:54:37 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:37 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:38 INF] Received HTTP response headers after 191.101ms - 200
+[12:54:38 INF] End processing HTTP request after 193.5093ms - 200
+[12:54:38 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:38 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:38 INF] Received HTTP response headers after 57.7551ms - 200
+[12:54:38 INF] End processing HTTP request after 59.1136ms - 200
+[12:54:38 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:38 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:38 INF] Received HTTP response headers after 62.8767ms - 200
+[12:54:38 INF] End processing HTTP request after 64.6917ms - 200
+[12:54:38 INF] wikidata_reconciliation: Wikipedia description for Q4947838 (en): 1520 chars
+[12:54:38 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:38 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:38 INF] Received HTTP response headers after 88.1295ms - 200
+[12:54:38 INF] End processing HTTP request after 90.2157ms - 200
+[12:54:38 INF] wikidata_reconciliation: fetched 19 person claims for QID Q4947838
+[12:54:38 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Rebecca%20Ferguson%20A%20House%20of%20Dynamite-67%20%28cropped2%29.jpg
+[12:54:38 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Rebecca%20Ferguson%20A%20House%20of%20Dynamite-67%20%28cropped2%29.jpg
+[12:54:38 INF] Received HTTP response headers after 135.1293ms - 200
+[12:54:38 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 135.9942ms
+[12:54:38 INF] End processing HTTP request after 137.0035ms - 200
+[12:54:39 INF] Person Rebecca Ferguson: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\6bf08b9e-89c4-4233-aff3-2fec6c814784\headshot.jpg
+[12:54:39 INF] [PERF] Person enrichment 6bf08b9e-89c4-4233-aff3-2fec6c814784 ("Rebecca Ferguson"): 192ms (QID=Q4947838, pseudonym=False)
+[12:54:39 INF] Harvested 19 claims from wikidata_reconciliation for entity 6bf08b9e-89c4-4233-aff3-2fec6c814784
+[12:54:39 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:39 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:39 INF] Received HTTP response headers after 7.107ms - 200
+[12:54:39 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.4457ms
+[12:54:39 INF] End processing HTTP request after 9.1062ms - 200
+[12:54:39 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/933238/images?*
+[12:54:39 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/933238/images?*
+[12:54:39 INF] Received HTTP response headers after 7.8736ms - 200
+[12:54:39 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.8744ms
+[12:54:39 INF] End processing HTTP request after 9.5198ms - 200
+[12:54:39 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/lJloTOheuQSirSLXNA3JHsrMNfH.jpg
+[12:54:39 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/lJloTOheuQSirSLXNA3JHsrMNfH.jpg
+[12:54:39 INF] Received HTTP response headers after 23.1074ms - 200
+[12:54:39 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 23.7482ms
+[12:54:39 INF] End processing HTTP request after 24.3576ms - 200
+[12:54:39 INF] Person 6bf08b9e-89c4-4233-aff3-2fec6c814784: upgraded headshot from TMDB profile 933238 (2000x3000)
+[12:54:39 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:39 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:39 INF] Received HTTP response headers after 71.7696ms - 200
+[12:54:39 INF] End processing HTTP request after 73.8111ms - 200
+[12:54:39 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:39 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:39 INF] Received HTTP response headers after 214.6357ms - 200
+[12:54:39 INF] End processing HTTP request after 218.2592ms - 200
+[12:54:40 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:40 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:40 INF] Received HTTP response headers after 66.291ms - 200
+[12:54:40 INF] End processing HTTP request after 68.831ms - 200
+[12:54:40 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:40 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:40 INF] Received HTTP response headers after 62.2195ms - 200
+[12:54:40 INF] End processing HTTP request after 63.0516ms - 200
+[12:54:40 INF] wikidata_reconciliation: Wikipedia description for Q134895 (en): 2048 chars
+[12:54:40 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:40 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:40 INF] Received HTTP response headers after 82.4009ms - 200
+[12:54:40 INF] End processing HTTP request after 84.174ms - 200
+[12:54:40 INF] wikidata_reconciliation: fetched 22 person claims for QID Q134895
+[12:54:40 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/MJK%2071654%20Javier%20Bardem%20%28The%20Roads%20Not%20Taken%2C%20Berlinale%202020%29.jpg
+[12:54:40 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/MJK%2071654%20Javier%20Bardem%20%28The%20Roads%20Not%20Taken%2C%20Berlinale%202020%29.jpg
+[12:54:40 INF] Received HTTP response headers after 207.7904ms - 200
+[12:54:40 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 208.3964ms
+[12:54:40 INF] End processing HTTP request after 209.6796ms - 200
+[12:54:40 INF] Person Javier Bardem: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\7414b636-2308-4eab-98a7-3b5eb07a5f40\headshot.jpg
+[12:54:40 INF] [PERF] Person enrichment 7414b636-2308-4eab-98a7-3b5eb07a5f40 ("Javier Bardem"): 360ms (QID=Q134895, pseudonym=False)
+[12:54:40 INF] Harvested 22 claims from wikidata_reconciliation for entity 7414b636-2308-4eab-98a7-3b5eb07a5f40
+[12:54:40 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:40 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:40 INF] Received HTTP response headers after 4.4571ms - 200
+[12:54:40 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.2424ms
+[12:54:40 INF] End processing HTTP request after 6.787ms - 200
+[12:54:40 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/3810/images?*
+[12:54:40 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/3810/images?*
+[12:54:41 INF] Received HTTP response headers after 50.6312ms - 200
+[12:54:41 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 54.1222ms
+[12:54:41 INF] End processing HTTP request after 54.7745ms - 200
+[12:54:41 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/IShnFg6ijWhpbu29dFBd9PtqQg.jpg
+[12:54:41 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/IShnFg6ijWhpbu29dFBd9PtqQg.jpg
+[12:54:41 INF] Received HTTP response headers after 25.5542ms - 200
+[12:54:41 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 26.4493ms
+[12:54:41 INF] End processing HTTP request after 27.2729ms - 200
+[12:54:41 INF] Person 7414b636-2308-4eab-98a7-3b5eb07a5f40: upgraded headshot from TMDB profile 3810 (359x539)
+[12:54:41 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:41 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:41 INF] Received HTTP response headers after 101.0293ms - 200
+[12:54:41 INF] End processing HTTP request after 102.7236ms - 200
+[12:54:41 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:41 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:41 INF] Received HTTP response headers after 176.646ms - 200
+[12:54:41 INF] End processing HTTP request after 178.3273ms - 200
+[12:54:41 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:41 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:41 INF] Received HTTP response headers after 67.3128ms - 200
+[12:54:41 INF] End processing HTTP request after 69.2624ms - 200
+[12:54:41 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:41 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:41 INF] Received HTTP response headers after 64.2667ms - 200
+[12:54:41 INF] End processing HTTP request after 67.3561ms - 200
+[12:54:41 INF] wikidata_reconciliation: Wikipedia description for Q208667 (en): 1848 chars
+[12:54:42 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:42 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:42 INF] Received HTTP response headers after 77.3902ms - 200
+[12:54:42 INF] End processing HTTP request after 78.6435ms - 200
+[12:54:42 INF] wikidata_reconciliation: fetched 22 person claims for QID Q208667
+[12:54:42 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Stellan%20Skarsg%C3%A5rd%20at%20the%202017%20Berlinalevds.jpg
+[12:54:42 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Stellan%20Skarsg%C3%A5rd%20at%20the%202017%20Berlinalevds.jpg
+[12:54:42 INF] Received HTTP response headers after 100.2093ms - 200
+[12:54:42 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 101.2542ms
+[12:54:42 INF] End processing HTTP request after 102.0321ms - 200
+[12:54:42 INF] Person Stellan Skarsgård: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\46cae361-a65e-4182-a741-b95c6ce21240\headshot.jpg
+[12:54:42 INF] [PERF] Person enrichment 46cae361-a65e-4182-a741-b95c6ce21240 ("Stellan Skarsgård"): 110ms (QID=Q208667, pseudonym=False)
+[12:54:42 INF] Harvested 22 claims from wikidata_reconciliation for entity 46cae361-a65e-4182-a741-b95c6ce21240
+[12:54:42 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:42 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:42 INF] Received HTTP response headers after 6.1573ms - 200
+[12:54:42 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.3489ms
+[12:54:42 INF] End processing HTTP request after 9.1189ms - 200
+[12:54:42 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/1640/images?*
+[12:54:42 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/1640/images?*
+[12:54:42 INF] Received HTTP response headers after 7.5309ms - 200
+[12:54:42 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.2352ms
+[12:54:42 INF] End processing HTTP request after 8.932ms - 200
+[12:54:42 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/mW7xmtGV4y79kQGn0zkKVGDMAmw.jpg
+[12:54:42 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/mW7xmtGV4y79kQGn0zkKVGDMAmw.jpg
+[12:54:42 INF] Received HTTP response headers after 23.5875ms - 200
+[12:54:42 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 24.5919ms
+[12:54:42 INF] End processing HTTP request after 25.4903ms - 200
+[12:54:42 INF] Person 46cae361-a65e-4182-a741-b95c6ce21240: upgraded headshot from TMDB profile 1640 (1285x1928)
+[12:54:42 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:42 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:42 INF] Received HTTP response headers after 79.8698ms - 200
+[12:54:42 INF] End processing HTTP request after 82.4705ms - 200
+[12:54:43 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:43 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:43 INF] ProviderHealthMonitor started — 3 providers tracked
+[12:54:43 INF] Received HTTP response headers after 128.2591ms - 200
+[12:54:43 INF] End processing HTTP request after 137.1719ms - 200
+[12:54:43 INF] ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads
+[12:54:43 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:43 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:43 INF] Received HTTP response headers after 59.0063ms - 200
+[12:54:43 INF] End processing HTTP request after 63.4379ms - 200
+[12:54:43 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:43 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:43 INF] Received HTTP response headers after 68.581ms - 200
+[12:54:43 INF] End processing HTTP request after 71.2651ms - 200
+[12:54:43 INF] wikidata_reconciliation: Wikipedia description for Q22277803 (en): 1194 chars
+[12:54:43 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:43 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:43 INF] Received HTTP response headers after 112.1468ms - 200
+[12:54:43 INF] End processing HTTP request after 113.263ms - 200
+[12:54:43 INF] wikidata_reconciliation: fetched 21 person claims for QID Q22277803
+[12:54:43 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Florence%20Pugh%20at%20the%202024%20Toronto%20International%20Film%20Festival%2013%20%28cropped%202%20%E2%80%93%20color%20adjusted%29.jpg
+[12:54:43 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Florence%20Pugh%20at%20the%202024%20Toronto%20International%20Film%20Festival%2013%20%28cropped%202%20%E2%80%93%20color%20adjusted%29.jpg
+[12:54:43 INF] Received HTTP response headers after 122.7213ms - 200
+[12:54:43 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 124.3186ms
+[12:54:43 INF] End processing HTTP request after 124.924ms - 200
+[12:54:44 INF] Person Florence Pugh: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\1f909fd9-eb2d-4ebf-9611-dbc11819da7f\headshot.jpg
+[12:54:44 INF] [PERF] Person enrichment 1f909fd9-eb2d-4ebf-9611-dbc11819da7f ("Florence Pugh"): 136ms (QID=Q22277803, pseudonym=False)
+[12:54:44 INF] Harvested 21 claims from wikidata_reconciliation for entity 1f909fd9-eb2d-4ebf-9611-dbc11819da7f
+[12:54:44 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:44 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:44 INF] Received HTTP response headers after 9.1954ms - 200
+[12:54:44 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 9.9694ms
+[12:54:44 INF] End processing HTTP request after 12.1593ms - 200
+[12:54:44 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/1373737/images?*
+[12:54:44 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/1373737/images?*
+[12:54:44 INF] Received HTTP response headers after 6.04ms - 200
+[12:54:44 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 7.0596ms
+[12:54:44 INF] End processing HTTP request after 7.5631ms - 200
+[12:54:44 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/1Uvfh7xL4U2evkhs0M3C7BbBYFf.jpg
+[12:54:44 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/1Uvfh7xL4U2evkhs0M3C7BbBYFf.jpg
+[12:54:44 INF] Received HTTP response headers after 33.3833ms - 200
+[12:54:44 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 34.8001ms
+[12:54:44 INF] End processing HTTP request after 36.7193ms - 200
+[12:54:44 INF] Person 1f909fd9-eb2d-4ebf-9611-dbc11819da7f: upgraded headshot from TMDB profile 1373737 (2000x3000)
+[12:54:44 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:44 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:44 INF] Received HTTP response headers after 96.4217ms - 200
+[12:54:44 INF] End processing HTTP request after 99.1516ms - 200
+[12:54:44 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:44 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:45 INF] Received HTTP response headers after 259.2262ms - 200
+[12:54:45 INF] End processing HTTP request after 260.1837ms - 200
+[12:54:45 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:45 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:45 INF] Received HTTP response headers after 60.6444ms - 200
+[12:54:45 INF] End processing HTTP request after 62.9179ms - 200
+[12:54:45 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:45 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:45 INF] Received HTTP response headers after 44.2792ms - 200
+[12:54:45 INF] End processing HTTP request after 45.1161ms - 200
+[12:54:45 INF] wikidata_reconciliation: Wikipedia description for Q185051 (en): 2787 chars
+[12:54:45 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:45 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:45 INF] Received HTTP response headers after 75.8769ms - 200
+[12:54:45 INF] End processing HTTP request after 77.4378ms - 200
+[12:54:45 INF] wikidata_reconciliation: fetched 35 person claims for QID Q185051
+[12:54:45 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Christopher%20Walken%202018.jpg
+[12:54:45 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Christopher%20Walken%202018.jpg
+[12:54:45 INF] Received HTTP response headers after 120.1876ms - 200
+[12:54:45 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 120.7414ms
+[12:54:45 INF] End processing HTTP request after 121.2925ms - 200
+[12:54:45 INF] Person Christopher Walken: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\b443ee76-8973-4464-8ae9-ef179bf8af22\headshot.jpg
+[12:54:45 INF] [PERF] Person enrichment b443ee76-8973-4464-8ae9-ef179bf8af22 ("Christopher Walken"): 163ms (QID=Q185051, pseudonym=False)
+[12:54:45 INF] Harvested 35 claims from wikidata_reconciliation for entity b443ee76-8973-4464-8ae9-ef179bf8af22
+[12:54:45 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:45 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:45 INF] Received HTTP response headers after 4.0519ms - 200
+[12:54:45 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 4.5441ms
+[12:54:45 INF] End processing HTTP request after 6.5326ms - 200
+[12:54:45 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/4690/images?*
+[12:54:45 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/4690/images?*
+[12:54:45 INF] Received HTTP response headers after 49.7687ms - 200
+[12:54:45 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 50.482ms
+[12:54:45 INF] End processing HTTP request after 51.1066ms - 200
+[12:54:45 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/ApgDL7nudR9T2GpjCG4vESgymO2.jpg
+[12:54:45 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/ApgDL7nudR9T2GpjCG4vESgymO2.jpg
+[12:54:45 INF] Received HTTP response headers after 32.8301ms - 200
+[12:54:45 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 33.4115ms
+[12:54:45 INF] End processing HTTP request after 34.4584ms - 200
+[12:54:45 INF] Person b443ee76-8973-4464-8ae9-ef179bf8af22: upgraded headshot from TMDB profile 4690 (756x1135)
+[12:54:45 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:45 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:45 INF] Received HTTP response headers after 74.8821ms - 200
+[12:54:45 INF] End processing HTTP request after 76.8758ms - 200
+[12:54:46 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:46 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:46 INF] Received HTTP response headers after 262.6056ms - 200
+[12:54:46 INF] End processing HTTP request after 263.535ms - 200
+[12:54:46 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:46 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:46 INF] Received HTTP response headers after 67.6406ms - 200
+[12:54:46 INF] End processing HTTP request after 68.8815ms - 200
+[12:54:46 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:46 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:46 INF] Received HTTP response headers after 84.3323ms - 200
+[12:54:46 INF] End processing HTTP request after 85.7081ms - 200
+[12:54:46 INF] wikidata_reconciliation: Wikipedia description for Q41396 (en): 1201 chars
+[12:54:46 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:46 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:47 INF] Received HTTP response headers after 88.2359ms - 200
+[12:54:47 INF] End processing HTTP request after 89.0254ms - 200
+[12:54:47 INF] wikidata_reconciliation: fetched 26 person claims for QID Q41396
+[12:54:47 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Josh%20Brolin%20TIFF%202025%20%28cropped%29.jpg
+[12:54:47 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Josh%20Brolin%20TIFF%202025%20%28cropped%29.jpg
+[12:54:47 INF] Received HTTP response headers after 134.5979ms - 200
+[12:54:47 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 136.2001ms
+[12:54:47 INF] End processing HTTP request after 137.1161ms - 200
+[12:54:47 INF] Person Josh Brolin: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\85dd2890-8268-4e15-9104-c5be25df944c\headshot.jpg
+[12:54:47 INF] [PERF] Person enrichment 85dd2890-8268-4e15-9104-c5be25df944c ("Josh Brolin"): 153ms (QID=Q41396, pseudonym=False)
+[12:54:47 INF] Harvested 26 claims from wikidata_reconciliation for entity 85dd2890-8268-4e15-9104-c5be25df944c
+[12:54:47 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:47 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:47 INF] Received HTTP response headers after 4.1591ms - 200
+[12:54:47 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 4.8271ms
+[12:54:47 INF] End processing HTTP request after 6.3195ms - 200
+[12:54:47 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/16851/images?*
+[12:54:47 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/16851/images?*
+[12:54:47 INF] Received HTTP response headers after 8.1496ms - 200
+[12:54:47 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.6873ms
+[12:54:47 INF] End processing HTTP request after 9.3261ms - 200
+[12:54:47 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/sX2etBbIkxRaCsATyw5ZpOVMPTD.jpg
+[12:54:47 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/sX2etBbIkxRaCsATyw5ZpOVMPTD.jpg
+[12:54:47 INF] Received HTTP response headers after 23.2685ms - 200
+[12:54:47 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 23.8713ms
+[12:54:47 INF] End processing HTTP request after 24.7938ms - 200
+[12:54:47 INF] Person 85dd2890-8268-4e15-9104-c5be25df944c: upgraded headshot from TMDB profile 16851 (1200x1800)
+[12:54:47 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:47 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:47 INF] Received HTTP response headers after 74.0023ms - 200
+[12:54:47 INF] End processing HTTP request after 74.8737ms - 200
+[12:54:47 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:47 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:47 INF] Received HTTP response headers after 164.4124ms - 200
+[12:54:47 INF] End processing HTTP request after 165.6994ms - 200
+[12:54:48 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:48 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:48 INF] Received HTTP response headers after 58.938ms - 200
+[12:54:48 INF] End processing HTTP request after 59.8581ms - 200
+[12:54:48 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:48 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:48 INF] Hardware profile cached: tier=low, backend=cuda, 0.0 tok/s (benchmarked 03/31/2026 21:35:03)
+[12:54:48 INF] Received HTTP response headers after 67.4048ms - 200
+[12:54:48 INF] End processing HTTP request after 69.4345ms - 200
+[12:54:48 INF] wikidata_reconciliation: Wikipedia description for Q469954 (en): 1368 chars
+[12:54:48 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:48 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:48 INF] Received HTTP response headers after 74.4075ms - 200
+[12:54:48 INF] End processing HTTP request after 75.1993ms - 200
+[12:54:48 INF] wikidata_reconciliation: fetched 24 person claims for QID Q469954
+[12:54:48 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Austin%20Butler%20at%20the%202025%20Cannes%20Film%20Festival%2002.jpg
+[12:54:48 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Austin%20Butler%20at%20the%202025%20Cannes%20Film%20Festival%2002.jpg
+[12:54:48 INF] Received HTTP response headers after 141.2496ms - 200
+[12:54:48 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 141.8506ms
+[12:54:48 INF] End processing HTTP request after 142.4011ms - 200
+[12:54:48 INF] Person Austin Butler: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\d9af4d7e-4fc4-47ba-9a3a-e9a7fdbc28d7\headshot.jpg
+[12:54:48 INF] [PERF] Person enrichment d9af4d7e-4fc4-47ba-9a3a-e9a7fdbc28d7 ("Austin Butler"): 321ms (QID=Q469954, pseudonym=False)
+[12:54:48 INF] Harvested 24 claims from wikidata_reconciliation for entity d9af4d7e-4fc4-47ba-9a3a-e9a7fdbc28d7
+[12:54:48 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:48 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:48 INF] Received HTTP response headers after 6.2268ms - 200
+[12:54:48 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 7.3044ms
+[12:54:48 INF] End processing HTTP request after 7.8275ms - 200
+[12:54:48 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/86654/images?*
+[12:54:48 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/86654/images?*
+[12:54:48 INF] Received HTTP response headers after 31.8278ms - 200
+[12:54:48 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 32.6086ms
+[12:54:48 INF] End processing HTTP request after 33.2342ms - 200
+[12:54:48 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/atdAs4pFGjUQ4m2W8kJYly7N6cC.jpg
+[12:54:48 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/atdAs4pFGjUQ4m2W8kJYly7N6cC.jpg
+[12:54:49 INF] Received HTTP response headers after 23.1992ms - 200
+[12:54:49 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 23.783ms
+[12:54:49 INF] End processing HTTP request after 24.2834ms - 200
+[12:54:49 INF] Person d9af4d7e-4fc4-47ba-9a3a-e9a7fdbc28d7: upgraded headshot from TMDB profile 86654 (735x1103)
+[12:54:49 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:49 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:49 INF] Received HTTP response headers after 102.8091ms - 200
+[12:54:49 INF] End processing HTTP request after 103.7805ms - 200
+[12:54:49 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:49 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:49 INF] Received HTTP response headers after 326.5376ms - 200
+[12:54:49 INF] End processing HTTP request after 327.4452ms - 200
+[12:54:49 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:49 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:49 INF] Received HTTP response headers after 68.1563ms - 200
+[12:54:49 INF] End processing HTTP request after 69.6511ms - 200
+[12:54:49 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:49 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:49 INF] Received HTTP response headers after 61.0722ms - 200
+[12:54:49 INF] End processing HTTP request after 62.3444ms - 200
+[12:54:49 INF] wikidata_reconciliation: Wikipedia description for Q44158 (en): 1453 chars
+[12:54:50 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:50 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:50 INF] Received HTTP response headers after 93.3879ms - 200
+[12:54:50 INF] End processing HTTP request after 94.748ms - 200
+[12:54:50 INF] wikidata_reconciliation: fetched 25 person claims for QID Q44158
+[12:54:50 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Dave%20Bautista%20by%20Gage%20Skidmore%202.jpg
+[12:54:50 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Dave%20Bautista%20by%20Gage%20Skidmore%202.jpg
+[12:54:50 INF] Received HTTP response headers after 122.2986ms - 200
+[12:54:50 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 123.6685ms
+[12:54:50 INF] End processing HTTP request after 126.5245ms - 200
+[12:54:50 INF] Person Dave Bautista: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\b842419a-c0c3-4b27-81ba-1d0e14ab7f98\headshot.jpg
+[12:54:50 INF] [PERF] Person enrichment b842419a-c0c3-4b27-81ba-1d0e14ab7f98 ("Dave Bautista"): 347ms (QID=Q44158, pseudonym=False)
+[12:54:50 INF] Harvested 25 claims from wikidata_reconciliation for entity b842419a-c0c3-4b27-81ba-1d0e14ab7f98
+[12:54:50 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:50 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:50 INF] Received HTTP response headers after 4.9151ms - 200
+[12:54:50 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.5175ms
+[12:54:50 INF] End processing HTTP request after 6.1262ms - 200
+[12:54:50 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/543530/images?*
+[12:54:50 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/543530/images?*
+[12:54:50 INF] Received HTTP response headers after 9.7879ms - 200
+[12:54:50 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 10.5446ms
+[12:54:50 INF] End processing HTTP request after 11.3543ms - 200
+[12:54:50 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/snk6JiXOOoRjPtHU5VMoy6qbd32.jpg
+[12:54:50 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/snk6JiXOOoRjPtHU5VMoy6qbd32.jpg
+[12:54:50 INF] Received HTTP response headers after 38.3641ms - 200
+[12:54:50 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 43.6517ms
+[12:54:50 INF] End processing HTTP request after 44.3491ms - 200
+[12:54:50 INF] Person b842419a-c0c3-4b27-81ba-1d0e14ab7f98: upgraded headshot from TMDB profile 543530 (1066x1600)
+[12:54:50 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:50 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:51 INF] Received HTTP response headers after 76.1534ms - 200
+[12:54:51 INF] End processing HTTP request after 77.6761ms - 200
+[12:54:51 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:51 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:51 INF] Received HTTP response headers after 250.4016ms - 200
+[12:54:51 INF] End processing HTTP request after 251.483ms - 200
+[12:54:51 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:51 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:51 INF] Received HTTP response headers after 65.1811ms - 200
+[12:54:51 INF] End processing HTTP request after 65.9921ms - 200
+[12:54:51 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:51 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:51 INF] Received HTTP response headers after 67.7781ms - 200
+[12:54:51 INF] End processing HTTP request after 76.8484ms - 200
+[12:54:51 INF] wikidata_reconciliation: Wikipedia description for Q231096 (en): 2222 chars
+[12:54:52 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:52 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:52 INF] Received HTTP response headers after 81.7922ms - 200
+[12:54:52 INF] End processing HTTP request after 88.5565ms - 200
+[12:54:52 INF] wikidata_reconciliation: fetched 21 person claims for QID Q231096
+[12:54:52 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/L%C3%A9a%20Seydoux%20Cannes%202016%20%28cropped%29.jpg
+[12:54:52 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/L%C3%A9a%20Seydoux%20Cannes%202016%20%28cropped%29.jpg
+[12:54:52 INF] Received HTTP response headers after 119.554ms - 200
+[12:54:52 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 120.3234ms
+[12:54:52 INF] End processing HTTP request after 121.3995ms - 200
+[12:54:52 INF] Person Léa Seydoux: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\ee55fb7f-7b1a-4355-9fab-7279f82efd7d\headshot.jpg
+[12:54:52 INF] [PERF] Person enrichment ee55fb7f-7b1a-4355-9fab-7279f82efd7d ("Léa Seydoux"): 125ms (QID=Q231096, pseudonym=False)
+[12:54:52 INF] Harvested 21 claims from wikidata_reconciliation for entity ee55fb7f-7b1a-4355-9fab-7279f82efd7d
+[12:54:52 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:52 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:52 INF] Received HTTP response headers after 12.9773ms - 200
+[12:54:52 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 13.6167ms
+[12:54:52 INF] End processing HTTP request after 14.1202ms - 200
+[12:54:52 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/121529/images?*
+[12:54:52 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/121529/images?*
+[12:54:52 INF] Received HTTP response headers after 12.5789ms - 200
+[12:54:52 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 13.766ms
+[12:54:52 INF] End processing HTTP request after 14.5741ms - 200
+[12:54:52 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/xcYZOScYqziWjPcf3xIfQUMBYlZ.jpg
+[12:54:52 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/xcYZOScYqziWjPcf3xIfQUMBYlZ.jpg
+[12:54:52 INF] Received HTTP response headers after 25.1867ms - 200
+[12:54:52 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 25.9027ms
+[12:54:52 INF] End processing HTTP request after 28.7092ms - 200
+[12:54:52 INF] Person ee55fb7f-7b1a-4355-9fab-7279f82efd7d: upgraded headshot from TMDB profile 121529 (824x1236)
+[12:54:52 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:52 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:52 INF] Received HTTP response headers after 65.8179ms - 200
+[12:54:52 INF] End processing HTTP request after 66.825ms - 200
+[12:54:52 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:52 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:52 INF] Received HTTP response headers after 177.3176ms - 200
+[12:54:52 INF] End processing HTTP request after 178.6677ms - 200
+[12:54:53 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:53 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:53 INF] Received HTTP response headers after 47.4541ms - 200
+[12:54:53 INF] End processing HTTP request after 49.2613ms - 200
+[12:54:53 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:53 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:53 INF] Received HTTP response headers after 60.1653ms - 200
+[12:54:53 INF] End processing HTTP request after 61.2629ms - 200
+[12:54:53 INF] wikidata_reconciliation: Wikipedia description for Q3491566 (en): 279 chars
+[12:54:53 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:53 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:53 INF] Received HTTP response headers after 54.0513ms - 200
+[12:54:53 INF] End processing HTTP request after 55.0144ms - 200
+[12:54:53 INF] wikidata_reconciliation: fetched 16 person claims for QID Q3491566
+[12:54:53 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Souheila%20yacoub%202021%202.jpg
+[12:54:53 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Souheila%20yacoub%202021%202.jpg
+[12:54:53 INF] Received HTTP response headers after 105.3321ms - 200
+[12:54:53 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 105.9626ms
+[12:54:53 INF] End processing HTTP request after 106.5117ms - 200
+[12:54:53 INF] Person Souheila Yacoub: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\f9d35b0e-bebc-40c3-a283-90b059f8679c\headshot.jpg
+[12:54:53 INF] [PERF] Person enrichment f9d35b0e-bebc-40c3-a283-90b059f8679c ("Souheila Yacoub"): 113ms (QID=Q3491566, pseudonym=False)
+[12:54:53 INF] Harvested 16 claims from wikidata_reconciliation for entity f9d35b0e-bebc-40c3-a283-90b059f8679c
+[12:54:53 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:53 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:53 INF] Received HTTP response headers after 5.3889ms - 200
+[12:54:53 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.9552ms
+[12:54:53 INF] End processing HTTP request after 6.3751ms - 200
+[12:54:53 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/2037046/images?*
+[12:54:53 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/2037046/images?*
+[12:54:53 INF] Received HTTP response headers after 45.6431ms - 200
+[12:54:53 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 46.6377ms
+[12:54:53 INF] End processing HTTP request after 47.195ms - 200
+[12:54:53 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/aD8M9j8uIVHeHHPzHhN24Lh7HvN.jpg
+[12:54:53 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/aD8M9j8uIVHeHHPzHhN24Lh7HvN.jpg
+[12:54:53 INF] Received HTTP response headers after 27.2768ms - 200
+[12:54:53 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 28.0781ms
+[12:54:53 INF] End processing HTTP request after 28.6277ms - 200
+[12:54:53 INF] Person f9d35b0e-bebc-40c3-a283-90b059f8679c: upgraded headshot from TMDB profile 2037046 (960x1440)
+[12:54:53 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:53 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:54 INF] Received HTTP response headers after 89.0949ms - 200
+[12:54:54 INF] End processing HTTP request after 91.1067ms - 200
+[12:54:54 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:54 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:54 INF] Received HTTP response headers after 223.8671ms - 200
+[12:54:54 INF] End processing HTTP request after 227.2257ms - 200
+[12:54:54 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:54 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:54 INF] Received HTTP response headers after 77.1113ms - 200
+[12:54:54 INF] End processing HTTP request after 81.6307ms - 200
+[12:54:54 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:54 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:54 INF] Received HTTP response headers after 63.6687ms - 200
+[12:54:54 INF] End processing HTTP request after 65.2837ms - 200
+[12:54:54 INF] wikidata_reconciliation: Wikipedia description for Q234679 (en): 1765 chars
+[12:54:55 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:55 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:55 INF] Received HTTP response headers after 100.866ms - 200
+[12:54:55 INF] End processing HTTP request after 103.2275ms - 200
+[12:54:55 INF] wikidata_reconciliation: fetched 27 person claims for QID Q234679
+[12:54:55 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Actress%20Charlotte%20Rampling%20At%20the%20premiere%20of%20the%20movie%20%2245%20Years%22%20%28cropped1%29.jpg
+[12:54:55 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Actress%20Charlotte%20Rampling%20At%20the%20premiere%20of%20the%20movie%20%2245%20Years%22%20%28cropped1%29.jpg
+[12:54:55 INF] Received HTTP response headers after 151.9874ms - 200
+[12:54:55 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 152.5661ms
+[12:54:55 INF] End processing HTTP request after 153.1276ms - 200
+[12:54:55 INF] Person Charlotte Rampling: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\dda159c9-dc88-425d-9b9f-41e6f86cd4d1\headshot.jpg
+[12:54:55 INF] [PERF] Person enrichment dda159c9-dc88-425d-9b9f-41e6f86cd4d1 ("Charlotte Rampling"): 163ms (QID=Q234679, pseudonym=False)
+[12:54:55 INF] Harvested 27 claims from wikidata_reconciliation for entity dda159c9-dc88-425d-9b9f-41e6f86cd4d1
+[12:54:55 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:55 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:55 INF] Received HTTP response headers after 4.5982ms - 200
+[12:54:55 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.0157ms
+[12:54:55 INF] End processing HTTP request after 5.4721ms - 200
+[12:54:55 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/44079/images?*
+[12:54:55 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/44079/images?*
+[12:54:55 INF] Received HTTP response headers after 6.1865ms - 200
+[12:54:55 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.6147ms
+[12:54:55 INF] End processing HTTP request after 7.0515ms - 200
+[12:54:55 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/Htvl9mN6mlf2a18RAFzNXF3RiG.jpg
+[12:54:55 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/Htvl9mN6mlf2a18RAFzNXF3RiG.jpg
+[12:54:55 INF] Received HTTP response headers after 24.6922ms - 200
+[12:54:55 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 25.2644ms
+[12:54:55 INF] End processing HTTP request after 25.7334ms - 200
+[12:54:55 INF] Person dda159c9-dc88-425d-9b9f-41e6f86cd4d1: upgraded headshot from TMDB profile 44079 (640x960)
+[12:54:55 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:55 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:55 INF] Received HTTP response headers after 100.5913ms - 200
+[12:54:55 INF] End processing HTTP request after 101.4938ms - 200
+[12:54:55 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:55 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:56 INF] Received HTTP response headers after 430.5017ms - 200
+[12:54:56 INF] End processing HTTP request after 434.505ms - 200
+[12:54:56 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:56 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:56 INF] Received HTTP response headers after 65.1978ms - 200
+[12:54:56 INF] End processing HTTP request after 66.1051ms - 200
+[12:54:56 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:56 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:56 INF] Received HTTP response headers after 59.2599ms - 200
+[12:54:56 INF] End processing HTTP request after 60.422ms - 200
+[12:54:56 INF] wikidata_reconciliation: Wikipedia description for Q20882479 (en): 1154 chars
+[12:54:56 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:56 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:56 INF] Received HTTP response headers after 74.3132ms - 200
+[12:54:56 INF] End processing HTTP request after 76.6269ms - 200
+[12:54:56 INF] wikidata_reconciliation: fetched 27 person claims for QID Q20882479
+[12:54:56 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Anya%20Taylor-Joy%20at%20the%202025%20Toronto%20International%20Film%20Festival.%2007%20%28cropped%29.jpg
+[12:54:56 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Anya%20Taylor-Joy%20at%20the%202025%20Toronto%20International%20Film%20Festival.%2007%20%28cropped%29.jpg
+[12:54:56 INF] Received HTTP response headers after 134.3784ms - 200
+[12:54:56 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 135.3537ms
+[12:54:56 INF] End processing HTTP request after 135.9787ms - 200
+[12:54:56 INF] Person Anya Taylor-Joy: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\a303d1fb-f546-4494-aa37-c40d6edcde12\headshot.jpg
+[12:54:56 INF] [PERF] Person enrichment a303d1fb-f546-4494-aa37-c40d6edcde12 ("Anya Taylor-Joy"): 294ms (QID=Q20882479, pseudonym=False)
+[12:54:56 INF] Harvested 27 claims from wikidata_reconciliation for entity a303d1fb-f546-4494-aa37-c40d6edcde12
+[12:54:56 INF] Start processing HTTP request GET https://api.themoviedb.org/3/find/Q20882479?*
+[12:54:56 INF] Sending HTTP request GET https://api.themoviedb.org/3/find/Q20882479?*
+[12:54:56 INF] Received HTTP response headers after 6.1873ms - 200
+[12:54:56 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.6769ms
+[12:54:56 INF] End processing HTTP request after 7.9213ms - 200
+[12:54:57 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:57 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:57 INF] Received HTTP response headers after 4.1642ms - 200
+[12:54:57 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 4.5909ms
+[12:54:57 INF] End processing HTTP request after 5.0995ms - 200
+[12:54:57 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/1397778/images?*
+[12:54:57 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/1397778/images?*
+[12:54:57 INF] Received HTTP response headers after 6.1314ms - 200
+[12:54:57 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.5649ms
+[12:54:57 INF] End processing HTTP request after 6.9771ms - 200
+[12:54:57 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/jxAbDJWvz4p1hoFpJYG5vY2dQmq.jpg
+[12:54:57 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/jxAbDJWvz4p1hoFpJYG5vY2dQmq.jpg
+[12:54:57 INF] Received HTTP response headers after 23.4039ms - 200
+[12:54:57 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 24.189ms
+[12:54:57 INF] End processing HTTP request after 24.7154ms - 200
+[12:54:57 INF] Person a303d1fb-f546-4494-aa37-c40d6edcde12: upgraded headshot from TMDB profile 1397778 (2000x3000)
+[12:54:57 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:57 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:57 INF] Received HTTP response headers after 63.2471ms - 200
+[12:54:57 INF] End processing HTTP request after 65.1936ms - 200
+[12:54:57 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:57 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:57 INF] Received HTTP response headers after 159.7306ms - 200
+[12:54:57 INF] End processing HTTP request after 160.6399ms - 200
+[12:54:58 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:58 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:58 INF] Received HTTP response headers after 54.5009ms - 200
+[12:54:58 INF] End processing HTTP request after 56.1519ms - 200
+[12:54:58 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:58 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:58 INF] Received HTTP response headers after 61.931ms - 200
+[12:54:58 INF] End processing HTTP request after 62.7874ms - 200
+[12:54:58 INF] wikidata_reconciliation: Wikipedia description for Q40571737 (en): 352 chars
+[12:54:58 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:58 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:54:58 INF] Received HTTP response headers after 84.0192ms - 200
+[12:54:58 INF] End processing HTTP request after 85.6156ms - 200
+[12:54:58 INF] wikidata_reconciliation: fetched 19 person claims for QID Q40571737
+[12:54:58 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Stuttgart%202024%20-%20ComicCon%20-%20Babs%20Olusanmokun%20-%20by-RaBoe%20039%201.jpg
+[12:54:58 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Stuttgart%202024%20-%20ComicCon%20-%20Babs%20Olusanmokun%20-%20by-RaBoe%20039%201.jpg
+[12:54:58 INF] Received HTTP response headers after 116.1659ms - 200
+[12:54:58 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 119.2175ms
+[12:54:58 INF] End processing HTTP request after 123.7292ms - 200
+[12:54:59 INF] Person Babs Olusanmokun: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\d1f8439b-066a-4874-9c10-3187e777efab\headshot.jpg
+[12:54:59 INF] [PERF] Person enrichment d1f8439b-066a-4874-9c10-3187e777efab ("Babs Olusanmokun"): 733ms (QID=Q40571737, pseudonym=False)
+[12:54:59 INF] Harvested 19 claims from wikidata_reconciliation for entity d1f8439b-066a-4874-9c10-3187e777efab
+[12:54:59 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:59 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:54:59 INF] Received HTTP response headers after 14.8343ms - 200
+[12:54:59 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 15.3482ms
+[12:54:59 INF] End processing HTTP request after 15.8491ms - 200
+[12:54:59 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/205923/images?*
+[12:54:59 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/205923/images?*
+[12:54:59 INF] Received HTTP response headers after 5.804ms - 200
+[12:54:59 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.6512ms
+[12:54:59 INF] End processing HTTP request after 7.1355ms - 200
+[12:54:59 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/bqycmpUrpISeLzQniiYwAZ5X1RN.jpg
+[12:54:59 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/bqycmpUrpISeLzQniiYwAZ5X1RN.jpg
+[12:54:59 INF] Received HTTP response headers after 28.9321ms - 200
+[12:54:59 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 29.5365ms
+[12:54:59 INF] End processing HTTP request after 30.0263ms - 200
+[12:54:59 INF] Person d1f8439b-066a-4874-9c10-3187e777efab: upgraded headshot from TMDB profile 205923 (1401x2101)
+[12:54:59 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:59 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:59 INF] Received HTTP response headers after 71.192ms - 200
+[12:54:59 INF] End processing HTTP request after 71.966ms - 200
+[12:54:59 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:54:59 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:00 INF] Received HTTP response headers after 344.4868ms - 200
+[12:55:00 INF] End processing HTTP request after 345.2375ms - 200
+[12:55:00 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:00 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:00 INF] Received HTTP response headers after 52.543ms - 200
+[12:55:00 INF] End processing HTTP request after 53.386ms - 200
+[12:55:00 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:00 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:00 INF] Received HTTP response headers after 59.024ms - 200
+[12:55:00 INF] End processing HTTP request after 60.4544ms - 200
+[12:55:00 INF] wikidata_reconciliation: Wikipedia description for Q4809088 (en): 124 chars
+[12:55:00 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:00 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:00 INF] Received HTTP response headers after 72.388ms - 200
+[12:55:00 INF] End processing HTTP request after 74.7745ms - 200
+[12:55:00 INF] wikidata_reconciliation: fetched 18 person claims for QID Q4809088
+[12:55:00 INF] [PERF] Person enrichment 7a1b2fcd-2606-4018-b85a-2d66138c7ffb ("Roger Yuan"): 3ms (QID=Q4809088, pseudonym=False)
+[12:55:00 INF] Harvested 18 claims from wikidata_reconciliation for entity 7a1b2fcd-2606-4018-b85a-2d66138c7ffb
+[12:55:00 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:00 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:00 INF] Received HTTP response headers after 5.1081ms - 200
+[12:55:00 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.0335ms
+[12:55:00 INF] End processing HTTP request after 6.5643ms - 200
+[12:55:00 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/2974/images?*
+[12:55:00 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/2974/images?*
+[12:55:00 INF] Received HTTP response headers after 9.238ms - 200
+[12:55:00 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 11.1502ms
+[12:55:00 INF] End processing HTTP request after 12.3761ms - 200
+[12:55:00 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/jHdxbT6n3ToYKw0DVFIUkva86SO.jpg
+[12:55:00 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/jHdxbT6n3ToYKw0DVFIUkva86SO.jpg
+[12:55:00 INF] Received HTTP response headers after 23.3679ms - 200
+[12:55:00 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 24.2248ms
+[12:55:00 INF] End processing HTTP request after 24.7632ms - 200
+[12:55:01 INF] Person 7a1b2fcd-2606-4018-b85a-2d66138c7ffb: upgraded headshot from TMDB profile 2974 (1365x2048)
+[12:55:01 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:01 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:01 INF] Received HTTP response headers after 65.1473ms - 200
+[12:55:01 INF] End processing HTTP request after 66.4109ms - 200
+[12:55:01 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:01 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:01 INF] Received HTTP response headers after 461.962ms - 200
+[12:55:01 INF] End processing HTTP request after 464.923ms - 200
+[12:55:01 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:01 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:01 INF] Received HTTP response headers after 58.6423ms - 200
+[12:55:01 INF] End processing HTTP request after 59.7281ms - 200
+[12:55:01 INF] wikidata_reconciliation: fetched 14 person claims for QID Q106890375
+[12:55:01 INF] [PERF] Person enrichment 3dc53ec0-5caa-4822-bac0-49d3ceb14587 ("Amer El-Erwadi"): 3ms (QID=Q106890375, pseudonym=False)
+[12:55:01 INF] Harvested 14 claims from wikidata_reconciliation for entity 3dc53ec0-5caa-4822-bac0-49d3ceb14587
+[12:55:01 INF] Start processing HTTP request GET https://api.themoviedb.org/3/find/Q106890375?*
+[12:55:01 INF] Sending HTTP request GET https://api.themoviedb.org/3/find/Q106890375?*
+[12:55:01 INF] Received HTTP response headers after 102.0493ms - 200
+[12:55:01 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 102.5405ms
+[12:55:01 INF] End processing HTTP request after 103.1277ms - 200
+[12:55:01 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:01 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Received HTTP response headers after 12.0263ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 67.593ms
+[12:55:02 INF] End processing HTTP request after 73.0968ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/3012028/images?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/3012028/images?*
+[12:55:02 INF] Received HTTP response headers after 52.8462ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 54.4556ms
+[12:55:02 INF] End processing HTTP request after 55.5868ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/h7ph8lhpL9TqJUHjDlpvXJtPdhZ.jpg
+[12:55:02 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/h7ph8lhpL9TqJUHjDlpvXJtPdhZ.jpg
+[12:55:02 INF] Received HTTP response headers after 24.54ms - 200
+[12:55:02 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 25.4454ms
+[12:55:02 INF] End processing HTTP request after 25.9099ms - 200
+[12:55:02 INF] Person 3dc53ec0-5caa-4822-bac0-49d3ceb14587: upgraded headshot from TMDB profile 3012028 (1800x2700)
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Received HTTP response headers after 4.9335ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.4084ms
+[12:55:02 INF] End processing HTTP request after 7.4916ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/137427/images?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/137427/images?*
+[12:55:02 INF] Received HTTP response headers after 22.4806ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 23.5727ms
+[12:55:02 INF] End processing HTTP request after 24.0932ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Received HTTP response headers after 10.0191ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 10.5189ms
+[12:55:02 INF] End processing HTTP request after 11.7939ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/564940/images?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/564940/images?*
+[12:55:02 INF] Received HTTP response headers after 4.2448ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 4.7845ms
+[12:55:02 INF] End processing HTTP request after 5.2391ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/find/Q942932?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/find/Q942932?*
+[12:55:02 INF] Received HTTP response headers after 6.2604ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.7277ms
+[12:55:02 INF] End processing HTTP request after 7.1907ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Received HTTP response headers after 3.8044ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 4.1935ms
+[12:55:02 INF] End processing HTTP request after 4.6661ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/27/images?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/27/images?*
+[12:55:02 INF] Received HTTP response headers after 5.9564ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 7.1529ms
+[12:55:02 INF] End processing HTTP request after 8.8004ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:02 INF] Received HTTP response headers after 4.7677ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.2044ms
+[12:55:02 INF] End processing HTTP request after 6.1227ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/947/images?*
+[12:55:02 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/947/images?*
+[12:55:02 INF] Received HTTP response headers after 4.8645ms - 200
+[12:55:02 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.321ms
+[12:55:02 INF] End processing HTTP request after 5.7003ms - 200
+[12:55:02 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/tpQnDeHY15szIXvpnhlprufz4d.jpg
+[12:55:02 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/tpQnDeHY15szIXvpnhlprufz4d.jpg
+[12:55:02 INF] Received HTTP response headers after 23.6225ms - 200
+[12:55:02 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 24.9521ms
+[12:55:02 INF] End processing HTTP request after 25.7594ms - 200
+[12:55:02 INF] Person 4a7ab91c-4860-45a8-8f9e-3342fc5c5387: upgraded headshot from TMDB profile 947 (494x741)
+[12:55:02 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:02 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:02 INF] Received HTTP response headers after 80.3659ms - 200
+[12:55:02 INF] End processing HTTP request after 81.0488ms - 200
+[12:55:03 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:03 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:03 INF] Next activity prune at 07/07/2026 03:00:00 -05:00
+[12:55:03 INF] Received HTTP response headers after 119.862ms - 200
+[12:55:03 INF] End processing HTTP request after 120.6352ms - 200
+[12:55:03 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:03 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:03 INF] Received HTTP response headers after 180.5513ms - 200
+[12:55:03 INF] End processing HTTP request after 182.3266ms - 200
+[12:55:03 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:03 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:03 INF] Received HTTP response headers after 144.7609ms - 200
+[12:55:03 INF] End processing HTTP request after 146.4585ms - 200
+[12:55:04 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:04 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:04 INF] Received HTTP response headers after 54.6036ms - 200
+[12:55:04 INF] End processing HTTP request after 55.9215ms - 200
+[12:55:04 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:04 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:04 INF] Received HTTP response headers after 95.4805ms - 200
+[12:55:04 INF] End processing HTTP request after 96.7805ms - 200
+[12:55:04 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:04 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:04 INF] Received HTTP response headers after 175.2248ms - 200
+[12:55:04 INF] End processing HTTP request after 178.7771ms - 200
+[12:55:05 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:05 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:05 INF] Received HTTP response headers after 73.8101ms - 200
+[12:55:05 INF] End processing HTTP request after 74.6172ms - 200
+[12:55:05 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:05 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:05 INF] Received HTTP response headers after 67.3626ms - 200
+[12:55:05 INF] End processing HTTP request after 68.1619ms - 200
+[12:55:05 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:05 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:05 INF] Received HTTP response headers after 100.7335ms - 200
+[12:55:05 INF] End processing HTTP request after 101.5657ms - 200
+[12:55:06 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:06 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:06 INF] Received HTTP response headers after 74.0878ms - 200
+[12:55:06 INF] End processing HTTP request after 79.3172ms - 200
+[12:55:06 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:06 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:06 INF] Received HTTP response headers after 67.382ms - 200
+[12:55:06 INF] End processing HTTP request after 69.0557ms - 200
+[12:55:06 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:06 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:06 INF] Received HTTP response headers after 81.9841ms - 200
+[12:55:06 INF] End processing HTTP request after 84.6121ms - 200
+[12:55:07 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:07 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:07 INF] Received HTTP response headers after 80.604ms - 200
+[12:55:07 INF] End processing HTTP request after 81.8607ms - 200
+[12:55:07 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:07 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:07 INF] Received HTTP response headers after 110.6096ms - 200
+[12:55:07 INF] End processing HTTP request after 111.5074ms - 200
+[12:55:07 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:07 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:07 INF] Received HTTP response headers after 55.3491ms - 200
+[12:55:07 INF] End processing HTTP request after 56.8223ms - 200
+[12:55:08 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:08 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:08 INF] Received HTTP response headers after 42.5109ms - 200
+[12:55:08 INF] End processing HTTP request after 43.5959ms - 200
+[12:55:08 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:08 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:08 INF] Received HTTP response headers after 76.5452ms - 200
+[12:55:08 INF] End processing HTTP request after 78.5728ms - 200
+[12:55:08 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:08 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:08 INF] Received HTTP response headers after 88.3343ms - 200
+[12:55:08 INF] End processing HTTP request after 89.9887ms - 200
+[12:55:09 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:09 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:09 INF] Received HTTP response headers after 80.8198ms - 200
+[12:55:09 INF] End processing HTTP request after 83.2002ms - 200
+[12:55:09 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:09 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:09 INF] Received HTTP response headers after 98.7585ms - 200
+[12:55:09 INF] End processing HTTP request after 99.8314ms - 200
+[12:55:09 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:09 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:09 INF] Received HTTP response headers after 81.8429ms - 200
+[12:55:09 INF] End processing HTTP request after 82.6809ms - 200
+[12:55:10 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:10 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:10 INF] Received HTTP response headers after 81.3841ms - 200
+[12:55:10 INF] End processing HTTP request after 83.4923ms - 200
+[12:55:10 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:10 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:10 INF] Received HTTP response headers after 92.7677ms - 200
+[12:55:10 INF] End processing HTTP request after 97.3468ms - 200
+[12:55:10 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:10 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:10 INF] Received HTTP response headers after 110.9793ms - 200
+[12:55:10 INF] End processing HTTP request after 112.0714ms - 200
+[12:55:11 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:11 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:11 INF] Received HTTP response headers after 104.6826ms - 200
+[12:55:11 INF] End processing HTTP request after 105.584ms - 200
+[12:55:11 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:11 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:11 INF] Received HTTP response headers after 51.1509ms - 200
+[12:55:11 INF] End processing HTTP request after 51.9609ms - 200
+[12:55:11 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:11 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:11 INF] Received HTTP response headers after 59.0184ms - 200
+[12:55:11 INF] End processing HTTP request after 62.1924ms - 200
+[12:55:11 INF] Person reconciliation auto-accepted: 'Toby Hefferman' (Director) -> Q28031404 'Toby Hefferman' (score=0.81)
+[12:55:11 INF] Person enrichment writeback: Toby Hefferman -> Toby Hefferman (Q28031404) (role: Director)
+[12:55:11 INF] Persisted reconciled person 'Toby Hefferman' (Q28031404) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Director
+[12:55:12 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:12 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:12 INF] Received HTTP response headers after 89.6321ms - 200
+[12:55:12 INF] End processing HTTP request after 92.835ms - 200
+[12:55:12 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:12 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:12 INF] Received HTTP response headers after 39.1691ms - 200
+[12:55:12 INF] End processing HTTP request after 40.2197ms - 200
+[12:55:12 INF] wikidata_reconciliation: fetched 5 person claims for QID Q28031404
+[12:55:12 INF] [PERF] Person enrichment 74673136-2c7b-41c6-a572-71b4f49357e9 ("Toby Hefferman"): 2ms (QID=Q28031404, pseudonym=False)
+[12:55:12 INF] Harvested 5 claims from wikidata_reconciliation for entity 74673136-2c7b-41c6-a572-71b4f49357e9
+[12:55:12 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:12 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:12 INF] Received HTTP response headers after 5.7138ms - 200
+[12:55:12 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.148ms
+[12:55:12 INF] End processing HTTP request after 6.5285ms - 200
+[12:55:12 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/1724987/images?*
+[12:55:12 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/1724987/images?*
+[12:55:12 INF] Received HTTP response headers after 49.8158ms - 200
+[12:55:12 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 50.2956ms
+[12:55:12 INF] End processing HTTP request after 50.8042ms - 200
+[12:55:12 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/ucqGTZSeoPURbyKN4SmBpp2MExm.jpg
+[12:55:12 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/ucqGTZSeoPURbyKN4SmBpp2MExm.jpg
+[12:55:12 INF] Received HTTP response headers after 23.2076ms - 200
+[12:55:12 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 23.8936ms
+[12:55:12 INF] End processing HTTP request after 24.3215ms - 200
+[12:55:12 INF] Person 74673136-2c7b-41c6-a572-71b4f49357e9: upgraded headshot from TMDB profile 1724987 (782x1172)
+[12:55:12 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:12 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:12 INF] Received HTTP response headers after 117.073ms - 200
+[12:55:12 INF] End processing HTTP request after 118.0081ms - 200
+[12:55:13 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:13 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:13 INF] Received HTTP response headers after 103.0168ms - 200
+[12:55:13 INF] End processing HTTP request after 103.8786ms - 200
+[12:55:13 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:13 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:13 INF] Received HTTP response headers after 123.7431ms - 200
+[12:55:13 INF] End processing HTTP request after 128.4578ms - 200
+[12:55:13 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:13 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:13 INF] Received HTTP response headers after 173.5871ms - 200
+[12:55:13 INF] End processing HTTP request after 174.4951ms - 200
+[12:55:14 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:14 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:14 INF] Received HTTP response headers after 68.4557ms - 200
+[12:55:14 INF] End processing HTTP request after 69.7314ms - 200
+[12:55:14 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:14 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:14 INF] Received HTTP response headers after 64.6494ms - 200
+[12:55:14 INF] End processing HTTP request after 65.7829ms - 200
+[12:55:14 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:14 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:14 INF] Received HTTP response headers after 63.9064ms - 200
+[12:55:14 INF] End processing HTTP request after 64.8051ms - 200
+[12:55:14 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:15 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:15 INF] Received HTTP response headers after 96.3037ms - 200
+[12:55:15 INF] End processing HTTP request after 97.8173ms - 200
+[12:55:15 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:15 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:15 INF] Received HTTP response headers after 42.8645ms - 200
+[12:55:15 INF] End processing HTTP request after 43.9774ms - 200
+[12:55:15 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:15 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:15 INF] Received HTTP response headers after 56.7358ms - 200
+[12:55:15 INF] End processing HTTP request after 59.6779ms - 200
+[12:55:16 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:16 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:16 INF] Received HTTP response headers after 95.542ms - 200
+[12:55:16 INF] End processing HTTP request after 96.5361ms - 200
+[12:55:16 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:16 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:16 INF] Received HTTP response headers after 87.4542ms - 200
+[12:55:16 INF] End processing HTTP request after 91.5304ms - 200
+[12:55:16 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:16 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:16 INF] Received HTTP response headers after 72.3288ms - 200
+[12:55:16 INF] End processing HTTP request after 75.2517ms - 200
+[12:55:17 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:17 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:17 INF] Received HTTP response headers after 144.5755ms - 200
+[12:55:17 INF] End processing HTTP request after 145.8656ms - 200
+[12:55:17 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:17 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:17 INF] Received HTTP response headers after 131.908ms - 200
+[12:55:17 INF] End processing HTTP request after 135.7288ms - 200
+[12:55:17 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:17 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:18 INF] Received HTTP response headers after 333.7381ms - 200
+[12:55:18 INF] End processing HTTP request after 340.7482ms - 200
+[12:55:18 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:18 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:18 INF] Next rejected-file cleanup at 07/07/2026 04:00:00 -05:00
+[12:55:18 INF] Received HTTP response headers after 50.4877ms - 200
+[12:55:18 INF] End processing HTTP request after 51.4422ms - 200
+[12:55:18 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:18 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:18 INF] Received HTTP response headers after 100.9992ms - 200
+[12:55:18 INF] End processing HTTP request after 102.382ms - 200
+[12:55:18 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:18 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:18 INF] Received HTTP response headers after 84.6761ms - 200
+[12:55:18 INF] End processing HTTP request after 85.6203ms - 200
+[12:55:19 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:19 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:19 INF] Received HTTP response headers after 57.2683ms - 200
+[12:55:19 INF] End processing HTTP request after 58.156ms - 200
+[12:55:19 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:19 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:19 INF] Received HTTP response headers after 69.9846ms - 200
+[12:55:19 INF] End processing HTTP request after 70.8358ms - 200
+[12:55:19 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:19 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:19 INF] Received HTTP response headers after 73.2019ms - 200
+[12:55:19 INF] End processing HTTP request after 74.7143ms - 200
+[12:55:20 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:20 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:20 INF] Received HTTP response headers after 62.1346ms - 200
+[12:55:20 INF] End processing HTTP request after 62.8198ms - 200
+[12:55:20 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:20 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:20 INF] Received HTTP response headers after 61.4262ms - 200
+[12:55:20 INF] End processing HTTP request after 62.1477ms - 200
+[12:55:20 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:20 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:20 INF] Received HTTP response headers after 45.1016ms - 200
+[12:55:20 INF] End processing HTTP request after 45.9066ms - 200
+[12:55:21 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:21 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:21 INF] Received HTTP response headers after 139.8768ms - 200
+[12:55:21 INF] End processing HTTP request after 141.5336ms - 200
+[12:55:21 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:21 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:21 INF] Received HTTP response headers after 125.7745ms - 200
+[12:55:21 INF] End processing HTTP request after 126.529ms - 200
+[12:55:21 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:21 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:21 INF] Received HTTP response headers after 97.6481ms - 200
+[12:55:21 INF] End processing HTTP request after 98.5473ms - 200
+[12:55:22 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:22 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:22 INF] Received HTTP response headers after 63.5076ms - 200
+[12:55:22 INF] End processing HTTP request after 65.9262ms - 200
+[12:55:22 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:22 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:22 INF] Received HTTP response headers after 104.3994ms - 200
+[12:55:22 INF] End processing HTTP request after 105.7607ms - 200
+[12:55:22 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:22 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:22 INF] Received HTTP response headers after 116.659ms - 200
+[12:55:22 INF] End processing HTTP request after 117.9601ms - 200
+[12:55:23 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:23 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:23 INF] Received HTTP response headers after 52.6753ms - 200
+[12:55:23 INF] End processing HTTP request after 54.3768ms - 200
+[12:55:23 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:23 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:23 INF] Received HTTP response headers after 84.8382ms - 200
+[12:55:23 INF] End processing HTTP request after 85.7642ms - 200
+[12:55:23 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:23 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:23 INF] Received HTTP response headers after 199.1231ms - 200
+[12:55:23 INF] End processing HTTP request after 200.6126ms - 200
+[12:55:24 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:24 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:24 INF] Received HTTP response headers after 96.4448ms - 200
+[12:55:24 INF] End processing HTTP request after 98.4669ms - 200
+[12:55:24 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:24 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:24 INF] Received HTTP response headers after 66.102ms - 200
+[12:55:24 INF] End processing HTTP request after 70.9943ms - 200
+[12:55:24 INF] Person reconciliation auto-accepted: 'Denis Villeneuve' (Director) -> Q548823 'Denis Villeneuve' (score=0.81)
+[12:55:24 INF] Person enrichment writeback: Denis Villeneuve -> Denis Villeneuve (Q548823) (role: Director)
+[12:55:24 INF] Persisted reconciled person 'Denis Villeneuve' (Q548823) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Director
+[12:55:24 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:24 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:24 INF] Received HTTP response headers after 4.7975ms - 200
+[12:55:24 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.2401ms
+[12:55:24 INF] End processing HTTP request after 7.4983ms - 200
+[12:55:24 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/137427/images?*
+[12:55:24 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/137427/images?*
+[12:55:24 INF] Received HTTP response headers after 6.8933ms - 200
+[12:55:24 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.1733ms
+[12:55:24 INF] End processing HTTP request after 9.1749ms - 200
+[12:55:24 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:24 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:24 INF] Received HTTP response headers after 89.7924ms - 200
+[12:55:24 INF] End processing HTTP request after 90.7107ms - 200
+[12:55:25 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:25 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:25 INF] Received HTTP response headers after 106.6179ms - 200
+[12:55:25 INF] End processing HTTP request after 109.4545ms - 200
+[12:55:25 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:25 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:25 INF] Received HTTP response headers after 97.7894ms - 200
+[12:55:25 INF] End processing HTTP request after 99.7836ms - 200
+[12:55:25 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:25 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:25 INF] Received HTTP response headers after 234.7101ms - 200
+[12:55:25 INF] End processing HTTP request after 236.091ms - 200
+[12:55:26 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:26 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:26 INF] Received HTTP response headers after 51.5208ms - 200
+[12:55:26 INF] End processing HTTP request after 52.5585ms - 200
+[12:55:26 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:26 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:26 INF] Received HTTP response headers after 74.3681ms - 200
+[12:55:26 INF] End processing HTTP request after 77.8767ms - 200
+[12:55:26 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:26 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:26 INF] Received HTTP response headers after 93.5285ms - 200
+[12:55:26 INF] End processing HTTP request after 94.7937ms - 200
+[12:55:27 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:27 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:27 INF] Received HTTP response headers after 83.9433ms - 200
+[12:55:27 INF] End processing HTTP request after 86.2227ms - 200
+[12:55:27 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:27 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:27 INF] Received HTTP response headers after 83.9263ms - 200
+[12:55:27 INF] End processing HTTP request after 84.7606ms - 200
+[12:55:27 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:27 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:27 INF] Received HTTP response headers after 90.658ms - 200
+[12:55:27 INF] End processing HTTP request after 91.5935ms - 200
+[12:55:28 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:28 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:28 INF] Received HTTP response headers after 81.1946ms - 200
+[12:55:28 INF] End processing HTTP request after 82.7873ms - 200
+[12:55:28 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:28 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:28 INF] Received HTTP response headers after 71.1151ms - 200
+[12:55:28 INF] End processing HTTP request after 72.5129ms - 200
+[12:55:28 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:28 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:28 INF] Received HTTP response headers after 71.5352ms - 200
+[12:55:28 INF] End processing HTTP request after 72.4969ms - 200
+[12:55:28 INF] Person reconciliation auto-accepted: 'Larissa Lowthorp' (Director) -> Q71982399 'Larissa Lowthorp' (score=0.91)
+[12:55:28 INF] Person enrichment writeback: Larissa Lowthorp -> Larissa Lowthorp (Q71982399) (role: Director)
+[12:55:28 INF] Persisted reconciled person 'Larissa Lowthorp' (Q71982399) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Director
+[12:55:29 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:29 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:29 INF] Received HTTP response headers after 220.0826ms - 200
+[12:55:29 INF] End processing HTTP request after 221.0417ms - 200
+[12:55:29 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:29 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:29 INF] Received HTTP response headers after 55.5592ms - 200
+[12:55:29 INF] End processing HTTP request after 58.5534ms - 200
+[12:55:29 INF] wikidata_reconciliation: fetched 34 person claims for QID Q71982399
+[12:55:29 INF] [PERF] Person enrichment 0be7bc90-dc37-42f3-a609-562618b39734 ("Larissa Lowthorp"): 1ms (QID=Q71982399, pseudonym=False)
+[12:55:29 INF] Harvested 34 claims from wikidata_reconciliation for entity 0be7bc90-dc37-42f3-a609-562618b39734
+[12:55:29 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:29 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:29 INF] Received HTTP response headers after 4.8219ms - 200
+[12:55:29 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.3431ms
+[12:55:29 INF] End processing HTTP request after 5.9081ms - 200
+[12:55:29 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/2757468/images?*
+[12:55:29 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/2757468/images?*
+[12:55:29 INF] Received HTTP response headers after 8.5322ms - 200
+[12:55:29 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 9.0272ms
+[12:55:29 INF] End processing HTTP request after 9.3903ms - 200
+[12:55:29 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:29 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:29 INF] Received HTTP response headers after 76.0024ms - 200
+[12:55:29 INF] End processing HTTP request after 77.0282ms - 200
+[12:55:30 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:30 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:30 INF] Received HTTP response headers after 119.2309ms - 200
+[12:55:30 INF] End processing HTTP request after 121.5265ms - 200
+[12:55:30 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:30 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:30 INF] Received HTTP response headers after 83.2052ms - 200
+[12:55:30 INF] End processing HTTP request after 84.2638ms - 200
+[12:55:30 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:30 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:30 INF] Received HTTP response headers after 206.7478ms - 200
+[12:55:30 INF] End processing HTTP request after 207.9305ms - 200
+[12:55:31 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:31 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:31 INF] Received HTTP response headers after 59.5044ms - 200
+[12:55:31 INF] End processing HTTP request after 60.4802ms - 200
+[12:55:31 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:31 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:31 INF] Received HTTP response headers after 73.3261ms - 200
+[12:55:31 INF] End processing HTTP request after 75.3673ms - 200
+[12:55:31 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:31 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:31 INF] Received HTTP response headers after 90.5022ms - 200
+[12:55:31 INF] End processing HTTP request after 93.1038ms - 200
+[12:55:32 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:32 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:32 INF] Received HTTP response headers after 108.1252ms - 200
+[12:55:32 INF] End processing HTTP request after 109.6233ms - 200
+[12:55:32 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:32 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:32 INF] Received HTTP response headers after 107.0915ms - 200
+[12:55:32 INF] End processing HTTP request after 107.9372ms - 200
+[12:55:32 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:32 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:32 INF] Received HTTP response headers after 126.5857ms - 200
+[12:55:32 INF] End processing HTTP request after 130.2885ms - 200
+[12:55:32 INF] Person reconciliation auto-accepted: 'Denis Villeneuve' (Screenwriter) -> Q548823 'Denis Villeneuve' (score=0.86)
+[12:55:32 INF] Person enrichment writeback: Denis Villeneuve -> Denis Villeneuve (Q548823) (role: Screenwriter)
+[12:55:32 INF] Persisted reconciled person 'Denis Villeneuve' (Q548823) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Screenwriter
+[12:55:32 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:32 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:32 INF] Received HTTP response headers after 6.7128ms - 200
+[12:55:32 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 7.3704ms
+[12:55:32 INF] End processing HTTP request after 8.3498ms - 200
+[12:55:32 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/137427/images?*
+[12:55:32 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/137427/images?*
+[12:55:32 INF] Received HTTP response headers after 5.2384ms - 200
+[12:55:32 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.6723ms
+[12:55:32 INF] End processing HTTP request after 6.2266ms - 200
+[12:55:33 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:33 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:33 INF] Next retag sweep at 07/07/2026 03:00:00 -05:00
+[12:55:33 INF] Received HTTP response headers after 81.6595ms - 200
+[12:55:33 INF] End processing HTTP request after 82.4909ms - 200
+[12:55:33 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:33 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:33 INF] Received HTTP response headers after 114.8469ms - 200
+[12:55:33 INF] End processing HTTP request after 115.6836ms - 200
+[12:55:33 INF] Next storage maintenance pass at 07/07/2026 02:00:00 -05:00
+[12:55:33 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:33 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:33 INF] Received HTTP response headers after 103.9906ms - 200
+[12:55:33 INF] End processing HTTP request after 104.9025ms - 200
+[12:55:34 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:34 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:34 INF] Received HTTP response headers after 150.6772ms - 200
+[12:55:34 INF] End processing HTTP request after 151.5531ms - 200
+[12:55:34 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:34 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:34 INF] Received HTTP response headers after 83.412ms - 200
+[12:55:34 INF] End processing HTTP request after 84.3965ms - 200
+[12:55:34 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:34 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:34 INF] Received HTTP response headers after 81.141ms - 200
+[12:55:34 INF] End processing HTTP request after 82.0031ms - 200
+[12:55:35 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:35 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:35 INF] Received HTTP response headers after 89.0435ms - 200
+[12:55:35 INF] End processing HTTP request after 91.5403ms - 200
+[12:55:35 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:35 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:35 INF] Received HTTP response headers after 92.9062ms - 200
+[12:55:35 INF] End processing HTTP request after 96.2195ms - 200
+[12:55:35 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:35 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:35 INF] Received HTTP response headers after 139.9589ms - 200
+[12:55:35 INF] End processing HTTP request after 141.102ms - 200
+[12:55:36 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:36 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:36 INF] Received HTTP response headers after 73.4635ms - 200
+[12:55:36 INF] End processing HTTP request after 75.5599ms - 200
+[12:55:36 INF] Person reconciliation auto-accepted: 'Eric Roth' (Screenwriter) -> Q942932 'Eric Roth' (score=0.86)
+[12:55:36 INF] Person enrichment writeback: Eric Roth -> Eric Roth (Q942932) (role: Screenwriter)
+[12:55:36 INF] Persisted reconciled person 'Eric Roth' (Q942932) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Screenwriter
+[12:55:36 INF] Start processing HTTP request GET https://api.themoviedb.org/3/find/Q942932?*
+[12:55:36 INF] Sending HTTP request GET https://api.themoviedb.org/3/find/Q942932?*
+[12:55:36 INF] Received HTTP response headers after 7.7549ms - 200
+[12:55:36 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.2971ms
+[12:55:36 INF] End processing HTTP request after 8.7595ms - 200
+[12:55:36 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:36 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:36 INF] Received HTTP response headers after 4.1181ms - 200
+[12:55:36 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 7.0122ms
+[12:55:36 INF] End processing HTTP request after 7.5897ms - 200
+[12:55:36 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/27/images?*
+[12:55:36 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/27/images?*
+[12:55:36 INF] Received HTTP response headers after 8.1632ms - 200
+[12:55:36 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 9.1099ms
+[12:55:36 INF] End processing HTTP request after 9.7557ms - 200
+[12:55:36 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:36 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:36 INF] Received HTTP response headers after 65.0847ms - 200
+[12:55:36 INF] End processing HTTP request after 66.1256ms - 200
+[12:55:36 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:36 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:36 INF] Received HTTP response headers after 93.5763ms - 200
+[12:55:36 INF] End processing HTTP request after 94.5248ms - 200
+[12:55:37 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:37 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:37 INF] Received HTTP response headers after 90.3202ms - 200
+[12:55:37 INF] End processing HTTP request after 92.4205ms - 200
+[12:55:37 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:37 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:37 INF] Received HTTP response headers after 119.6214ms - 200
+[12:55:37 INF] End processing HTTP request after 120.3884ms - 200
+[12:55:37 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:37 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:37 INF] Received HTTP response headers after 70.4802ms - 200
+[12:55:37 INF] End processing HTTP request after 71.3961ms - 200
+[12:55:38 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:38 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:38 INF] Received HTTP response headers after 85.6677ms - 200
+[12:55:38 INF] End processing HTTP request after 86.4996ms - 200
+[12:55:38 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:38 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:38 INF] Received HTTP response headers after 86.014ms - 200
+[12:55:38 INF] End processing HTTP request after 87.1185ms - 200
+[12:55:38 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:38 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:38 INF] Received HTTP response headers after 84.449ms - 200
+[12:55:38 INF] End processing HTTP request after 85.3553ms - 200
+[12:55:39 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:39 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:39 INF] Received HTTP response headers after 116.4605ms - 200
+[12:55:39 INF] End processing HTTP request after 117.2769ms - 200
+[12:55:39 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:39 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:39 INF] Received HTTP response headers after 107.0914ms - 200
+[12:55:39 INF] End processing HTTP request after 108.2134ms - 200
+[12:55:39 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:39 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:39 INF] Received HTTP response headers after 218.4592ms - 200
+[12:55:39 INF] End processing HTTP request after 219.3776ms - 200
+[12:55:40 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:40 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:40 INF] Received HTTP response headers after 80.2344ms - 200
+[12:55:40 INF] End processing HTTP request after 81.4431ms - 200
+[12:55:40 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:40 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:40 INF] Received HTTP response headers after 58.1413ms - 200
+[12:55:40 INF] End processing HTTP request after 60.4833ms - 200
+[12:55:40 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:40 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:40 INF] Received HTTP response headers after 68.1348ms - 200
+[12:55:40 INF] End processing HTTP request after 71.3781ms - 200
+[12:55:41 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:41 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:41 INF] Received HTTP response headers after 64.4538ms - 200
+[12:55:41 INF] End processing HTTP request after 65.6814ms - 200
+[12:55:41 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:41 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:41 INF] Received HTTP response headers after 68.4378ms - 200
+[12:55:41 INF] End processing HTTP request after 69.7214ms - 200
+[12:55:41 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:41 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:41 INF] Received HTTP response headers after 98.9081ms - 200
+[12:55:41 INF] End processing HTTP request after 100.8933ms - 200
+[12:55:42 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:42 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:42 INF] Received HTTP response headers after 55.4349ms - 200
+[12:55:42 INF] End processing HTTP request after 58.2166ms - 200
+[12:55:42 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:42 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:42 INF] Received HTTP response headers after 85.3447ms - 200
+[12:55:42 INF] End processing HTTP request after 92.1413ms - 200
+[12:55:42 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:42 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:42 INF] Received HTTP response headers after 108.2596ms - 200
+[12:55:42 INF] End processing HTTP request after 109.3581ms - 200
+[12:55:43 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:43 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:43 INF] Received HTTP response headers after 143.507ms - 200
+[12:55:43 INF] End processing HTTP request after 144.3287ms - 200
+[12:55:43 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:43 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:43 INF] Received HTTP response headers after 104.8315ms - 200
+[12:55:43 INF] End processing HTTP request after 106.6009ms - 200
+[12:55:43 INF] Person reconciliation auto-accepted: 'Hans Zimmer' (Composer) -> Q76364 'Hans Zimmer' (score=1.00)
+[12:55:43 INF] Person enrichment writeback: Hans Zimmer -> Hans Zimmer (Q76364) (role: Composer)
+[12:55:43 INF] Persisted reconciled person 'Hans Zimmer' (Q76364) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Composer
+[12:55:43 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:43 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:43 INF] Received HTTP response headers after 4.6795ms - 200
+[12:55:43 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.7875ms
+[12:55:43 INF] End processing HTTP request after 6.3651ms - 200
+[12:55:43 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/947/images?*
+[12:55:43 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/947/images?*
+[12:55:43 INF] Received HTTP response headers after 5.7026ms - 200
+[12:55:43 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 8.0523ms
+[12:55:43 INF] End processing HTTP request after 8.5603ms - 200
+[12:55:43 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:43 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:43 INF] Received HTTP response headers after 75.5689ms - 200
+[12:55:43 INF] End processing HTTP request after 77.014ms - 200
+[12:55:44 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:44 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:44 INF] Received HTTP response headers after 108.8895ms - 200
+[12:55:44 INF] End processing HTTP request after 110.6882ms - 200
+[12:55:44 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:44 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:44 INF] Received HTTP response headers after 105.8883ms - 200
+[12:55:44 INF] End processing HTTP request after 106.8206ms - 200
+[12:55:44 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:44 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:44 INF] Received HTTP response headers after 63.3546ms - 200
+[12:55:44 INF] End processing HTTP request after 64.2349ms - 200
+[12:55:45 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:45 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:45 INF] Received HTTP response headers after 59.228ms - 200
+[12:55:45 INF] End processing HTTP request after 60.5735ms - 200
+[12:55:45 INF] Person reconciliation auto-accepted: 'Cale Boyter' (Producer) -> Q62397954 'Cale Boyter' (score=1.00)
+[12:55:45 INF] Person enrichment writeback: Cale Boyter -> Cale Boyter (Q62397954) (role: Producer)
+[12:55:45 INF] Persisted reconciled person 'Cale Boyter' (Q62397954) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Producer
+[12:55:45 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:45 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:45 INF] Received HTTP response headers after 128.4892ms - 200
+[12:55:45 INF] End processing HTTP request after 131.695ms - 200
+[12:55:45 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:45 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:45 INF] Received HTTP response headers after 51.9543ms - 200
+[12:55:45 INF] End processing HTTP request after 52.85ms - 200
+[12:55:45 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:45 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:45 INF] Received HTTP response headers after 58.1432ms - 200
+[12:55:45 INF] End processing HTTP request after 59.3139ms - 200
+[12:55:45 INF] wikidata_reconciliation: Wikipedia description for Q62397954 (en): 170 chars
+[12:55:46 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:46 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:46 INF] Received HTTP response headers after 68.4658ms - 200
+[12:55:46 INF] End processing HTTP request after 69.3833ms - 200
+[12:55:46 INF] wikidata_reconciliation: fetched 11 person claims for QID Q62397954
+[12:55:46 INF] [PERF] Person enrichment e986b600-7ba9-4721-b8d5-a75ed2938aa9 ("Cale Boyter"): 0ms (QID=Q62397954, pseudonym=False)
+[12:55:46 INF] Harvested 11 claims from wikidata_reconciliation for entity e986b600-7ba9-4721-b8d5-a75ed2938aa9
+[12:55:46 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:46 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:46 INF] Received HTTP response headers after 4.5338ms - 200
+[12:55:46 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 5.1739ms
+[12:55:46 INF] End processing HTTP request after 5.7693ms - 200
+[12:55:46 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/17315/images?*
+[12:55:46 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/17315/images?*
+[12:55:46 INF] Received HTTP response headers after 5.6983ms - 200
+[12:55:46 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.326ms
+[12:55:46 INF] End processing HTTP request after 6.8809ms - 200
+[12:55:46 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/jeRsKRHuSJcTdciWmkO6LrBULw2.jpg
+[12:55:46 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/jeRsKRHuSJcTdciWmkO6LrBULw2.jpg
+[12:55:46 INF] Received HTTP response headers after 24.5078ms - 200
+[12:55:46 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 25.3133ms
+[12:55:46 INF] End processing HTTP request after 25.8172ms - 200
+[12:55:46 INF] Person e986b600-7ba9-4721-b8d5-a75ed2938aa9: upgraded headshot from TMDB profile 17315 (307x460)
+[12:55:46 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:46 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:46 INF] Received HTTP response headers after 111.403ms - 200
+[12:55:46 INF] End processing HTTP request after 112.4832ms - 200
+[12:55:46 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:46 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:46 INF] Received HTTP response headers after 123.5643ms - 200
+[12:55:46 INF] End processing HTTP request after 125.8019ms - 200
+[12:55:46 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:46 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:47 INF] Received HTTP response headers after 104.4213ms - 200
+[12:55:47 INF] End processing HTTP request after 105.7376ms - 200
+[12:55:47 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:47 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:47 INF] Received HTTP response headers after 175.8667ms - 200
+[12:55:47 INF] End processing HTTP request after 177.6596ms - 200
+[12:55:47 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:47 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:47 INF] Received HTTP response headers after 57.0014ms - 200
+[12:55:47 INF] End processing HTTP request after 58.5314ms - 200
+[12:55:47 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:47 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:48 INF] Received HTTP response headers after 74.5539ms - 200
+[12:55:48 INF] End processing HTTP request after 75.5299ms - 200
+[12:55:48 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:48 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:48 INF] Received HTTP response headers after 119.1262ms - 200
+[12:55:48 INF] End processing HTTP request after 120.0893ms - 200
+[12:55:48 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:48 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:48 INF] Received HTTP response headers after 69.3654ms - 200
+[12:55:48 INF] End processing HTTP request after 70.7751ms - 200
+[12:55:48 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:48 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:49 INF] Received HTTP response headers after 60.177ms - 200
+[12:55:49 INF] End processing HTTP request after 61.247ms - 200
+[12:55:49 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:49 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:49 INF] Received HTTP response headers after 92.4949ms - 200
+[12:55:49 INF] End processing HTTP request after 93.4193ms - 200
+[12:55:49 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:49 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:49 INF] Received HTTP response headers after 66.4931ms - 200
+[12:55:49 INF] End processing HTTP request after 67.3492ms - 200
+[12:55:49 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:49 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:49 INF] Received HTTP response headers after 57.9342ms - 200
+[12:55:49 INF] End processing HTTP request after 59.4473ms - 200
+[12:55:50 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:50 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:50 INF] Received HTTP response headers after 88.0675ms - 200
+[12:55:50 INF] End processing HTTP request after 89.039ms - 200
+[12:55:50 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:50 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:50 INF] Received HTTP response headers after 52.6357ms - 200
+[12:55:50 INF] End processing HTTP request after 54.2415ms - 200
+[12:55:50 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:50 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:51 INF] Received HTTP response headers after 69.0235ms - 200
+[12:55:51 INF] End processing HTTP request after 70.0651ms - 200
+[12:55:51 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:51 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:51 INF] Received HTTP response headers after 66.5674ms - 200
+[12:55:51 INF] End processing HTTP request after 67.5482ms - 200
+[12:55:51 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:51 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:51 INF] Received HTTP response headers after 45.8821ms - 200
+[12:55:51 INF] End processing HTTP request after 46.8653ms - 200
+[12:55:51 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:51 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:52 INF] Received HTTP response headers after 72.331ms - 200
+[12:55:52 INF] End processing HTTP request after 74.132ms - 200
+[12:55:52 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:52 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:52 INF] Received HTTP response headers after 82.8515ms - 200
+[12:55:52 INF] End processing HTTP request after 85.3434ms - 200
+[12:55:52 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:52 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:52 INF] Received HTTP response headers after 66.2911ms - 200
+[12:55:52 INF] End processing HTTP request after 67.6253ms - 200
+[12:55:52 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:52 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:53 INF] Received HTTP response headers after 111.876ms - 200
+[12:55:53 INF] End processing HTTP request after 112.7572ms - 200
+[12:55:53 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:53 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:53 INF] Received HTTP response headers after 80.0017ms - 200
+[12:55:53 INF] End processing HTTP request after 80.82ms - 200
+[12:55:53 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:53 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:53 INF] Received HTTP response headers after 60.5133ms - 200
+[12:55:53 INF] End processing HTTP request after 61.4373ms - 200
+[12:55:53 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:53 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:54 INF] Received HTTP response headers after 76.4536ms - 200
+[12:55:54 INF] End processing HTTP request after 77.2779ms - 200
+[12:55:54 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:54 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:54 INF] Received HTTP response headers after 96.7912ms - 200
+[12:55:54 INF] End processing HTTP request after 98.9201ms - 200
+[12:55:54 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:54 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:54 INF] Received HTTP response headers after 67.7056ms - 200
+[12:55:54 INF] End processing HTTP request after 68.9168ms - 200
+[12:55:54 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:54 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:55 INF] Received HTTP response headers after 65.0098ms - 200
+[12:55:55 INF] End processing HTTP request after 66.1955ms - 200
+[12:55:55 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:55 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:55 INF] Received HTTP response headers after 109.9405ms - 200
+[12:55:55 INF] End processing HTTP request after 111.8954ms - 200
+[12:55:55 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:55 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:55 INF] Received HTTP response headers after 81.1463ms - 200
+[12:55:55 INF] End processing HTTP request after 82.1138ms - 200
+[12:55:55 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:55 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:56 INF] Received HTTP response headers after 88.894ms - 200
+[12:55:56 INF] End processing HTTP request after 90.7315ms - 200
+[12:55:56 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:56 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:56 INF] Received HTTP response headers after 199.7959ms - 200
+[12:55:56 INF] End processing HTTP request after 201.9429ms - 200
+[12:55:56 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:56 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:56 INF] Received HTTP response headers after 76.7809ms - 200
+[12:55:56 INF] End processing HTTP request after 78.1628ms - 200
+[12:55:56 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:56 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:57 INF] Received HTTP response headers after 76.0483ms - 200
+[12:55:57 INF] End processing HTTP request after 77.1353ms - 200
+[12:55:57 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:57 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:57 INF] Received HTTP response headers after 149.1542ms - 200
+[12:55:57 INF] End processing HTTP request after 149.9206ms - 200
+[12:55:57 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:57 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:57 INF] Received HTTP response headers after 80.3518ms - 200
+[12:55:57 INF] End processing HTTP request after 81.5613ms - 200
+[12:55:57 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:57 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:58 INF] Received HTTP response headers after 76.7062ms - 200
+[12:55:58 INF] End processing HTTP request after 78.018ms - 200
+[12:55:58 INF] Person reconciliation auto-accepted: 'Mary Parent' (Producer) -> Q6780480 'Mary Parent' (score=1.00)
+[12:55:58 INF] Person enrichment writeback: Mary Parent -> Mary Parent (Q6780480) (role: Producer)
+[12:55:58 INF] Persisted reconciled person 'Mary Parent' (Q6780480) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Producer
+[12:55:58 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:58 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:58 INF] Received HTTP response headers after 210.986ms - 200
+[12:55:58 INF] End processing HTTP request after 212.0615ms - 200
+[12:55:58 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:58 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:58 INF] Received HTTP response headers after 45.639ms - 200
+[12:55:58 INF] End processing HTTP request after 47.3187ms - 200
+[12:55:58 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:58 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:58 INF] Received HTTP response headers after 63.2234ms - 200
+[12:55:58 INF] End processing HTTP request after 63.9497ms - 200
+[12:55:58 INF] wikidata_reconciliation: Wikipedia description for Q6780480 (en): 82 chars
+[12:55:59 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:59 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:55:59 INF] Received HTTP response headers after 76.3344ms - 200
+[12:55:59 INF] End processing HTTP request after 79.1577ms - 200
+[12:55:59 INF] wikidata_reconciliation: fetched 12 person claims for QID Q6780480
+[12:55:59 INF] [PERF] Person enrichment 75975d15-2b68-4d1f-9ed4-409f1206136a ("Mary Parent"): 1ms (QID=Q6780480, pseudonym=False)
+[12:55:59 INF] Harvested 12 claims from wikidata_reconciliation for entity 75975d15-2b68-4d1f-9ed4-409f1206136a
+[12:55:59 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:59 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:55:59 INF] Received HTTP response headers after 7.0555ms - 200
+[12:55:59 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 9.0894ms
+[12:55:59 INF] End processing HTTP request after 9.5992ms - 200
+[12:55:59 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/114408/images?*
+[12:55:59 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/114408/images?*
+[12:55:59 INF] Received HTTP response headers after 18.9127ms - 200
+[12:55:59 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 20.0484ms
+[12:55:59 INF] End processing HTTP request after 20.8191ms - 200
+[12:55:59 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/jTh9ngfGF8DQvKwGM8rXSmfbQTj.jpg
+[12:55:59 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/jTh9ngfGF8DQvKwGM8rXSmfbQTj.jpg
+[12:55:59 INF] Received HTTP response headers after 46.2509ms - 200
+[12:55:59 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 47.0578ms
+[12:55:59 INF] End processing HTTP request after 48.1716ms - 200
+[12:55:59 INF] Person 75975d15-2b68-4d1f-9ed4-409f1206136a: upgraded headshot from TMDB profile 114408 (376x563)
+[12:55:59 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:59 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:59 INF] Received HTTP response headers after 72.3085ms - 200
+[12:55:59 INF] End processing HTTP request after 73.2819ms - 200
+[12:55:59 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:59 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:59 INF] Received HTTP response headers after 102.7789ms - 200
+[12:55:59 INF] End processing HTTP request after 104.2582ms - 200
+[12:55:59 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:59 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:55:59 INF] Received HTTP response headers after 87.6038ms - 200
+[12:55:59 INF] End processing HTTP request after 88.7825ms - 200
+[12:56:00 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:00 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:00 INF] Received HTTP response headers after 76.6273ms - 200
+[12:56:00 INF] End processing HTTP request after 79.0273ms - 200
+[12:56:00 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:00 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:00 INF] Received HTTP response headers after 98.2717ms - 200
+[12:56:00 INF] End processing HTTP request after 99.8543ms - 200
+[12:56:00 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:00 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:01 INF] Received HTTP response headers after 124.9309ms - 200
+[12:56:01 INF] End processing HTTP request after 126.0206ms - 200
+[12:56:01 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:01 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:01 INF] Received HTTP response headers after 107.5648ms - 200
+[12:56:01 INF] End processing HTTP request after 109.0959ms - 200
+[12:56:01 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:01 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:01 INF] Received HTTP response headers after 158.117ms - 200
+[12:56:01 INF] End processing HTTP request after 159.0533ms - 200
+[12:56:01 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:01 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:01 INF] Received HTTP response headers after 65.2315ms - 200
+[12:56:01 INF] End processing HTTP request after 66.2789ms - 200
+[12:56:02 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:02 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:02 INF] Received HTTP response headers after 53.2226ms - 200
+[12:56:02 INF] End processing HTTP request after 54.2817ms - 200
+[12:56:02 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:02 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:02 INF] Received HTTP response headers after 84.9843ms - 200
+[12:56:02 INF] End processing HTTP request after 86.252ms - 200
+[12:56:02 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:02 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:02 INF] Received HTTP response headers after 57.0822ms - 200
+[12:56:02 INF] End processing HTTP request after 58.6998ms - 200
+[12:56:03 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:03 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:03 INF] Received HTTP response headers after 78.3167ms - 200
+[12:56:03 INF] End processing HTTP request after 79.1182ms - 200
+[12:56:03 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:03 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:03 INF] Received HTTP response headers after 79.1971ms - 200
+[12:56:03 INF] End processing HTTP request after 81.2235ms - 200
+[12:56:03 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:03 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:04 INF] Received HTTP response headers after 99.8059ms - 200
+[12:56:04 INF] End processing HTTP request after 101.919ms - 200
+[12:56:04 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:04 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:04 INF] Received HTTP response headers after 168.5367ms - 200
+[12:56:04 INF] End processing HTTP request after 170.3482ms - 200
+[12:56:04 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:04 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:04 INF] Received HTTP response headers after 70.5691ms - 200
+[12:56:04 INF] End processing HTTP request after 72.5132ms - 200
+[12:56:04 INF] Person reconciliation auto-accepted: 'Brian Herbert' (Producer) -> Q711137 'Brian Herbert' (score=1.00)
+[12:56:04 INF] Person enrichment writeback: Brian Herbert -> Brian Herbert (Q711137) (role: Producer)
+[12:56:04 INF] Persisted reconciled person 'Brian Herbert' (Q711137) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Producer
+[12:56:04 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:04 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:05 INF] Received HTTP response headers after 286.9689ms - 200
+[12:56:05 INF] End processing HTTP request after 287.7117ms - 200
+[12:56:05 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:05 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:05 INF] Received HTTP response headers after 54.1304ms - 200
+[12:56:05 INF] End processing HTTP request after 55.9411ms - 200
+[12:56:05 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:05 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:05 INF] Received HTTP response headers after 48.3006ms - 200
+[12:56:05 INF] End processing HTTP request after 51.2005ms - 200
+[12:56:05 INF] wikidata_reconciliation: Wikipedia description for Q711137 (en): 756 chars
+[12:56:05 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:05 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:05 INF] Received HTTP response headers after 71.1869ms - 200
+[12:56:05 INF] End processing HTTP request after 72.068ms - 200
+[12:56:05 INF] wikidata_reconciliation: fetched 21 person claims for QID Q711137
+[12:56:05 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Brian%20Herbert.jpg
+[12:56:05 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Brian%20Herbert.jpg
+[12:56:05 INF] Received HTTP response headers after 195.6008ms - 200
+[12:56:05 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 196.1462ms
+[12:56:05 INF] End processing HTTP request after 196.7053ms - 200
+[12:56:05 INF] Person Brian Herbert: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\1b9159c5-31a2-499a-b60b-cc5cda225e32\headshot.jpg
+[12:56:05 INF] [PERF] Person enrichment 1b9159c5-31a2-499a-b60b-cc5cda225e32 ("Brian Herbert"): 228ms (QID=Q711137, pseudonym=False)
+[12:56:05 INF] Harvested 21 claims from wikidata_reconciliation for entity 1b9159c5-31a2-499a-b60b-cc5cda225e32
+[12:56:05 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:05 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:05 INF] Received HTTP response headers after 6.4653ms - 200
+[12:56:05 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 7.4125ms
+[12:56:05 INF] End processing HTTP request after 7.9748ms - 200
+[12:56:05 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/1790474/images?*
+[12:56:05 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/1790474/images?*
+[12:56:05 INF] Received HTTP response headers after 6.3863ms - 200
+[12:56:05 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.8542ms
+[12:56:05 INF] End processing HTTP request after 7.3386ms - 200
+[12:56:05 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/aUkuwDrFeOZU5BAXk1JeMGC6iL3.jpg
+[12:56:05 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/aUkuwDrFeOZU5BAXk1JeMGC6iL3.jpg
+[12:56:05 INF] Received HTTP response headers after 23.2178ms - 200
+[12:56:06 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 24.6834ms
+[12:56:06 INF] End processing HTTP request after 25.4604ms - 200
+[12:56:06 INF] Person 1b9159c5-31a2-499a-b60b-cc5cda225e32: upgraded headshot from TMDB profile 1790474 (400x600)
+[12:56:06 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:06 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:06 INF] Received HTTP response headers after 61.2872ms - 200
+[12:56:06 INF] End processing HTTP request after 62.2954ms - 200
+[12:56:06 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:06 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:06 INF] Received HTTP response headers after 125.835ms - 200
+[12:56:06 INF] End processing HTTP request after 128.7434ms - 200
+[12:56:06 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:06 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:06 INF] Received HTTP response headers after 82.5524ms - 200
+[12:56:06 INF] End processing HTTP request after 83.5297ms - 200
+[12:56:07 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:07 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:07 INF] Received HTTP response headers after 176.4398ms - 200
+[12:56:07 INF] End processing HTTP request after 177.5631ms - 200
+[12:56:07 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:07 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:07 INF] Received HTTP response headers after 63.3922ms - 200
+[12:56:07 INF] End processing HTTP request after 64.8001ms - 200
+[12:56:07 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:07 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:07 INF] Received HTTP response headers after 74.6882ms - 200
+[12:56:07 INF] End processing HTTP request after 76.8586ms - 200
+[12:56:08 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:08 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:08 INF] Received HTTP response headers after 114.8258ms - 200
+[12:56:08 INF] End processing HTTP request after 116.4547ms - 200
+[12:56:08 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:08 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:08 INF] Received HTTP response headers after 55.6884ms - 200
+[12:56:08 INF] End processing HTTP request after 56.5895ms - 200
+[12:56:08 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:08 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:08 INF] Received HTTP response headers after 123.995ms - 200
+[12:56:08 INF] End processing HTTP request after 127.1603ms - 200
+[12:56:09 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:09 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:09 INF] Received HTTP response headers after 80.0242ms - 200
+[12:56:09 INF] End processing HTTP request after 80.9906ms - 200
+[12:56:09 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:09 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:09 INF] Received HTTP response headers after 223.581ms - 200
+[12:56:09 INF] End processing HTTP request after 224.8153ms - 200
+[12:56:09 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:09 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:09 INF] Received HTTP response headers after 71.9824ms - 200
+[12:56:09 INF] End processing HTTP request after 74.745ms - 200
+[12:56:10 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:10 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:10 INF] Received HTTP response headers after 59.6799ms - 200
+[12:56:10 INF] End processing HTTP request after 62.1574ms - 200
+[12:56:10 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:10 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:10 INF] Received HTTP response headers after 142.3067ms - 200
+[12:56:10 INF] End processing HTTP request after 143.6813ms - 200
+[12:56:10 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:10 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:10 INF] Received HTTP response headers after 54.0731ms - 200
+[12:56:10 INF] End processing HTTP request after 55.0066ms - 200
+[12:56:11 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:11 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:11 INF] Received HTTP response headers after 53.7289ms - 200
+[12:56:11 INF] End processing HTTP request after 55.9793ms - 200
+[12:56:11 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:11 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:11 INF] Received HTTP response headers after 107.5954ms - 200
+[12:56:11 INF] End processing HTTP request after 108.9408ms - 200
+[12:56:11 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:11 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:11 INF] Received HTTP response headers after 86.4343ms - 200
+[12:56:11 INF] End processing HTTP request after 87.5898ms - 200
+[12:56:12 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:12 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:12 INF] Received HTTP response headers after 61.0283ms - 200
+[12:56:12 INF] End processing HTTP request after 63.6125ms - 200
+[12:56:12 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:12 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:12 INF] Received HTTP response headers after 89.5982ms - 200
+[12:56:12 INF] End processing HTTP request after 90.9113ms - 200
+[12:56:12 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:12 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:12 INF] Received HTTP response headers after 146.7938ms - 200
+[12:56:12 INF] End processing HTTP request after 147.8413ms - 200
+[12:56:13 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:13 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:13 INF] Received HTTP response headers after 160.7025ms - 200
+[12:56:13 INF] End processing HTTP request after 161.6981ms - 200
+[12:56:13 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:13 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:13 INF] Received HTTP response headers after 145.1809ms - 200
+[12:56:13 INF] End processing HTTP request after 146.3473ms - 200
+[12:56:13 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:13 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:13 INF] Received HTTP response headers after 60.0978ms - 200
+[12:56:13 INF] End processing HTTP request after 61.2299ms - 200
+[12:56:14 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:14 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:14 INF] Received HTTP response headers after 73.6231ms - 200
+[12:56:14 INF] End processing HTTP request after 74.8333ms - 200
+[12:56:14 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:14 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:14 INF] Received HTTP response headers after 102.2154ms - 200
+[12:56:14 INF] End processing HTTP request after 103.2327ms - 200
+[12:56:14 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:14 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:14 INF] Received HTTP response headers after 46.238ms - 200
+[12:56:14 INF] End processing HTTP request after 46.9124ms - 200
+[12:56:15 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:15 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:15 INF] Received HTTP response headers after 130.4851ms - 200
+[12:56:15 INF] End processing HTTP request after 152.9815ms - 200
+[12:56:15 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:15 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:15 INF] Received HTTP response headers after 110.4151ms - 200
+[12:56:15 INF] End processing HTTP request after 111.5224ms - 200
+[12:56:15 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:15 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:15 INF] Received HTTP response headers after 57.651ms - 200
+[12:56:15 INF] End processing HTTP request after 58.427ms - 200
+[12:56:16 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:16 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:16 INF] Received HTTP response headers after 60.1798ms - 200
+[12:56:16 INF] End processing HTTP request after 61.1689ms - 200
+[12:56:16 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:16 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:16 INF] Received HTTP response headers after 115.2542ms - 200
+[12:56:16 INF] End processing HTTP request after 116.0282ms - 200
+[12:56:16 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:16 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:16 INF] Received HTTP response headers after 111.4948ms - 200
+[12:56:16 INF] End processing HTTP request after 117.9763ms - 200
+[12:56:17 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:17 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:17 INF] Received HTTP response headers after 68.0104ms - 200
+[12:56:17 INF] End processing HTTP request after 69.6582ms - 200
+[12:56:17 INF] Person reconciliation auto-accepted: 'Thomas Tull' (Producer) -> Q16213294 'Thomas Tull' (score=1.00)
+[12:56:17 INF] Person enrichment writeback: Thomas Tull -> Thomas Tull (Q16213294) (role: Producer)
+[12:56:17 INF] Persisted reconciled person 'Thomas Tull' (Q16213294) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Producer
+[12:56:17 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:17 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:17 INF] Received HTTP response headers after 157.7137ms - 200
+[12:56:17 INF] End processing HTTP request after 158.9718ms - 200
+[12:56:17 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:17 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:17 INF] Received HTTP response headers after 68.3877ms - 200
+[12:56:17 INF] End processing HTTP request after 70.652ms - 200
+[12:56:17 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:17 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:17 INF] Received HTTP response headers after 80.7781ms - 200
+[12:56:17 INF] End processing HTTP request after 82.3725ms - 200
+[12:56:17 INF] wikidata_reconciliation: Wikipedia description for Q16213294 (en): 428 chars
+[12:56:18 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:18 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:18 INF] Received HTTP response headers after 68.5329ms - 200
+[12:56:18 INF] End processing HTTP request after 70.7816ms - 200
+[12:56:18 INF] wikidata_reconciliation: fetched 20 person claims for QID Q16213294
+[12:56:18 INF] Start processing HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Thomas%20Tull%20SDCC%202014.jpg
+[12:56:18 INF] Sending HTTP request GET https://commons.wikimedia.org/wiki/Special:FilePath/Thomas%20Tull%20SDCC%202014.jpg
+[12:56:18 INF] Received HTTP response headers after 135.3236ms - 200
+[12:56:18 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 137.7681ms
+[12:56:18 INF] End processing HTTP request after 138.3304ms - 200
+[12:56:18 INF] Person Thomas Tull: headshot downloaded to C:\temp\tuvima-library\.data\assets\people\4121dd50-621c-4ff6-83f7-7db3f54b7e87\headshot.jpg
+[12:56:18 INF] [PERF] Person enrichment 4121dd50-621c-4ff6-83f7-7db3f54b7e87 ("Thomas Tull"): 210ms (QID=Q16213294, pseudonym=False)
+[12:56:18 INF] Harvested 20 claims from wikidata_reconciliation for entity 4121dd50-621c-4ff6-83f7-7db3f54b7e87
+[12:56:18 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:18 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:18 INF] Received HTTP response headers after 4.3769ms - 200
+[12:56:18 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.4675ms
+[12:56:18 INF] End processing HTTP request after 6.9333ms - 200
+[12:56:18 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/54211/images?*
+[12:56:18 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/54211/images?*
+[12:56:18 INF] Received HTTP response headers after 97.651ms - 200
+[12:56:18 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 99.357ms
+[12:56:18 INF] End processing HTTP request after 99.7775ms - 200
+[12:56:18 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/gRvTHmNKEqzyt2sGvpjrAvmloy0.jpg
+[12:56:18 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/gRvTHmNKEqzyt2sGvpjrAvmloy0.jpg
+[12:56:18 INF] Received HTTP response headers after 25.6767ms - 200
+[12:56:18 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 27.4815ms
+[12:56:18 INF] End processing HTTP request after 27.959ms - 200
+[12:56:18 INF] Person 4121dd50-621c-4ff6-83f7-7db3f54b7e87: upgraded headshot from TMDB profile 54211 (751x1126)
+[12:56:18 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:18 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:18 INF] Received HTTP response headers after 70.012ms - 200
+[12:56:18 INF] End processing HTTP request after 71.1941ms - 200
+[12:56:19 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:19 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:19 INF] Received HTTP response headers after 121.5104ms - 200
+[12:56:19 INF] End processing HTTP request after 122.8844ms - 200
+[12:56:19 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:19 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:19 INF] Received HTTP response headers after 85.7741ms - 200
+[12:56:19 INF] End processing HTTP request after 87.8187ms - 200
+[12:56:19 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:19 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:19 INF] Received HTTP response headers after 127.3081ms - 200
+[12:56:19 INF] End processing HTTP request after 129.6648ms - 200
+[12:56:20 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:20 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:20 INF] Received HTTP response headers after 86.1296ms - 200
+[12:56:20 INF] End processing HTTP request after 87.949ms - 200
+[12:56:20 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:20 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:20 INF] Received HTTP response headers after 104.8388ms - 200
+[12:56:20 INF] End processing HTTP request after 106.0047ms - 200
+[12:56:20 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:20 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:20 INF] Received HTTP response headers after 109.7455ms - 200
+[12:56:20 INF] End processing HTTP request after 111.686ms - 200
+[12:56:21 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:21 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:21 INF] Received HTTP response headers after 111.8748ms - 200
+[12:56:21 INF] End processing HTTP request after 112.7115ms - 200
+[12:56:21 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:21 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:21 INF] Received HTTP response headers after 44.6102ms - 200
+[12:56:21 INF] End processing HTTP request after 45.834ms - 200
+[12:56:21 INF] Person reconciliation auto-accepted: 'Jon Spaihts' (Producer) -> Q6271612 'Jon Spaihts' (score=1.00)
+[12:56:21 INF] Person enrichment writeback: Jon Spaihts -> Jon Spaihts (Q6271612) (role: Producer)
+[12:56:21 INF] Persisted reconciled person 'Jon Spaihts' (Q6271612) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Producer
+[12:56:21 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:21 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:21 INF] Received HTTP response headers after 4.0663ms - 200
+[12:56:21 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 4.4955ms
+[12:56:21 INF] End processing HTTP request after 4.9773ms - 200
+[12:56:21 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/564940/images?*
+[12:56:21 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/564940/images?*
+[12:56:21 INF] Received HTTP response headers after 6.8283ms - 200
+[12:56:21 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 9.0106ms
+[12:56:21 INF] End processing HTTP request after 9.7377ms - 200
+[12:56:21 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:21 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:21 INF] Received HTTP response headers after 70.1916ms - 200
+[12:56:21 INF] End processing HTTP request after 71.8505ms - 200
+[12:56:22 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:22 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:22 INF] Received HTTP response headers after 92.1916ms - 200
+[12:56:22 INF] End processing HTTP request after 93.4234ms - 200
+[12:56:22 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:22 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:22 INF] Received HTTP response headers after 89.0888ms - 200
+[12:56:22 INF] End processing HTTP request after 90.6917ms - 200
+[12:56:22 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:22 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:22 INF] Received HTTP response headers after 94.7431ms - 200
+[12:56:22 INF] End processing HTTP request after 96.513ms - 200
+[12:56:23 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:23 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:23 INF] Received HTTP response headers after 116.2355ms - 200
+[12:56:23 INF] End processing HTTP request after 121.9206ms - 200
+[12:56:23 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:23 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:23 INF] Received HTTP response headers after 94.1664ms - 200
+[12:56:23 INF] End processing HTTP request after 98.5328ms - 200
+[12:56:23 INF] Person reconciliation auto-accepted: 'Tanya Lapointe' (Producer) -> Q28153346 'Tanya Lapointe' (score=1.00)
+[12:56:23 INF] Person enrichment writeback: Tanya Lapointe -> Tanya Lapointe (Q28153346) (role: Producer)
+[12:56:23 INF] Persisted reconciled person 'Tanya Lapointe' (Q28153346) linked to asset bed81be2-39ba-4586-9479-befd96564f9f as Producer
+[12:56:23 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:23 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:23 INF] Received HTTP response headers after 240.1109ms - 200
+[12:56:23 INF] End processing HTTP request after 243.4215ms - 200
+[12:56:24 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:24 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:24 INF] Received HTTP response headers after 53.3098ms - 200
+[12:56:24 INF] End processing HTTP request after 54.1665ms - 200
+[12:56:24 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:24 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:24 INF] Received HTTP response headers after 61.0177ms - 200
+[12:56:24 INF] End processing HTTP request after 61.9614ms - 200
+[12:56:24 INF] wikidata_reconciliation: Wikipedia description for Q28153346 (en): 1032 chars
+[12:56:24 INF] Start processing HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:24 INF] Sending HTTP request GET https://en.wikipedia.org/w/api.php?*
+[12:56:24 INF] Received HTTP response headers after 72.4809ms - 200
+[12:56:24 INF] End processing HTTP request after 75.1274ms - 200
+[12:56:24 INF] wikidata_reconciliation: fetched 19 person claims for QID Q28153346
+[12:56:24 INF] [PERF] Person enrichment 3e278d22-473e-44ce-86d6-0cf348ceb0ba ("Tanya Lapointe"): 1ms (QID=Q28153346, pseudonym=False)
+[12:56:24 INF] Harvested 19 claims from wikidata_reconciliation for entity 3e278d22-473e-44ce-86d6-0cf348ceb0ba
+[12:56:24 INF] Start processing HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:24 INF] Sending HTTP request GET https://api.themoviedb.org/3/configuration?*
+[12:56:24 INF] Received HTTP response headers after 5.6267ms - 200
+[12:56:24 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 7.0508ms
+[12:56:24 INF] End processing HTTP request after 8.3753ms - 200
+[12:56:24 INF] Start processing HTTP request GET https://api.themoviedb.org/3/person/1905971/images?*
+[12:56:24 INF] Sending HTTP request GET https://api.themoviedb.org/3/person/1905971/images?*
+[12:56:24 INF] Received HTTP response headers after 11.1421ms - 200
+[12:56:24 INF] Execution attempt. Source: 'tmdb-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 12.3182ms
+[12:56:24 INF] End processing HTTP request after 13.0802ms - 200
+[12:56:24 INF] Start processing HTTP request GET https://image.tmdb.org/t/p/original/fSIQqm9PqqyPexLDRU5WCwS76L6.jpg
+[12:56:24 INF] Sending HTTP request GET https://image.tmdb.org/t/p/original/fSIQqm9PqqyPexLDRU5WCwS76L6.jpg
+[12:56:24 INF] Received HTTP response headers after 23.5657ms - 200
+[12:56:24 INF] Execution attempt. Source: 'headshot_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 24.1256ms
+[12:56:24 INF] End processing HTTP request after 24.6186ms - 200
+[12:56:24 INF] Person 3e278d22-473e-44ce-86d6-0cf348ceb0ba: upgraded headshot from TMDB profile 1905971 (2000x3000)
+[12:56:24 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:24 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:25 INF] Received HTTP response headers after 87.0831ms - 200
+[12:56:25 INF] End processing HTTP request after 88.7617ms - 200
+[12:56:25 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:25 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:25 INF] Received HTTP response headers after 236.8455ms - 200
+[12:56:25 INF] End processing HTTP request after 238.0336ms - 200
+[12:56:25 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:25 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:25 INF] Received HTTP response headers after 145.6144ms - 200
+[12:56:25 INF] End processing HTTP request after 146.601ms - 200
+[12:56:25 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:25 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:26 INF] Received HTTP response headers after 193.0871ms - 200
+[12:56:26 INF] End processing HTTP request after 194.0062ms - 200
+[12:56:26 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:26 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:26 INF] Received HTTP response headers after 183.217ms - 200
+[12:56:26 INF] End processing HTTP request after 184.0577ms - 200
+[12:56:26 INF] Start processing HTTP request GET https://www.wikidata.org/w/api.php?*
+[12:56:26 INF] Sending HTTP request GET https://www.wikidata.org/w/api.php?*

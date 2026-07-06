@@ -83,6 +83,11 @@
                 </div>
             }
         </section>
+
+        @if (Model.SourceLinks.Count > 0)
+        {
+            @SourceLinksPanel(Model.SourceLinks)
+        }
     </div>
 }
 else
@@ -98,6 +103,11 @@ else
             <dd>@Model.IdentityStatus</dd>
         </dl>
     </section>
+
+    @if (Model.SourceLinks.Count > 0)
+    {
+        @SourceLinksPanel(Model.SourceLinks)
+    }
 }
 
 @code {
@@ -211,6 +221,27 @@ else
 
         return result.Count == 0 ? [paragraph] : result;
     }
+
+    private RenderFragment SourceLinksPanel(IReadOnlyList<ExternalSourceLinkViewModel> links) => @<section class="tl-detail-panel tl-source-links-panel">
+        <div class="tl-section-heading"><h2>Sources</h2></div>
+        <div class="tl-source-links">
+            @foreach (var link in links)
+            {
+                <a class="tl-source-link" href="@link.Url" target="_blank" rel="noopener noreferrer" title="@link.Tooltip">
+                    <MudIcon Icon="@SourceIcon(link.Key)" Size="Size.Small" />
+                    <span>@link.Label</span>
+                    <small>@link.SourceName</small>
+                </a>
+            }
+        </div>
+    </section>;
+
+    private static string SourceIcon(string key) => key switch
+    {
+        "wikidata" or "wikidata-series" => Icons.Material.Outlined.AccountTree,
+        "wikipedia" => Icons.Material.Outlined.Article,
+        _ => Icons.Material.Outlined.OpenInNew,
+    };
 
     private sealed record PersonLibraryLane(string Key, string Title, IReadOnlyList<MediaGroupingItemViewModel> Items);
 }

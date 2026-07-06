@@ -241,6 +241,11 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("CASE WHEN MAX(ma.id) IS NULL THEN 0 ELSE 1 END AS HasAsset", source);
         Assert.Contains("COALESCE(w.is_catalog_only, 0) AS IsCatalogOnly", source);
         Assert.Contains("ApplyMediaGroupCompletion", source);
+        Assert.Contains("var expectedTotal = manifest?.ExpectedTotal", source);
+        Assert.Contains("BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal)", source);
+        Assert.Contains("var total = Math.Max(group.Items.Count, group.TotalCount)", source);
+        Assert.Contains("DetailEntityType.MovieSeries => \"Films\"", source);
+        Assert.Contains("DetailEntityType.BookSeries => \"Books\"", source);
         Assert.Contains("InitiallyCollapsed = total > 0 && owned == 0", source);
         Assert.Contains("Actions = work.IsOwned ?", source);
         Assert.Contains("public int OwnedCount { get; init; }", contracts);
@@ -371,16 +376,28 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("series_qid", source);
         Assert.Contains("LoadManifestItemsForSequenceContainerAsync(normalizedContainerId, ct)", source);
+        Assert.Contains("WHERE series_qid = @containerId", source);
         Assert.Contains("GetItemsBySeriesQidAsync(containerId, ct)", source);
         Assert.Contains("WHERE parent_collection_qid = @containerId", source);
+        Assert.Contains("var exactManifestItems = manifestItems", source);
+        Assert.Contains("SequenceContainerIdEquals(item.SeriesQid, normalizedContainerId)", source);
+        Assert.Contains("manifestItems = exactManifestItems", source);
         Assert.Contains("MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType)", source);
         Assert.Contains("FROM series_members", source);
         Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, containerId, detail.WikidataQid, workId, entityType, ct)", source);
+        Assert.Contains("ApplyExactManifestPositionsAsync(items, containerId, entityType, ct)", source);
+        Assert.Contains("SELECT linked_work_id AS LinkedWorkId", source);
+        Assert.Contains("WHERE series_qid = @seriesQid", source);
+        Assert.Contains("ToManifestPosition", source);
         Assert.Contains("ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct)", source);
-        Assert.Contains("smi.parent_collection_qid AS ContainerId", source);
+        Assert.Contains("ResolveLocalSequenceContainerOptionAsync(workId, entityType, detail.MediaType, ct)", source);
+        Assert.DoesNotContain("smi.parent_collection_qid AS ContainerId", source);
+        Assert.Contains("containerKind') AS TEXT), 'OrderedSeries') NOT IN ('Franchise', 'Universe', 'WikimediaList', 'PublisherOrProductionList')", source);
         Assert.Contains("IsParentSequenceContainer(scopedManifestItems, normalizedContainerId)", source);
         Assert.Contains("items.Count <= 1 && !hasExplicitSequenceEvidence", source);
-        Assert.Contains("TotalKnownItems = items.Count", source);
+        Assert.Contains("!hasExplicitSequenceEvidence && !hasPositionEvidence", source);
+        Assert.Contains("LoadSequenceExpectedTotalAsync(containerId, ct)", source);
+        Assert.Contains("TotalKnownItems = totalKnownItems", source);
         Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
         Assert.Contains("BuildOwnedPositionSet(merged)", source);
         Assert.Contains("BuildManifestDisplayPositions(manifestItems)", source);
@@ -390,6 +407,19 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildManifestMergeKey", source);
         Assert.DoesNotContain("if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))", source);
         Assert.Contains("Missing from library", source);
+    }
+
+    [Fact]
+    public void DetailComposer_ExposesWikidataAndSeriesSourceLinks()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
+
+        Assert.Contains("SourceLinks = BuildExternalSourceLinks(detail.WikidataQid", source);
+        Assert.Contains("\"wikidata-series\"", source);
+        Assert.Contains("BuildWikidataEntityUrl(seriesQid)", source);
+        Assert.Contains("public IReadOnlyList<ExternalSourceLinkViewModel> SourceLinks { get; init; } = [];", contracts);
+        Assert.Contains("public sealed class ExternalSourceLinkViewModel", contracts);
     }
 
     [Fact]
