@@ -33,6 +33,7 @@ public sealed class DisplayJourneyProjectionReader
                 cv_artist_w.value AS Artist,
                 cv_album_w.value AS Album,
                 cv_year_w.value AS Year,
+                COALESCE(cv_rating_w.value, cv_rating_item.value, cv_rating_a.value) AS Rating,
                 cv_genre_w.value AS Genre,
                 cv_series_w.value AS Series,
                 COALESCE(cv_issue_a.value, cv_issue_w.value, cv_series_position_a.value) AS SeriesPosition,
@@ -149,6 +150,9 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN canonical_values cv_artist_w ON cv_artist_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_artist_w.key = 'artist'
             LEFT JOIN canonical_values cv_album_w ON cv_album_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_album_w.key = 'album'
             LEFT JOIN canonical_values cv_year_w ON cv_year_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_year_w.key IN ('release_year', 'year')
+            LEFT JOIN canonical_values cv_rating_w ON cv_rating_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_rating_w.key = 'rating'
+            LEFT JOIN canonical_values cv_rating_item ON cv_rating_item.entity_id = w.id AND cv_rating_item.key = 'rating'
+            LEFT JOIN canonical_values cv_rating_a ON cv_rating_a.entity_id = ma.id AND cv_rating_a.key = 'rating'
             LEFT JOIN canonical_values cv_genre_w ON cv_genre_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_genre_w.key = 'genre'
             LEFT JOIN canonical_values cv_series_w ON cv_series_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_series_w.key = 'series'
             LEFT JOIN canonical_values cv_series_position_a ON cv_series_position_a.entity_id = ma.id AND cv_series_position_a.key = 'series_position'

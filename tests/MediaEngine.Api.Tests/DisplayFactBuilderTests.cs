@@ -17,6 +17,19 @@ public sealed class DisplayFactBuilderTests
     }
 
     [Fact]
+    public void MovieFacts_FormatRatingAsStarFact()
+    {
+        var facts = DisplayFactBuilder.Build(
+            mediaKind: "Movie",
+            title: "Inception",
+            year: "2010",
+            rating: "8.8",
+            genre: "Science Fiction");
+
+        Assert.Equal(["2010", "\u2605 8.8", "Science Fiction"], facts);
+    }
+
+    [Fact]
     public void BookFacts_UseAuthorAndGenresWithoutRepeatingTitle()
     {
         var facts = DisplayFactBuilder.Build(

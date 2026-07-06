@@ -72,6 +72,11 @@ public sealed class DisplayWorkProjectionReader
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artist' LIMIT 1) AS Artist,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'album' LIMIT 1) AS Album,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('release_year', 'year') LIMIT 1) AS Year,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'rating' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'rating' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'rating' LIMIT 1)
+                ) AS Rating,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'genre' LIMIT 1) AS Genre,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'series' LIMIT 1) AS Series,
                 COALESCE(

@@ -46,6 +46,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? Artist { get; set; }
     public string? Album { get; set; }
     public string? Year { get; set; }
+    public string? Rating { get; set; }
     public string? Genre { get; set; }
     public string? Series { get; set; }
     public string? SeriesPosition { get; set; }
@@ -144,6 +145,7 @@ public sealed class DisplayJourneyRow : IDisplayArtworkRow
     public string? Artist { get; set; }
     public string? Album { get; set; }
     public string? Year { get; set; }
+    public string? Rating { get; set; }
     public string? Genre { get; set; }
     public string? Series { get; set; }
     public string? SeriesPosition { get; set; }

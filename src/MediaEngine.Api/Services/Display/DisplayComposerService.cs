@@ -468,7 +468,7 @@ public sealed class DisplayComposerService
             GroupingType: "album",
             Title: title,
             Subtitle: artist,
-            Facts: AlbumFacts(works, artist, representative.Year, representative.Genre),
+            Facts: AlbumFacts(works, artist, representative.Year, representative.Genre, representative.Rating),
             Artwork: ArtworkFor(representative),
             PreferredShape: "square",
             Presentation: "album",
@@ -623,11 +623,12 @@ public sealed class DisplayComposerService
             ParseInt(row.BackgroundHeightPx),
             row.AccentColor);
 
-    private static IReadOnlyList<string> AlbumFacts(IReadOnlyList<DisplayWorkRow> works, string? artist, string? year, string? genre)
+    private static IReadOnlyList<string> AlbumFacts(IReadOnlyList<DisplayWorkRow> works, string? artist, string? year, string? genre, string? rating)
     {
         var facts = new List<string>();
         AddFact(facts, artist);
         AddFact(facts, year);
+        AddFact(facts, DisplayFactBuilder.Build("Music", string.Empty, rating: rating).FirstOrDefault());
         AddFact(facts, $"{works.Count} tracks");
         foreach (var item in DisplayMediaRules.SplitValues(genre).Take(2))
         {

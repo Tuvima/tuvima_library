@@ -20,7 +20,7 @@ public sealed class DisplayCardBuilder
             GroupingType: "work",
             Title: title,
             Subtitle: SubtitleFor(mediaKind, CreatorFor(row), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
-            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album, row.Rating),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -50,7 +50,7 @@ public sealed class DisplayCardBuilder
             GroupingType: "work",
             Title: title,
             Subtitle: SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
-            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album, row.Rating),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -158,7 +158,7 @@ public sealed class DisplayCardBuilder
             GroupingType: CollectionPresentation(lane, mediaKind),
             Title: title,
             Subtitle: CollectionSubtitle(mediaKind, works, ownedCount, knownTotalCount),
-            Facts: CollectionFacts(mediaKind, works, representative.Genre, ownedCount, knownTotalCount),
+            Facts: CollectionFacts(mediaKind, works, representative.Genre, ownedCount, knownTotalCount, representative.Rating),
             Artwork: artwork,
             PreferredShape: CollectionShape(lane, mediaKind, representative.MediaType, artwork),
             Presentation: presentation,
@@ -210,7 +210,7 @@ public sealed class DisplayCardBuilder
             GroupingType: "tvSeries",
             Title: title,
             Subtitle: CollectionSubtitle("TV", works),
-            Facts: CollectionFacts("TV", works, representative.Genre),
+            Facts: CollectionFacts("TV", works, representative.Genre, rating: representative.Rating),
             Artwork: artwork,
             PreferredShape: PreferredShape("TV", artwork.BackgroundUrl, artwork.BannerUrl, artwork.SquareUrl),
             Presentation: "tvSeries",
@@ -396,8 +396,8 @@ public sealed class DisplayCardBuilder
         return ArtworkFor(row);
     }
 
-    private static IReadOnlyList<string> BuildFacts(string mediaKind, string title, string? year, string? genre, string? author, string? artist, string? narrator, string? series, string? seriesPosition, string? showName, string? season, string? episode, string? track, string? album)
-        => DisplayFactBuilder.Build(mediaKind, title, year, genre, author, artist, narrator, series, seriesPosition, showName, season, episode, track, album);
+    private static IReadOnlyList<string> BuildFacts(string mediaKind, string title, string? year, string? genre, string? author, string? artist, string? narrator, string? series, string? seriesPosition, string? showName, string? season, string? episode, string? track, string? album, string? rating)
+        => DisplayFactBuilder.Build(mediaKind, title, year, genre, author, artist, narrator, series, seriesPosition, showName, season, episode, track, album, rating);
 
     private static string PreferredShape(string mediaType, string? backgroundUrl, string? bannerUrl, string? squareUrl)
     {
@@ -460,7 +460,8 @@ public sealed class DisplayCardBuilder
         IReadOnlyList<DisplayWorkRow> works,
         string? genre,
         int? ownedCount = null,
-        int? knownTotalCount = null)
+        int? knownTotalCount = null,
+        string? rating = null)
     {
         var facts = new List<string>();
         if (mediaKind == "TV" && HasRecentlyAddedEpisodes(works))
@@ -469,6 +470,7 @@ public sealed class DisplayCardBuilder
         }
 
         AddFact(facts, CollectionSubtitle(mediaKind, works, ownedCount, knownTotalCount));
+        AddFact(facts, DisplayFactBuilder.Build(mediaKind, string.Empty, rating: rating).FirstOrDefault());
         facts.AddRange(DisplayMediaRules.SplitValues(genre).Where(value => !string.Equals(value, mediaKind, StringComparison.OrdinalIgnoreCase)).Take(2));
         return facts;
     }

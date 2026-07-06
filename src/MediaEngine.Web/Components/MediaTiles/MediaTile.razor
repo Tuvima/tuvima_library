@@ -7,7 +7,7 @@
 @inject ILogger<MediaTile> Logger
 @implements IAsyncDisposable
 
-<div class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")}")'
+<div class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")} {(_dismissedFromContinue ? "is-dismissed" : "")}")'
      @ref="_cardRef"
      tabindex="0"
      @onkeydown="@HandleKeyDown">
@@ -107,10 +107,12 @@
 
             @if (Item.ProgressPct is > 0)
             {
-                <progress class="media-tile-progress"
-                          value="@Math.Min(100, Item.ProgressPct.Value)"
-                          max="100"
-                          aria-label="@ProgressLabel"></progress>
+                <div class="media-tile-progress-strip" aria-label="@ProgressAccessibleLabel">
+                    <span class="media-tile-progress-percent">@ProgressPercentLabel</span>
+                    <progress class="media-tile-progress"
+                              value="@ProgressValue"
+                              max="100"></progress>
+                </div>
             }
 
             @if (ShowCollectionBanner && (ShowCollectionTitleOverlay || CollectionMediaCounts.Count > 0))
@@ -152,12 +154,6 @@
                 </div>
             }
 
-            @if (IsHoverEnabled)
-            {
-                <AppNativeButton Type="button" Class="media-tile-touch-toggle" AriaLabel="Show quick actions" OnClick="ToggleExpanded" StopPropagation="true">
-                    <MudIcon Icon="@Icons.Material.Filled.MoreHoriz" />
-                </AppNativeButton>
-            }
         </div>
     </div>
 
@@ -205,6 +201,19 @@
                                             Palette="@Item.ArtworkPalette"
                                             Class="media-tile-hover-series-stack" />
                     }
+
+                    @if (CanRemoveFromContinue)
+                    {
+                        <AppNativeButton Type="button"
+                                         Class="media-tile-hover-remove-corner media-tile-hover-control"
+                                         AriaLabel="Remove from continue row"
+                                         Title="Remove from continue row"
+                                         OnClick="DismissFromContinue"
+                                         StopPropagation="true">
+                            <MudIcon Icon="@Icons.Material.Outlined.Close" />
+                            <span class="media-tile-visually-hidden">Remove from continue row</span>
+                        </AppNativeButton>
+                    }
                 </div>
 
                 @if (ShowExpandedHoverBody)
@@ -212,36 +221,60 @@
                     <div class="media-tile-hover-body">
                         <div class="media-tile-hover-actions">
                             <div class="media-tile-hover-actions-left">
-                                <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-primary" AriaLabel="@PrimaryActionDisplayLabel" Title="@PrimaryActionDisplayLabel" OnClick="OpenPrimary" StopPropagation="true">
-                                    <MudIcon Icon="@PrimaryMudIcon" />
-                                    <span class="media-tile-primary-action-label">@PrimaryActionDisplayLabel</span>
-                                </AppNativeButton>
+                                <div class="media-tile-hover-action-unit media-tile-hover-action-unit-primary">
+                                    <AppNativeButton Type="button" Class="media-tile-hover-control media-tile-hover-control-primary" AriaLabel="@PrimaryActionDisplayLabel" Title="@PrimaryActionDisplayLabel" OnClick="OpenPrimary" StopPropagation="true">
+                                        <MudIcon Icon="@PrimaryMudIcon" />
+                                        <span class="media-tile-visually-hidden">@PrimaryActionDisplayLabel</span>
+                                    </AppNativeButton>
+                                    <span class="media-tile-hover-action-label">@PrimaryActionShortLabel</span>
+                                </div>
 
-                                <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-secondary media-tile-details-action" AriaLabel="Details" Title="Details" OnClick="OpenDetails" StopPropagation="true">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Info" />
-                                    <span class="media-tile-secondary-action-label">Details</span>
-                                </AppNativeButton>
-
-                                @if (Item.CanAddToCollection)
-                                {
-                                    <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-icon-button-secondary media-tile-add-action" AriaLabel="Add to collection" Title="Add to collection" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
+                                <div class="media-tile-hover-action-unit">
+                                    <AppNativeButton Type="button" Class="media-tile-hover-control media-tile-hover-control-secondary media-tile-add-action" AriaLabel="Add to collection" Title="Add to collection" Disabled="@(!Item.CanAddToCollection)" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
                                         <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                        <span class="media-tile-secondary-action-label">Add to Collection</span>
+                                        <span class="media-tile-visually-hidden">Add to Collection</span>
                                     </AppNativeButton>
-                                }
+                                    <span class="media-tile-hover-action-label">Add</span>
+                                </div>
 
-                                @if (CanEdit)
-                                {
-                                    <AppNativeButton Type="button" Class="media-tile-icon-button" AriaLabel="Edit metadata" Title="Edit metadata" OnClick="OpenEditorAsync" StopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Edit" />
-                                    </AppNativeButton>
-                                }
+                                <div class="media-tile-hover-action-unit">
+                                    <div class="media-tile-feedback-control" aria-label="Feedback actions">
+                                        <AppNativeButton Type="button" Class="media-tile-feedback-button media-tile-like-action" AriaLabel="Like" Title="Like" StopPropagation="true">
+                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbUp" />
+                                            <span class="media-tile-visually-hidden">Like</span>
+                                        </AppNativeButton>
+                                        <AppNativeButton Type="button" Class="media-tile-feedback-button media-tile-dislike-action" AriaLabel="Dislike" Title="Dislike" StopPropagation="true">
+                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbDown" />
+                                            <span class="media-tile-visually-hidden">Dislike</span>
+                                        </AppNativeButton>
+                                    </div>
+                                    <span class="media-tile-hover-action-label">Like</span>
+                                </div>
+                            </div>
 
-                                <AppNativeButton Type="button" Class="media-tile-icon-button media-tile-more-action" AriaLabel="More actions" Title="More actions" OnClick="OpenDetails" StopPropagation="true">
-                                    <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" />
+                            <div class="media-tile-hover-action-unit media-tile-hover-action-unit-details">
+                                <AppNativeButton Type="button" Class="media-tile-hover-control media-tile-hover-control-secondary media-tile-details-action" AriaLabel="Details" Title="Details" OnClick="OpenDetails" StopPropagation="true">
+                                    <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
+                                    <span class="media-tile-visually-hidden">Details</span>
                                 </AppNativeButton>
+                                <span class="media-tile-hover-action-label">Details</span>
                             </div>
                         </div>
+
+                        @if (ShowHoverProgressRow)
+                        {
+                            <div class="media-tile-hover-progress" aria-label="@ProgressCompleteLabel">
+                                <progress class="media-tile-hover-progress-track"
+                                          value="@ProgressValue"
+                                          max="100"></progress>
+                                <span>@ProgressCompleteLabel</span>
+                            </div>
+                        }
+
+                        @if (!UseCompactHover && !string.IsNullOrWhiteSpace(HoverStatusLabel))
+                        {
+                            <div class="media-tile-hover-status">@HoverStatusLabel</div>
+                        }
 
                         @if (ShowHoverHeading)
                         {
@@ -257,26 +290,23 @@
                         @if (UseCompactHover || ShowRichHoverFacts)
                         {
                             <div class="media-tile-hover-facts">
-                                @foreach (var fact in CompactHoverFacts)
+                                @if (!string.IsNullOrWhiteSpace(RatingFact))
                                 {
-                                    <span class="media-tile-hover-fact">@fact</span>
+                                    <span class="media-tile-rating-pill">
+                                        <MudIcon Icon="@Icons.Material.Filled.Star" />
+                                        <span>@RatingFactDisplay</span>
+                                    </span>
+                                }
+                                @foreach (var fact in DisplayHoverFacts)
+                                {
+                                    <span class="@HoverFactClass(fact)">@fact</span>
                                 }
                             </div>
                         }
 
-                        @if (Item.ProgressPct is > 0)
+                        @if (!UseCompactHover && ShowHoverDescription)
                         {
-                            <div class="media-tile-hover-progress" aria-label="@ProgressLabel">
-                                <progress class="media-tile-hover-progress-track"
-                                          value="@Math.Min(100, Item.ProgressPct.Value)"
-                                          max="100"></progress>
-                                <span>@ProgressLabel</span>
-                            </div>
-                        }
-
-                        @if (!UseCompactHover && !string.IsNullOrWhiteSpace(Item.StatusText))
-                        {
-                            <div class="media-tile-hover-status">@Item.StatusText</div>
+                            <p class="media-tile-hover-description">@DisplaySummary</p>
                         }
 
                         @if (!UseCompactHover && ShowMetaRow)
@@ -304,11 +334,6 @@
                                     <span class="media-tile-chip">@chip</span>
                                 }
                             </div>
-                        }
-
-                        @if (!UseCompactHover && ShowHoverDescription)
-                        {
-                            <p class="media-tile-hover-description">@DisplaySummary</p>
                         }
                     </div>
                 }
@@ -338,6 +363,7 @@
     private bool _expanded;
     private bool _hoverRegistered;
     private bool _lastExpandedState;
+    private bool _dismissedFromContinue;
     private int _hoverImageIndex;
     private ElementReference _cardRef;
     private ElementReference CardElement => _cardRef;
@@ -456,7 +482,15 @@
 
     private bool ShowCollectionTitleOverlay => ShowCollectionBanner && !ShowTileLogo;
 
-    private string ProgressLabel => Item.ProgressLabel ?? $"{Math.Min(100, Item.ProgressPct ?? 0):F0}%";
+    private string ProgressPercentLabel => $"{Math.Clamp(Item.ProgressPct ?? 0, 0, 100):F0}%";
+
+    private double ProgressValue => Math.Clamp(Item.ProgressPct ?? 0, 0, 100);
+
+    private string ProgressCompleteLabel => $"{ProgressPercentLabel} complete";
+
+    private string ProgressAccessibleLabel => Item.ProgressLabel ?? ProgressCompleteLabel;
+
+    private string ProgressLabel => Item.ProgressLabel ?? ProgressPercentLabel;
 
     private IReadOnlyList<string> PreviewImages => Item.PreviewImages
         .Where(image => !string.IsNullOrWhiteSpace(image))
@@ -541,8 +575,22 @@
         }
 
         var value = string.Join(' ', description.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        var wordCount = value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-        return value.Length <= 120 && wordCount <= 18 ? value : null;
+        const int maxLength = 220;
+        const int maxWords = 42;
+
+        var words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (value.Length <= maxLength && words.Length <= maxWords)
+        {
+            return value;
+        }
+
+        var shortened = string.Join(' ', words.Take(maxWords));
+        if (shortened.Length > maxLength)
+        {
+            shortened = shortened[..maxLength].TrimEnd();
+        }
+
+        return string.IsNullOrWhiteSpace(shortened) ? null : $"{shortened}...";
     }
 
     private string TileImageFitClass => Item.TileImageFitMode == MediaTileImageFitMode.Contain ? "is-contained" : "is-fill";
@@ -552,6 +600,30 @@
     private bool ShowHoverContextLines => EffectiveHoverMode == MediaTileHoverMode.Expanded && Item.ContextLines.Count > 0;
 
     private bool ShowHoverDescription => EffectiveHoverMode == MediaTileHoverMode.Expanded && !string.IsNullOrWhiteSpace(DisplaySummary);
+
+    private bool ShowHoverProgressRow => Item.ProgressPct is > 0;
+
+    private bool CanRemoveFromContinue => Item.ProgressPct is > 0 && !Item.IsCollection;
+
+    private string? HoverStatusLabel
+    {
+        get
+        {
+            if (Item.ProgressPct is > 0)
+            {
+                return Item.MediaKind switch
+                {
+                    "Book" or "Comic" => "Continue Reading",
+                    "Music" or "Audiobook" => "Resume Listening",
+                    "TV" => "Resume Episode",
+                    "Movie" => "Resume",
+                    _ => "Continue",
+                };
+            }
+
+            return Item.StatusText;
+        }
+    }
 
     private bool ShowCaption => Item.TileTextMode != MediaTileTextMode.CoverOnly && !ShowTileLogo;
 
@@ -572,9 +644,61 @@
         .Take(4)
         .ToList();
 
+    private string? RatingFact => CompactHoverFacts.FirstOrDefault(IsRatingFact);
+
+    private string RatingFactDisplay => FormatRatingFactForDisplay(RatingFact);
+
+    private IReadOnlyList<string> DisplayHoverFacts => CompactHoverFacts
+        .Where(fact => !IsRatingFact(fact))
+        .Take(3)
+        .ToList();
+
     private bool UseCompactHover => EffectiveHoverMode == MediaTileHoverMode.Preview && CompactHoverFacts.Count > 0 && !SupportsRichGroupHover;
 
     private bool ShowRichHoverFacts => EffectiveHoverMode == MediaTileHoverMode.Expanded && CompactHoverFacts.Count > 0;
+
+    private static string HoverFactClass(string fact) =>
+        IsRatingFact(fact)
+            ? "media-tile-hover-fact is-rating"
+            : "media-tile-hover-fact";
+
+    private static bool IsRatingFact(string? fact)
+    {
+        if (string.IsNullOrWhiteSpace(fact))
+        {
+            return false;
+        }
+
+        return fact.Contains('\u2605')
+            || fact.Contains("IMDb", StringComparison.OrdinalIgnoreCase)
+            || fact.Contains("/10", StringComparison.OrdinalIgnoreCase)
+            || fact.StartsWith("rating", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatRatingFactForDisplay(string? fact)
+    {
+        if (string.IsNullOrWhiteSpace(fact))
+        {
+            return string.Empty;
+        }
+
+        var value = fact.Trim();
+        if (value.StartsWith('\u2605'))
+        {
+            value = value[1..].Trim();
+        }
+
+        if (value.StartsWith("Rating:", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value["Rating:".Length..].Trim();
+        }
+        else if (value.StartsWith("Rating", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value["Rating".Length..].Trim();
+        }
+
+        return value;
+    }
 
     private string PrimaryMudIcon => Item.MediaKind switch
     {
@@ -583,6 +707,36 @@
         "Comic" or "Book" => Icons.Material.Filled.MenuBook,
         _ => Icons.Material.Filled.PlayArrow,
     };
+
+    private string PrimaryActionShortLabel
+    {
+        get
+        {
+            var label = PrimaryActionDisplayLabel;
+            if (label.Contains("Resume", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Resume";
+            }
+
+            if (label.Contains("Continue", StringComparison.OrdinalIgnoreCase))
+            {
+                return Item.MediaKind is "Book" or "Comic" ? "Read" : "Resume";
+            }
+
+            if (label.Contains("Reading", StringComparison.OrdinalIgnoreCase)
+                || label.Contains("Read", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Read";
+            }
+
+            if (label.Contains("Play", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Play";
+            }
+
+            return label.Length <= 12 ? label : "Open";
+        }
+    }
 
     private string PrimaryActionDisplayLabel
     {
@@ -608,7 +762,7 @@
             {
                 return Item.MediaKind switch
                 {
-                    "Book" or "Comic" => "Continue",
+                    "Book" or "Comic" => "Continue Reading",
                     "Movie" or "TV" or "Music" or "Audiobook" => "Resume",
                     _ => "Continue",
                 };
@@ -777,8 +931,6 @@
         }
     }
 
-    private void ToggleExpanded() => _expanded = !_expanded;
-
     private void OpenPrimary()
     {
         _expanded = false;
@@ -794,6 +946,12 @@
     {
         _expanded = false;
         Nav.NavigateTo(Item.DetailsNavigationUrl ?? Item.NavigationUrl);
+    }
+
+    private void DismissFromContinue()
+    {
+        _expanded = false;
+        _dismissedFromContinue = true;
     }
 
     private async Task OpenAddToCollectionAsync()
