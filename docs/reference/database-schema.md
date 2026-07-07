@@ -68,6 +68,7 @@ A single title, independent of version or format.
 | `media_type` | TEXT | `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics` |
 | `sort_title` | TEXT | Normalized for sorting |
 | `status` | TEXT | `Verified`, `Provisional`, `NeedsReview`, `Quarantined`, `Pending` |
+| `ordinal_sort` | REAL | Optional normalized child order for sequence shelves; supports decimals, fractions, annuals, specials, and disc/track sorting. |
 | `created_at` | TEXT | Timestamp |
 | `updated_at` | TEXT | Timestamp |
 | `last_enriched_at` | TEXT | Timestamp |
@@ -170,6 +171,16 @@ The winning single-valued claim for each field after Priority Cascade resolution
 **Unique index:** `entity_id + field_key`
 
 Artwork truth is also persisted here through canonical keys such as `cover_state`, `cover_source`, `hero_state`, and `artwork_settled_at`.
+
+Sequence facts are scalar canonical values on the accepted container or child:
+`sequence_total`, `sequence_total_scope`, `sequence_format`, and related
+provider-specific IDs such as `comic_vine_volume_id`. They describe the
+immediate shelf container, not a broader franchise unless the scope explicitly
+says `BroaderFranchise`.
+
+Description and text provenance also belongs in canonical/claim metadata where
+available: provider/source name, source title, source URL, license name, license
+URL, retrieval timestamp, and a flag for modified or summarized display text.
 
 ### canonical_value_arrays
 

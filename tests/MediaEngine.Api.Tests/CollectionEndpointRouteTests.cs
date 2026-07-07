@@ -59,6 +59,17 @@ public sealed class CollectionEndpointRouteTests
     }
 
     [Fact]
+    public void ContentGroups_ResolveArtworkThroughManagedStreamUrls()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+
+        Assert.Contains("using MediaEngine.Api.Services.Display;", source, StringComparison.Ordinal);
+        Assert.Contains("DisplayArtworkUrlResolver.Resolve(value, assetId, streamKind, state)", source, StringComparison.Ordinal);
+        Assert.Contains("SuppressExternalProviderArtworkUrl(value)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("return w.CanonicalValues\r\n            .FirstOrDefault(c =>\r\n                string.Equals(c.Key, MetadataFieldConstants.CoverUrl", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CollectionReadRoutes_DelegateMigratedProjectionSqlToReadServices()
     {
         var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));

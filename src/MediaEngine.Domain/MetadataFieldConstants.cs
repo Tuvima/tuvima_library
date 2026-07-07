@@ -35,6 +35,7 @@ public static class MetadataFieldConstants
     public const string Rating          = "rating";
     public const string Series          = "series";
     public const string SeriesPosition  = "series_position";
+    public const string SeriesStartYear = "series_start_year";
     public const string Runtime         = "runtime";
     public const string Album           = "album";
     public const string Artist          = "artist";
@@ -42,6 +43,8 @@ public static class MetadataFieldConstants
     public const string SeasonNumber    = "season_number";
     public const string EpisodeNumber   = "episode_number";
     public const string TrackNumber     = "track_number";
+    public const string DiscNumber      = "disc_number";
+    public const string DiscCount       = "disc_count";
     public const string MediaTypeField  = "media_type";
     public const string PublisherField  = "publisher";
     public const string PageCount       = "page_count";
@@ -73,6 +76,11 @@ public static class MetadataFieldConstants
     public const string EpisodeCount      = "episode_count";
     public const string TrackCount        = "track_count";
     public const string IssueCount        = "issue_count";
+    public const string IssueNumber       = "issue_number";
+    public const string IssueNumberSort   = "issue_number_sort";
+    public const string SequenceTotal     = "sequence_total";
+    public const string SequenceTotalScope = "sequence_total_scope";
+    public const string SequenceFormat    = "sequence_format";
     public const string ChildEntitiesJson = "child_entities_json";
 
     // ── Multi-valued claim keys also used in claim creation ──────────────────

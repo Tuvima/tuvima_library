@@ -47,6 +47,29 @@ public sealed class PipelineConfigurationTests
         Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "cover"));
     }
 
+    [Fact]
+    public void MediaPipelines_AssignSequenceFieldsToMediaSpecificProviders()
+    {
+        var configPath = FindRepoFile("config", "pipelines.json");
+        using var document = JsonDocument.Parse(File.ReadAllText(configPath));
+
+        Assert.Equal(["tmdb", "wikidata_reconciliation"], ReadPriority(document, "Movies", "series"));
+        Assert.Equal(["tmdb", "wikidata_reconciliation"], ReadPriority(document, "Movies", "series_position"));
+        Assert.Equal(["tmdb", "wikidata_reconciliation"], ReadPriority(document, "Movies", "sequence_total"));
+
+        Assert.Equal(["tmdb", "wikidata_reconciliation"], ReadPriority(document, "TV", "episode_number"));
+        Assert.Equal(["tmdb", "wikidata_reconciliation"], ReadPriority(document, "TV", "episode_count"));
+        Assert.Equal(["tmdb", "wikidata_reconciliation"], ReadPriority(document, "TV", "sequence_total"));
+
+        Assert.Equal(["comicvine", "wikidata_reconciliation"], ReadPriority(document, "Comics", "series"));
+        Assert.Equal(["comicvine", "wikidata_reconciliation"], ReadPriority(document, "Comics", "issue_number"));
+        Assert.Equal(["comicvine", "wikidata_reconciliation"], ReadPriority(document, "Comics", "sequence_total"));
+
+        Assert.Equal(["apple_api"], ReadPriority(document, "Music", "track_number"));
+        Assert.Equal(["apple_api"], ReadPriority(document, "Music", "disc_number"));
+        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "sequence_total"));
+    }
+
     private static string[] ReadPriority(JsonDocument document, string mediaType, string field)
     {
         var root = document.RootElement;

@@ -41,6 +41,32 @@ Stages 6, 7, and 8 can run concurrently after their prerequisites are present. G
 
 Series order is user-facing only when it affects the local shelf. Tuvima prefers explicit order values such as local `series_pos`, retail series position, or Wikidata ordinal qualifiers. Wikidata previous/next chain warnings are kept as diagnostics because public Wikidata chains can be incomplete or one-directional; they do not create Review Queue rows by themselves.
 
+## Sequence Placement Framework
+
+Tuvima uses one shared ingestion pipeline, but sequence placement is resolved by
+media-specific rules. The shared normalized fields are:
+
+| Field | Meaning |
+| --- | --- |
+| `ordinal_sort` | Numeric sort position for children, including decimals, fractions, annuals, specials, discs, and tracks. |
+| `sequence_total` | Expected item count for the accepted immediate container. |
+| `sequence_total_scope` | Whether the total describes the main sequence, extras, standalone item, collected edition, or broader franchise. |
+| `sequence_format` | Structural format such as standard item, annual, special, omnibus, compilation, or TV special. |
+
+Immediate shelves and broader rollups are different products. `series_qid` is
+only for an ordered, lane-compatible container. `franchise_qid` or universe
+relationships may support discovery rollups, but they do not replace a comic
+volume, album, TV season/show, book series, or film collection shelf. Wikimedia
+list articles and production lists are diagnostics only.
+
+Provider-owned totals are preferred over sparse Wikidata child manifests when
+the provider owns the ordering container: Comic Vine volume issue counts, Apple
+album track counts, TMDB season episode counts and movie collection data, and
+Wikidata manifests for books/audiobooks when no stronger retail sequence source
+exists. Title-specific runtime facts are prohibited; examples such as decimal
+novella placement, comic annuals, and multi-disc tracks must work through the
+normal ordinal parser and child identity rules.
+
 ## Stages 1-2: Local Ingestion
 
 Inputs come from `config/libraries.json`. Each library entry declares `source_paths`, media type hints, read-only/writeback policy, and the source folders watched by the Engine. The ingestion options no longer use the old single `WatchDirectory` or `source_path` config shapes as runtime fallbacks.
@@ -156,6 +182,15 @@ Stage 6-8 data artifacts:
 | Text tracks | `text_tracks`, `.data/assets/text-tracks/...` | Lyrics/subtitles and normalized track metadata. |
 | Timeline/activity | `entity_timeline`, `system_activity` | Operational history visible in diagnostics and Dashboard progress. |
 
+## Source Attribution
+
+Text derived from Wikipedia, Wikidata, or retail/provider descriptions carries
+source attribution through the API. Detail surfaces should expose provider name,
+source title, source URL, license name, license URL, retrieval timestamp, and
+whether the text was modified or summarized for display. This keeps sourced
+metadata inspectable and supports Wikimedia attribution requirements when
+Wikipedia/Wikidata-derived text is shown.
+
 ## Media-Type Matrix
 
 | Media type | Stage 3 retail gate | Stage 4 bridge | Stage 5 readiness | Stages 6-8 enrichment |
@@ -182,6 +217,12 @@ Stage 6-8 data artifacts:
 Deletion and maintenance use database-referenced paths, not guessed QID folders. The maintenance endpoint is `/maintenance/sweep-orphan-assets`, which scans `.data/assets` and removes managed files that are no longer referenced by the database. The old `/maintenance/sweep-orphan-images` endpoint is retired.
 
 Optional sidecar exports, such as colocated artwork or metadata files next to media, are mirrors. They are not the Engine's canonical store and should not be used as runtime fallback reads.
+
+API and UI surfaces should receive managed artwork URLs or settled placeholders,
+not stale provider URLs. A provider URL may be retained as source provenance, but
+cards, lane pages, album pages, detail pages, search results, review cards, and
+collection pages should render through the managed asset stream once artwork has
+been accepted.
 
 ## Readiness And Review States
 

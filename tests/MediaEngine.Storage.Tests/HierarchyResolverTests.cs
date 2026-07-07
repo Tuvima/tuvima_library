@@ -150,6 +150,26 @@ public sealed class HierarchyResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task Music_MultiDiscTracks_DoNotCollideOnTrackNumberOnly()
+    {
+        var discOne = await _resolver.ResolveAsync(MediaType.Music,
+            Track("Various Artists", "Anthology", "Opening", 1, discNumber: 1));
+        var discTwo = await _resolver.ResolveAsync(MediaType.Music,
+            Track("Various Artists", "Anthology", "Encore", 1, discNumber: 2));
+
+        Assert.Equal(discOne.ParentWorkId, discTwo.ParentWorkId);
+        Assert.NotEqual(discOne.WorkId, discTwo.WorkId);
+
+        using var conn = _db.CreateConnection();
+        var sorts = conn.Query<double>(
+            "SELECT ordinal_sort FROM works WHERE parent_work_id = @parent ORDER BY ordinal_sort;",
+            new { parent = discOne.ParentWorkId })
+            .ToList();
+
+        Assert.Equal([1d, 2001d], sorts);
+    }
+
+    [Fact]
     public async Task Music_DiacriticDifferences_NormalizeToSameParent()
     {
         // Note: only true diacritics (combining marks) are normalised away.
@@ -240,6 +260,34 @@ public sealed class HierarchyResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task Comics_FractionalIssue_DoesNotCollideWithWholeIssue()
+    {
+        var special = await _resolver.ResolveAsync(MediaType.Comics, new Dictionary<string, string>
+        {
+            ["series"] = "Example Run",
+            ["issue_number"] = "3.5",
+            ["title"] = "Interlude",
+        });
+        var issue = await _resolver.ResolveAsync(MediaType.Comics, new Dictionary<string, string>
+        {
+            ["series"] = "Example Run",
+            ["issue_number"] = "4",
+            ["title"] = "Chapter Four",
+        });
+
+        Assert.Equal(special.ParentWorkId, issue.ParentWorkId);
+        Assert.NotEqual(special.WorkId, issue.WorkId);
+
+        using var conn = _db.CreateConnection();
+        var sorts = conn.Query<double>(
+            "SELECT ordinal_sort FROM works WHERE parent_work_id = @parent ORDER BY ordinal_sort;",
+            new { parent = special.ParentWorkId })
+            .ToList();
+
+        Assert.Equal([3.5d, 4d], sorts);
+    }
+
+    [Fact]
     public async Task Books_FoundationSeriesMetadata_CreatesSeriesParent()
     {
         var first = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
@@ -266,6 +314,38 @@ public sealed class HierarchyResolverTests : IDisposable
 
         using var conn = _db.CreateConnection();
         Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM works WHERE work_kind = 'parent' AND media_type = 'Books';"));
+    }
+
+    [Fact]
+    public async Task Books_DecimalSeriesPosition_IsStoredAsSortValue()
+    {
+        var novella = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
+        {
+            ["title"] = "The Churn",
+            ["author"] = "James S. A. Corey",
+            ["series"] = "The Expanse",
+            ["series_position"] = "3.5",
+        });
+        var novel = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
+        {
+            ["title"] = "Cibola Burn",
+            ["author"] = "Corey, James S. A.",
+            ["series"] = "The Expanse",
+            ["series_position"] = "4",
+        });
+
+        Assert.Equal(novella.ParentWorkId, novel.ParentWorkId);
+        Assert.NotEqual(novella.WorkId, novel.WorkId);
+        Assert.Null(novella.Ordinal);
+        Assert.Equal(4, novel.Ordinal);
+
+        using var conn = _db.CreateConnection();
+        var sorts = conn.Query<double>(
+            "SELECT ordinal_sort FROM works WHERE parent_work_id = @parent ORDER BY ordinal_sort;",
+            new { parent = novella.ParentWorkId })
+            .ToList();
+
+        Assert.Equal([3.5d, 4d], sorts);
     }
 
     // ── Standalone ────────────────────────────────────────────────────────────
@@ -321,13 +401,21 @@ public sealed class HierarchyResolverTests : IDisposable
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static Dictionary<string, string> Track(string artist, string album, string title, int trackNum) => new()
+    private static Dictionary<string, string> Track(string artist, string album, string title, int trackNum, int? discNumber = null)
     {
-        ["artist"]       = artist,
-        ["album"]        = album,
-        ["title"]        = title,
-        ["track_number"] = trackNum.ToString(),
-    };
+        var metadata = new Dictionary<string, string>
+        {
+            ["artist"]       = artist,
+            ["album"]        = album,
+            ["title"]        = title,
+            ["track_number"] = trackNum.ToString(),
+        };
+
+        if (discNumber.HasValue)
+            metadata["disc_number"] = discNumber.Value.ToString();
+
+        return metadata;
+    }
 
     private static Dictionary<string, string> Episode(string show, int season, int episode, string title) => new()
     {

@@ -86,6 +86,25 @@ field_mappings        JSON path extraction rules with named transforms, confiden
 
 **Comic title path validation:** `ConfigDrivenAdapter` validates a response before accepting it by checking that at least one recognised title field is non-empty. Recognised comic title fields include `name`, `title`, `issue`, `series.name`, `series`, and `volumeName`.
 
+### Sequence, Attribution, And Artwork Responsibilities
+
+Providers may supply sequence facts, but they do not get to create title-specific
+corrections. The Engine interprets those facts through shared media-type
+placement rules:
+
+| Provider | Sequence responsibility |
+| --- | --- |
+| Comic Vine | Issue matches must carry the volume ID when available; volume lookup supplies `sequence_total`, `sequence_total_scope = MainSequence`, start year, and publisher. |
+| Apple API | Accepted album identity supplies the album/track manifest and track count. Low-confidence album search results must not synthesize missing tracks. |
+| TMDB | TV show/season lookups supply episode totals and specials; movie collection data supplies ordered film collection context separate from franchise context. |
+| Wikidata | Supplies canonical identity, relationships, and manifests only when the container classification is compatible with the media lane. It must not provide runtime title-specific count overrides. |
+| Fanart.tv | Supplies rich artwork variants after identity exists; it is not an identity or sequence authority. |
+
+Provider text claims should retain attribution fields when they are surfaced as
+descriptions or long-form metadata: provider name, source title, source URL,
+license name and URL when known, retrieved timestamp, and whether the displayed
+text is summarized or otherwise modified.
+
 ### Sprint 6 Provider Decomposition
 
 Sprint 6 began the provider-side decomposition without changing provider outcomes. New provider logic should be added to focused collaborators instead of directly into workers or adapters.
@@ -517,6 +536,13 @@ Managed artwork is tracked in the database through `entity_assets` and stored un
 **Cover art timing:** Stage 1 records provider art and bridge evidence. The artwork pipeline persists accepted files under `.data/assets` and records canonical artwork flags (`cover_state`, `cover_source`, `hero_state`, `artwork_settled_at`) whether art is present, still pending, or explicitly missing. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when the downstream image and organisation flow settles.
 
 **Image hash validation:** Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `image_cache` table to prevent redundant re-downloads. When the same image URL appears across multiple entities, the hash is checked first; if found, the cached file path is reused.
+
+**UI URL rule:** Provider image URLs are source inputs, not stable UI outputs.
+After artwork settles, browse cards, albums, shelves, search results, review
+cards, and detail pages should render a managed `/stream/...` URL or a settled
+placeholder. Direct external provider URLs should not be exposed as display
+artwork because they can expire, rate-limit, or break independently of the local
+library.
 
 ## 11. Ranked Pipeline System
 

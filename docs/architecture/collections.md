@@ -22,6 +22,25 @@ This model unifies what were previously separate systems (content groups, smart 
 
 Product role note: lane-level shelves and top-level Collections are intentionally different surfaces. A generated book series, movie series, TV show, music album, or audiobook series is a **shelf** and belongs in its lane: books/comics in Read, movies/TV in Watch, and music/audiobooks in Listen. The Collections page shows broader rollups only when a shared series/franchise/universe relationship connects at least two shelves. A single shelf, even with multiple items, stays out of the Collections hub; ebook/audiobook variants of the same work also do not trigger a rollup.
 
+## Shelf Identity, Ordering, And Counts
+
+Lane shelves are immediate containers. A comic shelf is a Comic Vine volume/run,
+a music shelf is the accepted album/release, TV uses show/season placement,
+movies use true film collections when available, and books/audiobooks use an
+ordered series container when supported by provider or Wikidata evidence.
+
+Broader franchises, universes, publisher lists, production lists, and Wikimedia
+list articles may support diagnostics or top-level discovery rollups, but they
+must not be used as the lane shelf itself. This is what prevents two same-name
+comic shelves with different totals, movie franchise totals replacing trilogy
+counts, or list articles appearing as real series.
+
+Counts are stored as facts about the accepted container. `sequence_total` records
+the expected count, and `sequence_total_scope` states what the count means:
+main sequence, extras included, standalone, collected edition, or broader
+franchise. The UI should show `Owned X of Y` only when `Y` came from the same
+immediate container shown to the user.
+
 Domain note: `Collection`, `Work`, and `Edition` expose aggregate children and
 metadata property bags as read-only views. Code that changes membership or
 metadata history should use explicit domain methods such as `AddWork`,

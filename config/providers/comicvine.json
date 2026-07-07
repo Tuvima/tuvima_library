@@ -6,16 +6,21 @@
   "domain": "Comic",
   "icon": "images/providers/comicvine.png",
   "capability_tags": [],
-  "available_fields": [
-    "title",
-    "cover",
-    "year",
-    "description",
-    "series",
-    "series_position",
-    "issue_number",
-    "issue_title",
-    "comic_vine_id"
+    "available_fields": [
+      "title",
+      "cover",
+      "year",
+      "description",
+      "series",
+      "series_position",
+      "issue_number",
+      "issue_title",
+      "comic_vine_id",
+      "comic_vine_volume_id",
+      "sequence_total",
+      "sequence_total_scope",
+      "series_start_year",
+      "publisher"
   ],
   "field_weights": {},
   "endpoints": {
@@ -171,6 +176,36 @@
       "confidence": 0.95,
       "transform": "to_string",
       "transform_args": null,
+      "media_types": null,
+      "source": null,
+      "condition": null
+    },
+    {
+      "claim_key": "comic_vine_volume_id",
+      "json_path": "volume.id",
+      "confidence": 0.95,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": null,
+      "source": null,
+      "condition": null
+    },
+    {
+      "claim_key": "sequence_total",
+      "json_path": "count_of_issues",
+      "confidence": 0.9,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": null,
+      "source": null,
+      "condition": null
+    },
+    {
+      "claim_key": "sequence_total_scope",
+      "json_path": "count_of_issues",
+      "confidence": 0.9,
+      "transform": "literal",
+      "transform_args": "MainSequence",
       "media_types": null,
       "source": null,
       "condition": null

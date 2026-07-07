@@ -56,9 +56,12 @@ public sealed class DetailEditorTarget
 public sealed class DescriptionAttributionViewModel
 {
     public string SourceName { get; init; } = string.Empty;
+    public string? SourceTitle { get; init; }
     public string? SourceUrl { get; init; }
     public string LicenseName { get; init; } = string.Empty;
     public string? LicenseUrl { get; init; }
+    public DateTimeOffset? RetrievedAt { get; init; }
+    public bool IsModifiedOrSummarized { get; init; }
     public string Notice { get; init; } = string.Empty;
 }
 
@@ -256,6 +259,7 @@ public sealed class SequencePlacementViewModel
     public string? GroupLabel { get; init; }
     public string? CurrentGroupKey { get; init; }
     public int? PositionNumber { get; init; }
+    public double? PositionSort { get; init; }
     public int? TotalKnownItems { get; init; }
     public string? PositionLabel { get; init; }
     public string? PositionText { get; init; }
@@ -308,6 +312,7 @@ public sealed class SequenceItemViewModel
     public string Title { get; init; } = string.Empty;
     public string? ArtworkUrl { get; init; }
     public int? PositionNumber { get; init; }
+    public double? PositionSort { get; init; }
     public string? PositionLabel { get; init; }
     public string? PositionText { get; init; }
     public string? GroupKey { get; init; }

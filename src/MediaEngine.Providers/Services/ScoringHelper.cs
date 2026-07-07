@@ -54,7 +54,8 @@ public static class ScoringHelper
         CancellationToken ct,
         ICanonicalValueArrayRepository? arrayRepo = null,
         ILogger? logger = null,
-        ISearchIndexRepository? searchIndex = null)
+        ISearchIndexRepository? searchIndex = null,
+        MediaType detectedMediaType = MediaType.Unknown)
     {
         // Wrap provider claims as domain MetadataClaim rows.
         var domainClaims = claims
@@ -79,6 +80,13 @@ public static class ScoringHelper
 
         // Load ALL claims for this entity and re-score.
         var allClaims       = await claimRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+        detectedMediaType = await ResolveDetectedMediaTypeAsync(
+            entityId,
+            allClaims,
+            canonicalRepo,
+            ct,
+            detectedMediaType).ConfigureAwait(false);
+
         var scoringSettings = configLoader.LoadScoring();
         var providerConfigs = configLoader.LoadAllProviders();
 
@@ -100,6 +108,7 @@ public static class ScoringHelper
             ProviderWeights      = providerWeights,
             ProviderFieldWeights = providerFieldWeights,
             Configuration        = scoringConfig,
+            DetectedMediaType    = detectedMediaType,
         };
 
         var scored = await scoringEngine.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
@@ -210,6 +219,64 @@ public static class ScoringHelper
         }
 
         return scored;
+    }
+
+    public static async Task<MediaType> ResolveDetectedMediaTypeAsync(
+        Guid entityId,
+        IReadOnlyList<MetadataClaim> claims,
+        ICanonicalValueRepository canonicalRepo,
+        CancellationToken ct,
+        MediaType fallback = MediaType.Unknown)
+    {
+        if (fallback != MediaType.Unknown)
+            return fallback;
+
+        var claimMediaType = claims
+            .Where(c => c.ClaimKey.Equals(MetadataFieldConstants.MediaTypeField, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(c => c.Confidence)
+            .ThenByDescending(c => c.ClaimedAt)
+            .Select(c => ParseMediaType(c.ClaimValue))
+            .FirstOrDefault(mt => mt != MediaType.Unknown);
+        if (claimMediaType != MediaType.Unknown)
+            return claimMediaType;
+
+        var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+        var canonicalMediaType = canonicals
+            .Where(c => c.Key.Equals(MetadataFieldConstants.MediaTypeField, StringComparison.OrdinalIgnoreCase))
+            .Select(c => ParseMediaType(c.Value))
+            .FirstOrDefault(mt => mt != MediaType.Unknown);
+        if (canonicalMediaType != MediaType.Unknown)
+            return canonicalMediaType;
+
+        return InferMediaTypeFromClaimKeys(claims);
+    }
+
+    private static MediaType ParseMediaType(string? value)
+        => Enum.TryParse<MediaType>(value, ignoreCase: true, out var mediaType)
+            ? mediaType
+            : MediaType.Unknown;
+
+    private static MediaType InferMediaTypeFromClaimKeys(IReadOnlyList<MetadataClaim> claims)
+    {
+        if (claims.Any(c => c.ClaimKey.Equals("tmdb_collection_id", StringComparison.OrdinalIgnoreCase)))
+            return MediaType.Movies;
+
+        if (claims.Any(c => c.ClaimKey.Equals(BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase)
+            || c.ClaimKey.Equals(MetadataFieldConstants.ShowName, StringComparison.OrdinalIgnoreCase)
+            || c.ClaimKey.Equals(MetadataFieldConstants.EpisodeNumber, StringComparison.OrdinalIgnoreCase)))
+            return MediaType.TV;
+
+        if (claims.Any(c => c.ClaimKey.Equals(BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase)
+            || c.ClaimKey.Equals(MetadataFieldConstants.IssueNumber, StringComparison.OrdinalIgnoreCase)))
+            return MediaType.Comics;
+
+        if (claims.Any(c => c.ClaimKey.Equals(BridgeIdKeys.AppleMusicCollectionId, StringComparison.OrdinalIgnoreCase)
+            || c.ClaimKey.Equals(BridgeIdKeys.MusicBrainzReleaseGroupId, StringComparison.OrdinalIgnoreCase)
+            || c.ClaimKey.Equals(MetadataFieldConstants.TrackNumber, StringComparison.OrdinalIgnoreCase)
+            || c.ClaimKey.Equals(MetadataFieldConstants.Album, StringComparison.OrdinalIgnoreCase)))
+            return MediaType.Music;
+
+        return MediaType.Unknown;
     }
 
     private static List<MetadataClaim> FilterCollectivePseudonymMemberQids(
@@ -426,7 +493,7 @@ public static class ScoringHelper
         var assetResult = await PersistClaimsAndScoreAsync(
             entityId, selfClaims, providerId,
             claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-            arrayRepo, logger, searchIndex).ConfigureAwait(false);
+            arrayRepo, logger, searchIndex, lineage.MediaType).ConfigureAwait(false);
 
         // 2. Parent-Work write — only parent-scope claims, always against the
         //    topmost Work id (collapses to the movie's own Work for standalone
@@ -460,7 +527,7 @@ public static class ScoringHelper
                     parentClaims,
                     providerId,
                     claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-                    arrayRepo, logger, searchIndex).ConfigureAwait(false);
+                    arrayRepo, logger, searchIndex, lineage.MediaType).ConfigureAwait(false);
 
                 logger?.LogDebug(
                     "Lineage write: {ParentCount} parent-scope + {SelfCount} self-scope claim(s) for asset {AssetId} → parent Work {ParentWorkId} ({MediaType})",

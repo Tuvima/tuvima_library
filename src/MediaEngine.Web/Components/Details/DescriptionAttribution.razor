@@ -6,11 +6,11 @@
     <p class="tl-detail-description-attribution @(Compact ? "tl-detail-description-attribution--compact" : null)">
         @if (!string.IsNullOrWhiteSpace(Attribution.SourceUrl))
         {
-            <a href="@Attribution.SourceUrl" target="_blank" rel="noopener noreferrer">@Attribution.SourceName</a>
+            <a href="@Attribution.SourceUrl" target="_blank" rel="noopener noreferrer">@SourceLabel</a>
         }
         else
         {
-            <span>@Attribution.SourceName</span>
+            <span>@SourceLabel</span>
         }
         <span>text is available under</span>
         @if (!string.IsNullOrWhiteSpace(Attribution.LicenseUrl))
@@ -23,10 +23,22 @@
         }
         <span>;</span>
         <span>additional terms may apply.</span>
+        @if (Attribution.RetrievedAt is not null)
+        {
+            <span>Retrieved @Attribution.RetrievedAt.Value.ToString("MMM d, yyyy").</span>
+        }
+        @if (Attribution.IsModifiedOrSummarized)
+        {
+            <span>Modified or summarized for display.</span>
+        }
     </p>
 }
 
 @code {
     [Parameter] public DescriptionAttributionViewModel? Attribution { get; set; }
     [Parameter] public bool Compact { get; set; }
+
+    private string SourceLabel => string.IsNullOrWhiteSpace(Attribution?.SourceTitle)
+        ? Attribution?.SourceName ?? "Source"
+        : $"{Attribution.SourceName}: {Attribution.SourceTitle}";
 }

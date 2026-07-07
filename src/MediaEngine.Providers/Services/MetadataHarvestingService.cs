@@ -285,6 +285,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 ProviderWeights    = providerWeights,
                 ProviderFieldWeights = providerFieldWeights,
                 Configuration      = scoringConfig,
+                DetectedMediaType  = request.MediaType,
             };
 
             var scored = await _scoringEngine.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
@@ -300,6 +301,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                     Value        = f.WinningValue!,
                     LastScoredAt = scored.ScoredAt,
                     IsConflicted = f.IsConflicted,
+                    WinningProviderId = f.WinningProviderId,
                 })
                 .ToList();
             await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);

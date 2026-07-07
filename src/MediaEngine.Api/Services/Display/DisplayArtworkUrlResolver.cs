@@ -6,6 +6,11 @@ internal static class DisplayArtworkUrlResolver
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
+            if (IsExternalProviderUrl(value))
+            {
+                return $"/stream/{assetId}/{kind}";
+            }
+
             return value;
         }
 
@@ -13,4 +18,9 @@ internal static class DisplayArtworkUrlResolver
             ? $"/stream/{assetId}/{kind}"
             : null;
     }
+
+    private static bool IsExternalProviderUrl(string value)
+        => Uri.TryCreate(value, UriKind.Absolute, out var uri)
+           && (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
 }

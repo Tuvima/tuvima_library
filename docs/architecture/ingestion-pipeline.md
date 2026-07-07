@@ -57,6 +57,22 @@ media, scans every configured library source path, and leaves file watching
 paused. The reset path includes guards that refuse destructive cleanup when a
 library output path overlaps a source folder.
 
+Fresh-ingest validation is the proof path for sequence, artwork, and attribution
+changes. Do not repair bad historical rows in place for these fixes. Stop the
+Engine and Dashboard, wipe only the configured validation roots, start both apps
+again, ingest the representative fixtures, then validate database/API state
+before visual Dashboard checks.
+
+Validation roots:
+
+- `C:\temp\tuvima-watch\books`
+- `C:\temp\tuvima-watch\audiobooks`
+- `C:\temp\tuvima-watch\tv`
+- `C:\temp\tuvima-watch\movies`
+- `C:\temp\tuvima-watch\music`
+- `C:\temp\tuvima-watch\comics`
+- `C:\temp\tuvima-library`
+
 This document describes how Tuvima Library discovers, processes, organises, and stages media files - from the moment a file appears in a watched folder to the moment it is promoted into the organised library.
 
 ---
@@ -471,3 +487,11 @@ Review Queue surfaces `WritebackFailed` review items alongside other review trig
 After Stage 4 resolves a Wikidata QID and full property claims have been persisted, `WikidataBridgeWorker` asks `WikidataSeriesManifestHydrationService` whether the item belongs to a canonical series. The service only uses QID-backed relationship facts such as P179/`series_qid`, never fuzzy title matching.
 
 For books, audiobooks, comics, and TV, a canonical series QID triggers a Tuvima.Wikidata manifest fetch. Tuvima stores every named item in `series_manifest_items`, including missing works the user does not own. Later imports from the same series first link against the cached named manifest, so adding another Dune ebook or audiobook usually does not require downloading the whole series again while the cache is fresh.
+
+Manifest hydration is diagnostic unless the external container is sequence
+compatible for the media type. Wikimedia list articles, publisher production
+lists, franchises, and universes must not become lane shelves. Provider-backed
+containers are preferred when they are more specific: Comic Vine volumes for
+comics, Apple collections for albums, TMDB seasons and film collections for
+watch media, and Wikidata manifests for books/audiobooks when no retail sequence
+source exists.

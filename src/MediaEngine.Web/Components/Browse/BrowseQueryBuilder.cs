@@ -76,7 +76,6 @@ public static class BrowseQueryBuilder
         ("music", "albums") => "album",
         ("books", "series") => "series",
         ("audiobooks", "series") => "series",
-        ("comics", "series") => "series",
         _ => null,
     };
 

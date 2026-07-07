@@ -214,7 +214,10 @@ public sealed class DetailComposerService
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
             Tagline = heroSummary,
             Description = longDescription,
-            DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
+            DescriptionAttribution = BuildWikipediaDescriptionAttribution(
+                longDescription,
+                GetValue(values, "wikipedia_url"),
+                GetCanonicalLastScoredAt(detail, MetadataFieldConstants.Description)),
             SourceLinks = BuildExternalSourceLinks(detail.WikidataQid, GetValue(values, "wikipedia_url"), sequencePlacement),
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
@@ -1271,7 +1274,9 @@ public sealed class DetailComposerService
                        (SELECT claim_value FROM metadata_claims WHERE entity_id = w.id AND claim_key = 'series_position' AND provider_id = @wikidataProviderId ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('series_position', 'issue_number') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('series_position', 'ordinal') LIMIT 1),
+                       CASE WHEN w.ordinal_sort IS NOT NULL AND ABS(w.ordinal_sort - ROUND(w.ordinal_sort)) > 0.0001 THEN CAST(w.ordinal_sort AS TEXT) END,
                        CASE WHEN w.ordinal IS NOT NULL THEN CAST(w.ordinal AS TEXT) END) AS TEXT) AS PositionLabel,
+                   w.ordinal_sort AS PositionSort,
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'season_number' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'season_number' LIMIT 1)) AS TEXT) AS SeasonLabel,
@@ -1320,6 +1325,7 @@ public sealed class DetailComposerService
         {
             var positionLabel = ResolveSequencePositionLabel(entityType, row.PositionLabel, row.EpisodeLabel);
             var positionNumber = TryParseSeriesPosition(positionLabel);
+            var positionSort = row.PositionSort ?? TryParseSeriesPositionSort(positionLabel);
             var group = ResolveSequenceGroup(entityType, row.SeasonLabel);
             return new SequenceItemViewModel
             {
@@ -1328,7 +1334,8 @@ public sealed class DetailComposerService
                 Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
                 ArtworkUrl = row.ArtworkUrl,
                 PositionNumber = positionNumber,
-                PositionLabel = positionNumber?.ToString(CultureInfo.InvariantCulture) ?? positionLabel,
+                PositionSort = positionSort,
+                PositionLabel = positionLabel ?? positionNumber?.ToString(CultureInfo.InvariantCulture),
                 PositionText = FormatSequencePositionText(entityType, positionLabel, positionNumber),
                 GroupKey = group.Key,
                 GroupTitle = group.Title,
@@ -1346,6 +1353,7 @@ public sealed class DetailComposerService
                 ? FirstText(detail.EpisodeNumber, GetDetailCanonicalValue(detail, MetadataFieldConstants.EpisodeNumber))
                 : detail.SeriesPosition;
             var fallbackPositionNumber = TryParseSeriesPosition(fallbackPositionLabel);
+            var fallbackPositionSort = TryParseSeriesPositionSort(fallbackPositionLabel);
             var fallbackGroup = ResolveSequenceGroup(entityType, FirstText(detail.SeasonNumber, GetDetailCanonicalValue(detail, MetadataFieldConstants.SeasonNumber)));
             items.Add(new SequenceItemViewModel
             {
@@ -1355,6 +1363,7 @@ public sealed class DetailComposerService
                 ArtworkUrl = detail.CoverUrl,
                 PositionLabel = fallbackPositionLabel,
                 PositionNumber = fallbackPositionNumber,
+                PositionSort = fallbackPositionSort,
                 PositionText = FormatSequencePositionText(entityType, fallbackPositionLabel, fallbackPositionNumber),
                 GroupKey = fallbackGroup.Key,
                 GroupTitle = fallbackGroup.Title,
@@ -1406,6 +1415,7 @@ public sealed class DetailComposerService
             GroupLabel = labels.GroupLabel,
             CurrentGroupKey = current.GroupKey ?? groups.FirstOrDefault()?.Key,
             PositionNumber = current.PositionNumber,
+            PositionSort = current.PositionSort,
             TotalKnownItems = totalKnownItems,
             PositionLabel = current.PositionLabel,
             PositionText = current.PositionText,
@@ -1427,12 +1437,31 @@ public sealed class DetailComposerService
     private async Task<int?> LoadSequenceExpectedTotalAsync(string? containerId, CancellationToken ct)
     {
         var normalized = NormalizeSequenceContainerId(containerId);
+        using var conn = _db.CreateConnection();
+
+        if (Guid.TryParse(normalized, out var collectionId))
+        {
+            var collectionTotal = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
+                """
+                SELECT CAST(value AS INTEGER)
+                FROM canonical_values
+                WHERE entity_id = @collectionId
+                  AND key = @key
+                  AND CAST(value AS INTEGER) > 0
+                LIMIT 1;
+                """,
+                new { collectionId, key = MetadataFieldConstants.SequenceTotal },
+                cancellationToken: ct));
+
+            if (collectionTotal is > 0)
+                return collectionTotal;
+        }
+
         if (!IsWikidataQid(normalized))
         {
             return null;
         }
 
-        using var conn = _db.CreateConnection();
         return await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
             """
             SELECT CAST(COALESCE(
@@ -2366,6 +2395,7 @@ public sealed class DetailComposerService
                 (SELECT value FROM canonical_values WHERE entity_id = current.RootWorkId AND key = 'series' LIMIT 1),
                 (SELECT value FROM canonical_values WHERE entity_id = current.RootWorkId AND key = 'title' LIMIT 1)
             ) AS TEXT) AS SeriesTitle,
+            current.CollectionId AS CollectionId,
             CAST((SELECT wikidata_qid FROM collections c WHERE c.id = current.CollectionId LIMIT 1) AS TEXT) AS SeriesQid
             FROM current_lineage current;
             """,
@@ -2379,9 +2409,10 @@ public sealed class DetailComposerService
         }
 
         var qid = ExtractQid(StringValue(row?.SeriesQid));
+        var collectionId = StringValue(row?.CollectionId);
         return new SequenceContainerOptionViewModel
         {
-            ContainerId = qid ?? title,
+            ContainerId = collectionId ?? qid ?? title,
             ContainerTitle = title,
             MediaScope = SeriesMediaFilter(entityType, mediaType),
         };
@@ -2389,6 +2420,9 @@ public sealed class DetailComposerService
 
     private static string? GetDetailCanonicalValue(LibraryItemDetail detail, string key)
         => detail.CanonicalValues.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static DateTimeOffset? GetCanonicalLastScoredAt(LibraryItemDetail detail, string key)
+        => detail.CanonicalValues.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.LastScoredAt;
 
     private async Task<List<SequenceItemViewModel>> MergeSequenceManifestPlaceholdersAsync(
         IReadOnlyList<SequenceItemViewModel> items,
@@ -2463,11 +2497,13 @@ public sealed class DetailComposerService
         foreach (var row in rows)
         {
             var rowObject = (object)row;
-            var position = ToManifestPosition(rowObject);
-            if (!position.HasValue)
+            var positionSort = ToManifestPositionSort(rowObject);
+            if (!positionSort.HasValue)
             {
                 continue;
             }
+            var position = ToDisplayPositionNumber(positionSort);
+            var positionLabel = FormatSequenceSort(positionSort);
 
             var linkedWorkId = StringValue(GetDapperValue(rowObject, "LinkedWorkId"));
             var normalizedTitle = NormalizeSeriesTitle(StringValue(GetDapperValue(rowObject, "ItemLabel")));
@@ -2489,8 +2525,9 @@ public sealed class DetailComposerService
                 Title = item.Title,
                 ArtworkUrl = item.ArtworkUrl,
                 PositionNumber = position,
-                PositionLabel = position.Value.ToString(CultureInfo.InvariantCulture),
-                PositionText = FormatSequencePositionText(entityType, position.Value.ToString(CultureInfo.InvariantCulture), position),
+                PositionSort = positionSort,
+                PositionLabel = positionLabel,
+                PositionText = FormatSequencePositionText(entityType, positionLabel, position),
                 GroupKey = item.GroupKey,
                 GroupTitle = item.GroupTitle,
                 IsCurrent = item.IsCurrent,
@@ -2502,25 +2539,23 @@ public sealed class DetailComposerService
         return updated;
     }
 
-    private static int? ToManifestPosition(object row)
+    private static double? ToManifestPositionSort(object row)
     {
         var parsedOrdinal = DoubleValue(GetDapperValue(row, "ParsedOrdinal"));
         if (parsedOrdinal.HasValue)
         {
-            return Convert.ToInt32(Math.Round(parsedOrdinal.Value, MidpointRounding.AwayFromZero));
+            return parsedOrdinal;
         }
 
         var rawOrdinal = StringValue(GetDapperValue(row, "RawOrdinal"));
-        var rawPosition = TryParseSeriesPosition(rawOrdinal);
+        var rawPosition = TryParseSeriesPositionSort(rawOrdinal);
         if (rawPosition.HasValue)
         {
             return rawPosition;
         }
 
         var sortOrder = DoubleValue(GetDapperValue(row, "SortOrder"));
-        return sortOrder.HasValue
-            ? Convert.ToInt32(Math.Round(sortOrder.Value, MidpointRounding.AwayFromZero))
-            : null;
+        return sortOrder;
     }
 
     private static object? GetDapperValue(object row, string key)
@@ -2685,10 +2720,7 @@ public sealed class DetailComposerService
         var merged = items.ToList();
         var displayPositions = BuildManifestDisplayPositions(manifestItems);
         var currentQid = ExtractQid(currentWorkQid);
-        var ownedPositions = merged
-            .Where(item => item.PositionNumber.HasValue)
-            .Select(item => item.PositionNumber!.Value)
-            .ToHashSet();
+        var ownedPositions = BuildOwnedPositionSet(merged);
         var ownedQids = merged
             .Select(item => ExtractQid(item.Id))
             .Where(qid => !string.IsNullOrWhiteSpace(qid))
@@ -2701,11 +2733,13 @@ public sealed class DetailComposerService
 
         foreach (var manifestItem in manifestItems)
         {
-            var position = ManifestDisplayPosition(manifestItem, displayPositions);
+            var positionSort = ManifestDisplayPosition(manifestItem, displayPositions);
+            var position = ToDisplayPositionNumber(positionSort);
+            var positionLabel = FormatSequenceSort(positionSort);
             var isLinkedOwned = manifestItem.LinkedWorkId.HasValue;
 
             if ((isLinkedOwned || string.Equals(manifestItem.ItemQid, currentQid, StringComparison.OrdinalIgnoreCase))
-                && TryApplyManifestPositionToOwnedItem(merged, manifestItem, position, currentWorkId))
+                && TryApplyManifestPositionToOwnedItem(merged, manifestItem, positionSort, currentWorkId))
             {
                 ownedPositions = BuildOwnedPositionSet(merged);
 
@@ -2715,7 +2749,7 @@ public sealed class DetailComposerService
             var normalizedManifestTitle = NormalizeSeriesTitle(manifestItem.ItemLabel);
             if (!string.IsNullOrWhiteSpace(normalizedManifestTitle)
                 && ownedTitles.Contains(normalizedManifestTitle)
-                && TryApplyManifestPositionToOwnedItemByTitle(merged, normalizedManifestTitle, position, manifestItem.RawOrdinal))
+                && TryApplyManifestPositionToOwnedItemByTitle(merged, normalizedManifestTitle, positionSort, manifestItem.RawOrdinal))
             {
                 ownedPositions = BuildOwnedPositionSet(merged);
 
@@ -2727,7 +2761,8 @@ public sealed class DetailComposerService
                 continue;
             }
 
-            if (position.HasValue && ownedPositions.Contains(position.Value))
+            var positionKey = SequencePositionKey(positionSort);
+            if (!string.IsNullOrWhiteSpace(positionKey) && ownedPositions.Contains(positionKey))
             {
                 continue;
             }
@@ -2738,26 +2773,27 @@ public sealed class DetailComposerService
                 EntityType = entityType,
                 Title = FirstNonBlank(manifestItem.ItemLabel, manifestItem.ItemQid) ?? "Missing from library",
                 PositionNumber = position,
-                PositionLabel = FirstNonBlank(position?.ToString(CultureInfo.InvariantCulture), manifestItem.RawOrdinal),
+                PositionSort = positionSort,
+                PositionLabel = FirstNonBlank(positionLabel, manifestItem.RawOrdinal),
                 IsOwned = false,
                 ProgressState = LibraryProgressState.Unknown,
             });
 
-            if (position.HasValue)
+            if (!string.IsNullOrWhiteSpace(positionKey))
             {
-                ownedPositions.Add(position.Value);
+                ownedPositions.Add(positionKey);
             }
         }
 
         return DeduplicateManifestMergeItems(merged)
-            .OrderBy(item => item.PositionNumber ?? int.MaxValue)
+            .OrderBy(item => item.PositionSort ?? item.PositionNumber ?? double.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
-    private static int? ManifestDisplayPosition(
+    private static double? ManifestDisplayPosition(
         SeriesManifestItemRecord item,
-        IReadOnlyDictionary<string, int> displayPositions)
+        IReadOnlyDictionary<string, double> displayPositions)
     {
         if (!string.IsNullOrWhiteSpace(item.ItemQid)
             && displayPositions.TryGetValue(item.ItemQid, out var displayPosition))
@@ -2768,7 +2804,7 @@ public sealed class DetailComposerService
         return ManifestSourcePosition(item);
     }
 
-    private static IReadOnlyDictionary<string, int> BuildManifestDisplayPositions(
+    private static IReadOnlyDictionary<string, double> BuildManifestDisplayPositions(
         IReadOnlyList<SeriesManifestItemRecord> manifestItems)
     {
         var ordered = manifestItems
@@ -2779,7 +2815,7 @@ public sealed class DetailComposerService
             .ToList();
         if (ordered.Count == 0)
         {
-            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            return new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         }
 
         var sourcePositions = ordered
@@ -2787,15 +2823,22 @@ public sealed class DetailComposerService
             .ToList();
         var isDenseFromOne = sourcePositions.All(position => position.HasValue)
             && sourcePositions
+                .Select(ToDisplayPositionNumber)
+                .All(position => position.HasValue)
+            && sourcePositions
+                .Select(ToDisplayPositionNumber)
                 .Select(position => position!.Value)
                 .Order()
                 .SequenceEqual(Enumerable.Range(1, sourcePositions.Count));
+        var hasFractionalSourcePosition = sourcePositions.Any(position => position.HasValue && !IsWholeNumber(position.Value));
 
         return ordered
             .Select((item, index) => new
             {
                 item.ItemQid,
-                Position = isDenseFromOne
+                Position = hasFractionalSourcePosition
+                    ? sourcePositions[index] ?? index + 1
+                    : isDenseFromOne
                     ? sourcePositions[index]!.Value
                     : index + 1,
             })
@@ -2803,21 +2846,22 @@ public sealed class DetailComposerService
             .ToDictionary(group => group.Key, group => group.First().Position, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static int? ManifestSourcePosition(SeriesManifestItemRecord item)
+    private static double? ManifestSourcePosition(SeriesManifestItemRecord item)
     {
         if (item.ParsedOrdinal.HasValue)
         {
-            return Convert.ToInt32(Math.Round(item.ParsedOrdinal.Value, MidpointRounding.AwayFromZero));
+            return item.ParsedOrdinal.Value;
         }
 
-        return TryParseSeriesPosition(FirstNonBlank(item.RawOrdinal, item.SortOrder?.ToString(CultureInfo.InvariantCulture)));
+        return TryParseSeriesPositionSort(FirstNonBlank(item.RawOrdinal, item.SortOrder?.ToString(CultureInfo.InvariantCulture)));
     }
 
-    private static HashSet<int> BuildOwnedPositionSet(IEnumerable<SequenceItemViewModel> items)
+    private static HashSet<string> BuildOwnedPositionSet(IEnumerable<SequenceItemViewModel> items)
         => items
-            .Where(item => item.PositionNumber.HasValue)
-            .Select(item => item.PositionNumber!.Value)
-            .ToHashSet();
+            .Select(item => SequencePositionKey(item.PositionSort ?? item.PositionNumber))
+            .OfType<string>()
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private static IEnumerable<SequenceItemViewModel> DeduplicateManifestMergeItems(
         IEnumerable<SequenceItemViewModel> items)
@@ -2839,8 +2883,9 @@ public sealed class DetailComposerService
             return $"qid:{item.Id["missing-".Length..]}";
 
         var title = NormalizeSeriesTitle(item.Title);
-        if (!string.IsNullOrWhiteSpace(title) && item.PositionNumber.HasValue)
-            return $"title-position:{title}:{item.PositionNumber.Value}";
+        var positionKey = SequencePositionKey(item.PositionSort ?? item.PositionNumber);
+        if (!string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(positionKey))
+            return $"title-position:{title}:{positionKey}";
 
         if (!string.IsNullOrWhiteSpace(title))
             return $"title:{title}";
@@ -2851,7 +2896,7 @@ public sealed class DetailComposerService
     private static bool TryApplyManifestPositionToOwnedItemByTitle(
         List<SequenceItemViewModel> items,
         string normalizedTitle,
-        int? position,
+        double? positionSort,
         string? rawOrdinal)
     {
         var index = items.FindIndex(item =>
@@ -2863,7 +2908,8 @@ public sealed class DetailComposerService
         }
 
         var item = items[index];
-        var manifestPositionLabel = FirstNonBlank(position?.ToString(CultureInfo.InvariantCulture), rawOrdinal);
+        var position = ToDisplayPositionNumber(positionSort);
+        var manifestPositionLabel = FirstNonBlank(FormatSequenceSort(positionSort), rawOrdinal);
 
         items[index] = new SequenceItemViewModel
         {
@@ -2872,6 +2918,7 @@ public sealed class DetailComposerService
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
             PositionNumber = position ?? item.PositionNumber,
+            PositionSort = positionSort ?? item.PositionSort,
             PositionLabel = manifestPositionLabel ?? item.PositionLabel,
             PositionText = position.HasValue ? null : item.PositionText,
             GroupKey = item.GroupKey,
@@ -2886,7 +2933,7 @@ public sealed class DetailComposerService
     private static bool TryApplyManifestPositionToOwnedItem(
         List<SequenceItemViewModel> items,
         SeriesManifestItemRecord manifestItem,
-        int? position,
+        double? positionSort,
         Guid currentWorkId)
     {
         var index = items.FindIndex(item =>
@@ -2898,7 +2945,8 @@ public sealed class DetailComposerService
         }
 
         var item = items[index];
-        var manifestPositionLabel = FirstNonBlank(position?.ToString(CultureInfo.InvariantCulture), manifestItem.RawOrdinal);
+        var position = ToDisplayPositionNumber(positionSort);
+        var manifestPositionLabel = FirstNonBlank(FormatSequenceSort(positionSort), manifestItem.RawOrdinal);
 
         items[index] = new SequenceItemViewModel
         {
@@ -2907,6 +2955,7 @@ public sealed class DetailComposerService
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
             PositionNumber = position ?? item.PositionNumber,
+            PositionSort = positionSort ?? item.PositionSort,
             PositionLabel = manifestPositionLabel ?? item.PositionLabel,
             PositionText = position.HasValue ? null : item.PositionText,
             GroupKey = item.GroupKey,
@@ -2988,33 +3037,33 @@ public sealed class DetailComposerService
             cancellationToken: ct));
 
         var merged = items.ToList();
-        var ownedPositions = merged
-            .Where(item => item.PositionNumber.HasValue)
-            .Select(item => item.PositionNumber!.Value)
-            .ToHashSet();
+        var ownedPositions = BuildOwnedPositionSet(merged);
 
         foreach (var member in rawMembers)
         {
-            var position = TryParseSeriesPosition(StringValue(member.Position));
-            if (!position.HasValue || ownedPositions.Contains(position.Value))
+            var positionSort = TryParseSeriesPositionSort(StringValue(member.Position));
+            var position = ToDisplayPositionNumber(positionSort);
+            var positionKey = SequencePositionKey(positionSort);
+            if (string.IsNullOrWhiteSpace(positionKey) || ownedPositions.Contains(positionKey))
             {
                 continue;
             }
 
             merged.Add(new SequenceItemViewModel
             {
-                Id = $"missing-{seriesQid}-{position.Value}",
+                Id = $"missing-{seriesQid}-{positionKey}",
                 EntityType = entityType,
-                Title = FirstNonBlank(StringValue(member.WorkLabel), $"Book {position.Value}"),
+                Title = FirstNonBlank(StringValue(member.WorkLabel), $"Book {FormatSequenceSort(positionSort)}"),
                 PositionNumber = position,
-                PositionLabel = position.Value.ToString(CultureInfo.InvariantCulture),
+                PositionSort = positionSort,
+                PositionLabel = FormatSequenceSort(positionSort),
                 IsOwned = false,
                 ProgressState = LibraryProgressState.Unknown,
             });
         }
 
         return merged
-            .OrderBy(item => item.PositionNumber ?? int.MaxValue)
+            .OrderBy(item => item.PositionSort ?? item.PositionNumber ?? double.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -3053,6 +3102,7 @@ public sealed class DetailComposerService
                 EntityType = entityType,
                 Title = "Missing from library",
                 PositionNumber = position,
+                PositionSort = position,
                 PositionLabel = position.ToString(),
                 IsOwned = false,
                 ProgressState = LibraryProgressState.Unknown,
@@ -3066,7 +3116,7 @@ public sealed class DetailComposerService
     private static List<SequenceItemViewModel> SortSequenceItems(IEnumerable<SequenceItemViewModel> items)
         => items
             .OrderBy(item => TryParseSeriesPosition(item.GroupKey?.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase)) ?? int.MaxValue)
-            .ThenBy(item => item.PositionNumber ?? int.MaxValue)
+            .ThenBy(item => item.PositionSort ?? item.PositionNumber ?? double.MaxValue)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -3077,6 +3127,11 @@ public sealed class DetailComposerService
         if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode
             || items.Count == 0
             || items.Any(item => !item.PositionNumber.HasValue))
+        {
+            return items.ToList();
+        }
+
+        if (items.Any(item => item.PositionSort.HasValue && !IsWholeNumber(item.PositionSort.Value)))
         {
             return items.ToList();
         }
@@ -3103,6 +3158,7 @@ public sealed class DetailComposerService
                 Title = item.Title,
                 ArtworkUrl = item.ArtworkUrl,
                 PositionNumber = normalized,
+                PositionSort = normalized,
                 PositionLabel = normalized.ToString(CultureInfo.InvariantCulture),
                 PositionText = FormatSequencePositionText(entityType, normalized.ToString(CultureInfo.InvariantCulture), normalized),
                 GroupKey = item.GroupKey,
@@ -5769,7 +5825,11 @@ public sealed class DetailComposerService
             && !trimmed.Contains(". ", StringComparison.Ordinal);
     }
 
-    private static DescriptionAttributionViewModel? BuildWikipediaDescriptionAttribution(string? description, string? wikipediaUrl)
+    private static DescriptionAttributionViewModel? BuildWikipediaDescriptionAttribution(
+        string? description,
+        string? wikipediaUrl,
+        DateTimeOffset? retrievedAt = null,
+        bool isModifiedOrSummarized = false)
     {
         if (string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(wikipediaUrl))
         {
@@ -5779,9 +5839,12 @@ public sealed class DetailComposerService
         return new DescriptionAttributionViewModel
         {
             SourceName = "Wikipedia",
+            SourceTitle = "article text",
             SourceUrl = wikipediaUrl,
             LicenseName = "CC BY-SA 4.0",
             LicenseUrl = "https://creativecommons.org/licenses/by-sa/4.0/",
+            RetrievedAt = retrievedAt,
+            IsModifiedOrSummarized = isModifiedOrSummarized,
             Notice = "Text from Wikipedia is available under the Creative Commons Attribution-ShareAlike 4.0 License; additional terms may apply.",
         };
     }
@@ -6066,6 +6129,7 @@ public sealed class DetailComposerService
                 Title = item.Title,
                 ArtworkUrl = item.ArtworkUrl,
                 PositionNumber = item.PositionNumber,
+                PositionSort = item.PositionSort,
                 PositionLabel = item.PositionLabel,
                 PositionText = positionText,
                 GroupKey = group.Item1,
@@ -6463,6 +6527,12 @@ public sealed class DetailComposerService
 
     private static int? TryParseSeriesPosition(string? value)
     {
+        var parsed = TryParseSeriesPositionSort(value);
+        return ToDisplayPositionNumber(parsed);
+    }
+
+    private static double? TryParseSeriesPositionSort(string? value)
+    {
         if (string.IsNullOrWhiteSpace(value))
         {
             return null;
@@ -6482,11 +6552,29 @@ public sealed class DetailComposerService
 
         if (double.TryParse(numericText, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedDouble))
         {
-            return (int)Math.Round(parsedDouble, MidpointRounding.AwayFromZero);
+            return parsedDouble;
         }
 
         return null;
     }
+
+    private static int? ToDisplayPositionNumber(double? value)
+        => value.HasValue && IsWholeNumber(value.Value)
+            ? Convert.ToInt32(Math.Round(value.Value, MidpointRounding.AwayFromZero))
+            : null;
+
+    private static bool IsWholeNumber(double value)
+        => Math.Abs(value - Math.Round(value, MidpointRounding.AwayFromZero)) < 0.0001d;
+
+    private static string? FormatSequenceSort(double? value)
+        => value.HasValue
+            ? value.Value.ToString(IsWholeNumber(value.Value) ? "0" : "0.###", CultureInfo.InvariantCulture)
+            : null;
+
+    private static string? SequencePositionKey(double? value)
+        => value.HasValue
+            ? value.Value.ToString("0.###", CultureInfo.InvariantCulture)
+            : null;
 
     private static string? ExtractQid(string? value)
     {
@@ -6633,6 +6721,7 @@ public sealed class DetailComposerService
         public string Title { get; init; } = "Untitled";
         public string? MediaType { get; init; }
         public string? PositionLabel { get; init; }
+        public double? PositionSort { get; init; }
         public string? SeasonLabel { get; init; }
         public string? EpisodeLabel { get; init; }
         public string? ArtworkUrl { get; init; }

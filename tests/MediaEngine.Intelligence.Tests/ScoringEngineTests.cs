@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Models;
@@ -127,6 +128,71 @@ public sealed class ScoringEngineTests
         var titleScore = result.FieldScores.First(f => f.Key == "title");
         Assert.Equal("Retail Audiobook Title", titleScore.WinningValue);
         Assert.Equal(AppleProviderId, titleScore.WinningProviderId);
+    }
+
+    [Fact]
+    public async Task MoviePipelinePriority_AllowsTmdbCollectionSequenceToWinImmediatePlacement()
+    {
+        var loader = new StubConfigurationLoader
+        {
+            PipelineConfiguration = new PipelineConfiguration
+            {
+                Pipelines =
+                {
+                    ["Movies"] = new MediaTypePipeline
+                    {
+                        FieldPriorities =
+                        {
+                            ["series"] = ["tmdb", "wikidata_reconciliation"],
+                            ["series_position"] = ["tmdb", "wikidata_reconciliation"],
+                        },
+                    },
+                },
+            },
+            ProviderConfigurations =
+            [
+                new MediaEngine.Storage.Models.ProviderConfiguration
+                {
+                    Name = "tmdb",
+                    ProviderId = WellKnownProviders.Tmdb.ToString("D"),
+                    Enabled = true,
+                },
+                new MediaEngine.Storage.Models.ProviderConfiguration
+                {
+                    Name = "wikidata_reconciliation",
+                    ProviderId = WikidataProviderId.ToString("D"),
+                    Enabled = true,
+                },
+            ],
+        };
+        var engine = new PriorityCascadeEngine(loader, NullLogger<PriorityCascadeEngine>.Instance);
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            DetectedMediaType = MediaType.Movies,
+            Claims =
+            [
+                MakeClaim("series", "Provider Movie Collection", WellKnownProviders.Tmdb, 0.80),
+                MakeClaim("series", "Broader Wikidata Film Series", WikidataProviderId, 0.98),
+                MakeClaim("series_position", "1", WellKnownProviders.Tmdb, 0.80),
+                MakeClaim("series_position", "4", WikidataProviderId, 0.98),
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [WellKnownProviders.Tmdb] = 1.0,
+                [WikidataProviderId] = 1.0,
+            },
+            Configuration = DefaultConfig,
+        };
+
+        var result = await engine.ScoreEntityAsync(context);
+
+        var seriesScore = result.FieldScores.First(f => f.Key == "series");
+        var positionScore = result.FieldScores.First(f => f.Key == "series_position");
+        Assert.Equal("Provider Movie Collection", seriesScore.WinningValue);
+        Assert.Equal(WellKnownProviders.Tmdb, seriesScore.WinningProviderId);
+        Assert.Equal("1", positionScore.WinningValue);
+        Assert.Equal(WellKnownProviders.Tmdb, positionScore.WinningProviderId);
     }
 
     [Fact]

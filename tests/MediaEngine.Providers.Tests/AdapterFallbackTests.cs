@@ -408,6 +408,276 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task ComicVine_FetchAsync_EnrichesIssueMatchWithVolumeSequenceFacts()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var requestedUrls = new List<string>();
+        var issueResponse = """
+            {
+              "results": [
+                {
+                  "name": "Chapter One",
+                  "issue_number": "1",
+                  "id": 222,
+                  "cover_date": "2012-03-14",
+                  "volume": { "id": 1234, "name": "Saga" },
+                  "image": { "original_url": "https://example.test/saga-en.jpg" }
+                }
+              ]
+            }
+            """;
+        var volumeResponse = """
+            {
+              "results": {
+                "id": 1234,
+                "name": "Saga",
+                "count_of_issues": 72,
+                "start_year": "2012",
+                "publisher": { "name": "Image Comics" }
+              }
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+                return url.Contains("/volume/4050-1234/", StringComparison.OrdinalIgnoreCase)
+                    ? JsonResponse(volumeResponse)
+                    : JsonResponse(issueResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Saga #1",
+            Series = "Saga",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Saga",
+                [MetadataFieldConstants.SeriesPosition] = "1",
+            },
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains("resources=issue", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(requestedUrls, url => url.Contains("/volume/4050-1234/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "1234");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotal && c.Value == "72");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotalScope && c.Value == "MainSequence");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SeriesStartYear && c.Value == "2012");
+    }
+
+    [Fact]
+    public async Task ComicVine_FetchAsync_UsesVolumeFactsToDisambiguateSameNameRuns()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var issueResponse = """
+            {
+              "results": [
+                {
+                  "name": "Chapter One",
+                  "issue_number": "1",
+                  "id": 111,
+                  "cover_date": "2012-03-14",
+                  "volume": { "id": 900, "name": "Saga" },
+                  "image": { "original_url": "https://example.test/saga-wrong.jpg" }
+                },
+                {
+                  "name": "Chapter One",
+                  "issue_number": "1",
+                  "id": 222,
+                  "cover_date": "2012-03-14",
+                  "volume": { "id": 1234, "name": "Saga" },
+                  "image": { "original_url": "https://example.test/saga-right.jpg" }
+                }
+              ]
+            }
+            """;
+        var olderVolumeResponse = """
+            {
+              "results": {
+                "id": 900,
+                "name": "Saga",
+                "count_of_issues": 12,
+                "start_year": "1992",
+                "publisher": { "name": "Other Publisher" }
+              }
+            }
+            """;
+        var currentVolumeResponse = """
+            {
+              "results": {
+                "id": 1234,
+                "name": "Saga",
+                "count_of_issues": 72,
+                "start_year": "2012",
+                "publisher": { "name": "Image Comics" }
+              }
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                if (url.Contains("/volume/4050-900/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(olderVolumeResponse);
+                if (url.Contains("/volume/4050-1234/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(currentVolumeResponse);
+                return JsonResponse(issueResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Saga #1",
+            Series = "Saga",
+            Year = "2012",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Saga",
+                [MetadataFieldConstants.SeriesPosition] = "1",
+                [MetadataFieldConstants.PublisherField] = "Image Comics",
+            },
+        });
+
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "222");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "1234");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotal && c.Value == "72");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SeriesStartYear && c.Value == "2012");
+        Assert.DoesNotContain(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "111");
+    }
+
+    [Fact]
+    public async Task ComicVine_FetchAsync_UsesVolumeSearchWhenIssueSearchFindsLocalizedRun()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var issueSearchResponse = """
+            {
+              "results": [
+                {
+                  "name": null,
+                  "issue_number": "2",
+                  "id": 667131,
+                  "cover_date": "2013-12-05",
+                  "volume": { "id": 110032, "name": "Saga" },
+                  "description": "<p>Die fantastische Weltraum-Opera geht in die zweite Runde!</p>",
+                  "image": { "original_url": "https://example.test/saga-localized.jpg" }
+                }
+              ]
+            }
+            """;
+        var volumeSearchResponse = """
+            {
+              "results": [
+                {
+                  "id": 46568,
+                  "name": "Saga",
+                  "count_of_issues": 72,
+                  "start_year": "2012",
+                  "publisher": { "name": "Image" }
+                },
+                {
+                  "id": 110032,
+                  "name": "Saga",
+                  "count_of_issues": 12,
+                  "start_year": "2013",
+                  "publisher": { "name": "Cross Cult" }
+                }
+              ]
+            }
+            """;
+        var runScopedIssueResponse = """
+            {
+              "results": [
+                {
+                  "name": "Chapter Two",
+                  "issue_number": "2",
+                  "id": 321316,
+                  "cover_date": "2012-04-01",
+                  "volume": { "id": 46568, "name": "Saga" },
+                  "image": { "original_url": "https://example.test/saga-original.jpg" }
+                }
+              ]
+            }
+            """;
+        var originalVolumeResponse = """
+            {
+              "results": {
+                "id": 46568,
+                "name": "Saga",
+                "count_of_issues": 72,
+                "start_year": "2012",
+                "publisher": { "name": "Image" }
+              }
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(volumeSearchResponse);
+                if (url.Contains("/issues/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(runScopedIssueResponse);
+                if (url.Contains("/volume/4050-46568/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(originalVolumeResponse);
+                return JsonResponse(issueSearchResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Saga #2",
+            Series = "Saga",
+            Year = "2012",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Saga",
+                [MetadataFieldConstants.SeriesPosition] = "2",
+            },
+        });
+
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "321316");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "46568");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotal && c.Value == "72");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SeriesStartYear && c.Value == "2012");
+        Assert.DoesNotContain(claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "110032");
+    }
+
+    [Fact]
     public async Task AppleApi_FetchAsync_RejectsMusicTrackFromWrongAlbum()
     {
         var config = LoadExampleConfig("apple_api");
@@ -537,6 +807,101 @@ public sealed class AdapterFallbackTests
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.OriginalLanguage
             && c.Value == "ja");
         Assert.DoesNotContain(claims, c => c.Key == MetadataFieldConstants.Language);
+    }
+
+    [Fact]
+    public async Task Tmdb_MovieSearch_AddsCollectionSequenceFactsFromCollectionParts()
+    {
+        var config = LoadExampleConfig("tmdb");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+
+                if (url.Contains("/search/movie?", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "results": [
+                            {
+                              "id": 78,
+                              "title": "Blade Runner",
+                              "overview": "A future noir.",
+                              "release_date": "1982-06-25"
+                            }
+                          ]
+                        }
+                        """);
+                }
+
+                if (url.Contains("/movie/78?", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "id": 78,
+                          "title": "Blade Runner",
+                          "overview": "A detail overview.",
+                          "runtime": 117,
+                          "belongs_to_collection": {
+                            "id": 422837,
+                            "name": "Blade Runner Collection"
+                          }
+                        }
+                        """);
+                }
+
+                if (url.Contains("/collection/422837?", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "id": 422837,
+                          "name": "Blade Runner Collection",
+                          "parts": [
+                            {
+                              "id": 335984,
+                              "title": "Blade Runner 2049",
+                              "release_date": "2017-10-06"
+                            },
+                            {
+                              "id": 78,
+                              "title": "Blade Runner",
+                              "release_date": "1982-06-25"
+                            }
+                          ]
+                        }
+                        """);
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Movies,
+            Title = "Blade Runner",
+            Year = "1982",
+            Language = "en",
+            Country = "US",
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains("/collection/422837?", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(claims, c => c.Key == "tmdb_collection_id" && c.Value == "422837");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Series && c.Value == "Blade Runner Collection");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SeriesPosition && c.Value == "1");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotal && c.Value == "2");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotalScope && c.Value == SequenceCountScope.MainSequence.ToString());
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceFormat && c.Value == SequenceFormat.Standard.ToString());
     }
 
     [Fact]

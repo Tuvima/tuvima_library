@@ -144,6 +144,12 @@ public class ValueTransformCatalogTests
         Assert.Equal("data", ValueTransformCatalog.Apply("first_n_chars", "data", "not_a_number"));
     }
 
+    [Fact]
+    public void Literal_ReturnsConfiguredArgument()
+    {
+        Assert.Equal("MainSequence", ValueTransformCatalog.Apply("literal", "ignored", "MainSequence"));
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  IsKnown
     // ════════════════════════════════════════════════════════════════════════
@@ -162,6 +168,7 @@ public class ValueTransformCatalogTests
     [InlineData("prefer_isbn13")]
     [InlineData("array_join")]
     [InlineData("array_nested_join")]
+    [InlineData("literal")]
     public void IsKnown_RecognisedTransforms(string name)
     {
         Assert.True(ValueTransformCatalog.IsKnown(name));

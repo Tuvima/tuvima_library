@@ -199,14 +199,48 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         Assert.Equal(childCollectionId, await GetWorkCollectionIdAsync(workId));
     }
 
-    private async Task<Guid> CreateCollectionAsync(string qid, string name)
+    [Fact]
+    public async Task LinkOwnedWorks_DoesNotOverrideProviderOwnedImmediateShelf()
+    {
+        var repo = new SeriesManifestRepository(_db);
+        var wikidataCollectionId = await CreateCollectionAsync("Q74331", "The Hobbit trilogy");
+        var providerCollectionId = await CreateCollectionAsync(
+            qid: "",
+            name: "The Hobbit Collection",
+            ruleHash: "tmdb:collection:121938");
+        var workId = await CreateWorkAsync("Q80379", mediaType: "Movies");
+        var now = DateTimeOffset.UtcNow;
+
+        await AssignWorkToCollectionAsync(workId, providerCollectionId);
+
+        var items = new[]
+        {
+            Item(
+                wikidataCollectionId,
+                "Q74331",
+                "Q80379",
+                "The Hobbit: An Unexpected Journey",
+                1,
+                "Owned",
+                workId,
+                now),
+        };
+
+        await repo.UpsertManifestAsync(Hydration(wikidataCollectionId, "Q74331", now), items);
+        await repo.LinkOwnedWorksAsync(wikidataCollectionId, items);
+
+        Assert.Equal(providerCollectionId, await GetWorkCollectionIdAsync(workId));
+    }
+
+    private async Task<Guid> CreateCollectionAsync(string qid, string name, string? ruleHash = null)
     {
         var repo = new CollectionRepository(_db);
         var collection = new Collection
         {
             Id = Guid.NewGuid(),
             DisplayName = name,
-            WikidataQid = qid,
+            WikidataQid = string.IsNullOrWhiteSpace(qid) ? null : qid,
+            RuleHash = ruleHash,
             CollectionType = "ContentGroup",
             Resolution = "materialized",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -214,16 +248,17 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         return await repo.UpsertAsync(collection);
     }
 
-    private Task<Guid> CreateWorkAsync(string qid)
+    private Task<Guid> CreateWorkAsync(string qid, string mediaType = "Books")
     {
         var id = Guid.NewGuid();
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO works (id, collection_id, media_type, work_kind, wikidata_qid, external_identifiers)
-            VALUES (@id, NULL, 'Books', 'standalone', @qid, @externalIdentifiers);
+            VALUES (@id, NULL, @mediaType, 'standalone', @qid, @externalIdentifiers);
             """;
         cmd.Parameters.AddWithValue("@id", GuidSql.ToBlob(id));
+        cmd.Parameters.AddWithValue("@mediaType", mediaType);
         cmd.Parameters.AddWithValue("@qid", qid);
         cmd.Parameters.AddWithValue("@externalIdentifiers", $$"""{"wikidata_qid":"{{qid}}"}""");
         cmd.ExecuteNonQuery();

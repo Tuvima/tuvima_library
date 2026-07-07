@@ -5,11 +5,28 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Helpers;
+using SkiaSharp;
 
 namespace MediaEngine.Api.Endpoints;
 
 public static class StreamEndpoints
 {
+    private const string ArtworkPlaceholderSvg = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 480" role="img" aria-label="Artwork unavailable">
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#1f2937"/>
+              <stop offset="0.55" stop-color="#334155"/>
+              <stop offset="1" stop-color="#0f172a"/>
+            </linearGradient>
+          </defs>
+          <rect width="320" height="480" rx="16" fill="url(#bg)"/>
+          <rect x="68" y="146" width="184" height="188" rx="12" fill="none" stroke="#94a3b8" stroke-width="10" opacity="0.72"/>
+          <circle cx="124" cy="204" r="24" fill="#cbd5e1" opacity="0.78"/>
+          <path d="M82 308l56-62 38 42 24-28 38 48z" fill="#cbd5e1" opacity="0.78"/>
+        </svg>
+        """;
+
     private static readonly Dictionary<string, string> MimeMap =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -117,15 +134,15 @@ public static class StreamEndpoints
             }
 
             var renditionPath = ResolveArtworkPath(variant, normalizedSize);
-            if (!string.IsNullOrWhiteSpace(renditionPath) && File.Exists(renditionPath))
+            var localArtworkResult = CreateLocalArtworkResult(renditionPath);
+            if (localArtworkResult is not null)
             {
-                var bytes = await File.ReadAllBytesAsync(renditionPath, ct);
-                return Results.File(bytes, GetImageMimeType(renditionPath), Path.GetFileName(renditionPath));
+                return localArtworkResult;
             }
 
             if (normalizedSize is not null)
             {
-                return Results.NotFound($"Artwork rendition '{normalizedSize}' is not available.");
+                return CreateArtworkPlaceholderResult();
             }
 
             if (!string.IsNullOrWhiteSpace(variant.ImageUrl)
@@ -135,7 +152,7 @@ public static class StreamEndpoints
                 using var client = httpFactory.CreateClient("cover_download");
                 using var response = await client.GetAsync(imageUri, ct);
                 if (!response.IsSuccessStatusCode)
-                    return Results.NotFound("Artwork source could not be retrieved.");
+                    return CreateArtworkPlaceholderResult();
 
                 var bytes = await response.Content.ReadAsByteArrayAsync(ct);
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
@@ -148,7 +165,7 @@ public static class StreamEndpoints
                 return Results.Redirect(variant.ImageUrl);
             }
 
-            return Results.NotFound("Artwork file not found.");
+            return CreateArtworkPlaceholderResult();
         })
         .WithName("GetArtworkVariant")
         .WithSummary("Serve artwork by variant id.")
@@ -170,16 +187,13 @@ public static class StreamEndpoints
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct);
-            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            var localArtworkResult = CreateLocalArtworkResult(preferredVariant?.LocalImagePath);
+            if (localArtworkResult is not null)
             {
-                var variantBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
-                return Results.File(
-                    variantBytes,
-                    GetImageMimeType(preferredVariant.LocalImagePath),
-                    Path.GetFileName(preferredVariant.LocalImagePath));
+                return localArtworkResult;
             }
 
-            return Results.NotFound("No cover art found for this asset.");
+            return CreateArtworkPlaceholderResult();
         })
         .WithName("GetAssetCover")
         .WithSummary("Serve the preferred centrally-managed cover artwork for a media asset.")
@@ -303,16 +317,13 @@ public static class StreamEndpoints
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct);
             var thumbPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, "s");
-            if (!string.IsNullOrWhiteSpace(thumbPath) && File.Exists(thumbPath))
+            var localArtworkResult = CreateLocalArtworkResult(thumbPath);
+            if (localArtworkResult is not null)
             {
-                var variantBytes = await File.ReadAllBytesAsync(thumbPath, ct);
-                return Results.File(
-                    variantBytes,
-                    GetImageMimeType(thumbPath),
-                    Path.GetFileName(thumbPath));
+                return localArtworkResult;
             }
 
-            return Results.NotFound("No cover art found for this asset.");
+            return CreateArtworkPlaceholderResult();
         })
         .WithName("GetAssetCoverThumb")
         .WithSummary("Serve the centrally-managed derived cover thumbnail for a media asset.")
@@ -336,13 +347,13 @@ public static class StreamEndpoints
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Banner", ct);
             var bannerPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
-            if (!string.IsNullOrWhiteSpace(bannerPath) && File.Exists(bannerPath))
+            var localArtworkResult = CreateLocalArtworkResult(bannerPath);
+            if (localArtworkResult is not null)
             {
-                var preferredBytes = await File.ReadAllBytesAsync(bannerPath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(bannerPath), Path.GetFileName(bannerPath));
+                return localArtworkResult;
             }
 
-            return Results.NotFound("No banner artwork found for this asset.");
+            return CreateArtworkPlaceholderResult();
         })
         .WithName("GetAssetBanner")
         .WithSummary("Serve uploaded banner artwork for a media asset.")
@@ -364,13 +375,13 @@ public static class StreamEndpoints
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "SquareArt", ct);
             var squarePath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
-            if (!string.IsNullOrWhiteSpace(squarePath) && File.Exists(squarePath))
+            var localArtworkResult = CreateLocalArtworkResult(squarePath);
+            if (localArtworkResult is not null)
             {
-                var preferredBytes = await File.ReadAllBytesAsync(squarePath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(squarePath), Path.GetFileName(squarePath));
+                return localArtworkResult;
             }
 
-            return Results.NotFound("No square artwork found for this asset.");
+            return CreateArtworkPlaceholderResult();
         })
         .WithName("GetAssetSquareArt")
         .WithSummary("Serve uploaded square artwork for a media asset.")
@@ -392,13 +403,13 @@ public static class StreamEndpoints
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Background", ct);
             var backgroundPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
-            if (!string.IsNullOrWhiteSpace(backgroundPath) && File.Exists(backgroundPath))
+            var localArtworkResult = CreateLocalArtworkResult(backgroundPath);
+            if (localArtworkResult is not null)
             {
-                var preferredBytes = await File.ReadAllBytesAsync(backgroundPath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(backgroundPath), Path.GetFileName(backgroundPath));
+                return localArtworkResult;
             }
 
-            return Results.NotFound("No background artwork found for this asset.");
+            return CreateArtworkPlaceholderResult();
         })
         .WithName("GetAssetBackground")
         .WithSummary("Serve uploaded background artwork for a media asset.")
@@ -420,13 +431,13 @@ public static class StreamEndpoints
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Logo", ct);
             var logoPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
-            if (!string.IsNullOrWhiteSpace(logoPath) && File.Exists(logoPath))
+            var localArtworkResult = CreateLocalArtworkResult(logoPath);
+            if (localArtworkResult is not null)
             {
-                var preferredBytes = await File.ReadAllBytesAsync(logoPath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(logoPath), Path.GetFileName(logoPath));
+                return localArtworkResult;
             }
 
-            return Results.NotFound("No logo artwork found for this asset.");
+            return CreateArtworkPlaceholderResult();
         })
         .WithName("GetAssetLogo")
         .WithSummary("Serve uploaded logo artwork for a media asset.")
@@ -489,18 +500,77 @@ public static class StreamEndpoints
         return normalized is "s" or "m" or "l" ? normalized : null;
     }
 
-    private static string? ResolveArtworkPath(EntityAsset asset, string? size) => (size ?? string.Empty).Trim().ToLowerInvariant() switch
+    private static string? ResolveArtworkPath(EntityAsset asset, string? size)
     {
-        "s" => asset.LocalImagePathSmall,
-        "m" => asset.LocalImagePathMedium,
-        "l" => asset.LocalImagePathLarge,
-        _ => asset.LocalImagePath,
-    };
+        var requestedPath = (size ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "s" => asset.LocalImagePathSmall,
+            "m" => asset.LocalImagePathMedium,
+            "l" => asset.LocalImagePathLarge,
+            _ => asset.LocalImagePath,
+        };
+
+        return !string.IsNullOrWhiteSpace(requestedPath) && File.Exists(requestedPath)
+            ? requestedPath
+            : asset.LocalImagePath;
+    }
+
+    private static IResult? CreateLocalArtworkResult(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return null;
+        }
+
+        var normalizedImage = TryNormalizeArtworkBytes(path);
+        if (normalizedImage is null)
+        {
+            return CreateArtworkPlaceholderResult();
+        }
+
+        return Results.File(
+            normalizedImage.Value.Bytes,
+            normalizedImage.Value.ContentType,
+            Path.GetFileName(path));
+    }
+
+    private static ArtworkFile? TryNormalizeArtworkBytes(string path)
+    {
+        try
+        {
+            using var bitmap = SKBitmap.Decode(path);
+            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
+            {
+                return null;
+            }
+
+            var isPng = string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(isPng ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg, isPng ? 100 : 88);
+            if (data is null || data.Size <= 0)
+            {
+                return null;
+            }
+
+            return new ArtworkFile(
+                data.ToArray(),
+                isPng ? "image/png" : "image/jpeg");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static IResult CreateArtworkPlaceholderResult() =>
+        Results.Text(ArtworkPlaceholderSvg, "image/svg+xml");
 
     private static string GetImageMimeType(string path) =>
         string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)
             ? "image/png"
             : "image/jpeg";
+
+    private readonly record struct ArtworkFile(byte[] Bytes, string ContentType);
 
     private sealed record TextTrackDto(
         Guid Id,

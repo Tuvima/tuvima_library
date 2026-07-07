@@ -174,6 +174,21 @@ All six media types (Books, Audiobooks, Movies, TV, Music, Comics) must have at 
 
 ---
 
+## Sequence Placement Configuration Contract
+
+Sequence placement is structural, not title-specific. Configured providers may
+map fields such as `comic_vine_volume_id`, `track_count`, `episode_count`,
+`sequence_total`, `sequence_total_scope`, `disc_number`, `track_number`,
+`issue_number`, and `series_position`; the Engine normalizes those into
+`ordinal_sort`, shelf identity, and child identity keys by media type.
+
+Do not add provider mappings or field-priority overrides that special-case a
+specific title to fix a visible count. Fix the container classification,
+provider mapping, or media-type resolver so a fresh ingestion works for the
+whole class of media.
+
+---
+
 ## config/field_priorities.json
 
 Global per-field provider priority overrides used by Tier B of the Priority Cascade. Per-media-type overrides in `config/pipelines.json` take precedence over these global settings.
@@ -264,6 +279,11 @@ One JSON file per metadata provider. All provider files are self-contained - add
 | Movies | `movieposter`, `moviebackground`, `hdmovielogo`, `moviebanner`, `hdmovieclearart`, `movieclearart`, `moviedisc`, `characterart` |
 | TV | `tvposter`, `showbackground`, `hdtvlogo`, `clearlogo`, `tvbanner`, `hdclearart`, `clearart`, `seasonposter`, `seasonthumb`, `tvthumb`, `characterart` |
 | Music | `albumcover`, `artistbackground`, `musiclogo`, `cdart` |
+
+Artwork config controls source access only. Display surfaces should still use
+managed artwork URLs emitted by the Engine after accepted provider art is cached
+under `.data/assets`; provider URLs are retained as provenance/source inputs,
+not as stable UI image URLs.
 
 ### wikidata_reconciliation.json - Single Source of Truth
 

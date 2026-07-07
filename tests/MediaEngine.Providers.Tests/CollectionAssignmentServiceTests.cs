@@ -42,6 +42,9 @@ public sealed class CollectionAssignmentServiceTests
         Assert.Contains("tmdb:collection:{tmdbCollectionId}", source, StringComparison.Ordinal);
         Assert.Contains("tmdb:tv:{tmdbTvId}", source, StringComparison.Ordinal);
         Assert.Contains("tvdb:tv:{tvdbId}", source, StringComparison.Ordinal);
+        Assert.Contains("comicvine:volume:{comicVineVolumeId}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("comicvine:series:{comicVineId}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("keeping existing Wikidata movie shelf", source, StringComparison.Ordinal);
         Assert.Contains("UpgradeCollectionIdentityAsync(existingCollection, shelf", source, StringComparison.Ordinal);
         Assert.Contains("WikidataQid = shelf.Qid", source, StringComparison.Ordinal);
         Assert.Contains("RuleHash = shelf.ProviderKey", source, StringComparison.Ordinal);

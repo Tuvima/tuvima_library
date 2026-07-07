@@ -1106,6 +1106,7 @@ CREATE TABLE IF NOT EXISTS works (
                                  CHECK (work_kind IN ('standalone','parent','child','catalog')),
     parent_work_id       BLOB    REFERENCES works(id) ON DELETE SET NULL,
     ordinal              INTEGER,                       -- track #, episode #, issue #, volume #
+    ordinal_sort         REAL,                          -- decimal/disc-aware sequence sort value
     is_catalog_only      INTEGER NOT NULL DEFAULT 0,    -- 1 = no file in library yet
     external_identifiers TEXT,                          -- JSON: {"isbn_13":"...","tmdb_id":"..."}
     display_overrides_json TEXT,                        -- JSON: presentation-only aliases and sort/display overrides
@@ -1478,6 +1479,9 @@ CREATE INDEX IF NOT EXISTS idx_wikidata_candidates_outcome ON wikidata_bridge_ca
 CREATE INDEX IF NOT EXISTS idx_works_collection_id
     ON works (collection_id);
 
+CREATE INDEX IF NOT EXISTS idx_works_collection_ordinal_sort
+    ON works(collection_id, ordinal_sort);
+
 CREATE INDEX IF NOT EXISTS idx_works_media_type
     ON works (media_type);
 
@@ -1486,6 +1490,24 @@ CREATE INDEX IF NOT EXISTS idx_works_ownership_media_type
 
 CREATE INDEX IF NOT EXISTS idx_works_parent_key
     ON works(media_type, parent_key) WHERE parent_key IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_works_root_parent_key
+    ON works(media_type, parent_key)
+    WHERE work_kind = 'parent'
+      AND parent_key IS NOT NULL
+      AND parent_work_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_works_nested_parent_ordinal
+    ON works(media_type, parent_work_id, ordinal)
+    WHERE work_kind = 'parent'
+      AND parent_work_id IS NOT NULL
+      AND ordinal IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_works_child_parent_ordinal_sort
+    ON works(parent_work_id, ordinal_sort)
+    WHERE work_kind IN ('child', 'catalog')
+      AND parent_work_id IS NOT NULL
+      AND ordinal_sort IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_works_parent_work_id ON works(parent_work_id);
 

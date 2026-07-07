@@ -498,7 +498,7 @@
         if (systemGroupField is null)
         {
             groups = groups
-                .Where(group => string.Equals(group.PrimaryMediaType, mediaType, StringComparison.OrdinalIgnoreCase))
+                .Where(group => MediaTypeMatches(group.PrimaryMediaType, mediaType))
                 .ToList();
         }
 
@@ -912,6 +912,10 @@
             return "Comics";
         return "Books";
     }
+
+    private static bool MediaTypeMatches(string? candidate, string? requested) =>
+        string.Equals(candidate, requested, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(NormalizeEditorMediaType(candidate), NormalizeEditorMediaType(requested), StringComparison.OrdinalIgnoreCase);
 
     private Task NavigateAndReloadAsync(bool reloadData = true, bool replace = false)
     {

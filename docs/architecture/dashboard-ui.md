@@ -54,6 +54,23 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 
 `LibraryBrowsePage` and `LaneLandingView` render cinematic spotlight-and-shelf discovery surfaces. `MediaBrowseShell` provides shared detailed browse behavior for current media lane tab routes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
 
+## Sequence, Attribution, And Artwork Display
+
+Lane pages, shelf cards, album pages, collection pages, detail pages, search
+results, and review cards should use the same sequence and artwork contract from
+the Engine:
+
+- Sequence cards show one immediate shelf, ordered by `ordinal_sort`; decimal
+  positions, comic annuals, TV specials, and multi-disc tracks should not
+  collapse into the same child row.
+- `Owned X of Y` uses `sequence_total` only when the total belongs to the
+  displayed shelf, not a broader franchise or list article.
+- Descriptions and metadata text sourced from Wikipedia, Wikidata, or providers
+  should show attribution links on detail pages when attribution is present in
+  the API response.
+- Artwork should render from managed URLs or settled placeholders. The UI should
+  not show broken external provider URLs directly.
+
 ## Inline editing model
 
 The canonical edit path is:

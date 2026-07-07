@@ -107,6 +107,11 @@ API credentials are config-file data. Base provider definitions live in `config/
 
 **Notes:** Comic Vine supplies comic issue and volume metadata, including cover art and Comic Vine bridge identifiers. Series and issue hints are used for search and post-search ranking.
 
+When an accepted issue match includes a volume ID, the Engine performs a volume
+lookup and records volume-scoped sequence facts such as issue count, start year,
+publisher, and `sequence_total_scope = MainSequence`. Comic shelves should use
+the volume/run identity, not an individual issue ID or a same-name title match.
+
 #### Open Library (Disabled)
 
 | Strategy | Priority | Required Fields | URL Pattern | Media Types |
@@ -123,6 +128,21 @@ Fanart.tv is not an identity provider. It runs after identity is established and
 #### LRCLIB and OpenSubtitles
 
 LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do not decide identity, do not unlock Wikidata resolution, and do not participate in retail candidate scoring.
+
+### Sequence And Artwork Responsibilities
+
+| Media type | Preferred sequence source | Artwork display source |
+|---|---|---|
+| Books/Audiobooks | Apple retail sequence when available; otherwise Wikidata manifest if the container is sequence-compatible. | Managed asset from accepted Apple/provider cover, then placeholder after artwork settles. |
+| Music | Accepted Apple album/release lookup; MusicBrainz IDs can support identity only if enabled or embedded locally. | Managed asset from accepted Apple/Fanart source; no direct provider URL after settlement. |
+| Movies | TMDB movie collection for ordered film collections; Wikidata franchise context stays broader discovery context. | Managed poster/backdrop from TMDB/Fanart. |
+| TV | TMDB show/season/episode details. | Managed show, season, and episode art from TMDB/Fanart. |
+| Comics | Comic Vine volume/run and issue metadata. | Managed Comic Vine cover. |
+
+Provider descriptions and long-form metadata should carry source attribution
+when surfaced: provider name, source title, source URL, license name, license
+URL, retrieval timestamp, and whether the display value was modified or
+summarized.
 
 ---
 

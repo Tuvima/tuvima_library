@@ -108,6 +108,7 @@ public sealed class CollectionAssignmentService
             {
                 await UpgradeCollectionIdentityAsync(existingCollection, shelf, ct);
                 var relationshipsAdded = await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
+                await EnsureSequenceFactsAsync(existingCollection.Id, mediaType, lookup, ct);
 
                 _logger.LogDebug(
                     "CollectionAssignment: work {WorkId} already assigned to collection {CollectionId}",
@@ -120,27 +121,6 @@ public sealed class CollectionAssignmentService
                     existingCollection.Id,
                     RelationshipsAdded: relationshipsAdded,
                     IdentityKey: shelf.Qid ?? shelf.ProviderKey);
-            }
-
-            if (existingCollection is not null
-                && mediaType is MediaType.Movies
-                && string.IsNullOrWhiteSpace(shelf.Qid)
-                && !string.IsNullOrWhiteSpace(existingCollection.WikidataQid))
-            {
-                var relationshipsAdded = await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
-
-                _logger.LogDebug(
-                    "CollectionAssignment: keeping existing Wikidata movie shelf '{CollectionName}' ({CollectionQid}) for work {WorkId}",
-                    existingCollection.DisplayName,
-                    existingCollection.WikidataQid,
-                    workId);
-                return new CollectionAssignmentResult(
-                    CollectionAssignmentOutcome.AlreadyAssigned,
-                    entityId,
-                    workId.Value,
-                    existingCollection.Id,
-                    RelationshipsAdded: relationshipsAdded,
-                    IdentityKey: existingCollection.WikidataQid);
             }
 
             if (existingCollection is not null)
@@ -197,6 +177,7 @@ public sealed class CollectionAssignmentService
             }
 
             relationshipCount = await EnsureCollectionRelationshipsAsync(collection.Id, lookup, ct);
+            await EnsureSequenceFactsAsync(collection.Id, mediaType, lookup, ct);
             await _collectionRepo.AssignWorkToCollectionAsync(workId.Value, collection.Id, ct);
         }
         finally
@@ -264,6 +245,60 @@ public sealed class CollectionAssignmentService
 
         if (changed)
             await _collectionRepo.UpsertAsync(collection, ct);
+    }
+
+    private async Task EnsureSequenceFactsAsync(
+        Guid collectionId,
+        MediaType mediaType,
+        Dictionary<string, string> lookup,
+        CancellationToken ct)
+    {
+        var total = FirstNonBlank(
+            ValueOrNull(lookup, MetadataFieldConstants.SequenceTotal),
+            mediaType switch
+            {
+                MediaType.Music => ValueOrNull(lookup, MetadataFieldConstants.TrackCount),
+                MediaType.TV => ValueOrNull(lookup, MetadataFieldConstants.EpisodeCount),
+                MediaType.Comics => ValueOrNull(lookup, MetadataFieldConstants.IssueCount),
+                _ => null
+            });
+
+        if (string.IsNullOrWhiteSpace(total) || !int.TryParse(total, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
+            return;
+
+        var scope = FirstNonBlank(
+            ValueOrNull(lookup, MetadataFieldConstants.SequenceTotalScope),
+            SequenceCountScope.MainSequence.ToString())!;
+
+        var providerId = mediaType switch
+        {
+            MediaType.Music => WellKnownProviders.AppleApi,
+            MediaType.TV or MediaType.Movies => WellKnownProviders.Tmdb,
+            MediaType.Comics => WellKnownProviders.ComicVine,
+            _ => (Guid?)null
+        };
+
+        var now = DateTimeOffset.UtcNow;
+        await _canonicalRepo.UpsertBatchAsync(
+            [
+                new CanonicalValue
+                {
+                    EntityId = collectionId,
+                    Key = MetadataFieldConstants.SequenceTotal,
+                    Value = parsed.ToString(CultureInfo.InvariantCulture),
+                    LastScoredAt = now,
+                    WinningProviderId = providerId
+                },
+                new CanonicalValue
+                {
+                    EntityId = collectionId,
+                    Key = MetadataFieldConstants.SequenceTotalScope,
+                    Value = scope,
+                    LastScoredAt = now,
+                    WinningProviderId = providerId
+                }
+            ],
+            ct);
     }
 
     private static bool CollectionMatchesShelf(Collection collection, ShelfIdentity shelf)
@@ -347,8 +382,8 @@ public sealed class CollectionAssignmentService
                 => $"applemusic:album:{appleCollectionId}",
             MediaType.Music when TryGetValue(lookup, BridgeIdKeys.MusicBrainzReleaseGroupId, out var releaseGroupId)
                 => $"musicbrainz:release-group:{releaseGroupId}",
-            MediaType.Comics when TryGetValue(lookup, BridgeIdKeys.ComicVineId, out var comicVineId)
-                => $"comicvine:series:{comicVineId}",
+            MediaType.Comics when TryGetValue(lookup, BridgeIdKeys.ComicVineVolumeId, out var comicVineVolumeId)
+                => $"comicvine:volume:{comicVineVolumeId}",
             _ => null,
         };
     }

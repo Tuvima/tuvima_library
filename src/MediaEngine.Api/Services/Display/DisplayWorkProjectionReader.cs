@@ -86,6 +86,12 @@ public sealed class DisplayWorkProjectionReader
                 ) AS SeriesPosition,
                 (SELECT display_name FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionTitle,
                 COALESCE(
+                    (SELECT CAST(value AS INTEGER)
+                     FROM canonical_values
+                     WHERE entity_id = CollectionId
+                       AND key = 'sequence_total'
+                       AND CAST(value AS INTEGER) > 0
+                     LIMIT 1),
                     (
                         SELECT MAX(COALESCE(
                             CAST(json_extract(api_metadata_json, '$.expectedTotal') AS INTEGER),

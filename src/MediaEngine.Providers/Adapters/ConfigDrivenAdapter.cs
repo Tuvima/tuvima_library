@@ -712,7 +712,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 var cachedJson = JsonNode.Parse(cached.ResponseJson);
                 if (cachedJson is not null)
                 {
-                    var resultNode = NavigateToResult(cachedJson, strategy, request);
+                    var resultNode = await NavigateToResultAsync(cachedJson, strategy, request, ct)
+                        .ConfigureAwait(false);
                     if (resultNode is not null)
                         return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
                             .ConfigureAwait(false);
@@ -781,7 +782,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
                     if (cachedJson is not null)
                     {
-                        var resultNode = NavigateToResult(cachedJson, strategy, request);
+                        var resultNode = await NavigateToResultAsync(cachedJson, strategy, request, ct)
+                            .ConfigureAwait(false);
                         if (resultNode is not null)
                             return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
                                 .ConfigureAwait(false);
@@ -820,7 +822,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 return [];
 
             // Navigate to result object.
-            var resultObj = NavigateToResult(json, strategy, request);
+            var resultObj = await NavigateToResultAsync(json, strategy, request, ct)
+                .ConfigureAwait(false);
             if (resultObj is null)
                 return [];
 
@@ -850,8 +853,130 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (!ClaimsMatchRequest(claims, request, strategy))
             return [];
 
-        return await EnrichClaimsWithTmdbDetailsAsync(claims, resultNode, request.MediaType, ct)
+        claims = await EnrichClaimsWithTmdbDetailsAsync(claims, resultNode, request, ct)
             .ConfigureAwait(false);
+        claims = await EnrichClaimsWithComicVineVolumeAsync(claims, request, ct)
+            .ConfigureAwait(false);
+
+        return claims;
+    }
+
+    private async Task<IReadOnlyList<ProviderClaim>> EnrichClaimsWithComicVineVolumeAsync(
+        IReadOnlyList<ProviderClaim> claims,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        if (!string.Equals(Name, "comicvine", StringComparison.OrdinalIgnoreCase)
+            || request.MediaType != MediaType.Comics)
+        {
+            return claims;
+        }
+
+        var volumeId = claims.FirstOrDefault(claim =>
+            string.Equals(claim.Key, BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (string.IsNullOrWhiteSpace(volumeId))
+        {
+            return claims;
+        }
+
+        try
+        {
+            var facts = await TryFetchComicVineVolumeFactsAsync(volumeId, request, ct)
+                .ConfigureAwait(false);
+            if (facts is null)
+            {
+                return claims;
+            }
+
+            var enriched = claims.ToList();
+            AddComicVineVolumeClaim(enriched, MetadataFieldConstants.SequenceTotal, facts.IssueCount?.ToString(CultureInfo.InvariantCulture), 0.9);
+            if (enriched.Any(claim => string.Equals(claim.Key, MetadataFieldConstants.SequenceTotal, StringComparison.OrdinalIgnoreCase)))
+            {
+                AddComicVineVolumeClaim(enriched, MetadataFieldConstants.SequenceTotalScope, "MainSequence", 0.9);
+            }
+
+            AddComicVineVolumeClaim(enriched, MetadataFieldConstants.SeriesStartYear, facts.StartYear?.ToString(CultureInfo.InvariantCulture), 0.85);
+            AddComicVineVolumeClaim(enriched, MetadataFieldConstants.PublisherField, facts.Publisher, 0.8);
+            return enriched;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogInformation(
+                ex,
+                "{Provider}: ComicVine volume enrichment failed for volume {VolumeId}; issue-level claims will be used",
+                Name,
+                volumeId);
+            return claims;
+        }
+    }
+
+    private async Task<ComicVineVolumeFacts?> TryFetchComicVineVolumeFactsAsync(
+        string? volumeId,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(volumeId))
+            return null;
+
+        var baseUrl = ResolveBaseUrl(request);
+        var apiKey = _config.HttpClient?.ApiKey;
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+            return null;
+
+        var url = $"{baseUrl.TrimEnd('/')}/volume/4050-{Uri.EscapeDataString(volumeId)}/?api_key={Uri.EscapeDataString(apiKey)}&format=json";
+        using var client = _httpFactory.CreateClient(_config.Name);
+        var json = await _rateLimiter.ExecuteAsync(
+            Name,
+            _config.RateLimit,
+            token => client.GetFromJsonAsync<JsonNode>(url, token),
+            ct).ConfigureAwait(false);
+
+        var volume = json?["results"];
+        if (volume is null)
+            return null;
+
+        var issueCount = volume["count_of_issues"]?.GetValue<long?>() is { } count
+            ? (int?)Convert.ToInt32(count, CultureInfo.InvariantCulture)
+            : null;
+        var startYear = TryExtractYear(volume["start_year"]?.GetValue<string>());
+        var publisher = volume["publisher"]?["name"]?.GetValue<string>();
+        return new ComicVineVolumeFacts(issueCount, startYear, publisher);
+    }
+
+    private async Task<ComicVineVolumeFacts?> TryFetchComicVineVolumeFactsForSelectionAsync(
+        string? volumeId,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await TryFetchComicVineVolumeFactsAsync(volumeId, request, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(
+                ex,
+                "{Provider}: ComicVine volume facts unavailable while scoring candidate volume {VolumeId}",
+                Name,
+                volumeId);
+            return null;
+        }
+    }
+
+    private static void AddComicVineVolumeClaim(
+        List<ProviderClaim> claims,
+        string key,
+        string? value,
+        double confidence)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || claims.Any(claim => string.Equals(claim.Key, key, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        claims.Add(new ProviderClaim(key, value, confidence));
     }
 
     private bool ClaimsMatchRequest(
@@ -971,9 +1096,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     private async Task<IReadOnlyList<ProviderClaim>> EnrichClaimsWithTmdbDetailsAsync(
         IReadOnlyList<ProviderClaim> claims,
         JsonNode resultNode,
-        MediaType mediaType,
+        ProviderLookupRequest request,
         CancellationToken ct)
     {
+        var mediaType = request.MediaType;
         if (!string.Equals(Name, "tmdb", StringComparison.OrdinalIgnoreCase)
             || mediaType is not (MediaType.Movies or MediaType.TV)
             || string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
@@ -1041,7 +1167,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             AddIfMissing(enriched, MetadataFieldConstants.Runtime, details["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.90);
             AddIfMissing(enriched, "content_rating", ExtractTmdbContentRating(details, mediaType), 0.88);
             if (mediaType == MediaType.Movies)
+            {
                 AddTmdbMovieCollectionClaims(enriched, details);
+                await EnrichTmdbMovieCollectionSequenceAsync(enriched, details, request, ct)
+                    .ConfigureAwait(false);
+            }
 
             AddTmdbProductionClaims(enriched, details, mediaType);
             AddTmdbCastClaims(enriched, details, mediaType);
@@ -1084,6 +1214,106 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         AddIfMissing(claims, "tmdb_collection_name", collectionName, 0.94);
         AddIfMissing(claims, MetadataFieldConstants.Series, collectionName, 0.90);
     }
+
+    private async Task EnrichTmdbMovieCollectionSequenceAsync(
+        List<ProviderClaim> claims,
+        JsonNode details,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        var collection = details["belongs_to_collection"];
+        if (collection is null)
+            return;
+
+        var collectionId = collection["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+            ?? collection["id"]?.GetValue<string>();
+        var movieId = details["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+            ?? details["id"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(collectionId) || string.IsNullOrWhiteSpace(movieId))
+            return;
+
+        var baseUrl = _config.Endpoints.GetValueOrDefault("api") ?? ResolveBaseUrl(request);
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+            return;
+
+        var language = $"{request.Language.ToLowerInvariant()}-{request.Country.ToUpperInvariant()}";
+        var url = $"{baseUrl.TrimEnd('/')}/collection/{Uri.EscapeDataString(collectionId)}?language={Uri.EscapeDataString(language)}&api_key={Uri.EscapeDataString(_config.HttpClient.ApiKey)}";
+
+        try
+        {
+            var collectionDetails = await FetchJsonWithCacheAsync(url, ct).ConfigureAwait(false);
+            var parts = collectionDetails?["parts"]?.AsArray()
+                .Where(part => part is not null)
+                .Select(part => new TmdbCollectionPart(
+                    Id: part?["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture) ?? part?["id"]?.GetValue<string>() ?? string.Empty,
+                    Title: FirstNonBlank(part?["title"]?.GetValue<string>(), part?["name"]?.GetValue<string>()) ?? string.Empty,
+                    ReleaseDate: ParseTmdbReleaseDate(part?["release_date"]?.GetValue<string>())))
+                .Where(part => !string.IsNullOrWhiteSpace(part.Id))
+                .OrderBy(part => part.ReleaseDate ?? DateOnly.MaxValue)
+                .ThenBy(part => part.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (parts is null or { Count: 0 })
+                return;
+
+            var position = parts.FindIndex(part => string.Equals(part.Id, movieId, StringComparison.OrdinalIgnoreCase));
+            if (position < 0)
+                return;
+
+            AddIfMissing(claims, MetadataFieldConstants.SeriesPosition, (position + 1).ToString(CultureInfo.InvariantCulture), 0.90);
+            AddIfMissing(claims, MetadataFieldConstants.SequenceTotal, parts.Count.ToString(CultureInfo.InvariantCulture), 0.90);
+            AddIfMissing(claims, MetadataFieldConstants.SequenceTotalScope, SequenceCountScope.MainSequence.ToString(), 0.90);
+            AddIfMissing(claims, MetadataFieldConstants.SequenceFormat, SequenceFormat.Standard.ToString(), 0.80);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(
+                ex,
+                "{Provider}: TMDB collection sequence enrichment failed for collection {CollectionId}",
+                Name,
+                collectionId);
+        }
+    }
+
+    private async Task<JsonNode?> FetchJsonWithCacheAsync(string url, CancellationToken ct)
+    {
+        var cacheKey = BuildCacheKey(url);
+        var cacheTtlHours = _config.CacheTtlHours ?? 168;
+
+        if (_responseCache is not null)
+        {
+            var cached = await _responseCache.FindAsync(cacheKey, ct).ConfigureAwait(false);
+            if (cached is not null)
+                return JsonNode.Parse(cached.ResponseJson);
+        }
+
+        using var client = _httpFactory.CreateClient(_config.Name);
+        using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+        var responseBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (_responseCache is not null && !string.IsNullOrWhiteSpace(responseBody))
+        {
+            var etag = response.Headers.ETag?.Tag?.Trim('"');
+            await _responseCache.UpsertAsync(
+                cacheKey,
+                _providerId.ToString(),
+                ComputeSha256(url),
+                responseBody,
+                etag,
+                cacheTtlHours,
+                ct).ConfigureAwait(false);
+        }
+
+        return string.IsNullOrWhiteSpace(responseBody) ? null : JsonNode.Parse(responseBody);
+    }
+
+    private static DateOnly? ParseTmdbReleaseDate(string? value)
+        => DateOnly.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? parsed
+            : null;
 
     private static string? ExtractTmdbContentRating(JsonNode details, MediaType mediaType)
     {
@@ -1462,10 +1692,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
     // -- Result navigation ---------------------------------------------------
 
-    private static JsonNode? NavigateToResult(
+    private async Task<JsonNode?> NavigateToResultAsync(
         JsonNode json,
         SearchStrategyConfig strategy,
-        ProviderLookupRequest request)
+        ProviderLookupRequest request,
+        CancellationToken ct)
     {
         // If no results_path, treat the whole response as the result.
         if (string.IsNullOrEmpty(strategy.ResultsPath))
@@ -1482,7 +1713,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         // Strategy: prefer author-matched results. If no author match, fall back
         // to title-only matching (handles pen names where the listed author on
         // the retailer differs from the embedded author).
-        var comicIssueResult = TrySelectComicIssueResult(arr, request);
+        var comicIssueResult = await TrySelectComicIssueResultAsync(arr, request, ct)
+            .ConfigureAwait(false);
         if (comicIssueResult is not null)
             return comicIssueResult;
 
@@ -1581,9 +1813,13 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return arr[index];
     }
 
-    private static JsonNode? TrySelectComicIssueResult(JsonArray arr, ProviderLookupRequest request)
+    private async Task<JsonNode?> TrySelectComicIssueResultAsync(
+        JsonArray arr,
+        ProviderLookupRequest request,
+        CancellationToken ct)
     {
-        if (request.MediaType != MediaType.Comics)
+        if (!string.Equals(Name, "comicvine", StringComparison.OrdinalIgnoreCase)
+            || request.MediaType != MediaType.Comics)
             return null;
 
         var fileSeries = request.Series
@@ -1595,7 +1831,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var cleanedQueryTitle = !string.IsNullOrWhiteSpace(request.Title)
             ? CleanTitleForSearch(request.Title) ?? request.Title
             : fileSeries;
-        var scored = new List<(JsonNode Node, double Score)>();
+        var requestedYear = TryExtractYear(
+            request.Year
+            ?? ExtractYearFromTitle(request.Title)
+            ?? request.Hints?.GetValueOrDefault("year"));
+        var requestedIssueNumber = TryParseLeadingInt(fileIssue);
+        var matching = new List<ComicIssueCandidate>();
 
         foreach (var node in arr)
         {
@@ -1615,28 +1856,227 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 continue;
             }
 
-            var candidateTitle = ExtractFirstString(node, ["name", "title", "issue"]);
-            var titleScore = string.IsNullOrWhiteSpace(candidateTitle)
-                ? 0.0
-                : ComputeWordOverlap(cleanedQueryTitle, candidateTitle);
-            var candidateDescription = ExtractFirstString(node, ["description", "deck", "shortDescription", "longDescription"]);
-            var candidateYear = TryExtractYear(
-                ExtractFirstString(node, ["cover_date", "store_date", "date_added", "start_year", "year"]));
-            var requestedYear = TryExtractYear(
-                request.Year
-                ?? ExtractYearFromTitle(request.Title)
-                ?? request.Hints?.GetValueOrDefault("year"));
-            var yearScore = ScoreYearProximity(requestedYear, candidateYear);
-            var languageScore = LooksNonEnglishDescription(candidateDescription) ? -0.25 : 0.03;
+            matching.Add(BuildComicIssueCandidate(node, cleanedQueryTitle, requestedYear));
+        }
 
-            scored.Add((node, 1.0 + titleScore * 0.02 + yearScore + languageScore));
+        var runScopedIssue = await TryFetchComicVineIssueFromPreferredVolumeAsync(
+                fileSeries,
+                fileIssue,
+                requestedYear,
+                requestedIssueNumber,
+                request,
+                ct)
+            .ConfigureAwait(false);
+        if (runScopedIssue is not null)
+        {
+            var baseRunScopedCandidate = BuildComicIssueCandidate(runScopedIssue, cleanedQueryTitle, requestedYear);
+            var runScopedCandidate = baseRunScopedCandidate with
+            {
+                BaseScore = baseRunScopedCandidate.BaseScore + 0.35
+            };
+            if (!matching.Any(candidate => SameComicVineIssue(candidate.Node, runScopedCandidate.Node)))
+                matching.Add(runScopedCandidate);
+        }
+
+        if (matching.Count == 0)
+            return null;
+
+        if (matching.Count > 1)
+        {
+            var enriched = new List<ComicIssueCandidate>(matching.Count);
+            foreach (var candidate in matching)
+            {
+                var facts = await TryFetchComicVineVolumeFactsForSelectionAsync(candidate.VolumeId, request, ct)
+                    .ConfigureAwait(false);
+                enriched.Add(candidate with
+                {
+                    VolumeStartYear = candidate.VolumeStartYear ?? facts?.StartYear,
+                    VolumeIssueCount = facts?.IssueCount,
+                    Publisher = FirstNonBlank(candidate.Publisher, facts?.Publisher)
+                });
+            }
+
+            matching = enriched;
+        }
+
+        return matching
+            .Select(item => item with
+            {
+                BaseScore = item.BaseScore
+                    + ScoreVolumeStartYearProximity(requestedYear, item.VolumeStartYear)
+                    + ScoreVolumeIssueCount(requestedIssueNumber, item.VolumeIssueCount)
+                    + ScoreComicPublisherAffinity(request, item.Publisher)
+            })
+            .OrderByDescending(item => item.Score)
+            .ThenByDescending(item => item.VolumeIssueCount ?? 0)
+            .ThenByDescending(item => item.VolumeStartYear ?? 0)
+            .ThenBy(item => item.CandidateYear ?? int.MaxValue)
+            .Select(item => item.Node)
+            .FirstOrDefault();
+    }
+
+    private static ComicIssueCandidate BuildComicIssueCandidate(
+        JsonNode node,
+        string cleanedQueryTitle,
+        int? requestedYear)
+    {
+        var candidateTitle = ExtractFirstString(node, ["name", "title", "issue"]);
+        var titleScore = string.IsNullOrWhiteSpace(candidateTitle)
+            ? 0.0
+            : ComputeWordOverlap(cleanedQueryTitle, candidateTitle);
+        var candidateDescription = ExtractFirstString(node, ["description", "deck", "shortDescription", "longDescription"]);
+        var candidateYear = TryExtractYear(
+            ExtractFirstString(node, ["cover_date", "store_date", "date_added", "start_year", "year"]));
+        var yearScore = ScoreYearProximity(requestedYear, candidateYear);
+        var languageScore = LooksNonEnglishDescription(candidateDescription) ? -0.25 : 0.03;
+        var volumeId = ExtractFirstString(node, ["volume.id", "volumeId"]);
+        var volumeStartYear = TryExtractYear(ExtractFirstString(node, ["volume.start_year", "volume.startYear"]));
+        var publisher = ExtractFirstString(node, ["volume.publisher.name", "publisher.name", "publisher"]);
+
+        return new ComicIssueCandidate(
+            node,
+            BaseScore: 1.0 + titleScore * 0.02 + yearScore + languageScore,
+            CandidateYear: candidateYear,
+            VolumeId: volumeId,
+            VolumeStartYear: volumeStartYear,
+            VolumeIssueCount: null,
+            Publisher: publisher);
+    }
+
+    private async Task<JsonNode?> TryFetchComicVineIssueFromPreferredVolumeAsync(
+        string fileSeries,
+        string fileIssue,
+        int? requestedYear,
+        int? requestedIssueNumber,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        if (!requestedIssueNumber.HasValue)
+            return null;
+
+        try
+        {
+            var volume = await TrySelectComicVineVolumeAsync(fileSeries, requestedYear, requestedIssueNumber, request, ct)
+                .ConfigureAwait(false);
+            if (volume is null)
+                return null;
+
+            var volumeId = volume.VolumeId;
+            var baseUrl = ResolveBaseUrl(request);
+            var apiKey = _config.HttpClient?.ApiKey;
+            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+                return null;
+
+            var issueUrl = $"{baseUrl.TrimEnd('/')}/issues/?api_key={Uri.EscapeDataString(apiKey)}&filter=volume:{Uri.EscapeDataString(volumeId)},issue_number:{Uri.EscapeDataString(requestedIssueNumber.Value.ToString(CultureInfo.InvariantCulture))}&format=json";
+            var issueJson = await FetchComicVineJsonAsync(issueUrl, ct).ConfigureAwait(false);
+            var issues = issueJson?["results"]?.AsArray();
+            if (issues is null)
+                return null;
+
+            return issues
+                .Where(issue => issue is not null)
+                .FirstOrDefault(issue =>
+                {
+                    var candidateIssue = ExtractFirstString(issue!, ["issue_number", "issueNumber", "number", "issue"]);
+                    var candidateVolumeId = ExtractFirstString(issue!, ["volume.id", "volumeId"]);
+                    return !string.IsNullOrWhiteSpace(candidateIssue)
+                        && AreEquivalentComicOrdinals(fileIssue, candidateIssue)
+                        && string.Equals(candidateVolumeId, volumeId, StringComparison.OrdinalIgnoreCase);
+                });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(
+                ex,
+                "{Provider}: ComicVine run-scoped issue lookup failed for {Series} #{Issue}",
+                Name,
+                fileSeries,
+                fileIssue);
+            return null;
+        }
+    }
+
+    private async Task<ComicVineVolumeSearchCandidate?> TrySelectComicVineVolumeAsync(
+        string fileSeries,
+        int? requestedYear,
+        int? requestedIssueNumber,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        var baseUrl = ResolveBaseUrl(request);
+        var apiKey = _config.HttpClient?.ApiKey;
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+            return null;
+
+        var url = $"{baseUrl.TrimEnd('/')}/search/?api_key={Uri.EscapeDataString(apiKey)}&query={Uri.EscapeDataString(fileSeries)}&resources=volume&limit=25&format=json";
+        var json = await FetchComicVineJsonAsync(url, ct).ConfigureAwait(false);
+        var volumes = json?["results"]?.AsArray();
+        if (volumes is null)
+            return null;
+
+        var scored = new List<ComicVineVolumeSearchCandidate>();
+        foreach (var volume in volumes)
+        {
+            if (volume is null)
+                continue;
+
+            var name = ExtractFirstString(volume, ["name", "title"]);
+            if (string.IsNullOrWhiteSpace(name) || !AreEquivalentComicText(fileSeries, name))
+                continue;
+
+            var volumeId = ExtractFirstString(volume, ["id"]);
+            if (string.IsNullOrWhiteSpace(volumeId))
+                continue;
+
+            var issueCount = TryParseLeadingInt(ExtractFirstString(volume, ["count_of_issues", "issue_count"]));
+            if (requestedIssueNumber.HasValue && issueCount.HasValue && issueCount.Value < requestedIssueNumber.Value)
+                continue;
+
+            var startYear = TryExtractYear(ExtractFirstString(volume, ["start_year", "year"]));
+            var publisher = ExtractFirstString(volume, ["publisher.name", "publisher"]);
+            var score = 1.0
+                + ScoreVolumeStartYearProximity(requestedYear, startYear)
+                + ScoreVolumeIssueCount(requestedIssueNumber, issueCount)
+                + ScoreComicPublisherAffinity(request, publisher)
+                + ScoreLikelyOriginalComicRun(issueCount);
+
+            scored.Add(new ComicVineVolumeSearchCandidate(volumeId, score, issueCount, startYear, publisher));
         }
 
         return scored
-            .OrderByDescending(item => item.Score)
-            .ThenBy(item => TryExtractYear(ExtractFirstString(item.Node, ["cover_date", "store_date", "date_added", "start_year", "year"])) ?? int.MaxValue)
-            .Select(item => item.Node)
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenByDescending(candidate => candidate.IssueCount ?? 0)
+            .ThenBy(candidate => candidate.StartYear ?? int.MaxValue)
             .FirstOrDefault();
+    }
+
+    private async Task<JsonNode?> FetchComicVineJsonAsync(string url, CancellationToken ct)
+    {
+        using var client = _httpFactory.CreateClient(_config.Name);
+        return await _rateLimiter.ExecuteAsync(
+            Name,
+            _config.RateLimit,
+            token => client.GetFromJsonAsync<JsonNode>(url, token),
+            ct).ConfigureAwait(false);
+    }
+
+    private static bool SameComicVineIssue(JsonNode left, JsonNode right)
+    {
+        var leftId = ExtractFirstString(left, ["id"]);
+        var rightId = ExtractFirstString(right, ["id"]);
+        if (!string.IsNullOrWhiteSpace(leftId) && !string.IsNullOrWhiteSpace(rightId))
+            return string.Equals(leftId, rightId, StringComparison.OrdinalIgnoreCase);
+
+        var leftVolume = ExtractFirstString(left, ["volume.id", "volumeId"]);
+        var rightVolume = ExtractFirstString(right, ["volume.id", "volumeId"]);
+        var leftIssue = ExtractFirstString(left, ["issue_number", "issueNumber", "number", "issue"]);
+        var rightIssue = ExtractFirstString(right, ["issue_number", "issueNumber", "number", "issue"]);
+        return !string.IsNullOrWhiteSpace(leftVolume)
+            && !string.IsNullOrWhiteSpace(rightVolume)
+            && !string.IsNullOrWhiteSpace(leftIssue)
+            && !string.IsNullOrWhiteSpace(rightIssue)
+            && string.Equals(leftVolume, rightVolume, StringComparison.OrdinalIgnoreCase)
+            && AreEquivalentComicOrdinals(leftIssue, rightIssue);
     }
 
     private static bool ShouldApplyMusicAlbumGuard(SearchStrategyConfig strategy, ProviderLookupRequest request)
@@ -1749,6 +2189,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return match.Success && int.TryParse(match.Value, out var year) ? year : null;
     }
 
+    private static int? TryParseLeadingInt(string? value)
+        => int.TryParse(ExtractLeadingDigits(value ?? string.Empty), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+
     private static double ScoreYearProximity(int? requestedYear, int? candidateYear)
     {
         if (!requestedYear.HasValue || !candidateYear.HasValue)
@@ -1762,6 +2207,56 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             <= 3 => 0.04,
             _ => -0.08,
         };
+    }
+
+    private static double ScoreVolumeStartYearProximity(int? requestedYear, int? volumeStartYear)
+    {
+        if (!volumeStartYear.HasValue)
+            return 0;
+
+        if (!requestedYear.HasValue)
+            return volumeStartYear.Value >= 2000 ? 0.03 : 0;
+
+        var delta = Math.Abs(requestedYear.Value - volumeStartYear.Value);
+        return delta switch
+        {
+            0 => 0.36,
+            1 => 0.22,
+            <= 3 => 0.08,
+            <= 8 => -0.18,
+            _ => -0.45,
+        };
+    }
+
+    private static double ScoreVolumeIssueCount(int? requestedIssueNumber, int? volumeIssueCount)
+    {
+        if (!volumeIssueCount.HasValue)
+            return 0;
+
+        if (requestedIssueNumber.HasValue && volumeIssueCount.Value < requestedIssueNumber.Value)
+            return -0.50;
+
+        if (volumeIssueCount.Value <= 1)
+            return -0.05;
+
+        return Math.Min(0.10, Math.Log10(volumeIssueCount.Value) * 0.05);
+    }
+
+    private static double ScoreLikelyOriginalComicRun(int? volumeIssueCount)
+    {
+        if (!volumeIssueCount.HasValue || volumeIssueCount.Value <= 0)
+            return 0;
+
+        return Math.Min(0.18, Math.Log10(volumeIssueCount.Value) * 0.09);
+    }
+
+    private static double ScoreComicPublisherAffinity(ProviderLookupRequest request, string? publisher)
+    {
+        var requestedPublisher = request.Hints?.GetValueOrDefault(MetadataFieldConstants.PublisherField);
+        if (string.IsNullOrWhiteSpace(requestedPublisher) || string.IsNullOrWhiteSpace(publisher))
+            return 0;
+
+        return ComputeWordOverlap(requestedPublisher, publisher) >= 0.75 ? 0.12 : -0.03;
     }
 
     private static bool LooksNonEnglishDescription(string? value)
@@ -1795,6 +2290,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         }
         return null;
     }
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     /// <summary>
     /// Word-overlap similarity (0.0–1.0). Compares normalized word sets,
@@ -2341,4 +2839,33 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             Country        = source.Country,
             HydrationPass  = source.HydrationPass,
         };
+
+    private sealed record ComicVineVolumeFacts(
+        int? IssueCount,
+        int? StartYear,
+        string? Publisher);
+
+    private sealed record ComicIssueCandidate(
+        JsonNode Node,
+        double BaseScore,
+        int? CandidateYear,
+        string? VolumeId,
+        int? VolumeStartYear,
+        int? VolumeIssueCount,
+        string? Publisher)
+    {
+        public double Score => BaseScore;
+    }
+
+    private sealed record ComicVineVolumeSearchCandidate(
+        string VolumeId,
+        double Score,
+        int? IssueCount,
+        int? StartYear,
+        string? Publisher);
+
+    private sealed record TmdbCollectionPart(
+        string Id,
+        string Title,
+        DateOnly? ReleaseDate);
 }

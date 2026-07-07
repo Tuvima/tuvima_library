@@ -7,6 +7,7 @@ using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -355,9 +356,10 @@ public static class CollectionEndpoints
                                          ?? GetCanonical(workDto, "runtime");
                     var durationSeconds = isMusic ? NormalizeAudioDurationSeconds(duration) : null;
                     var displayDuration = isMusic ? FormatAudioDuration(durationSeconds, duration) : duration;
-                    string? coverUrl = BuildCoverStreamUrl(w);
-                    string? backgroundUrl = BuildBackgroundStreamUrl(w);
-                    string? bannerUrl = BuildBannerStreamUrl(w);
+                    var primaryAssetId = primaryAssetIds.GetValueOrDefault(w.Id);
+                    string? coverUrl = BuildCoverStreamUrl(w, primaryAssetId);
+                    string? backgroundUrl = BuildBackgroundStreamUrl(w, primaryAssetId);
+                    string? bannerUrl = BuildBannerStreamUrl(w, primaryAssetId);
                     string? season = GetCanonical(workDto, "season_number");
                     string? episode = GetCanonical(workDto, "episode_number");
                     string? trackNumber = GetCanonical(workDto, "track_number");
@@ -644,7 +646,7 @@ public static class CollectionEndpoints
                             Year = GetCanonical(wDto, "release_year") ?? GetCanonical(wDto, "year"),
                             Duration = FormatAudioDuration(durationSeconds, duration),
                             DurationSeconds = durationSeconds,
-                            CoverUrl = BuildCoverStreamUrl(w),
+                            CoverUrl = BuildCoverStreamUrl(w, primaryAssetIds.GetValueOrDefault(w.Id)),
                             WikidataQid = w.WikidataQid,
                             TrackNumber = GetCanonical(wDto, "track_number"),
                             DiscNumber = ParseNullableInt(GetCanonical(wDto, "disc_number")),
@@ -670,7 +672,9 @@ public static class CollectionEndpoints
                     combinedCreator ??= GetCanonical(firstWorkDto, "artist")
                                        ?? GetCanonical(firstWorkDto, "author");
                     combinedGenre ??= GetCanonical(firstWorkDto, "genre");
-                    albumCover = BuildCoverStreamUrl(collection.Works[0]);
+                    albumCover = BuildCoverStreamUrl(
+                        collection.Works[0],
+                        primaryAssetIds.GetValueOrDefault(collection.Works[0].Id));
                     albumYear = GetCanonical(firstWorkDto, "release_year") ?? GetCanonical(firstWorkDto, "year");
 
                     // child_entities_json may be on any track in the album (album-level claim attached
@@ -1498,9 +1502,16 @@ public static class CollectionEndpoints
         // ── Content Groups ───────────────────────────────────────────────────────
 
         // GET /collections/content-groups — Universe collections that have child works (albums, TV series, book series, movie series).
-        group.MapGet("/content-groups", async (ICollectionRepository collectionRepo, CancellationToken ct) =>
+        group.MapGet("/content-groups", async (
+            ICollectionRepository collectionRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
         {
             var collections = await collectionRepo.GetContentGroupsAsync(ct);
+            var primaryAssetIds = await LoadPrimaryAssetIdsAsync(
+                collections.SelectMany(collection => collection.Works).Select(work => work.Id),
+                db,
+                ct);
 
             var dtos = collections.Select(h =>
             {
@@ -1517,10 +1528,11 @@ public static class CollectionEndpoints
                 string? logo = null;
                 foreach (var w in h.Works)
                 {
-                    cover = BuildCoverStreamUrl(w);
-                    background = BuildBackgroundStreamUrl(w);
-                    banner = BuildBannerStreamUrl(w);
-                    logo = BuildLogoStreamUrl(w);
+                    var primaryAssetId = primaryAssetIds.GetValueOrDefault(w.Id);
+                    cover = BuildCoverStreamUrl(w, primaryAssetId);
+                    background = BuildBackgroundStreamUrl(w, primaryAssetId);
+                    banner = BuildBannerStreamUrl(w, primaryAssetId);
+                    logo = BuildLogoStreamUrl(w, primaryAssetId);
                     if (cover is not null || background is not null || banner is not null || logo is not null)
                     {
                         break;
@@ -2709,6 +2721,7 @@ public static class CollectionEndpoints
 
                 var take = limit ?? 0;
                 var works = take > 0 ? collectionWithWorks.Works.Take(take).ToList() : collectionWithWorks.Works;
+                var primaryAssetIds = await LoadPrimaryAssetIdsAsync(works.Select(w => w.Id), db, ct);
                 var items = works.Select(w =>
                 {
                     var dto = WorkDto.FromDomain(w);
@@ -2718,7 +2731,7 @@ public static class CollectionEndpoints
                         Title = GetCanonical(dto, "title") ?? $"Work {w.Id.ToString("N")[..8]}",
                         Creator = GetCanonical(dto, "author") ?? GetCanonical(dto, "director") ?? GetCanonical(dto, "artist"),
                         MediaType = w.MediaType.ToString(),
-                        CoverUrl = BuildCoverStreamUrl(w),
+                        CoverUrl = BuildCoverStreamUrl(w, primaryAssetIds.GetValueOrDefault(w.Id)),
                         Year = GetCanonical(dto, "year"),
                     };
                 }).ToList();
@@ -4096,69 +4109,98 @@ public static class CollectionEndpoints
     /// <summary>
     /// Builds the preferred cover URL from a Work's canonical values.
     /// </summary>
-    private static string? BuildCoverStreamUrl(Work? w)
+    private static string? BuildCoverStreamUrl(Work? w, Guid? assetId = null)
     {
-        if (w is null)
-        {
-            return null;
-        }
-
-        return w.CanonicalValues
-            .FirstOrDefault(c =>
-                string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(c.Key, MetadataFieldConstants.Cover, StringComparison.OrdinalIgnoreCase))
-            ?.Value;
+        return BuildArtworkStreamUrl(
+            w,
+            "cover",
+            MetadataFieldConstants.CoverState,
+            assetId,
+            MetadataFieldConstants.CoverUrl,
+            MetadataFieldConstants.Cover);
     }
 
-    private static string? BuildBackgroundStreamUrl(Work? w)
+    private static string? BuildBackgroundStreamUrl(Work? w, Guid? assetId = null)
     {
-        if (w is null)
-        {
-            return null;
-        }
-
-        return w.CanonicalValues
-            .FirstOrDefault(c =>
-                string.Equals(c.Key, "background", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(c.Key, "background_url", StringComparison.OrdinalIgnoreCase))
-            ?.Value;
+        return BuildArtworkStreamUrl(
+            w,
+            "background",
+            "background_state",
+            assetId,
+            "background",
+            "background_url");
     }
 
-    private static string? BuildBannerStreamUrl(Work? w)
+    private static string? BuildBannerStreamUrl(Work? w, Guid? assetId = null)
     {
-        if (w is null)
-        {
-            return null;
-        }
-
-        return w.CanonicalValues
-            .FirstOrDefault(c =>
-                string.Equals(c.Key, "banner", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(c.Key, "banner_url", StringComparison.OrdinalIgnoreCase))
-            ?.Value;
+        return BuildArtworkStreamUrl(
+            w,
+            "banner",
+            "banner_state",
+            assetId,
+            "banner",
+            "banner_url");
     }
 
-    private static string? BuildLogoStreamUrl(Work? w)
+    private static string? BuildLogoStreamUrl(Work? w, Guid? assetId = null)
     {
-        if (w is null)
+        return BuildArtworkStreamUrl(
+            w,
+            "logo",
+            "logo_state",
+            assetId,
+            "logo",
+            "logo_url");
+    }
+
+    private static string? BuildArtworkStreamUrl(
+        Work? work,
+        string streamKind,
+        string stateKey,
+        Guid? fallbackAssetId,
+        params string[] valueKeys)
+    {
+        if (work is null)
         {
             return null;
         }
 
-        var canonicalLogo = w.CanonicalValues
-            .FirstOrDefault(c =>
-                string.Equals(c.Key, "logo", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(c.Key, "logo_url", StringComparison.OrdinalIgnoreCase))
-            ?.Value;
-        if (!string.IsNullOrWhiteSpace(canonicalLogo))
+        var value = FirstCanonicalValue(work, valueKeys);
+        var state = FirstCanonicalValue(work, stateKey);
+        var assetId = fallbackAssetId.GetValueOrDefault();
+        if (assetId == Guid.Empty)
         {
-            return canonicalLogo;
+            assetId = FirstOwnedAssetId(work);
         }
 
-        var assetId = w.CanonicalValues
-            .Select(c => c.EntityId)
+        return assetId != Guid.Empty
+            ? DisplayArtworkUrlResolver.Resolve(value, assetId, streamKind, state)
+            : SuppressExternalProviderArtworkUrl(value);
+    }
+
+    private static Guid FirstOwnedAssetId(Work work) =>
+        work.Editions
+            .SelectMany(edition => edition.MediaAssets)
+            .Select(asset => asset.Id)
             .FirstOrDefault(id => id != Guid.Empty);
-        return assetId != Guid.Empty ? $"/stream/{assetId}/logo" : null;
+
+    private static string? FirstCanonicalValue(Work work, params string[] keys) =>
+        work.CanonicalValues
+            .FirstOrDefault(c => keys.Any(key => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)))
+            ?.Value;
+
+    private static string? SuppressExternalProviderArtworkUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+               && (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            ? null
+            : value;
     }
 
     private static string? BuildHeroStreamUrl(Work? w)

@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Storage.Services;
@@ -81,7 +83,9 @@ public sealed class HierarchyResolver
         var artist = Get(meta, "artist") ?? Get(meta, "album_artist");
         var album  = Get(meta, "album");
         var title  = Get(meta, "title");
-        var track  = ParseInt(Get(meta, "track_number") ?? Get(meta, "track"));
+        var track  = OrdinalNormalizer.NormalizeDiscTrack(
+            Get(meta, MetadataFieldConstants.DiscNumber),
+            Get(meta, MetadataFieldConstants.TrackNumber) ?? Get(meta, "track"));
 
         if (string.IsNullOrWhiteSpace(album))
             return await CreateStandaloneAsync(MediaType.Music, ct);
@@ -89,15 +93,21 @@ public sealed class HierarchyResolver
         var parentKey = MakeKey(artist, album);
         var parentId  = await FindOrCreateParentAsync(MediaType.Music, parentKey, null, null, ct);
 
-        return await FindOrCreateChildAsync(MediaType.Music, parentId, track, title, ct);
+        return await FindOrCreateChildAsync(
+            MediaType.Music,
+            parentId,
+            OrdinalNormalizer.IntegerOrdinal(track.SortValue),
+            track.SortValue,
+            title,
+            ct);
     }
 
     private async Task<ResolverResult> ResolveTvAsync(
         IReadOnlyDictionary<string, string> meta, CancellationToken ct)
     {
         var show     = Get(meta, "show_name") ?? Get(meta, "series");
-        var season   = ParseInt(Get(meta, "season_number") ?? Get(meta, "season"));
-        var episode  = ParseInt(Get(meta, "episode_number") ?? Get(meta, "episode"));
+        var season   = ParseInt(Get(meta, MetadataFieldConstants.SeasonNumber) ?? Get(meta, "season"));
+        var episode  = ParseInt(Get(meta, MetadataFieldConstants.EpisodeNumber) ?? Get(meta, "episode"));
         var epTitle  = Get(meta, "episode_title") ?? Get(meta, "title");
 
         if (string.IsNullOrWhiteSpace(show))
@@ -111,7 +121,7 @@ public sealed class HierarchyResolver
         // When season is missing we treat the episode as a direct child of the show
         // — rare but defensible for miniseries / specials.
         if (season is null)
-            return await FindOrCreateChildAsync(MediaType.TV, showId, episode, epTitle, ct);
+            return await FindOrCreateChildAsync(MediaType.TV, showId, episode, episode, epTitle, ct);
 
         var existingSeason = await _works.FindChildByOrdinalAsync(showId, season.Value, ct);
         Guid seasonId;
@@ -125,21 +135,24 @@ public sealed class HierarchyResolver
             // diagnostics; the find-or-create lookup actually goes through
             // parent_work_id + ordinal because two shows can share season 1.
             var seasonKey = MakeKey(show, $"S{season:D2}");
-            seasonId = await _works.InsertParentAsync(
-                MediaType.TV, seasonKey, showId, season, ct);
+            seasonId = await _works.GetOrCreateParentAsync(
+                MediaType.TV, seasonKey, showId, season, season, ct);
             _logger?.LogDebug("HierarchyResolver: created Season {Season} parent {SeasonId} under show {ShowId}",
                 season, seasonId, showId);
         }
 
         // Level 3: Episode child under the season.
-        return await FindOrCreateChildAsync(MediaType.TV, seasonId, episode, epTitle, ct);
+        return await FindOrCreateChildAsync(MediaType.TV, seasonId, episode, episode, epTitle, ct);
     }
 
     private async Task<ResolverResult> ResolveComicsAsync(
         IReadOnlyDictionary<string, string> meta, CancellationToken ct)
     {
         var series = Get(meta, "series");
-        var issue  = ParseInt(Get(meta, "issue_number") ?? Get(meta, "issue"));
+        var issue  = OrdinalNormalizer.Normalize(
+            Get(meta, MetadataFieldConstants.IssueNumber)
+            ?? Get(meta, MetadataFieldConstants.SeriesPosition)
+            ?? Get(meta, "issue"));
         var title  = Get(meta, "title");
 
         if (string.IsNullOrWhiteSpace(series))
@@ -147,7 +160,13 @@ public sealed class HierarchyResolver
 
         var parentKey = MakeKey(series);
         var parentId  = await FindOrCreateParentAsync(MediaType.Comics, parentKey, null, null, ct);
-        return await FindOrCreateChildAsync(MediaType.Comics, parentId, issue, title, ct);
+        return await FindOrCreateChildAsync(
+            MediaType.Comics,
+            parentId,
+            OrdinalNormalizer.IntegerOrdinal(issue.SortValue),
+            issue.SortValue,
+            title,
+            ct);
     }
 
     private async Task<ResolverResult> ResolveBookOrAudiobookAsync(
@@ -157,7 +176,7 @@ public sealed class HierarchyResolver
     {
         var series   = Get(meta, "series");
         var author   = Get(meta, "author") ?? Get(meta, "creator");
-        var position = ParseInt(Get(meta, "series_position") ?? Get(meta, "series_index"));
+        var position = OrdinalNormalizer.Normalize(Get(meta, MetadataFieldConstants.SeriesPosition) ?? Get(meta, "series_index"));
         var title    = Get(meta, "title");
 
         if (string.IsNullOrWhiteSpace(series))
@@ -165,7 +184,13 @@ public sealed class HierarchyResolver
 
         var parentKey = MakeKey(NormalizePersonNameForKey(author), series);
         var parentId  = await FindOrCreateParentAsync(mediaType, parentKey, null, null, ct);
-        return await FindOrCreateChildAsync(mediaType, parentId, position, title, ct);
+        return await FindOrCreateChildAsync(
+            mediaType,
+            parentId,
+            OrdinalNormalizer.IntegerOrdinal(position.SortValue),
+            position.SortValue,
+            title,
+            ct);
     }
 
     private async Task<ResolverResult> ResolveStandaloneAsync(
@@ -181,12 +206,9 @@ public sealed class HierarchyResolver
         int? ordinal,
         CancellationToken ct)
     {
-        var existing = await _works.FindParentByKeyAsync(mediaType, parentKey, ct);
-        if (existing is { } id) return id;
-
-        var newId = await _works.InsertParentAsync(mediaType, parentKey, grandparent, ordinal, ct);
+        var newId = await _works.GetOrCreateParentAsync(mediaType, parentKey, grandparent, ordinal, ordinal, ct);
         _logger?.LogDebug(
-            "HierarchyResolver: created {MediaType} parent {WorkId} key='{Key}'",
+            "HierarchyResolver: resolved {MediaType} parent {WorkId} key='{Key}'",
             mediaType, newId, parentKey);
         return newId;
     }
@@ -195,18 +217,32 @@ public sealed class HierarchyResolver
         MediaType mediaType,
         Guid parentId,
         int? ordinal,
+        double? ordinalSort,
         string? title,
         CancellationToken ct)
     {
         // Prefer ordinal lookup — it's the indexed path and tolerates
         // re-tagged titles. Fall back to title match when no ordinal.
-        if (ordinal is { } o)
+        if (ordinalSort is { } sort)
+        {
+            var bySort = await _works.FindChildByOrdinalSortAsync(parentId, sort, ct);
+            if (bySort is { } existingId)
+            {
+                await _works.PromoteCatalogToOwnedAsync(existingId, ct);
+                await _works.UpdateOrdinalSortAsync(existingId, sort, ct);
+                return new ResolverResult(existingId, parentId, WorkKind.Child, ordinal, NewlyCreated: false);
+            }
+        }
+
+        if (ordinal is { } o
+            && (ordinalSort is null || Math.Abs(ordinalSort.Value - o) < 0.0001d))
         {
             var byOrdinal = await _works.FindChildByOrdinalAsync(parentId, o, ct);
             if (byOrdinal is { } existingId)
             {
                 // Catalog row hit: promote to owned and return.
                 await _works.PromoteCatalogToOwnedAsync(existingId, ct);
+                await _works.UpdateOrdinalSortAsync(existingId, ordinalSort, ct);
                 return new ResolverResult(existingId, parentId, WorkKind.Child, o, NewlyCreated: false);
             }
         }
@@ -216,11 +252,12 @@ public sealed class HierarchyResolver
             if (byTitle is { } existingId)
             {
                 await _works.PromoteCatalogToOwnedAsync(existingId, ct);
+                await _works.UpdateOrdinalSortAsync(existingId, ordinalSort, ct);
                 return new ResolverResult(existingId, parentId, WorkKind.Child, null, NewlyCreated: false);
             }
         }
 
-        var newId = await _works.InsertChildAsync(mediaType, parentId, ordinal, ct);
+        var newId = await _works.GetOrCreateChildAsync(mediaType, parentId, ordinal, ordinalSort, ct);
         return new ResolverResult(newId, parentId, WorkKind.Child, ordinal, NewlyCreated: true);
     }
 

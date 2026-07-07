@@ -78,6 +78,11 @@ One of the main browse surfaces: Read, Watch, or Listen.
 **Media Type**  
 The resolved category for a file: Books, Audiobooks, Movies, TV, Music, or Comics.
 
+**Managed Artwork**  
+Artwork copied into Tuvima Library's managed `.data/assets` store and served back
+through Engine stream URLs. Provider image URLs are source inputs, not stable UI
+display URLs.
+
 ## P
 
 **Priority Cascade**  
@@ -115,6 +120,20 @@ A lane-level shelf, such as a book series in Read, a film series in Watch, or an
 
 **Shelf**  
 An immediate browse group inside a media lane. A single shelf does not automatically create a Collections tile.
+
+**Sequence Total**  
+The expected count for the immediate shelf currently being shown, such as issue
+count for a comic volume, track count for an album, episode count for a season,
+or book count for an ordered book series.
+
+**Sequence Total Scope**  
+The meaning of a sequence total: main sequence, extras included, standalone,
+collected edition, or broader franchise. UI counts should only use totals whose
+scope matches the displayed container.
+
+**Source Attribution**  
+The provider/source name, source title, URL, license, retrieved timestamp, and
+modified/summarized status attached to text shown in the Dashboard.
 
 **Staging**  
 The safe on-disk and database holding state between file discovery and final organization. Staging is not the same as browse visibility.

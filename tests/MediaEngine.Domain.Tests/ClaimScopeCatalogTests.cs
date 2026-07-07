@@ -177,6 +177,25 @@ public class ClaimScopeCatalogTests
             ClaimScopeCatalog.GetScope(BridgeIdKeys.ComicVineId, MediaType.Comics));
     }
 
+    [Fact]
+    public void Comics_ComicVineVolumeId_RoutesToParent()
+    {
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope(BridgeIdKeys.ComicVineVolumeId, MediaType.Comics));
+    }
+
+    [Theory]
+    [InlineData(MediaType.Music)]
+    [InlineData(MediaType.TV)]
+    [InlineData(MediaType.Comics)]
+    [InlineData(MediaType.Books)]
+    [InlineData(MediaType.Audiobooks)]
+    public void SequenceTotal_RoutesToParent(MediaType mediaType)
+    {
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope(MetadataFieldConstants.SequenceTotal, mediaType));
+    }
+
     // ── Companion QID suffix handling ────────────────────────────────────
 
     [Fact]

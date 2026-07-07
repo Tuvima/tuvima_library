@@ -112,6 +112,17 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
+    public void BrowseShell_NormalizesMediaTypeWhenFilteringContainerGroups()
+    {
+        var source = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
+
+        Assert.Contains(".Where(group => MediaTypeMatches(group.PrimaryMediaType, mediaType))", source, StringComparison.Ordinal);
+        Assert.Contains("NormalizeEditorMediaType(candidate)", source, StringComparison.Ordinal);
+        Assert.Contains("NormalizeEditorMediaType(requested)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Where(group => string.Equals(group.PrimaryMediaType, mediaType, StringComparison.OrdinalIgnoreCase))", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BrowseShell_BindsSortValueInsteadOfLiteralFieldName()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");

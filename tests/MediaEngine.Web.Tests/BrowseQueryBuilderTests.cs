@@ -38,6 +38,20 @@ public sealed class BrowseQueryBuilderTests
         Assert.Equal("newest", state.SortBy);
     }
 
+    [Theory]
+    [InlineData("books", "series", "series")]
+    [InlineData("audiobooks", "series", "series")]
+    [InlineData("comics", "series", null)]
+    public void GetSystemViewGroupField_UsesProviderBackedContentGroupsForComicRuns(
+        string activeTabId,
+        string grouping,
+        string? expected)
+    {
+        var groupField = BrowseQueryBuilder.GetSystemViewGroupField(activeTabId, grouping);
+
+        Assert.Equal(expected, groupField);
+    }
+
     private static LibraryBrowsePreset CreatePreset() => new()
     {
         RouteBase = "/listen",

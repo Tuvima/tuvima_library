@@ -20,6 +20,12 @@ internal sealed class SchemaMigrator
             "media_assets",
             "presented_at",
             "ALTER TABLE media_assets ADD COLUMN presented_at TEXT;");
+
+        AddColumnIfMissing(
+            conn,
+            "works",
+            "ordinal_sort",
+            "ALTER TABLE works ADD COLUMN ordinal_sort REAL;");
     }
 
     private static void SeedMetadataProviders(SqliteConnection conn)
@@ -108,6 +114,9 @@ internal sealed class SchemaMigrator
 
             CREATE INDEX IF NOT EXISTS idx_media_assets_presented
                 ON media_assets(presented_at) WHERE presented_at IS NOT NULL;
+
+            CREATE INDEX IF NOT EXISTS idx_works_collection_ordinal_sort
+                ON works(collection_id, ordinal_sort);
 
             CREATE INDEX IF NOT EXISTS idx_canonical_values_key_value_entity
                 ON canonical_values(key, value, entity_id);

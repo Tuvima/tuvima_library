@@ -22,6 +22,7 @@ public static class BridgeIdKeys
     public const string MusicBrainzRecordingId = "musicbrainz_recording_id";
     public const string MusicBrainzReleaseGroupId = "musicbrainz_release_group_id";
     public const string ComicVineId = "comic_vine_id";
+    public const string ComicVineVolumeId = "comic_vine_volume_id";
     public const string SpotifyId = "spotify_id";
     public const string OpenLibraryId = "open_library_id";
     public const string AppleMusicId = "apple_music_id";
@@ -46,7 +47,7 @@ public static class BridgeIdKeys
         Isbn, Isbn13, Isbn10, Asin, TmdbId, ImdbId, TvdbId, WikidataQid,
         AppleBooksId, AudibleId, GoodreadsId, MusicBrainzId,
         MusicBrainzRecordingId, MusicBrainzReleaseGroupId,
-        ComicVineId, SpotifyId, OpenLibraryId,
+        ComicVineId, ComicVineVolumeId, SpotifyId, OpenLibraryId,
         AppleMusicId, AppleMusicCollectionId, AppleArtistId,
         AuthorRealNameQid, AuthorPseudonym
     };

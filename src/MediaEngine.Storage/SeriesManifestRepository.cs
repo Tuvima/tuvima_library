@@ -243,7 +243,10 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                               WHERE current_collection.id = works.collection_id
                                 AND current_collection.collection_type = 'ContentGroup'
                                 AND (
-                                    current_collection.wikidata_qid IS NULL
+                                    (
+                                        current_collection.wikidata_qid IS NULL
+                                        AND NULLIF(TRIM(current_collection.rule_hash), '') IS NULL
+                                    )
                                     OR (
                                         current_item.is_expanded_from_collection = 1
                                         AND current_item.parent_collection_qid = @seriesQid

@@ -98,6 +98,11 @@ public sealed class PostPipelineService
         var providerConfigs = _configLoader.LoadAllProviders();
         var scoring = _configLoader.LoadScoring();
         var hydration = _configLoader.LoadHydration();
+        var detectedMediaType = await ScoringHelper.ResolveDetectedMediaTypeAsync(
+            entityId,
+            allClaims,
+            _canonicalRepo,
+            ct).ConfigureAwait(false);
 
         var (weights, fieldWeights) = ScoringHelper.BuildWeightMaps(providerConfigs, _providers);
 
@@ -107,6 +112,7 @@ public sealed class PostPipelineService
             Claims = allClaims,
             ProviderWeights = weights,
             ProviderFieldWeights = fieldWeights,
+            DetectedMediaType = detectedMediaType,
             Configuration = new Intelligence.Models.ScoringConfiguration
             {
                 AutoLinkThreshold = scoring.AutoLinkThreshold,

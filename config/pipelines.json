@@ -75,11 +75,32 @@
       "album": [
         "apple_api"
       ],
+      "disc_number": [
+        "apple_api"
+      ],
+      "disc_count": [
+        "apple_api"
+      ],
       "track_number": [
+        "apple_api"
+      ],
+      "track_count": [
         "apple_api"
       ],
       "duration": [
         "apple_api"
+      ],
+      "sequence_total": [
+        "apple_api",
+        "musicbrainz"
+      ],
+      "sequence_total_scope": [
+        "apple_api",
+        "musicbrainz"
+      ],
+      "sequence_format": [
+        "apple_api",
+        "musicbrainz"
       ]
     }
   },
@@ -101,6 +122,26 @@
       ],
       "rating": [
         "tmdb"
+      ],
+      "series": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "series_position": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "sequence_total": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "sequence_total_scope": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "sequence_format": [
+        "tmdb",
+        "wikidata_reconciliation"
       ]
     }
   },
@@ -126,6 +167,38 @@
       ],
       "rating": [
         "tmdb"
+      ],
+      "series": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "show_name": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "season_number": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "episode_number": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "episode_count": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "sequence_total": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "sequence_total_scope": [
+        "tmdb",
+        "wikidata_reconciliation"
+      ],
+      "sequence_format": [
+        "tmdb",
+        "wikidata_reconciliation"
       ]
     }
   },
@@ -144,6 +217,38 @@
       "description": [
         "wikidata_reconciliation",
         "comicvine"
+      ],
+      "series": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "series_position": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "issue_number": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "sequence_total": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "sequence_total_scope": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "sequence_format": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "series_start_year": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "publisher": [
+        "comicvine",
+        "wikidata_reconciliation"
       ]
     }
   }

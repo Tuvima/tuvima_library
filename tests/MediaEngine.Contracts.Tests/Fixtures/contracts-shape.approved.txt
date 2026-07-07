@@ -49,9 +49,12 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.CreditGroupViewModel
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DescriptionAttributionViewModel
   SourceName: System.String | nullability=not-null | accessors=get,init
+  SourceTitle: System.String | nullability=nullable | accessors=get,init
   SourceUrl: System.String | nullability=nullable | accessors=get,init
   LicenseName: System.String | nullability=not-null | accessors=get,init
   LicenseUrl: System.String | nullability=nullable | accessors=get,init
+  RetrievedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  IsModifiedOrSummarized: System.Boolean | nullability=not-null | accessors=get,init
   Notice: System.String | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailAction
@@ -317,6 +320,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceItemViewMode
   Title: System.String | nullability=not-null | accessors=get,init
   ArtworkUrl: System.String | nullability=nullable | accessors=get,init
   PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
+  PositionSort: System.Double? | nullability=nullable | accessors=get,init
   PositionLabel: System.String | nullability=nullable | accessors=get,init
   PositionText: System.String | nullability=nullable | accessors=get,init
   GroupKey: System.String | nullability=nullable | accessors=get,init
@@ -342,6 +346,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequencePlacementVie
   GroupLabel: System.String | nullability=nullable | accessors=get,init
   CurrentGroupKey: System.String | nullability=nullable | accessors=get,init
   PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
+  PositionSort: System.Double? | nullability=nullable | accessors=get,init
   TotalKnownItems: System.Int32? | nullability=nullable | accessors=get,init
   PositionLabel: System.String | nullability=nullable | accessors=get,init
   PositionText: System.String | nullability=nullable | accessors=get,init

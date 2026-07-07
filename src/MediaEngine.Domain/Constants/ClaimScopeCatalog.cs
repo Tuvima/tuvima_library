@@ -54,6 +54,7 @@ public static class ClaimScopeCatalog
             [BridgeIdKeys.MusicBrainzReleaseGroupId] = ClaimScope.Parent,
             [BridgeIdKeys.TvdbId]                    = ClaimScope.Parent,
             [BridgeIdKeys.ComicVineId]               = ClaimScope.Parent,
+            [BridgeIdKeys.ComicVineVolumeId]         = ClaimScope.Parent,
 
             // Container-level descriptive fields.
             [MetadataFieldConstants.Album]             = ClaimScope.Parent,
@@ -68,6 +69,9 @@ public static class ClaimScopeCatalog
             [MetadataFieldConstants.EpisodeCount]      = ClaimScope.Parent,
             [MetadataFieldConstants.TrackCount]        = ClaimScope.Parent,
             [MetadataFieldConstants.IssueCount]        = ClaimScope.Parent,
+            [MetadataFieldConstants.SequenceTotal]     = ClaimScope.Parent,
+            [MetadataFieldConstants.SequenceTotalScope] = ClaimScope.Parent,
+            [MetadataFieldConstants.SeriesStartYear]   = ClaimScope.Parent,
             [MetadataFieldConstants.ChildEntitiesJson] = ClaimScope.Parent,
             ["cast_member_character"]                  = ClaimScope.Parent,
             ["network_logo_url"]                       = ClaimScope.Parent,
@@ -109,6 +113,7 @@ public static class ClaimScopeCatalog
             [MediaType.Comics] = new(StringComparer.OrdinalIgnoreCase)
             {
                 [BridgeIdKeys.ComicVineId]        = ClaimScope.Self,
+                [BridgeIdKeys.ComicVineVolumeId]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Author]       = ClaimScope.Parent,
                 [MetadataFieldConstants.Illustrator]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]        = ClaimScope.Parent,

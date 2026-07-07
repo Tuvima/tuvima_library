@@ -163,6 +163,9 @@ public static partial class ValueTransformCatalog
                     ? args.Replace("{value}", raw, StringComparison.Ordinal)
                     : raw,
 
+            // Emit a constant value when the source JSON path exists.
+            ["literal"] = (_, args) => args,
+
             // Regex find/replace. Args format: "pattern|replacement" (pipe-delimited)
             ["regex_replace"] = (raw, args) =>
             {
