@@ -1235,18 +1235,23 @@ public sealed class DetailComposerService
         }
 
         var hasExplicitSequenceEvidence = linkedContainers.Count > 0
+            || (localContainer is not null && IsLocalOrProviderBackedSequenceContainer(localContainer))
             || canonicalContainers.Any(option => IsWikidataQid(NormalizeSequenceContainerId(option.ContainerId)));
         var defaultContainerId = NormalizeSequenceContainerId(GetDetailCanonicalValue(detail, "default_sequence_container_id"));
         var requestedQid = NormalizeSequenceContainerId(requestedContainerId);
         var selectedContainer = availableContainers.FirstOrDefault(option =>
             !string.IsNullOrWhiteSpace(requestedQid)
-            && SequenceContainerIdEquals(option.ContainerId, requestedQid))
+            && SequenceContainerOptionMatches(option, requestedQid))
             ?? availableContainers.FirstOrDefault(option =>
             !string.IsNullOrWhiteSpace(defaultContainerId)
-            && SequenceContainerIdEquals(option.ContainerId, defaultContainerId))
+            && SequenceContainerOptionMatches(option, defaultContainerId))
             ?? availableContainers[0];
         var containerTitle = selectedContainer.ContainerTitle;
         var containerId = NormalizeSequenceContainerId(selectedContainer.ContainerId) ?? selectedContainer.ContainerId;
+        var sourceContainerId = NormalizeSequenceContainerId(selectedContainer.SourceContainerId) ?? selectedContainer.SourceContainerId;
+        var manifestContainerId = IsManifestBackedSequenceContainerId(sourceContainerId)
+            ? sourceContainerId
+            : containerId;
 
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<SequenceRow>(new CommandDefinition(
@@ -1344,8 +1349,8 @@ public sealed class DetailComposerService
                 ProgressState = LibraryProgressState.Unknown,
             };
         }).ToList();
-        items = await MergeSequenceManifestPlaceholdersAsync(items, containerId, detail.WikidataQid, workId, entityType, ct);
-        items = await ApplyExactManifestPositionsAsync(items, containerId, entityType, ct);
+        items = await MergeSequenceManifestPlaceholdersAsync(items, manifestContainerId, detail.WikidataQid, workId, entityType, ct);
+        items = await ApplyExactManifestPositionsAsync(items, manifestContainerId, entityType, ct);
 
         if (!items.Any(item => item.IsCurrent))
         {
@@ -1386,7 +1391,8 @@ public sealed class DetailComposerService
             return null;
         }
 
-        var expectedTotal = await LoadSequenceExpectedTotalAsync(containerId, ct);
+        var expectedTotal = await LoadSequenceExpectedTotalAsync(containerId, ct)
+            ?? await LoadSequenceExpectedTotalAsync(sourceContainerId, ct);
         var totalKnownItems = Math.Max(items.Count, expectedTotal ?? 0);
         var currentIndex = Math.Max(0, items.FindIndex(i => i.IsCurrent));
         var current = items[currentIndex];
@@ -1394,18 +1400,23 @@ public sealed class DetailComposerService
         return new SequencePlacementViewModel
         {
             ContainerId = containerId,
+            SourceContainerId = sourceContainerId,
             ContainerTitle = containerTitle,
             SelectedContainerId = containerId,
             CanChooseContainer = availableContainers.Count > 1,
-            CanSetDefaultContainer = availableContainers.Count > 1 && !SequenceContainerIdEquals(selectedContainer.ContainerId, defaultContainerId),
+            CanSetDefaultContainer = availableContainers.Count > 1
+                && !SequenceContainerOptionMatches(selectedContainer, defaultContainerId),
             AvailableContainers = availableContainers.Select(option => new SequenceContainerOptionViewModel
             {
                 ContainerId = option.ContainerId,
+                SourceContainerId = option.SourceContainerId,
                 ContainerTitle = option.ContainerTitle,
                 MediaScope = option.MediaScope,
-                IsSelected = SequenceContainerIdEquals(option.ContainerId, selectedContainer.ContainerId),
+                EquivalentContainerIds = option.EquivalentContainerIds,
+                IsSelected = SequenceContainerOptionMatches(option, selectedContainer.ContainerId)
+                    || SequenceContainerOptionMatches(option, selectedContainer.SourceContainerId),
                 IsDefault = !string.IsNullOrWhiteSpace(defaultContainerId)
-                    && SequenceContainerIdEquals(option.ContainerId, defaultContainerId),
+                    && SequenceContainerOptionMatches(option, defaultContainerId),
             }).ToList(),
             UniverseId = detail.UniverseSummary?.UniverseQid,
             UniverseTitle = detail.UniverseSummary?.UniverseName,
@@ -2324,7 +2335,12 @@ public sealed class DetailComposerService
         var options = new List<SequenceContainerOptionViewModel>();
         foreach (var row in rows)
         {
-            AddSequenceContainerOption(options, StringValue(row.ContainerId), FormatSequenceContainerTitle(StringValue(row.ContainerTitle)), mediaScope);
+            AddSequenceContainerOption(
+                options,
+                StringValue(row.ContainerId),
+                FormatSequenceContainerTitle(StringValue(row.ContainerTitle)),
+                mediaScope,
+                sourceContainerId: StringValue(row.ContainerId));
         }
 
         return options;
@@ -2338,14 +2354,14 @@ public sealed class DetailComposerService
         var defaultContainerId = NormalizeSequenceContainerId(GetDetailCanonicalValue(detail, "default_sequence_container_id"));
         var defaultContainerTitle = GetDetailCanonicalValue(detail, "default_sequence_container_label");
 
-        AddSequenceContainerOption(options, defaultContainerId, defaultContainerTitle, mediaScope);
+        AddSequenceContainerOption(options, defaultContainerId, defaultContainerTitle, mediaScope, sourceContainerId: defaultContainerId);
         AddSequenceContainerOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "series_qid"), seriesTitle, mediaScope);
         AddSequenceContainerOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_the_series_qid"), seriesTitle, mediaScope);
         AddSequenceContainerOptionFromCanonicalQid(options, GetDetailCanonicalValue(detail, "part_of_series_qid"), seriesTitle, mediaScope);
 
         if (options.Count == 0 && !string.IsNullOrWhiteSpace(seriesTitle))
         {
-            AddSequenceContainerOption(options, seriesTitle, seriesTitle, mediaScope);
+            AddSequenceContainerOption(options, seriesTitle, seriesTitle, mediaScope, sourceContainerId: null);
         }
 
         return options;
@@ -2354,28 +2370,191 @@ public sealed class DetailComposerService
     private static void AddSequenceContainerOptionFromCanonicalQid(List<SequenceContainerOptionViewModel> options, string? rawQidValue, string? title, string mediaScope)
     {
         var parsed = ParseQidLabel(rawQidValue);
-        AddSequenceContainerOption(options, parsed.Qid, FirstText(title, parsed.Label), mediaScope);
+        AddSequenceContainerOption(options, parsed.Qid, FirstText(title, parsed.Label), mediaScope, sourceContainerId: parsed.Qid);
     }
 
-    private static void AddSequenceContainerOption(List<SequenceContainerOptionViewModel> options, string? containerId, string? title, string mediaScope)
+    private static void AddSequenceContainerOption(
+        List<SequenceContainerOptionViewModel> options,
+        string? containerId,
+        string? title,
+        string mediaScope,
+        string? sourceContainerId = null,
+        IReadOnlyList<string>? equivalentContainerIds = null)
     {
         if (string.IsNullOrWhiteSpace(containerId))
         {
             return;
         }
 
-        if (options.Any(option => SequenceContainerIdEquals(option.ContainerId, containerId)))
+        var normalizedContainerId = NormalizeSequenceContainerId(containerId) ?? containerId.Trim();
+        var normalizedSourceContainerId = NormalizeSequenceContainerId(sourceContainerId) ?? sourceContainerId?.Trim();
+        var candidate = new SequenceContainerOptionViewModel
+        {
+            ContainerId = normalizedContainerId,
+            SourceContainerId = normalizedSourceContainerId,
+            ContainerTitle = FormatSequenceContainerTitle(FirstText(title, containerId)) ?? "Series",
+            MediaScope = mediaScope,
+            EquivalentContainerIds = BuildSequenceContainerAliases(
+                normalizedContainerId,
+                normalizedSourceContainerId,
+                equivalentContainerIds),
+        };
+
+        var existingIndex = options.FindIndex(option => ShouldMergeSequenceContainerOptions(option, candidate));
+        if (existingIndex >= 0)
+        {
+            options[existingIndex] = MergeSequenceContainerOptions(options[existingIndex], candidate);
+            return;
+        }
+
+        options.Add(candidate);
+    }
+
+    private static IReadOnlyList<string> BuildSequenceContainerAliases(
+        string? containerId,
+        string? sourceContainerId,
+        IReadOnlyList<string>? extraIds)
+    {
+        var aliases = new List<string>();
+        AddSequenceContainerAlias(aliases, containerId);
+        AddSequenceContainerAlias(aliases, sourceContainerId);
+        if (extraIds is not null)
+        {
+            foreach (var id in extraIds)
+            {
+                AddSequenceContainerAlias(aliases, id);
+            }
+        }
+
+        return aliases;
+    }
+
+    private static void AddSequenceContainerAlias(List<string> aliases, string? value)
+    {
+        var normalized = NormalizeSequenceContainerId(value) ?? value?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized)
+            || aliases.Any(alias => SequenceContainerIdEquals(alias, normalized)))
         {
             return;
         }
 
-        options.Add(new SequenceContainerOptionViewModel
-        {
-            ContainerId = NormalizeSequenceContainerId(containerId) ?? containerId.Trim(),
-            ContainerTitle = FormatSequenceContainerTitle(FirstText(title, containerId)) ?? "Series",
-            MediaScope = mediaScope,
-        });
+        aliases.Add(normalized);
     }
+
+    private static bool ShouldMergeSequenceContainerOptions(
+        SequenceContainerOptionViewModel existing,
+        SequenceContainerOptionViewModel candidate)
+    {
+        if (SequenceContainerOptionMatches(existing, candidate.ContainerId)
+            || SequenceContainerOptionMatches(existing, candidate.SourceContainerId)
+            || candidate.EquivalentContainerIds.Any(alias => SequenceContainerOptionMatches(existing, alias)))
+        {
+            return true;
+        }
+
+        if (!string.Equals(existing.MediaScope, candidate.MediaScope, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var existingTitle = NormalizeSeriesTitle(existing.ContainerTitle);
+        var candidateTitle = NormalizeSeriesTitle(candidate.ContainerTitle);
+        if (string.IsNullOrWhiteSpace(existingTitle)
+            || !string.Equals(existingTitle, candidateTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return IsLocalOrProviderBackedSequenceContainer(existing)
+            || IsLocalOrProviderBackedSequenceContainer(candidate);
+    }
+
+    private static SequenceContainerOptionViewModel MergeSequenceContainerOptions(
+        SequenceContainerOptionViewModel existing,
+        SequenceContainerOptionViewModel candidate)
+    {
+        var aliases = BuildSequenceContainerAliases(
+            PreferRoutableContainerId(existing.ContainerId, candidate.ContainerId),
+            PreferSourceContainerId(existing, candidate),
+            existing.EquivalentContainerIds.Concat(candidate.EquivalentContainerIds).ToList());
+
+        return new SequenceContainerOptionViewModel
+        {
+            ContainerId = PreferRoutableContainerId(existing.ContainerId, candidate.ContainerId),
+            SourceContainerId = PreferSourceContainerId(existing, candidate),
+            ContainerTitle = PreferSequenceContainerTitle(existing.ContainerTitle, candidate.ContainerTitle),
+            MediaScope = FirstText(existing.MediaScope, candidate.MediaScope),
+            IsSelected = existing.IsSelected || candidate.IsSelected,
+            IsDefault = existing.IsDefault || candidate.IsDefault,
+            EquivalentContainerIds = aliases,
+        };
+    }
+
+    private static string PreferRoutableContainerId(string existingId, string candidateId)
+        => Guid.TryParse(existingId, out _)
+            ? existingId
+            : Guid.TryParse(candidateId, out _)
+                ? candidateId
+                : existingId;
+
+    private static string? PreferSourceContainerId(
+        SequenceContainerOptionViewModel existing,
+        SequenceContainerOptionViewModel candidate)
+    {
+        var ids = new[]
+        {
+            existing.SourceContainerId,
+            candidate.SourceContainerId,
+            existing.ContainerId,
+            candidate.ContainerId,
+        };
+
+        return ids.FirstOrDefault(IsWikidataQid)
+            ?? ids.FirstOrDefault(IsProviderSequenceContainerId)
+            ?? ids.FirstOrDefault(id => !Guid.TryParse(id, out _));
+    }
+
+    private static string PreferSequenceContainerTitle(string existingTitle, string candidateTitle)
+    {
+        if (string.IsNullOrWhiteSpace(existingTitle) || IsSequenceContainerIdLike(existingTitle))
+        {
+            return candidateTitle;
+        }
+
+        return existingTitle;
+    }
+
+    private static bool SequenceContainerOptionMatches(SequenceContainerOptionViewModel? option, string? containerId)
+    {
+        if (option is null || string.IsNullOrWhiteSpace(containerId))
+        {
+            return false;
+        }
+
+        return SequenceContainerIdEquals(option.ContainerId, containerId)
+            || SequenceContainerIdEquals(option.SourceContainerId, containerId)
+            || option.EquivalentContainerIds.Any(alias => SequenceContainerIdEquals(alias, containerId));
+    }
+
+    private static bool IsLocalOrProviderBackedSequenceContainer(SequenceContainerOptionViewModel option)
+        => Guid.TryParse(option.ContainerId, out _)
+           || Guid.TryParse(option.SourceContainerId, out _)
+           || IsProviderSequenceContainerId(option.ContainerId)
+           || IsProviderSequenceContainerId(option.SourceContainerId)
+           || option.EquivalentContainerIds.Any(alias => Guid.TryParse(alias, out _) || IsProviderSequenceContainerId(alias));
+
+    private static bool IsManifestBackedSequenceContainerId(string? containerId)
+        => IsWikidataQid(containerId);
+
+    private static bool IsProviderSequenceContainerId(string? containerId)
+        => !string.IsNullOrWhiteSpace(containerId)
+           && containerId.Contains(':', StringComparison.Ordinal)
+           && !IsWikidataQid(containerId);
+
+    private static bool IsSequenceContainerIdLike(string? value)
+        => IsWikidataQid(value)
+           || Guid.TryParse(value, out _)
+           || IsProviderSequenceContainerId(value);
 
     private async Task<SequenceContainerOptionViewModel?> ResolveLocalSequenceContainerOptionAsync(Guid workId, DetailEntityType entityType, string mediaType, CancellationToken ct)
     {
@@ -2396,7 +2575,8 @@ public sealed class DetailComposerService
                 (SELECT value FROM canonical_values WHERE entity_id = current.RootWorkId AND key = 'title' LIMIT 1)
             ) AS TEXT) AS SeriesTitle,
             current.CollectionId AS CollectionId,
-            CAST((SELECT wikidata_qid FROM collections c WHERE c.id = current.CollectionId LIMIT 1) AS TEXT) AS SeriesQid
+            CAST((SELECT wikidata_qid FROM collections c WHERE c.id = current.CollectionId LIMIT 1) AS TEXT) AS SeriesQid,
+            CAST((SELECT rule_hash FROM collections c WHERE c.id = current.CollectionId LIMIT 1) AS TEXT) AS ProviderKey
             FROM current_lineage current;
             """,
             new { workId },
@@ -2409,12 +2589,18 @@ public sealed class DetailComposerService
         }
 
         var qid = ExtractQid(StringValue(row?.SeriesQid));
+        var providerKey = StringValue(row?.ProviderKey);
         var collectionId = StringValue(row?.CollectionId);
         return new SequenceContainerOptionViewModel
         {
             ContainerId = collectionId ?? qid ?? title,
+            SourceContainerId = FirstText(qid, providerKey),
             ContainerTitle = title,
             MediaScope = SeriesMediaFilter(entityType, mediaType),
+            EquivalentContainerIds = BuildSequenceContainerAliases(
+                collectionId,
+                qid,
+                string.IsNullOrWhiteSpace(providerKey) ? Array.Empty<string>() : [providerKey]),
         };
     }
 
@@ -3124,7 +3310,7 @@ public sealed class DetailComposerService
         IReadOnlyList<SequenceItemViewModel> items,
         DetailEntityType entityType)
     {
-        if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode
+        if (!ShouldCompactContiguousSequenceDisplayPositions(entityType)
             || items.Count == 0
             || items.Any(item => !item.PositionNumber.HasValue))
         {
@@ -3169,6 +3355,9 @@ public sealed class DetailComposerService
             };
         }).ToList();
     }
+
+    private static bool ShouldCompactContiguousSequenceDisplayPositions(DetailEntityType entityType)
+        => entityType is DetailEntityType.Movie or DetailEntityType.MovieSeries;
 
     private static string? NormalizeSeriesTitle(string? value)
     {
@@ -5872,7 +6061,7 @@ public sealed class DetailComposerService
             "Wikidata",
             "Canonical identity source");
 
-        var seriesQid = ExtractQid(sequence?.ContainerId);
+        var seriesQid = ExtractQid(FirstText(sequence?.SourceContainerId, sequence?.ContainerId));
         if (!string.IsNullOrWhiteSpace(seriesQid)
             && !string.Equals(seriesQid, qid, StringComparison.OrdinalIgnoreCase))
         {

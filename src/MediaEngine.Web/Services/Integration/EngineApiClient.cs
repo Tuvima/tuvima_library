@@ -5312,11 +5312,12 @@ public sealed class EngineApiClient : IEngineApiClient
             : new SequencePlacementViewModel
             {
                 ContainerId = placement.ContainerId,
+                SourceContainerId = placement.SourceContainerId,
                 ContainerTitle = placement.ContainerTitle,
                 SelectedContainerId = placement.SelectedContainerId,
                 CanChooseContainer = placement.CanChooseContainer,
                 CanSetDefaultContainer = placement.CanSetDefaultContainer,
-                AvailableContainers = placement.AvailableContainers,
+                AvailableContainers = placement.AvailableContainers.Select(NormalizeSequenceContainerOption).ToList(),
                 UniverseId = placement.UniverseId,
                 UniverseTitle = placement.UniverseTitle,
                 ContainerLabel = placement.ContainerLabel,
@@ -5337,6 +5338,18 @@ public sealed class EngineApiClient : IEngineApiClient
                 OrderedItems = placement.OrderedItems.Select(NormalizeSequenceItem).OfType<SequenceItemViewModel>().ToList(),
                 Groups = placement.Groups.Select(NormalizeSequenceGroup).ToList(),
             };
+
+    private static SequenceContainerOptionViewModel NormalizeSequenceContainerOption(SequenceContainerOptionViewModel option)
+        => new()
+        {
+            ContainerId = option.ContainerId,
+            SourceContainerId = option.SourceContainerId,
+            ContainerTitle = option.ContainerTitle,
+            IsSelected = option.IsSelected,
+            IsDefault = option.IsDefault,
+            MediaScope = option.MediaScope,
+            EquivalentContainerIds = option.EquivalentContainerIds,
+        };
 
     private SequenceGroupViewModel NormalizeSequenceGroup(SequenceGroupViewModel group)
         => new()

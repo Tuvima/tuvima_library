@@ -304,10 +304,12 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.RelationshipGroup
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceContainerOptionViewModel
   ContainerId: System.String | nullability=not-null | accessors=get,init
+  SourceContainerId: System.String | nullability=nullable | accessors=get,init
   ContainerTitle: System.String | nullability=not-null | accessors=get,init
   IsSelected: System.Boolean | nullability=not-null | accessors=get,init
   IsDefault: System.Boolean | nullability=not-null | accessors=get,init
   MediaScope: System.String | nullability=nullable | accessors=get,init
+  EquivalentContainerIds: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceGroupViewModel
   Key: System.String | nullability=not-null | accessors=get,init
@@ -333,6 +335,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceOrderingType
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequencePlacementViewModel
   ContainerId: System.String | nullability=not-null | accessors=get,init
+  SourceContainerId: System.String | nullability=nullable | accessors=get,init
   ContainerTitle: System.String | nullability=not-null | accessors=get,init
   SelectedContainerId: System.String | nullability=not-null | accessors=get,init
   CanChooseContainer: System.Boolean | nullability=not-null | accessors=get,init

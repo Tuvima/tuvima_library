@@ -368,6 +368,9 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
 
         Assert.Contains("NormalizeSequencePlacement", source);
+        Assert.Contains("NormalizeSequenceContainerOption", source);
+        Assert.Contains("SourceContainerId = placement.SourceContainerId", source);
+        Assert.Contains("EquivalentContainerIds = option.EquivalentContainerIds", source);
         Assert.Contains("NormalizeSequenceItem", source);
         Assert.Contains("NormalizeHeroArtwork", source);
         Assert.Contains("ImageUrl = NormalizeOptionalUrl(credit.ImageUrl)", source);

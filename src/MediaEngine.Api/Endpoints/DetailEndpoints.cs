@@ -54,7 +54,7 @@ public static class DetailEndpoints
 
             var detail = await composer.BuildAsync(parsedType, id, DetailPresentationContext.Default, ct);
             var matchingContainer = detail?.SequencePlacement?.AvailableContainers.FirstOrDefault(option =>
-                string.Equals(NormalizeContainerId(option.ContainerId), containerId, StringComparison.OrdinalIgnoreCase));
+                ContainerMatches(option, containerId));
             if (matchingContainer is null)
                 return Results.BadRequest(new { message = "The selected container is not valid for this item." });
 
@@ -106,5 +106,17 @@ public static class DetailEndpoints
         return trimmed.Length > 1 && trimmed[0] is 'Q' && trimmed.Skip(1).All(char.IsDigit)
             ? trimmed
             : trimmed;
+    }
+
+    private static bool ContainerMatches(SequenceContainerOptionViewModel option, string containerId)
+    {
+        var normalized = NormalizeContainerId(containerId);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return string.Equals(NormalizeContainerId(option.ContainerId), normalized, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(NormalizeContainerId(option.SourceContainerId), normalized, StringComparison.OrdinalIgnoreCase)
+            || option.EquivalentContainerIds.Any(alias =>
+                string.Equals(NormalizeContainerId(alias), normalized, StringComparison.OrdinalIgnoreCase));
     }
 }

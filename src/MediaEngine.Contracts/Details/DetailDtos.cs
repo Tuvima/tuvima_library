@@ -246,6 +246,7 @@ public sealed class PersonRelatedLink
 public sealed class SequencePlacementViewModel
 {
     public string ContainerId { get; init; } = string.Empty;
+    public string? SourceContainerId { get; init; }
     public string ContainerTitle { get; init; } = string.Empty;
     public string SelectedContainerId { get; init; } = string.Empty;
     public bool CanChooseContainer { get; init; }
@@ -275,10 +276,12 @@ public sealed class SequencePlacementViewModel
 public sealed class SequenceContainerOptionViewModel
 {
     public string ContainerId { get; init; } = string.Empty;
+    public string? SourceContainerId { get; init; }
     public string ContainerTitle { get; init; } = string.Empty;
     public bool IsSelected { get; init; }
     public bool IsDefault { get; init; }
     public string? MediaScope { get; init; }
+    public IReadOnlyList<string> EquivalentContainerIds { get; init; } = [];
 }
 
 public sealed class SetDefaultSequenceRequest

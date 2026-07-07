@@ -384,8 +384,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("manifestItems = exactManifestItems", source);
         Assert.Contains("MergeManifestItems(items, scopedManifestItems, currentWorkQid, currentWorkId, entityType)", source);
         Assert.Contains("FROM series_members", source);
-        Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, containerId, detail.WikidataQid, workId, entityType, ct)", source);
-        Assert.Contains("ApplyExactManifestPositionsAsync(items, containerId, entityType, ct)", source);
+        Assert.Contains("MergeSequenceManifestPlaceholdersAsync(items, manifestContainerId, detail.WikidataQid, workId, entityType, ct)", source);
+        Assert.Contains("ApplyExactManifestPositionsAsync(items, manifestContainerId, entityType, ct)", source);
         Assert.Contains("SELECT linked_work_id AS LinkedWorkId", source);
         Assert.Contains("WHERE series_qid = @seriesQid", source);
         Assert.Contains("ToManifestPosition", source);
@@ -397,16 +397,39 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("items.Count <= 1 && !hasExplicitSequenceEvidence", source);
         Assert.Contains("!hasExplicitSequenceEvidence && !hasPositionEvidence", source);
         Assert.Contains("LoadSequenceExpectedTotalAsync(containerId, ct)", source);
+        Assert.Contains("?? await LoadSequenceExpectedTotalAsync(sourceContainerId, ct)", source);
         Assert.Contains("TotalKnownItems = totalKnownItems", source);
         Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
         Assert.Contains("BuildOwnedPositionSet(merged)", source);
         Assert.Contains("BuildManifestDisplayPositions(manifestItems)", source);
         Assert.Contains("SequenceEqual(Enumerable.Range(1, sourcePositions.Count))", source);
         Assert.Contains("NormalizeContiguousSequenceDisplayPositions(items, entityType)", source);
+        Assert.Contains("ShouldCompactContiguousSequenceDisplayPositions(entityType)", source);
+        Assert.Contains("=> entityType is DetailEntityType.Movie or DetailEntityType.MovieSeries", source);
         Assert.Contains("positions.SequenceEqual(Enumerable.Range(min, positions.Count))", source);
         Assert.Contains("BuildManifestMergeKey", source);
         Assert.DoesNotContain("if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))", source);
         Assert.Contains("Missing from library", source);
+    }
+
+    [Fact]
+    public void DetailComposer_DoesNotCompactComicIssueOrdinalsToOwnedSubsetPositions()
+    {
+        var items = new List<SequenceItemViewModel>
+        {
+            new() { Title = "Batman", PositionNumber = 405, PositionSort = 405, PositionLabel = "405" },
+            new() { Title = "Batman", PositionNumber = 406, PositionSort = 406, PositionLabel = "406" },
+            new() { Title = "Batman", PositionNumber = 407, PositionSort = 407, PositionLabel = "407" },
+        };
+
+        var normalized = InvokePrivate<List<SequenceItemViewModel>>(
+            "NormalizeContiguousSequenceDisplayPositions",
+            items,
+            DetailEntityType.ComicIssue);
+
+        Assert.Equal([405, 406, 407], normalized.Select(item => item.PositionNumber));
+        Assert.Equal([405d, 406d, 407d], normalized.Select(item => item.PositionSort));
+        Assert.Equal(["405", "406", "407"], normalized.Select(item => item.PositionLabel));
     }
 
     [Fact]
@@ -417,9 +440,12 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("SourceLinks = BuildExternalSourceLinks(detail.WikidataQid", source);
         Assert.Contains("\"wikidata-series\"", source);
+        Assert.Contains("FirstText(sequence?.SourceContainerId, sequence?.ContainerId)", source);
         Assert.Contains("BuildWikidataEntityUrl(seriesQid)", source);
         Assert.Contains("public IReadOnlyList<ExternalSourceLinkViewModel> SourceLinks { get; init; } = [];", contracts);
         Assert.Contains("public sealed class ExternalSourceLinkViewModel", contracts);
+        Assert.Contains("public string? SourceContainerId { get; init; }", contracts);
+        Assert.Contains("public IReadOnlyList<string> EquivalentContainerIds { get; init; } = [];", contracts);
     }
 
     [Fact]
@@ -431,6 +457,11 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ResolveSequenceContainerOptions(detail, entityType)", source);
         Assert.Contains("current_work.collection_id AS CollectionId", source);
         Assert.Contains("w.collection_id = current.CollectionId", source);
+        Assert.Contains("SourceContainerId = FirstText(qid, providerKey)", source);
+        Assert.Contains("EquivalentContainerIds = BuildSequenceContainerAliases", source);
+        Assert.Contains("ShouldMergeSequenceContainerOptions", source);
+        Assert.Contains("SequenceContainerOptionMatches", source);
+        Assert.Contains("PreferRoutableContainerId", source);
         Assert.DoesNotContain("key IN ('series', 'franchise')", source);
         Assert.DoesNotContain("GetDetailCanonicalValue(detail, MetadataFieldConstants.Franchise)", source);
         Assert.DoesNotContain("qid = GetDetailCanonicalValue(detail, \"franchise_qid\")", source);
@@ -536,6 +567,16 @@ public sealed class DetailComposerServiceTests
 
         Assert.NotNull(method);
         return (string?)method!.Invoke(null, args);
+    }
+
+    private static T InvokePrivate<T>(string methodName, params object?[] args)
+    {
+        var method = typeof(DetailComposerService).GetMethod(
+            methodName,
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        Assert.NotNull(method);
+        return Assert.IsType<T>(method!.Invoke(null, args));
     }
 
     private static string FindRepoRoot()
