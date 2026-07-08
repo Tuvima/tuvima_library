@@ -50,7 +50,7 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 | Provider | Media Types | What it contributes |
 |---|---|---|
 | TMDB | Movies, TV | Cover art (up to 2000x3000 at w500/w1280), TMDB ID, IMDb ID, network (TV only) |
-| Comic Vine | Comics | Cover art (super_url, ~900px), Comic Vine ID |
+| Comic Vine | Comics | Cover art (super_url, ~900px), issue title/synopsis/source URL, volume/run facts, Comic Vine issue and volume IDs |
 | Fanart.tv | Movies, TV, Music | Stage 3 rich artwork after identity is known |
 | OpenSubtitles | Movies, TV | Subtitle candidates and normalized text tracks |
 
@@ -103,7 +103,10 @@ placement rules:
 Provider text claims should retain attribution fields when they are surfaced as
 descriptions or long-form metadata: provider name, source title, source URL,
 license name and URL when known, retrieved timestamp, and whether the displayed
-text is summarized or otherwise modified.
+text is summarized or otherwise modified. Comic Vine issue synopses are
+issue-scoped display text and are attributed to Comic Vine with the Comic Vine
+API Terms; they are not Wikipedia or Creative Commons text. Generic comic
+series descriptions remain parent-scoped.
 
 ### Sprint 6 Provider Decomposition
 
@@ -198,6 +201,15 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 
 **Pipeline continuation on failure:** If Stage 2 fails to resolve a QID and `continue_pipeline_on_authority_failure` is `true`, the pipeline continues (the file retains its Stage 1 metadata). A `QidNoMatch` item is treated as a terminal precision-preserving outcome: the item may still remain visible in the main browse surfaces if it passes the browse readiness gate, but its pipeline step stays at Wikidata and its status makes the missing QID explicit.
 
+**Comic issue/run rollup:** Comics are allowed to resolve to a scoped series or
+run QID when Stage 1 has a trusted Comic Vine issue or volume match but
+Wikidata has no item for the individual issue. The issue stores
+`wikidata_qid`, `wikidata_qid_scope = series`, and
+`qid_resolution_method = comic_series_rollup`. Detail pages must label that
+link as "Series on Wikidata" so users can see that the QID identifies the
+series/run source, not the issue itself. This is structural behavior for comic
+metadata gaps, not a title-specific exception.
+
 ### Provider Pipeline Assignments (config/pipelines.json)
 
 | Media Type | Primary | Secondary | Tertiary | Bridge to Wikidata |
@@ -208,6 +220,13 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 | TV | TMDB | - | - | TMDB TV ID (P4983), IMDb ID (P345) |
 | Comics | Comic Vine | - | - | Comic Vine ID (P5905) |
 | Music | Apple API | - | - | Apple Music IDs |
+
+For comics, ComicInfo.xml creator fields are the highest-priority creator
+evidence for display. Comic Vine structured creator credits can fill missing
+writer/artist values, and Wikidata creator claims are used when neither local
+nor Comic Vine creator evidence is available. Parent-scoped series/run creator
+values remain visible on issue rows; issue-scoped local creator values may be
+used as a display fallback when the parent/run has no creator yet.
 
 ### Pipeline Configuration (config/hydration.json)
 
@@ -534,6 +553,14 @@ Managed artwork is tracked in the database through `entity_assets` and stored un
 | Music | Apple API, then Fanart.tv in Stage 3 where IDs allow | Varies | MusicBrainz config is disabled by default |
 
 **Cover art timing:** Stage 1 records provider art and bridge evidence. The artwork pipeline persists accepted files under `.data/assets` and records canonical artwork flags (`cover_state`, `cover_source`, `hero_state`, `artwork_settled_at`) whether art is present, still pending, or explicitly missing. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when the downstream image and organisation flow settles.
+
+**Managed artwork owner:** Books, audiobooks, and comics store accepted cover
+art on the owned work itself. Music albums, TV shows, and movie works store the
+main artwork on the parent/root owner selected by the media hierarchy. The cover
+worker searches asset, self-work, parent-work, and root-work canonical scopes
+for an accepted provider cover URL before marking artwork missing, and Stage 2
+reruns cover persistence as an idempotent backstop before marking a resolved
+item complete.
 
 **Image hash validation:** Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `image_cache` table to prevent redundant re-downloads. When the same image URL appears across multiple entities, the hash is checked first; if found, the cached file path is reused.
 

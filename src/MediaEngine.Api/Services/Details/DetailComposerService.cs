@@ -192,7 +192,8 @@ public sealed class DetailComposerService
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, profileId, ct);
         var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats)
             ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
-        var longDescription = ResolveLongDescription(detail.Description, values, entityType);
+        var descriptionSelection = ResolveLongDescription(detail, values, entityType);
+        var longDescription = descriptionSelection.Text;
         var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
@@ -214,11 +215,9 @@ public sealed class DetailComposerService
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
             Tagline = heroSummary,
             Description = longDescription,
-            DescriptionAttribution = BuildWikipediaDescriptionAttribution(
-                longDescription,
-                GetValue(values, "wikipedia_url"),
-                GetCanonicalLastScoredAt(detail, MetadataFieldConstants.Description)),
-            SourceLinks = BuildExternalSourceLinks(detail.WikidataQid, GetValue(values, "wikipedia_url"), sequencePlacement),
+            DescriptionAttribution = BuildDescriptionAttribution(descriptionSelection, detail, values),
+            SourceLinks = BuildExternalSourceLinks(detail.WikidataQid, GetValue(values, "wikipedia_url"), sequencePlacement, values),
+            Facts = BuildWorkFacts(detail, entityType, values, contributorGroups),
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
                 entityType,
@@ -393,7 +392,8 @@ public sealed class DetailComposerService
             Tagline = heroSummary,
             Description = longDescription,
             DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
-            SourceLinks = BuildExternalSourceLinks(row.WikidataQid, GetValue(values, "wikipedia_url"), null),
+            SourceLinks = BuildExternalSourceLinks(row.WikidataQid, GetValue(values, "wikipedia_url"), null, values),
+            Facts = BuildCollectionFacts(entityType, displayWorks, values, contributorGroups, row.WikidataQid),
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
                 entityType,
@@ -519,6 +519,7 @@ public sealed class DetailComposerService
             DescriptionAttribution = BuildWikipediaDescriptionAttribution(person.Biography, wikipediaUrl),
             SourceLinks = BuildExternalSourceLinks(person.WikidataQid, wikipediaUrl, null),
             PersonDetails = BuildPersonDetails(person, displayRoles, wikipediaUrl, aliases, groupMembers, memberOfGroups),
+            Facts = BuildPersonFacts(person, displayRoles),
             Artwork = BuildArtwork(entityType, background, banner, null, null, portrait, new Dictionary<string, string>(), relatedArt, 0, null, logo),
             Metadata = BuildPersonMetadata(displayRoles, credits.Count),
             PrimaryActions = BuildPersonActions(personId, entityType, context),
@@ -771,6 +772,7 @@ public sealed class DetailComposerService
                     ? FirstNonBlank(
                         GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_profile_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_photo_url"),
                         entries.Count == 1 ? GetValue(canonicalValues, "headshot_url") : null)
                     : ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
@@ -835,6 +837,11 @@ public sealed class DetailComposerService
                     Credits = castCredits,
                 });
             }
+        }
+
+        if (entityType is DetailEntityType.TvEpisode)
+        {
+            await AddTextCreditAsync("Guest Stars", CreditGroupType.Cast, GetValue(canonicalValues, MetadataFieldConstants.GuestStar), "Guest Star", MetadataFieldConstants.GuestStar);
         }
 
         return ApplyContributorGroupPresentation(entityType, groups);
@@ -2610,6 +2617,9 @@ public sealed class DetailComposerService
     private static DateTimeOffset? GetCanonicalLastScoredAt(LibraryItemDetail detail, string key)
         => detail.CanonicalValues.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.LastScoredAt;
 
+    private static string? GetCanonicalProviderId(LibraryItemDetail detail, string key)
+        => detail.CanonicalValues.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.WinningProviderId;
+
     private async Task<List<SequenceItemViewModel>> MergeSequenceManifestPlaceholdersAsync(
         IReadOnlyList<SequenceItemViewModel> items,
         string? containerId,
@@ -3385,10 +3395,14 @@ public sealed class DetailComposerService
                    CAST(w.media_type AS TEXT) AS MediaType,
                    w.ordinal AS Ordinal,
                    CAST(w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson,
-                   CAST(COALESCE(NULLIF(episode_title.value, ''), NULLIF(episode_title_work.value, ''), NULLIF(title_asset.value, ''), NULLIF(title_work.value, ''), 'Untitled') AS TEXT) AS Title,
+                   CAST(COALESCE(NULLIF(issue_title.value, ''), NULLIF(issue_title_work.value, ''), NULLIF(episode_title.value, ''), NULLIF(episode_title_work.value, ''), NULLIF(title_asset.value, ''), NULLIF(title_work.value, ''), 'Untitled') AS TEXT) AS Title,
                    CAST(COALESCE(
+                       NULLIF(issue_desc_work.value, ''),
+                       NULLIF(issue_desc_asset.value, ''),
                        NULLIF(episode_desc_work.value, ''),
                        NULLIF(episode_desc_asset.value, ''),
+                       (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = w.id AND claim_key IN ('issue_description', 'issue_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
+                       (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = ma.id AND claim_key IN ('issue_description', 'issue_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
                        (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = w.id AND claim_key IN ('episode_description', 'episode_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
                        (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = ma.id AND claim_key IN ('episode_description', 'episode_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
                        NULLIF(desc_asset.value, ''),
@@ -3420,11 +3434,15 @@ public sealed class DetailComposerService
             LEFT JOIN user_states us ON us.asset_id = ma.id
                                     AND us.user_id = @defaultOwnerUserId
             LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ma.id AND title_asset.key = 'title'
+            LEFT JOIN canonical_values issue_title ON issue_title.entity_id = ma.id AND issue_title.key = 'issue_title'
+            LEFT JOIN canonical_values issue_title_work ON issue_title_work.entity_id = w.id AND issue_title_work.key = 'issue_title'
             LEFT JOIN canonical_values episode_title ON episode_title.entity_id = ma.id AND episode_title.key = 'episode_title'
             LEFT JOIN canonical_values episode_title_work ON episode_title_work.entity_id = w.id AND episode_title_work.key = 'episode_title'
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
             LEFT JOIN canonical_values desc_asset ON desc_asset.entity_id = ma.id AND desc_asset.key = 'description'
             LEFT JOIN canonical_values overview_asset ON overview_asset.entity_id = ma.id AND overview_asset.key = 'overview'
+            LEFT JOIN canonical_values issue_desc_asset ON issue_desc_asset.entity_id = ma.id AND issue_desc_asset.key = 'issue_description'
+            LEFT JOIN canonical_values issue_desc_work ON issue_desc_work.entity_id = w.id AND issue_desc_work.key = 'issue_description'
             LEFT JOIN canonical_values episode_desc_asset ON episode_desc_asset.entity_id = ma.id AND episode_desc_asset.key = 'episode_description'
             LEFT JOIN canonical_values desc_work ON desc_work.entity_id = w.id AND desc_work.key = 'description'
             LEFT JOIN canonical_values overview_work ON overview_work.entity_id = w.id AND overview_work.key = 'overview'
@@ -3650,26 +3668,74 @@ public sealed class DetailComposerService
         return merged;
     }
 
-    private static string? ResolveLongDescription(
-        string? detailDescription,
+    private static DescriptionSelection ResolveLongDescription(
+        LibraryItemDetail detail,
         IReadOnlyDictionary<string, string> canonicalValues,
         DetailEntityType entityType)
     {
         if (entityType == DetailEntityType.TvEpisode)
         {
-            return FirstText(
-                GetValue(canonicalValues, MetadataFieldConstants.EpisodeDescription),
-                GetValue(canonicalValues, "episode_overview"),
-                detailDescription,
-                GetValue(canonicalValues, MetadataFieldConstants.Description),
-                GetValue(canonicalValues, "overview"));
+            return FirstSelectedText(
+                (MetadataFieldConstants.EpisodeDescription, GetValue(canonicalValues, MetadataFieldConstants.EpisodeDescription)),
+                ("episode_overview", GetValue(canonicalValues, "episode_overview")),
+                (MetadataFieldConstants.Description, detail.Description),
+                (MetadataFieldConstants.Description, GetValue(canonicalValues, MetadataFieldConstants.Description)),
+                ("overview", GetValue(canonicalValues, "overview")));
         }
 
-        return FirstText(
-            GetValue(canonicalValues, MetadataFieldConstants.Description),
-            GetValue(canonicalValues, "overview"),
-            GetValue(canonicalValues, "plot_summary"),
-            detailDescription);
+        if (entityType == DetailEntityType.ComicIssue)
+        {
+            var issueDescription = FirstSelectedText(
+                (MetadataFieldConstants.IssueDescription, GetValue(canonicalValues, MetadataFieldConstants.IssueDescription)),
+                ("issue_overview", GetValue(canonicalValues, "issue_overview")));
+            if (!string.IsNullOrWhiteSpace(issueDescription.Text))
+            {
+                return issueDescription;
+            }
+
+            return new DescriptionSelection(
+                BuildComicIssueFallbackDescription(detail, canonicalValues),
+                SourceKey: null,
+                IsGeneratedFallback: true);
+        }
+
+        return FirstSelectedText(
+            (MetadataFieldConstants.Description, GetValue(canonicalValues, MetadataFieldConstants.Description)),
+            ("overview", GetValue(canonicalValues, "overview")),
+            ("plot_summary", GetValue(canonicalValues, "plot_summary")),
+            (MetadataFieldConstants.Description, detail.Description));
+    }
+
+    private static DescriptionSelection FirstSelectedText(params (string Key, string? Text)[] values)
+    {
+        foreach (var (key, text) in values)
+        {
+            var normalized = FirstText(text);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                return new DescriptionSelection(normalized, key, IsGeneratedFallback: false);
+            }
+        }
+
+        return new DescriptionSelection(null, null, IsGeneratedFallback: false);
+    }
+
+    private static string? BuildComicIssueFallbackDescription(
+        LibraryItemDetail detail,
+        IReadOnlyDictionary<string, string> values)
+    {
+        var issueNumber = FirstNonBlank(
+            GetValue(values, MetadataFieldConstants.IssueNumber),
+            detail.SeriesPosition,
+            GetValue(values, MetadataFieldConstants.SeriesPosition));
+        var series = FirstNonBlank(detail.Series, GetValue(values, MetadataFieldConstants.Series));
+
+        if (!string.IsNullOrWhiteSpace(issueNumber) && !string.IsNullOrWhiteSpace(series))
+        {
+            return $"{FormatIssue(issueNumber)} in {series}";
+        }
+
+        return FirstNonBlank(FormatIssue(issueNumber), string.IsNullOrWhiteSpace(series) ? null : $"Issue in {series}");
     }
 
     private Task<string?> BuildHeroSummaryAsync(
@@ -3820,6 +3886,282 @@ public sealed class DetailComposerService
             PresentationMode = mode,
             Source = ResolveArtworkSource(artworkSource),
         };
+    }
+
+    private static DetailFactsViewModel BuildWorkFacts(
+        LibraryItemDetail detail,
+        DetailEntityType entityType,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        IReadOnlyList<CreditGroupViewModel> contributorGroups)
+    {
+        var identifiers = BuildIdentifierFacts(canonicalValues, detail.BridgeIds, detail.WikidataQid);
+        var artists = MergeNames(
+            CreditNames(contributorGroups, CreditGroupType.PrimaryArtists),
+            SplitMetadataValues(detail.Artist),
+            SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Artist)));
+        var albumArtists = MergeNames(
+            SplitMetadataValues(GetValue(canonicalValues, "album_artist")),
+            SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author)));
+
+        return new DetailFactsViewModel
+        {
+            MediaKind = FormatEntityType(entityType),
+            Year = FirstNonBlank(detail.Year, GetValue(canonicalValues, MetadataFieldConstants.Year), ReleaseYear(GetValue(canonicalValues, "release_date"))),
+            ReleaseDate = FirstNonBlank(detail.ReleaseDate, GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
+            Rating = FirstNonBlank(FormatRating(detail.Rating), detail.Rating, GetValue(canonicalValues, MetadataFieldConstants.Rating)),
+            ContentRating = FirstNonBlank(GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
+            Runtime = FormatRuntime(detail.Runtime),
+            Duration = FirstNonBlank(FormatRuntime(detail.Runtime), FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.DurationField)), GetValue(canonicalValues, MetadataFieldConstants.DurationField)),
+            Language = FirstNonBlank(detail.Language, GetValue(canonicalValues, MetadataFieldConstants.Language), GetValue(canonicalValues, MetadataFieldConstants.OriginalLanguage)),
+            Genres = SplitMetadataValues(FirstNonBlank(detail.Genre, GetValue(canonicalValues, MetadataFieldConstants.Genre))).ToList(),
+            Identifiers = identifiers,
+
+            Authors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Authors), SplitMetadataValues(detail.Author)),
+            Artists = artists,
+            AlbumArtists = albumArtists,
+            Actors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Cast), SplitMetadataValues(detail.Cast)),
+            Directors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Directors), SplitMetadataValues(detail.Director)),
+            Writers = MergeNames(CreditNames(contributorGroups, CreditGroupType.Writers), SplitMetadataValues(detail.Writer)),
+            Composers = MergeNames(CreditNames(contributorGroups, CreditGroupType.MusicCredits), SplitMetadataValues(detail.Composer)),
+            Narrators = MergeNames(CreditNames(contributorGroups, CreditGroupType.Narrators), SplitMetadataValues(detail.Narrator)),
+            Illustrators = MergeNames(CreditNames(contributorGroups, CreditGroupType.Illustrators), SplitMetadataValues(detail.Illustrator)),
+            Producers = MergeNames(CreditNames(contributorGroups, CreditGroupType.Producers), SplitMetadataValues(GetValue(canonicalValues, "producer"))),
+
+            ShowName = FirstNonBlank(detail.ShowName, GetValue(canonicalValues, MetadataFieldConstants.ShowName), GetValue(canonicalValues, MetadataFieldConstants.Series)),
+            SeasonNumber = FirstNonBlank(detail.SeasonNumber, GetValue(canonicalValues, MetadataFieldConstants.SeasonNumber), GetValue(canonicalValues, "season")),
+            EpisodeNumber = FirstNonBlank(detail.EpisodeNumber, GetValue(canonicalValues, MetadataFieldConstants.EpisodeNumber), GetValue(canonicalValues, "episode")),
+            EpisodeTitle = FirstNonBlank(detail.EpisodeTitle, GetValue(canonicalValues, MetadataFieldConstants.EpisodeTitle)),
+            Network = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Network), GetValue(canonicalValues, "broadcaster")),
+            SeasonCount = GetValue(canonicalValues, MetadataFieldConstants.SeasonCount),
+            EpisodeCount = GetValue(canonicalValues, MetadataFieldConstants.EpisodeCount),
+
+            Album = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Album), detail.Series),
+            AlbumArtist = FirstNonBlank(albumArtists.FirstOrDefault(), detail.Artist),
+            TrackNumber = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.TrackNumber), detail.SeriesPosition),
+            TrackCount = GetValue(canonicalValues, MetadataFieldConstants.TrackCount),
+            DiscNumber = GetValue(canonicalValues, MetadataFieldConstants.DiscNumber),
+            DiscCount = GetValue(canonicalValues, MetadataFieldConstants.DiscCount),
+            Isrc = GetValue(canonicalValues, "isrc"),
+            Label = FirstNonBlank(GetValue(canonicalValues, "label"), GetValue(canonicalValues, "record_label")),
+            IsExplicit = ParseNullableBool(GetValue(canonicalValues, "explicit"), GetValue(canonicalValues, "is_explicit")),
+
+            Series = FirstNonBlank(detail.Series, GetValue(canonicalValues, MetadataFieldConstants.Series)),
+            SeriesPosition = FirstNonBlank(detail.SeriesPosition, GetValue(canonicalValues, MetadataFieldConstants.SeriesPosition)),
+            IssueNumber = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.IssueNumber), detail.SeriesPosition),
+            IssueTitle = GetValue(canonicalValues, MetadataFieldConstants.IssueTitle),
+            Publisher = GetValue(canonicalValues, MetadataFieldConstants.PublisherField),
+            PageCount = GetValue(canonicalValues, MetadataFieldConstants.PageCount),
+        };
+    }
+
+    private static DetailFactsViewModel BuildCollectionFacts(
+        DetailEntityType entityType,
+        IReadOnlyList<CollectionWorkSummary> works,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        IReadOnlyList<CreditGroupViewModel> contributorGroups,
+        string? wikidataQid)
+    {
+        var identifiers = BuildIdentifierFacts(canonicalValues, null, wikidataQid);
+        var genres = SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Genre)).ToList();
+        var years = works.Select(work => work.Year).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
+        var artists = MergeNames(
+            CreditNames(contributorGroups, CreditGroupType.PrimaryArtists),
+            works.Select(work => work.Artist).Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>(),
+            SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Artist)));
+        var albumArtists = MergeNames(
+            SplitMetadataValues(GetValue(canonicalValues, "album_artist")),
+            SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author)),
+            artists.Take(1));
+        var seasonCount = FirstNonBlank(
+            GetValue(canonicalValues, MetadataFieldConstants.SeasonCount),
+            entityType is DetailEntityType.TvShow
+                ? works.Select(work => work.Season).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString(CultureInfo.InvariantCulture)
+                : null);
+
+        return new DetailFactsViewModel
+        {
+            MediaKind = FormatEntityType(entityType),
+            Year = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Year), GetValue(canonicalValues, "release_year"), years.FirstOrDefault()),
+            ReleaseDate = FirstNonBlank(GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
+            Rating = FirstNonBlank(FormatRating(GetValue(canonicalValues, MetadataFieldConstants.Rating)), GetValue(canonicalValues, MetadataFieldConstants.Rating)),
+            ContentRating = FirstNonBlank(GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
+            Runtime = FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.Runtime)),
+            Duration = FirstNonBlank(FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.DurationField)), FormatCollectionDuration(works)),
+            Language = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Language), GetValue(canonicalValues, MetadataFieldConstants.OriginalLanguage)),
+            Genres = genres,
+            Identifiers = identifiers,
+
+            Authors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Authors), SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author))),
+            Artists = artists,
+            AlbumArtists = albumArtists,
+            Actors = CreditNames(contributorGroups, CreditGroupType.Cast),
+            Directors = CreditNames(contributorGroups, CreditGroupType.Directors),
+            Writers = CreditNames(contributorGroups, CreditGroupType.Writers),
+            Composers = CreditNames(contributorGroups, CreditGroupType.MusicCredits),
+            Narrators = CreditNames(contributorGroups, CreditGroupType.Narrators),
+            Illustrators = CreditNames(contributorGroups, CreditGroupType.Illustrators),
+            Producers = MergeNames(CreditNames(contributorGroups, CreditGroupType.Producers), SplitMetadataValues(GetValue(canonicalValues, "producer"))),
+
+            ShowName = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.ShowName), GetValue(canonicalValues, MetadataFieldConstants.Title)),
+            Network = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Network), GetValue(canonicalValues, "broadcaster")),
+            SeasonCount = seasonCount,
+            EpisodeCount = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.EpisodeCount), entityType is DetailEntityType.TvShow ? works.Count.ToString(CultureInfo.InvariantCulture) : null),
+
+            Album = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Album), GetValue(canonicalValues, MetadataFieldConstants.Title)),
+            AlbumArtist = albumArtists.FirstOrDefault(),
+            TrackCount = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.TrackCount), entityType is DetailEntityType.MusicAlbum ? works.Count.ToString(CultureInfo.InvariantCulture) : null),
+            DiscCount = GetValue(canonicalValues, MetadataFieldConstants.DiscCount),
+            Isrc = GetValue(canonicalValues, "isrc"),
+            Label = FirstNonBlank(GetValue(canonicalValues, "label"), GetValue(canonicalValues, "record_label")),
+            IsExplicit = ParseNullableBool(GetValue(canonicalValues, "explicit"), GetValue(canonicalValues, "is_explicit")),
+
+            Series = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Series), GetValue(canonicalValues, MetadataFieldConstants.Title)),
+            SeriesPosition = GetValue(canonicalValues, MetadataFieldConstants.SeriesPosition),
+            Publisher = GetValue(canonicalValues, MetadataFieldConstants.PublisherField),
+            PageCount = GetValue(canonicalValues, MetadataFieldConstants.PageCount),
+        };
+    }
+
+    private static DetailFactsViewModel BuildPersonFacts(Person person, IReadOnlyList<string> displayRoles)
+        => new()
+        {
+            MediaKind = person.IsGroup ? "Group" : "Person",
+            Identifiers = BuildIdentifierFacts(new Dictionary<string, string>(), null, person.WikidataQid),
+            Artists = displayRoles.Any(role => role.Contains("Artist", StringComparison.OrdinalIgnoreCase) || role.Contains("Performer", StringComparison.OrdinalIgnoreCase))
+                ? [person.Name]
+                : [],
+            Authors = displayRoles.Any(role => role.Contains("Author", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+            Actors = displayRoles.Any(role => role.Contains("Actor", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+            Directors = displayRoles.Any(role => role.Contains("Director", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+            Writers = displayRoles.Any(role => role.Contains("Writer", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+            Composers = displayRoles.Any(role => role.Contains("Composer", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+            Narrators = displayRoles.Any(role => role.Contains("Narrator", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+            Illustrators = displayRoles.Any(role => role.Contains("Illustrator", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+            Producers = displayRoles.Any(role => role.Contains("Producer", StringComparison.OrdinalIgnoreCase)) ? [person.Name] : [],
+        };
+
+    private static IReadOnlyDictionary<string, string> BuildIdentifierFacts(
+        IReadOnlyDictionary<string, string> canonicalValues,
+        IReadOnlyDictionary<string, string>? bridgeIds,
+        string? wikidataQid)
+    {
+        var identifiers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        AddIdentifier(identifiers, BridgeIdKeys.WikidataQid, wikidataQid);
+        foreach (var key in DetailIdentifierKeys)
+        {
+            if (bridgeIds is not null && bridgeIds.TryGetValue(key, out var bridgeValue))
+            {
+                AddIdentifier(identifiers, key, bridgeValue);
+            }
+
+            AddIdentifier(identifiers, key, GetValue(canonicalValues, key));
+        }
+
+        return identifiers;
+    }
+
+    private static readonly string[] DetailIdentifierKeys =
+    [
+        BridgeIdKeys.WikidataQid,
+        BridgeIdKeys.TmdbId,
+        BridgeIdKeys.ImdbId,
+        BridgeIdKeys.AppleMusicId,
+        BridgeIdKeys.AppleMusicCollectionId,
+        BridgeIdKeys.AppleArtistId,
+        BridgeIdKeys.MusicBrainzId,
+        BridgeIdKeys.MusicBrainzRecordingId,
+        BridgeIdKeys.MusicBrainzReleaseGroupId,
+        "musicbrainz_release_id",
+        "musicbrainz_artist_id",
+        "isrc",
+        BridgeIdKeys.Isbn,
+        BridgeIdKeys.Asin,
+        BridgeIdKeys.ComicVineId,
+        BridgeIdKeys.ComicVineVolumeId,
+    ];
+
+    private static void AddIdentifier(IDictionary<string, string> identifiers, string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        identifiers.TryAdd(key, value.Trim());
+    }
+
+    private static IReadOnlyList<string> CreditNames(
+        IReadOnlyList<CreditGroupViewModel> groups,
+        CreditGroupType type)
+        => groups
+            .Where(group => group.GroupType == type)
+            .SelectMany(group => group.Credits)
+            .Select(credit => credit.DisplayName)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static IReadOnlyList<string> MergeNames(params IEnumerable<string>[] sources)
+        => sources
+            .SelectMany(source => source)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static bool? ParseNullableBool(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (bool.TryParse(value, out var parsed))
+            {
+                return parsed;
+            }
+
+            if (string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "explicit", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(value, "0", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "no", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "clean", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ReleaseYear(string? value)
+        => string.IsNullOrWhiteSpace(value) || value.Length < 4 ? null : value[..4];
+
+    private static string? FormatCollectionDuration(IReadOnlyList<CollectionWorkSummary> works)
+    {
+        var seconds = works
+            .Select(work => ParseDurationSeconds(work.Duration))
+            .Where(value => value.HasValue)
+            .Sum(value => value!.Value);
+
+        return seconds > 0 ? FormatSecondsDuration(seconds) : null;
+    }
+
+    private static double? ParseDurationSeconds(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+        {
+            return seconds;
+        }
+
+        return null;
     }
 
     private static IReadOnlyList<MetadataPill> BuildMetadataPills(
@@ -4799,8 +5141,9 @@ public sealed class DetailComposerService
 
         if (entityType == DetailEntityType.ComicIssue)
         {
-            var issueTitle = FirstNonBlank(GetValue(values, "issue_title"), displayTitle);
-            if (!IsGeneratedComicIssueTitle(issueTitle, detail, values))
+            var issueTitle = FirstNonBlank(GetValue(values, MetadataFieldConstants.IssueTitle), displayTitle);
+            if (!string.IsNullOrWhiteSpace(issueTitle)
+                && !IsGeneratedComicIssueTitle(issueTitle, detail, values))
             {
                 return FirstNonBlank(issueTitle, detail.Title, detail.FileName, "Untitled");
             }
@@ -4810,7 +5153,7 @@ public sealed class DetailComposerService
                 return FirstNonBlank(detail.Title, detail.FileName, "Untitled");
             }
 
-            var issueNumber = FirstNonBlank(GetValue(values, "issue_number"), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
+            var issueNumber = FirstNonBlank(GetValue(values, MetadataFieldConstants.IssueNumber), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
             return FirstNonBlank(FormatIssue(issueNumber), detail.FileName, "Untitled");
         }
 
@@ -4834,7 +5177,8 @@ public sealed class DetailComposerService
         var normalizedTitle = NormalizeOrdinalTitle(title);
         var normalizedSeries = NormalizeOrdinalTitle(series);
         var normalizedIssue = NormalizeOrdinalTitle(issueNumber);
-        return normalizedTitle == $"{normalizedSeries}{normalizedIssue}"
+        return normalizedTitle == normalizedSeries
+            || normalizedTitle == $"{normalizedSeries}{normalizedIssue}"
             || normalizedTitle == $"{normalizedSeries}issue{normalizedIssue}"
             || normalizedTitle == $"{normalizedSeries}no{normalizedIssue}"
             || (normalizedTitle.StartsWith(normalizedSeries, StringComparison.OrdinalIgnoreCase)
@@ -5372,6 +5716,7 @@ public sealed class DetailComposerService
                     ? FirstNonBlank(
                         GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
+                        GetValue(canonicalValues, $"{canonicalArrayKey}_profile_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_photo_url"),
                         entries.Count == 1 ? GetValue(canonicalValues, "headshot_url") : null)
                     : ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
@@ -6038,10 +6383,51 @@ public sealed class DetailComposerService
         };
     }
 
+    private static DescriptionAttributionViewModel? BuildDescriptionAttribution(
+        DescriptionSelection selection,
+        LibraryItemDetail detail,
+        IReadOnlyDictionary<string, string> values)
+    {
+        if (string.IsNullOrWhiteSpace(selection.Text) || selection.IsGeneratedFallback)
+        {
+            return null;
+        }
+
+        if (string.Equals(selection.SourceKey, MetadataFieldConstants.IssueDescription, StringComparison.OrdinalIgnoreCase))
+        {
+            var winningProviderId = GetCanonicalProviderId(detail, MetadataFieldConstants.IssueDescription);
+            var isComicVine = Guid.TryParse(winningProviderId, out var providerId)
+                && providerId == WellKnownProviders.ComicVine;
+            if (!isComicVine)
+            {
+                return null;
+            }
+
+            var sourceUrl = ResolveComicVineIssueUrl(values);
+            return new DescriptionAttributionViewModel
+            {
+                SourceName = "Comic Vine",
+                SourceTitle = "issue synopsis",
+                SourceUrl = sourceUrl,
+                LicenseName = "Comic Vine API Terms",
+                LicenseUrl = "https://comicvine.gamespot.com/api/",
+                RetrievedAt = GetCanonicalLastScoredAt(detail, MetadataFieldConstants.IssueDescription),
+                IsModifiedOrSummarized = false,
+                Notice = "Issue synopsis from Comic Vine; use is governed by Comic Vine API terms.",
+            };
+        }
+
+        return BuildWikipediaDescriptionAttribution(
+            selection.Text,
+            GetValue(values, "wikipedia_url"),
+            GetCanonicalLastScoredAt(detail, selection.SourceKey ?? MetadataFieldConstants.Description));
+    }
+
     private static IReadOnlyList<ExternalSourceLinkViewModel> BuildExternalSourceLinks(
         string? wikidataQid,
         string? wikipediaUrl,
-        SequencePlacementViewModel? sequence)
+        SequencePlacementViewModel? sequence,
+        IReadOnlyDictionary<string, string>? values = null)
     {
         var links = new List<ExternalSourceLinkViewModel>();
         AddExternalSourceLink(
@@ -6053,13 +6439,18 @@ public sealed class DetailComposerService
             "Description source");
 
         var qid = ExtractQid(wikidataQid);
+        var qidScope = values is not null
+            ? GetValue(values, MetadataFieldConstants.WikidataQidScope)
+            : null;
+        var qidIsSeriesScoped = string.Equals(qidScope, "series", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(qidScope, "run", StringComparison.OrdinalIgnoreCase);
         AddExternalSourceLink(
             links,
             "wikidata",
-            "Wikidata",
+            qidIsSeriesScoped ? "Series on Wikidata" : "Wikidata",
             BuildWikidataEntityUrl(qid),
             "Wikidata",
-            "Canonical identity source");
+            qidIsSeriesScoped ? "Series/run identity source" : "Canonical identity source");
 
         var seriesQid = ExtractQid(FirstText(sequence?.SourceContainerId, sequence?.ContainerId));
         if (!string.IsNullOrWhiteSpace(seriesQid)
@@ -6073,6 +6464,62 @@ public sealed class DetailComposerService
                 "Wikidata",
                 $"Sequence source for {sequence?.ContainerTitle ?? "this series"}");
         }
+
+        AddExternalSourceLink(
+            links,
+            "comicvine-issue",
+            "Comic Vine",
+            ResolveComicVineIssueUrl(values),
+            "Comic Vine",
+            "Comic issue metadata source");
+
+        AddExternalSourceLink(
+            links,
+            "tmdb",
+            "TMDB",
+            BuildTmdbSourceUrl(values),
+            "TMDB",
+            "Movie or TV metadata source");
+
+        AddExternalSourceLink(
+            links,
+            "apple-music-album",
+            "Apple Music",
+            BuildAppleMusicAlbumUrl(GetOptionalValue(values, BridgeIdKeys.AppleMusicCollectionId)),
+            "Apple Music",
+            "Album metadata source");
+
+        AddExternalSourceLink(
+            links,
+            "apple-music-track",
+            "Apple Music Track",
+            BuildAppleMusicTrackUrl(GetOptionalValue(values, BridgeIdKeys.AppleMusicId)),
+            "Apple Music",
+            "Track metadata source");
+
+        AddExternalSourceLink(
+            links,
+            "musicbrainz-release-group",
+            "MusicBrainz",
+            BuildMusicBrainzUrl("release-group", GetOptionalValue(values, BridgeIdKeys.MusicBrainzReleaseGroupId)),
+            "MusicBrainz",
+            "Music release-group identity source");
+
+        AddExternalSourceLink(
+            links,
+            "musicbrainz-recording",
+            "MusicBrainz Recording",
+            BuildMusicBrainzUrl("recording", GetOptionalValue(values, BridgeIdKeys.MusicBrainzRecordingId)),
+            "MusicBrainz",
+            "Track recording identity source");
+
+        AddExternalSourceLink(
+            links,
+            "musicbrainz-release",
+            "MusicBrainz Release",
+            BuildMusicBrainzUrl("release", FirstNonBlank(GetOptionalValue(values, "musicbrainz_release_id"), GetOptionalValue(values, BridgeIdKeys.MusicBrainzId))),
+            "MusicBrainz",
+            "Music release identity source");
 
         return links;
     }
@@ -6103,6 +6550,88 @@ public sealed class DetailComposerService
 
     private static string? BuildWikidataEntityUrl(string? qid)
         => IsWikidataQid(qid) ? $"https://www.wikidata.org/wiki/{NormalizeSequenceContainerId(qid)}" : null;
+
+    private static string? GetOptionalValue(IReadOnlyDictionary<string, string>? values, string key)
+        => values is null ? null : GetValue(values, key);
+
+    private static string? BuildTmdbSourceUrl(IReadOnlyDictionary<string, string>? values)
+    {
+        if (values is null)
+        {
+            return null;
+        }
+
+        var tvId = FirstNonBlank(GetValue(values, "tmdb_tv_id"), !string.IsNullOrWhiteSpace(GetValue(values, MetadataFieldConstants.ShowName)) ? GetValue(values, BridgeIdKeys.TmdbId) : null);
+        if (!string.IsNullOrWhiteSpace(tvId))
+        {
+            return $"https://www.themoviedb.org/tv/{Uri.EscapeDataString(tvId)}";
+        }
+
+        var movieId = FirstNonBlank(GetValue(values, "tmdb_movie_id"), GetValue(values, BridgeIdKeys.TmdbId));
+        return string.IsNullOrWhiteSpace(movieId)
+            ? null
+            : $"https://www.themoviedb.org/movie/{Uri.EscapeDataString(movieId)}";
+    }
+
+    private static string? BuildAppleMusicAlbumUrl(string? id)
+        => string.IsNullOrWhiteSpace(id)
+            ? null
+            : $"https://music.apple.com/us/album/{Uri.EscapeDataString(id)}";
+
+    private static string? BuildAppleMusicTrackUrl(string? id)
+        => string.IsNullOrWhiteSpace(id)
+            ? null
+            : $"https://music.apple.com/us/song/{Uri.EscapeDataString(id)}";
+
+    private static string? BuildMusicBrainzUrl(string entityType, string? id)
+        => string.IsNullOrWhiteSpace(id)
+            ? null
+            : $"https://musicbrainz.org/{entityType}/{Uri.EscapeDataString(id)}";
+
+    private static string? ResolveComicVineIssueUrl(IReadOnlyDictionary<string, string>? values)
+    {
+        if (values is null)
+        {
+            return null;
+        }
+
+        return FirstText(
+            NormalizeExternalUrl(GetValue(values, MetadataFieldConstants.IssueSourceUrl)),
+            BuildComicVineIssueUrl(GetValue(values, BridgeIdKeys.ComicVineId)));
+    }
+
+    private static string? NormalizeExternalUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? trimmed
+            : null;
+    }
+
+    private static string? BuildComicVineIssueUrl(string? comicVineId)
+    {
+        if (string.IsNullOrWhiteSpace(comicVineId))
+        {
+            return null;
+        }
+
+        var id = comicVineId.Trim();
+        var delimiter = id.IndexOf("::", StringComparison.Ordinal);
+        if (delimiter >= 0)
+        {
+            id = id[..delimiter].Trim();
+        }
+
+        return id.All(char.IsDigit)
+            ? $"https://comicvine.gamespot.com/issue/4000-{Uri.EscapeDataString(id)}/"
+            : null;
+    }
 
     private static PersonDetailFacts BuildPersonDetails(
         MediaEngine.Domain.Entities.Person person,
@@ -6900,6 +7429,7 @@ public sealed class DetailComposerService
         public string? BackgroundUrl { get; init; }
         public string? BannerUrl { get; init; }
     }
+    private sealed record DescriptionSelection(string? Text, string? SourceKey, bool IsGeneratedFallback);
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator, double? ProgressPct);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SequenceLabels(string ContainerLabel, string ItemLabel, string ItemPluralLabel, string? GroupLabel);

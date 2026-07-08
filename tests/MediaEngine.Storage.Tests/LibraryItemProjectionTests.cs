@@ -137,6 +137,170 @@ public sealed class LibraryItemProjectionTests : IDisposable
     }
 
     [Fact]
+    public async Task LibraryItemProjection_RetailNoMatchStaysOutOfVisibleLibraryAfterReviewDismissed()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var (workId, assetId) = await BuildStandaloneWorkAsync("Comics");
+        await InsertCanonicalAsync(assetId, "title", "Unmatched Issue");
+        await InsertCanonicalAsync(workId, "cover_state", "present");
+        await InsertCanonicalAsync(workId, "artwork_settled_at", now.ToString("O"));
+        await CreateIdentityJobAsync(assetId, IdentityJobState.RetailNoMatch);
+
+        var reviewRepo = new ReviewQueueRepository(_db);
+        var reviewId = await reviewRepo.InsertAsync(new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = assetId,
+            EntityType = "MediaAsset",
+            Trigger = ReviewTrigger.RetailMatchFailed,
+            ConfidenceScore = 0,
+            Detail = "Retail identification failed.",
+            ReviewReadyAt = now,
+            AutomationCompletedAt = now,
+        });
+        await reviewRepo.UpdateStatusAsync(reviewId, ReviewStatus.Dismissed, "test");
+
+        var repo = new LibraryItemRepository(_db);
+
+        var visiblePage = await repo.GetPageAsync(new LibraryItemQuery());
+        Assert.DoesNotContain(visiblePage.Items, item => item.EntityId == workId);
+
+        var allPage = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
+        var item = Assert.Single(allPage.Items, item => item.EntityId == workId);
+        Assert.Equal("review_only", item.LibraryVisibility);
+        Assert.False(item.IsReadyForLibrary);
+        Assert.Equal("NoMatch", item.Status);
+    }
+
+    [Fact]
+    public async Task LibraryItemProjection_WorkScopedPendingReviewStaysOutOfVisibleLibrary()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var (workId, assetId) = await BuildStandaloneWorkAsync("Books");
+        await InsertCanonicalAsync(assetId, "title", "Work Level Review");
+        await InsertCanonicalAsync(workId, "cover_state", "present");
+        await InsertCanonicalAsync(workId, "artwork_settled_at", now.ToString("O"));
+
+        var reviewRepo = new ReviewQueueRepository(_db);
+        await reviewRepo.InsertAsync(new ReviewQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityId = workId,
+            EntityType = "Work",
+            Trigger = ReviewTrigger.LowConfidence,
+            ConfidenceScore = 0.2,
+            Detail = "Work-level review.",
+            ReviewReadyAt = now,
+            AutomationCompletedAt = now,
+        });
+
+        var repo = new LibraryItemRepository(_db);
+
+        var visiblePage = await repo.GetPageAsync(new LibraryItemQuery());
+        Assert.DoesNotContain(visiblePage.Items, item => item.EntityId == workId);
+
+        var allPage = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
+        var item = Assert.Single(allPage.Items, item => item.EntityId == workId);
+        Assert.Equal("review_only", item.LibraryVisibility);
+        Assert.Equal("InReview", item.Status);
+    }
+
+    [Fact]
+    public async Task LibraryItemProjection_TreatsUniverseEnrichingAsRetailMatched()
+    {
+        var settledAt = DateTimeOffset.UtcNow.ToString("O");
+        var (workId, assetId) = await BuildStandaloneWorkAsync("Books");
+        await InsertCanonicalAsync(assetId, "title", "Identified During Stage 3");
+        await InsertCanonicalAsync(assetId, "wikidata_qid", "Q123");
+        await InsertCanonicalAsync(workId, "wikidata_qid", "Q123");
+        await InsertCanonicalAsync(workId, "cover_state", "present");
+        await InsertCanonicalAsync(workId, "cover_url", "/stream/test/cover");
+        await InsertCanonicalAsync(workId, "artwork_settled_at", settledAt);
+        await CreateIdentityJobAsync(assetId, IdentityJobState.UniverseEnriching);
+
+        var repo = new LibraryItemRepository(_db);
+
+        var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
+        var item = Assert.Single(page.Items, item => item.EntityId == workId);
+
+        Assert.Equal("Identified", item.Status);
+        Assert.Equal("matched", item.RetailMatch);
+        Assert.Equal("matched", item.WikidataMatch);
+    }
+
+    [Fact]
+    public async Task LibraryItemProjection_ComicRowsPreferIssueTitleAndIssueNumberFallback()
+    {
+        var (issueTitleWorkId, issueTitleAssetId) = await BuildStandaloneWorkAsync("Comics");
+        await InsertCanonicalAsync(issueTitleAssetId, MetadataFieldConstants.Title, "Saga");
+        await InsertCanonicalAsync(issueTitleAssetId, MetadataFieldConstants.IssueTitle, "Chapter One");
+        await InsertCanonicalAsync(issueTitleAssetId, MetadataFieldConstants.SeriesPosition, "1");
+        await InsertCanonicalAsync(issueTitleWorkId, MetadataFieldConstants.Series, "Saga");
+
+        var (fallbackWorkId, fallbackAssetId) = await BuildStandaloneWorkAsync("Comics");
+        await InsertCanonicalAsync(fallbackAssetId, MetadataFieldConstants.Title, "Batman");
+        await InsertCanonicalAsync(fallbackAssetId, MetadataFieldConstants.IssueTitle, "Batman");
+        await InsertCanonicalAsync(fallbackAssetId, MetadataFieldConstants.IssueNumber, "405");
+        await InsertCanonicalAsync(fallbackAssetId, MetadataFieldConstants.SeriesPosition, "405");
+        await InsertCanonicalAsync(fallbackWorkId, MetadataFieldConstants.Series, "Batman");
+
+        var repo = new LibraryItemRepository(_db);
+
+        var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
+
+        Assert.Contains(page.Items, item => item.EntityId == issueTitleWorkId && item.Title == "Chapter One");
+        Assert.Contains(page.Items, item => item.EntityId == fallbackWorkId && item.Title == "Issue #405");
+
+        var detail = await repo.GetDetailAsync(issueTitleWorkId);
+        Assert.NotNull(detail);
+        Assert.Equal("Chapter One", detail!.Title);
+    }
+
+    [Fact]
+    public async Task LibraryItemProjection_ComicIssueShowsSelfScopedCreatorWhenParentCreatorMissing()
+    {
+        var (parentWorkId, issueWorkId, issueAssetId) = await BuildComicIssueWorkWithParentAsync();
+        await InsertCanonicalAsync(parentWorkId, MetadataFieldConstants.Series, "Saga");
+        await InsertCanonicalAsync(issueAssetId, MetadataFieldConstants.Title, "Saga");
+        await InsertCanonicalAsync(issueAssetId, MetadataFieldConstants.IssueTitle, "Chapter One");
+        await InsertCanonicalArrayAsync(issueAssetId, MetadataFieldConstants.Author, "Brian K. Vaughan");
+        await InsertCanonicalAsync(issueAssetId, MetadataFieldConstants.SeriesPosition, "1");
+
+        var repo = new LibraryItemRepository(_db);
+
+        var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
+        var item = Assert.Single(page.Items, item => item.EntityId == issueWorkId);
+        Assert.Equal("Chapter One", item.Title);
+        Assert.Equal("Brian K. Vaughan", item.Author);
+
+        var detail = await repo.GetDetailAsync(issueWorkId);
+        Assert.NotNull(detail);
+        Assert.Equal("Brian K. Vaughan", detail!.Author);
+    }
+
+    [Fact]
+    public async Task LibraryItemProjection_ComicIssueShowsLocalCreatorClaimWhenCanonicalCreatorMissing()
+    {
+        var (parentWorkId, issueWorkId, issueAssetId) = await BuildComicIssueWorkWithParentAsync();
+        await InsertCanonicalAsync(parentWorkId, MetadataFieldConstants.Series, "Akira");
+        await InsertCanonicalAsync(issueAssetId, MetadataFieldConstants.Title, "Akira Vol 1");
+        await InsertCanonicalAsync(issueAssetId, MetadataFieldConstants.IssueTitle, "Akira Vol 1");
+        await InsertCanonicalAsync(issueAssetId, MetadataFieldConstants.SeriesPosition, "1");
+        await InsertClaimAsync(issueAssetId, MetadataFieldConstants.Author, "Katsuhiro Otomo", WellKnownProviders.LocalProcessor, 0.8);
+
+        var repo = new LibraryItemRepository(_db);
+
+        var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
+        var item = Assert.Single(page.Items, item => item.EntityId == issueWorkId);
+        Assert.Equal("Akira Vol 1", item.Title);
+        Assert.Equal("Katsuhiro Otomo", item.Author);
+
+        var detail = await repo.GetDetailAsync(issueWorkId);
+        Assert.NotNull(detail);
+        Assert.Equal("Katsuhiro Otomo", detail!.Author);
+    }
+
+    [Fact]
     public async Task LibraryItemProjection_ExposesCuratorLifecycleStatesOnlyWhenRequested()
     {
         var settledAt = DateTimeOffset.UtcNow.ToString("O");
@@ -219,6 +383,39 @@ public sealed class LibraryItemProjectionTests : IDisposable
         return (workId, assetId);
     }
 
+    private async Task<(Guid ParentWorkId, Guid IssueWorkId, Guid AssetId)> BuildComicIssueWorkWithParentAsync()
+    {
+        using var conn = _db.CreateConnection();
+        var collectionId = Guid.NewGuid();
+        var parentWorkId = Guid.NewGuid();
+        var issueWorkId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        await conn.ExecuteAsync("""
+            INSERT INTO collections (id, created_at) VALUES (@collectionId, datetime('now'));
+            INSERT INTO works (id, collection_id, media_type, work_kind, parent_key)
+                VALUES (@parentWorkId, @collectionId, 'Comics', 'parent', 'comic:saga');
+            INSERT INTO works (id, collection_id, media_type, work_kind, parent_work_id, ordinal)
+                VALUES (@issueWorkId, @collectionId, 'Comics', 'child', @parentWorkId, 1);
+            INSERT INTO editions (id, work_id) VALUES (@editionId, @issueWorkId);
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@assetId, @editionId, @hash, @filePath, 'Normal');
+            """,
+            new
+            {
+                collectionId,
+                parentWorkId,
+                issueWorkId,
+                editionId,
+                assetId,
+                hash = $"hash_{assetId:N}",
+                filePath = $"/library/{assetId:N}.cbz",
+            });
+
+        return (parentWorkId, issueWorkId, assetId);
+    }
+
     private async Task InsertCanonicalAsync(Guid entityId, string key, string value, Guid? winningProviderId = null)
     {
         using var conn = _db.CreateConnection();
@@ -249,6 +446,21 @@ public sealed class LibraryItemProjectionTests : IDisposable
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", value);
         cmd.Parameters.AddWithValue("@confidence", confidence);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task InsertCanonicalArrayAsync(Guid entityId, string key, string value, int ordinal = 0)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+            VALUES (@entityId, @key, @ordinal, @value);
+            """;
+        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+        cmd.Parameters.AddWithValue("@key", key);
+        cmd.Parameters.AddWithValue("@ordinal", ordinal);
+        cmd.Parameters.AddWithValue("@value", value);
         await cmd.ExecuteNonQueryAsync();
     }
 

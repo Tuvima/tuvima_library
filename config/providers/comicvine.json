@@ -15,6 +15,10 @@
       "series_position",
       "issue_number",
       "issue_title",
+      "issue_description",
+      "issue_source_url",
+      "author",
+      "illustrator",
       "comic_vine_id",
       "comic_vine_volume_id",
       "sequence_total",
@@ -111,6 +115,16 @@
       "condition": null
     },
     {
+      "claim_key": "issue_title",
+      "json_path": "name",
+      "confidence": 0.95,
+      "transform": null,
+      "transform_args": null,
+      "media_types": null,
+      "source": null,
+      "condition": null
+    },
+    {
       "claim_key": "series",
       "json_path": "volume.name",
       "confidence": 0.9,
@@ -131,10 +145,20 @@
       "condition": null
     },
     {
-      "claim_key": "description",
+      "claim_key": "issue_description",
       "json_path": "description",
       "confidence": 0.8,
       "transform": "strip_html",
+      "transform_args": null,
+      "media_types": null,
+      "source": null,
+      "condition": null
+    },
+    {
+      "claim_key": "issue_source_url",
+      "json_path": "site_detail_url",
+      "confidence": 1.0,
+      "transform": null,
       "transform_args": null,
       "media_types": null,
       "source": null,

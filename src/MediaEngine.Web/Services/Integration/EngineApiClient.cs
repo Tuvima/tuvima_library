@@ -5151,6 +5151,7 @@ public sealed class EngineApiClient : IEngineApiClient
             DescriptionAttribution = detail.DescriptionAttribution,
             SourceLinks = detail.SourceLinks,
             PersonDetails = detail.PersonDetails,
+            Facts = detail.Facts,
             Artwork = new ArtworkSet
             {
                 BackdropUrl = NormalizeOptionalUrl(artwork.BackdropUrl),

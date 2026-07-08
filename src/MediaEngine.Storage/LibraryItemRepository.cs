@@ -822,6 +822,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         var wikidataId = SqlGuidLiteral(WellKnownProviders.Wikidata);
         var localProcessorId = SqlGuidLiteral(WellKnownProviders.LocalProcessor);
         var libraryScanId = SqlGuidLiteral(WellKnownProviders.LibraryScanner);
+        var comicVineId = SqlGuidLiteral(WellKnownProviders.ComicVine);
 
         var sql = $"""
             WITH primary_asset_data AS (
@@ -870,6 +871,8 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     w.curator_state,
                     CASE WHEN w.collection_id IS NOT NULL THEN 1 ELSE 0 END AS universe_assigned,
                     MAX(CASE WHEN acv.key = 'title' THEN acv.value END) AS title,
+                    MAX(CASE WHEN acv.key = 'issue_title' THEN acv.value END) AS issue_title,
+                    MAX(CASE WHEN acv.key = 'issue_number' THEN acv.value END) AS issue_number,
                     MAX(CASE WHEN acv.key = 'series_position' THEN acv.value END) AS series_position,
                     MAX(CASE WHEN acv.key = 'rating' THEN acv.value END) AS rating,
                     MAX(CASE WHEN acv.key = 'track_number' THEN acv.value END) AS track_number,
@@ -893,6 +896,66 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     MAX(CASE WHEN acv.key = 'banner' THEN acv.value END) AS self_banner_url,
                     MAX(CASE WHEN wcv.key IN ('release_year', 'date', 'year') THEN wcv.value END) AS year,
                     COALESCE(
+                        CASE WHEN w.media_type = 'Comics' THEN (
+                            SELECT CASE
+                                WHEN cnt.total = 1 THEN a1.value
+                                WHEN cnt.total = 2 THEN a1.value || ' & ' || a2.value
+                                ELSE a1.value || ' & ' || a2.value || ' + ' || (cnt.total - 2) || ' more'
+                            END
+                            FROM (
+                                SELECT COUNT(DISTINCT cva0.value) AS total
+                                FROM canonical_value_arrays cva0
+                                INNER JOIN media_assets ma0 ON ma0.id = cva0.entity_id
+                                INNER JOIN editions e0 ON e0.id = ma0.edition_id
+                                WHERE e0.work_id = w.id
+                                  AND cva0.key = 'author'
+                            ) cnt
+                            LEFT JOIN (
+                                SELECT DISTINCT cva1.value
+                                FROM canonical_value_arrays cva1
+                                INNER JOIN media_assets ma1 ON ma1.id = cva1.entity_id
+                                INNER JOIN editions e1 ON e1.id = ma1.edition_id
+                                WHERE e1.work_id = w.id
+                                  AND cva1.key = 'author'
+                                ORDER BY cva1.ordinal
+                                LIMIT 1
+                            ) a1 ON 1 = 1
+                            LEFT JOIN (
+                                SELECT DISTINCT cva2.value
+                                FROM canonical_value_arrays cva2
+                                INNER JOIN media_assets ma2 ON ma2.id = cva2.entity_id
+                                INNER JOIN editions e2 ON e2.id = ma2.edition_id
+                                WHERE e2.work_id = w.id
+                                  AND cva2.key = 'author'
+                                ORDER BY cva2.ordinal
+                                LIMIT 1 OFFSET 1
+                            ) a2 ON cnt.total >= 2
+                            WHERE cnt.total >= 1
+                        ) END,
+                        CASE
+                            WHEN w.media_type = 'Comics' THEN MAX(CASE WHEN acv.key = 'author' THEN acv.value END)
+                            ELSE NULL
+                        END,
+                        CASE WHEN w.media_type = 'Comics' THEN (
+                            SELECT mc_author.claim_value
+                            FROM metadata_claims mc_author
+                            INNER JOIN media_assets ma_author ON ma_author.id = mc_author.entity_id
+                            INNER JOIN editions e_author ON e_author.id = ma_author.edition_id
+                            WHERE e_author.work_id = w.id
+                              AND mc_author.claim_key = 'author'
+                              AND mc_author.claim_value IS NOT NULL
+                              AND TRIM(mc_author.claim_value) != ''
+                            ORDER BY
+                                CASE
+                                    WHEN mc_author.provider_id = {localProcessorId} THEN 0
+                                    WHEN mc_author.provider_id = {comicVineId} THEN 1
+                                    WHEN mc_author.provider_id = {wikidataId} THEN 2
+                                    ELSE 3
+                                END,
+                                mc_author.confidence DESC,
+                                mc_author.claimed_at DESC
+                            LIMIT 1
+                        ) END,
                         (
                             SELECT CASE
                                 WHEN cnt.total = 1 THEN a1.value
@@ -929,7 +992,11 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                             ) a2 ON cnt.total >= 2
                             WHERE cnt.total >= 1
                         ),
-                        MAX(CASE WHEN wcv.key = 'author' THEN wcv.value END)
+                        MAX(CASE WHEN wcv.key = 'author' THEN wcv.value END),
+                        CASE
+                            WHEN w.media_type = 'Comics' THEN MAX(CASE WHEN acv.key = 'author' THEN acv.value END)
+                            ELSE NULL
+                        END
                     ) AS author,
                     MAX(CASE WHEN wcv.key = 'artist' THEN wcv.value END) AS artist,
                     MAX(CASE WHEN wcv.key = 'series' THEN wcv.value END) AS series,
@@ -1003,53 +1070,62 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                 INNER JOIN metadata_claims mc ON mc.entity_id = ma.id
                 GROUP BY e.work_id
             ),
-            review_data AS (
+            review_targets AS (
                 SELECT
-                    e_rv.work_id AS entity_id,
-                    (
-                        SELECT rq2.id
-                        FROM review_queue rq2
-                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
-                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
-                        WHERE e_rv2.work_id = e_rv.work_id
-                          AND rq2.status = 'Pending'
-                        ORDER BY rq2.created_at DESC
-                        LIMIT 1
-                    ) AS review_id,
-                    (
-                        SELECT rq2.trigger
-                        FROM review_queue rq2
-                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
-                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
-                        WHERE e_rv2.work_id = e_rv.work_id
-                          AND rq2.status = 'Pending'
-                        ORDER BY rq2.created_at DESC
-                        LIMIT 1
-                    ) AS review_trigger,
-                    (
-                        SELECT MAX(rq2.confidence_score)
-                        FROM review_queue rq2
-                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
-                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
-                        WHERE e_rv2.work_id = e_rv.work_id
-                          AND rq2.status = 'Pending'
-                    ) AS review_confidence,
-                    (
-                        SELECT rq2.candidates_json
-                        FROM review_queue rq2
-                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
-                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
-                        WHERE e_rv2.work_id = e_rv.work_id
-                          AND rq2.status = 'Pending'
-                          AND rq2.candidates_json IS NOT NULL
-                        ORDER BY rq2.created_at DESC
-                        LIMIT 1
-                    ) AS candidates_json
+                    e_rv.work_id,
+                    rq.id,
+                    rq.trigger,
+                    rq.confidence_score,
+                    rq.candidates_json,
+                    rq.created_at
                 FROM review_queue rq
                 INNER JOIN media_assets ma_rv ON ma_rv.id = rq.entity_id
                 INNER JOIN editions e_rv ON e_rv.id = ma_rv.edition_id
                 WHERE rq.status = 'Pending'
-                GROUP BY e_rv.work_id
+                UNION ALL
+                SELECT
+                    w_rv.id AS work_id,
+                    rq.id,
+                    rq.trigger,
+                    rq.confidence_score,
+                    rq.candidates_json,
+                    rq.created_at
+                FROM review_queue rq
+                INNER JOIN works w_rv ON w_rv.id = rq.entity_id
+                WHERE rq.status = 'Pending'
+            ),
+            review_data AS (
+                SELECT
+                    rt.work_id AS entity_id,
+                    (
+                        SELECT rt2.id
+                        FROM review_targets rt2
+                        WHERE rt2.work_id = rt.work_id
+                        ORDER BY rt2.created_at DESC
+                        LIMIT 1
+                    ) AS review_id,
+                    (
+                        SELECT rt2.trigger
+                        FROM review_targets rt2
+                        WHERE rt2.work_id = rt.work_id
+                        ORDER BY rt2.created_at DESC
+                        LIMIT 1
+                    ) AS review_trigger,
+                    (
+                        SELECT MAX(rt2.confidence_score)
+                        FROM review_targets rt2
+                        WHERE rt2.work_id = rt.work_id
+                    ) AS review_confidence,
+                    (
+                        SELECT rt2.candidates_json
+                        FROM review_targets rt2
+                        WHERE rt2.work_id = rt.work_id
+                          AND rt2.candidates_json IS NOT NULL
+                        ORDER BY rt2.created_at DESC
+                        LIMIT 1
+                    ) AS candidates_json
+                FROM review_targets rt
+                GROUP BY rt.work_id
             ),
             identity_job_data AS (
                 SELECT
@@ -1100,7 +1176,26 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             raw_data AS (
                 SELECT
                     wd.entity_id,
-                    COALESCE(NULLIF(wd.title, ''), 'Untitled') AS title,
+                    CASE
+                        WHEN wd.media_type = 'Comics' THEN COALESCE(
+                            CASE
+                                WHEN NULLIF(wd.issue_title, '') IS NOT NULL
+                                     AND (
+                                         NULLIF(wd.series, '') IS NULL
+                                         OR lower(trim(wd.issue_title)) != lower(trim(wd.series))
+                                     )
+                                    THEN NULLIF(wd.issue_title, '')
+                                ELSE NULL
+                            END,
+                            CASE
+                                WHEN COALESCE(NULLIF(wd.issue_number, ''), NULLIF(wd.series_position, '')) IS NOT NULL
+                                    THEN 'Issue #' || COALESCE(NULLIF(wd.issue_number, ''), NULLIF(wd.series_position, ''))
+                                ELSE NULL
+                            END,
+                            NULLIF(wd.title, ''),
+                            'Untitled')
+                        ELSE COALESCE(NULLIF(wd.title, ''), 'Untitled')
+                    END AS title,
                     wd.year,
                     wd.media_type,
                     wd.author,
@@ -1250,6 +1345,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     CASE
                         WHEN rd.has_quality_title = 1
                              AND rd.has_resolved_media_type = 1
+                             AND COALESCE(rd.job_state, '') NOT IN ('RetailNoMatch', 'Failed')
                              AND (
                                  rd.artwork_state = 'present'
                                  OR rd.artwork_settled_at IS NOT NULL
@@ -1260,6 +1356,8 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                         WHEN rd.curator_state IN ('rejected', 'provisional')
                              OR rd.job_state = 'QidNeedsReview'
                              OR rd.job_state = 'RetailMatchedNeedsReview'
+                             OR rd.job_state = 'RetailNoMatch'
+                             OR rd.job_state = 'Failed'
                              OR (
                                  rd.review_id IS NOT NULL
                                  AND rd.review_trigger != 'WritebackFailed'
@@ -1304,10 +1402,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                                      'QidResolved',
                                      'Hydrating'
                                  )
-                             )
+                            )
                             THEN 'InReview'
                         WHEN rd.has_valid_qid = 1 THEN 'Identified'
                         WHEN rd.job_state = 'QidNoMatch' THEN 'QidNoMatch'
+                        WHEN rd.job_state = 'RetailNoMatch' THEN 'NoMatch'
+                        WHEN rd.job_state = 'Failed' THEN 'Failed'
                         WHEN rd.job_state IN ('RetailMatched', 'BridgeSearching', 'QidResolved', 'Hydrating', 'Completed') THEN 'RetailMatched'
                         WHEN rd.has_user_locks = 1 THEN 'Edited'
                         ELSE 'Confirmed'
@@ -1326,7 +1426,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     CASE
                         WHEN COALESCE(NULLIF(rd.retail_match_detail, ''), '') != ''
                             THEN 'matched'
-                        WHEN rd.job_state IN ('RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved', 'QidNeedsReview', 'QidNoMatch', 'Hydrating', 'Ready', 'ReadyWithoutUniverse', 'Completed')
+                        WHEN rd.job_state IN ('RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved', 'QidNeedsReview', 'QidNoMatch', 'Hydrating', 'UniverseEnriching', 'Ready', 'ReadyWithoutUniverse', 'Completed')
                             THEN 'matched'
                         WHEN rd.job_state = 'RetailNoMatch' THEN 'failed'
                         WHEN rd.review_trigger IN ('RetailMatchFailed')

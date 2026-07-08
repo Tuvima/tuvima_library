@@ -35,6 +35,7 @@ public static class PersonReferenceExtractor
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
         AddPersonRefsFromLists(refs, "Producer",     byKey, "producer",                      "producer_qid");
         AddPersonRefsFromLists(refs, "Actor",        byKey, "cast_member",                   "cast_member_qid");
+        AddPersonRefsFromLists(refs, "Actor",        byKey, MetadataFieldConstants.GuestStar, "guest_star_qid");
 
         // Mark author refs as collective pseudonyms when the adapter flagged it.
         if (byKey.TryGetValue("author_is_collective_pseudonym", out var pseudoFlags)
@@ -76,6 +77,7 @@ public static class PersonReferenceExtractor
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
         AddPersonRefsFromLists(refs, "Producer",     byKey, "producer",                      "producer_qid");
         AddPersonRefsFromLists(refs, "Actor",        byKey, "cast_member",                   "cast_member_qid");
+        AddPersonRefsFromLists(refs, "Actor",        byKey, MetadataFieldConstants.GuestStar, "guest_star_qid");
 
         return refs
             .Where(r => string.IsNullOrEmpty(r.WikidataQid) && !string.IsNullOrWhiteSpace(r.Name))
@@ -114,6 +116,7 @@ public static class PersonReferenceExtractor
         AddPersonRefsFromArrays(refs, "Composer",     arrays, "composer",                      "composer_qid");
         AddPersonRefsFromArrays(refs, "Producer",     arrays, "producer",                      "producer_qid");
         AddPersonRefsFromArrays(refs, "Actor",        arrays, "cast_member",                   "cast_member_qid");
+        AddPersonRefsFromArrays(refs, "Actor",        arrays, MetadataFieldConstants.GuestStar, "guest_star_qid");
 
         return CollapseEquivalentRoles(refs
             .GroupBy(r => $"{r.Role}::{r.WikidataQid ?? r.Name}", StringComparer.OrdinalIgnoreCase)

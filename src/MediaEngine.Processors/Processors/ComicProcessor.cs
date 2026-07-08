@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Xml.Linq;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
@@ -41,7 +42,9 @@ namespace MediaEngine.Processors.Processors;
 ///  • author         (confidence 0.8 — ComicInfo.xml Writer)
 ///  • illustrator    (confidence 0.8 — ComicInfo.xml Penciller)
 ///  • genre          (confidence 0.7 — ComicInfo.xml Genre)
-///  • description    (confidence 0.7 — ComicInfo.xml Summary)
+///  • description    (confidence 0.7 — ComicInfo.xml Summary for standalone comics)
+///  • issue_title    (confidence 0.8 — ComicInfo.xml Title when Series + Number are present)
+///  • issue_description(confidence 0.7 — ComicInfo.xml Summary when Series + Number are present)
 ///  • year           (confidence 0.8 — ComicInfo.xml Year)
 ///  • publisher      (confidence 0.7 — ComicInfo.xml Publisher)
 ///  • series         (confidence 0.8 — ComicInfo.xml Series)
@@ -339,16 +342,29 @@ public sealed class ComicProcessor : IMediaProcessor
         var root = doc.Root;
         if (root is null) return;
 
-        AddClaimIfPresent(root, "Title",     "title",           0.8, claims);
+        var hasIssueIdentity = !string.IsNullOrWhiteSpace(ReadElement(root, "Series"))
+            && !string.IsNullOrWhiteSpace(ReadElement(root, "Number"));
+
+        AddClaimIfPresent(root, "Title",     MetadataFieldConstants.Title,           0.8, claims);
+        if (hasIssueIdentity)
+            AddClaimIfPresent(root, "Title", MetadataFieldConstants.IssueTitle, 0.8, claims);
         AddClaimIfPresent(root, "Writer",    "author",          0.8, claims);
         AddClaimIfPresent(root, "Penciller", "illustrator",     0.8, claims);
         AddClaimIfPresent(root, "Genre",     "genre",           0.7, claims);
-        AddClaimIfPresent(root, "Summary",   "description",     0.7, claims);
+        AddClaimIfPresent(root, "Summary",   MetadataFieldConstants.Description,     0.7, claims);
+        if (hasIssueIdentity)
+            AddClaimIfPresent(root, "Summary", MetadataFieldConstants.IssueDescription, 0.7, claims);
         AddClaimIfPresent(root, "Year",      "year",            0.8, claims);
         AddClaimIfPresent(root, "Publisher", "publisher",       0.7, claims);
-        AddClaimIfPresent(root, "Series",    "series",          0.8, claims);
-        AddClaimIfPresent(root, "Number",    "series_position", 0.8, claims);
+        AddClaimIfPresent(root, "Series",    MetadataFieldConstants.Series,          0.8, claims);
+        AddClaimIfPresent(root, "Number",    MetadataFieldConstants.SeriesPosition, 0.8, claims);
         AddClaimIfPresent(root, "PageCount", "page_count",      0.9, claims);
+    }
+
+    private static string? ReadElement(XElement root, string elementName)
+    {
+        var value = root.Element(elementName)?.Value;
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     /// <summary>
@@ -358,9 +374,9 @@ public sealed class ComicProcessor : IMediaProcessor
         XElement root, string elementName, string claimKey, double confidence,
         List<ExtractedClaim> claims)
     {
-        var value = root.Element(elementName)?.Value;
+        var value = ReadElement(root, elementName);
         if (!string.IsNullOrWhiteSpace(value))
-            claims.Add(Claim(claimKey, value.Trim(), confidence));
+            claims.Add(Claim(claimKey, value, confidence));
     }
 
     // -------------------------------------------------------------------------

@@ -19,6 +19,7 @@ public static class HomeVisibilitySql
             $"COALESCE({curatorStateSql}, '') NOT IN ('rejected', 'provisional')",
             $"({PendingReviewExclusion(workIdSql)} OR {PresentedAssetExistsPredicate(workIdSql)})",
             $"({LatestNeedsReviewStateExclusion(workIdSql)} OR {PresentedAssetExistsPredicate(workIdSql)})",
+            LatestTerminalIdentityStateExclusion(workIdSql),
             VisibleAssetExistsPredicate(workIdSql),
         };
 
@@ -32,9 +33,16 @@ public static class HomeVisibilitySql
         NOT EXISTS (
             SELECT 1
             FROM review_queue rq
-            INNER JOIN media_assets ma_r ON ma_r.id = rq.entity_id
-            INNER JOIN editions e_r ON e_r.id = ma_r.edition_id
-            WHERE e_r.work_id = {workIdSql}
+            WHERE (
+                    rq.entity_id = {workIdSql}
+                    OR EXISTS (
+                        SELECT 1
+                        FROM media_assets ma_r
+                        INNER JOIN editions e_r ON e_r.id = ma_r.edition_id
+                        WHERE ma_r.id = rq.entity_id
+                          AND e_r.work_id = {workIdSql}
+                    )
+              )
               AND rq.status = 'Pending'
               AND rq.trigger != 'WritebackFailed'
         )
@@ -52,6 +60,20 @@ public static class HomeVisibilitySql
                 ij.created_at DESC
             LIMIT 1
         ), '') NOT IN ('QidNeedsReview', 'RetailMatchedNeedsReview')
+        """;
+
+    public static string LatestTerminalIdentityStateExclusion(string workIdSql) => $"""
+        COALESCE((
+            SELECT ij.state
+            FROM identity_jobs ij
+            INNER JOIN media_assets ma_j ON ma_j.id = ij.entity_id
+            INNER JOIN editions e_j ON e_j.id = ma_j.edition_id
+            WHERE e_j.work_id = {workIdSql}
+            ORDER BY
+                COALESCE(ij.updated_at, ij.created_at) DESC,
+                ij.created_at DESC
+            LIMIT 1
+        ), '') NOT IN ('RetailNoMatch', 'Failed')
         """;
 
     public static string VisibleAssetExistsPredicate(string workIdSql) => $"""

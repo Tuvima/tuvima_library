@@ -170,6 +170,23 @@ public class ClaimScopeCatalogTests
             ClaimScopeCatalog.GetScope(MetadataFieldConstants.Title, MediaType.Comics));
     }
 
+    [Theory]
+    [InlineData(MetadataFieldConstants.IssueTitle)]
+    [InlineData(MetadataFieldConstants.IssueDescription)]
+    [InlineData(MetadataFieldConstants.IssueSourceUrl)]
+    public void Comics_IssueScopedMetadata_RoutesToSelf(string claimKey)
+    {
+        Assert.Equal(ClaimScope.Self,
+            ClaimScopeCatalog.GetScope(claimKey, MediaType.Comics));
+    }
+
+    [Fact]
+    public void Comics_GenericDescription_RoutesToParent()
+    {
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope(MetadataFieldConstants.Description, MediaType.Comics));
+    }
+
     [Fact]
     public void Comics_ComicVineId_RoutesToIssue()
     {

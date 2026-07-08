@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Display;
@@ -15,7 +16,9 @@ public sealed class DisplayJourneyProjectionReader
     public async Task<IReadOnlyList<DisplayJourneyRow>> LoadAsync(string? lane, CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
-        var sql = """
+        var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var sql = $"""
             SELECT
                 us.asset_id AS AssetId,
                 w.id AS WorkId,
@@ -195,6 +198,9 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN canonical_values cv_track_a ON cv_track_a.entity_id = ma.id AND cv_track_a.key = 'track_number'
             LEFT JOIN canonical_values cv_accent_w ON cv_accent_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_accent_w.key = 'artwork_accent_hex'
             WHERE us.progress_pct > 0 AND us.progress_pct < 99.5
+              AND w.work_kind != 'parent'
+              AND {visibleWorkPredicate}
+              AND {visibleAssetPredicate}
             GROUP BY us.asset_id
             ORDER BY us.last_accessed DESC;
             """;

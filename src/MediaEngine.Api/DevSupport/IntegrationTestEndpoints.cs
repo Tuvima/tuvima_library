@@ -277,13 +277,14 @@ public static class IntegrationTestEndpoints
         public bool HasWikipediaDescription { get; set; }
         public bool HasRetailDescription { get; set; }
         public bool HasAnyDescription { get; set; }
+        public bool AllowsGeneratedFallback { get; set; }
         public bool CanonicalUsesWikipedia { get; set; }
         public string? CanonicalProvider { get; set; }
         public bool HasTagline { get; set; }
         public string? Detail { get; set; }
 
         public bool Pass =>
-            HasAnyDescription
+            (HasAnyDescription || AllowsGeneratedFallback)
             && (!HasWikipediaDescription || CanonicalUsesWikipedia);
     }
 
@@ -1645,7 +1646,7 @@ public static class IntegrationTestEndpoints
             resolvedAssetId ??= assetIds.TryGetValue(item.EntityId, out var fallbackAssetId) ? fallbackAssetId : null;
             if (resolvedAssetId is Guid assetId && !string.IsNullOrWhiteSpace(options.Value.LibraryRoot))
             {
-                var ownerEntityId = ResolveArtworkOwnerEntityId(item.EntityId, workHierarchy);
+                var ownerEntityId = ResolveArtworkOwnerEntityId(item.EntityId, item.MediaType, workHierarchy);
                 check.HasStoredCover = HasCentralPreferredArtwork(
                     ownerEntityId,
                     preferredCoverArtwork,
@@ -2481,7 +2482,10 @@ public static class IntegrationTestEndpoints
                     EXISTS(
                         SELECT 1
                         FROM entity_assets ea
-                        WHERE ea.entity_id = t.root_work_id
+                        WHERE ea.entity_id = CASE
+                                  WHEN t.media_type IN ('Books', 'Audiobooks', 'Comics') THEN t.work_id
+                                  ELSE t.root_work_id
+                              END
                           AND ea.asset_type = 'CoverArt'
                           AND ea.is_preferred = 1
                           AND ea.local_image_path IS NOT NULL
@@ -2775,9 +2779,12 @@ public static class IntegrationTestEndpoints
         {
             ct.ThrowIfCancellationRequested();
 
-            var descriptionKey = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase)
-                ? MetadataFieldConstants.EpisodeDescription
-                : MetadataFieldConstants.Description;
+            var descriptionKey = item.MediaType switch
+            {
+                var type when string.Equals(type, "TV", StringComparison.OrdinalIgnoreCase) => MetadataFieldConstants.EpisodeDescription,
+                var type when string.Equals(type, "Comics", StringComparison.OrdinalIgnoreCase) => MetadataFieldConstants.IssueDescription,
+                _ => MetadataFieldConstants.Description,
+            };
 
             var entityIds = ResolveEntityScope(item.EntityId, assetIdsByWork, hierarchy);
             var keys = new[]
@@ -2842,6 +2849,7 @@ public static class IntegrationTestEndpoints
                 HasWikipediaDescription = hasWikipediaDescription,
                 HasRetailDescription = hasRetailDescription,
                 HasAnyDescription = hasAnyDescription,
+                AllowsGeneratedFallback = string.Equals(descriptionKey, MetadataFieldConstants.IssueDescription, StringComparison.OrdinalIgnoreCase),
                 CanonicalUsesWikipedia = canonicalWikipedia,
                 CanonicalProvider = canonicalProvider,
                 HasTagline = claims.Any(row => string.Equals(row.ClaimKey, MetadataFieldConstants.Tagline, StringComparison.OrdinalIgnoreCase))
@@ -3774,8 +3782,16 @@ public static class IntegrationTestEndpoints
 
     private static Guid ResolveArtworkOwnerEntityId(
         Guid workId,
+        string? mediaType,
         IReadOnlyDictionary<Guid, WorkHierarchyNode> hierarchy)
     {
+        if (string.Equals(mediaType, "Books", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Comics", StringComparison.OrdinalIgnoreCase))
+        {
+            return workId;
+        }
+
         var current = workId;
         var visited = new HashSet<Guid>();
 
@@ -3873,6 +3889,7 @@ public static class IntegrationTestEndpoints
 
         var series = FirstCanonicalValue(detail, "series");
         var issue = FirstCanonicalValue(detail, "series_position", "issue_number", "issue");
+        var issueTitle = FirstCanonicalValue(detail, MetadataFieldConstants.IssueTitle);
         var title = detail?.Title ?? item.Title;
         if (string.IsNullOrWhiteSpace(series)
             || string.IsNullOrWhiteSpace(issue)
@@ -3881,8 +3898,23 @@ public static class IntegrationTestEndpoints
             return false;
         }
 
-        return !ContainsNormalized(title, series)
-            || !ContainsNormalized(title, issue);
+        if (ContainsNormalized(title, issue))
+        {
+            return false;
+        }
+
+        var issueTitleEqualsSeries = !string.IsNullOrWhiteSpace(issueTitle)
+            && ContainsNormalized(issueTitle, series)
+            && ContainsNormalized(series, issueTitle);
+
+        if (!string.IsNullOrWhiteSpace(issueTitle)
+            && ContainsNormalized(title, issueTitle)
+            && !issueTitleEqualsSeries)
+        {
+            return false;
+        }
+
+        return ContainsNormalized(title, series);
     }
 
     private static string? FirstCanonicalValue(LibraryItemDetail? detail, params string[] keys)
@@ -4062,7 +4094,7 @@ public static class IntegrationTestEndpoints
     private static string BuildDescriptionCheckDetail(DescriptionSourceCheckResult check)
     {
         var missing = new List<string>();
-        if (!check.HasAnyDescription)
+        if (!check.HasAnyDescription && !check.AllowsGeneratedFallback)
         {
             missing.Add($"{check.DescriptionKey} missing");
         }

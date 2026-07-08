@@ -79,13 +79,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
         if (!string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(candidateTitle))
         {
-            titleScore = comicIssueIdentityMatches && fileTitleIsComicIssueLabel
+            titleScore = comicIssueIdentityMatches
                 ? 1.0
                 : AreEquivalentComparableText(fileTitle, candidateTitle)
                 ? 1.0
                 : _fuzzy.ComputeTokenSetRatio(fileTitle, candidateTitle);
         }
-        else if (comicIssueIdentityMatches && fileTitleIsComicIssueLabel)
+        else if (comicIssueIdentityMatches)
         {
             titleScore = 1.0;
         }

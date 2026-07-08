@@ -27,7 +27,7 @@ public sealed class RetailRequestBuilder
     }
 
     public string BuildTmdbTvDetailsUrl(string tvId, string apiKey, string language, string country)
-        => $"https://api.themoviedb.org/3/tv/{tvId}?language={language}-{country}&append_to_response=content_ratings&api_key={apiKey}";
+        => $"https://api.themoviedb.org/3/tv/{tvId}?language={language}-{country}&append_to_response=aggregate_credits,content_ratings&api_key={apiKey}";
 
     public string BuildTmdbSeasonUrl(string tvId, int seasonNumber, string apiKey, string language, string country)
         => $"https://api.themoviedb.org/3/tv/{tvId}/season/{seasonNumber}?language={language}-{country}&api_key={apiKey}";

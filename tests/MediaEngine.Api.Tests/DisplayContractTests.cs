@@ -178,6 +178,18 @@ public sealed class DisplayContractTests
         Assert.Contains("COALESCE(cv_cover_a.value, cv_cover_item.value, cv_cover_w.value) AS CoverUrl", journeyProjection, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DisplayProjections_UseSharedVisibilityRulesForCatalogAndContinueRows()
+    {
+        var workProjection = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayWorkProjectionReader.cs"));
+        var journeyProjection = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayJourneyProjectionReader.cs"));
+
+        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", workProjection, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", journeyProjection, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", workProjection, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", journeyProjection, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

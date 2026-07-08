@@ -147,6 +147,34 @@ public sealed class RetailParityTests
         Assert.True(score.CompositeScore >= 0.95);
     }
 
+    [Fact]
+    public void ScoreCandidate_ComicExactSeriesIssueDoesNotRequireIssueTitleWording()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "Batman: Year One Part 1",
+            [MetadataFieldConstants.Series] = "Batman",
+            [MetadataFieldConstants.SeriesPosition] = "404",
+            [MetadataFieldConstants.Year] = "1987",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "Who I am, How I Came To Be.",
+            candidateAuthor: null,
+            candidateYear: "1987",
+            mediaType: MediaType.Comics,
+            extendedMetadata: new CandidateExtendedMetadata
+            {
+                Series = "Batman",
+                IssueNumber = "404",
+            },
+            structuralBonus: 0.35);
+
+        Assert.Equal(1.0, score.TitleScore);
+        Assert.True(score.CompositeScore >= 0.90);
+    }
+
     public static IEnumerable<object?[]> Fixtures()
     {
         // Books — title + author + year

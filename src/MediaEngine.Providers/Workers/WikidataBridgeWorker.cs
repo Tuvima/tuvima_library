@@ -431,6 +431,8 @@ public sealed class WikidataBridgeWorker
                         MetadataFieldConstants.QidResolutionMethod, canonicalMethod, 1.0));
                 }
 
+                MarkComicTextResolvedQidAsSeriesScope(ctx);
+
                 // Music tracks: ResolveMusicAlbumAsync returns the album QID but
                 // doesn't always emit it as a wikidata_qid claim — without this
                 // the track stalls because nothing downstream sees a resolved QID
@@ -444,6 +446,8 @@ public sealed class WikidataBridgeWorker
                         BridgeIdKeys.WikidataQid, ctx.ResolvedQid, 0.95));
                 }
             }
+
+            await TryResolveComicSeriesRollupsAsync(contexts, reconAdapter, ct).ConfigureAwait(false);
 
             // ── Phase 5 summary ───────────────────────────────────────────────────
             {
@@ -615,6 +619,7 @@ public sealed class WikidataBridgeWorker
             {
                 "music_album"        => (0.95, true),
                 "bridge_id"          => (1.0,  true),
+                "comic_series_rollup" => (0.90, true),
                 _                    => (0.75, false)
             };
 
@@ -740,6 +745,8 @@ public sealed class WikidataBridgeWorker
 
                 await _postPipeline.EvaluateAndOrganizeAsync(
                     job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
+                await _coverArt.DownloadAndPersistAsync(job.EntityId, ctx.ResolvedQid, ct)
+                    .ConfigureAwait(false);
                 await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
                 return;
             }
@@ -824,6 +831,8 @@ public sealed class WikidataBridgeWorker
 
             await _postPipeline.EvaluateAndOrganizeAsync(
                 job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
+            await _coverArt.DownloadAndPersistAsync(job.EntityId, ctx.ResolvedQid, ct)
+                .ConfigureAwait(false);
             await TryMergeReadWorkIdentitiesAsync(ctx.MediaType, ct).ConfigureAwait(false);
             await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);
         }
@@ -841,6 +850,138 @@ public sealed class WikidataBridgeWorker
                 "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity without review [entity {EntityId}]",
                 ctx.TitleHint ?? "(unknown)", ctx.MediaType, ctx.BridgeIds.Count, job.EntityId);
         }
+    }
+
+    private async Task TryResolveComicSeriesRollupsAsync(
+        IEnumerable<JobContext> contexts,
+        ReconciliationAdapter reconAdapter,
+        CancellationToken ct)
+    {
+        foreach (var ctx in contexts)
+            await TryResolveComicSeriesRollupAsync(ctx, reconAdapter, ct).ConfigureAwait(false);
+    }
+
+    private async Task TryResolveComicSeriesRollupAsync(
+        JobContext ctx,
+        ReconciliationAdapter reconAdapter,
+        CancellationToken ct)
+    {
+        if (!ShouldAttemptComicSeriesRollup(ctx))
+            return;
+
+        try
+        {
+            var result = await reconAdapter.ResolveAsync(
+                new WikidataResolveRequest
+                {
+                    CorrelationKey     = $"{ctx.Job.Id}:comic-series-rollup",
+                    MediaType          = MediaType.Comics,
+                    Strategy           = ResolveStrategy.Auto,
+                    BridgeIds          = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                    WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                    IsEditionAware     = false,
+                    AllowConstrainedTextFallback = true,
+                    Title              = ctx.SeriesHint,
+                    Author             = ctx.AuthorHint,
+                    Year               = null,
+                    FileLanguage       = ctx.LanguageHint,
+                    SeriesTitle        = ctx.SeriesHint,
+                    IssueNumber        = null,
+                },
+                ct).ConfigureAwait(false);
+
+            if (!result.Found)
+                return;
+
+            var qid = result.WorkQid ?? result.Qid;
+            if (string.IsNullOrWhiteSpace(qid))
+                return;
+
+            ctx.ResolvedQid = qid;
+            ctx.MatchedBy = "comic_series_rollup";
+            ctx.PrimaryBridgeIdType =
+                ctx.BridgeIds.FirstOrDefault(entry =>
+                    string.Equals(entry.IdType, BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase))?.IdType
+                ?? ctx.BridgeIds.FirstOrDefault(entry =>
+                    string.Equals(entry.IdType, BridgeIdKeys.ComicVineId, StringComparison.OrdinalIgnoreCase))?.IdType;
+            ctx.AdditionalClaims.AddRange(result.Claims);
+            AddDistinctAdditionalClaim(ctx, BridgeIdKeys.WikidataQid, qid, 0.9);
+            AddDistinctAdditionalClaim(ctx, MetadataFieldConstants.WikidataQidScope, "series", 0.95);
+            AddDistinctAdditionalClaim(ctx, MetadataFieldConstants.QidResolutionMethod, "comic_series_rollup", 0.95);
+            ctx.CollectedBridgeIds = result.CollectedBridgeIds;
+
+            _logger.LogInformation(
+                "Wikidata: rolled comic issue '{Title}' up to series/run QID {Qid} using trusted ComicVine run context [entity {EntityId}]",
+                ctx.TitleHint ?? ctx.SeriesHint ?? "(unknown)",
+                qid,
+                ctx.Job.EntityId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(
+                ex,
+                "Wikidata: comic series rollup failed for entity {EntityId} ({Series})",
+                ctx.Job.EntityId,
+                ctx.SeriesHint);
+        }
+    }
+
+    private static bool ShouldAttemptComicSeriesRollup(JobContext ctx)
+    {
+        if (ctx.MediaType != MediaType.Comics
+            || !string.IsNullOrWhiteSpace(ctx.ResolvedQid)
+            || string.IsNullOrWhiteSpace(ctx.SeriesHint)
+            || !string.Equals(ctx.Job.State, IdentityJobState.RetailMatched.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return ctx.BridgeIds.Any(entry =>
+            string.Equals(entry.IdType, BridgeIdKeys.ComicVineId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(entry.IdType, BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void MarkComicTextResolvedQidAsSeriesScope(JobContext ctx)
+    {
+        if (ctx.MediaType != MediaType.Comics
+            || !string.Equals(ctx.MatchedBy, "retail_text", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(ctx.ResolvedQid)
+            || string.IsNullOrWhiteSpace(ctx.SeriesHint)
+            || !ctx.BridgeIds.Any(entry =>
+                string.Equals(entry.IdType, BridgeIdKeys.ComicVineId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(entry.IdType, BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        ctx.MatchedBy = "comic_series_rollup";
+        ctx.PrimaryBridgeIdType ??=
+            ctx.BridgeIds.FirstOrDefault(entry =>
+                string.Equals(entry.IdType, BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase))?.IdType
+            ?? ctx.BridgeIds.FirstOrDefault(entry =>
+                string.Equals(entry.IdType, BridgeIdKeys.ComicVineId, StringComparison.OrdinalIgnoreCase))?.IdType;
+
+        ctx.AdditionalClaims.RemoveAll(claim =>
+            string.Equals(claim.Key, MetadataFieldConstants.QidResolutionMethod, StringComparison.OrdinalIgnoreCase));
+        AddDistinctAdditionalClaim(ctx, BridgeIdKeys.WikidataQid, ctx.ResolvedQid, 0.95);
+        AddDistinctAdditionalClaim(ctx, MetadataFieldConstants.WikidataQidScope, "series", 0.95);
+        AddDistinctAdditionalClaim(ctx, MetadataFieldConstants.QidResolutionMethod, "comic_series_rollup", 1.0);
+    }
+
+    private static void AddDistinctAdditionalClaim(
+        JobContext ctx,
+        string key,
+        string value,
+        double confidence)
+    {
+        if (ctx.AdditionalClaims.Any(claim =>
+            string.Equals(claim.Key, key, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(claim.Value, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        ctx.AdditionalClaims.Add(new ProviderClaim(key, value, confidence));
     }
 
     private async Task TryMergeReadWorkIdentitiesAsync(MediaType mediaType, CancellationToken ct)
@@ -1072,6 +1213,8 @@ public sealed class WikidataBridgeWorker
                         MetadataFieldConstants.QidResolutionMethod, canonicalMethod, 1.0));
                 }
 
+                MarkComicTextResolvedQidAsSeriesScope(ctx);
+
                 // Music tracks: ensure the album QID is also persisted as a
                 // wikidata_qid claim on the track asset (see PollAsync Phase 5).
                 if (result.MatchedBy == ResolveStrategy.MusicAlbum
@@ -1088,6 +1231,8 @@ public sealed class WikidataBridgeWorker
         {
             _logger.LogWarning(ex, "ResolveAsync failed for entity {EntityId}", job.EntityId);
         }
+
+        await TryResolveComicSeriesRollupAsync(ctx, reconAdapter, ct).ConfigureAwait(false);
 
         var allCandidates = new List<WikidataBridgeCandidate>();
         await FinaliseJobAsync(ctx, reconAdapter, allCandidates, ct);

@@ -14,6 +14,7 @@ public sealed class DetailPageViewModel
     public DescriptionAttributionViewModel? DescriptionAttribution { get; init; }
     public IReadOnlyList<ExternalSourceLinkViewModel> SourceLinks { get; init; } = [];
     public PersonDetailFacts? PersonDetails { get; init; }
+    public DetailFactsViewModel? Facts { get; init; }
 
     public ArtworkSet Artwork { get; init; } = new();
     public HeroBrandViewModel? HeroBrand { get; init; }
@@ -72,6 +73,56 @@ public sealed class ExternalSourceLinkViewModel
     public string Url { get; init; } = string.Empty;
     public string SourceName { get; init; } = string.Empty;
     public string? Tooltip { get; init; }
+}
+
+public sealed class DetailFactsViewModel
+{
+    public string? MediaKind { get; init; }
+    public string? Year { get; init; }
+    public string? ReleaseDate { get; init; }
+    public string? Rating { get; init; }
+    public string? ContentRating { get; init; }
+    public string? Runtime { get; init; }
+    public string? Duration { get; init; }
+    public string? Language { get; init; }
+    public IReadOnlyList<string> Genres { get; init; } = [];
+    public IReadOnlyDictionary<string, string> Identifiers { get; init; } = new Dictionary<string, string>();
+
+    public IReadOnlyList<string> Authors { get; init; } = [];
+    public IReadOnlyList<string> Artists { get; init; } = [];
+    public IReadOnlyList<string> AlbumArtists { get; init; } = [];
+    public IReadOnlyList<string> Actors { get; init; } = [];
+    public IReadOnlyList<string> Directors { get; init; } = [];
+    public IReadOnlyList<string> Writers { get; init; } = [];
+    public IReadOnlyList<string> Composers { get; init; } = [];
+    public IReadOnlyList<string> Narrators { get; init; } = [];
+    public IReadOnlyList<string> Illustrators { get; init; } = [];
+    public IReadOnlyList<string> Producers { get; init; } = [];
+
+    public string? ShowName { get; init; }
+    public string? SeasonNumber { get; init; }
+    public string? EpisodeNumber { get; init; }
+    public string? EpisodeTitle { get; init; }
+    public string? Network { get; init; }
+    public string? SeasonCount { get; init; }
+    public string? EpisodeCount { get; init; }
+
+    public string? Album { get; init; }
+    public string? AlbumArtist { get; init; }
+    public string? TrackNumber { get; init; }
+    public string? TrackCount { get; init; }
+    public string? DiscNumber { get; init; }
+    public string? DiscCount { get; init; }
+    public string? Isrc { get; init; }
+    public string? Label { get; init; }
+    public bool? IsExplicit { get; init; }
+
+    public string? Series { get; init; }
+    public string? SeriesPosition { get; init; }
+    public string? IssueNumber { get; init; }
+    public string? IssueTitle { get; init; }
+    public string? Publisher { get; init; }
+    public string? PageCount { get; init; }
 }
 
 public enum DetailEntityType

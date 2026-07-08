@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Models;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
@@ -209,6 +210,64 @@ public class ComicProcessorTests
         }
     }
 
+    [Fact]
+    public async Task ProcessAsync_ComicInfoWithSeriesAndNumber_EmitsIssueScopedTitleAndDescription()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"comic_processor_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var issue = Path.Combine(dir, "Batman 405.cbz");
+        var cover = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02, 0xFF, 0xD9 };
+
+        try
+        {
+            CreateComicArchive(issue, "Year One, Chapter Two: War Is Declared", "Batman", 405, cover);
+
+            var processor = new ComicProcessor();
+            var result = await processor.ProcessAsync(issue);
+
+            Assert.Contains(result.Claims, claim => claim.Key == MetadataFieldConstants.Title
+                && claim.Value == "Year One, Chapter Two: War Is Declared");
+            Assert.Contains(result.Claims, claim => claim.Key == MetadataFieldConstants.IssueTitle
+                && claim.Value == "Year One, Chapter Two: War Is Declared");
+            Assert.Contains(result.Claims, claim => claim.Key == MetadataFieldConstants.Description
+                && claim.Value == "Summary for Year One, Chapter Two: War Is Declared");
+            Assert.Contains(result.Claims, claim => claim.Key == MetadataFieldConstants.IssueDescription
+                && claim.Value == "Summary for Year One, Chapter Two: War Is Declared");
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(dir);
+        }
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ComicInfoWithoutIssueIdentity_KeepsGenericTitleAndDescription()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"comic_processor_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var issue = Path.Combine(dir, "Standalone.cbz");
+        var cover = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02, 0xFF, 0xD9 };
+
+        try
+        {
+            CreateStandaloneComicArchive(issue, "Standalone Story", "Standalone summary", cover);
+
+            var processor = new ComicProcessor();
+            var result = await processor.ProcessAsync(issue);
+
+            Assert.Contains(result.Claims, claim => claim.Key == MetadataFieldConstants.Title
+                && claim.Value == "Standalone Story");
+            Assert.Contains(result.Claims, claim => claim.Key == MetadataFieldConstants.Description
+                && claim.Value == "Standalone summary");
+            Assert.DoesNotContain(result.Claims, claim => claim.Key == MetadataFieldConstants.IssueTitle);
+            Assert.DoesNotContain(result.Claims, claim => claim.Key == MetadataFieldConstants.IssueDescription);
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(dir);
+        }
+    }
+
     private static void CreateComicArchive(string path, string title, string series, int number, byte[] cover)
     {
         using var file = File.Create(path);
@@ -226,6 +285,28 @@ public class ComicProcessorTests
               <Title>{title}</Title>
               <Series>{series}</Series>
               <Number>{number}</Number>
+              <Summary>Summary for {title}</Summary>
+              <PageCount>1</PageCount>
+            </ComicInfo>
+            """);
+    }
+
+    private static void CreateStandaloneComicArchive(string path, string title, string summary, byte[] cover)
+    {
+        using var file = File.Create(path);
+        using var archive = new ZipArchive(file, ZipArchiveMode.Create, leaveOpen: false);
+
+        var page = archive.CreateEntry("page_001.jpg", CompressionLevel.NoCompression);
+        using (var pageStream = page.Open())
+            pageStream.Write(cover);
+
+        var info = archive.CreateEntry("ComicInfo.xml", CompressionLevel.Fastest);
+        using var writer = new StreamWriter(info.Open(), Encoding.UTF8);
+        writer.Write($"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <ComicInfo>
+              <Title>{title}</Title>
+              <Summary>{summary}</Summary>
               <PageCount>1</PageCount>
             </ComicInfo>
             """);

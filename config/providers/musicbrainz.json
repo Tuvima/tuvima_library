@@ -1,22 +1,21 @@
 {
   "name": "musicbrainz",
   "version": "2.0",
-  "enabled": false,
+  "enabled": true,
   "weight": 0.7,
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
-  "capability_tags": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "track_number"],
-  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album", "track_number"],
+  "capability_tags": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_id", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "track_count", "isrc"],
+  "available_fields": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_id", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album", "track_count"],
   "field_weights": {
     "title": 0.8,
     "author": 0.8,
     "year": 0.85,
     "genre": 0.7,
-    "cover": 0.7,
     "musicbrainz_id": 1.0,
     "isrc": 0.9,
     "album": 0.75,
-    "track_number": 0.8
+    "track_count": 0.8
   },
   "endpoints": {
     "api": "https://musicbrainz.org/ws/2"
@@ -26,7 +25,7 @@
     "burst": 1,
     "max_concurrency": 1
   },
-  "hydration_stages": [1],
+  "hydration_stages": [3],
   "cache_ttl_hours": 168,
 
   "adapter_type": "config_driven",
@@ -46,7 +45,7 @@
   },
 
   "preferred_bridge_ids": {
-    "Music": ["musicbrainz_release_group_id", "musicbrainz_recording_id", "musicbrainz_id", "isrc"]
+    "Music": ["musicbrainz_release_group_id", "musicbrainz_recording_id", "musicbrainz_id", "musicbrainz_release_id", "isrc"]
   },
 
   "search_strategies": [
@@ -90,14 +89,15 @@
   "field_mappings": [
     { "claim_key": "title",          "json_path": "title",                     "confidence": 0.8,  "source": "recording" },
     { "claim_key": "author",         "json_path": "artist-credit[*].name",     "confidence": 0.8,  "source": "recording", "transform": "array_join" },
+    { "claim_key": "artist",         "json_path": "artist-credit[*].name",     "confidence": 0.84, "source": "recording", "transform": "array_join" },
+    { "claim_key": "album_artist",   "json_path": "artist-credit[*].name",     "confidence": 0.82, "source": "recording", "transform": "array_join" },
     { "claim_key": "album",          "json_path": "title",                     "confidence": 0.75, "source": "release" },
     { "claim_key": "year",           "json_path": "date",                      "confidence": 0.85, "source": "release",   "transform": "first_n_chars", "transform_args": "4" },
-    { "claim_key": "track_number",   "json_path": "track-count",               "confidence": 0.8,  "source": "release" },
-    { "claim_key": "musicbrainz_id", "json_path": "id",                        "confidence": 1.0,  "source": "release" },
+    { "claim_key": "track_count",    "json_path": "track-count",               "confidence": 0.8,  "source": "release" },
+    { "claim_key": "isrc",           "json_path": "isrcs[0]",                  "confidence": 0.92, "source": "recording" },
+    { "claim_key": "musicbrainz_id", "json_path": "release-group.id",          "confidence": 1.0,  "source": "release" },
+    { "claim_key": "musicbrainz_release_id", "json_path": "id",                "confidence": 1.0,  "source": "release" },
     { "claim_key": "musicbrainz_recording_id", "json_path": "id",               "confidence": 1.0, "source": "recording" },
-    { "claim_key": "musicbrainz_release_group_id", "json_path": "release-group.id", "confidence": 1.0, "source": "release" },
-    { "claim_key": "cover",          "json_path": "id",                        "confidence": 0.7,  "source": "release",   "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250",
-      "condition": { "path": "cover-art-archive.artwork", "equals": true }
-    }
+    { "claim_key": "musicbrainz_release_group_id", "json_path": "release-group.id", "confidence": 1.0, "source": "release" }
   ]
 }

@@ -1419,6 +1419,9 @@ public sealed class RetailMatchWorker
         if (!string.IsNullOrWhiteSpace(rating))
             Add(MetadataFieldConstants.Rating, rating, 0.80);
 
+        AddTvEpisodeCrewClaims(claims, episode);
+        AddTvEpisodeGuestStarClaims(claims, episode);
+
         return claims;
     }
 
@@ -1449,8 +1452,152 @@ public sealed class RetailMatchWorker
         if (!string.IsNullOrWhiteSpace(firstAirDate) && firstAirDate.Length >= 4)
             Add(MetadataFieldConstants.Year, firstAirDate[..4], 0.85);
 
+        AddTvAggregateCastClaims(claims, showDetails);
+
         return claims;
     }
+
+    private static void AddTvAggregateCastClaims(List<ProviderClaim> claims, JsonNode? showDetails)
+    {
+        var castArray = showDetails?["aggregate_credits"]?["cast"]?.AsArray();
+        if (castArray is null)
+        {
+            return;
+        }
+
+        foreach (var castNode in castArray
+            .Where(node => node is not null)
+            .OrderBy(node => node?["order"]?.GetValue<int?>() ?? int.MaxValue)
+            .ThenByDescending(node => node?["total_episode_count"]?.GetValue<int?>() ?? 0)
+            .ThenBy(node => node?["name"]?.GetValue<string>() ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .Take(30))
+        {
+            var name = castNode?["name"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            claims.Add(new ProviderClaim(MetadataFieldConstants.CastMember, name, 0.90));
+            AddClaimIfPresent(claims, "cast_member_character", ExtractTmdbAggregateCharacterName(castNode), 0.90);
+            AddClaimIfPresent(claims, "cast_member_tmdb_id", castNode?["id"]?.ToString(), 0.92);
+            AddClaimIfPresent(claims, "cast_member_profile_url", BuildTmdbOriginalImageUrl(castNode?["profile_path"]?.GetValue<string>()), 0.90);
+        }
+    }
+
+    private static string? ExtractTmdbAggregateCharacterName(JsonNode? castNode)
+    {
+        var roles = castNode?["roles"]?.AsArray();
+        if (roles is null)
+        {
+            return null;
+        }
+
+        var names = roles
+            .Where(role => role is not null)
+            .OrderByDescending(role => role?["episode_count"]?.GetValue<int?>() ?? 0)
+            .Select(role => role?["character"]?.GetValue<string>())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+
+        return names.Count == 0 ? null : string.Join(" / ", names);
+    }
+
+    private static void AddTvEpisodeCrewClaims(List<ProviderClaim> claims, JsonNode episode)
+    {
+        var crew = episode["crew"]?.AsArray();
+        if (crew is null)
+        {
+            return;
+        }
+
+        foreach (var crewNode in crew.Where(node => node is not null))
+        {
+            var name = crewNode?["name"]?.GetValue<string>();
+            var key = ResolveEpisodeCrewClaimKey(crewNode);
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            claims.Add(new ProviderClaim(key, name, 0.88));
+            AddClaimIfPresent(claims, $"{key}_tmdb_id", crewNode?["id"]?.ToString(), 0.92);
+            AddClaimIfPresent(claims, $"{key}_profile_url", BuildTmdbOriginalImageUrl(crewNode?["profile_path"]?.GetValue<string>()), 0.90);
+        }
+    }
+
+    private static string? ResolveEpisodeCrewClaimKey(JsonNode? crewNode)
+    {
+        var job = crewNode?["job"]?.GetValue<string>() ?? string.Empty;
+        var department = crewNode?["department"]?.GetValue<string>() ?? string.Empty;
+
+        if (job.Contains("Director", StringComparison.OrdinalIgnoreCase))
+        {
+            return MetadataFieldConstants.Director;
+        }
+
+        if (job.Contains("Writer", StringComparison.OrdinalIgnoreCase)
+            || job.Contains("Screenplay", StringComparison.OrdinalIgnoreCase)
+            || job.Contains("Teleplay", StringComparison.OrdinalIgnoreCase)
+            || department.Equals("Writing", StringComparison.OrdinalIgnoreCase))
+        {
+            return MetadataFieldConstants.Screenwriter;
+        }
+
+        if (job.Contains("Producer", StringComparison.OrdinalIgnoreCase))
+        {
+            return "producer";
+        }
+
+        if (job.Contains("Composer", StringComparison.OrdinalIgnoreCase)
+            || job.Contains("Music", StringComparison.OrdinalIgnoreCase))
+        {
+            return MetadataFieldConstants.Composer;
+        }
+
+        return null;
+    }
+
+    private static void AddTvEpisodeGuestStarClaims(List<ProviderClaim> claims, JsonNode episode)
+    {
+        var guestStars = episode["guest_stars"]?.AsArray();
+        if (guestStars is null)
+        {
+            return;
+        }
+
+        foreach (var guestNode in guestStars
+            .Where(node => node is not null)
+            .OrderBy(node => node?["order"]?.GetValue<int?>() ?? int.MaxValue)
+            .Take(20))
+        {
+            var name = guestNode?["name"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            claims.Add(new ProviderClaim(MetadataFieldConstants.GuestStar, name, 0.88));
+            AddClaimIfPresent(claims, "guest_star_character", guestNode?["character"]?.GetValue<string>(), 0.88);
+            AddClaimIfPresent(claims, "guest_star_tmdb_id", guestNode?["id"]?.ToString(), 0.92);
+            AddClaimIfPresent(claims, "guest_star_profile_url", BuildTmdbOriginalImageUrl(guestNode?["profile_path"]?.GetValue<string>()), 0.90);
+        }
+    }
+
+    private static void AddClaimIfPresent(List<ProviderClaim> claims, string key, string? value, double confidence)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            claims.Add(new ProviderClaim(key, value, confidence));
+        }
+    }
+
+    private static string? BuildTmdbOriginalImageUrl(string? path)
+        => string.IsNullOrWhiteSpace(path)
+            ? null
+            : $"https://image.tmdb.org/t/p/original/{path.TrimStart('/')}";
 
     private static string? ExtractTmdbTvContentRating(JsonNode? showDetails)
     {

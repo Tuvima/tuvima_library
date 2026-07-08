@@ -46,6 +46,20 @@ public sealed class ContractJsonRoundTripTests
                     Tooltip = "Published in 1969",
                 },
             ],
+            Facts = new DetailFactsViewModel
+            {
+                MediaKind = "Book",
+                Year = "1969",
+                Rating = "4.8",
+                Genres = ["Science Fiction"],
+                Authors = ["Ursula K. Le Guin"],
+                Series = "Hainish Cycle",
+                PageCount = "304",
+                Identifiers = new Dictionary<string, string>
+                {
+                    ["wikidata_qid"] = "Q754868",
+                },
+            },
             PrimaryActions =
             [
                 new DetailAction
@@ -103,6 +117,9 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal("Chapter 8 of 50", roundTrip.Progress?.ContextLabel);
         Assert.Equal("8h 15m left", roundTrip.Progress?.RemainingLabel);
         Assert.Equal(dto.Metadata[0].Label, roundTrip.Metadata[0].Label);
+        Assert.Equal("Book", roundTrip.Facts?.MediaKind);
+        Assert.Equal("Ursula K. Le Guin", Assert.Single(roundTrip.Facts!.Authors));
+        Assert.Equal("Q754868", roundTrip.Facts.Identifiers["wikidata_qid"]);
         Assert.Equal(dto.OwnedFormats[0].FormatType, roundTrip.OwnedFormats[0].FormatType);
         Assert.Equal("asset-1", roundTrip.MediaGroups[0].Items[0].AssetId);
         Assert.Equal(12.5, roundTrip.MediaGroups[0].Items[0].StartSeconds);

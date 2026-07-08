@@ -70,10 +70,16 @@
         "apple_api"
       ],
       "genre": [
-        "apple_api"
+        "apple_api",
+        "musicbrainz"
       ],
       "album": [
-        "apple_api"
+        "apple_api",
+        "musicbrainz"
+      ],
+      "year": [
+        "apple_api",
+        "musicbrainz"
       ],
       "disc_number": [
         "apple_api"
@@ -85,7 +91,8 @@
         "apple_api"
       ],
       "track_count": [
-        "apple_api"
+        "apple_api",
+        "musicbrainz"
       ],
       "duration": [
         "apple_api"
@@ -227,6 +234,27 @@
         "wikidata_reconciliation"
       ],
       "issue_number": [
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "issue_title": [
+        "comicvine",
+        "local_processor"
+      ],
+      "issue_description": [
+        "comicvine",
+        "local_processor"
+      ],
+      "issue_source_url": [
+        "comicvine"
+      ],
+      "author": [
+        "local_processor",
+        "comicvine",
+        "wikidata_reconciliation"
+      ],
+      "illustrator": [
+        "local_processor",
         "comicvine",
         "wikidata_reconciliation"
       ],

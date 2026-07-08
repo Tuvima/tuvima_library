@@ -818,6 +818,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<MediaEngine.Api.Se
 builder.Services.AddHostedService<MediaEngine.Api.Services.RetailMatchHostedService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.WikidataBridgeHostedService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.QuickHydrationHostedService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.MusicBrainzEnrichmentHostedService>();
 
 // AI inference and feature services.
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();

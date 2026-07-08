@@ -77,6 +77,7 @@ The Dashboard is organized by user experience, not by a separate media managemen
 - **Collections** are broader rollups only when a shared series/franchise/universe relationship connects multiple shelves. Multiple formats of one work, such as ebook plus audiobook, are variants and do not create a collection by themselves. Home's Collections & Lists shelf is placement-driven and profile-aware; do not synthesize top-level series/franchise tiles there.
 - Ingestion must assign lane shelves even when Wikidata cannot resolve a QID, using the shared collection finalization path after quick hydration or retained-retail organization. Local/provider shelf identity is allowed for shelves; top-level Collections rollups still require trusted shared relationship rows.
 - Sequence placement must be structural and media-aware. Use `ordinal_sort`, immediate shelf identity, `sequence_total`, `sequence_total_scope`, and child identity keys for ordering and counts; never add runtime title-specific fixes for individual books, comics, movies, albums, or shows.
+- Comic issues may use a scoped series/run Wikidata QID when no issue-level Wikidata item exists. Store `wikidata_qid_scope = series` and `qid_resolution_method = comic_series_rollup`, label the source as series/run metadata in the UI, and keep issue titles/descriptions/cover art issue-scoped.
 - **Search** is cross-library discovery.
 - **Detail pages** are where users view an item and fix/edit that item inline.
 - **Review Queue** is only for blocked, uncertain, or low-confidence items that need human confirmation.

@@ -64,9 +64,13 @@ public sealed class CoverArtWorker
     {
         var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
         var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+        var ownerEntityId = ResolveCoverOwnerEntityId(entityId, lineage);
 
         // Find cover URL from the asset's own canonicals.
-        var coverUrl = FindCoverUrl(canonicals);
+        var coverLookup = await FindCoverUrlWithLineageAsync(entityId, canonicals, lineage, ct)
+            .ConfigureAwait(false);
+        var coverUrl = coverLookup.Url;
+        var coverSourceCanonicals = coverLookup.Canonicals;
 
         // Parent-scope fallback. For TV / Movies / Music,
         // ClaimScopeCatalog routes `cover` and `cover_url` to ClaimScope.Parent,
@@ -101,7 +105,7 @@ public sealed class CoverArtWorker
 
         if (string.IsNullOrEmpty(coverUrl))
         {
-            await MarkCoverMissingAsync(entityId, "none", ct);
+            await MarkCoverMissingAsync(ownerEntityId, "none", ct);
             _logger.LogDebug("No cover URL found for entity {EntityId}", entityId);
             return;
         }
@@ -118,7 +122,6 @@ public sealed class CoverArtWorker
 
         // Look up the asset's current file path. The lookup is cheap (single
         // row by id) and is the gate that decides "per-file" vs "legacy".
-        var ownerEntityId = ResolveCoverOwnerEntityId(entityId, lineage);
         var existingCoverVariant = await FindExistingCoverVariantAsync(ownerEntityId, coverUrl, ct);
         var coverVariantId = existingCoverVariant?.Id ?? Guid.NewGuid();
         var coverExtension = InferImageExtension(coverUrl, "CoverArt");
@@ -133,13 +136,13 @@ public sealed class CoverArtWorker
                 coverVariantId,
                 coverUrl,
                 coverPath,
-                InferCoverSource(canonicals, coverUrl),
+                InferCoverSource(coverSourceCanonicals, coverUrl),
                 ct);
             await _canonicalRepo.UpsertBatchAsync(
                 BuildCoverCanonicals(
                     ownerEntityId,
                     existingVariant,
-                    InferCoverSource(canonicals, coverUrl)),
+                    InferCoverSource(coverSourceCanonicals, coverUrl)),
                 ct);
             if (existingVariant is not null && _assetExportService is not null)
                 await _assetExportService.ReconcileArtworkAsync(existingVariant.EntityId, existingVariant.EntityType, existingVariant.AssetTypeValue, ct);
@@ -223,12 +226,13 @@ public sealed class CoverArtWorker
             }
         }
 
-        var coverVariant = await EnsureCoverVariantAsync(ownerEntityId, coverVariantId, coverUrl, coverPath, "provider", ct);
+        var coverSource = InferCoverSource(coverSourceCanonicals, coverUrl);
+        var coverVariant = await EnsureCoverVariantAsync(ownerEntityId, coverVariantId, coverUrl, coverPath, coverSource, ct);
         await _canonicalRepo.UpsertBatchAsync(
             BuildCoverCanonicals(
                 ownerEntityId,
                 coverVariant,
-                "provider"),
+                coverSource),
             ct);
         if (coverVariant is not null && _assetExportService is not null)
             await _assetExportService.ReconcileArtworkAsync(coverVariant.EntityId, coverVariant.EntityType, coverVariant.AssetTypeValue, ct);
@@ -271,6 +275,63 @@ public sealed class CoverArtWorker
     /// Finds the first HTTP(S) cover URL in a list of canonical values,
     /// checking <c>cover</c> (provider poster) first and falling back to <c>cover_url</c>.
     /// </summary>
+    private async Task<CoverLookupResult> FindCoverUrlWithLineageAsync(
+        Guid entityId,
+        IReadOnlyList<CanonicalValue> entityCanonicals,
+        WorkLineage? lineage,
+        CancellationToken ct)
+    {
+        var candidates = new List<(Guid EntityId, IReadOnlyList<CanonicalValue> Canonicals)>
+        {
+            (entityId, entityCanonicals)
+        };
+
+        if (lineage is not null)
+        {
+            foreach (var candidateId in new[]
+                     {
+                         lineage.TargetForSelfScope,
+                         lineage.TargetForParentScope,
+                         lineage.RootParentWorkId
+                     }
+                         .Where(id => id != entityId)
+                         .Distinct())
+            {
+                try
+                {
+                    candidates.Add((candidateId, await _canonicalRepo.GetByEntityAsync(candidateId, ct)
+                        .ConfigureAwait(false)));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(
+                        ex,
+                        "Cover art: scoped canonical lookup failed for entity {EntityId}; continuing with other scopes",
+                        candidateId);
+                }
+            }
+        }
+
+        foreach (var candidate in candidates)
+        {
+            var url = FindCoverUrl(candidate.Canonicals);
+            if (string.IsNullOrWhiteSpace(url))
+                continue;
+
+            if (candidate.EntityId != entityId)
+            {
+                _logger.LogDebug(
+                    "Cover art: asset {EntityId} had no downloadable cover canonical; using scoped entity {SourceEntityId} cover URL",
+                    entityId,
+                    candidate.EntityId);
+            }
+
+            return new CoverLookupResult(url, candidate.Canonicals);
+        }
+
+        return new CoverLookupResult(null, entityCanonicals);
+    }
+
     private static string? FindCoverUrl(IReadOnlyList<CanonicalValue> canonicals)
     {
         // Prefer the provider poster URL (cover) over local streaming URLs (cover_url).
@@ -310,6 +371,8 @@ public sealed class CoverArtWorker
 
         return "existing";
     }
+
+    private sealed record CoverLookupResult(string? Url, IReadOnlyList<CanonicalValue> Canonicals);
 
     private static Guid ResolveCoverOwnerEntityId(Guid entityId, WorkLineage? lineage)
     {

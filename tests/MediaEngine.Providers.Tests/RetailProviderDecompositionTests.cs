@@ -37,10 +37,24 @@ public sealed class RetailProviderDecompositionTests
 
         Assert.Equal("https://api.themoviedb.org/3/search/tv?query=Shogun&include_adult=false&language=en-US&page=1&api_key=key&first_air_date_year=2024", search);
         Assert.Equal("https://api.themoviedb.org/3/search/tv?query=Shogun&include_adult=false&language=en-US&page=1&api_key=key", unfiltered);
-        Assert.Equal("https://api.themoviedb.org/3/tv/456?language=en-US&append_to_response=content_ratings&api_key=key", details);
+        Assert.Equal("https://api.themoviedb.org/3/tv/456?language=en-US&append_to_response=aggregate_credits,content_ratings&api_key=key", details);
         Assert.Equal("https://api.themoviedb.org/3/tv/456/season/2?language=en-US&api_key=key", season);
         Assert.Equal("https://image.tmdb.org/t/p/w500/path.jpg", RetailRequestBuilder.BuildTmdbImageUrl("/path.jpg"));
         Assert.Equal("https://cdn.example/image.png", RetailRequestBuilder.BuildTmdbImageUrl("https://cdn.example/image.png"));
+    }
+
+    [Fact]
+    public void RetailMatchWorker_GroupedTvPathMapsAggregateCastAndEpisodeCrew()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/RetailMatchWorker.cs"));
+
+        Assert.Contains("AddTvAggregateCastClaims(claims, showDetails)", source, StringComparison.Ordinal);
+        Assert.Contains("\"aggregate_credits\"", source, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.CastMember", source, StringComparison.Ordinal);
+        Assert.Contains("\"cast_member_character\"", source, StringComparison.Ordinal);
+        Assert.Contains("AddTvEpisodeCrewClaims(claims, episode)", source, StringComparison.Ordinal);
+        Assert.Contains("AddTvEpisodeGuestStarClaims(claims, episode)", source, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.GuestStar", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -292,6 +306,17 @@ public sealed class RetailProviderDecompositionTests
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
+
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+    }
 
     private sealed class RoutingHttpClientFactory : IHttpClientFactory
     {

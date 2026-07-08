@@ -22,10 +22,12 @@ public sealed class HomeVisibilitySqlTests
 
         Assert.Contains("NOT IN ('rejected', 'provisional')", predicate, StringComparison.Ordinal);
         Assert.Contains("FROM review_queue rq", predicate, StringComparison.Ordinal);
+        Assert.Contains("rq.entity_id = w.id", predicate, StringComparison.Ordinal);
         Assert.Contains("rq.status = 'Pending'", predicate, StringComparison.Ordinal);
         Assert.Contains("rq.trigger != 'WritebackFailed'", predicate, StringComparison.Ordinal);
         Assert.Contains("FROM identity_jobs ij", predicate, StringComparison.Ordinal);
         Assert.Contains("'QidNeedsReview', 'RetailMatchedNeedsReview'", predicate, StringComparison.Ordinal);
+        Assert.Contains("'RetailNoMatch', 'Failed'", predicate, StringComparison.Ordinal);
         Assert.Contains("COALESCE(w.is_catalog_only, 0) = 0", predicate, StringComparison.Ordinal);
         Assert.Contains("ma_v.file_path_root", predicate, StringComparison.Ordinal);
         Assert.Contains("NOT LIKE '%/quarantine/%'", predicate, StringComparison.Ordinal);

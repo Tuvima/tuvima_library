@@ -67,6 +67,7 @@ public static class MetadataFieldConstants
     public const string Network         = "network";
     public const string Biography       = "biography";
     public const string QidResolutionMethod = "qid_resolution_method";
+    public const string WikidataQidScope = "wikidata_qid_scope";
     public const string FictionalUniverse = "fictional_universe";
     public const string Characters = "characters";
     public const string NarrativeLocation = "narrative_location";
@@ -78,6 +79,9 @@ public static class MetadataFieldConstants
     public const string IssueCount        = "issue_count";
     public const string IssueNumber       = "issue_number";
     public const string IssueNumberSort   = "issue_number_sort";
+    public const string IssueTitle        = "issue_title";
+    public const string IssueDescription  = "issue_description";
+    public const string IssueSourceUrl    = "issue_source_url";
     public const string SequenceTotal     = "sequence_total";
     public const string SequenceTotalScope = "sequence_total_scope";
     public const string SequenceFormat    = "sequence_format";
@@ -90,6 +94,7 @@ public static class MetadataFieldConstants
     public const string Illustrator     = "illustrator";
     /// <summary>Metadata field key for cast/actor entries. Display role name is "Actor".</summary>
     public const string CastMember      = "cast_member";
+    public const string GuestStar       = "guest_star";
     public const string Composer        = "composer";
     public const string Screenwriter    = "screenwriter";
 
@@ -109,6 +114,10 @@ public static class MetadataFieldConstants
         "main_subject",
         "composer",
         "screenwriter",
+        "artist",
+        "album_artist",
+        "producer",
+        "guest_star",
         "author",
         "narrator",
         "director",
@@ -136,6 +145,10 @@ public static class MetadataFieldConstants
         "main_subject_qid",
         "composer_qid",
         "screenwriter_qid",
+        "artist_qid",
+        "album_artist_qid",
+        "producer_qid",
+        "guest_star_qid",
         "author_qid",
         "narrator_qid",
         "director_qid",

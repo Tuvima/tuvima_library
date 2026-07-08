@@ -148,6 +148,17 @@ public sealed class TestHarnessGuardrailTests
     }
 
     [Fact]
+    public void IntegrationHarness_AllowsGeneratedComicIssueDescriptionFallback()
+    {
+        var harness = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("AllowsGeneratedFallback", harness);
+        Assert.Contains("MetadataFieldConstants.IssueDescription", harness);
+        Assert.Contains("(HasAnyDescription || AllowsGeneratedFallback)", harness);
+        Assert.Contains("!check.HasAnyDescription && !check.AllowsGeneratedFallback", harness);
+    }
+
+    [Fact]
     public void PersonEnrichment_ReadsTvParentWorkLineage()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Providers", "Workers", "PersonEnrichmentWorker.cs"));

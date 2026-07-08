@@ -300,6 +300,7 @@ public sealed class AdapterFallbackTests
                   "issue_number": "2",
                   "id": 222,
                   "cover_date": "1986-10-01",
+                  "site_detail_url": "https://comicvine.gamespot.com/watchmen-2-two-riders-were-approaching/4000-222/",
                   "volume": { "name": "Watchmen" },
                   "image": { "original_url": "https://example.test/watchmen-2.jpg" }
                 },
@@ -341,15 +342,19 @@ public sealed class AdapterFallbackTests
 
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Title
             && c.Value == "Two Riders Were Approaching...");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.IssueTitle
+            && c.Value == "Two Riders Were Approaching...");
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Series
             && c.Value == "Watchmen");
         Assert.Contains(claims, c => c.Key == "issue_number" && c.Value == "2");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.IssueSourceUrl
+            && c.Value == "https://comicvine.gamespot.com/watchmen-2-two-riders-were-approaching/4000-222/");
         Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "222");
         Assert.DoesNotContain(claims, c => c.Value == "Absolute Watchmen");
     }
 
     [Fact]
-    public async Task ComicVine_FetchAsync_PrefersOriginalIssueAndDropsIssueDescription()
+    public async Task ComicVine_FetchAsync_PrefersOriginalIssueAndKeepsIssueScopedDescription()
     {
         var config = LoadExampleConfig("comicvine");
         config.HttpClient ??= new HttpClientConfig();
@@ -365,6 +370,7 @@ public sealed class AdapterFallbackTests
                   "cover_date": "2014-03-01",
                   "volume": { "name": "Saga" },
                   "description": "<p>Die fantastische Weltraum-Opera von Brian K. Vaughan und Fiona Staples.</p>",
+                  "site_detail_url": "https://comicvine.gamespot.com/saga-1-localized/4000-111/",
                   "image": { "original_url": "https://example.test/saga-de.jpg" }
                 },
                 {
@@ -374,6 +380,7 @@ public sealed class AdapterFallbackTests
                   "cover_date": "2012-03-14",
                   "volume": { "name": "Saga" },
                   "description": "<p>Alana and Marko try to protect their newborn child.</p>",
+                  "site_detail_url": "https://comicvine.gamespot.com/saga-1-chapter-one/4000-222/",
                   "image": { "original_url": "https://example.test/saga-en.jpg" }
                 }
               ]
@@ -404,7 +411,13 @@ public sealed class AdapterFallbackTests
         });
 
         Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "222");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.IssueTitle && c.Value == "Chapter One");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.IssueDescription
+            && c.Value == "Alana and Marko try to protect their newborn child.");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.IssueSourceUrl
+            && c.Value == "https://comicvine.gamespot.com/saga-1-chapter-one/4000-222/");
         Assert.DoesNotContain(claims, c => c.Key == MetadataFieldConstants.Description);
+        Assert.DoesNotContain(claims, c => c.Value.Contains("Weltraum", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -675,6 +688,265 @@ public sealed class AdapterFallbackTests
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotal && c.Value == "72");
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SeriesStartYear && c.Value == "2012");
         Assert.DoesNotContain(claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "110032");
+    }
+
+    [Fact]
+    public async Task ComicVine_FetchAsync_TriesMultipleVolumesForRunScopedIssueLookup()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var requestedUrls = new List<string>();
+        var issueSearchResponse = """
+            {
+              "results": [
+                {
+                  "name": "Batman: Year One",
+                  "issue_number": "1",
+                  "id": 111,
+                  "cover_date": "1987-02-01",
+                  "volume": { "id": 900, "name": "Batman: Year One" },
+                  "image": { "original_url": "https://example.test/wrong.jpg" }
+                }
+              ]
+            }
+            """;
+        var volumeSearchResponse = """
+            {
+              "results": [
+                {
+                  "id": 100,
+                  "name": "Batman",
+                  "count_of_issues": 900,
+                  "start_year": "2016",
+                  "publisher": { "name": "DC Comics" }
+                },
+                {
+                  "id": 200,
+                  "name": "Batman",
+                  "count_of_issues": 713,
+                  "start_year": "1940",
+                  "publisher": { "name": "DC Comics" }
+                }
+              ]
+            }
+            """;
+        var emptyIssueResponse = """{ "results": [] }""";
+        var originalRunIssueResponse = """
+            {
+              "results": [
+                {
+                  "name": "Year One, Chapter One: Who I Am, How I Come to Be",
+                  "issue_number": "404",
+                  "id": 404404,
+                  "cover_date": "1987-02-01",
+                  "site_detail_url": "https://comicvine.gamespot.com/batman-404/4000-404404/",
+                  "volume": { "id": 200, "name": "Batman" },
+                  "image": { "original_url": "https://example.test/batman-404.jpg" }
+                }
+              ]
+            }
+            """;
+        var originalVolumeResponse = """
+            {
+              "results": {
+                "id": 200,
+                "name": "Batman",
+                "count_of_issues": 713,
+                "start_year": "1940",
+                "publisher": { "name": "DC Comics" }
+              }
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+                if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(volumeSearchResponse);
+                if (url.Contains("filter=volume:100", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(emptyIssueResponse);
+                if (url.Contains("filter=volume:200", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(originalRunIssueResponse);
+                if (url.Contains("/volume/4050-200/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(originalVolumeResponse);
+                return JsonResponse(issueSearchResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Batman: Year One Part 1",
+            Series = "Batman",
+            Year = "1987",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Batman",
+                [MetadataFieldConstants.SeriesPosition] = "404",
+                [MetadataFieldConstants.PublisherField] = "DC Comics",
+            },
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains("filter=volume:100", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(requestedUrls, url => url.Contains("filter=volume:200", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "404404");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "200");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.IssueTitle
+            && c.Value == "Year One, Chapter One: Who I Am, How I Come to Be");
+    }
+
+    [Fact]
+    public async Task ComicVine_FetchAsync_AcceptsTrustedVolumeFallbackWithoutIssueQid()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var issueSearchResponse = """{ "results": [] }""";
+        var volumeSearchResponse = """
+            {
+              "results": [
+                {
+                  "id": 555,
+                  "name": "Akira",
+                  "count_of_issues": 6,
+                  "start_year": "1982",
+                  "publisher": { "name": "Kodansha" }
+                }
+              ]
+            }
+            """;
+        var volumeDetailResponse = """
+            {
+              "results": {
+                "id": 555,
+                "name": "Akira",
+                "count_of_issues": 6,
+                "start_year": "1982",
+                "publisher": { "name": "Kodansha" }
+              }
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(volumeSearchResponse);
+                if (url.Contains("/volume/4050-555/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse(volumeDetailResponse);
+                return JsonResponse(issueSearchResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Akira Vol. 1",
+            Series = "Akira",
+            Year = "1982",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Akira",
+                [MetadataFieldConstants.SeriesPosition] = "1",
+                [MetadataFieldConstants.PublisherField] = "Kodansha",
+            },
+        });
+
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "555");
+        Assert.DoesNotContain(claims, c => c.Key == BridgeIdKeys.ComicVineId);
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Series && c.Value == "Akira");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.IssueNumber && c.Value == "1");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotal && c.Value == "6");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SeriesStartYear && c.Value == "1982");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.PublisherField && c.Value == "Kodansha");
+    }
+
+    [Fact]
+    public async Task ComicVine_FetchAsync_ExtractsStructuredCreatorCredits()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var issueResponse = """
+            {
+              "results": [
+                {
+                  "name": "Chapter One",
+                  "issue_number": "1",
+                  "id": 222,
+                  "cover_date": "2012-03-14",
+                  "volume": { "id": 1234, "name": "Saga" },
+                  "person_credits": [
+                    { "name": "Brian K. Vaughan", "role": "Writer" },
+                    { "name": "Fiona Staples", "role": "Penciller" }
+                  ],
+                  "image": { "original_url": "https://example.test/saga-en.jpg" }
+                }
+              ]
+            }
+            """;
+        var volumeResponse = """
+            {
+              "results": {
+                "id": 1234,
+                "name": "Saga",
+                "count_of_issues": 72,
+                "start_year": "2012",
+                "publisher": { "name": "Image Comics" }
+              }
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                return url.Contains("/volume/4050-1234/", StringComparison.OrdinalIgnoreCase)
+                    ? JsonResponse(volumeResponse)
+                    : JsonResponse(issueResponse);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Saga #1",
+            Series = "Saga",
+            Year = "2012",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Saga",
+                [MetadataFieldConstants.SeriesPosition] = "1",
+            },
+        });
+
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Author && c.Value == "Brian K. Vaughan");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Illustrator && c.Value == "Fiona Staples");
     }
 
     [Fact]

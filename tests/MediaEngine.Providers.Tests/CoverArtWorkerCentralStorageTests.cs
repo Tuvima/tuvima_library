@@ -90,6 +90,46 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
         Assert.False(File.Exists(_assetPaths.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg")));
     }
 
+    [Fact]
+    public async Task DownloadAndPersistAsync_ComicIssueReadsCoverFromSelfScopedWork()
+    {
+        var parentWorkId = await _workRepo.InsertParentAsync(
+            MediaType.Comics,
+            "comic:saga",
+            grandparentWorkId: null,
+            ordinal: null);
+        var issueWorkId = await _workRepo.InsertChildAsync(MediaType.Comics, parentWorkId, ordinal: 1);
+        var assetId = await SeedAssetForExistingWorkAsync(issueWorkId, Path.Combine("Comics", "Saga", "Saga 001.cbz"));
+        await SeedCanonicalsAsync(
+            issueWorkId,
+            ("cover", "https://images.test/saga-001.jpg"),
+            ("issue_title", "Chapter One"));
+
+        var worker = new CoverArtWorker(
+            _assetRepo,
+            _canonicalRepo,
+            _workRepo,
+            new NoOpImageCacheRepository(),
+            new RoutingHttpClientFactory(_ => ImageResponse(CreateTestImageBytes())),
+            _assetPaths,
+            NullLogger<CoverArtWorker>.Instance,
+            assetExportService: null,
+            coverArtHash: null,
+            entityAssetRepo: _entityAssetRepo);
+
+        await worker.DownloadAndPersistAsync(assetId, null, CancellationToken.None);
+
+        var coverAsset = Assert.Single(await _entityAssetRepo.GetByEntityAsync(issueWorkId.ToString(), "CoverArt"));
+        Assert.True(File.Exists(coverAsset.LocalImagePath));
+        Assert.True(File.Exists(coverAsset.LocalImagePathSmall));
+        Assert.True(File.Exists(coverAsset.LocalImagePathMedium));
+        Assert.True(File.Exists(coverAsset.LocalImagePathLarge));
+        Assert.False(string.IsNullOrWhiteSpace(coverAsset.PrimaryHex));
+
+        var parentAssets = await _entityAssetRepo.GetByEntityAsync(parentWorkId.ToString(), "CoverArt");
+        Assert.Empty(parentAssets);
+    }
+
     private async Task<Guid> SeedAssetForExistingWorkAsync(Guid workId, string relativeFilePath)
     {
         var editionId = Guid.NewGuid();

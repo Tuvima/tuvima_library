@@ -105,12 +105,17 @@ API credentials are config-file data. Base provider definitions live in `config/
 | Issue Search | 1 | `title` | `/search/?query={title}&resources=issue&limit={limit}` | Comics |
 | Volume Search | 2 | `series` | `/search/?query={series}&resources=volume&limit={limit}` | Comics |
 
-**Notes:** Comic Vine supplies comic issue and volume metadata, including cover art and Comic Vine bridge identifiers. Series and issue hints are used for search and post-search ranking.
+**Notes:** Comic Vine supplies comic issue and volume metadata, including cover art and Comic Vine bridge identifiers. Series and issue hints are used for search and post-search ranking. Exact series + issue number + volume context is authoritative for comics; issue title wording is not allowed to reject an otherwise exact run/issue match. Accepted issue matches write issue-scoped fields (`issue_title`, `issue_description`, and `issue_source_url`) so issue detail pages do not reuse the parent series description as an issue synopsis.
 
 When an accepted issue match includes a volume ID, the Engine performs a volume
 lookup and records volume-scoped sequence facts such as issue count, start year,
 publisher, and `sequence_total_scope = MainSequence`. Comic shelves should use
 the volume/run identity, not an individual issue ID or a same-name title match.
+When issue lookup fails but a Comic Vine volume strongly matches series and
+structural context, the Engine may accept the volume/run as the retail identity
+without inventing an issue ID. Stage 4 can then roll up to a clearly scoped
+series/run Wikidata QID using `wikidata_qid_scope = series` and
+`qid_resolution_method = comic_series_rollup`.
 
 #### Open Library (Disabled)
 
@@ -142,7 +147,9 @@ LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do no
 Provider descriptions and long-form metadata should carry source attribution
 when surfaced: provider name, source title, source URL, license name, license
 URL, retrieval timestamp, and whether the display value was modified or
-summarized.
+summarized. Wikipedia text is attributed as Wikipedia/CC BY-SA. Comic Vine
+issue synopses are attributed as Comic Vine issue synopses governed by the
+Comic Vine API Terms, not as Creative Commons text.
 
 ---
 
@@ -156,7 +163,7 @@ Each provider's config defines a `field_mappings` array that maps JSON response 
 |---|---|---|---|
 | **Apple API** | Books, Audiobooks, Music | Title, author/artist, year, cover, description, genre, rating for books, album, track/disc counts, track number, duration. Claim confidence is usually 0.70 to 0.90 depending on field and media type. | `apple_books_id`, `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`. |
 | **TMDB** | Movies, TV | Title, year, cover, description, short description, rating, original language, genre, network. Claim confidence is usually 0.80 to 0.90. | `tmdb_id`. |
-| **Comic Vine** | Comics | Title, series, issue number, description, cover, year, series position. Claim confidence is usually 0.70 to 0.95. | `comic_vine_id`. |
+| **Comic Vine** | Comics | Candidate title for matching, `issue_title`, `issue_description`, `issue_source_url`, series, issue number, creator credits, cover, year, series position, volume sequence facts. Claim confidence is usually 0.70 to 1.00. | `comic_vine_id`, `comic_vine_volume_id`. |
 | **MusicBrainz** | Disabled by default | Title, artist/author, album, year, track count, MusicBrainz IDs, cover URL if re-enabled. | MusicBrainz artist/work/release/recording/release-group IDs when present. |
 | **Open Library** | Disabled by default | Title, author, year, cover, description, publisher, language, ISBN if re-enabled. | `isbn` / Open Library identifiers when present. |
 
@@ -192,6 +199,7 @@ Bridge IDs are external platform identifiers that the Wikidata Reconciliation ad
 | **Apple API** | Apple Artist ID | `apple_artist_id` | 0.90 | P2850 |
 | **TMDB** | TMDB ID | `tmdb_id` | 1.0 | P4947 (movies) / P4983 (TV) |
 | **Comic Vine** | Comic Vine ID | `comic_vine_id` | 0.95 | P5905 |
+| **Comic Vine** | Comic Vine Volume ID | `comic_vine_volume_id` | 0.95 | Provider/run evidence; used for scoped comic series rollup when issue QID is absent |
 | **MusicBrainz** | MusicBrainz IDs | `musicbrainz_id`, `musicbrainz_recording_id`, `musicbrainz_release_group_id` | provider-dependent | P434/P435/P436/P5813/P4404 depending on ID type |
 | **Open Library / file evidence** | ISBN and Open Library ID | `isbn`, `isbn_13`, `isbn_10`, `open_library_id` | provider-dependent | P212/P957/P648 |
 
@@ -219,7 +227,7 @@ The bridge worker sends these fields to Wikidata after Stage 3 has produced a re
 | Music | `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`, MusicBrainz IDs | Album, artist, track title, year, language | Music album when album is known; otherwise music work |
 | Movies | `tmdb_id`, `imdb_id`, Apple TV movie IDs | Title, creator if canonicalized, year, language | Movie/film |
 | TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs | Show name or series, creator if canonicalized, year, language | TV series |
-| Comics | `comic_vine_id`, `gcd_id`, `isbn` | Series plus title, series title, writer/author/illustrator, year, language | Comic issue when series is known; otherwise comic series |
+| Comics | `comic_vine_id`, `comic_vine_volume_id`, `gcd_id`, `isbn` | Series plus title, series title, writer/author/illustrator, year, language | Comic issue when available; scoped comic series/run when issue QID is absent |
 
 ---
 

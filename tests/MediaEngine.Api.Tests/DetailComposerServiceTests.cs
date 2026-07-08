@@ -440,12 +440,40 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("SourceLinks = BuildExternalSourceLinks(detail.WikidataQid", source);
         Assert.Contains("\"wikidata-series\"", source);
+        Assert.Contains("\"comicvine-issue\"", source);
         Assert.Contains("FirstText(sequence?.SourceContainerId, sequence?.ContainerId)", source);
         Assert.Contains("BuildWikidataEntityUrl(seriesQid)", source);
+        Assert.Contains("ResolveComicVineIssueUrl(values)", source);
+        Assert.Contains("\"tmdb\"", source);
+        Assert.Contains("BuildTmdbSourceUrl(values)", source);
+        Assert.Contains("\"apple-music-album\"", source);
+        Assert.Contains("BuildAppleMusicAlbumUrl", source);
+        Assert.Contains("\"musicbrainz-release-group\"", source);
+        Assert.Contains("BuildMusicBrainzUrl(\"release-group\"", source);
+        Assert.Contains("MetadataFieldConstants.WikidataQidScope", source);
+        Assert.Contains("\"Series on Wikidata\"", source);
+        Assert.Contains("\"Series/run identity source\"", source);
         Assert.Contains("public IReadOnlyList<ExternalSourceLinkViewModel> SourceLinks { get; init; } = [];", contracts);
         Assert.Contains("public sealed class ExternalSourceLinkViewModel", contracts);
         Assert.Contains("public string? SourceContainerId { get; init; }", contracts);
         Assert.Contains("public IReadOnlyList<string> EquivalentContainerIds { get; init; } = [];", contracts);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesIssueScopedComicDescriptionAndAttribution()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("MetadataFieldConstants.IssueDescription", source);
+        Assert.Contains("BuildComicIssueFallbackDescription", source);
+        Assert.Contains("selection.IsGeneratedFallback", source);
+        Assert.Contains("SourceName = \"Comic Vine\"", source);
+        Assert.Contains("SourceTitle = \"issue synopsis\"", source);
+        Assert.Contains("LicenseName = \"Comic Vine API Terms\"", source);
+        Assert.Contains("LicenseUrl = \"https://comicvine.gamespot.com/api/\"", source);
+        Assert.Contains("if (!isComicVine)", source);
+        Assert.Contains("normalizedTitle == normalizedSeries", source);
+        Assert.DoesNotContain("Comic Vine: issue synopsis\";\n            SourceName = \"Wikipedia\"", source);
     }
 
     [Fact]
@@ -486,6 +514,29 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ToString(\"0.0\"", source);
         Assert.Contains("canonicalArrayKey + MetadataFieldConstants.CompanionQidSuffix", source);
         Assert.Contains("headshot_url", source);
+        Assert.Contains("GetValue(canonicalValues, $\"{canonicalArrayKey}_profile_url\")", source);
+        Assert.Contains("Guest Stars", source);
+        Assert.Contains("MetadataFieldConstants.GuestStar", source);
+    }
+
+    [Fact]
+    public void DetailComposer_ExposesStructuredFactsOnUnifiedDetails()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
+        var client = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Services/Integration/EngineApiClient.cs"));
+
+        Assert.Contains("public DetailFactsViewModel? Facts { get; init; }", contracts);
+        Assert.Contains("public sealed class DetailFactsViewModel", contracts);
+        Assert.Contains("public IReadOnlyDictionary<string, string> Identifiers { get; init; }", contracts);
+        Assert.Contains("Facts = BuildWorkFacts(detail, entityType, values, contributorGroups)", source);
+        Assert.Contains("Facts = BuildCollectionFacts(entityType, displayWorks, values, contributorGroups, row.WikidataQid)", source);
+        Assert.Contains("Facts = BuildPersonFacts(person, displayRoles)", source);
+        Assert.Contains("Actors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Cast)", source);
+        Assert.Contains("AlbumArtists = albumArtists", source);
+        Assert.Contains("ShowName = FirstNonBlank(detail.ShowName", source);
+        Assert.Contains("TrackNumber = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.TrackNumber)", source);
+        Assert.Contains("Facts = detail.Facts", client);
     }
 
     [Fact]

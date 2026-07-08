@@ -63,11 +63,37 @@ public sealed class PipelineConfigurationTests
 
         Assert.Equal(["comicvine", "wikidata_reconciliation"], ReadPriority(document, "Comics", "series"));
         Assert.Equal(["comicvine", "wikidata_reconciliation"], ReadPriority(document, "Comics", "issue_number"));
+        Assert.Equal(["comicvine", "local_processor"], ReadPriority(document, "Comics", "issue_title"));
+        Assert.Equal(["comicvine", "local_processor"], ReadPriority(document, "Comics", "issue_description"));
+        Assert.Equal(["comicvine"], ReadPriority(document, "Comics", "issue_source_url"));
         Assert.Equal(["comicvine", "wikidata_reconciliation"], ReadPriority(document, "Comics", "sequence_total"));
 
         Assert.Equal(["apple_api"], ReadPriority(document, "Music", "track_number"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Music", "disc_number"));
+        Assert.Equal(["apple_api"], ReadPriority(document, "Music", "cover"));
+        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "album"));
+        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "year"));
+        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "track_count"));
         Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "sequence_total"));
+    }
+
+    [Fact]
+    public void MusicBrainz_IsEnabledForEnrichmentButNotStageOneMusicLookup()
+    {
+        using var pipelines = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "pipelines.json")));
+        using var provider = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "musicbrainz.json")));
+
+        var musicProviders = pipelines.RootElement
+            .GetProperty("Music")
+            .GetProperty("providers")
+            .EnumerateArray()
+            .Select(element => element.GetProperty("name").GetString() ?? "")
+            .ToArray();
+
+        Assert.Equal(["apple_api"], musicProviders);
+        Assert.True(provider.RootElement.GetProperty("enabled").GetBoolean());
+        Assert.Equal([3], provider.RootElement.GetProperty("hydration_stages").EnumerateArray().Select(element => element.GetInt32()).ToArray());
+        Assert.Contains("musicbrainz_release_group_id", provider.RootElement.GetProperty("preferred_bridge_ids").GetProperty("Music").EnumerateArray().Select(element => element.GetString()));
     }
 
     private static string[] ReadPriority(JsonDocument document, string mediaType, string field)

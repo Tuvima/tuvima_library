@@ -82,6 +82,50 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailEditorTarget
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailEntityType
 
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailFactsViewModel
+  MediaKind: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  ReleaseDate: System.String | nullability=nullable | accessors=get,init
+  Rating: System.String | nullability=nullable | accessors=get,init
+  ContentRating: System.String | nullability=nullable | accessors=get,init
+  Runtime: System.String | nullability=nullable | accessors=get,init
+  Duration: System.String | nullability=nullable | accessors=get,init
+  Language: System.String | nullability=nullable | accessors=get,init
+  Genres: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Identifiers: System.Collections.Generic.IReadOnlyDictionary<System.String, System.String> | nullability=not-null | accessors=get,init
+  Authors: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Artists: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  AlbumArtists: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Actors: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Directors: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Writers: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Composers: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Narrators: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Illustrators: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Producers: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  ShowName: System.String | nullability=nullable | accessors=get,init
+  SeasonNumber: System.String | nullability=nullable | accessors=get,init
+  EpisodeNumber: System.String | nullability=nullable | accessors=get,init
+  EpisodeTitle: System.String | nullability=nullable | accessors=get,init
+  Network: System.String | nullability=nullable | accessors=get,init
+  SeasonCount: System.String | nullability=nullable | accessors=get,init
+  EpisodeCount: System.String | nullability=nullable | accessors=get,init
+  Album: System.String | nullability=nullable | accessors=get,init
+  AlbumArtist: System.String | nullability=nullable | accessors=get,init
+  TrackNumber: System.String | nullability=nullable | accessors=get,init
+  TrackCount: System.String | nullability=nullable | accessors=get,init
+  DiscNumber: System.String | nullability=nullable | accessors=get,init
+  DiscCount: System.String | nullability=nullable | accessors=get,init
+  Isrc: System.String | nullability=nullable | accessors=get,init
+  Label: System.String | nullability=nullable | accessors=get,init
+  IsExplicit: System.Boolean? | nullability=nullable | accessors=get,init
+  Series: System.String | nullability=nullable | accessors=get,init
+  SeriesPosition: System.String | nullability=nullable | accessors=get,init
+  IssueNumber: System.String | nullability=nullable | accessors=get,init
+  IssueTitle: System.String | nullability=nullable | accessors=get,init
+  Publisher: System.String | nullability=nullable | accessors=get,init
+  PageCount: System.String | nullability=nullable | accessors=get,init
+
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   Id: System.String | nullability=not-null | accessors=get,init
   EntityType: MediaEngine.Contracts.Details.DetailEntityType | nullability=not-null | accessors=get,init
@@ -94,6 +138,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   DescriptionAttribution: MediaEngine.Contracts.Details.DescriptionAttributionViewModel | nullability=nullable | accessors=get,init
   SourceLinks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.ExternalSourceLinkViewModel> | nullability=not-null | accessors=get,init
   PersonDetails: MediaEngine.Contracts.Details.PersonDetailFacts | nullability=nullable | accessors=get,init
+  Facts: MediaEngine.Contracts.Details.DetailFactsViewModel | nullability=nullable | accessors=get,init
   Artwork: MediaEngine.Contracts.Details.ArtworkSet | nullability=not-null | accessors=get,init
   HeroBrand: MediaEngine.Contracts.Details.HeroBrandViewModel | nullability=nullable | accessors=get,init
   Progress: MediaEngine.Contracts.Details.ProgressViewModel | nullability=nullable | accessors=get,init
