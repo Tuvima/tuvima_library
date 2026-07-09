@@ -414,6 +414,27 @@ public static class DevSeedEndpoints
             TestCategory: "Movie â€” same director as Dune films, strong TMDB match",
             ExpectedQid: "Q21500755"),
 
+        new("Dune: Part One", "Denis Villeneuve", 2021, "Movie",
+            FileNameOverride: "dune-films/Dune Part One (2021) {imdb-tt1160419}.mp4",
+            TestCategory: "Movie - Dune cross-media fixture for audiobook/movie linkage",
+            ExpectedProvider: "tmdb",
+            ReconciliationTitle: "Dune"),
+
+        new("Dune: Part Two", "Denis Villeneuve", 2024, "Movie",
+            FileNameOverride: "dune-films/Dune Part Two (2024) {imdb-tt15239678}.mp4",
+            TestCategory: "Movie - Dune sequel cross-media fixture for series totals and linkage",
+            ExpectedProvider: "tmdb"),
+
+        new("Batman Begins", "Christopher Nolan", 2005, "Movie",
+            FileNameOverride: "batman-nolan/Batman Begins (2005) {imdb-tt0372784}.mp4",
+            TestCategory: "Movie - Batman cross-media fixture for comic/movie linkage",
+            ExpectedProvider: "tmdb"),
+
+        new("The Dark Knight", "Christopher Nolan", 2008, "Movie",
+            FileNameOverride: "batman-nolan/The Dark Knight (2008) {imdb-tt0468569}.mp4",
+            TestCategory: "Movie - Batman sequel cross-media fixture for comic/movie linkage",
+            ExpectedProvider: "tmdb"),
+
         new("The Matrix", "Lana Wachowski", 1999, "Movie",
             TestCategory: "Movie â€” classic, strong Wikidata presence",
             ExpectedQid: "Q83495"),

@@ -284,7 +284,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("collectionCover = FirstNonBlank", source);
         Assert.Contains("'hero_url', 'hero'", source);
         Assert.Contains("SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })", source);
-        Assert.Contains("NULLIF(cover_asset.value, '')", source);
+        Assert.Contains("cv.entity_id = ma.id AND cv.key IN ('cover_url', 'cover')", source);
+        Assert.DoesNotContain("LEFT JOIN canonical_values cover_asset", source);
         Assert.Contains("COALESCE(gp.id, p.id, w.id)", source);
         Assert.Contains("ResolveCollectionArtworkUrl", source);
         Assert.Contains("DisplayArtworkUrlResolver.Resolve(value, assetId, kind, state)", source);

@@ -1665,7 +1665,7 @@ public static class CollectionEndpoints
                     ?.Value ?? "Unknown";
 
                 // Build IN clause for entity IDs
-                var idList = string.Join(",", entityIds.Select(id => $"'{id}'"));
+                var idList = BuildGuidBlobLiteralList(entityIds);
 
                 // Group entity_ids by the group_by_field from canonical_values.
                 // Many grouping fields (album, artist, show_name, series) are
@@ -2030,7 +2030,8 @@ public static class CollectionEndpoints
                             WHERE wa_sn.root_work_id = g.first_root_work_id
                               AND cv_sn.key = 'season_number'
                         )                                           AS season_count,
-                        g.album_count
+                        g.album_count,
+                        g.first_root_work_id                         AS root_work_id
                     FROM grouped g
                     ORDER BY g.group_name
                     """;
@@ -2049,7 +2050,7 @@ public static class CollectionEndpoints
                 cmd.Parameters.Add(isMusicAlbumGroup);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, string? CoverAspectClass, string? SquareAspectClass, string? BackgroundAspectClass, string? BannerAspectClass, int? CoverWidthPx, int? CoverHeightPx, int? SquareWidthPx, int? SquareHeightPx, int? BackgroundWidthPx, int? BackgroundHeightPx, int? BannerWidthPx, int? BannerHeightPx, int? SeasonCount, int AlbumCount)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, string? CoverAspectClass, string? SquareAspectClass, string? BackgroundAspectClass, string? BannerAspectClass, int? CoverWidthPx, int? CoverHeightPx, int? SquareWidthPx, int? SquareHeightPx, int? BackgroundWidthPx, int? BackgroundHeightPx, int? BannerWidthPx, int? BannerHeightPx, int? SeasonCount, int AlbumCount, Guid? RootWorkId)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -2086,7 +2087,8 @@ public static class CollectionEndpoints
                             ReadNullableInt(reader, 22),
                             ReadNullableInt(reader, 23),
                             reader.IsDBNull(24) ? null : (int?)reader.GetInt32(24),
-                            reader.IsDBNull(25) ? 0 : reader.GetInt32(25)
+                            reader.IsDBNull(25) ? 0 : reader.GetInt32(25),
+                            reader.IsDBNull(26) ? null : GuidSql.FromDb(reader.GetValue(26))
                         ));
                     }
                 }
@@ -2121,6 +2123,7 @@ public static class CollectionEndpoints
                     result.Add(new ContentGroupDto
                     {
                         CollectionId = collection.Id,
+                        RootWorkId = row.RootWorkId,
                         DisplayName = row.GroupName,
                         WikidataQid = null,
                         PrimaryMediaType = primaryMediaType,
@@ -3511,7 +3514,7 @@ public static class CollectionEndpoints
                 WHERE id IN @WorkIds
                 GROUP BY media_type
                 """,
-                new { WorkIds = workIds.Select(id => id.ToString()).ToArray() },
+                new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
                 cancellationToken: ct));
 
         var watch = 0;
@@ -3624,6 +3627,9 @@ public static class CollectionEndpoints
 
         return workIds.Distinct().ToList();
     }
+
+    private static string BuildGuidBlobLiteralList(IEnumerable<Guid> ids)
+        => string.Join(",", ids.Select(id => $"X'{Convert.ToHexString(GuidSql.ToBlob(id))}'"));
 
     private static IReadOnlyList<Collection> ExpandWithChildCollections(
         IReadOnlyList<Collection> collections,
@@ -5312,6 +5318,7 @@ public static class CollectionEndpoints
                 return new ContentGroupDto
                 {
                     CollectionId = CreateDeterministicSystemViewGroupId($"{mediaType}|{groupField}|{group.Key}"),
+                    RootWorkId = preferred.RootWorkId,
                     DisplayName = preferred.DisplayName.Trim(),
                     WikidataQid = preferred.WikidataQid,
                     PrimaryMediaType = preferred.PrimaryMediaType,

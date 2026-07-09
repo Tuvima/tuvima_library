@@ -23,6 +23,15 @@ public sealed class PipelineProviderEntry
     /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional human-readable purpose for this provider in the chain, such as
+    /// <c>identity</c> or <c>enrichment</c>. Runtime ordering is still driven by
+    /// <see cref="Rank"/>; this field documents intent in configuration and UI saves.
+    /// </summary>
+    [JsonPropertyName("purpose")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Purpose { get; set; }
 }
 
 /// <summary>

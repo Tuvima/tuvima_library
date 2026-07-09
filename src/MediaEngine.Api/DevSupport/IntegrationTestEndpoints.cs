@@ -59,6 +59,7 @@ public static class IntegrationTestEndpoints
         public List<IngestionProgressSnapshot> IngestionProgressSnapshots { get; set; } = [];
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
         public List<SeriesHarnessCheckResult> SeriesHarnessChecks { get; set; } = [];
+        public List<CrossMediaSeriesCheckResult> CrossMediaSeriesChecks { get; set; } = [];
         public List<CharacterArtworkCheckResult> CharacterArtworkChecks { get; set; } = [];
         public List<DescriptionSourceCheckResult> DescriptionSourceChecks { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
@@ -80,6 +81,7 @@ public static class IntegrationTestEndpoints
             && IngestionProgressSnapshots.All(result => result.Pass)
             && Stage3FanartSummaries.All(result => result.Pass)
             && SeriesHarnessChecks.All(result => result.Pass)
+            && CrossMediaSeriesChecks.All(result => result.Pass)
             && CharacterArtworkChecks.All(result => result.Pass)
             && DescriptionSourceChecks.All(result => result.Pass);
         public HashSet<string> RequestedTypes { get; set; } = [];
@@ -440,6 +442,24 @@ public static class IntegrationTestEndpoints
     }
 
     // â”€â”€ Dynamic type selection + provider health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private sealed class CrossMediaSeriesCheckResult
+    {
+        public string Name { get; set; } = "";
+        public List<string> RequiredMediaTypes { get; set; } = [];
+        public List<string> FoundMediaTypes { get; set; } = [];
+        public int OwnedCount { get; set; }
+        public bool HasSharedParentCollection { get; set; }
+        public bool HasSharedNarrativeRoot { get; set; }
+        public bool HasAllRequiredMediaTypes =>
+            RequiredMediaTypes.All(required =>
+                FoundMediaTypes.Any(found => string.Equals(found, required, StringComparison.OrdinalIgnoreCase)));
+        public bool HasCrossMediaLink => HasSharedParentCollection || HasSharedNarrativeRoot;
+        public bool Pass => OwnedCount > 0 && HasAllRequiredMediaTypes && HasCrossMediaLink;
+        public string Detail => Pass
+            ? $"Found {string.Join(", ", FoundMediaTypes)} with shared cross-media linkage."
+            : $"Found {string.Join(", ", FoundMediaTypes.DefaultIfEmpty("none"))}; required {string.Join(", ", RequiredMediaTypes)}; shared parent={HasSharedParentCollection}; shared narrative root={HasSharedNarrativeRoot}.";
+    }
 
     private static readonly string[] AllTestableTypes = ["books", "audiobooks", "movies", "tv", "music", "comics"];
     private static readonly HashSet<string> MediaExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -933,6 +953,49 @@ public static class IntegrationTestEndpoints
             "comic" or "comics" => "comics",
             var other => other,
         };
+    }
+
+    private static string NormalizeHarnessMediaTypeDisplay(string? value) =>
+        NormalizeHarnessMediaTypeKey(value) switch
+        {
+            "books" => "Books",
+            "audiobooks" => "Audiobooks",
+            "movies" => "Movies",
+            "tv" => "TV",
+            "music" => "Music",
+            "comics" => "Comics",
+            var other when !string.IsNullOrWhiteSpace(other) => other,
+            _ => string.Empty,
+        };
+
+    private static bool IncludesMediaType(SeriesHarnessExpectation expectation, string typeKey) =>
+        expectation.MediaTypeKeys.Contains(typeKey, StringComparer.OrdinalIgnoreCase);
+
+    private static bool MatchesCrossMediaPattern(CrossMediaHarnessRow row, CrossMediaSeriesExpectation expected) =>
+        expected.MatchPatterns.Any(pattern =>
+            ContainsIgnoreCase(row.Title, pattern)
+            || ContainsIgnoreCase(row.SeriesName, pattern));
+
+    private static bool ContainsIgnoreCase(string? value, string pattern) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Contains(pattern, StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> SharedCrossMediaQids(CrossMediaHarnessRow row)
+    {
+        foreach (var value in new[]
+        {
+            row.ParentCollectionQid,
+            row.NarrativeRootQid,
+            row.FictionalUniverseQid,
+            row.FranchiseQid,
+            row.SeriesQid,
+        })
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                yield return value.Trim();
+            }
+        }
     }
 
     /// <summary>Known-fixture validation for movie-scoped actor-character display and verified portrait handling.</summary>
@@ -1983,18 +2046,19 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         report.SeriesHarnessChecks.Clear();
+        report.CrossMediaSeriesChecks.Clear();
 
         var expectations = new[]
         {
-            new SeriesHarnessExpectation("The Expanse", "Books/Audiobooks", "books", 9),
-            new SeriesHarnessExpectation("Dune Chronicles", "Books/Audiobooks", "books", 3),
-            new SeriesHarnessExpectation("The Lord of the Rings", "Movies", "movies", 3),
-            new SeriesHarnessExpectation("Dune", "Movies", "movies", 2),
-            new SeriesHarnessExpectation("Breaking Bad", "TV", "tv", 2),
-            new SeriesHarnessExpectation("Shogun", "TV", "tv", 1),
+            new SeriesHarnessExpectation("The Expanse", "Books/Audiobooks", ["books", "audiobooks"], 9, ["books", "audiobooks"]),
+            new SeriesHarnessExpectation("Dune Chronicles", "Books/Audiobooks", ["books", "audiobooks"], 3, ["books", "audiobooks"]),
+            new SeriesHarnessExpectation("The Lord of the Rings", "Movies", ["movies"], 3, ["movies"]),
+            new SeriesHarnessExpectation("Dune", "Movies", ["movies"], 2, ["movies"]),
+            new SeriesHarnessExpectation("Breaking Bad", "TV", ["tv"], 2, ["tv"]),
+            new SeriesHarnessExpectation("Shogun", "TV", ["tv"], 1, ["tv"]),
         };
 
-        foreach (var expected in expectations.Where(e => report.ActiveTypes.Contains(e.ActiveTypeKey)))
+        foreach (var expected in expectations.Where(e => e.ActiveTypeKeys.Any(key => report.ActiveTypes.Contains(key))))
         {
             ct.ThrowIfCancellationRequested();
             using var conn = db.CreateConnection();
@@ -2030,6 +2094,14 @@ public static class IntegrationTestEndpoints
                     LEFT JOIN works p ON p.id = w.parent_work_id
                     LEFT JOIN works gp ON gp.id = p.parent_work_id
                     WHERE NOT EXISTS (SELECT 1 FROM works child WHERE child.parent_work_id = w.id)
+                      AND (
+                          (@includeBooks = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('book', 'books'))
+                          OR (@includeAudiobooks = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('audiobook', 'audiobooks'))
+                          OR (@includeMovies = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('movie', 'movies', 'video'))
+                          OR (@includeTv = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('tv', 'television', 'tvshow', 'tvshows'))
+                          OR (@includeMusic = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('music', 'track', 'tracks', 'song', 'songs'))
+                          OR (@includeComics = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('comic', 'comics'))
+                      )
                 ),
                 matched AS (
                     SELECT *
@@ -2053,7 +2125,16 @@ public static class IntegrationTestEndpoints
                     (SELECT COUNT(*) FROM matched) AS OwnedCount,
                     COALESCE((SELECT ManifestCount FROM manifest), 0) AS ManifestCount;
                 """,
-                new { seriesPattern = $"%{expected.Series}%" },
+                new
+                {
+                    seriesPattern = $"%{expected.Series}%",
+                    includeBooks = IncludesMediaType(expected, "books") ? 1 : 0,
+                    includeAudiobooks = IncludesMediaType(expected, "audiobooks") ? 1 : 0,
+                    includeMovies = IncludesMediaType(expected, "movies") ? 1 : 0,
+                    includeTv = IncludesMediaType(expected, "tv") ? 1 : 0,
+                    includeMusic = IncludesMediaType(expected, "music") ? 1 : 0,
+                    includeComics = IncludesMediaType(expected, "comics") ? 1 : 0,
+                },
                 cancellationToken: ct));
 
             var owned = row?.OwnedCount ?? 0;
@@ -2079,6 +2160,158 @@ public static class IntegrationTestEndpoints
                 report.IssuesFound.Add($"Series totals: {check.Series} ({check.MediaType}) did not meet harness expectations. {check.Detail}");
             }
         }
+
+        await ValidateCrossMediaSeriesHarnessAsync(db, report, logger, ct);
+    }
+
+    private static async Task ValidateCrossMediaSeriesHarnessAsync(
+        IDatabaseConnection db,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var expectations = new[]
+        {
+            new CrossMediaSeriesExpectation(
+                "Dune audiobook/movie",
+                ["dune"],
+                ["audiobooks", "movies"],
+                ["Audiobooks", "Movies"]),
+            new CrossMediaSeriesExpectation(
+                "Batman comic/movie",
+                ["batman", "dark knight"],
+                ["comics", "movies"],
+                ["Comics", "Movies"]),
+        };
+
+        var activeExpectations = expectations
+            .Where(expected => expected.RequiredMediaTypeKeys.All(key => report.ActiveTypes.Contains(key)))
+            .ToList();
+
+        if (activeExpectations.Count == 0)
+        {
+            return;
+        }
+
+        using var conn = db.CreateConnection();
+        var rows = (await conn.QueryAsync<CrossMediaHarnessRow>(new CommandDefinition(
+            """
+            WITH leaf AS (
+                SELECT DISTINCT w.id AS work_id,
+                       COALESCE(gp.id, p.id, w.id) AS root_work_id,
+                       w.media_type,
+                       w.collection_id,
+                       ma.id AS asset_id
+                FROM works w
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE NOT EXISTS (SELECT 1 FROM works child WHERE child.parent_work_id = w.id)
+            )
+            SELECT DISTINCT
+                l.media_type AS MediaType,
+                COALESCE(
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.asset_id AND cv.key IN ('title', 'episode_title', 'album') LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.work_id AND cv.key IN ('title', 'episode_title', 'album') LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.root_work_id AND cv.key IN ('title', 'show_name', 'album') LIMIT 1)
+                ) AS Title,
+                COALESCE(
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.asset_id AND cv.key IN ('series', 'show_name', 'album') LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.work_id AND cv.key IN ('series', 'show_name', 'album') LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.root_work_id AND cv.key IN ('series', 'show_name', 'album', 'title') LIMIT 1),
+                    c.display_name
+                ) AS SeriesName,
+                NULLIF(lower(hex(l.collection_id)), '') AS CollectionId,
+                NULLIF(lower(hex(c.parent_collection_id)), '') AS ParentCollectionId,
+                c.wikidata_qid AS CollectionQid,
+                pc.wikidata_qid AS ParentCollectionQid,
+                COALESCE(
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.asset_id AND cv.key = 'fictional_universe_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.work_id AND cv.key = 'fictional_universe_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.root_work_id AND cv.key = 'fictional_universe_qid' LIMIT 1),
+                    pc.wikidata_qid
+                ) AS FictionalUniverseQid,
+                COALESCE(
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.asset_id AND cv.key = 'franchise_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.work_id AND cv.key = 'franchise_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.root_work_id AND cv.key = 'franchise_qid' LIMIT 1)
+                ) AS FranchiseQid,
+                COALESCE(
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.asset_id AND cv.key = 'narrative_root_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.work_id AND cv.key = 'narrative_root_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.root_work_id AND cv.key = 'narrative_root_qid' LIMIT 1),
+                    pc.wikidata_qid
+                ) AS NarrativeRootQid,
+                COALESCE(
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.asset_id AND cv.key = 'series_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.work_id AND cv.key = 'series_qid' LIMIT 1),
+                    (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.root_work_id AND cv.key = 'series_qid' LIMIT 1),
+                    c.wikidata_qid
+                ) AS SeriesQid
+            FROM leaf l
+            LEFT JOIN collections c ON c.id = l.collection_id
+            LEFT JOIN collections pc ON pc.id = c.parent_collection_id;
+            """,
+            cancellationToken: ct))).AsList();
+
+        foreach (var expected in activeExpectations)
+        {
+            ct.ThrowIfCancellationRequested();
+            var candidates = rows
+                .Where(row => expected.RequiredMediaTypeKeys.Contains(NormalizeHarnessMediaTypeKey(row.MediaType), StringComparer.OrdinalIgnoreCase))
+                .Where(row => MatchesCrossMediaPattern(row, expected))
+                .ToList();
+
+            var foundTypes = candidates
+                .Select(row => NormalizeHarnessMediaTypeDisplay(row.MediaType))
+                .Where(type => !string.IsNullOrWhiteSpace(type))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(type => type, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            bool hasSharedParent = candidates
+                .Where(row => !string.IsNullOrWhiteSpace(row.ParentCollectionId))
+                .GroupBy(row => row.ParentCollectionId!, StringComparer.OrdinalIgnoreCase)
+                .Any(group => group
+                    .Select(row => NormalizeHarnessMediaTypeKey(row.MediaType))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count() >= 2);
+
+            bool hasSharedNarrativeRoot = candidates
+                .SelectMany(row => SharedCrossMediaQids(row)
+                    .Select(qid => new { Qid = qid, TypeKey = NormalizeHarnessMediaTypeKey(row.MediaType) }))
+                .GroupBy(row => row.Qid, StringComparer.OrdinalIgnoreCase)
+                .Any(group => group
+                    .Select(row => row.TypeKey)
+                    .Where(type => !string.IsNullOrWhiteSpace(type))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count() >= 2);
+
+            var check = new CrossMediaSeriesCheckResult
+            {
+                Name = expected.Name,
+                RequiredMediaTypes = expected.RequiredMediaTypes.ToList(),
+                FoundMediaTypes = foundTypes,
+                OwnedCount = candidates.Count,
+                HasSharedParentCollection = hasSharedParent,
+                HasSharedNarrativeRoot = hasSharedNarrativeRoot,
+            };
+
+            report.CrossMediaSeriesChecks.Add(check);
+            logger.LogInformation(
+                "  Cross-media {Name}: owned={Owned}, found={Found}, parent={Parent}, narrative={Narrative}",
+                check.Name,
+                check.OwnedCount,
+                string.Join(", ", check.FoundMediaTypes),
+                check.HasSharedParentCollection,
+                check.HasSharedNarrativeRoot);
+
+            if (!check.Pass)
+            {
+                report.IssuesFound.Add($"Cross-media series: {check.Name} did not meet harness expectations. {check.Detail}");
+            }
+        }
     }
 
     private static async Task ValidateCharacterArtworkAsync(
@@ -2090,7 +2323,7 @@ public static class IntegrationTestEndpoints
     {
         report.CharacterArtworkChecks.Clear();
 
-        if (!report.ActiveTypes.Contains("Movies"))
+        if (!report.ActiveTypes.Contains("movies"))
         {
             return;
         }
@@ -2264,13 +2497,35 @@ public static class IntegrationTestEndpoints
     private sealed record SeriesHarnessExpectation(
         string Series,
         string MediaType,
-        string ActiveTypeKey,
-        int MinimumKnownCount);
+        string[] ActiveTypeKeys,
+        int MinimumKnownCount,
+        string[] MediaTypeKeys);
+
+    private sealed record CrossMediaSeriesExpectation(
+        string Name,
+        string[] MatchPatterns,
+        string[] RequiredMediaTypeKeys,
+        string[] RequiredMediaTypes);
 
     private sealed class SeriesHarnessRow
     {
         public int OwnedCount { get; init; }
         public int ManifestCount { get; init; }
+    }
+
+    private sealed class CrossMediaHarnessRow
+    {
+        public string? MediaType { get; init; }
+        public string? Title { get; init; }
+        public string? SeriesName { get; init; }
+        public string? CollectionId { get; init; }
+        public string? ParentCollectionId { get; init; }
+        public string? CollectionQid { get; init; }
+        public string? ParentCollectionQid { get; init; }
+        public string? FictionalUniverseQid { get; init; }
+        public string? FranchiseQid { get; init; }
+        public string? NarrativeRootQid { get; init; }
+        public string? SeriesQid { get; init; }
     }
 
     private sealed class CharacterArtworkRow
@@ -2962,6 +3217,11 @@ public static class IntegrationTestEndpoints
             SummaryCard(sb, report.SeriesHarnessChecks.Count(s => s.Pass) + "/" + report.SeriesHarnessChecks.Count, "Series Totals", "#818CF8");
         }
 
+        if (report.CrossMediaSeriesChecks.Count > 0)
+        {
+            SummaryCard(sb, report.CrossMediaSeriesChecks.Count(s => s.Pass) + "/" + report.CrossMediaSeriesChecks.Count, "Cross-Media", "#C084FC");
+        }
+
         if (report.Stage3FanartSummaries.Count > 0)
         {
             SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
@@ -3164,6 +3424,28 @@ public static class IntegrationTestEndpoints
                     : "<span class=\"badge badge-fail\">FAIL</span>";
                 sb.AppendLine($"<tr><td>{Esc(check.Series)}</td><td>{Esc(check.MediaType)}</td><td>{check.OwnedCount}</td>" +
                     $"<td>{check.KnownCount}</td><td>{BoolMark(check.HasManifest)}</td><td>{badge}</td><td>{Esc(check.Detail)}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        if (report.CrossMediaSeriesChecks.Count > 0)
+        {
+            int crossMediaPass = report.CrossMediaSeriesChecks.Count(s => s.Pass);
+            string crossMediaBadge = crossMediaPass == report.CrossMediaSeriesChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.CrossMediaSeriesChecks.Count - crossMediaPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Cross-Media Series Validation {crossMediaBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Name</th><th>Required Media</th><th>Found Media</th><th>Owned</th><th>Shared Parent</th><th>Shared Narrative QID</th><th>Status</th><th>Detail</th></tr>");
+            foreach (var check in report.CrossMediaSeriesChecks.OrderBy(s => s.Name))
+            {
+                string badge = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(check.Name)}</td><td>{Esc(string.Join(", ", check.RequiredMediaTypes))}</td>" +
+                    $"<td>{Esc(string.Join(", ", check.FoundMediaTypes.DefaultIfEmpty("none")))}</td><td>{check.OwnedCount}</td>" +
+                    $"<td>{BoolMark(check.HasSharedParentCollection)}</td><td>{BoolMark(check.HasSharedNarrativeRoot)}</td>" +
+                    $"<td>{badge}</td><td>{Esc(check.Detail)}</td></tr>");
             }
             sb.AppendLine("</table>");
         }

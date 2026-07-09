@@ -122,8 +122,7 @@ public sealed class CollectionRuleEvaluator
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            if (Guid.TryParse(reader.GetString(0), out var id))
-                results.Add(id);
+            results.Add(GuidSql.FromDb(reader.GetValue(0)));
         }
 
         return results;

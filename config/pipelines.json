@@ -54,14 +54,36 @@
     }
   },
   "Music": {
-    "strategy": "Waterfall",
+    "strategy": "Sequential",
     "providers": [
       {
         "rank": 1,
-        "name": "apple_api"
+        "name": "musicbrainz",
+        "purpose": "identity"
+      },
+      {
+        "rank": 2,
+        "name": "apple_api",
+        "purpose": "enrichment"
       }
     ],
     "field_priorities": {
+      "title": [
+        "musicbrainz",
+        "apple_api"
+      ],
+      "author": [
+        "musicbrainz",
+        "apple_api"
+      ],
+      "artist": [
+        "musicbrainz",
+        "apple_api"
+      ],
+      "album_artist": [
+        "musicbrainz",
+        "apple_api"
+      ],
       "cover": [
         "apple_api"
       ],
@@ -74,12 +96,12 @@
         "musicbrainz"
       ],
       "album": [
-        "apple_api",
-        "musicbrainz"
+        "musicbrainz",
+        "apple_api"
       ],
       "year": [
-        "apple_api",
-        "musicbrainz"
+        "musicbrainz",
+        "apple_api"
       ],
       "disc_number": [
         "apple_api"
@@ -91,23 +113,23 @@
         "apple_api"
       ],
       "track_count": [
-        "apple_api",
-        "musicbrainz"
+        "musicbrainz",
+        "apple_api"
       ],
       "duration": [
         "apple_api"
       ],
       "sequence_total": [
-        "apple_api",
-        "musicbrainz"
+        "musicbrainz",
+        "apple_api"
       ],
       "sequence_total_scope": [
-        "apple_api",
-        "musicbrainz"
+        "musicbrainz",
+        "apple_api"
       ],
       "sequence_format": [
-        "apple_api",
-        "musicbrainz"
+        "musicbrainz",
+        "apple_api"
       ]
     }
   },

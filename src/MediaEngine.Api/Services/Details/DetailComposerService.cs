@@ -3395,32 +3395,91 @@ public sealed class DetailComposerService
                    CAST(w.media_type AS TEXT) AS MediaType,
                    w.ordinal AS Ordinal,
                    CAST(w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson,
-                   CAST(COALESCE(NULLIF(issue_title.value, ''), NULLIF(issue_title_work.value, ''), NULLIF(episode_title.value, ''), NULLIF(episode_title_work.value, ''), NULLIF(title_asset.value, ''), NULLIF(title_work.value, ''), 'Untitled') AS TEXT) AS Title,
                    CAST(COALESCE(
-                       NULLIF(issue_desc_work.value, ''),
-                       NULLIF(issue_desc_asset.value, ''),
-                       NULLIF(episode_desc_work.value, ''),
-                       NULLIF(episode_desc_asset.value, ''),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'issue_title' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'issue_title' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'episode_title' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'episode_title' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'title' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'title' LIMIT 1),
+                       'Untitled') AS TEXT) AS Title,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'issue_description' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'issue_description' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'episode_description' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'episode_description' LIMIT 1),
                        (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = w.id AND claim_key IN ('issue_description', 'issue_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
                        (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = ma.id AND claim_key IN ('issue_description', 'issue_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
                        (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = w.id AND claim_key IN ('episode_description', 'episode_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
                        (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = ma.id AND claim_key IN ('episode_description', 'episode_overview') AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
-                       NULLIF(desc_asset.value, ''),
-                       NULLIF(overview_asset.value, ''),
-                       NULLIF(desc_work.value, ''),
-                       NULLIF(overview_work.value, '')) AS TEXT) AS Description,
-                   CAST(COALESCE(NULLIF(season.value, ''), '') AS TEXT) AS Season,
-                   CAST(COALESCE(NULLIF(episode.value, ''), '') AS TEXT) AS Episode,
-                   CAST(COALESCE(NULLIF(track.value, ''), '') AS TEXT) AS TrackNumber,
-                   CAST(COALESCE(NULLIF(runtime.value, ''), NULLIF(duration.value, '')) AS TEXT) AS Duration,
-                   CAST(COALESCE(NULLIF(year_asset.value, ''), NULLIF(year_work.value, '')) AS TEXT) AS Year,
-                   CAST(COALESCE(NULLIF(artist_asset.value, ''), NULLIF(artist_work.value, ''), NULLIF(artist_root.value, '')) AS TEXT) AS Artist,
-                   CAST(COALESCE(NULLIF(explicit_asset.value, ''), NULLIF(explicit_work.value, '')) AS TEXT) AS Explicit,
-                   CAST(COALESCE(NULLIF(quality_asset.value, ''), NULLIF(quality_work.value, ''), NULLIF(quality_root.value, '')) AS TEXT) AS Quality,
-                   CAST(COALESCE(NULLIF(cover_asset.value, ''), NULLIF(poster_asset.value, ''), NULLIF(cover_work.value, ''), NULLIF(poster_work.value, ''), NULLIF(cover_root.value, ''), NULLIF(poster_root.value, '')) AS TEXT) AS ArtworkUrl,
-                   CAST(COALESCE(NULLIF(still_asset.value, ''), NULLIF(still_work.value, ''), NULLIF(bg_asset.value, ''), NULLIF(bg_work.value, ''), NULLIF(hero_asset.value, ''), NULLIF(hero_work.value, ''), NULLIF(banner_asset.value, ''), NULLIF(banner_work.value, ''), NULLIF(bg_root.value, ''), NULLIF(hero_root.value, ''), NULLIF(banner_root.value, '')) AS TEXT) AS BackgroundUrl,
-                   CAST(COALESCE(NULLIF(cover_state_asset.value, ''), NULLIF(cover_state_work.value, ''), NULLIF(cover_state_root.value, '')) AS TEXT) AS CoverState,
-                   CAST(COALESCE(NULLIF(bg_state_asset.value, ''), NULLIF(bg_state_work.value, ''), NULLIF(hero_state_asset.value, ''), NULLIF(hero_state_work.value, ''), NULLIF(banner_state_asset.value, ''), NULLIF(banner_state_work.value, ''), NULLIF(bg_state_root.value, ''), NULLIF(hero_state_root.value, ''), NULLIF(banner_state_root.value, '')) AS TEXT) AS BackgroundState,
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'description' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'overview' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'description' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'overview' LIMIT 1)) AS TEXT) AS Description,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'season_number' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'season_number' LIMIT 1),
+                       '') AS TEXT) AS Season,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'episode_number' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'episode_number' LIMIT 1),
+                       '') AS TEXT) AS Episode,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'track_number' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'track_number' LIMIT 1),
+                       '') AS TEXT) AS TrackNumber,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'runtime' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'duration' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'runtime' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'duration' LIMIT 1)) AS TEXT) AS Duration,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('year', 'release_year') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('year', 'release_year') LIMIT 1)) AS TEXT) AS Year,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('artist', 'album_artist') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('artist', 'album_artist') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('artist', 'album_artist') LIMIT 1)) AS TEXT) AS Artist,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('explicit', 'is_explicit') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('explicit', 'is_explicit') LIMIT 1)) AS TEXT) AS Explicit,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('quality', 'audio_quality') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('quality', 'audio_quality') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('quality', 'audio_quality') LIMIT 1)) AS TEXT) AS Quality,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('cover_url', 'cover') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('poster_url', 'poster') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('cover_url', 'cover') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('poster_url', 'poster') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('cover_url', 'cover') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('poster_url', 'poster') LIMIT 1)) AS TEXT) AS ArtworkUrl,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('episode_still_url', 'episode_still') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('episode_still_url', 'episode_still') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('background_url', 'background') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('background_url', 'background') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('hero_url', 'hero') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('hero_url', 'hero') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('banner_url', 'banner') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('banner_url', 'banner') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('background_url', 'background') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('hero_url', 'hero') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('banner_url', 'banner') LIMIT 1)) AS TEXT) AS BackgroundUrl,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'cover_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'cover_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'cover_state' LIMIT 1)) AS TEXT) AS CoverState,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'background_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'background_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'hero_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'hero_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'banner_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'banner_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'background_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'hero_state' LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'banner_state' LIMIT 1)) AS TEXT) AS BackgroundState,
                    MAX(us.progress_pct) AS ProgressPercent,
                    CASE WHEN MAX(ma.id) IS NULL THEN 0 ELSE 1 END AS HasAsset,
                    CAST(COALESCE(w.ownership, 'Owned') AS TEXT) AS Ownership,
@@ -3433,64 +3492,6 @@ public sealed class DetailComposerService
             LEFT JOIN media_assets ma ON ma.edition_id = e.id
             LEFT JOIN user_states us ON us.asset_id = ma.id
                                     AND us.user_id = @defaultOwnerUserId
-            LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ma.id AND title_asset.key = 'title'
-            LEFT JOIN canonical_values issue_title ON issue_title.entity_id = ma.id AND issue_title.key = 'issue_title'
-            LEFT JOIN canonical_values issue_title_work ON issue_title_work.entity_id = w.id AND issue_title_work.key = 'issue_title'
-            LEFT JOIN canonical_values episode_title ON episode_title.entity_id = ma.id AND episode_title.key = 'episode_title'
-            LEFT JOIN canonical_values episode_title_work ON episode_title_work.entity_id = w.id AND episode_title_work.key = 'episode_title'
-            LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
-            LEFT JOIN canonical_values desc_asset ON desc_asset.entity_id = ma.id AND desc_asset.key = 'description'
-            LEFT JOIN canonical_values overview_asset ON overview_asset.entity_id = ma.id AND overview_asset.key = 'overview'
-            LEFT JOIN canonical_values issue_desc_asset ON issue_desc_asset.entity_id = ma.id AND issue_desc_asset.key = 'issue_description'
-            LEFT JOIN canonical_values issue_desc_work ON issue_desc_work.entity_id = w.id AND issue_desc_work.key = 'issue_description'
-            LEFT JOIN canonical_values episode_desc_asset ON episode_desc_asset.entity_id = ma.id AND episode_desc_asset.key = 'episode_description'
-            LEFT JOIN canonical_values desc_work ON desc_work.entity_id = w.id AND desc_work.key = 'description'
-            LEFT JOIN canonical_values overview_work ON overview_work.entity_id = w.id AND overview_work.key = 'overview'
-            LEFT JOIN canonical_values episode_desc_work ON episode_desc_work.entity_id = w.id AND episode_desc_work.key = 'episode_description'
-            LEFT JOIN canonical_values season ON season.entity_id = ma.id AND season.key = 'season_number'
-            LEFT JOIN canonical_values episode ON episode.entity_id = ma.id AND episode.key = 'episode_number'
-            LEFT JOIN canonical_values track ON track.entity_id = ma.id AND track.key = 'track_number'
-            LEFT JOIN canonical_values runtime ON runtime.entity_id = ma.id AND runtime.key = 'runtime'
-            LEFT JOIN canonical_values duration ON duration.entity_id = ma.id AND duration.key = 'duration'
-            LEFT JOIN canonical_values year_asset ON year_asset.entity_id = ma.id AND year_asset.key IN ('year', 'release_year')
-            LEFT JOIN canonical_values year_work ON year_work.entity_id = w.id AND year_work.key IN ('year', 'release_year')
-            LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ma.id AND artist_asset.key IN ('artist', 'album_artist')
-            LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
-            LEFT JOIN canonical_values artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key IN ('artist', 'album_artist')
-            LEFT JOIN canonical_values explicit_asset ON explicit_asset.entity_id = ma.id AND explicit_asset.key IN ('explicit', 'is_explicit')
-            LEFT JOIN canonical_values explicit_work ON explicit_work.entity_id = w.id AND explicit_work.key IN ('explicit', 'is_explicit')
-            LEFT JOIN canonical_values quality_asset ON quality_asset.entity_id = ma.id AND quality_asset.key IN ('quality', 'audio_quality')
-            LEFT JOIN canonical_values quality_work ON quality_work.entity_id = w.id AND quality_work.key IN ('quality', 'audio_quality')
-            LEFT JOIN canonical_values quality_root ON quality_root.entity_id = COALESCE(gp.id, p.id, w.id) AND quality_root.key IN ('quality', 'audio_quality')
-            LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ma.id AND cover_asset.key IN ('cover_url', 'cover')
-            LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover')
-            LEFT JOIN canonical_values poster_asset ON poster_asset.entity_id = ma.id AND poster_asset.key IN ('poster_url', 'poster')
-            LEFT JOIN canonical_values poster_work ON poster_work.entity_id = w.id AND poster_work.key IN ('poster_url', 'poster')
-            LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover')
-            LEFT JOIN canonical_values poster_root ON poster_root.entity_id = COALESCE(gp.id, p.id, w.id) AND poster_root.key IN ('poster_url', 'poster')
-            LEFT JOIN canonical_values still_asset ON still_asset.entity_id = ma.id AND still_asset.key IN ('episode_still_url', 'episode_still')
-            LEFT JOIN canonical_values still_work ON still_work.entity_id = w.id AND still_work.key IN ('episode_still_url', 'episode_still')
-            LEFT JOIN canonical_values bg_asset ON bg_asset.entity_id = ma.id AND bg_asset.key IN ('background_url', 'background')
-            LEFT JOIN canonical_values bg_work ON bg_work.entity_id = w.id AND bg_work.key IN ('background_url', 'background')
-            LEFT JOIN canonical_values hero_asset ON hero_asset.entity_id = ma.id AND hero_asset.key IN ('hero_url', 'hero')
-            LEFT JOIN canonical_values hero_work ON hero_work.entity_id = w.id AND hero_work.key IN ('hero_url', 'hero')
-            LEFT JOIN canonical_values banner_asset ON banner_asset.entity_id = ma.id AND banner_asset.key IN ('banner_url', 'banner')
-            LEFT JOIN canonical_values banner_work ON banner_work.entity_id = w.id AND banner_work.key IN ('banner_url', 'banner')
-            LEFT JOIN canonical_values bg_root ON bg_root.entity_id = COALESCE(gp.id, p.id, w.id) AND bg_root.key IN ('background_url', 'background')
-            LEFT JOIN canonical_values hero_root ON hero_root.entity_id = COALESCE(gp.id, p.id, w.id) AND hero_root.key IN ('hero_url', 'hero')
-            LEFT JOIN canonical_values banner_root ON banner_root.entity_id = COALESCE(gp.id, p.id, w.id) AND banner_root.key IN ('banner_url', 'banner')
-            LEFT JOIN canonical_values cover_state_asset ON cover_state_asset.entity_id = ma.id AND cover_state_asset.key = 'cover_state'
-            LEFT JOIN canonical_values cover_state_work ON cover_state_work.entity_id = w.id AND cover_state_work.key = 'cover_state'
-            LEFT JOIN canonical_values cover_state_root ON cover_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_state_root.key = 'cover_state'
-            LEFT JOIN canonical_values bg_state_asset ON bg_state_asset.entity_id = ma.id AND bg_state_asset.key = 'background_state'
-            LEFT JOIN canonical_values bg_state_work ON bg_state_work.entity_id = w.id AND bg_state_work.key = 'background_state'
-            LEFT JOIN canonical_values hero_state_asset ON hero_state_asset.entity_id = ma.id AND hero_state_asset.key = 'hero_state'
-            LEFT JOIN canonical_values hero_state_work ON hero_state_work.entity_id = w.id AND hero_state_work.key = 'hero_state'
-            LEFT JOIN canonical_values banner_state_asset ON banner_state_asset.entity_id = ma.id AND banner_state_asset.key = 'banner_state'
-            LEFT JOIN canonical_values banner_state_work ON banner_state_work.entity_id = w.id AND banner_state_work.key = 'banner_state'
-            LEFT JOIN canonical_values bg_state_root ON bg_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND bg_state_root.key = 'background_state'
-            LEFT JOIN canonical_values hero_state_root ON hero_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND hero_state_root.key = 'hero_state'
-            LEFT JOIN canonical_values banner_state_root ON banner_state_root.entity_id = COALESCE(gp.id, p.id, w.id) AND banner_state_root.key = 'banner_state'
             WHERE w.collection_id = @collectionId
                OR ci.collection_id = @collectionId
                OR (

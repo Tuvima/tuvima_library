@@ -64,7 +64,7 @@ The wizard collects information in preparation for Engine-side custom source reg
 
 Metadata enrichment is a strict staged sequence. The identity stages are never reversed or bypassed.
 
-**Stage 1 — Retail Identification:** Active commercial catalogues (Apple, TMDB, Comic Vine) are searched for cover art, descriptions, ratings, people, and bridge identifiers (ISBN, ASIN, TMDB ID, Comic Vine ID). Each candidate is scored by `RetailMatchScoringService`. If no retail provider returns a confident match, the item is routed to the review queue and Stage 2 is never attempted.
+**Stage 1 — Provider Identification:** Active configured providers are searched for identity, cover art, descriptions, ratings, people, and bridge identifiers. Music uses MusicBrainz first for recording/release identity and Apple second for artwork and retail metadata; other lanes use their configured retail/catalogue providers. Each candidate is scored by `RetailMatchScoringService`. If no provider returns a confident match, the item is routed to the review queue and Stage 2 is never attempted.
 
 **Stage 2 — Wikidata Bridge Resolution:** Bridge IDs from Stage 1 are used to resolve a canonical Wikidata entity (QID) via the `Tuvima.Wikidata` bridge resolution service. This provides universe linkage, person relationships, and canonical metadata authority. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking. The text-only Wikidata fallback (sentinel-only Stage 2 calls with no real bridge IDs) is disabled — Stage 1 must supply real bridge IDs.
 

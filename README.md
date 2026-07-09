@@ -58,8 +58,8 @@ In plain English:
 1. A file appears in a configured folder.
 2. Tuvima waits until the file is stable, fingerprints it, and reads embedded metadata.
 3. Processors extract details from EPUB, audio, video, comic, and other supported files.
-4. Stage 1 retail providers such as Apple, TMDB, and Comic Vine can provide artwork, descriptions, ratings, people, and bridge IDs. Disabled configs such as Open Library and MusicBrainz are not treated as active runtime sources.
-5. Stage 2 Wikidata resolution uses bridge IDs such as ISBN, TMDB ID, Apple ID, or Comic Vine ID to find canonical identity when possible. If Stage 1 finds no safe retail match, Wikidata is not used as a broad fallback.
+4. Stage 1 configured providers provide identity and retail evidence. Music runs MusicBrainz first for canonical music IDs, then Apple for artwork and retail metadata; other lanes use their configured providers such as Apple, TMDB, and Comic Vine.
+5. Stage 2 Wikidata resolution uses bridge IDs such as ISBN, TMDB ID, MusicBrainz ID, Apple ID, or Comic Vine ID to find canonical identity when possible. If Stage 1 finds no safe provider match, Wikidata is not used as a broad fallback.
 6. Quick Hydration gets the item visible with core identity, managed artwork, and lane shelf assignment. If retail metadata is retained but Wikidata finds no QID, the item can still get a Read, Watch, or Listen shelf without becoming a top-level Collections tile.
 7. Managed artwork and headshots are stored under `.data/assets/...` and indexed in SQLite through `entity_assets` or person/entity records. Sidecar files beside media are optional exports only.
 8. The Priority Cascade decides which metadata wins, while user corrections stay final.

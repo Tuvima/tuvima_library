@@ -106,11 +106,11 @@ Provider roles:
 
 | Provider | Stage | Media types | Primary contribution |
 | --- | --- | --- | --- |
-| Apple | Stage 3 | Books, audiobooks, music where configured | Retail title, creator, cover, descriptions, ISBN/ASIN/store IDs. |
+| Apple | Stage 3 | Books, audiobooks, music where configured | Retail title, creator, cover, descriptions, ISBN/ASIN/store IDs; for music, runs after MusicBrainz as enrichment. |
 | TMDB | Stage 3 | Movies, TV | TMDB/IMDB/TVDB bridge IDs, posters, backdrops, cast/crew seeds, episode still seeds. |
 | Comic Vine | Stage 3 | Comics | Series, issue, volume, cover, publisher, issue metadata. |
 | Open Library | Disabled by default | Books | Not part of the current normal Stage 3 matrix unless explicitly enabled. |
-| MusicBrainz | Disabled by default | Music | Not part of the current normal Stage 3 matrix unless explicitly enabled. |
+| MusicBrainz | Stage 3 | Music | Primary music identity provider; supplies recording, release, release-group, artist, and ISRC bridge evidence before Apple enrichment. |
 | Fanart.tv | Stage 8 only | Movies, TV, music | Rich artwork after identity is known. It is not the Stage 3 identity gate. |
 | LRCLIB | Text-track enrichment | Music | Lyrics/timed lyrics where configured. |
 | OpenSubtitles | Text-track enrichment | Movies, TV | Subtitle candidates and local normalized text tracks. |
@@ -199,7 +199,7 @@ Wikipedia/Wikidata-derived text is shown.
 | Audiobooks | Apple or audiobook retail evidence plus local audio tags. | ISBN/ASIN/store IDs to work or audiobook edition QID, pivoted to canonical work when needed. | Title, author, narrator, duration, cover, audiobook shelf. | Narrator/person detail, pseudonyms, source-work/universe links, lyrics/transcript-adjacent data when configured. |
 | Movies | TMDB identity. | TMDB/IMDB IDs to film QID. | Title, year, description, poster/backdrop, collection. | Cast/crew, characters, franchise/universe roots, Fanart.tv rich artwork, subtitles. |
 | TV | TMDB show/season/episode identity. | TMDB/IMDB/TVDB IDs to show/episode QIDs. | Show/season/episode metadata, poster/still, TV shelf. | Cast/crew, episode stills, season art, show universe/franchise graph, subtitles. |
-| Music | Apple/music retail when enabled; MusicBrainz disabled unless enabled. | Album/recording bridge IDs where available. | Artist, album, track, cover, music shelf. | Artist/person detail, album artwork variants, Fanart.tv music art, LRCLIB lyrics. |
+| Music | MusicBrainz identity first, then Apple artwork/retail enrichment. | MusicBrainz recording/release/release-group IDs first; Apple IDs as secondary hints. | Artist, album, track, cover, music shelf. Track QIDs stay track-scoped; album QIDs stay on album parents. | Artist/person detail, album artwork variants, Fanart.tv music art, LRCLIB lyrics. |
 | Comics | Comic Vine. | Comic/volume/issue bridge IDs where available. | Series, issue, publisher, cover, comic shelf. | Creators, characters, teams, locations, universe/franchise links, additional artwork. |
 | Unknown | None until review or manual correction. | Not attempted. | Local facts only, review routing. | Not attempted until media type and identity are resolved. |
 

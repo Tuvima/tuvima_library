@@ -1018,6 +1018,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PipelineConfigurat
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PipelineProviderEntry
   Rank: System.Int32 | nullability=not-null | accessors=get,set
   Name: System.String | nullability=not-null | accessors=get,set
+  Purpose: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.TranscodingQualityProfile
   Name: System.String | nullability=not-null | accessors=get,set

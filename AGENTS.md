@@ -224,8 +224,8 @@ In plain English:
 2. The ingestion layer notices it, waits for file activity to settle, and makes sure it is not a duplicate.
 3. File processors inspect the file itself and extract whatever metadata is already available.
 4. Intelligence services decide the best current title/author/type values from the claims gathered so far.
-5. Retail Identification (Stage 1) searches commercial catalogues for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). If no retail provider matches, the item goes to review - Wikidata is never attempted.
-6. Wikidata Bridge Resolution (Stage 2) uses bridge IDs from Stage 1 to find the canonical Wikidata entity (QID). This provides universe linkage, person relationships, and canonical metadata. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking.
+5. Retail Identification (Stage 1) runs the configured provider chain for the media type. Music is configured as MusicBrainz first for canonical recording/release IDs, then Apple for artwork and retail metadata; other lanes use their configured retail/catalogue providers for cover art, descriptions, ratings, and bridge identifiers.
+6. Wikidata Bridge Resolution (Stage 2) uses bridge IDs from Stage 1, such as ISBN, ASIN, TMDB ID, MusicBrainz ID, and Apple IDs, to find the canonical Wikidata entity (QID). This provides universe linkage, person relationships, and canonical metadata. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking.
 7. Quick Hydration gets the item visible with core identity, canonical values, and managed artwork.
 8. Collection finalization assigns the item to its lane shelf and resolves any broader parent collection only when trusted shared relationships exist. This also runs for retained retail identities that have no Wikidata QID.
 9. Universe enrichment (Stage 3) expands people, fictional entities, relationships, narrative roots, lyrics/subtitles, and additional artwork.

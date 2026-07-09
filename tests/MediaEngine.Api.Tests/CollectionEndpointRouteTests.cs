@@ -59,6 +59,16 @@ public sealed class CollectionEndpointRouteTests
     }
 
     [Fact]
+    public void SystemViewGroups_UseBlobGuidLiteralsForGuidBlobStorage()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+
+        Assert.Contains("BuildGuidBlobLiteralList(entityIds)", source, StringComparison.Ordinal);
+        Assert.Contains("X'{Convert.ToHexString(GuidSql.ToBlob(id))}'", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("entityIds.Select(id => $\"'{id}'\")", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ContentGroups_ResolveArtworkThroughManagedStreamUrls()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));

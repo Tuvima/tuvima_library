@@ -67,11 +67,11 @@ The active Stage 1 provider matrix is:
 
 | Provider | Use |
 |---|---|
-| Apple | Books, audiobooks, and music retail lookup |
+| Apple | Books, audiobooks, and music artwork/retail enrichment |
 | TMDB | Movies and TV |
 | Comic Vine | Comics |
 | Open Library | Disabled config retained, not active runtime input |
-| MusicBrainz | Disabled config retained, not active runtime input |
+| MusicBrainz | Music identity lookup before Apple enrichment |
 | Fanart.tv | Stage 3 artwork only, not Stage 1 identity |
 | LRCLIB / OpenSubtitles | Lyrics/subtitles/text tracks, not identity |
 
@@ -114,7 +114,7 @@ Typical bridge IDs include:
 - ISBN for books and some comics
 - ASIN or Apple Books ID for audiobooks
 - TMDB ID for movies and TV
-- MusicBrainz IDs for music
+- MusicBrainz IDs for music, with Apple IDs retained as secondary provider links and bridge hints
 
 When a bridge ID resolves successfully, the Engine fetches canonical properties such as title, creator, year, genre, series, and relationship data.
 

@@ -4,6 +4,7 @@
 
 > Last audited: 2026-03-30 | Auditor: Claude
 > **Update 2026-03-30:** The Weighted Voter has been replaced by the Priority Cascade Engine (4-tier: User Lock → Per-field provider priority → Wikidata authority → Highest confidence). Stage 1 retail identification now uses a ranked pipeline system with three strategies (Waterfall, Cascade, Sequential) configured in `config/pipelines.json`. See `CLAUDE.md` §3.2 and §3.7 for current details.
+> **Update 2026-07-08:** Music Stage 1 is configured as a Sequential chain: MusicBrainz first for identity, then Apple API for artwork and retail enrichment.
 
 ---
 
@@ -70,6 +71,7 @@ On the **Curator's Drawer** (accessible from Server Settings), the user can:
 | Apple Books (Audiobook) | Audiobook | Yes | Same profile | Same as ebook variant | Probed |
 | Audnexus | Universal | Yes | Varies by field | Narrator (90%), Series (90%), Cover (90%), Series Position (90%), Author (75%) | Probed |
 | Wikidata | Universal | Yes | 1.0 for identity fields | QID (100%), Headshot (100%), Biography (100%) | Probed (1 req/sec throttle) |
+| MusicBrainz | Music | Yes | Varies by field | Recording/release identity, release groups, ISRC | Probed (1 req/sec throttle) |
 | Local Filesystem | Universal | Yes | Inherent | File-embedded metadata | Not probed (always local) |
 | Open Library | Universal | Yes | TBD | TBD — configured but not yet implemented | Not probed |
 

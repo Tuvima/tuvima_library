@@ -14,7 +14,7 @@ tags:
 
 Six media types are supported today. Each type has a processor path, supported file extensions, and configured providers. Ambiguous formats such as PDF, MP3, M4A, MP4, MKV, AVI, and WEBM are resolved through configured library folder context, metadata, filename patterns, heuristics, and Local AI where available.
 
-Provider stages are strict: Stage 3 retail metadata uses active retail providers (Apple, TMDB, Comic Vine); Stage 4 Wikidata only runs from safe Stage 3 bridge IDs; Stages 6-8 enrichment add universe data, Fanart.tv artwork, lyrics, subtitles, people, and relationships. Open Library and MusicBrainz configs are retained but disabled by default.
+Provider stages are strict: Stage 3 provider metadata uses active configured providers (MusicBrainz then Apple for music, Apple for books/audiobooks, TMDB for movies/TV, Comic Vine for comics); Stage 4 Wikidata only runs from safe Stage 3 bridge IDs; Stages 6-8 enrichment add universe data, Fanart.tv artwork, lyrics, subtitles, people, and relationships. Open Library config is retained but disabled by default.
 
 ---
 

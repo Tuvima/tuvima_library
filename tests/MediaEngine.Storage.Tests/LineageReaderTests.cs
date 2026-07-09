@@ -173,6 +173,31 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionRule_Evaluate_ReadsGuidBlobWorkIds()
+    {
+        var (_, _, episodeWorkId, _) = await BuildTvHierarchyBlobAsync();
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var matches = evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "TV" }]);
+
+        Assert.Contains(episodeWorkId, matches);
+    }
+
+    [Fact]
+    public async Task CollectionRule_CvLookup_FindsBlobValueOnRootParentRow()
+    {
+        var (showId, _, episodeWorkId, _) = await BuildTvHierarchyBlobAsync();
+        await InsertCanonicalBlobAsync(showId, "show_name", "Severance");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var matches = evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "show_name", Op = "eq", Value = "Severance" }]);
+
+        Assert.Contains(episodeWorkId, matches);
+    }
+
+    [Fact]
     public async Task CollectionRule_CvLookup_FindsValueOnRootParentRow()
     {
         // Same predicate, but the value lives on the parent show Work id.
@@ -296,6 +321,20 @@ public sealed class LineageReaderTests : IDisposable
             VALUES (@entityId, @key, @value, datetime('now'));
             """;
         cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+        cmd.Parameters.AddWithValue("@key", key);
+        cmd.Parameters.AddWithValue("@value", value);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task InsertCanonicalBlobAsync(Guid entityId, string key, string value)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO canonical_values (entity_id, key, value, last_scored_at)
+            VALUES (@entityId, @key, @value, datetime('now'));
+            """;
+        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", value);
         await cmd.ExecuteNonQueryAsync();

@@ -68,31 +68,41 @@ public sealed class PipelineConfigurationTests
         Assert.Equal(["comicvine"], ReadPriority(document, "Comics", "issue_source_url"));
         Assert.Equal(["comicvine", "wikidata_reconciliation"], ReadPriority(document, "Comics", "sequence_total"));
 
+        Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "title"));
+        Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "author"));
+        Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "artist"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Music", "track_number"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Music", "disc_number"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Music", "cover"));
-        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "album"));
-        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "year"));
-        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "track_count"));
-        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "sequence_total"));
+        Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "album"));
+        Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "year"));
+        Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "track_count"));
+        Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "sequence_total"));
     }
 
     [Fact]
-    public void MusicBrainz_IsEnabledForEnrichmentButNotStageOneMusicLookup()
+    public void MusicBrainz_IsConfiguredBeforeAppleForStageOneMusicIdentity()
     {
         using var pipelines = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "pipelines.json")));
         using var provider = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "musicbrainz.json")));
 
-        var musicProviders = pipelines.RootElement
+        var musicPipeline = pipelines.RootElement
             .GetProperty("Music")
-            .GetProperty("providers")
+            .GetProperty("providers");
+        var musicProviders = musicPipeline
             .EnumerateArray()
             .Select(element => element.GetProperty("name").GetString() ?? "")
             .ToArray();
+        var musicPurposes = musicPipeline
+            .EnumerateArray()
+            .Select(element => element.GetProperty("purpose").GetString() ?? "")
+            .ToArray();
 
-        Assert.Equal(["apple_api"], musicProviders);
+        Assert.Equal("Sequential", pipelines.RootElement.GetProperty("Music").GetProperty("strategy").GetString());
+        Assert.Equal(["musicbrainz", "apple_api"], musicProviders);
+        Assert.Equal(["identity", "enrichment"], musicPurposes);
         Assert.True(provider.RootElement.GetProperty("enabled").GetBoolean());
-        Assert.Equal([3], provider.RootElement.GetProperty("hydration_stages").EnumerateArray().Select(element => element.GetInt32()).ToArray());
+        Assert.Equal([1, 3], provider.RootElement.GetProperty("hydration_stages").EnumerateArray().Select(element => element.GetInt32()).ToArray());
         Assert.Contains("musicbrainz_release_group_id", provider.RootElement.GetProperty("preferred_bridge_ids").GetProperty("Music").EnumerateArray().Select(element => element.GetString()));
     }
 

@@ -961,7 +961,7 @@
     {
         return (_activeTabId, _grouping) switch
         {
-            ("tv", "shows") => $"/watch/tv/show/{group.CollectionId:D}",
+            ("tv", "shows") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
             ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
             ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
@@ -975,7 +975,12 @@
     private Guid GetGroupNavigationId(ContentGroupViewModel group) =>
         GetSystemViewGroupField() is not null
             ? GenerateDeterministicGuid(group.DisplayName)
+            : IsTvShowsGrouping
+                ? GetTvShowGroupRouteId(group)
             : group.CollectionId;
+
+    private static Guid GetTvShowGroupRouteId(ContentGroupViewModel group) =>
+        group.RootWorkId ?? group.CollectionId;
 
     private string? GetSystemViewGroupField() =>
         BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping);

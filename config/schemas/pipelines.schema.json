@@ -13,7 +13,11 @@
           "required": ["rank", "name"],
           "properties": {
             "rank": { "type": "integer", "minimum": 1 },
-            "name": { "type": "string", "minLength": 1 }
+            "name": { "type": "string", "minLength": 1 },
+            "purpose": {
+              "type": "string",
+              "enum": ["identity", "enrichment", "retail", "artwork", "text-track", "canonical"]
+            }
           }
         }
       }

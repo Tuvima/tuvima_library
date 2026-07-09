@@ -246,6 +246,9 @@ public sealed class ContentGroupDto
     [JsonPropertyName("collection_id")]
     public Guid CollectionId { get; init; }
 
+    [JsonPropertyName("root_work_id")]
+    public Guid? RootWorkId { get; init; }
+
     [JsonPropertyName("display_name")]
     public string DisplayName { get; init; } = string.Empty;
 

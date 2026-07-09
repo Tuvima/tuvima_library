@@ -37,7 +37,7 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 |---|---|---|---|---|---|
 | Apple API | Books, Audiobooks, Music | None | 500ms throttle | Localized (user language) | Active |
 | TMDB | Movies, TV | API key query parameter | 500ms throttle, max 1 concurrent | Localized (user language) | Active (requires key) |
-| MusicBrainz | Music | None | 1100ms, max 1 concurrent | Source (English only) | Disabled (config kept) |
+| MusicBrainz | Music | None | 1 request/sec, max 1 concurrent | Source (English only) | Active music identity |
 | Comic Vine | Comics | API key | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
 | Open Library | Books | None | 500ms | Source (English only) | Disabled (config kept) |
 | Fanart.tv | Movies, TV, Music | API key | Configured provider throttle | ID lookup | Stage 8 deep artwork only |
@@ -48,7 +48,7 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 
 ## Query Parameters - What We Send
 
-Provider search is defined in `config/providers/*.json`, with special grouped worker paths for Music and TV. Most providers accept one primary search term, but Apple and Open Library title searches include creator text through `query_template` when available. The returned candidates are still validated afterward by `RetailMatchScoringService`.
+Provider search is defined in `config/providers/*.json`, with grouped worker paths for TV and for Apple-led music chains when Apple is configured first. Most providers accept one primary search term, but Apple and Open Library title searches include creator text through `query_template` when available. The returned candidates are still validated afterward by `RetailMatchScoringService`.
 
 API credentials are config-file data. Base provider definitions live in `config/providers/*.json`; optional secret overlays live in `config/secrets/{provider}.json` and are applied by `ConfigurationDirectoryLoader` on `LoadProvider` and `LoadAllProviders`. A blank `http_client.api_key` in the base provider file does not mean the effective runtime key is missing if a matching secrets file exists.
 
@@ -58,7 +58,7 @@ API credentials are config-file data. Base provider definitions live in `config/
 |---|---|---|---|---|
 | Books | Apple API | ISBN lookup, Apple Books ID lookup, ebook search | `isbn`, `apple_books_id`, then `title` plus `author` in the Apple search term. | Title, author, year/date, format, description/publisher/page-count cross-checks, cover similarity. |
 | Audiobooks | Apple API | Apple Books ID lookup, audiobook search | `apple_books_id`, then `title` plus `author` in the Apple search term. | Title, author, narrator-in-description, year/date, duration, format, cover similarity. |
-| Music | Apple API | Grouped track-first search, album search, collection lookup | `title` plus `artist` for track search; `artist` plus `album` for album search; `apple_music_collection_id` for collection lookup. | Track title, artist/composer/author, album, year/date, track number, duration, format, cover similarity. |
+| Music | MusicBrainz, then Apple API | MusicBrainz recording/release search, then Apple track/album enrichment | `title` plus artist/composer/author and album hints for MusicBrainz; Apple uses title/artist/album and Apple collection IDs after identity. | Track title, artist/composer/author, album, year/date, track number, duration, format, cover similarity. |
 | Movies | TMDB | Movie search | `title`; `year` when available; `api_key`; locale. | Title, year, local director/writer/author evidence, format, genre/description cross-checks, poster similarity. |
 | TV | TMDB | Grouped show search, season episode lookup | `show_name` or `series`; year from any episode in the group; `season_number`; `api_key`; locale. | Episode title, show/series, season number, episode number, year, format, poster/still similarity. |
 | Comics | Comic Vine | Issue search, volume search | `title` for issue search; `series` for volume search; `api_key`. | Title, series, issue number or series position, writer/author/illustrator, year, format, cover similarity. |
@@ -77,7 +77,7 @@ API credentials are config-file data. Base provider definitions live in `config/
 | Music Album Search | 3 | `title` | `/search?term={artist} {title}&entity=album&limit={limit}&country={country}&lang={lang}_{country}` | Music |
 | Music Album Lookup | 4 | `apple_music_collection_id` | `/lookup?id={apple_music_collection_id}&entity=song&country={country}&lang={lang}_{country}` | Music |
 
-**Notes:** ISBN lookup is exact match (1 result). Book and audiobook search returns up to 25 results and fetches the top 5. Music has a grouped worker path that first searches by track to discover the Apple collection ID, then fetches the album so sibling tracks can share one provider lookup where possible. Cover art URL transforms remove Apple's size constraints for higher resolution.
+**Notes:** ISBN lookup is exact match (1 result). Book and audiobook search returns up to 25 results and fetches the top 5. For music, Apple runs after the configured MusicBrainz identity step and supplies cover art, retail album metadata, genre/year, and Apple source links. Cover art URL transforms remove Apple's size constraints for higher resolution.
 
 #### TMDB
 
@@ -89,14 +89,14 @@ API credentials are config-file data. Base provider definitions live in `config/
 
 **Notes:** Year is optional but included when available from file metadata. TV jobs are grouped by show and season: the worker searches the show, fetches show details, then fetches the season episode list and distributes episode-level claims to queued files. Returns poster paths that are expanded to `https://image.tmdb.org/t/p/w500{path}`.
 
-#### MusicBrainz (Disabled)
+#### MusicBrainz
 
 | Strategy | Priority | Required Fields | URL Pattern | Media Types |
 |---|---|---|---|---|
-| Release Search | 1 | `title` | `/release?query={title}&fmt=json&limit={limit}` | Music |
-| Recording Search | 2 | `title` | `/recording?query={title}&fmt=json&limit={limit}` | Music |
+| Recording Album Search | 1 | `title` | `/recording?query={query}&fmt=json&limit={limit}` | Music |
+| Release Search | 2 | `title` | `/release?query={query}&fmt=json&limit={limit}` | Music |
 
-**Notes:** The config is retained but disabled by default, so MusicBrainz is not an active Stage 3 provider in the normal runtime path. If re-enabled, its configured searches combine title and artist where artist is available, while album and year remain post-search ranking signals. Embedded MusicBrainz tags from local files can still exist as local metadata/bridge evidence.
+**Notes:** MusicBrainz is the default first Stage 1 provider for music. It identifies recordings and album/release containers before Apple enrichment runs. Its configured searches combine title with artist/composer/author where available, while album and year remain ranking and scoping signals. Recording IDs stay track-scoped; release and release-group IDs stay album-scoped.
 
 #### Comic Vine
 
@@ -139,7 +139,7 @@ LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do no
 | Media type | Preferred sequence source | Artwork display source |
 |---|---|---|
 | Books/Audiobooks | Apple retail sequence when available; otherwise Wikidata manifest if the container is sequence-compatible. | Managed asset from accepted Apple/provider cover, then placeholder after artwork settles. |
-| Music | Accepted Apple album/release lookup; MusicBrainz IDs can support identity only if enabled or embedded locally. | Managed asset from accepted Apple/Fanart source; no direct provider URL after settlement. |
+| Music | MusicBrainz recording/release identity first, then Apple album/artwork enrichment. | Managed asset from accepted Apple/Fanart source; no direct provider URL after settlement. |
 | Movies | TMDB movie collection for ordered film collections; Wikidata franchise context stays broader discovery context. | Managed poster/backdrop from TMDB/Fanart. |
 | TV | TMDB show/season/episode details. | Managed show, season, and episode art from TMDB/Fanart. |
 | Comics | Comic Vine volume/run and issue metadata. | Managed Comic Vine cover. |
@@ -164,7 +164,7 @@ Each provider's config defines a `field_mappings` array that maps JSON response 
 | **Apple API** | Books, Audiobooks, Music | Title, author/artist, year, cover, description, genre, rating for books, album, track/disc counts, track number, duration. Claim confidence is usually 0.70 to 0.90 depending on field and media type. | `apple_books_id`, `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`. |
 | **TMDB** | Movies, TV | Title, year, cover, description, short description, rating, original language, genre, network. Claim confidence is usually 0.80 to 0.90. | `tmdb_id`. |
 | **Comic Vine** | Comics | Candidate title for matching, `issue_title`, `issue_description`, `issue_source_url`, series, issue number, creator credits, cover, year, series position, volume sequence facts. Claim confidence is usually 0.70 to 1.00. | `comic_vine_id`, `comic_vine_volume_id`. |
-| **MusicBrainz** | Disabled by default | Title, artist/author, album, year, track count, MusicBrainz IDs, cover URL if re-enabled. | MusicBrainz artist/work/release/recording/release-group IDs when present. |
+| **MusicBrainz** | Music | Title, artist/author, album, year, track count, MusicBrainz IDs, ISRC. | MusicBrainz artist/work/release/recording/release-group IDs when present. |
 | **Open Library** | Disabled by default | Title, author, year, cover, description, publisher, language, ISBN if re-enabled. | `isbn` / Open Library identifiers when present. |
 
 Numbers in provider JSON represent confidence values assigned to extracted claims when the provider is enabled.
@@ -224,7 +224,7 @@ The bridge worker sends these fields to Wikidata after Stage 3 has produced a re
 |---|---|---|---|
 | Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `open_library_id`, `goodreads_id` | Title, author, year, language | Book/literary work, edition-aware |
 | Audiobooks | `apple_books_id`, `isbn`, `asin`, `audible_id`, MusicBrainz IDs | Title, author, year, language | Audiobook, edition-aware, prefers edition |
-| Music | `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`, MusicBrainz IDs | Album, artist, track title, year, language | Music album when album is known; otherwise music work |
+| Music | MusicBrainz recording/release/release-group IDs first; Apple Music IDs as secondary hints | Album, artist, composer/author fallback, track title, year, language | Recording/track when safely bridgeable; album when only release-group identity is known |
 | Movies | `tmdb_id`, `imdb_id`, Apple TV movie IDs | Title, creator if canonicalized, year, language | Movie/film |
 | TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs | Show name or series, creator if canonicalized, year, language | TV series |
 | Comics | `comic_vine_id`, `comic_vine_volume_id`, `gcd_id`, `isbn` | Series plus title, series title, writer/author/illustrator, year, language | Comic issue when available; scoped comic series/run when issue QID is absent |

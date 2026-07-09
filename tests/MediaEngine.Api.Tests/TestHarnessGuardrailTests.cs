@@ -121,6 +121,10 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("Batman: Year One Part 4", source);
         Assert.Contains("Saga Chapter Three", source);
         Assert.Contains("The Sandman: Imperfect Hosts", source);
+        Assert.Contains("Dune Part One (2021) {imdb-tt1160419}.mp4", source);
+        Assert.Contains("Dune Part Two (2024) {imdb-tt15239678}.mp4", source);
+        Assert.Contains("Batman Begins (2005) {imdb-tt0372784}.mp4", source);
+        Assert.Contains("The Dark Knight (2008) {imdb-tt0468569}.mp4", source);
     }
 
     [Fact]
@@ -133,6 +137,19 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("await ingestionEngine.ScanDirectories(scanTargets", integration, StringComparison.Ordinal);
         Assert.DoesNotContain("await ingestionEngine.ScanDirectory(target.Path", devSeed, StringComparison.Ordinal);
         Assert.DoesNotContain("await ingestionEngine.ScanDirectory(sourcePath", integration, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IntegrationHarness_ValidatesCrossMediaSeriesWithMediaScopedCounts()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("CrossMediaSeriesChecks", source);
+        Assert.Contains("CrossMediaSeriesExpectation", source);
+        Assert.Contains("Dune audiobook/movie", source);
+        Assert.Contains("Batman comic/movie", source);
+        Assert.Contains("LOWER(REPLACE(w.media_type, ' ', ''))", source);
+        Assert.Contains("includeMovies", source);
     }
 
     [Fact]

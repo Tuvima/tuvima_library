@@ -39,9 +39,10 @@ These providers require no account, no sign-up, and no configuration. They are a
 | **Wikidata** | Canonical identity, structured metadata, people, series, genre |
 | **Wikipedia** | Plain-language descriptions |
 | **Apple API** | Cover art, descriptions, ratings (books, audiobooks, music) |
+| **MusicBrainz** | Music recording, release, release-group, and artist identity |
 | **LRCLIB** | Lyrics and timed lyrics for music |
 
-These providers are enabled by default where their config marks them active. Open Library and MusicBrainz configs are retained for future or explicit use, but they are disabled in the normal runtime setup.
+These providers are enabled by default where their config marks them active. Open Library config is retained for future or explicit use, but it is disabled in the normal runtime setup.
 
 ---
 
@@ -85,13 +86,13 @@ When you save provider settings from the Dashboard, mutable provider settings ar
 
 ## Retail lookup inputs by media type
 
-Retail lookup is Stage 3. It searches the configured retail provider, then scores returned candidates against local file evidence. Open Library and MusicBrainz configs exist, but they are disabled in the normal runtime path.
+Retail lookup is Stage 3. It searches the configured provider chain, then scores returned candidates against local file evidence. Open Library config exists, but it is disabled in the normal runtime path. Music uses a sequential Stage 1 chain: MusicBrainz first for identity, then Apple for cover art and retail enrichment.
 
 | Media type | Active retail provider | Lookup inputs sent to provider | Candidate scoring metrics | Bridge IDs produced for Wikidata |
 |---|---|---|---|---|
 | Books | Apple API | ISBN exact lookup when `isbn` exists; Apple Books ID lookup when `apple_books_id` exists; otherwise ebook search using `title` plus `author` when available. | Title, author, year/date, media format, description/publisher/page-count cross-checks, and cover similarity when available. | `apple_books_id`; existing file ISBN/ASIN evidence can also be carried as bridge evidence. |
 | Audiobooks | Apple API | Apple Books ID lookup when available; otherwise audiobook search using `title` plus `author` when available. | Title, author, year/date, narrator-in-description, duration when available, media format, and cover similarity. | `apple_books_id`; existing `isbn` or `asin` evidence can also be carried as bridge evidence. |
-| Music | Apple API | Grouped by artist and album. The worker first searches by track title and artist to discover an Apple collection, can search by artist plus album, and can use `apple_music_collection_id` for album lookup. | Track title, artist/composer/author, album, year/date, track number, duration, media format, and cover similarity. | `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`. |
+| Music | MusicBrainz, then Apple API | MusicBrainz searches recordings/releases using title plus artist/composer/author/album hints and any embedded IDs. Apple runs afterward for cover art, retail album metadata, genre/year, and provider links. | Track title, artist/composer/author, album, year/date, track number, duration, media format, and cover similarity. | MusicBrainz recording/release/release-group IDs first; Apple Music track, collection, and artist IDs as secondary hints. |
 | Movies | TMDB | Movie search using `title`; `year` is included when known; requests include the configured TMDB API key. | Title, year, director/writer/author evidence when present locally, media format, genre/description cross-checks, and poster similarity. | `tmdb_id` mapped as a movie identifier. |
 | TV | TMDB | Grouped by show and season. The worker searches by `show_name` or `series`, includes a year hint if any episode has one, then fetches the TMDB season episode list using `season_number`. | Episode title, show/series, season number, episode number, year, media format, and poster/still similarity. Exact show/season/episode agreement is required for confident grouped acceptance. | `tmdb_id` mapped as a TV-series identifier. |
 | Comics | Comic Vine | Issue search using `title`; volume search using `series`; requests include the configured Comic Vine API key. | Title, series, issue number or series position, writer/author/illustrator evidence, year, media format, and cover similarity. | `comic_vine_id`; existing ISBN/GCD evidence can also be carried as bridge evidence. |
@@ -112,7 +113,7 @@ Wikidata relationship targets are classified before they become shelves. Ordered
 |---|---|---|---|---|
 | Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `open_library_id`, `goodreads_id` when present. | Title, author, year, language. | Book/literary work classes; excludes people, films, TV, and music classes. | Edition-aware; returns the work and edition when available. |
 | Audiobooks | `apple_books_id`, `isbn`, `asin`, `audible_id`, MusicBrainz IDs when present. | Title, author, year, language. | Audiobook and written-work classes. | Edition-aware and prefers audiobook edition identity when available. |
-| Music | `apple_music_id`, `apple_music_collection_id`, `apple_artist_id`, and MusicBrainz IDs when present. | Album title, artist, track title, author fallback, year, language. | Music album when album title is known; otherwise music work. | Edition-aware; album IDs roll up tracks to the album/work identity. |
+| Music | MusicBrainz recording, release, and release-group IDs first; Apple Music track, collection, and artist IDs as secondary hints. | Album title, artist, composer/author fallback, track title, year, language. | Track/recording QIDs when safely bridgeable; album/release-group QIDs stay on the album parent. | Edition-aware; album IDs roll up tracks to the album/work identity without forcing album QIDs onto tracks. |
 | Movies | `tmdb_id`, `imdb_id`, Apple TV movie IDs when present. | Title, author/creator if canonicalized, year, language. | Movie/film classes; TMDB maps to the movie property. | Not edition-aware in the bridge worker; returns work identity. |
 | TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs when present. | Show name or series as title, author/creator if canonicalized, year, language. | TV-series classes; TMDB maps to the TV-series property. | Not edition-aware in the bridge worker; resolves series/show identity. |
 | Comics | `comic_vine_id`, `gcd_id`, `isbn` when present. | Series plus title, series title, writer/author/illustrator fallback, year, language. | Comic issue when a series title is present; otherwise comic series. | Not edition-aware in the bridge worker; resolves issue or series identity depending on hints. |
@@ -131,7 +132,7 @@ For each media type, you can control which provider's data is preferred when mul
 4. You will see the providers listed in their current priority order.
 5. Drag providers up or down to change the order. Providers at the top are preferred over providers further down.
 
-The provider priority affects how the Priority Cascade resolves conflicts. When two providers disagree about a title or description, the one higher in the list wins - unless a user lock or Wikidata data overrides it.
+The provider priority affects how providers run and how the Priority Cascade resolves conflicts. Sequential chains run in listed order, passing bridge IDs forward. For music, the default configured chain is MusicBrainz with purpose `identity`, then Apple API with purpose `enrichment`.
 
 The **Canonical Identity** stage is intentionally different. It shows Wikidata identity, bridge, and relationship settings so you can understand what canonical data is being tracked; it does not assign providers to media types. The **Enrichment & Artwork** stage shows focused enrichment providers such as Fanart.tv, LRCLIB, and OpenSubtitles.
 

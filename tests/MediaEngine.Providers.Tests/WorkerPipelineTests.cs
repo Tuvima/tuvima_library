@@ -1648,6 +1648,135 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
+    public async Task RetailMatchWorker_MusicBrainzFirstPipeline_UsesConfiguredProviderOrder()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var musicBrainzProviderId = Guid.NewGuid();
+        var appleProviderId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var musicBrainz = new StubExternalMetadataProvider
+        {
+            Name = "musicbrainz",
+            ProviderId = musicBrainzProviderId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Bohemian Rhapsody", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Author, "Queen", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Album, "A Night at the Opera", 0.95),
+                new ProviderClaim(BridgeIdKeys.MusicBrainzRecordingId, "mb-recording-1", 1.0),
+            ],
+        };
+        var apple = new StubExternalMetadataProvider
+        {
+            Name = "apple_api",
+            ProviderId = appleProviderId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Bohemian Rhapsody", 0.90),
+                new ProviderClaim(MetadataFieldConstants.Author, "Queen", 0.90),
+                new ProviderClaim(MetadataFieldConstants.CoverUrl, "https://example.invalid/cover.jpg", 0.90),
+                new ProviderClaim(BridgeIdKeys.AppleMusicId, "1440806768", 0.95),
+            ],
+        };
+
+        var retailScoring = new StubRetailMatchScoringService();
+        retailScoring.Results.Enqueue(new FieldMatchScores
+        {
+            TitleScore = 0.97,
+            AuthorScore = 0.95,
+            YearScore = 0.0,
+            FormatScore = 1.0,
+            CompositeScore = 0.96,
+        });
+        retailScoring.Results.Enqueue(new FieldMatchScores
+        {
+            TitleScore = 0.95,
+            AuthorScore = 0.93,
+            YearScore = 0.0,
+            FormatScore = 1.0,
+            CompositeScore = 0.94,
+        });
+
+        var configLoader = new StubConfigurationLoader
+        {
+            PipelineConfiguration = new PipelineConfiguration
+            {
+                Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Music"] = new()
+                    {
+                        Strategy = ProviderStrategy.Sequential,
+                        Providers =
+                        [
+                            new PipelineProviderEntry { Rank = 1, Name = "musicbrainz", Purpose = "identity" },
+                            new PipelineProviderEntry { Rank = 2, Name = "apple_api", Purpose = "enrichment" },
+                        ],
+                    },
+                },
+            },
+            Providers =
+            [
+                new() { Name = "musicbrainz", Enabled = true, ProviderId = musicBrainzProviderId.ToString(), Weight = 0.9 },
+                new() { Name = "apple_api", Enabled = true, ProviderId = appleProviderId.ToString(), Weight = 0.9 },
+            ],
+        };
+
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Bohemian Rhapsody", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Artist, Value = "Queen", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Album, Value = "A Night at the Opera", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            new[] { musicBrainz, apple },
+            retailScoring,
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+        Assert.Single(musicBrainz.Requests);
+        Assert.Single(apple.Requests);
+        Assert.Equal(["musicbrainz", "apple_api"], candidateRepo.Candidates.Select(candidate => candidate.ProviderName).ToArray());
+        Assert.Equal([1, 2], candidateRepo.Candidates.Select(candidate => candidate.Rank).ToArray());
+        Assert.NotNull(apple.Requests[0].PriorProviderBridgeIds);
+        Assert.Contains(BridgeIdKeys.MusicBrainzRecordingId, apple.Requests[0].PriorProviderBridgeIds!.Keys);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+    }
+
+    [Fact]
     public async Task RetailMatchWorker_TvEpisodeRetailMatch_DownloadsTmdbStillAsLocalAsset()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"tuvima_retail_tv_still_{Guid.NewGuid():N}");
@@ -2685,12 +2814,16 @@ public sealed class WorkerPipelineTests
         public IReadOnlyList<string> CapabilityTags => [];
         public Guid ProviderId { get; set; } = Guid.NewGuid();
         public IReadOnlyList<ProviderClaim> Claims { get; set; } = [];
+        public List<ProviderLookupRequest> Requests { get; } = [];
 
         public bool CanHandle(MediaType mediaType) => true;
         public bool CanHandle(EntityType entityType) => true;
 
         public Task<IReadOnlyList<ProviderClaim>> FetchAsync(ProviderLookupRequest request, CancellationToken ct = default)
-            => Task.FromResult(Claims);
+        {
+            Requests.Add(request);
+            return Task.FromResult(Claims);
+        }
     }
 
     // ── StubRetailMatchScoringService ────────────────────────────────────
@@ -2738,10 +2871,11 @@ public sealed class WorkerPipelineTests
 
     private sealed class StubConfigurationLoader : IConfigurationLoader
     {
+        public PipelineConfiguration? PipelineConfiguration { get; init; }
         public IReadOnlyList<ProviderConfiguration> Providers { get; init; } = [];
         public HydrationSettings Hydration { get; init; } = new();
 
-        public PipelineConfiguration LoadPipelines() => new()
+        public PipelineConfiguration LoadPipelines() => PipelineConfiguration ?? new()
         {
             Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
             {

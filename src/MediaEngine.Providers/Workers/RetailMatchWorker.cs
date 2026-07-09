@@ -184,7 +184,22 @@ public sealed class RetailMatchWorker
         // Process Music jobs grouped by album (artist+album key).
         if (musicJobs.Count > 0)
         {
-            work.Add(ProcessMusicBatchAsync(musicJobs, ct));
+            if (ShouldUseAppleMusicAlbumBatch())
+            {
+                work.Add(ProcessMusicBatchAsync(musicJobs, ct));
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Music: configured Stage 1 provider order does not start with apple_api; using ranked provider pipeline for {Count} track(s)",
+                    musicJobs.Count);
+
+                work.AddRange(musicJobs.Select(job =>
+                    _concurrency.RunAsync(
+                        EnrichmentWorkKind.RetailProvider,
+                        token => ProcessJobWithRetryAsync(job, token),
+                        ct)));
+            }
         }
 
         // Process TV jobs grouped by show+season (show_name+season_number key).
@@ -229,6 +244,22 @@ public sealed class RetailMatchWorker
 
     private int GetBatchSize() =>
         Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Retail);
+
+    private bool ShouldUseAppleMusicAlbumBatch()
+    {
+        var pipeline = _configLoader.LoadPipelines().GetPipelineForMediaType(MediaType.Music);
+        var providerConfigs = _configLoader.LoadAllProviders();
+        var rankedProviders = pipeline.Providers.Count > 0
+            ? pipeline.Providers.OrderBy(p => p.Rank).Select(p => p.Name).ToList()
+            : providerConfigs.Select(p => p.Name).ToList();
+        var firstEnabledProvider = ProviderExecutionFilter.EnabledProviderNames(
+                rankedProviders,
+                _providers,
+                providerConfigs)
+            .FirstOrDefault();
+
+        return string.Equals(firstEnabledProvider, "apple_api", StringComparison.OrdinalIgnoreCase);
+    }
 
     // ── Music group processing ──────────────────────────────────────────────
 
@@ -326,9 +357,7 @@ public sealed class RetailMatchWorker
             .ToList();
 
         var representativeHints = jobHints[orderedGroupJobs[0].EntityId];
-        var artist = representativeHints.GetValueOrDefault(MetadataFieldConstants.Artist)
-            ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Author)
-            ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Composer);
+        var artist = GetMusicCreatorHint(representativeHints);
         var album  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Album);
         var title  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var (lang, musicCountry, _) = GetConfiguredLocale();
@@ -1773,16 +1802,30 @@ public sealed class RetailMatchWorker
 
     private static string BuildAlbumKey(Dictionary<string, string> hints)
     {
-        hints.TryGetValue(MetadataFieldConstants.Artist, out var artist);
-        if (string.IsNullOrWhiteSpace(artist))
-            hints.TryGetValue(MetadataFieldConstants.Author, out artist);
-        if (string.IsNullOrWhiteSpace(artist))
-            hints.TryGetValue(MetadataFieldConstants.Composer, out artist);
+        var artist = GetMusicCreatorHint(hints);
 
         hints.TryGetValue(MetadataFieldConstants.Album, out var album);
 
         // Normalise: lowercase, trim — so "The Beatles" and "the beatles" group together.
         return $"{(artist ?? string.Empty).Trim().ToLowerInvariant()}|{(album ?? string.Empty).Trim().ToLowerInvariant()}";
+    }
+
+    private static string? GetMusicCreatorHint(IReadOnlyDictionary<string, string> hints) =>
+        FirstNonBlank(
+            hints.GetValueOrDefault(MetadataFieldConstants.Artist),
+            hints.GetValueOrDefault("album_artist"),
+            hints.GetValueOrDefault(MetadataFieldConstants.Author),
+            hints.GetValueOrDefault(MetadataFieldConstants.Composer));
+
+    private static string? FirstNonBlank(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
     }
 
     private static string BuildShowSeasonKey(Dictionary<string, string> hints)
@@ -2223,9 +2266,7 @@ public sealed class RetailMatchWorker
         }
 
         var title = hints.GetValueOrDefault(MetadataFieldConstants.Title);
-        var artist = hints.GetValueOrDefault(MetadataFieldConstants.Artist)
-            ?? hints.GetValueOrDefault(MetadataFieldConstants.Author)
-            ?? hints.GetValueOrDefault(MetadataFieldConstants.Composer);
+        var artist = GetMusicCreatorHint(hints);
 
         if (PlaceholderTitleDetector.IsPlaceholder(title)
             || string.IsNullOrWhiteSpace(artist))
@@ -2316,6 +2357,15 @@ public sealed class RetailMatchWorker
         // processor evidence, especially authors, can be multi-valued and may
         // not have a scalar canonical yet.
         var hints = await BuildFileHintsAsync(job.EntityId, ct);
+        var authorHint = hints.GetValueOrDefault(MetadataFieldConstants.Author);
+        var artistHint = hints.GetValueOrDefault(MetadataFieldConstants.Artist);
+        var composerHint = hints.GetValueOrDefault(MetadataFieldConstants.Composer);
+        if (mediaType == MediaType.Music)
+        {
+            var musicCreatorHint = GetMusicCreatorHint(hints);
+            artistHint = musicCreatorHint;
+            authorHint = FirstNonBlank(authorHint, musicCreatorHint);
+        }
 
         var allCandidates = new List<RetailMatchCandidate>();
         RetailMatchCandidate? bestCandidate = null;
@@ -2342,14 +2392,14 @@ public sealed class RetailMatchWorker
                     EntityType = EntityType.MediaAsset,
                     MediaType = mediaType,
                     Title = hints.GetValueOrDefault(MetadataFieldConstants.Title),
-                    Author = hints.GetValueOrDefault(MetadataFieldConstants.Author),
+                    Author = authorHint,
                     Year = hints.GetValueOrDefault(MetadataFieldConstants.Year),
                     Narrator = hints.GetValueOrDefault(MetadataFieldConstants.Narrator),
                     ShowName = hints.GetValueOrDefault(MetadataFieldConstants.ShowName)
                         ?? hints.GetValueOrDefault(MetadataFieldConstants.Series),
                     Album = hints.GetValueOrDefault(MetadataFieldConstants.Album),
-                    Artist = hints.GetValueOrDefault(MetadataFieldConstants.Artist),
-                    Composer = hints.GetValueOrDefault(MetadataFieldConstants.Composer),
+                    Artist = artistHint,
+                    Composer = composerHint,
                     Director = hints.GetValueOrDefault(MetadataFieldConstants.Director),
                     SeasonNumber = hints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
                         ?? hints.GetValueOrDefault("season"),

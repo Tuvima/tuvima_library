@@ -24,13 +24,17 @@ public static class MediaNavigation
     }
 
     public static string ForContentGroup(ContentGroupViewModel group, string? tab = null)
-        => ForCollectionMedia(group.PrimaryMediaType, group.CollectionId, tab: tab);
+        => NormalizeBucket(group.PrimaryMediaType) == MediaBucket.Television && group.RootWorkId.HasValue
+            ? $"/watch/tv/show/{group.RootWorkId.Value}"
+            : ForCollectionMedia(group.PrimaryMediaType, group.CollectionId, tab: tab);
 
     public static string ForCollectionMedia(string? mediaType, Guid collectionId, Guid? workId = null, string? tab = null)
     {
         return NormalizeBucket(mediaType) switch
         {
-            MediaBucket.Television => $"/watch/tv/show/{collectionId}",
+            MediaBucket.Television => workId.HasValue
+                ? $"/watch/tv/show/{workId.Value}"
+                : $"/watch/tv/show/{collectionId}",
             MediaBucket.Music => $"/listen/music/albums/{collectionId}",
             MediaBucket.Movie when workId.HasValue => $"/watch/movie/{workId.Value}?collectionId={collectionId}",
             MediaBucket.Read when workId.HasValue => ForMedia(mediaType, workId.Value, collectionId),

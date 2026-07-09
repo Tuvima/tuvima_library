@@ -13,6 +13,9 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("collection_id")]
     public Guid CollectionId { get; set; }
 
+    [JsonPropertyName("root_work_id")]
+    public Guid? RootWorkId { get; set; }
+
     [JsonPropertyName("display_name")]
     public string DisplayName { get; set; } = string.Empty;
 

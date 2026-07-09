@@ -17,7 +17,7 @@ The user drops a file (book, movie, audiobook, comic) into a designated "Watch F
 5. **Media Type Disambiguation** — For ambiguous formats (MP3, M4A, MP4), heuristic signals (duration, genre tags, chapter markers, filename patterns, folder context) vote on the most likely media type. High-confidence results are accepted automatically; uncertain ones are sent to the review queue.
 6. **Scoring** — The Weighted Voter evaluates all extracted data and determines the most trustworthy value for each field.
 7. **Collection assignment** — The system decides which Collection (story group) this file belongs to, or creates a new one.
-8. **Stage 1 retail identification** — Enabled retail providers such as Apple, TMDB, and Comic Vine try to identify the item and return artwork, descriptions, ratings, people, and bridge identifiers.
+8. **Stage 1 provider identification** — Enabled configured providers try to identify the item and return artwork, descriptions, ratings, people, and bridge identifiers. Music uses MusicBrainz first for recording/release identity and Apple second for artwork and retail metadata; other lanes use their configured retail/catalogue providers.
 9. **Stage 2 Wikidata bridge resolution** — If Stage 1 found a retail match with bridge identifiers, Wikidata can resolve the canonical QID. If Stage 1 fails, the item goes to review and Wikidata is not attempted.
 10. **Quick Hydration** — The item becomes visible quickly with core identity, canonical values, and managed artwork.
 11. **Organising** — If scoring confidence is high enough (≥85%) or the user has locked any metadata value, the file is moved to a clean, human-readable folder structure in the Library.

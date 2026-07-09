@@ -607,6 +607,7 @@
         public string Endpoint         { get; set; } = "";
         public int    ThrottleMs       { get; set; } = 500;
         public int    MaxConcurrency   { get; set; } = 1;
+        public string? Purpose          { get; set; }
     }
 
     private sealed record ProviderTestSessionResult(bool Success, DateTimeOffset TestedAt, string Message);
@@ -627,7 +628,11 @@
         ["Audiobooks"] = [new() { Name = "Apple API", LanguageStrategy = "localized" }],
         ["Movies"]     = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
         ["TV"]         = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
-        ["Music"]      = [new() { Name = "MusicBrainz", LanguageStrategy = "source" }],
+        ["Music"]      =
+        [
+            new() { Name = "MusicBrainz", LanguageStrategy = "source", Purpose = "identity" },
+            new() { Name = "Apple API", LanguageStrategy = "localized", Purpose = "enrichment" },
+        ],
         ["Comics"]     = [new() { Name = "Comic Vine", LanguageStrategy = "source" }],
     };
 
@@ -776,7 +781,12 @@
             var pipeline = pipelines.GetPipelineForMediaType(mediaType);
             _assignments[mediaType] = pipeline.Providers
                 .OrderBy(provider => provider.Rank)
-                .Select(provider => CreateAssignmentFromProviderKey(provider.Name))
+                .Select(provider =>
+                {
+                    var assignment = CreateAssignmentFromProviderKey(provider.Name);
+                    assignment.Purpose = provider.Purpose;
+                    return assignment;
+                })
                 .ToList();
             _strategies[mediaType] = FormatProviderStrategy(pipeline.Strategy);
         }
@@ -800,6 +810,7 @@
             MaxConcurrency   = status?.MaxConcurrency ?? 1,
             LanguageStrategy = NormalizeLanguageStrategy(status?.LanguageStrategy)
                                ?? GetDefaultLanguageStrategy(resolvedName),
+            Purpose          = GetDefaultPurpose(resolvedName),
         };
     }
 
@@ -851,6 +862,12 @@
             ?? "source";
     }
 
+    private static string? GetDefaultPurpose(string providerName) =>
+        DefaultAssignments
+            .SelectMany(kv => kv.Value)
+            .FirstOrDefault(a => string.Equals(a.Name, providerName, StringComparison.OrdinalIgnoreCase))
+            ?.Purpose;
+
     private ProviderAssignment CreateAssignmentFromProviderName(string providerName)
     {
         var status = FindProviderStatus(providerName);
@@ -865,6 +882,7 @@
             MaxConcurrency   = status?.MaxConcurrency ?? 1,
             LanguageStrategy = NormalizeLanguageStrategy(status?.LanguageStrategy)
                                ?? GetDefaultLanguageStrategy(providerName),
+            Purpose          = GetDefaultPurpose(providerName),
         };
     }
 
@@ -1501,6 +1519,7 @@
                 {
                     Rank = index + 1,
                     Name = ResolveProviderConfigName(assignment.Name),
+                    Purpose = assignment.Purpose,
                 })
                 .ToList();
         }
@@ -1858,6 +1877,7 @@
                 Endpoint = a.Endpoint,
                 ThrottleMs = a.ThrottleMs,
                 MaxConcurrency = a.MaxConcurrency,
+                Purpose = a.Purpose,
             }).ToList(),
             StringComparer.OrdinalIgnoreCase);
         _savedStrategies = new Dictionary<string, string>(_strategies, StringComparer.OrdinalIgnoreCase);
@@ -1866,5 +1886,5 @@
     private static string SerializeAssignments(Dictionary<string, List<ProviderAssignment>> assignments) =>
         string.Join("|", assignments
             .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(kv => $"{kv.Key}:{string.Join(",", kv.Value.Select(a => $"{a.Name}:{a.Enabled}:{a.TimeoutMs}:{a.ThrottleMs}:{a.MaxConcurrency}:{a.Endpoint}:{a.Retries}:{a.LanguageStrategy}"))}"));
+            .Select(kv => $"{kv.Key}:{string.Join(",", kv.Value.Select(a => $"{a.Name}:{a.Enabled}:{a.TimeoutMs}:{a.ThrottleMs}:{a.MaxConcurrency}:{a.Endpoint}:{a.Retries}:{a.LanguageStrategy}:{a.Purpose}"))}"));
 }

@@ -39,9 +39,9 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 
 | Provider | Media Types | What it contributes |
 |---|---|---|
-| Apple API | Books, Audiobooks, Music | Cover art (up to 3000x3000 via the 9999 trick), description, rating, Apple Books/Apple Music IDs |
+| Apple API | Books, Audiobooks, Music | Cover art (up to 3000x3000 via the 9999 trick), description, rating, Apple Books/Apple Music IDs; for music it enriches after MusicBrainz identity |
 | Open Library | Books | Disabled by default; retained config for ISBN/book lookup |
-| MusicBrainz | Music | Disabled by default; retained config for MBID lookup |
+| MusicBrainz | Music | Primary music identity lookup for recording, release, release-group, artist, and ISRC evidence |
 | LRCLIB | Music | Lyrics and timed lyrics; text-track enrichment, not identity |
 | Wikidata / Wikidata Reconciliation | All | QID, all structured properties, Wikipedia descriptions, person headshots (P18, persons only) |
 
@@ -166,7 +166,9 @@ Stage 3: Universe + rich enrichment
 
 ### Stage 1 - RetailIdentification
 
-Retail providers run in ranked pipeline order defined in `config/pipelines.json`. Each media type has an ordered list of providers with a configurable execution strategy (Waterfall, Cascade, or Sequential). In Waterfall mode, the first provider that returns a result wins; later providers are not called for that field.
+Retail providers run in ranked pipeline order defined in `config/pipelines.json`. Each media type has an ordered list of providers with a configurable execution strategy (Waterfall, Cascade, or Sequential). Pipeline entries can include an optional `purpose` value such as `identity` or `enrichment` to document why that provider is in the chain; execution still follows rank and strategy. In Waterfall mode, the first provider that returns a result wins; later providers are not called for that field.
+
+Music uses a Sequential Stage 1 chain by default: `musicbrainz` with purpose `identity`, followed by `apple_api` with purpose `enrichment`. MusicBrainz supplies recording, release, release-group, artist, and ISRC bridge evidence. Apple then fills managed artwork, commercial album metadata, genre/year, and Apple source links. Apple is not delayed to Stage 3 for the normal first artwork pass, and album-level IDs/QIDs remain scoped to the album parent rather than individual tracks.
 
 Providers participate in Stage 1 by declaring `"hydration_stages": [1]` in their config.
 
@@ -219,7 +221,7 @@ metadata gaps, not a title-specific exception.
 | Movies | TMDB | - | - | TMDB ID (P4947), IMDb ID (P345) |
 | TV | TMDB | - | - | TMDB TV ID (P4983), IMDb ID (P345) |
 | Comics | Comic Vine | - | - | Comic Vine ID (P5905) |
-| Music | Apple API | - | - | Apple Music IDs |
+| Music | MusicBrainz | Apple API | - | MusicBrainz recording/release IDs first; Apple Music IDs second |
 
 For comics, ComicInfo.xml creator fields are the highest-priority creator
 evidence for display. Comic Vine structured creator credits can fill missing
@@ -550,7 +552,7 @@ Managed artwork is tracked in the database through `entity_assets` and stored un
 | Books & Audiobooks | Apple API | Up to 3000x3000 | 9999 trick in URL template |
 | Movies & TV | TMDB | Up to 2000x3000 | Backdrop available at w1280 |
 | Comics | Comic Vine | ~900px | `super_url` field |
-| Music | Apple API, then Fanart.tv in Stage 3 where IDs allow | Varies | MusicBrainz config is disabled by default |
+| Music | Apple API, then Fanart.tv in Stage 3 where IDs allow | Varies | MusicBrainz supplies identity first; Apple supplies the first managed cover pass |
 
 **Cover art timing:** Stage 1 records provider art and bridge evidence. The artwork pipeline persists accepted files under `.data/assets` and records canonical artwork flags (`cover_state`, `cover_source`, `hero_state`, `artwork_settled_at`) whether art is present, still pending, or explicitly missing. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when the downstream image and organisation flow settles.
 

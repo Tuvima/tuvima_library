@@ -492,6 +492,7 @@ public sealed class ContractJsonRoundTripTests
                         {
                             Rank = 1,
                             Name = "openlibrary",
+                            Purpose = "identity",
                         },
                     ],
                     FieldPriorities =
@@ -509,6 +510,8 @@ public sealed class ContractJsonRoundTripTests
         Assert.True(roundTrip.Pipelines.ContainsKey("Books"));
         Assert.Equal(dto.Pipelines["Books"].Strategy, roundTrip.Pipelines["Books"].Strategy);
         Assert.Equal("openlibrary", roundTrip.Pipelines["Books"].Providers[0].Name);
+        Assert.Equal("identity", roundTrip.Pipelines["Books"].Providers[0].Purpose);
         Assert.Contains("\"field_priorities\":", json, StringComparison.Ordinal);
+        Assert.Contains("\"purpose\":\"identity\"", json, StringComparison.Ordinal);
     }
 }

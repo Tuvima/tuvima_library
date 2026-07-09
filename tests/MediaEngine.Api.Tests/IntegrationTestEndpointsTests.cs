@@ -210,6 +210,15 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void OverallPass_FailsWhenCrossMediaSeriesValidationFails()
+    {
+        var report = CreateTestReport();
+        AddToListProperty(report, "CrossMediaSeriesChecks", CreateCrossMediaSeriesCheckResult());
+
+        Assert.False(GetOverallPass(report));
+    }
+
+    [Fact]
     public void GenerateHtmlReport_DoesNotShowAllPassWhenReconciliationMismatches()
     {
         var report = CreateTestReport();
@@ -430,6 +439,19 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         SetProperty(snapshot, "ActiveJobCount", 0);
         SetProperty(snapshot, "ProgressPercent", progressPercent);
         return snapshot;
+    }
+
+    private static object CreateCrossMediaSeriesCheckResult()
+    {
+        var type = typeof(IntegrationTestEndpoints).GetNestedType(
+            "CrossMediaSeriesCheckResult",
+            BindingFlags.NonPublic);
+
+        Assert.NotNull(type);
+        var result = Activator.CreateInstance(type!, nonPublic: true)!;
+        SetProperty(result, "Name", "Fixture");
+        SetProperty(result, "OwnedCount", 1);
+        return result;
     }
 
     private static string InvokeDescribeFileSystemCheck(object check)

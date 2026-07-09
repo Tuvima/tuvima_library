@@ -10,6 +10,10 @@ public sealed class PipelineProviderEntry
 
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("purpose")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Purpose { get; set; }
 }
 
 public sealed class MediaTypePipeline

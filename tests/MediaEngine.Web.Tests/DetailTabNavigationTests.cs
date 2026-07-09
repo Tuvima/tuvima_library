@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Details;
+using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Navigation;
 
 namespace MediaEngine.Web.Tests;
@@ -64,6 +65,34 @@ public sealed class DetailTabNavigationTests
         Assert.Equal(
             "/watch/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?collectionId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
             route);
+    }
+
+    [Fact]
+    public void MediaNavigation_UsesRootWorkIdForTvContentGroups()
+    {
+        var collectionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var rootWorkId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var group = new ContentGroupViewModel
+        {
+            CollectionId = collectionId,
+            RootWorkId = rootWorkId,
+            PrimaryMediaType = "TV",
+        };
+
+        Assert.Equal($"/watch/tv/show/{rootWorkId:D}", MediaNavigation.ForContentGroup(group));
+    }
+
+    [Fact]
+    public void MediaNavigation_KeepsCollectionFallbackForTvContentGroupsWithoutRoot()
+    {
+        var collectionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var group = new ContentGroupViewModel
+        {
+            CollectionId = collectionId,
+            PrimaryMediaType = "TV",
+        };
+
+        Assert.Equal($"/watch/tv/show/{collectionId:D}", MediaNavigation.ForContentGroup(group));
     }
 
     private static DetailPageViewModel CreateModel(params string[] tabs) =>
