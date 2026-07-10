@@ -62,9 +62,54 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
 
         Assert.Contains("[ValidateSet(\"generated-state\", \"full\")]", source, StringComparison.Ordinal);
         Assert.Contains("[string]$WipeScope = \"generated-state\"", source, StringComparison.Ordinal);
+        Assert.Contains("[int]$TimeoutSec = 10800", source, StringComparison.Ordinal);
+        Assert.Contains("[switch]$MusicOnly", source, StringComparison.Ordinal);
+        Assert.Contains("$Types = @(\"music\")", source, StringComparison.Ordinal);
         Assert.Contains("wipeScope=$([uri]::EscapeDataString($WipeScope))", source, StringComparison.Ordinal);
         Assert.Contains("$WipeScope -eq \"full\"", source, StringComparison.Ordinal);
         Assert.Contains("stages=$Stages", source, StringComparison.Ordinal);
+        Assert.Contains("-TimeoutSec $TimeoutSec", source, StringComparison.Ordinal);
+        Assert.Contains("-TimeoutSec 30", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DevHarnessReset_RecreatesConfiguredSourceFoldersAfterWipe()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevHarnessResetService.cs"));
+
+        Assert.Contains("EnsureConfiguredSourcePathsExist(details)", source, StringComparison.Ordinal);
+        Assert.Contains("EnsureConfiguredSourcePathsExist(details ?? [])", source, StringComparison.Ordinal);
+        Assert.Contains("Directory.CreateDirectory(srcPath)", source, StringComparison.Ordinal);
+        Assert.Contains("EnumerateConfiguredSourcePaths().Distinct", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IntegrationHarness_TracksStageAwareWaitBudgetsAndOwnedCounts()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("ResolveIngestionWaitPlan", source, StringComparison.Ordinal);
+        Assert.Contains("IngestionWaitStages", source, StringComparison.Ordinal);
+        Assert.Contains("CompletedAfterTimeout", source, StringComparison.Ordinal);
+        Assert.Contains("Ingestion Wait Budgets", source, StringComparison.Ordinal);
+        Assert.Contains("owned, {mt.CatalogOnlyCount} catalog-only", source, StringComparison.Ordinal);
+        Assert.Contains("allItems.Items.Where(IsOwnedValidationItem)", source, StringComparison.Ordinal);
+        Assert.Contains("ProviderHealthTimeoutSeconds", source, StringComparison.Ordinal);
+        Assert.Contains("elapsed {sw.Elapsed.TotalSeconds:F1}s", source, StringComparison.Ordinal);
+        Assert.Contains("ProviderHealthDetails", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IntegrationHarness_UsesMusicBrainzAsMusicIdentityAndAppleAsEnrichment()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+        var seedSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevSeedEndpoints.cs"));
+
+        Assert.Contains("[\"music\"] = [\"musicbrainz\", \"apple_api\"]", source, StringComparison.Ordinal);
+        Assert.Contains("(\"Bohemian Rhapsody Queen\", \"musicbrainz\", \"Music identity\"", source, StringComparison.Ordinal);
+        Assert.Contains("(\"Bohemian Rhapsody Queen\", \"apple_api\", \"Music enrichment\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"music\" => \"musicbrainz\"", source, StringComparison.Ordinal);
+        Assert.Contains("ExpectedQid: \"Q11986\"", seedSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -82,6 +127,10 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.Contains("QueryAsync<WorkHierarchyRow>", source, StringComparison.Ordinal);
         Assert.Contains("QueryAsync<CanonicalValueRow>", source, StringComparison.Ordinal);
         Assert.Contains("QueryAsync<PreferredArtworkRow>", source, StringComparison.Ordinal);
+        Assert.Contains("provider_id AS ProviderIdBlob", source, StringComparison.Ordinal);
+        Assert.Contains("winning_provider_id AS WinningProviderIdBlob", source, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.FromDb(ProviderIdBlob)", source, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.FromDb(WinningProviderIdBlob)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("QueryAsync<(string WorkId, string AssetId)>", source, StringComparison.Ordinal);
         Assert.DoesNotContain("QueryAsync<(string EntityId", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Guid.Parse(row.EntityId", source, StringComparison.Ordinal);
@@ -205,6 +254,24 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     {
         var report = CreateTestReport();
         AddToListProperty(report, "IngestionProgressSnapshots", CreateIngestionProgressSnapshot(progressPercent: 125));
+
+        Assert.False(GetOverallPass(report));
+    }
+
+    [Fact]
+    public void OverallPass_AllowsIngestionCompletedAfterSoftWaitBudgetTimeout()
+    {
+        var report = CreateTestReport();
+        AddToListProperty(report, "IngestionWaitStages", CreateIngestionWaitStage(completed: true, timedOut: true));
+
+        Assert.True(GetOverallPass(report));
+    }
+
+    [Fact]
+    public void OverallPass_FailsWhenIngestionWaitStageHardTimesOut()
+    {
+        var report = CreateTestReport();
+        AddToListProperty(report, "IngestionWaitStages", CreateIngestionWaitStage(completed: false, timedOut: true));
 
         Assert.False(GetOverallPass(report));
     }
@@ -439,6 +506,24 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         SetProperty(snapshot, "ActiveJobCount", 0);
         SetProperty(snapshot, "ProgressPercent", progressPercent);
         return snapshot;
+    }
+
+    private static object CreateIngestionWaitStage(bool completed, bool timedOut)
+    {
+        var type = typeof(IntegrationTestEndpoints).GetNestedType(
+            "IngestionWaitStageResult",
+            BindingFlags.NonPublic);
+
+        Assert.NotNull(type);
+        var stage = Activator.CreateInstance(type!, nonPublic: true)!;
+        SetProperty(stage, "StageKey", "file_registration");
+        SetProperty(stage, "Label", "File registration");
+        SetProperty(stage, "BudgetSeconds", 1d);
+        SetProperty(stage, "ElapsedSeconds", 2d);
+        SetProperty(stage, "Completed", completed);
+        SetProperty(stage, "TimedOut", timedOut);
+        SetProperty(stage, "CompletedAfterTimeout", completed && timedOut);
+        return stage;
     }
 
     private static object CreateCrossMediaSeriesCheckResult()

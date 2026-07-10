@@ -293,6 +293,7 @@ public sealed class WikidataBridgeWorker
                     lineage,
                     bridgeIds,
                     canonicals);
+                bridgeIds = OrderBridgeIdsForResolution(mediaType, bridgeIds);
 
                 var bridgeDict  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -448,6 +449,7 @@ public sealed class WikidataBridgeWorker
             }
 
             await TryResolveComicSeriesRollupsAsync(contexts, reconAdapter, ct).ConfigureAwait(false);
+            await TryResolveSiblingVariantQidsAsync(contexts, lineagesByEntity, ct).ConfigureAwait(false);
 
             // ── Phase 5 summary ───────────────────────────────────────────────────
             {
@@ -612,6 +614,9 @@ public sealed class WikidataBridgeWorker
                 job.EntityId);
         }
 
+        if (ctx.ResolvedQid is null)
+            await TryResolveSiblingVariantQidAsync(ctx, lineage, ct).ConfigureAwait(false);
+
         if (ctx.ResolvedQid is not null)
         {
             // Build candidate record.
@@ -620,6 +625,7 @@ public sealed class WikidataBridgeWorker
                 "music_album"        => (0.95, true),
                 "bridge_id"          => (1.0,  true),
                 "comic_series_rollup" => (0.90, true),
+                "sibling_variant"    => (0.93, true),
                 _                    => (0.75, false)
             };
 
@@ -860,6 +866,85 @@ public sealed class WikidataBridgeWorker
         foreach (var ctx in contexts)
             await TryResolveComicSeriesRollupAsync(ctx, reconAdapter, ct).ConfigureAwait(false);
     }
+
+    private async Task TryResolveSiblingVariantQidsAsync(
+        IEnumerable<JobContext> contexts,
+        IReadOnlyDictionary<Guid, WorkLineage?> lineagesByEntity,
+        CancellationToken ct)
+    {
+        foreach (var ctx in contexts)
+        {
+            lineagesByEntity.TryGetValue(ctx.Job.EntityId, out var lineage);
+            await TryResolveSiblingVariantQidAsync(ctx, lineage, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task TryResolveSiblingVariantQidAsync(
+        JobContext ctx,
+        WorkLineage? lineage,
+        CancellationToken ct)
+    {
+        if (!ShouldAttemptSiblingVariantQid(ctx))
+            return;
+
+        var candidateMediaTypes = GetSiblingVariantCandidateMediaTypes(ctx.MediaType);
+        if (candidateMediaTypes.Count == 0)
+            return;
+
+        var creator = ctx.AuthorHint ?? ctx.ArtistHint;
+        try
+        {
+            var match = await _workRepo.FindConfirmedSiblingQidAsync(
+                ctx.MediaType,
+                candidateMediaTypes,
+                ctx.TitleHint!,
+                creator,
+                lineage?.TargetForSelfScope,
+                ct).ConfigureAwait(false);
+
+            if (match is null || string.IsNullOrWhiteSpace(match.WikidataQid))
+                return;
+
+            ctx.ResolvedQid = match.WikidataQid;
+            ctx.MatchedBy = "sibling_variant";
+            ctx.PrimaryBridgeIdType = null;
+            AddDistinctAdditionalClaim(ctx, BridgeIdKeys.WikidataQid, match.WikidataQid, 0.93);
+            AddDistinctAdditionalClaim(ctx, MetadataFieldConstants.QidResolutionMethod, "sibling_variant", 0.95);
+
+            _logger.LogInformation(
+                "Wikidata: resolved {MediaType} '{Title}' to QID {Qid} from owned {SiblingMediaType} sibling '{SiblingTitle}' [entity {EntityId}]",
+                ctx.MediaType,
+                ctx.TitleHint,
+                match.WikidataQid,
+                match.MediaType,
+                match.Title,
+                ctx.Job.EntityId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(
+                ex,
+                "Wikidata: sibling variant QID lookup failed for entity {EntityId} ({Title})",
+                ctx.Job.EntityId,
+                ctx.TitleHint);
+        }
+    }
+
+    private static bool ShouldAttemptSiblingVariantQid(JobContext ctx)
+    {
+        return string.IsNullOrWhiteSpace(ctx.ResolvedQid)
+            && !string.IsNullOrWhiteSpace(ctx.TitleHint)
+            && string.Equals(ctx.Job.State, IdentityJobState.RetailMatched.ToString(), StringComparison.OrdinalIgnoreCase)
+            && ctx.MediaType is MediaType.Books or MediaType.Audiobooks;
+    }
+
+    private static IReadOnlyList<MediaType> GetSiblingVariantCandidateMediaTypes(MediaType mediaType) =>
+        mediaType switch
+        {
+            MediaType.Audiobooks => [MediaType.Books],
+            MediaType.Books      => [MediaType.Audiobooks],
+            _                    => [],
+        };
 
     private async Task TryResolveComicSeriesRollupAsync(
         JobContext ctx,
@@ -1112,6 +1197,7 @@ public sealed class WikidataBridgeWorker
             lineage,
             bridgeIds,
             canonicals);
+        bridgeIds = OrderBridgeIdsForResolution(mediaType, bridgeIds);
 
         var bridgeDict    = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1233,6 +1319,7 @@ public sealed class WikidataBridgeWorker
         }
 
         await TryResolveComicSeriesRollupAsync(ctx, reconAdapter, ct).ConfigureAwait(false);
+        await TryResolveSiblingVariantQidAsync(ctx, lineage, ct).ConfigureAwait(false);
 
         var allCandidates = new List<WikidataBridgeCandidate>();
         await FinaliseJobAsync(ctx, reconAdapter, allCandidates, ct);
@@ -1456,6 +1543,60 @@ public sealed class WikidataBridgeWorker
         }
 
         return entries;
+    }
+
+    private IReadOnlyList<BridgeIdEntry> OrderBridgeIdsForResolution(
+        MediaType mediaType,
+        IReadOnlyList<BridgeIdEntry> bridgeIds)
+    {
+        if (bridgeIds.Count <= 1)
+            return bridgeIds;
+
+        var priority = BuildBridgeIdPriority(mediaType);
+        if (priority.Count == 0)
+            return bridgeIds;
+
+        return bridgeIds
+            .Select((entry, index) => (Entry: entry, Index: index))
+            .OrderBy(item => priority.TryGetValue(item.Entry.IdType, out var rank) ? rank : int.MaxValue)
+            .ThenBy(item => item.Index)
+            .Select(item => item.Entry)
+            .ToList();
+    }
+
+    private Dictionary<string, int> BuildBridgeIdPriority(MediaType mediaType)
+    {
+        var priority = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var provider in _configLoader.LoadAllProviders())
+        {
+            if (provider.PreferredBridgeIds is null)
+                continue;
+
+            var keys = ResolvePreferredBridgeIds(provider.PreferredBridgeIds, mediaType);
+            foreach (var key in keys)
+            {
+                if (!string.IsNullOrWhiteSpace(key) && !priority.ContainsKey(key))
+                    priority[key] = priority.Count;
+            }
+        }
+
+        return priority;
+    }
+
+    private static IReadOnlyList<string> ResolvePreferredBridgeIds(
+        IReadOnlyDictionary<string, List<string>> preferredBridgeIds,
+        MediaType mediaType)
+    {
+        if (preferredBridgeIds.TryGetValue(mediaType.ToString(), out var direct))
+            return direct;
+
+        if (mediaType == MediaType.TV
+            && preferredBridgeIds.TryGetValue("TV Shows", out var tvShows))
+        {
+            return tvShows;
+        }
+
+        return [];
     }
 
     private static bool BridgeIdIsInResolutionScope(

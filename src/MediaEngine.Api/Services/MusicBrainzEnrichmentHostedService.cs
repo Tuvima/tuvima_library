@@ -15,9 +15,9 @@ using MediaEngine.Storage.Contracts;
 namespace MediaEngine.Api.Services;
 
 /// <summary>
-/// Non-blocking music enrichment pass. Apple/local tags remain the Stage 1 identity
-/// source; this service backfills MusicBrainz identifiers and credits after items
-/// are already visible.
+/// Config-controlled Stage 3 music retry/backfill pass. Stage 1 identity still
+/// follows <c>config/pipelines.json</c>; this service only revisits visible music
+/// items that are missing MusicBrainz identifiers.
 /// </summary>
 public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
 {
@@ -101,6 +101,14 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
     internal async Task RunSweepAsync(CancellationToken ct)
     {
         var providerConfigs = _configLoader.LoadAllProviders();
+        var providerConfig = providerConfigs.FirstOrDefault(config =>
+            string.Equals(config.Name, "musicbrainz", StringComparison.OrdinalIgnoreCase));
+        if (providerConfig?.HydrationStages.Contains(3) != true)
+        {
+            _logger.LogDebug("MusicBrainz Stage 3 backfill skipped because config/providers/musicbrainz.json does not include hydration stage 3");
+            return;
+        }
+
         var provider = ProviderExecutionFilter.FindEnabledProvider(_providers, providerConfigs, "musicbrainz");
         if (provider is null)
         {

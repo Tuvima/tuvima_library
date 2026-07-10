@@ -8,6 +8,8 @@ param(
     [ValidateSet("generated-state", "full")]
     [string]$WipeScope = "generated-state",
     [string[]]$Types = @("books", "audiobooks", "movies", "tv", "music", "comics"),
+    [switch]$MusicOnly,
+    [int]$TimeoutSec = 10800,
     [string]$OutputPath = "",
     [switch]$NoOpen
 )
@@ -23,6 +25,10 @@ if (-not (Test-Path $reportsDir)) {
 if (-not $OutputPath) {
     $timestamp = Get-Date -Format "yyyy-MM-dd-HHmmss"
     $OutputPath = Join-Path $reportsDir "integration-test-$timestamp.html"
+}
+
+if ($MusicOnly) {
+    $Types = @("music")
 }
 
 $requestedTypes = @($Types | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLowerInvariant() })
@@ -42,10 +48,11 @@ Write-Host "Engine : $EngineUrl" -ForegroundColor DarkGray
 Write-Host "Stages : $Stages" -ForegroundColor DarkGray
 Write-Host "Wipe   : $WipeScope" -ForegroundColor DarkGray
 Write-Host "Types  : $($requestedTypes -join ', ')" -ForegroundColor DarkGray
+Write-Host "Timeout: $TimeoutSec seconds" -ForegroundColor DarkGray
 Write-Host ""
 
 Write-Host "Checking engine status..." -ForegroundColor Cyan
-Invoke-WebRequest -Uri "$EngineUrl/system/status" -UseBasicParsing | Out-Null
+Invoke-WebRequest -Uri "$EngineUrl/system/status" -UseBasicParsing -TimeoutSec 30 | Out-Null
 Write-Host "Engine reachable." -ForegroundColor Green
 
 Write-Host ""
@@ -57,7 +64,7 @@ else {
 }
 Write-Host "Saving report to: $OutputPath" -ForegroundColor DarkGray
 
-Invoke-WebRequest -Method Post -Uri $uri -OutFile $OutputPath -UseBasicParsing | Out-Null
+Invoke-WebRequest -Method Post -Uri $uri -OutFile $OutputPath -UseBasicParsing -TimeoutSec $TimeoutSec | Out-Null
 
 Write-Host ""
 Write-Host "Report saved to $OutputPath" -ForegroundColor Green

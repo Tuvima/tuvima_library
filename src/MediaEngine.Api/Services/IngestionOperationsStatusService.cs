@@ -249,6 +249,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 .ToList();
         }
 
+        if (activeJobs.Count == 0
+            && displayBatch is not null
+            && ActiveBatchStatuses.Contains(displayBatch.Status, StringComparer.OrdinalIgnoreCase)
+            && currentActivities.Any(IsActiveActivity))
+        {
+            activeJobs.Add(ToActiveJob(displayBatch, scopedPipelineRows, pipelineStages));
+        }
+
         var stageProgress = await BuildNumberedStageProgressAsync(
             displayBatches,
             pipelineStages,
@@ -527,23 +535,58 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static IReadOnlyList<IngestionBatch> SelectDisplayBatches(IReadOnlyList<IngestionBatch> recentBatches)
     {
-        var anchor = SelectDisplayBatch(recentBatches);
-        if (anchor is null)
+        if (recentBatches.Count == 0)
             return [];
 
-        var anchorStart = anchor.StartedAt.ToUniversalTime();
-        var anchorHasOutcomes = HasOutcomeCounters(anchor);
+        var groups = BuildRecentBatchGroups(recentBatches);
+        if (groups.Count == 0)
+            return [];
+
+        var selected = SelectDisplayBatchGroup(groups);
+        var selectedIds = selected.SourceBatchIds.ToHashSet();
         return recentBatches
-            .Where(batch => DurationBetween(batch.StartedAt.ToUniversalTime(), anchorStart) <= TimeSpan.FromMinutes(3))
-            .Where(batch => ShouldIncludeInDisplayBatchGroup(batch, anchorHasOutcomes))
+            .Where(batch => selectedIds.Contains(batch.Id))
+            .OrderBy(batch => batch.StartedAt)
             .ToList();
     }
 
-    private static IngestionBatch? SelectDisplayBatch(IReadOnlyList<IngestionBatch> recentBatches)
+    private static DisplayBatchGroup SelectDisplayBatchGroup(IReadOnlyList<DisplayBatchGroup> groups)
     {
-        return recentBatches.FirstOrDefault(HasOutcomeCounters)
-            ?? recentBatches.FirstOrDefault(batch => batch.FilesProcessed > 0)
-            ?? recentBatches.FirstOrDefault();
+        var activeWithOutcomes = groups
+            .Where(group => ActiveBatchStatuses.Contains(group.Batch.Status, StringComparer.OrdinalIgnoreCase))
+            .Where(group => ShouldShowActiveBatch(group.Batch))
+            .Where(group => HasOutcomeCounters(group.Batch))
+            .OrderByDescending(group => Math.Max(group.Batch.FilesTotal, group.Batch.FilesProcessed))
+            .ThenByDescending(group => group.Batch.StartedAt)
+            .FirstOrDefault();
+        if (activeWithOutcomes is not null)
+            return activeWithOutcomes;
+
+        var completedWithOutcomes = groups
+            .Where(group => HasOutcomeCounters(group.Batch))
+            .OrderByDescending(group => Math.Max(group.Batch.FilesTotal, group.Batch.FilesProcessed))
+            .ThenByDescending(group => group.Batch.StartedAt)
+            .FirstOrDefault();
+        if (completedWithOutcomes is not null)
+            return completedWithOutcomes;
+
+        var activeWithoutOutcomes = groups
+            .Where(group => ActiveBatchStatuses.Contains(group.Batch.Status, StringComparer.OrdinalIgnoreCase))
+            .Where(group => ShouldShowActiveBatch(group.Batch))
+            .OrderByDescending(group => HasOutcomeCounters(group.Batch))
+            .ThenByDescending(group => Math.Max(group.Batch.FilesTotal, group.Batch.FilesProcessed))
+            .ThenByDescending(group => group.Batch.StartedAt)
+            .FirstOrDefault();
+        if (activeWithoutOutcomes is not null)
+            return activeWithoutOutcomes;
+
+        return groups
+            .Where(group => group.Batch.FilesProcessed > 0)
+            .OrderByDescending(group => group.Batch.StartedAt)
+            .FirstOrDefault()
+            ?? groups
+                .OrderByDescending(group => group.Batch.StartedAt)
+                .First();
     }
 
     private static IngestionBatch? AggregateDisplayBatch(IReadOnlyList<IngestionBatch> displayBatches)
@@ -3203,7 +3246,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             var staleInterruptedWork = staleQueuedWork || staleRunningWork;
             if (staleInterruptedWork && batch.FilesTotal > 0)
             {
-                var interrupted = Math.Max(0, batch.FilesTotal - terminal);
+                var interrupted = Math.Max(
+                    0,
+                    (staleQueuedWork ? snapshot.Queued : 0)
+                    + snapshot.StaleActive
+                    + snapshot.StaleRunningOperations);
+                interrupted = Math.Min(interrupted, Math.Max(0, batch.FilesTotal - terminal));
                 failed += interrupted;
                 terminal += interrupted;
             }
@@ -3702,7 +3750,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var recentById = recentBatches.ToDictionary(batch => batch.Id);
         var result = new List<IngestionOperationsBatchDto>(recentBatchGroups.Count);
 
-        foreach (var group in recentBatchGroups)
+        foreach (var group in OrderRecentBatchGroupsForDisplay(recentBatchGroups))
         {
             ct.ThrowIfCancellationRequested();
 
@@ -3740,6 +3788,23 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         }
 
         return result;
+    }
+
+    private static IReadOnlyList<DisplayBatchGroup> OrderRecentBatchGroupsForDisplay(
+        IReadOnlyList<DisplayBatchGroup> recentBatchGroups)
+    {
+        if (recentBatchGroups.Count <= 1)
+            return recentBatchGroups;
+
+        var selected = SelectDisplayBatchGroup(recentBatchGroups);
+        return recentBatchGroups
+            .OrderByDescending(group => ReferenceEquals(group, selected))
+            .ThenByDescending(group =>
+                ActiveBatchStatuses.Contains(group.Batch.Status, StringComparer.OrdinalIgnoreCase)
+                && ShouldShowActiveBatch(group.Batch))
+            .ThenByDescending(group => Math.Max(group.Batch.FilesTotal, group.Batch.FilesProcessed))
+            .ThenByDescending(group => group.Batch.StartedAt)
+            .ToList();
     }
 
     private static IngestionOperationsBatchDto ToRecentBatch(

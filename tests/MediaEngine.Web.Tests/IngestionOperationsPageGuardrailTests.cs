@@ -17,6 +17,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor"));
         var dashboardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor"));
+        var activitySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionActivityList.razor"));
         var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
         var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
 
@@ -35,6 +36,11 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("DetailCountFirst(details, \"Relationship links\"", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("IsInterruptedBatchStatus", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildSnapshotSignature", stateSource, StringComparison.Ordinal);
+        Assert.Contains("MergeSnapshot(Snapshot, snapshotTask.Result)", stateSource, StringComparison.Ordinal);
+        Assert.Contains("MergeByKey", stateSource, StringComparison.Ordinal);
+        Assert.Contains("OrderBatchesStable", stateSource, StringComparison.Ordinal);
+        Assert.Contains("@key=\"row.Key\"", activitySource, StringComparison.Ordinal);
+        Assert.Contains("WorkerItemKey(item)", activitySource, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromSeconds(2)", stateSource, StringComparison.Ordinal);
         Assert.Contains("LibraryUpdatePageState.Interrupted", stateSource, StringComparison.Ordinal);
         Assert.Contains("SignalREvents.IngestionItemProgress", orchestratorSource, StringComparison.Ordinal);

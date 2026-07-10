@@ -616,7 +616,7 @@ public static class DevSeedEndpoints
             Album: "La Vie en rose", Year: 1947, Genre: "Chanson", TrackNumber: 1,
             TestCategory: "Music â€” French, accented artist name, classic",
             ExpectIdentified: true,
-            ExpectedQid: "Q3824908"),
+            ExpectedQid: "Q11986"),
 
         new("Für Elise", "Ludwig van Beethoven",
             Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1,
@@ -764,13 +764,25 @@ public static class DevSeedEndpoints
     private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"]   = ["books", "audiobooks", "music"],
+        ["musicbrainz"] = ["music"],
         ["tmdb"]        = ["movies", "tv"],
         ["comicvine"]   = ["comics"],
+    };
+
+    private static readonly Dictionary<string, string[]> TypeProviderRequirements = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["books"]      = ["apple_api"],
+        ["audiobooks"] = ["apple_api"],
+        ["music"]      = ["musicbrainz", "apple_api"],
+        ["movies"]     = ["tmdb"],
+        ["tv"]         = ["tmdb"],
+        ["comics"]     = ["comicvine"],
     };
 
     private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
+        ["musicbrainz"] = "https://musicbrainz.org/ws/2/recording?query=bohemian%20rhapsody&fmt=json&limit=1",
         ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
         ["comicvine"]   = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
     };
@@ -907,22 +919,28 @@ public static class DevSeedEndpoints
                 continue;
             }
 
-            // Find which provider gates this type
-            var gatingProvider = ProviderToTypes
-                .Where(kvp => kvp.Value.Contains(type, StringComparer.OrdinalIgnoreCase))
-                .Select(kvp => kvp.Key)
-                .FirstOrDefault();
-
-            if (gatingProvider is null)
+            if (!TypeProviderRequirements.TryGetValue(type, out var requiredProviders) || requiredProviders.Length == 0)
             {
-                active.Add(type); // No provider gate â€” always active
+                active.Add(type);
                 continue;
             }
 
-            if (health.TryGetValue(gatingProvider, out var status) && status.Healthy)
+            var unavailable = requiredProviders
+                .Where(provider => !health.TryGetValue(provider, out var status) || !status.Healthy)
+                .Select(provider =>
+                    health.TryGetValue(provider, out var status)
+                        ? $"{provider} ({status.Reason})"
+                        : $"{provider} (unknown)")
+                .ToList();
+
+            if (unavailable.Count == 0)
+            {
                 active.Add(type);
+            }
             else
-                skipped[type] = $"Provider '{gatingProvider}' unavailable ({(health.TryGetValue(gatingProvider!, out var s) ? s.Reason : "unknown")})";
+            {
+                skipped[type] = $"Required provider(s) unavailable: {string.Join(", ", unavailable)}";
+            }
         }
 
         return (active, skipped);

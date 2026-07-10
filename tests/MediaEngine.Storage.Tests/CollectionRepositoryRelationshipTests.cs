@@ -115,6 +115,34 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
     }
 
     [Fact]
+    public async Task RelationshipRollupQueries_IncludeBasedOnRelationshipsForCrossMediaShelves()
+    {
+        var repo = new CollectionRepository(_db);
+        var comic = CreateCollection("Batman", "ContentGroup");
+        var movie = CreateCollection("Batman in film", "ContentGroup");
+        var parentUniverse = CreateCollection("Batman", "Universe");
+
+        await repo.UpsertAsync(comic);
+        await repo.UpsertAsync(movie);
+        await repo.UpsertAsync(parentUniverse);
+        await repo.InsertRelationshipsAsync(
+        [
+            CreateRelationship(comic.Id, "based_on", "Q2695156", "Batman"),
+            CreateRelationship(movie.Id, "based_on", "Q2695156", "Batman"),
+            CreateRelationship(parentUniverse.Id, "based_on", "Q2695156", "Batman"),
+        ]);
+
+        var shelfIds = await repo.FindCollectionIdsByFranchiseQidAsync("Q2695156");
+        var parent = await repo.FindParentCollectionByRelationshipAsync("Q2695156");
+
+        Assert.Contains(comic.Id, shelfIds);
+        Assert.Contains(movie.Id, shelfIds);
+        Assert.DoesNotContain(parentUniverse.Id, shelfIds);
+        Assert.NotNull(parent);
+        Assert.Equal(parentUniverse.Id, parent!.Id);
+    }
+
+    [Fact]
     public async Task UpdateCollectionSquareArtworkAsync_RoundTripsMetadata()
     {
         var repo = new CollectionRepository(_db);

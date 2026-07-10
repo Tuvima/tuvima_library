@@ -79,6 +79,7 @@ public sealed class DevHarnessResetService
             else
                 WipeKnownSeedFiles(details);
 
+            EnsureConfiguredSourcePathsExist(details);
             await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
             WipeRuntimeLogs(details);
         }
@@ -126,6 +127,7 @@ public sealed class DevHarnessResetService
     {
         try
         {
+            EnsureConfiguredSourcePathsExist(details ?? []);
             await _ingestionEngine.ResumeWatcherAsync(ct).ConfigureAwait(false);
             _logger.LogInformation("[HarnessReset] Ingestion engine FSW resumed");
             details?.Add("Ingestion engine: FSW resumed");
@@ -266,6 +268,23 @@ public sealed class DevHarnessResetService
             }
         }
 
+    }
+
+    private void EnsureConfiguredSourcePathsExist(List<string> details)
+    {
+        foreach (string srcPath in EnumerateConfiguredSourcePaths().Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                Directory.CreateDirectory(srcPath);
+                details.Add($"Library source ({srcPath}): directory ready");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[HarnessReset] Failed to create source path {Path}", srcPath);
+                details.Add($"Library source ({srcPath}): create FAILED - {ex.Message}");
+            }
+        }
     }
 
     private async Task ResetDatabaseAsync(List<string> details, CancellationToken ct)

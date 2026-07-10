@@ -368,7 +368,8 @@ builder.Services.AddSingleton<ICollectionArbiter>(sp =>
 builder.Services.AddSingleton<IParentCollectionResolver>(sp =>
     new ParentCollectionResolver(
         sp.GetRequiredService<ICollectionRepository>(),
-        sp.GetRequiredService<ILogger<ParentCollectionResolver>>()));
+        sp.GetRequiredService<ILogger<ParentCollectionResolver>>(),
+        sp.GetRequiredService<IConfigurationLoader>()));
 
 // -- Folder Health Monitor (Phase 10 — Settings & Management) -----------------
 // Periodic background check on Watch Folder + Library Root accessibility.

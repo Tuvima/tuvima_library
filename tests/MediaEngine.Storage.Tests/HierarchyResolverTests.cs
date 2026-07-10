@@ -1,4 +1,7 @@
 using Dapper;
+using MediaEngine.Domain;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Services;
 
@@ -401,6 +404,35 @@ public sealed class HierarchyResolverTests : IDisposable
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    [Fact]
+    public async Task WorkRepository_FindConfirmedSiblingQid_MatchesOwnedBookVariant()
+    {
+        await InsertOwnedWorkWithCanonicalsAsync(MediaType.Books, new Dictionary<string, string>
+        {
+            ["title"] = "The Shining",
+            ["author"] = "Stephen King",
+            ["wikidata_qid"] = "Q470937",
+        });
+
+        var titleOnlyMatch = await _works.FindConfirmedSiblingQidAsync(
+            MediaType.Audiobooks,
+            [MediaType.Books],
+            "The Shining (Unabridged)",
+            null);
+        Assert.NotNull(titleOnlyMatch);
+
+        var match = await _works.FindConfirmedSiblingQidAsync(
+            MediaType.Audiobooks,
+            [MediaType.Books],
+            "The Shining (Unabridged)",
+            "King, Stephen");
+
+        Assert.NotNull(match);
+        Assert.Equal(MediaType.Books, match!.MediaType);
+        Assert.Equal("Q470937", match.WikidataQid);
+        Assert.Equal("The Shining", match.Title);
+    }
+
     private static Dictionary<string, string> Track(string artist, string album, string title, int trackNum, int? discNumber = null)
     {
         var metadata = new Dictionary<string, string>
@@ -424,6 +456,61 @@ public sealed class HierarchyResolverTests : IDisposable
         ["episode_number"] = episode.ToString(),
         ["episode_title"]  = title,
     };
+
+    private async Task<Guid> InsertOwnedWorkWithCanonicalsAsync(
+        MediaType mediaType,
+        IReadOnlyDictionary<string, string> canonicalValues)
+    {
+        var workId = await _works.InsertStandaloneAsync(mediaType);
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO editions (id, work_id, format_label)
+                VALUES (@editionId, @workId, 'Test');
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@assetId, @editionId, @contentHash, @filePathRoot, 'Normal');
+                """;
+            AddGuidParameter(cmd, "@editionId", editionId);
+            AddGuidParameter(cmd, "@workId", workId);
+            AddGuidParameter(cmd, "@assetId", assetId);
+            cmd.Parameters.AddWithValue("@contentHash", Guid.NewGuid().ToString("N"));
+            cmd.Parameters.AddWithValue("@filePathRoot", Path.Combine(Path.GetTempPath(), $"{assetId:N}.media"));
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        var scalarValues = canonicalValues
+            .Where(kvp => !MetadataFieldConstants.IsMultiValued(kvp.Key))
+            .Select(kvp => new CanonicalValue
+            {
+                EntityId = assetId,
+                Key = kvp.Key,
+                Value = kvp.Value,
+                LastScoredAt = DateTimeOffset.UtcNow,
+            })
+            .ToList();
+
+        var canonicalRepo = new CanonicalValueRepository(_db);
+        await canonicalRepo.UpsertBatchAsync(scalarValues);
+
+        var arrayRepo = new CanonicalValueArrayRepository(_db);
+        foreach (var (key, value) in canonicalValues.Where(kvp => MetadataFieldConstants.IsMultiValued(kvp.Key)))
+        {
+            await arrayRepo.SetValuesAsync(
+                assetId,
+                key,
+                [new CanonicalArrayEntry { Ordinal = 0, Value = value }]);
+        }
+
+        return workId;
+    }
+
+    private static void AddGuidParameter(Microsoft.Data.Sqlite.SqliteCommand command, string name, Guid value) =>
+        command.Parameters.Add(name, Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(value);
 
     private void InsertLegacyAssetBackedWork(
         Guid workId,

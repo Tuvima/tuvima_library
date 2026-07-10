@@ -14,7 +14,7 @@ tags:
 
 Six media types are supported today. Each type has a processor path, supported file extensions, and configured providers. Ambiguous formats such as PDF, MP3, M4A, MP4, MKV, AVI, and WEBM are resolved through configured library folder context, metadata, filename patterns, heuristics, and Local AI where available.
 
-Provider stages are strict: Stage 3 provider metadata uses active configured providers (MusicBrainz then Apple for music, Apple for books/audiobooks, TMDB for movies/TV, Comic Vine for comics); Stage 4 Wikidata only runs from safe Stage 3 bridge IDs; Stages 6-8 enrichment add universe data, Fanart.tv artwork, lyrics, subtitles, people, and relationships. Open Library config is retained but disabled by default.
+Provider stages are strict: Stage 1 provider metadata uses active configured providers (MusicBrainz then Apple for music, Apple for books/audiobooks, TMDB for movies/TV, Comic Vine for comics); Stage 2 Wikidata only runs from safe Stage 1 bridge IDs; Stage 3 enrichment adds universe data, Fanart.tv artwork, lyrics, subtitles, people, and relationships. Open Library config is retained but disabled by default.
 
 ---
 
@@ -45,11 +45,11 @@ Provider stages are strict: Stage 3 provider metadata uses active configured pro
 
 ### Providers
 
-Waterfall order during Stage 3:
+Provider order during Stage 1:
 
 1. Apple API - ISBN lookup and title search, cover art and ratings
 2. Open Library - disabled config retained, not active by default
-3. Wikidata - Stage 4, QID resolution via ISBN or Apple bridge IDs
+3. Wikidata - Stage 2, QID resolution via ISBN or Apple bridge IDs
 
 ### Ambiguity resolution
 
@@ -104,7 +104,7 @@ Classification order for MP3 files:
 ### Providers
 
 1. Apple API - ASIN-first lookup for Audible content; cover art, narrator, series data
-2. Wikidata - Stage 4, QID resolution
+2. Wikidata - Stage 2, QID resolution
 
 ### Organization template
 
@@ -152,7 +152,7 @@ Classification order:
 ### Providers
 
 1. TMDB - title+year search; cover art (poster), description, ratings, cast, TMDB ID bridge
-2. Wikidata - Stage 4, QID resolution via TMDB ID bridge
+2. Wikidata - Stage 2, QID resolution via TMDB ID bridge
 
 TMDB movie details also supply `belongs_to_collection`. Tuvima stores that as a provider-backed movie-series shelf key, so Watch can show film-series shelves before a Wikidata `series_qid` is available.
 
@@ -202,7 +202,7 @@ TV/Breaking Bad (Q1079331)/Season 01/S01E01 - Pilot.mkv
 ### Providers
 
 1. TMDB - series and episode metadata; poster and backdrop images
-2. Wikidata - Stage 4, QID resolution
+2. Wikidata - Stage 2, QID resolution
 
 TV is treated as show-first. The show identity comes from folder/path hints, parsed show/season/episode values, and TMDB/TVDB IDs; episode title remains episode metadata. A show shelf can exist with a provider key before Wikidata relationships are available.
 
@@ -250,9 +250,9 @@ Classification order:
 
 ### Providers
 
-1. Apple API - music lookup where enabled by provider config; artwork, track, album, and bridge metadata
-2. MusicBrainz - disabled config retained; embedded MusicBrainz tags remain local metadata/bridge evidence when present
-3. Wikidata - Stage 4, QID resolution only after safe Stage 3 bridge evidence
+1. MusicBrainz - Stage 1 identity for recording, release, release-group, artist, and ISRC bridge evidence
+2. Apple API - Stage 1 enrichment after MusicBrainz identity; cover art, genre/year, storefront links, and retail album metadata
+3. Wikidata - Stage 2, QID resolution only after safe Stage 1 bridge evidence, using MusicBrainz IDs first and Apple IDs as secondary hints
 
 ### Organization template
 
@@ -311,7 +311,7 @@ ComicInfo.xml is the de facto standard metadata format for CBZ/CBR archives. Not
 ### Providers
 
 1. Comic Vine - issue search by series+number; publisher, creator, and story arc data
-2. Wikidata - Stage 4, QID resolution for notable series
+2. Wikidata - Stage 2, QID resolution for notable series
 
 ### Organization template
 

@@ -130,6 +130,47 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
         Assert.Empty(parentAssets);
     }
 
+    [Fact]
+    public async Task DownloadAndPersistAsync_MusicTrackReadsEnrichmentCoverFromAlbumWork()
+    {
+        var albumWorkId = await _workRepo.InsertParentAsync(
+            MediaType.Music,
+            "music:album:a-night-at-the-opera",
+            grandparentWorkId: null,
+            ordinal: null);
+        var trackWorkId = await _workRepo.InsertChildAsync(MediaType.Music, albumWorkId, ordinal: 11);
+        var assetId = await SeedAssetForExistingWorkAsync(trackWorkId, Path.Combine("Music", "Queen", "Bohemian Rhapsody.flac"));
+        await SeedCanonicalsAsync(
+            albumWorkId,
+            ("cover_url", "https://images.test/apple-album-cover.jpg"),
+            ("album", "A Night at the Opera"));
+
+        var worker = new CoverArtWorker(
+            _assetRepo,
+            _canonicalRepo,
+            _workRepo,
+            new NoOpImageCacheRepository(),
+            new RoutingHttpClientFactory(_ => ImageResponse(CreateTestImageBytes())),
+            _assetPaths,
+            NullLogger<CoverArtWorker>.Instance,
+            assetExportService: null,
+            coverArtHash: null,
+            entityAssetRepo: _entityAssetRepo);
+
+        await worker.DownloadAndPersistAsync(assetId, null, CancellationToken.None);
+
+        var coverAsset = Assert.Single(await _entityAssetRepo.GetByEntityAsync(albumWorkId.ToString(), "CoverArt"));
+        Assert.Equal("https://images.test/apple-album-cover.jpg", coverAsset.ImageUrl);
+        Assert.True(File.Exists(coverAsset.LocalImagePath));
+        Assert.True(File.Exists(coverAsset.LocalImagePathSmall));
+        Assert.True(File.Exists(coverAsset.LocalImagePathMedium));
+        Assert.True(File.Exists(coverAsset.LocalImagePathLarge));
+        Assert.False(string.IsNullOrWhiteSpace(coverAsset.PrimaryHex));
+
+        var trackAssets = await _entityAssetRepo.GetByEntityAsync(trackWorkId.ToString(), "CoverArt");
+        Assert.Empty(trackAssets);
+    }
+
     private async Task<Guid> SeedAssetForExistingWorkAsync(Guid workId, string relativeFilePath)
     {
         var editionId = Guid.NewGuid();

@@ -257,8 +257,12 @@ public sealed class RetailMatchWorker
                 _providers,
                 providerConfigs)
             .FirstOrDefault();
+        var firstEnabledEntry = pipeline.Providers
+            .OrderBy(p => p.Rank)
+            .FirstOrDefault(p => string.Equals(p.Name, firstEnabledProvider, StringComparison.OrdinalIgnoreCase));
 
-        return string.Equals(firstEnabledProvider, "apple_api", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(firstEnabledProvider, "apple_api", StringComparison.OrdinalIgnoreCase)
+            && IsIdentityPurpose(firstEnabledEntry?.Purpose);
     }
 
     // ── Music group processing ──────────────────────────────────────────────
@@ -2183,6 +2187,42 @@ public sealed class RetailMatchWorker
         return candidate.Rank < currentBest.Rank;
     }
 
+    private static RetailMatchCandidate? SelectIdentityCandidateWhenConfigured(
+        IReadOnlyList<RetailMatchCandidate> candidates,
+        RetailMatchCandidate? currentBest,
+        MediaTypePipeline pipeline)
+    {
+        if (candidates.Count == 0 || pipeline.Providers.Count == 0)
+            return currentBest;
+
+        var identityProviders = pipeline.Providers
+            .Where(provider => IsIdentityPurpose(provider.Purpose))
+            .OrderBy(provider => provider.Rank)
+            .Select(provider => provider.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (identityProviders.Count == 0)
+            return currentBest;
+
+        RetailMatchCandidate? identityBest = null;
+        foreach (var candidate in candidates)
+        {
+            if (!identityProviders.Contains(candidate.ProviderName)
+                || GetOutcomeRank(candidate.Outcome) == 0)
+            {
+                continue;
+            }
+
+            if (IsBetterCandidate(candidate, identityBest))
+                identityBest = candidate;
+        }
+
+        return identityBest ?? currentBest;
+    }
+
+    private static bool IsIdentityPurpose(string? purpose) =>
+        string.Equals(purpose, "identity", StringComparison.OrdinalIgnoreCase);
+
     private async Task<Dictionary<string, string>> BuildFileHintsAsync(Guid entityId, CancellationToken ct)
     {
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -2572,6 +2612,7 @@ public sealed class RetailMatchWorker
         if (allCandidates.Count > 0)
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
 
+        bestCandidate = SelectIdentityCandidateWhenConfigured(allCandidates, bestCandidate, pipeline);
         bestScore = bestCandidate?.ScoreTotal ?? 0.0;
 
         // Determine final job state based on best candidate

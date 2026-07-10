@@ -1,7 +1,13 @@
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Dapper;
+using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -182,6 +188,145 @@ public sealed class WorkRepository : IWorkRepository
     }
 
     // ── Inserts ────────────────────────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public Task<ConfirmedSiblingWorkQid?> FindConfirmedSiblingQidAsync(
+        MediaType sourceMediaType,
+        IReadOnlyList<MediaType> candidateMediaTypes,
+        string title,
+        string? creator,
+        Guid? excludeWorkId = null,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(title) || candidateMediaTypes.Count == 0)
+            return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+
+        var normalizedTitle = NormalizeIdentityText(title, stripEditionMarkers: true);
+        if (normalizedTitle.Length == 0)
+            return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+
+        var normalizedCreator = NormalizeCreatorVariants(creator);
+
+        using var conn = _db.CreateConnection();
+        var parameters = new DynamicParameters();
+        var mediaPlaceholders = new string[candidateMediaTypes.Count];
+        for (var i = 0; i < candidateMediaTypes.Count; i++)
+        {
+            var name = $"mediaType{i}";
+            mediaPlaceholders[i] = "@" + name;
+            parameters.Add(name, candidateMediaTypes[i].ToString());
+        }
+
+        parameters.Add("wikidataQid", BridgeIdKeys.WikidataQid);
+
+        var rows = conn.Query<SiblingQidRow>("""
+            SELECT DISTINCT
+                   w.id         AS WorkId,
+                   w.media_type AS MediaType,
+                   COALESCE(NULLIF(TRIM(cv_work_qid.value), ''),
+                            NULLIF(TRIM(cv_asset_qid.value), ''),
+                            NULLIF(TRIM(w.wikidata_qid), ''),
+                            NULLIF(TRIM(CASE
+                                WHEN json_valid(w.external_identifiers)
+                                THEN json_extract(w.external_identifiers, '$.' || @wikidataQid)
+                            END), '')) AS WikidataQid,
+                   COALESCE(NULLIF(TRIM(cv_work_title.value), ''),
+                            NULLIF(TRIM(cv_asset_title.value), '')) AS Title,
+                   COALESCE(NULLIF(TRIM(cv_work_author.value), ''),
+                            NULLIF(TRIM(cv_asset_author.value), ''),
+                            NULLIF(TRIM(cva_work_author.value), ''),
+                            NULLIF(TRIM(cva_asset_author.value), ''),
+                            NULLIF(TRIM(cv_work_artist.value), ''),
+                            NULLIF(TRIM(cv_asset_artist.value), ''),
+                            NULLIF(TRIM(cva_work_artist.value), ''),
+                            NULLIF(TRIM(cva_asset_artist.value), '')) AS Creator
+            FROM   works w
+            INNER JOIN editions e
+                    ON e.work_id = w.id
+            INNER JOIN media_assets ma
+                    ON ma.edition_id = e.id
+                   AND ma.file_path_root IS NOT NULL
+                   AND TRIM(ma.file_path_root) <> ''
+                   AND ma.status <> 'Orphaned'
+            LEFT JOIN canonical_values cv_work_qid
+                   ON cv_work_qid.entity_id = w.id AND cv_work_qid.key = 'wikidata_qid'
+            LEFT JOIN canonical_values cv_asset_qid
+                   ON cv_asset_qid.entity_id = ma.id AND cv_asset_qid.key = 'wikidata_qid'
+            LEFT JOIN canonical_values cv_work_title
+                   ON cv_work_title.entity_id = w.id AND cv_work_title.key = 'title'
+            LEFT JOIN canonical_values cv_asset_title
+                   ON cv_asset_title.entity_id = ma.id AND cv_asset_title.key = 'title'
+            LEFT JOIN canonical_values cv_work_author
+                   ON cv_work_author.entity_id = w.id AND cv_work_author.key = 'author'
+            LEFT JOIN canonical_values cv_asset_author
+                   ON cv_asset_author.entity_id = ma.id AND cv_asset_author.key = 'author'
+            LEFT JOIN canonical_value_arrays cva_work_author
+                   ON cva_work_author.entity_id = w.id AND cva_work_author.key = 'author' AND cva_work_author.ordinal = 0
+            LEFT JOIN canonical_value_arrays cva_asset_author
+                   ON cva_asset_author.entity_id = ma.id AND cva_asset_author.key = 'author' AND cva_asset_author.ordinal = 0
+            LEFT JOIN canonical_values cv_work_artist
+                   ON cv_work_artist.entity_id = w.id AND cv_work_artist.key = 'artist'
+            LEFT JOIN canonical_values cv_asset_artist
+                   ON cv_asset_artist.entity_id = ma.id AND cv_asset_artist.key = 'artist'
+            LEFT JOIN canonical_value_arrays cva_work_artist
+                   ON cva_work_artist.entity_id = w.id AND cva_work_artist.key = 'artist' AND cva_work_artist.ordinal = 0
+            LEFT JOIN canonical_value_arrays cva_asset_artist
+                   ON cva_asset_artist.entity_id = ma.id AND cva_asset_artist.key = 'artist' AND cva_asset_artist.ordinal = 0
+            WHERE  w.media_type IN (
+            """ + string.Join(", ", mediaPlaceholders) + """
+            )
+              AND  w.is_catalog_only = 0
+              AND  w.ownership = 'Owned';
+            """, parameters).AsList();
+
+        if (excludeWorkId.HasValue)
+            rows.RemoveAll(row => row.WorkId == excludeWorkId.Value);
+
+        var titleMatches = rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.WikidataQid)
+                       && !string.IsNullOrWhiteSpace(row.Title)
+                       && NormalizeIdentityText(row.Title!, stripEditionMarkers: true) == normalizedTitle)
+            .ToList();
+
+        if (titleMatches.Count == 0)
+            return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+
+        if (normalizedCreator.Count > 0)
+        {
+            titleMatches = titleMatches
+                .Where(row =>
+                {
+                    var rowCreators = NormalizeCreatorVariants(row.Creator);
+                    return rowCreators.Count > 0 && rowCreators.Overlaps(normalizedCreator);
+                })
+                .ToList();
+        }
+
+        var qidGroups = titleMatches
+            .Where(row => !string.IsNullOrWhiteSpace(row.WikidataQid))
+            .GroupBy(row => row.WikidataQid!, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (qidGroups.Count != 1)
+            return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+
+        var match = qidGroups[0]
+            .OrderBy(row => row.MediaType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
+            .First();
+
+        var mediaType = Enum.TryParse<MediaType>(match.MediaType, ignoreCase: true, out var parsed)
+            ? parsed
+            : sourceMediaType;
+
+        return Task.FromResult<ConfirmedSiblingWorkQid?>(new ConfirmedSiblingWorkQid(
+            match.WorkId,
+            mediaType,
+            match.WikidataQid!,
+            match.Title!,
+            match.Creator));
+    }
 
     /// <inheritdoc/>
     public Task<Guid> InsertParentAsync(
@@ -701,5 +846,76 @@ public sealed class WorkRepository : IWorkRepository
         public Guid RootParentWorkId   { get; set; }
         public string WorkKind         { get; set; } = string.Empty;
         public string MediaType        { get; set; } = string.Empty;
+    }
+
+    private sealed class SiblingQidRow
+    {
+        public Guid WorkId         { get; set; }
+        public string MediaType    { get; set; } = string.Empty;
+        public string? WikidataQid { get; set; }
+        public string? Title       { get; set; }
+        public string? Creator     { get; set; }
+    }
+
+    private static HashSet<string> NormalizeCreatorVariants(string? value)
+    {
+        var variants = new HashSet<string>(StringComparer.Ordinal);
+        var normalized = NormalizeIdentityText(value, stripEditionMarkers: false);
+        if (normalized.Length > 0)
+            variants.Add(normalized);
+
+        if (!string.IsNullOrWhiteSpace(value) && value.Contains(',', StringComparison.Ordinal))
+        {
+            var parts = value.Split(',', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 2)
+            {
+                var inverted = NormalizeIdentityText($"{parts[1]} {parts[0]}", stripEditionMarkers: false);
+                if (inverted.Length > 0)
+                    variants.Add(inverted);
+            }
+        }
+
+        return variants;
+    }
+
+    private static string NormalizeIdentityText(string? value, bool stripEditionMarkers)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var repaired = TextEncodingRepair.RepairMojibake(value).Trim();
+        if (stripEditionMarkers)
+        {
+            repaired = Regex.Replace(repaired, @"\([^)]*\)|\[[^\]]*\]", " ");
+            repaired = Regex.Replace(
+                repaired,
+                @"\b(unabridged|abridged|audiobook|audio\s+book|complete\s+edition|retail|digital)\b",
+                " ",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+
+        var decomposed = repaired.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(decomposed.Length);
+        var previousWasSpace = true;
+
+        foreach (var c in decomposed)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (category == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (char.IsLetterOrDigit(c))
+            {
+                builder.Append(char.ToLowerInvariant(c));
+                previousWasSpace = false;
+            }
+            else if (!previousWasSpace)
+            {
+                builder.Append(' ');
+                previousWasSpace = true;
+            }
+        }
+
+        return builder.ToString().Trim().Normalize(NormalizationForm.FormC);
     }
 }

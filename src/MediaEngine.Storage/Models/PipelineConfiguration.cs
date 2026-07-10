@@ -25,9 +25,10 @@ public sealed class PipelineProviderEntry
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Optional human-readable purpose for this provider in the chain, such as
+    /// Optional purpose for this provider in the chain, such as
     /// <c>identity</c> or <c>enrichment</c>. Runtime ordering is still driven by
-    /// <see cref="Rank"/>; this field documents intent in configuration and UI saves.
+    /// <see cref="Rank"/>, while identity purpose can also control which accepted
+    /// provider candidate owns the selected identity for the job.
     /// </summary>
     [JsonPropertyName("purpose")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

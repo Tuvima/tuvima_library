@@ -93,7 +93,9 @@ public sealed class WriteBackService : IWriteBackService
         var asset = await _assetRepo.FindByIdAsync(assetId, ct);
         if (asset is null)
         {
-            _logger.LogWarning("WriteBack: asset {AssetId} not found in database", assetId);
+            _logger.LogDebug(
+                "WriteBack: asset {AssetId} not found in database; skipping stale write-back work",
+                assetId);
             return;
         }
 

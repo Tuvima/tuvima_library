@@ -9,6 +9,7 @@ using MediaEngine.Processors.Processors;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -37,6 +38,7 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         if (options.CreateConfiguredDirectories)
             EnsureConfiguredDirectories(configLoader);
 
+        services.TryAddSingleton<IMediaTypeExtensionCatalog, MediaTypeExtensionCatalog>();
         services.TryAddSingleton<ILibraryFolderResolver, LibraryFolderResolver>();
         services.TryAddSingleton<IInitialSweepService, InitialSweepService>();
         services.TryAddSingleton<IAssetHasher, AssetHasher>();
@@ -69,7 +71,7 @@ public static class MediaEngineIngestionServiceCollectionExtensions
             router.Register(new AudioProcessor());
             router.Register(new VideoProcessor(sp.GetRequiredService<IVideoMetadataExtractor>()));
             router.Register(new ComicProcessor());
-            router.Register(new GenericFileProcessor());
+            router.Register(new GenericFileProcessor(sp.GetRequiredService<IMediaTypeExtensionCatalog>()));
             return router;
         });
 

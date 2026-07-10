@@ -161,6 +161,14 @@ public sealed class HydrationSettings
     [JsonPropertyName("minimum_universe_work_count")]
     public int MinimumUniverseWorkCount { get; set; } = 2;
 
+    /// <summary>
+    /// Collection relationship types that can promote lane shelves into a
+    /// broader parent collection.
+    /// </summary>
+    [JsonPropertyName("collection_rollup_relationship_types")]
+    public List<string> CollectionRollupRelationshipTypes { get; set; } =
+        ["series", "franchise", "fictional_universe", "based_on"];
+
     // ── Two-Pass Enrichment Architecture ──────────────────────────────────────────
 
     /// <summary>

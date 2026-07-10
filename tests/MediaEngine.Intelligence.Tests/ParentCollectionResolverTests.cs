@@ -109,6 +109,34 @@ public sealed class ParentCollectionResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveParentCollectionAsync_CreatesParentForSharedBasedOnQid()
+    {
+        var comics = CreateCollection("Batman", "ContentGroup", "Q2633138");
+        var movies = CreateCollection("Batman in film", "ContentGroup", "Q2111133");
+        await _repo.UpsertAsync(comics);
+        await _repo.UpsertAsync(movies);
+        await _repo.InsertRelationshipsAsync(
+        [
+            CreateRelationship(comics.Id, "based_on", "Q2695156", "Batman"),
+            CreateRelationship(movies.Id, "based_on", "Q2695156", "Batman"),
+        ]);
+
+        await _resolver.ResolveParentCollectionAsync(comics.Id);
+
+        var refreshedComics = await _repo.GetByIdAsync(comics.Id);
+        var refreshedMovies = await _repo.GetByIdAsync(movies.Id);
+        Assert.NotNull(refreshedComics);
+        Assert.NotNull(refreshedMovies);
+        Assert.NotNull(refreshedComics!.ParentCollectionId);
+        Assert.Equal(refreshedComics.ParentCollectionId, refreshedMovies!.ParentCollectionId);
+
+        var parent = await _repo.GetByIdAsync(refreshedComics.ParentCollectionId!.Value);
+        Assert.NotNull(parent);
+        Assert.Equal("Batman", parent!.DisplayName);
+        Assert.Equal("Q2695156", parent.WikidataQid);
+    }
+
+    [Fact]
     public async Task ResolveParentCollectionAsync_DoesNotCreateParentWhenRelationshipMatchesCollectionQid()
     {
         var child = CreateCollection("The Expanse", "ContentGroup", "Q19610143");

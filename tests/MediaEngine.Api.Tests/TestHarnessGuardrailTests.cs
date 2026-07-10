@@ -150,6 +150,9 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("Batman comic/movie", source);
         Assert.Contains("LOWER(REPLACE(w.media_type, ' ', ''))", source);
         Assert.Contains("includeMovies", source);
+        Assert.Contains("owned_ma.file_path_root IS NOT NULL", source);
+        Assert.Contains("new SeriesHarnessExpectation(\"Dune Chronicles\", \"Books/Audiobooks\", [\"books\", \"audiobooks\"], 1", source);
+        Assert.DoesNotContain("new SeriesHarnessExpectation(\"The Lord of the Rings\", \"Movies\"", source);
     }
 
     [Fact]
@@ -182,6 +185,18 @@ public sealed class TestHarnessGuardrailTests
 
         Assert.Contains("GetWorkLineageIdsByMediaAssetAsync", source);
         Assert.Contains("TV cast is", source);
+    }
+
+    [Fact]
+    public void PersonEnrichment_LinksActorCharactersFromCanonicalArrays()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Providers", "Workers", "PersonEnrichmentWorker.cs"));
+
+        Assert.Contains("LinkActorCharacterMappingsFromCanonicalArraysAsync", source);
+        Assert.Contains("MetadataFieldConstants.CastMember", source);
+        Assert.Contains("MetadataFieldConstants.Characters", source);
+        Assert.Contains("LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid", source);
+        Assert.Contains("ResolveActorCharacterArrayEntityIdsAsync", source);
     }
 
     private static string FindRepoRoot()

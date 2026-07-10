@@ -11,13 +11,13 @@ flowchart TD
     A["Library folder from config/libraries.json"] --> B["1. Scan"]
     B --> C["2. Read Details"]
     C --> D["Scoring and canonical values"]
-    D --> E["3. Retail Match"]
-    E -->|retail match + bridge id| F["4. Wikidata"]
+    D --> E["Stage 1 provider match"]
+    E -->|provider match + bridge id| F["Stage 2 Wikidata"]
     E -->|no retail match| R["Review queue / attention metric"]
-    F -->|QID found| G["5. File ready"]
-    F -->|no QID| H["Retail data retained; retry later"]
+    F -->|QID found| G["Quick hydration / file ready"]
+    F -->|no QID| H["Provider data retained; retry later"]
     G --> I["Post-pipeline readiness and collection assignment"]
-    I --> J["6-8. Concurrent enrichment"]
+    I --> J["Stage 3 concurrent enrichment"]
     J --> K["People, relationships, deep artwork, text tracks"]
     K --> L["SQLite + .data/assets + API + Dashboard"]
 ```
@@ -38,6 +38,8 @@ The Ingestion page uses the numbered operational stages below. These are the pro
 | 8 | Artwork | Fetches later artwork such as backgrounds, banners, logos, disc art, season posters, album variants, and episode stills. |
 
 Stages 6, 7, and 8 can run concurrently after their prerequisites are present. Grouped provider calls, including batched `Tuvima.Wikidata` work, show group labels when exact per-file labels are not available. Review/attention is a live exception metric and latest-batch delta, not a ninth progress row in the Dashboard.
+
+The internal identity model is simpler than the dashboard row model: Stage 0 reads local tags and filename hints, Stage 1 runs configured providers in `config/pipelines.json`, Stage 2 resolves Wikidata from bridge IDs, quick hydration makes the item visible, and Stage 3 runs slower enrichment. For music, Stage 1 is configured as MusicBrainz identity first and Apple API enrichment second.
 
 Series order is user-facing only when it affects the local shelf. Tuvima prefers explicit order values such as local `series_pos`, retail series position, or Wikidata ordinal qualifiers. Wikidata previous/next chain warnings are kept as diagnostics because public Wikidata chains can be incomplete or one-directional; they do not create Review Queue rows by themselves.
 
@@ -98,47 +100,47 @@ Local processors read what the file itself can prove:
 | Comics | Archive metadata, filename/series/issue clues, cover candidate. | Comic issue or volume candidate. |
 | Unknown | Generic file facts and filename tokens. | Unknown asset routed to review unless later evidence is strong. |
 
-## Stage 3: Retail Metadata And Primary Artwork
+## Internal Stage 1: Provider Identity And Primary Artwork
 
-Stage 3 searches configured retail or catalog providers. It is the strict gate before Wikidata: if Stage 3 cannot identify the item through a retail/catalog source or bridge ID, Stage 4 is not attempted. The item stays visible as local data or goes to review depending on confidence. Stage 3 also includes quick metadata and first cover/poster evidence because those signals are returned with retail/catalog matches.
+Stage 1 searches configured retail or catalog providers. It is the strict gate before Wikidata: if Stage 1 cannot identify the item through a provider source or bridge ID, Stage 2 is not attempted. The item stays visible as local data or goes to review depending on confidence. Stage 1 also includes quick metadata and first cover/poster evidence because those signals are returned with provider matches.
 
 Provider roles:
 
 | Provider | Stage | Media types | Primary contribution |
 | --- | --- | --- | --- |
-| Apple | Stage 3 | Books, audiobooks, music where configured | Retail title, creator, cover, descriptions, ISBN/ASIN/store IDs; for music, runs after MusicBrainz as enrichment. |
-| TMDB | Stage 3 | Movies, TV | TMDB/IMDB/TVDB bridge IDs, posters, backdrops, cast/crew seeds, episode still seeds. |
-| Comic Vine | Stage 3 | Comics | Series, issue, volume, cover, publisher, issue metadata. |
-| Open Library | Disabled by default | Books | Not part of the current normal Stage 3 matrix unless explicitly enabled. |
-| MusicBrainz | Stage 3 | Music | Primary music identity provider; supplies recording, release, release-group, artist, and ISRC bridge evidence before Apple enrichment. |
-| Fanart.tv | Stage 8 only | Movies, TV, music | Rich artwork after identity is known. It is not the Stage 3 identity gate. |
+| Apple | Stage 1 | Books, audiobooks, music where configured | Retail title, creator, cover, descriptions, ISBN/ASIN/store IDs; for music, runs after MusicBrainz as enrichment. |
+| TMDB | Stage 1 | Movies, TV | TMDB/IMDB/TVDB bridge IDs, posters, backdrops, cast/crew seeds, episode still seeds. |
+| Comic Vine | Stage 1 | Comics | Series, issue, volume, cover, publisher, issue metadata. |
+| Open Library | Disabled by default | Books | Not part of the current normal Stage 1 matrix unless explicitly enabled. |
+| MusicBrainz | Stage 1 | Music | Primary music identity provider; supplies recording, release, release-group, artist, and ISRC bridge evidence before Apple enrichment. |
+| Fanart.tv | Stage 3 only | Movies, TV, music | Rich artwork after identity is known. It is not the Stage 1 identity gate. |
 | LRCLIB | Text-track enrichment | Music | Lyrics/timed lyrics where configured. |
 | OpenSubtitles | Text-track enrichment | Movies, TV | Subtitle candidates and local normalized text tracks. |
 
-Stage 3 writes provider claims, candidates, retail status, cover candidates, bridge identifiers, and durable job state. Retail cover files are stored as managed assets through `AssetPathService` and `entity_assets` when persisted centrally. Identity workers are still timer-backed for resilience, but they also wake immediately when retail, bridge, or hydration work is signalled. Retry behavior is controlled by `config/hydration.json` with defaults of 5 attempts, 10-second exponential base delay, 300-second maximum delay, and 250-1750 ms jitter.
+Stage 1 writes provider claims, candidates, provider-match status, cover candidates, bridge identifiers, and durable job state. Retail cover files are stored as managed assets through `AssetPathService` and `entity_assets` when persisted centrally. Identity workers are still timer-backed for resilience, but they also wake immediately when provider, bridge, or hydration work is signalled. Retry behavior is controlled by `config/hydration.json` with defaults of 5 attempts, 10-second exponential base delay, 300-second maximum delay, and 250-1750 ms jitter.
 
 Canonical storage is split by shape. Scalar winners stay in `canonical_values`; multi-valued keys such as authors, genres, cast members, characters, and narrative locations live only in `canonical_value_arrays`. Readers join or format arrays for display, but storage no longer packs lists into delimited strings.
 
 Provider secrets are config-file overlays. Base provider definitions live under `config/providers/*.json`; long-lived credentials live under `config/secrets/{provider}.json`.
 
-## Stage 4: Wikidata Lookup
+## Internal Stage 2: Wikidata Lookup
 
-Stage 4 uses bridge IDs from Stage 3, not bare local filename QIDs. The old Tuvima `(Q12345)` path hint is intentionally ignored so filesystem naming cannot bypass retail gating. Supported bridge IDs include ISBN, ASIN, TMDB, IMDB, TVDB, and other provider-specific identifiers in `BridgeIdKeys`.
+Stage 2 uses bridge IDs from Stage 1, not bare local filename QIDs. The old Tuvima `(Q12345)` path hint is intentionally ignored so filesystem naming cannot bypass provider gating. Supported bridge IDs include ISBN, ASIN, TMDB, IMDB, TVDB, MusicBrainz IDs, Apple IDs, and other provider-specific identifiers in `BridgeIdKeys`.
 
-Stage 4 resolves the canonical Wikidata QID and validates it for the requested media type. If a provider bridge points to an entity of the wrong type, the result is rejected and the item remains reviewable or retryable. If no QID is found, Tuvima keeps the Stage 3 retail data and schedules periodic re-checking instead of discarding useful metadata.
+Stage 2 resolves the canonical Wikidata QID and validates it for the requested media type. If a provider bridge points to an entity of the wrong type, the result is rejected and the item remains reviewable or retryable. If no QID is found, Tuvima keeps the Stage 1 provider data and schedules periodic re-checking instead of discarding useful metadata.
 
-Stage 4 creates:
+Stage 2 creates:
 
 | Artifact | Purpose |
 | --- | --- |
 | `wikidata_qid` canonical value | The canonical Wikidata entity for the work/edition context. |
 | Bridge candidates | Candidate IDs, source provider, score, and match diagnostics. |
 | QID labels | Local cache for QID-to-label display and offline relationship resolution. |
-| Timeline events | Stage 4 matched/failed status for diagnostics and Dashboard progress. |
+| Timeline events | Stage 2 matched/failed status for diagnostics and Dashboard progress. |
 
-## Stage 5: File Ready
+## Quick Hydration: File Ready
 
-Stage 5 runs after Stage 3 for retained retail-only items or after Stage 4 for QID-backed items. Its job is to make the item useful quickly, not to finish every deep relationship. It fills core canonical metadata, refreshes obvious people, assigns shelves/collections, writes readiness state, and leaves deep universe enrichment for Stages 6-8.
+Quick hydration runs after Stage 1 for retained provider-only items or after Stage 2 for QID-backed items. Its job is to make the item useful quickly, not to finish every deep relationship. It fills core canonical metadata, refreshes obvious people, assigns shelves/collections, writes readiness state, and leaves deep universe enrichment for Stage 3.
 
 Quick Hydration updates:
 
@@ -152,7 +154,7 @@ Quick Hydration updates:
 
 People enrichment links QID-backed people to the owned media asset before fetching optional profile detail such as biography and headshots. Profile-detail failures are logged as partial enrichment and must not abort quick hydration, because the link evidence is already useful and can be refreshed by later enrichment work.
 
-## Stages 6-8: People, Relationships, And Deep Artwork
+## Internal Stage 3: People, Relationships, And Deep Artwork
 
 Stages 6, 7, and 8 run after the item is visible and can run concurrently once their required claims, bridge IDs, or QIDs exist. They enrich the broader graph: people and cast, universe roots, series/franchise relationships, fictional entities, text tracks, and rich artwork.
 
@@ -193,7 +195,7 @@ Wikipedia/Wikidata-derived text is shown.
 
 ## Media-Type Matrix
 
-| Media type | Stage 3 retail gate | Stage 4 bridge | Stage 5 readiness | Stages 6-8 enrichment |
+| Media type | Stage 1 provider gate | Stage 2 bridge | Quick hydration | Stage 3 enrichment |
 | --- | --- | --- | --- | --- |
 | Books | Apple Books or configured book retail; Open Library disabled unless enabled. | ISBN/ASIN/store IDs to Wikidata work/edition QID. | Title, author, description, cover, shelf/series. | Authors, pseudonyms, fictional universe, series/franchise links, characters/locations when available. |
 | Audiobooks | Apple or audiobook retail evidence plus local audio tags. | ISBN/ASIN/store IDs to work or audiobook edition QID, pivoted to canonical work when needed. | Title, author, narrator, duration, cover, audiobook shelf. | Narrator/person detail, pseudonyms, source-work/universe links, lyrics/transcript-adjacent data when configured. |
@@ -233,9 +235,9 @@ Readiness states are built from:
 | Signal | Meaning |
 | --- | --- |
 | Local extraction complete | The file was hashed, processed, and has local claims. |
-| Retail matched | Stage 3 found provider evidence and bridge IDs. |
-| Wikidata matched | Stage 4 resolved and validated a QID. |
-| File ready | Stage 5 core visible metadata, cover/person basics, and collection assignment are done. |
+| Provider matched | Stage 1 found provider evidence and bridge IDs. |
+| Wikidata matched | Stage 2 resolved and validated a QID. |
+| File ready | Quick visible metadata, cover/person basics, and collection assignment are done. |
 | Universe pending | Item is usable but waiting for Stage 6-8 graph/art/text enrichment. |
 | Ready | Required identity, metadata, artwork policy, and hierarchy signals are good enough for normal browsing. |
 | Needs review | Human confirmation is required before the item should be trusted. |
@@ -246,9 +248,9 @@ The Ingestion page reports two Wikidata counts with different meanings: media-it
 
 1. Watch folders are loaded from `config/libraries.json`; no normal runtime fallback reads a legacy single watch folder.
 2. Stages 1 and 2 scan folders, read file-local metadata, and write claims/canonical values.
-3. Stage 3 retail providers identify the item, provide bridge IDs, and provide primary cover/poster evidence. No retail match means no Wikidata attempt.
-4. Stage 4 resolves Wikidata through bridge IDs and validates media type.
-5. Stage 5 makes the item visible and assigns shelves/collections.
+3. Stage 1 providers identify the item, provide bridge IDs, and provide primary cover/poster evidence. No trusted provider match means no Wikidata attempt.
+4. Stage 2 resolves Wikidata through bridge IDs and validates media type.
+5. Quick hydration makes the item visible and assigns shelves/collections.
 6. Stages 6, 7, and 8 expand people, artwork, fictional entities, relationships, universes, lyrics, and subtitles, and may run concurrently.
 7. Managed files are stored through `AssetPathService` and database rows. Cleanup reads database paths and `.data/assets`, never `.data/images`.
 8. Bad current-library rows are not repaired in place as part of ingestion fixes. Validate ingestion changes by running the development wipe/reingest harness against clean generated state, then inspect the rebuilt database and Dashboard counts.

@@ -504,21 +504,27 @@ public sealed class PersonEnrichmentWorker
     public async Task EnrichActorCharacterMappingsAsync(
         Guid entityId, string workQid, CancellationToken ct)
     {
-        if (_reconciliationAdapter is null)
-        {
-            _logger.LogDebug(
-                "Actor-character mapping skipped for entity {EntityId} ({Qid}) because ReconciliationAdapter is unavailable",
-                entityId, workQid);
-            return;
-        }
-
-        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+        var candidateEntityIds = await ResolveActorCharacterArrayEntityIdsAsync(entityId, ct).ConfigureAwait(false);
+        var canonicals = await LoadActorCharacterCanonicalsAsync(candidateEntityIds, ct).ConfigureAwait(false);
+        var hasArrayEvidence = await HasActorCharacterArrayEvidenceAsync(candidateEntityIds, ct).ConfigureAwait(false);
         var mediaType = canonicals
             .FirstOrDefault(c => string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase))
             ?.Value;
 
-        if (!IsVideoMediaType(mediaType))
+        if (!IsVideoMediaType(mediaType) && !hasArrayEvidence)
         {
+            return;
+        }
+
+        if (_reconciliationAdapter is null)
+        {
+            var fallbackOnlyCount = await LinkActorCharacterMappingsFromCanonicalArraysAsync(candidateEntityIds, workQid, canonicals, ct)
+                .ConfigureAwait(false);
+            _logger.LogDebug(
+                "Actor-character mapping skipped live Wikidata for entity {EntityId} ({Qid}) because ReconciliationAdapter is unavailable; canonical fallback created {Count} link(s)",
+                entityId,
+                workQid,
+                fallbackOnlyCount);
             return;
         }
 
@@ -527,9 +533,13 @@ public sealed class PersonEnrichmentWorker
             || !properties.TryGetValue("P161", out var castClaims)
             || castClaims.Count == 0)
         {
+            var fallbackOnlyCount = await LinkActorCharacterMappingsFromCanonicalArraysAsync(candidateEntityIds, workQid, canonicals, ct)
+                .ConfigureAwait(false);
             _logger.LogDebug(
-                "Actor-character mapping found no cast-member claims for entity {EntityId} ({Qid})",
-                entityId, workQid);
+                "Actor-character mapping found no live cast-member claims for entity {EntityId} ({Qid}); canonical fallback created {Count} link(s)",
+                entityId,
+                workQid,
+                fallbackOnlyCount);
             return;
         }
 
@@ -583,11 +593,164 @@ public sealed class PersonEnrichmentWorker
             }
         }
 
+        linkCount += await LinkActorCharacterMappingsFromCanonicalArraysAsync(candidateEntityIds, workQid, canonicals, ct)
+            .ConfigureAwait(false);
+
         _logger.LogInformation(
             "Actor-character mapping created {Count} link(s) for entity {EntityId} ({Qid})",
             linkCount,
             entityId,
             workQid);
+    }
+
+    private async Task<int> LinkActorCharacterMappingsFromCanonicalArraysAsync(
+        IReadOnlyList<Guid> entityIds,
+        string workQid,
+        IReadOnlyList<CanonicalValue> canonicals,
+        CancellationToken ct)
+    {
+        if (_canonicalArrayRepo is null)
+            return 0;
+
+        var linkCount = 0;
+
+        foreach (var candidateEntityId in entityIds)
+        {
+            var arrays = await _canonicalArrayRepo.GetAllByEntityAsync(candidateEntityId, ct).ConfigureAwait(false);
+            if (!arrays.TryGetValue(MetadataFieldConstants.CastMember, out var castMembers)
+                || !arrays.TryGetValue(MetadataFieldConstants.Characters, out var characters)
+                || castMembers.Count == 0
+                || characters.Count == 0)
+            {
+                continue;
+            }
+
+            var charactersByOrdinal = characters
+                .Where(entry => NormalizeEntityQid(entry.ValueQid) is not null)
+                .GroupBy(entry => entry.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First());
+
+            var singleCharacter = characters.Count == 1
+                ? characters.FirstOrDefault(entry => NormalizeEntityQid(entry.ValueQid) is not null)
+                : null;
+
+            foreach (var castMember in castMembers)
+            {
+                var personQid = NormalizeEntityQid(castMember.ValueQid);
+                if (personQid is null)
+                    continue;
+
+                var character = charactersByOrdinal.GetValueOrDefault(castMember.Ordinal) ?? singleCharacter;
+                var characterQid = NormalizeEntityQid(character?.ValueQid);
+                if (character is null || characterQid is null)
+                    continue;
+
+                var person = await _personRepo.FindByQidAsync(personQid, ct).ConfigureAwait(false)
+                    ?? await _personRepo.FindByNameAsync(castMember.Value, ct).ConfigureAwait(false)
+                    ?? await _personRepo.CreateAsync(new Person
+                    {
+                        Name = castMember.Value,
+                        Roles = ["Actor"],
+                        WikidataQid = personQid,
+                    }, ct).ConfigureAwait(false);
+
+                await _personRepo.AddRoleAsync(person.Id, "Actor", ct).ConfigureAwait(false);
+
+                var fictionalEntity = await _fictionalEntityRepo.FindByQidAsync(characterQid, ct).ConfigureAwait(false);
+                if (fictionalEntity is null)
+                {
+                    fictionalEntity = new FictionalEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        WikidataQid = characterQid,
+                        Label = character.Value,
+                        EntitySubType = FictionalEntityType.Character,
+                        FictionalUniverseQid = ResolveCanonicalQid(canonicals, "fictional_universe_qid")
+                            ?? ResolveCanonicalQid(canonicals, "franchise_qid")
+                            ?? ResolveCanonicalQid(canonicals, "series_qid")
+                            ?? workQid,
+                        FictionalUniverseLabel = ResolveCanonicalLabel(canonicals, "fictional_universe")
+                            ?? ResolveCanonicalLabel(canonicals, "franchise")
+                            ?? ResolveCanonicalLabel(canonicals, "series"),
+                        CreatedAt = DateTimeOffset.UtcNow,
+                    };
+
+                    await _fictionalEntityRepo.CreateAsync(fictionalEntity, ct).ConfigureAwait(false);
+                }
+
+                var existingLinks = await _personRepo.GetCharacterLinksAsync(person.Id, ct).ConfigureAwait(false);
+                if (existingLinks.Any(link =>
+                    link.FictionalEntityId == fictionalEntity.Id
+                    && string.Equals(link.WorkQid, workQid, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                await _fictionalEntityRepo.LinkToWorkAsync(fictionalEntity.Id, workQid, null, "portrayed_in", ct)
+                    .ConfigureAwait(false);
+
+                await _personRepo.LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid, ct).ConfigureAwait(false);
+                await EnqueueCharacterHarvestIfNeededAsync(fictionalEntity, ct).ConfigureAwait(false);
+                linkCount++;
+            }
+        }
+
+        return linkCount;
+    }
+
+    private async Task<IReadOnlyList<CanonicalValue>> LoadActorCharacterCanonicalsAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct)
+    {
+        var canonicals = new List<CanonicalValue>();
+        foreach (var candidateEntityId in entityIds)
+        {
+            canonicals.AddRange(await _canonicalRepo.GetByEntityAsync(candidateEntityId, ct).ConfigureAwait(false));
+        }
+
+        return canonicals;
+    }
+
+    private async Task<bool> HasActorCharacterArrayEvidenceAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct)
+    {
+        if (_canonicalArrayRepo is null)
+            return false;
+
+        foreach (var candidateEntityId in entityIds)
+        {
+            var arrays = await _canonicalArrayRepo.GetAllByEntityAsync(candidateEntityId, ct).ConfigureAwait(false);
+            if (arrays.TryGetValue(MetadataFieldConstants.CastMember, out var castMembers)
+                && arrays.TryGetValue(MetadataFieldConstants.Characters, out var characters)
+                && castMembers.Any(entry => NormalizeEntityQid(entry.ValueQid) is not null)
+                && characters.Any(entry => NormalizeEntityQid(entry.ValueQid) is not null))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private async Task<IReadOnlyList<Guid>> ResolveActorCharacterArrayEntityIdsAsync(
+        Guid entityId,
+        CancellationToken ct)
+    {
+        var entityIds = new List<Guid> { entityId };
+
+        var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct).ConfigureAwait(false);
+        if (workId.HasValue && !entityIds.Contains(workId.Value))
+            entityIds.Add(workId.Value);
+
+        var lineageWorkIds = await _collectionRepo.GetWorkLineageIdsByMediaAssetAsync(entityId, ct).ConfigureAwait(false);
+        foreach (var lineageWorkId in lineageWorkIds)
+        {
+            if (!entityIds.Contains(lineageWorkId))
+                entityIds.Add(lineageWorkId);
+        }
+
+        return entityIds;
     }
 
     private static string ResolveCharacterLabel(WikidataValue value)
@@ -636,6 +799,16 @@ public sealed class PersonEnrichmentWorker
 
         var qid = first.Split("::", 2)[0].Trim();
         return qid.StartsWith('Q') ? qid : null;
+    }
+
+    private static string? NormalizeEntityQid(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var value = raw.Contains('/') ? raw.Split('/')[^1] : raw;
+        value = value.Split("::", 2)[0].Trim();
+        return value.StartsWith('Q') ? value : null;
     }
 
     private static string? ResolveCanonicalLabel(

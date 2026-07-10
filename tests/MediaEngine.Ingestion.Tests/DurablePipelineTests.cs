@@ -924,6 +924,7 @@ public sealed class DurablePipelineTests : IDisposable
                 new OptionsMonitorStub<IngestionOptions>(options),
                 new LibraryFolderResolver(new OptionsMonitorStub<IngestionOptions>(options)),
                 new StubMediaTypeAdvisor(),
+                new MediaTypeExtensionCatalog(new StubConfigurationLoader()),
                 NullLogger<MediaTypeResolver>.Instance),
             new DuplicateResolver(_assetRepo),
             new IngestionLogScribe(_ingestionLog, _publisher, NullLogger<IngestionLogScribe>.Instance),

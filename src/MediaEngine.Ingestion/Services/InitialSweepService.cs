@@ -5,6 +5,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Ingestion.Services;
 
@@ -52,18 +53,11 @@ public sealed class InitialSweepService : IInitialSweepService
 
     // Recognised media extensions — same shortlist used elsewhere in the
     // ingestion layer. Kept lower-cased and includes the dot.
-    private static readonly HashSet<string> MediaExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mkv", ".mp4", ".m4v", ".avi", ".mov", ".wmv", ".webm", ".ts",
-        ".m4b", ".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wav", ".aac",
-        ".epub", ".pdf",
-        ".cbz", ".cbr", ".cb7",
-    };
-
     private readonly IAssetHasher             _hasher;
     private readonly IFileHashCacheRepository _cache;
     private readonly IEventPublisher          _publisher;
     private readonly IngestionOptions         _options;
+    private readonly IMediaTypeExtensionCatalog _extensionCatalog;
     private readonly ILogger<InitialSweepService> _logger;
 
     public InitialSweepService(
@@ -71,12 +65,14 @@ public sealed class InitialSweepService : IInitialSweepService
         IFileHashCacheRepository cache,
         IEventPublisher          publisher,
         IOptions<IngestionOptions> options,
+        IMediaTypeExtensionCatalog extensionCatalog,
         ILogger<InitialSweepService> logger)
     {
         _hasher    = hasher;
         _cache     = cache;
         _publisher = publisher;
         _options   = options.Value;
+        _extensionCatalog = extensionCatalog;
         _logger    = logger;
     }
 
@@ -113,6 +109,7 @@ public sealed class InitialSweepService : IInitialSweepService
 
         // Step 1: enumerate first so we can report a total to the UI.
         var files = new List<string>(capacity: 1024);
+        var mediaExtensions = _extensionCatalog.GetAllMediaExtensions();
         foreach (var root in roots)
         {
             ct.ThrowIfCancellationRequested();
@@ -121,7 +118,7 @@ public sealed class InitialSweepService : IInitialSweepService
                 foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
                 {
                     var ext = Path.GetExtension(path);
-                    if (MediaExtensions.Contains(ext))
+                    if (mediaExtensions.Contains(ext))
                         files.Add(path);
                 }
             }

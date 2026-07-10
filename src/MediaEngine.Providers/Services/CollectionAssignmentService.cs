@@ -27,6 +27,7 @@ public sealed class CollectionAssignmentService
 {
     private readonly ICollectionRepository _collectionRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ICanonicalValueArrayRepository? _arrayRepo;
     private readonly IWorkRepository _workRepo;
     private readonly ILogger<CollectionAssignmentService> _logger;
 
@@ -39,10 +40,12 @@ public sealed class CollectionAssignmentService
         ICollectionRepository collectionRepo,
         ICanonicalValueRepository canonicalRepo,
         IWorkRepository workRepo,
-        ILogger<CollectionAssignmentService> logger)
+        ILogger<CollectionAssignmentService> logger,
+        ICanonicalValueArrayRepository? arrayRepo = null)
     {
         _collectionRepo = collectionRepo;
         _canonicalRepo = canonicalRepo;
+        _arrayRepo = arrayRepo;
         _workRepo = workRepo;
         _logger = logger;
     }
@@ -85,6 +88,7 @@ public sealed class CollectionAssignmentService
         }
 
         var mediaType = lineage?.MediaType ?? ResolveMediaType(lookup);
+        await MergeArrayBackedRelationshipHintsAsync(lookup, canonicalEntityId, entityId, ct).ConfigureAwait(false);
 
         // Try to find an immediate shelf identity. Broader franchise/universe
         // values are relationships on the shelf and become Collections only
@@ -425,7 +429,7 @@ public sealed class CollectionAssignmentService
     private static IReadOnlyList<string> BuildRelationshipKeys(Dictionary<string, string> lookup)
     {
         var keys = new List<string>();
-        foreach (var claimKey in new[] { "series", "franchise", "fictional_universe" })
+        foreach (var claimKey in new[] { "series", "franchise", "fictional_universe", "based_on" })
         {
             if (TryGetQid(lookup, claimKey, out var qid, out _))
                 keys.Add($"{claimKey}:{qid}");
@@ -596,7 +600,7 @@ public sealed class CollectionAssignmentService
         Dictionary<string, string> lookup)
     {
         var relationships = new List<CollectionRelationship>();
-        foreach (var claimKey in new[] { "series", "franchise", "fictional_universe" })
+        foreach (var claimKey in new[] { "series", "franchise", "fictional_universe", "based_on" })
         {
             if (!TryGetQid(lookup, claimKey, out var qid, out var label))
                 continue;
@@ -614,5 +618,71 @@ public sealed class CollectionAssignmentService
         }
 
         return relationships;
+    }
+
+    private async Task MergeArrayBackedRelationshipHintsAsync(
+        Dictionary<string, string> lookup,
+        Guid canonicalEntityId,
+        Guid sourceEntityId,
+        CancellationToken ct)
+    {
+        if (_arrayRepo is null)
+            return;
+
+        await MergeArrayBackedRelationshipHintsForEntityAsync(lookup, canonicalEntityId, ct).ConfigureAwait(false);
+        if (sourceEntityId != canonicalEntityId)
+            await MergeArrayBackedRelationshipHintsForEntityAsync(lookup, sourceEntityId, ct).ConfigureAwait(false);
+    }
+
+    private async Task MergeArrayBackedRelationshipHintsForEntityAsync(
+        Dictionary<string, string> lookup,
+        Guid entityId,
+        CancellationToken ct)
+    {
+        var arrays = await _arrayRepo!.GetAllByEntityAsync(entityId, ct).ConfigureAwait(false);
+        if (arrays.TryGetValue("based_on", out var basedOnEntries))
+        {
+            AddFirstQidArrayHint(lookup, "based_on", basedOnEntries);
+        }
+
+        if (arrays.TryGetValue(MetadataFieldConstants.Characters, out var characterEntries))
+        {
+            var shelfLabel = FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.Series),
+                ValueOrNull(lookup, MetadataFieldConstants.ShowName),
+                ValueOrNull(lookup, MetadataFieldConstants.Title));
+
+            if (!string.IsNullOrWhiteSpace(shelfLabel))
+            {
+                var matchingShelfCharacter = characterEntries.FirstOrDefault(entry =>
+                    !string.IsNullOrWhiteSpace(entry.ValueQid)
+                    && string.Equals(NormalizeKey(entry.Value), NormalizeKey(shelfLabel), StringComparison.OrdinalIgnoreCase));
+
+                if (matchingShelfCharacter is not null)
+                    AddArrayHint(lookup, "based_on", matchingShelfCharacter);
+            }
+        }
+    }
+
+    private static void AddFirstQidArrayHint(
+        Dictionary<string, string> lookup,
+        string claimKey,
+        IReadOnlyList<CanonicalArrayEntry> entries)
+    {
+        var entry = entries.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value.ValueQid));
+        if (entry is not null)
+            AddArrayHint(lookup, claimKey, entry);
+    }
+
+    private static void AddArrayHint(
+        Dictionary<string, string> lookup,
+        string claimKey,
+        CanonicalArrayEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.ValueQid))
+            return;
+
+        lookup.TryAdd(claimKey, entry.Value);
+        lookup.TryAdd($"{claimKey}_qid", entry.ValueQid);
     }
 }

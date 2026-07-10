@@ -7,7 +7,13 @@
     "stage1_timeout_seconds": { "type": "integer", "minimum": 1 },
     "stage2_timeout_seconds": { "type": "integer", "minimum": 1 },
     "stage3_timeout_seconds": { "type": "integer", "minimum": 1 },
-    "auto_review_confidence_threshold": { "type": "number", "minimum": 0, "maximum": 1 }
+    "auto_review_confidence_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "collection_rollup_relationship_types": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    }
   },
   "additionalProperties": true
 }

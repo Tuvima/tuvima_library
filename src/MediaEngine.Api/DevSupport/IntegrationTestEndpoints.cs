@@ -57,6 +57,7 @@ public static class IntegrationTestEndpoints
         public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
         public List<IngestionProgressSnapshot> IngestionProgressSnapshots { get; set; } = [];
+        public List<IngestionWaitStageResult> IngestionWaitStages { get; set; } = [];
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
         public List<SeriesHarnessCheckResult> SeriesHarnessChecks { get; set; } = [];
         public List<CrossMediaSeriesCheckResult> CrossMediaSeriesChecks { get; set; } = [];
@@ -79,6 +80,7 @@ public static class IntegrationTestEndpoints
             && WatchFolderChecks.All(result => result.Pass)
             && StageGatingResults.All(result => result.Pass)
             && IngestionProgressSnapshots.All(result => result.Pass)
+            && IngestionWaitStages.All(result => result.Pass)
             && Stage3FanartSummaries.All(result => result.Pass)
             && SeriesHarnessChecks.All(result => result.Pass)
             && CrossMediaSeriesChecks.All(result => result.Pass)
@@ -88,6 +90,7 @@ public static class IntegrationTestEndpoints
         public HashSet<string> ActiveTypes { get; set; } = [];
         public Dictionary<string, string> SkippedTypes { get; set; } = [];
         public Dictionary<string, bool> ProviderHealth { get; set; } = [];
+        public Dictionary<string, string> ProviderHealthDetails { get; set; } = [];
         public ReconciliationSummary? Reconciliation { get; set; }
         /// <summary>
         /// Structured reconciliation report for JSON consumers (e.g. CI tooling).
@@ -245,6 +248,37 @@ public static class IntegrationTestEndpoints
             && (ExpectedCount == 0 || AssetCount <= ExpectedCount || ProgressPercent == 100);
     }
 
+    private sealed class IngestionWaitStageResult
+    {
+        public string StageKey { get; set; } = "";
+        public string Label { get; set; } = "";
+        public double BudgetSeconds { get; set; }
+        public double ElapsedSeconds { get; set; }
+        public bool TimedOut { get; set; }
+        public bool Completed { get; set; }
+        public bool CompletedAfterTimeout { get; set; }
+        public string? Detail { get; set; }
+        public bool Pass => Completed || CompletedAfterTimeout || !TimedOut;
+    }
+
+    private sealed record IngestionWaitPlan(
+        TimeSpan FileRegistration,
+        TimeSpan IdentityResolution,
+        TimeSpan Stage3Enrichment,
+        TimeSpan FinalIdle)
+    {
+        public TimeSpan Total => FileRegistration + IdentityResolution + Stage3Enrichment + FinalIdle;
+
+        public TimeSpan BudgetFor(string stageKey) => stageKey switch
+        {
+            WaitStageFileRegistration => FileRegistration,
+            WaitStageIdentityResolution => IdentityResolution,
+            WaitStageStage3Enrichment => Stage3Enrichment,
+            WaitStageFinalIdle => FinalIdle,
+            _ => FinalIdle,
+        };
+    }
+
     // â”€â”€ Reconciliation models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>Type-level evidence that Stage 3 fanart assets were stored.</summary>
@@ -384,6 +418,8 @@ public static class IntegrationTestEndpoints
     {
         public string MediaType { get; set; } = "";
         public int Count { get; set; }
+        public int OwnedCount { get; set; }
+        public int CatalogOnlyCount { get; set; }
         public int Identified { get; set; }
         public int NeedsReview { get; set; }
         public int Failed { get; set; }
@@ -462,6 +498,10 @@ public static class IntegrationTestEndpoints
     }
 
     private static readonly string[] AllTestableTypes = ["books", "audiobooks", "movies", "tv", "music", "comics"];
+    private const string WaitStageFileRegistration = "file_registration";
+    private const string WaitStageIdentityResolution = "identity_resolution";
+    private const string WaitStageStage3Enrichment = "stage3_enrichment";
+    private const string WaitStageFinalIdle = "final_idle";
     private static readonly HashSet<string> MediaExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mkv", ".mp4", ".m4v", ".avi", ".mov", ".wmv", ".webm", ".ts",
@@ -473,16 +513,29 @@ public static class IntegrationTestEndpoints
     private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"] = ["books", "audiobooks", "music"],
+        ["musicbrainz"] = ["music"],
         ["tmdb"] = ["movies", "tv"],
         ["comicvine"] = ["comics"],
+    };
+
+    private static readonly Dictionary<string, string[]> TypeProviderRequirements = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["books"] = ["apple_api"],
+        ["audiobooks"] = ["apple_api"],
+        ["music"] = ["musicbrainz", "apple_api"],
+        ["movies"] = ["tmdb"],
+        ["tv"] = ["tmdb"],
+        ["comics"] = ["comicvine"],
     };
 
     private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"] = "https://itunes.apple.com/search?term=test&limit=1",
+        ["musicbrainz"] = "https://musicbrainz.org/ws/2/recording?query=bohemian%20rhapsody&fmt=json&limit=1",
         ["tmdb"] = "https://api.themoviedb.org/3/configuration",
         ["comicvine"] = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
     };
+    private const int ProviderHealthTimeoutSeconds = 15;
 
     private static HashSet<string> ParseTypes(HttpContext context)
     {
@@ -497,29 +550,47 @@ public static class IntegrationTestEndpoints
         return new HashSet<string>(AllTestableTypes, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static async Task<Dictionary<string, (bool Healthy, string Reason)>> CheckProviderHealthAsync(ILogger logger)
+    private static async Task<Dictionary<string, (bool Healthy, string Reason, string Url, TimeSpan Elapsed, int TimeoutSeconds)>> CheckProviderHealthAsync(ILogger logger)
     {
-        var results = new Dictionary<string, (bool, string)>(StringComparer.OrdinalIgnoreCase);
-        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        var results = new Dictionary<string, (bool, string, string, TimeSpan, int)>(StringComparer.OrdinalIgnoreCase);
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(ProviderHealthTimeoutSeconds) };
         httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("TuvimaLibrary/1.0 (integration-test)");
 
         var tasks = ProviderHealthUrls.Select(async kvp =>
         {
+            var sw = Stopwatch.StartNew();
             try
             {
                 using var response = await httpClient.GetAsync(kvp.Value);
+                sw.Stop();
                 bool ok = response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
-                return (kvp.Key, Healthy: ok, Reason: ok ? "OK" : $"HTTP {(int)response.StatusCode}");
+                var reason = ok
+                    ? $"OK in {sw.Elapsed.TotalSeconds:F1}s"
+                    : $"HTTP {(int)response.StatusCode} in {sw.Elapsed.TotalSeconds:F1}s";
+                return (kvp.Key, Healthy: ok, Reason: reason, Url: kvp.Value, Elapsed: sw.Elapsed, TimeoutSeconds: ProviderHealthTimeoutSeconds);
             }
             catch (Exception ex)
             {
-                return (kvp.Key, Healthy: false, Reason: ex.GetType().Name);
+                sw.Stop();
+                var message = ex.Message;
+                if (ex is TaskCanceledException && sw.Elapsed >= TimeSpan.FromSeconds(ProviderHealthTimeoutSeconds - 1))
+                {
+                    message = $"timed out after {ProviderHealthTimeoutSeconds}s";
+                }
+
+                return (
+                    kvp.Key,
+                    Healthy: false,
+                    Reason: $"{ex.GetType().Name}: {message} (elapsed {sw.Elapsed.TotalSeconds:F1}s, timeout {ProviderHealthTimeoutSeconds}s)",
+                    Url: kvp.Value,
+                    Elapsed: sw.Elapsed,
+                    TimeoutSeconds: ProviderHealthTimeoutSeconds);
             }
         });
 
         foreach (var result in await Task.WhenAll(tasks))
         {
-            results[result.Key] = (result.Healthy, result.Reason);
+            results[result.Key] = (result.Healthy, result.Reason, result.Url, result.Elapsed, result.TimeoutSeconds);
             logger.LogInformation("[HealthCheck] {Provider}: {Status} ({Reason})", result.Key,
                 result.Healthy ? "HEALTHY" : "UNAVAILABLE", result.Reason);
         }
@@ -529,7 +600,7 @@ public static class IntegrationTestEndpoints
 
     private static (HashSet<string> ActiveTypes, Dictionary<string, string> SkipReasons) ResolveActiveTypes(
         HashSet<string> requestedTypes,
-        Dictionary<string, (bool Healthy, string Reason)> health)
+        Dictionary<string, (bool Healthy, string Reason, string Url, TimeSpan Elapsed, int TimeoutSeconds)> health)
     {
         var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var skipped = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -542,24 +613,27 @@ public static class IntegrationTestEndpoints
                 continue;
             }
 
-            var gatingProvider = ProviderToTypes
-                .Where(kvp => kvp.Value.Contains(type, StringComparer.OrdinalIgnoreCase))
-                .Select(kvp => kvp.Key)
-                .FirstOrDefault();
-
-            if (gatingProvider is null)
+            if (!TypeProviderRequirements.TryGetValue(type, out var requiredProviders) || requiredProviders.Length == 0)
             {
                 active.Add(type);
                 continue;
             }
 
-            if (health.TryGetValue(gatingProvider, out var status) && status.Healthy)
+            var unavailable = requiredProviders
+                .Where(provider => !health.TryGetValue(provider, out var status) || !status.Healthy)
+                .Select(provider =>
+                    health.TryGetValue(provider, out var status)
+                        ? $"{provider} ({status.Reason})"
+                        : $"{provider} (unknown)")
+                .ToList();
+
+            if (unavailable.Count == 0)
             {
                 active.Add(type);
             }
             else
             {
-                skipped[type] = $"Provider '{gatingProvider}' unavailable ({(health.TryGetValue(gatingProvider!, out var s) ? s.Reason : "unknown")})";
+                skipped[type] = $"Required provider(s) unavailable: {string.Join(", ", unavailable)}";
             }
         }
 
@@ -639,6 +713,10 @@ public static class IntegrationTestEndpoints
         report.ActiveTypes = activeTypes;
         report.SkippedTypes = skipReasons;
         report.ProviderHealth = health.ToDictionary(h => h.Key, h => h.Value.Healthy);
+        report.ProviderHealthDetails = health.ToDictionary(
+            h => h.Key,
+            h => $"{h.Value.Reason}; url={h.Value.Url}; elapsed={h.Value.Elapsed.TotalSeconds:F1}s; timeout={h.Value.TimeoutSeconds}s",
+            StringComparer.OrdinalIgnoreCase);
         report.ExpectationPreflight = BuildExpectationPreflight(activeTypes, skipReasons);
 
         string typesLabel = string.Join(", ", activeTypes.OrderBy(t => t));
@@ -727,14 +805,20 @@ public static class IntegrationTestEndpoints
                 logger.LogInformation("[Phase 3] Grouped ScanDirectories triggered for {Count} target(s)", scanTargets.Count);
             }
 
-            var ingestionTimeout = ResolveIngestionTimeout(configLoader, stages, activeTypes.Count, logger);
-            logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: {Timeout})...", ingestionTimeout);
+            var ingestionWaitPlan = ResolveIngestionWaitPlan(configLoader, stages, activeTypes.Count, logger);
+            logger.LogInformation(
+                "[Phase 3] Waiting for ingestion to complete (budgets: registration={Registration}, identity={Identity}, stage3={Stage3}, idle={Idle}, hard={Total})...",
+                ingestionWaitPlan.FileRegistration,
+                ingestionWaitPlan.IdentityResolution,
+                ingestionWaitPlan.Stage3Enrichment,
+                ingestionWaitPlan.FinalIdle,
+                ingestionWaitPlan.Total);
             var ingestionSw = Stopwatch.StartNew();
             bool ingestionComplete = await WaitForIngestionAsync(
                 db,
                 logger,
                 report,
-                ingestionTimeout,
+                ingestionWaitPlan,
                 report.TotalFilesSeeded,
                 stages,
                 ct);
@@ -743,7 +827,7 @@ public static class IntegrationTestEndpoints
 
             if (!ingestionComplete)
             {
-                report.IssuesFound.Add($"Ingestion did not complete within {ingestionTimeout}");
+                report.IssuesFound.Add($"Ingestion did not complete within {ingestionWaitPlan.Total}");
                 logger.LogWarning("[Phase 3] Ingestion timeout â€” proceeding with partial results");
             }
 
@@ -1027,37 +1111,41 @@ public static class IntegrationTestEndpoints
             && !HasUnverifiedPortrait;
     }
 
-    private static TimeSpan ResolveIngestionTimeout(
+    private static IngestionWaitPlan ResolveIngestionWaitPlan(
         IConfigurationLoader configLoader,
         int stages,
         int activeTypeCount,
         ILogger logger)
     {
-        var fallback = stages >= 123
-            ? TimeSpan.FromMinutes(activeTypeCount >= 6 ? 70 : 50)
-            : TimeSpan.FromMinutes(20);
+        var fileRegistration = TimeSpan.FromMinutes(activeTypeCount >= 6 ? 20 : 10);
+        var identityResolution = stages >= 12
+            ? TimeSpan.FromMinutes(activeTypeCount >= 6 ? 80 : 45)
+            : TimeSpan.FromMinutes(activeTypeCount >= 6 ? 25 : 15);
+        var stage3Enrichment = stages >= 123
+            ? TimeSpan.FromMinutes(activeTypeCount >= 6 ? 60 : 35)
+            : TimeSpan.Zero;
+        var finalIdle = TimeSpan.FromMinutes(10);
 
         try
         {
             var gate = configLoader.LoadCore().Pipeline.BatchGate;
             if (!gate.Enabled)
             {
-                return fallback;
+                return new(fileRegistration, identityResolution, stage3Enrichment, finalIdle);
             }
 
             // Stage 2 may intentionally wait for the batch gate before making
             // Wikidata calls. A full all-types Stage 1+2+3 run also performs
             // quick hydration, write-back, person enrichment, and Stage 3 image
             // work, so the timeout has to cover more than the retail/bridge gate.
-            var postGateBudget = stages >= 123
-                ? TimeSpan.FromMinutes(activeTypeCount >= 6 ? 65 : 45)
-                : TimeSpan.FromMinutes(25);
-            var gatedTimeout = TimeSpan.FromSeconds(gate.TimeoutSeconds) + postGateBudget;
-            return gatedTimeout > fallback ? gatedTimeout : fallback;
+            var gateBudget = TimeSpan.FromSeconds(gate.TimeoutSeconds);
+            identityResolution += gateBudget;
+            return new(fileRegistration, identityResolution, stage3Enrichment, finalIdle);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "Integration test: failed to read batch gate timeout; using {Fallback}", fallback);
+            var fallback = new IngestionWaitPlan(fileRegistration, identityResolution, stage3Enrichment, finalIdle);
+            logger.LogWarning(ex, "Integration test: failed to read batch gate timeout; using {Fallback}", fallback.Total);
             return fallback;
         }
     }
@@ -1068,12 +1156,12 @@ public static class IntegrationTestEndpoints
         IDatabaseConnection db,
         ILogger logger,
         TestReport report,
-        TimeSpan timeout,
+        IngestionWaitPlan waitPlan,
         int expectedCount,
         int stages,
         CancellationToken ct)
     {
-        var deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + waitPlan.Total;
 
         int lastAssetCount = -1;
         int lastResolvedCount = -1;
@@ -1082,6 +1170,9 @@ public static class IntegrationTestEndpoints
         int lastActiveJobCount = -1;
         int stableSnapshots = 0;
         bool sawExpectedAssetCount = false;
+        string? waitStageKey = null;
+        DateTimeOffset waitStageStarted = DateTimeOffset.UtcNow;
+        bool waitStageTimedOut = false;
 
         while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
         {
@@ -1124,6 +1215,56 @@ public static class IntegrationTestEndpoints
 
             int activeIdentityJobs = await CountActiveIdentityJobsAsync(db, stages, ct);
             sawExpectedAssetCount |= assetCount >= expectedCount;
+            var nextWaitStageKey = ResolveIngestionWaitStageKey(
+                assetCount,
+                expectedCount,
+                activeIdentityJobs,
+                jobStateSummary,
+                stages);
+
+            if (!string.Equals(waitStageKey, nextWaitStageKey, StringComparison.OrdinalIgnoreCase))
+            {
+                if (waitStageKey is not null)
+                {
+                    RecordIngestionWaitStage(
+                        report,
+                        waitStageKey,
+                        waitPlan.BudgetFor(waitStageKey),
+                        waitStageStarted,
+                        completed: true,
+                        timedOut: waitStageTimedOut,
+                        detail: "Phase advanced.");
+                }
+
+                waitStageKey = nextWaitStageKey;
+                waitStageStarted = DateTimeOffset.UtcNow;
+                waitStageTimedOut = false;
+            }
+
+            var waitStageBudget = waitPlan.BudgetFor(waitStageKey ?? WaitStageFileRegistration);
+            var waitStageElapsed = DateTimeOffset.UtcNow - waitStageStarted;
+            if (!waitStageTimedOut
+                && waitStageBudget > TimeSpan.Zero
+                && waitStageElapsed > waitStageBudget)
+            {
+                waitStageTimedOut = true;
+                RecordIngestionWaitStage(
+                    report,
+                    waitStageKey ?? WaitStageFileRegistration,
+                    waitStageBudget,
+                    waitStageStarted,
+                    completed: false,
+                    timedOut: true,
+                    detail: $"Soft budget exceeded with assets={assetCount}/{expectedCount}, activeJobs={activeIdentityJobs}, pending={pendingCount}.");
+                logger.LogWarning(
+                    "  Ingestion wait phase {Stage} exceeded soft budget {Budget} with assets={Assets}/{Expected}, activeJobs={Jobs}, pending={Pending}",
+                    waitStageKey,
+                    waitStageBudget,
+                    assetCount,
+                    expectedCount,
+                    activeIdentityJobs,
+                    pendingCount);
+            }
 
             bool snapshotStable =
                 assetCount == lastAssetCount
@@ -1163,16 +1304,40 @@ public static class IntegrationTestEndpoints
 
             if (assetCount >= expectedCount && totalWorks > 0 && pendingCount == 0 && activeIdentityJobs == 0 && stableSnapshots >= 2)
             {
+                RecordIngestionWaitStage(
+                    report,
+                    waitStageKey ?? WaitStageFinalIdle,
+                    waitPlan.BudgetFor(waitStageKey ?? WaitStageFinalIdle),
+                    waitStageStarted,
+                    completed: true,
+                    timedOut: waitStageTimedOut,
+                    detail: "Ingestion reached terminal idle state.");
                 return true;
             }
 
             if (assetCount >= expectedCount && activeIdentityJobs == 0 && stableSnapshots >= 4)
             {
+                RecordIngestionWaitStage(
+                    report,
+                    waitStageKey ?? WaitStageFinalIdle,
+                    waitPlan.BudgetFor(waitStageKey ?? WaitStageFinalIdle),
+                    waitStageStarted,
+                    completed: true,
+                    timedOut: waitStageTimedOut,
+                    detail: "All expected assets were registered and identity work is idle.");
                 return true;
             }
 
             if (sawExpectedAssetCount && activeIdentityJobs == 0 && stableSnapshots >= 6)
             {
+                RecordIngestionWaitStage(
+                    report,
+                    waitStageKey ?? WaitStageFinalIdle,
+                    waitPlan.BudgetFor(waitStageKey ?? WaitStageFinalIdle),
+                    waitStageStarted,
+                    completed: true,
+                    timedOut: waitStageTimedOut,
+                    detail: "Expected asset count was seen and the pipeline settled.");
                 return true;
             }
 
@@ -1194,16 +1359,107 @@ public static class IntegrationTestEndpoints
 
         if (lastActiveJobCount > 0)
         {
+            RecordIngestionWaitStage(
+                report,
+                waitStageKey ?? WaitStageFinalIdle,
+                waitPlan.BudgetFor(waitStageKey ?? WaitStageFinalIdle),
+                waitStageStarted,
+                completed: false,
+                timedOut: true,
+                detail: $"{lastActiveJobCount} active identity job(s) remained at hard timeout.");
             logger.LogWarning(
                 "  Ingestion wait timed out with {ActiveJobs} active identity job(s) remaining",
                 lastActiveJobCount);
             return false;
         }
 
+        RecordIngestionWaitStage(
+            report,
+            waitStageKey ?? WaitStageFinalIdle,
+            waitPlan.BudgetFor(waitStageKey ?? WaitStageFinalIdle),
+            waitStageStarted,
+            completed: sawExpectedAssetCount || lastResolvedCount > 0,
+            timedOut: !(sawExpectedAssetCount || lastResolvedCount > 0),
+            detail: "Hard timeout reached after the pipeline stopped changing.");
         return sawExpectedAssetCount || lastResolvedCount > 0;
     }
 
     // â”€â”€ Validate results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private static string ResolveIngestionWaitStageKey(
+        int assetCount,
+        int expectedCount,
+        int activeIdentityJobs,
+        string jobStateSummary,
+        int stages)
+    {
+        if (expectedCount > 0 && assetCount < expectedCount)
+        {
+            return WaitStageFileRegistration;
+        }
+
+        if (activeIdentityJobs == 0)
+        {
+            return WaitStageFinalIdle;
+        }
+
+        if (stages >= 123
+            && jobStateSummary.Contains(nameof(IdentityJobState.UniverseEnriching), StringComparison.OrdinalIgnoreCase))
+        {
+            return WaitStageStage3Enrichment;
+        }
+
+        return WaitStageIdentityResolution;
+    }
+
+    private static void RecordIngestionWaitStage(
+        TestReport report,
+        string stageKey,
+        TimeSpan budget,
+        DateTimeOffset startedAt,
+        bool completed,
+        bool timedOut,
+        string detail)
+    {
+        var elapsed = DateTimeOffset.UtcNow - startedAt.ToUniversalTime();
+        var existing = report.IngestionWaitStages.FirstOrDefault(stage =>
+            stage.StageKey.Equals(stageKey, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is null)
+        {
+            existing = new IngestionWaitStageResult
+            {
+                StageKey = stageKey,
+                Label = IngestionWaitStageLabel(stageKey),
+                BudgetSeconds = Math.Max(0d, budget.TotalSeconds),
+            };
+            report.IngestionWaitStages.Add(existing);
+        }
+
+        existing.ElapsedSeconds = Math.Max(existing.ElapsedSeconds, elapsed.TotalSeconds);
+        existing.TimedOut |= timedOut;
+        existing.Completed |= completed;
+        existing.CompletedAfterTimeout |= completed && existing.TimedOut;
+        existing.Detail = detail;
+    }
+
+    private static string IngestionWaitStageLabel(string stageKey) => stageKey switch
+    {
+        WaitStageFileRegistration => "File registration",
+        WaitStageIdentityResolution => "Stage 1/2 identity",
+        WaitStageStage3Enrichment => "Stage 3 enrichment",
+        WaitStageFinalIdle => "Final idle",
+        _ => stageKey,
+    };
+
+    private static int WaitStageSort(string stageKey) => stageKey switch
+    {
+        WaitStageFileRegistration => 0,
+        WaitStageIdentityResolution => 1,
+        WaitStageStage3Enrichment => 2,
+        WaitStageFinalIdle => 3,
+        _ => 99,
+    };
 
     private static async Task ValidateResultsAsync(
         ILibraryItemRepository libraryItemRepo,
@@ -1212,19 +1468,32 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         // Get all items
-        var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
-        report.TotalItems = allItems.TotalCount;
+        var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 5000, IncludeAll: true), ct);
+        var ownedItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
+        int catalogOnlyCount = allItems.Items.Count - ownedItems.Count;
+        report.TotalItems = ownedItems.Count;
 
-        logger.LogInformation("  Total items in libraryItem: {Count}", allItems.TotalCount);
+        logger.LogInformation(
+            "  Total items in libraryItem: {OwnedCount} owned, {CatalogOnlyCount} catalog-only ({TotalCount} total rows)",
+            ownedItems.Count,
+            catalogOnlyCount,
+            allItems.Items.Count);
 
         // Group by media type
         var grouped = allItems.Items.GroupBy(i => i.MediaType).OrderBy(g => g.Key);
 
         foreach (var group in grouped)
         {
-            var mtResult = new MediaTypeResult { MediaType = group.Key, Count = group.Count() };
+            var ownedGroupItems = group.Where(IsOwnedValidationItem).ToList();
+            var mtResult = new MediaTypeResult
+            {
+                MediaType = group.Key,
+                Count = ownedGroupItems.Count,
+                OwnedCount = ownedGroupItems.Count,
+                CatalogOnlyCount = group.Count() - ownedGroupItems.Count,
+            };
 
-            foreach (var item in group)
+            foreach (var item in ownedGroupItems)
             {
                 var ir = new ItemResult
                 {
@@ -1265,8 +1534,14 @@ public static class IntegrationTestEndpoints
             report.TotalNeedsReview += mtResult.NeedsReview;
             report.TotalFailed += mtResult.Failed;
 
-            logger.LogInformation("  {Type}: {Count} items ({Identified} identified, {Review} review, {Failed} failed)",
-                group.Key, mtResult.Count, mtResult.Identified, mtResult.NeedsReview, mtResult.Failed);
+            logger.LogInformation(
+                "  {Type}: {OwnedCount} owned, {CatalogOnlyCount} catalog-only ({Identified} identified, {Review} review, {Failed} failed)",
+                group.Key,
+                mtResult.OwnedCount,
+                mtResult.CatalogOnlyCount,
+                mtResult.Identified,
+                mtResult.NeedsReview,
+                mtResult.Failed);
         }
 
         // Check for expected media types that have zero items
@@ -1304,10 +1579,11 @@ public static class IntegrationTestEndpoints
             ("Dune Frank Herbert", "apple_api", "Books", MediaType.Books, "books"),
             ("Blade Runner 2049", "tmdb", "Movies", MediaType.Movies, "movies"),
             ("Breaking Bad", "tmdb", "TV", MediaType.TV, "tv"),
-            ("Bohemian Rhapsody Queen", "apple_api", "Music", MediaType.Music, "music"),
-            ("Lose Yourself Eminem", "apple_api", "Music", MediaType.Music, "music"),
-            ("Yesterday Beatles", "apple_api", "Music", MediaType.Music, "music"),
-            ("Clair de Lune Debussy", "apple_api", "Music", MediaType.Music, "music"),
+            ("Bohemian Rhapsody Queen", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Lose Yourself Eminem", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Yesterday Beatles", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Clair de Lune Debussy", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Bohemian Rhapsody Queen", "apple_api", "Music enrichment", MediaType.Music, "music"),
             ("Batman Year One", "comicvine", "Comics", MediaType.Comics, "comics"),
         };
         var searchTests = allSearchTests
@@ -1400,10 +1676,16 @@ public static class IntegrationTestEndpoints
             // Determine creator based on media type
             string? creator = item.MediaType.ToUpperInvariant() switch
             {
-                "BOOKS" or "AUDIOBOOKS" => detail?.Author,
-                "MOVIES" or "TV" => detail?.Director,
-                "MUSIC" => detail?.Author ?? item.Author,
-                _ => detail?.Author ?? item.Author,
+                "BOOKS" or "AUDIOBOOKS" => FirstNonBlank(detail?.Author, FirstCanonicalValue(detail, "author"), FirstClaimValue(detail, "author")),
+                "MOVIES" => FirstNonBlank(detail?.Director, FirstCanonicalValue(detail, "director"), FirstClaimValue(detail, "director")),
+                "TV" => FirstNonBlank(detail?.Director, FirstCanonicalValue(detail, "director"), FirstClaimValue(detail, "director")),
+                "MUSIC" => FirstNonBlank(
+                    detail?.Artist,
+                    detail?.Author,
+                    FirstCanonicalValue(detail, "artist", "album_artist", "author"),
+                    FirstClaimValue(detail, "artist", "album_artist", "author"),
+                    item.Author),
+                _ => FirstNonBlank(detail?.Author, item.Author),
             };
 
             var validStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -2051,8 +2333,7 @@ public static class IntegrationTestEndpoints
         var expectations = new[]
         {
             new SeriesHarnessExpectation("The Expanse", "Books/Audiobooks", ["books", "audiobooks"], 9, ["books", "audiobooks"]),
-            new SeriesHarnessExpectation("Dune Chronicles", "Books/Audiobooks", ["books", "audiobooks"], 3, ["books", "audiobooks"]),
-            new SeriesHarnessExpectation("The Lord of the Rings", "Movies", ["movies"], 3, ["movies"]),
+            new SeriesHarnessExpectation("Dune Chronicles", "Books/Audiobooks", ["books", "audiobooks"], 1, ["books", "audiobooks"]),
             new SeriesHarnessExpectation("Dune", "Movies", ["movies"], 2, ["movies"]),
             new SeriesHarnessExpectation("Breaking Bad", "TV", ["tv"], 2, ["tv"]),
             new SeriesHarnessExpectation("Shogun", "TV", ["tv"], 1, ["tv"]),
@@ -2094,6 +2375,14 @@ public static class IntegrationTestEndpoints
                     LEFT JOIN works p ON p.id = w.parent_work_id
                     LEFT JOIN works gp ON gp.id = p.parent_work_id
                     WHERE NOT EXISTS (SELECT 1 FROM works child WHERE child.parent_work_id = w.id)
+                      AND EXISTS (
+                          SELECT 1
+                          FROM editions owned_e
+                          INNER JOIN media_assets owned_ma ON owned_ma.edition_id = owned_e.id
+                          WHERE owned_e.work_id = w.id
+                            AND owned_ma.file_path_root IS NOT NULL
+                            AND TRIM(owned_ma.file_path_root) <> ''
+                      )
                       AND (
                           (@includeBooks = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('book', 'books'))
                           OR (@includeAudiobooks = 1 AND LOWER(REPLACE(w.media_type, ' ', '')) IN ('audiobook', 'audiobooks'))
@@ -3052,7 +3341,7 @@ public static class IntegrationTestEndpoints
 
             var claims = (await conn.QueryAsync<DescriptionClaimRow>("""
                 SELECT claim_key AS ClaimKey,
-                       provider_id AS ProviderId
+                       provider_id AS ProviderIdBlob
                 FROM metadata_claims
                 WHERE entity_id IN @entityIds
                   AND claim_key IN @keys
@@ -3060,13 +3349,13 @@ public static class IntegrationTestEndpoints
                   AND TRIM(claim_value) <> '';
                 """, new
             {
-                entityIds = entityIds.Select(id => id.ToString()).ToArray(),
+                entityIds = entityIds.Select(GuidSql.ToBlob).ToArray(),
                 keys,
             })).ToList();
 
             var canonicals = (await conn.QueryAsync<DescriptionCanonicalRow>("""
                 SELECT key AS Key,
-                       winning_provider_id AS WinningProviderId
+                       winning_provider_id AS WinningProviderIdBlob
                 FROM canonical_values
                 WHERE entity_id IN @entityIds
                   AND key IN @keys
@@ -3074,7 +3363,7 @@ public static class IntegrationTestEndpoints
                   AND TRIM(value) <> '';
                 """, new
             {
-                entityIds = entityIds.Select(id => id.ToString()).ToArray(),
+                entityIds = entityIds.Select(GuidSql.ToBlob).ToArray(),
                 keys,
             })).ToList();
 
@@ -3239,6 +3528,11 @@ public static class IntegrationTestEndpoints
             SummaryCard(sb, $"{lastProgress.AssetCount}/{lastProgress.ExpectedCount}", "Progress Samples", "#2DD4BF");
         }
 
+        if (report.IngestionWaitStages.Count > 0)
+        {
+            SummaryCard(sb, report.IngestionWaitStages.Count(s => s.Pass) + "/" + report.IngestionWaitStages.Count, "Wait Budgets", "#2DD4BF");
+        }
+
         if (report.Reconciliation is not null)
         {
             SummaryCard(sb, report.Reconciliation.Matched + "/" + report.Reconciliation.ExpectedTotal, "Reconciliation", "#F472B6");
@@ -3274,14 +3568,15 @@ public static class IntegrationTestEndpoints
         {
             sb.AppendLine("<h2>Provider Health</h2>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Provider</th><th>Status</th><th>Media Types</th></tr>");
+            sb.AppendLine("<tr><th>Provider</th><th>Status</th><th>Media Types</th><th>Detail</th></tr>");
             foreach (var (provider, healthy) in report.ProviderHealth.OrderBy(p => p.Key))
             {
                 string badge = healthy
                     ? "<span class=\"badge badge-pass\">HEALTHY</span>"
                     : "<span class=\"badge badge-fail\">UNAVAILABLE</span>";
                 string types = ProviderToTypes.TryGetValue(provider, out var ts) ? string.Join(", ", ts) : "â€”";
-                sb.AppendLine($"<tr><td>{Esc(provider)}</td><td>{badge}</td><td>{Esc(types)}</td></tr>");
+                report.ProviderHealthDetails.TryGetValue(provider, out var detail);
+                sb.AppendLine($"<tr><td>{Esc(provider)}</td><td>{badge}</td><td>{Esc(types)}</td><td class=\"mono\">{Esc(detail)}</td></tr>");
             }
             sb.AppendLine("</table>");
         }
@@ -3313,6 +3608,26 @@ public static class IntegrationTestEndpoints
                 sb.AppendLine($"<tr><td>{sample.CapturedAt:HH:mm:ss}</td><td>{sample.AssetCount}/{sample.ExpectedCount}</td>" +
                     $"<td>{sample.ResolvedCount}/{sample.WorkCount}</td><td>{sample.PendingCount}</td><td>{sample.ClaimCount}</td>" +
                     $"<td>{sample.ActiveJobCount}</td><td>{sample.ProgressPercent:F1}%</td><td>{badge}</td></tr>");
+            }
+
+            sb.AppendLine("</table>");
+        }
+
+        if (report.IngestionWaitStages.Count > 0)
+        {
+            sb.AppendLine("<h2>Ingestion Wait Budgets</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Stage</th><th>Budget</th><th>Elapsed</th><th>Status</th><th>Detail</th></tr>");
+            foreach (var stage in report.IngestionWaitStages.OrderBy(s => WaitStageSort(s.StageKey)))
+            {
+                string badge = stage.CompletedAfterTimeout
+                    ? "<span class=\"badge badge-warn\">COMPLETED AFTER TIMEOUT</span>"
+                    : stage.Completed
+                        ? "<span class=\"badge badge-pass\">COMPLETED</span>"
+                        : stage.TimedOut
+                            ? "<span class=\"badge badge-fail\">TIMED OUT</span>"
+                            : "<span class=\"badge badge-info\">OBSERVED</span>";
+                sb.AppendLine($"<tr><td>{Esc(stage.Label)}</td><td>{stage.BudgetSeconds:F0}s</td><td>{stage.ElapsedSeconds:F0}s</td><td>{badge}</td><td>{Esc(stage.Detail ?? "")}</td></tr>");
             }
 
             sb.AppendLine("</table>");
@@ -3352,7 +3667,7 @@ public static class IntegrationTestEndpoints
                 : "<span class=\"badge badge-pass\">OK</span>";
 
             sb.AppendLine("<div class=\"section\">");
-            sb.AppendLine($"<div class=\"media-type-header\"><span class=\"mt-dot\" style=\"background:{color}\"></span><strong>{Esc(mt.MediaType)}</strong> â€” {mt.Count} items ({mt.Identified} identified, {mt.NeedsReview} review, {mt.Failed} failed) {badge}</div>");
+            sb.AppendLine($"<div class=\"media-type-header\"><span class=\"mt-dot\" style=\"background:{color}\"></span><strong>{Esc(mt.MediaType)}</strong> â€” {mt.OwnedCount} owned, {mt.CatalogOnlyCount} catalog-only ({mt.Identified} identified, {mt.NeedsReview} review, {mt.Failed} failed) {badge}</div>");
 
             if (mt.Items.Count > 0)
             {
@@ -4234,6 +4549,24 @@ public static class IntegrationTestEndpoints
         return null;
     }
 
+    private static string? FirstClaimValue(LibraryItemDetail? detail, params string[] keys)
+    {
+        if (detail is null)
+        {
+            return null;
+        }
+
+        return detail.ClaimHistory
+            .Where(claim => keys.Contains(claim.ClaimKey, StringComparer.OrdinalIgnoreCase))
+            .OrderByDescending(claim => claim.Confidence)
+            .ThenByDescending(claim => claim.ClaimedAt)
+            .Select(claim => claim.ClaimValue)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
     private static bool ContainsNormalized(string text, string fragment)
     {
         static string Normalize(string value)
@@ -4259,13 +4592,19 @@ public static class IntegrationTestEndpoints
     private sealed class DescriptionClaimRow
     {
         public string ClaimKey { get; set; } = "";
-        public string ProviderId { get; set; } = "";
+        public byte[]? ProviderIdBlob { get; set; }
+        public string? ProviderId => ProviderIdBlob is { Length: > 0 }
+            ? GuidSql.FromDb(ProviderIdBlob).ToString("D")
+            : null;
     }
 
     private sealed class DescriptionCanonicalRow
     {
         public string Key { get; set; } = "";
-        public string? WinningProviderId { get; set; }
+        public byte[]? WinningProviderIdBlob { get; set; }
+        public string? WinningProviderId => WinningProviderIdBlob is { Length: > 0 }
+            ? GuidSql.FromDb(WinningProviderIdBlob).ToString("D")
+            : null;
     }
 
     private static IReadOnlyList<Guid> ResolveEntityScope(
@@ -4506,7 +4845,8 @@ public static class IntegrationTestEndpoints
     private static string? InferExpectedRetailProvider(string mediaType) =>
         mediaType.Trim().ToLowerInvariant() switch
         {
-            "audiobooks" or "music" => "apple_api",
+            "audiobooks" => "apple_api",
+            "music" => "musicbrainz",
             "movies" or "tv" => "tmdb",
             "comics" => "comicvine",
             _ => null,

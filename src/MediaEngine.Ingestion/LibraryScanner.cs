@@ -34,22 +34,13 @@ public sealed class LibraryScanner : ILibraryScanner
     private readonly IEntityRelationshipRepository   _relRepo;
     private readonly IQidLabelRepository             _qidLabelRepo;
     private readonly ICanonicalValueArrayRepository  _arrayRepo;
+    private readonly IMediaTypeExtensionCatalog      _extensionCatalog;
     private readonly ILogger<LibraryScanner>         _logger;
 
     // Stable GUID representing the library-scanner as a "provider" when re-inserting
     // canonical values. Distinct from the local-processor GUID so the claim source
     // is distinguishable in the claims table.
     private static readonly Guid ScannerProviderGuid = WellKnownProviders.LibraryScanner;
-
-    // Media file extensions that the scanner should enumerate.
-    private static readonly HashSet<string> MediaExtensions =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".epub", ".pdf",
-            ".m4b", ".mp3", ".m4a", ".flac", ".ogg", ".wav", ".opus", ".wma",
-            ".mp4", ".mkv", ".avi", ".webm",
-            ".cbz", ".cbr",
-        };
 
     // Sub-directories inside LibraryRoot that should never be scanned for media files.
     private static readonly HashSet<string> SkipDirectories =
@@ -72,6 +63,7 @@ public sealed class LibraryScanner : ILibraryScanner
         IEntityRelationshipRepository   relRepo,
         IQidLabelRepository             qidLabelRepo,
         ICanonicalValueArrayRepository  arrayRepo,
+        IMediaTypeExtensionCatalog      extensionCatalog,
         ILogger<LibraryScanner>         logger)
     {
         _hasher               = hasher;
@@ -85,6 +77,7 @@ public sealed class LibraryScanner : ILibraryScanner
         _relRepo              = relRepo;
         _qidLabelRepo         = qidLabelRepo;
         _arrayRepo            = arrayRepo;
+        _extensionCatalog     = extensionCatalog;
         _logger               = logger;
     }
 
@@ -101,7 +94,7 @@ public sealed class LibraryScanner : ILibraryScanner
         _logger.LogInformation(
             "Great Inhale v2 started. Library root: {LibraryRoot}", libraryRoot);
 
-        foreach (var filePath in EnumerateMediaFiles(libraryRoot))
+        foreach (var filePath in EnumerateMediaFiles(libraryRoot, _extensionCatalog.GetAllMediaExtensions()))
         {
             ct.ThrowIfCancellationRequested();
             try
@@ -211,7 +204,7 @@ public sealed class LibraryScanner : ILibraryScanner
     /// Enumerates all media files under <paramref name="root"/>, skipping
     /// hidden engine-owned subdirectories.
     /// </summary>
-    private static IEnumerable<string> EnumerateMediaFiles(string root)
+    private static IEnumerable<string> EnumerateMediaFiles(string root, IReadOnlySet<string> mediaExtensions)
     {
         if (!Directory.Exists(root))
             yield break;
@@ -219,7 +212,7 @@ public sealed class LibraryScanner : ILibraryScanner
         // Check root-level files first.
         foreach (var file in Directory.EnumerateFiles(root))
         {
-            if (MediaExtensions.Contains(Path.GetExtension(file)))
+            if (mediaExtensions.Contains(Path.GetExtension(file)))
                 yield return file;
         }
 
@@ -232,7 +225,7 @@ public sealed class LibraryScanner : ILibraryScanner
 
             foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
             {
-                if (MediaExtensions.Contains(Path.GetExtension(file)))
+                if (mediaExtensions.Contains(Path.GetExtension(file)))
                     yield return file;
             }
         }

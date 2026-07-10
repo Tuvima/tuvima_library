@@ -19,6 +19,7 @@ namespace MediaEngine.Storage;
 public sealed class CollectionRepository : ICollectionRepository
 {
     private readonly IDatabaseConnection _db;
+    private readonly IConfigurationLoader? _configLoader;
 
     private sealed class WorkLineageIdsRow
     {
@@ -80,10 +81,11 @@ public sealed class CollectionRepository : ICollectionRepository
         discovered_at AS DiscoveredAt
         """;
 
-    public CollectionRepository(IDatabaseConnection db)
+    public CollectionRepository(IDatabaseConnection db, IConfigurationLoader? configLoader = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         _db = db;
+        _configLoader = configLoader;
     }
 
     // -------------------------------------------------------------------------
@@ -101,6 +103,27 @@ public sealed class CollectionRepository : ICollectionRepository
         h.CollectionType ??= "Universe";
         h.Scope ??= "library";
         return h;
+    }
+
+    private IReadOnlyList<string> GetCollectionRollupRelationshipTypes()
+    {
+        try
+        {
+            var configured = _configLoader?.LoadHydration().CollectionRollupRelationshipTypes
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (configured is { Count: > 0 })
+                return configured;
+        }
+        catch
+        {
+            // Direct repository tests and first-run config fall back to defaults.
+        }
+
+        return new MediaEngine.Storage.Models.HydrationSettings()
+            .CollectionRollupRelationshipTypes
+            .ToList();
     }
 
     private static void AddIfPresent(List<Guid> ids, Guid? value)
@@ -814,6 +837,7 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var rollupTypes = GetCollectionRollupRelationshipTypes();
         var collection = conn.QueryFirstOrDefault<Collection>("""
             SELECT h.id                AS Id,
                    h.universe_id       AS UniverseId,
@@ -837,11 +861,11 @@ public sealed class CollectionRepository : ICollectionRepository
             FROM   collections h
             INNER JOIN collection_relationships hr ON hr.collection_id = h.id
             WHERE  hr.rel_qid = @qid
-              AND  hr.rel_type IN ('series', 'franchise', 'fictional_universe')
+              AND  hr.rel_type IN @rollupTypes
               AND  h.parent_collection_id IS NULL
               AND  COALESCE(h.collection_type, 'Universe') <> 'ContentGroup'
             LIMIT  1;
-            """, new { qid });
+            """, new { qid, rollupTypes });
 
         return Task.FromResult(collection is null ? null : (Collection)NormalizeCollection(collection));
     }
@@ -852,14 +876,15 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
+        var rollupTypes = GetCollectionRollupRelationshipTypes();
         var results = conn.Query<Guid>("""
             SELECT DISTINCT hr.collection_id
             FROM   collection_relationships hr
             INNER JOIN collections h ON h.id = hr.collection_id
             WHERE  hr.rel_qid  = @qid
-              AND  hr.rel_type IN ('series', 'franchise', 'fictional_universe')
+              AND  hr.rel_type IN @rollupTypes
               AND  COALESCE(h.collection_type, 'ContentGroup') IN ('ContentGroup', 'Series');
-            """, new { qid })
+            """, new { qid, rollupTypes })
             .ToList();
 
         return Task.FromResult<IReadOnlyList<Guid>>(results);

@@ -144,7 +144,7 @@ public sealed class IngestionLiveDashboardState : IDisposable
             var capabilitySummaryTask = _api.GetCapabilitySummaryAsync(ct);
             await Task.WhenAll(snapshotTask, activityTask, reviewTask, operationSummaryTask, capabilitySummaryTask);
 
-            Snapshot = snapshotTask.Result;
+            Snapshot = MergeSnapshot(Snapshot, snapshotTask.Result);
             RecentActivity = activityTask.Result
                 .Where(IsUsefulActivity)
                 .Take(12)
@@ -199,6 +199,233 @@ public sealed class IngestionLiveDashboardState : IDisposable
             if (shouldNotify)
                 Notify();
         }
+    }
+
+    private static IngestionOperationsSnapshotViewModel? MergeSnapshot(
+        IngestionOperationsSnapshotViewModel? current,
+        IngestionOperationsSnapshotViewModel? next)
+    {
+        if (next is null)
+            return current;
+
+        if (current is null)
+        {
+            NormalizeSnapshotLists(next);
+            return next;
+        }
+
+        current.Summary = next.Summary;
+        current.PipelineStages = next.PipelineStages;
+        current.ReviewReasons = next.ReviewReasons;
+        current.SourceGroups = next.SourceGroups;
+        current.ProviderHealth = next.ProviderHealth;
+        current.ProviderActivity = next.ProviderActivity;
+        current.Organization = next.Organization;
+        current.GeneratedAt = next.GeneratedAt;
+        current.ActiveJobs = MergeByKey(
+            current.ActiveJobs,
+            next.ActiveJobs,
+            job => job.JobId,
+            CopyJob,
+            OrderJobsStable);
+        current.CurrentActivities = MergeByKey(
+            current.CurrentActivities,
+            next.CurrentActivities,
+            activity => NormalizeActivityKey(activity.StageKey),
+            CopyActivity,
+            OrderActivitiesStable);
+        current.StageProgress = MergeByKey(
+            current.StageProgress,
+            next.StageProgress,
+            StageProgressKey,
+            CopyStageProgress,
+            stages => stages.OrderBy(stage => stage.StageNumber).ThenBy(stage => stage.StageKey, StringComparer.OrdinalIgnoreCase));
+        current.RecentBatches = MergeByKey(
+            current.RecentBatches,
+            next.RecentBatches,
+            batch => batch.BatchId,
+            CopyBatch,
+            OrderBatchesStable);
+        return current;
+    }
+
+    private static void NormalizeSnapshotLists(IngestionOperationsSnapshotViewModel snapshot)
+    {
+        snapshot.ActiveJobs = OrderJobsStable(snapshot.ActiveJobs).ToList();
+        snapshot.CurrentActivities = OrderActivitiesStable(snapshot.CurrentActivities).ToList();
+        snapshot.StageProgress = snapshot.StageProgress
+            .OrderBy(stage => stage.StageNumber)
+            .ThenBy(stage => stage.StageKey, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        snapshot.RecentBatches = OrderBatchesStable(snapshot.RecentBatches).ToList();
+    }
+
+    private static List<TItem> MergeByKey<TItem, TKey>(
+        IReadOnlyList<TItem> current,
+        IReadOnlyList<TItem> next,
+        Func<TItem, TKey> keySelector,
+        Action<TItem, TItem> copy,
+        Func<IEnumerable<TItem>, IEnumerable<TItem>> order)
+        where TKey : notnull
+    {
+        var currentByKey = current
+            .GroupBy(keySelector)
+            .ToDictionary(group => group.Key, group => group.First());
+        var merged = new List<TItem>(next.Count);
+
+        foreach (var nextItem in next)
+        {
+            var key = keySelector(nextItem);
+            if (currentByKey.TryGetValue(key, out var currentItem))
+            {
+                copy(currentItem, nextItem);
+                merged.Add(currentItem);
+            }
+            else
+            {
+                merged.Add(nextItem);
+            }
+        }
+
+        return order(merged).ToList();
+    }
+
+    private static IEnumerable<IngestionOperationsJobViewModel> OrderJobsStable(IEnumerable<IngestionOperationsJobViewModel> jobs) =>
+        jobs
+            .OrderBy(JobSortKey)
+            .ThenBy(job => job.JobType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(job => job.MediaType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(job => job.JobId);
+
+    private static int JobSortKey(IngestionOperationsJobViewModel job)
+    {
+        if (job.JobId == Guid.Empty)
+            return 0;
+        if (job.JobType.Contains("batch", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        if (job.JobType.Contains("reading", StringComparison.OrdinalIgnoreCase))
+            return 2;
+        return IsActiveBatchStatus(job.Status) ? 3 : 4;
+    }
+
+    private static IEnumerable<IngestionCurrentActivityViewModel> OrderActivitiesStable(IEnumerable<IngestionCurrentActivityViewModel> activities) =>
+        activities
+            .OrderBy(activity => ActivitySortKey(activity.StageKey))
+            .ThenBy(activity => activity.StageKey, StringComparer.OrdinalIgnoreCase);
+
+    private static int ActivitySortKey(string stageKey) => stageKey.ToLowerInvariant() switch
+    {
+        "scanning" or "scan" => 0,
+        "retail" or "metadata" => 1,
+        "wikidata" => 2,
+        "people" => 3,
+        "relationships" or "universes" => 4,
+        "artwork" or "deep_artwork" => 5,
+        _ => 99,
+    };
+
+    private static IEnumerable<IngestionOperationsBatchViewModel> OrderBatchesStable(IEnumerable<IngestionOperationsBatchViewModel> batches) =>
+        batches
+            .OrderByDescending(batch => IsActiveBatchStatus(batch.Status))
+            .ThenByDescending(batch => batch.StartedAt)
+            .ThenBy(batch => batch.BatchId);
+
+    private static string NormalizeActivityKey(string value) =>
+        string.IsNullOrWhiteSpace(value) ? "(unknown)" : value.Trim().ToLowerInvariant();
+
+    private static string StageProgressKey(IngestionStageProgressViewModel stage) =>
+        $"{stage.StageNumber}:{NormalizeActivityKey(stage.StageKey)}";
+
+    private static void CopyJob(IngestionOperationsJobViewModel target, IngestionOperationsJobViewModel source)
+    {
+        target.JobId = source.JobId;
+        target.JobType = source.JobType;
+        target.MediaType = source.MediaType;
+        target.SourceFolder = source.SourceFolder;
+        target.CurrentStage = source.CurrentStage;
+        target.CurrentItem = source.CurrentItem;
+        target.ProcessedCount = source.ProcessedCount;
+        target.TotalCount = source.TotalCount;
+        target.PercentComplete = source.PercentComplete;
+        target.Status = source.Status;
+        target.Elapsed = source.Elapsed;
+        target.LastUpdatedTime = source.LastUpdatedTime;
+        target.WarningSummary = source.WarningSummary;
+    }
+
+    private static void CopyActivity(IngestionCurrentActivityViewModel target, IngestionCurrentActivityViewModel source)
+    {
+        target.StageKey = source.StageKey;
+        target.Message = source.Message;
+        target.Detail = source.Detail;
+        target.CurrentItem = source.CurrentItem;
+        target.Source = source.Source;
+        target.ProcessedCount = source.ProcessedCount;
+        target.TotalCount = source.TotalCount;
+        target.CountUnit = source.CountUnit;
+        target.PercentComplete = source.PercentComplete;
+        target.LastUpdatedTime = source.LastUpdatedTime;
+        target.QueuedCount = source.QueuedCount;
+        target.ActiveCount = source.ActiveCount;
+        target.SampleItems = source.SampleItems;
+        target.MetricLabel = source.MetricLabel;
+        target.MetricValue = source.MetricValue;
+        target.MetricTone = source.MetricTone;
+        target.CurrentBatch = source.CurrentBatch;
+    }
+
+    private static void CopyStageProgress(IngestionStageProgressViewModel target, IngestionStageProgressViewModel source)
+    {
+        target.StageNumber = source.StageNumber;
+        target.StageKey = source.StageKey;
+        target.Label = source.Label;
+        target.CompletedFiles = source.CompletedFiles;
+        target.TotalFiles = source.TotalFiles;
+        target.PercentComplete = source.PercentComplete;
+        target.ActiveCount = source.ActiveCount;
+        target.QueuedCount = source.QueuedCount;
+        target.StatusLabel = source.StatusLabel;
+        target.ActiveItemLabel = source.ActiveItemLabel;
+        target.ActiveGroupLabel = source.ActiveGroupLabel;
+        target.ActiveGroupCount = source.ActiveGroupCount;
+        target.LabelAccuracy = source.LabelAccuracy;
+        target.ArtifactLabel = source.ArtifactLabel;
+        target.ArtifactCount = source.ArtifactCount;
+        target.LastUpdatedTime = source.LastUpdatedTime;
+        target.IsStale = source.IsStale;
+        target.DetailItems = source.DetailItems;
+    }
+
+    private static void CopyBatch(IngestionOperationsBatchViewModel target, IngestionOperationsBatchViewModel source)
+    {
+        target.BatchId = source.BatchId;
+        target.StartedAt = source.StartedAt;
+        target.CompletedAt = source.CompletedAt;
+        target.Source = source.Source;
+        target.MediaType = source.MediaType;
+        target.TotalFiles = source.TotalFiles;
+        target.ProcessedFiles = source.ProcessedFiles;
+        target.MoviesCount = source.MoviesCount;
+        target.TvShowsCount = source.TvShowsCount;
+        target.BooksCount = source.BooksCount;
+        target.AudiobooksCount = source.AudiobooksCount;
+        target.MusicCount = source.MusicCount;
+        target.ComicsCount = source.ComicsCount;
+        target.RegisteredCount = source.RegisteredCount;
+        target.ReviewCount = source.ReviewCount;
+        target.FailedCount = source.FailedCount;
+        target.PeopleGeneratedCount = source.PeopleGeneratedCount;
+        target.ArtworkDownloadedCount = source.ArtworkDownloadedCount;
+        target.MetadataUpdatedCount = source.MetadataUpdatedCount;
+        target.DurationSeconds = source.DurationSeconds;
+        target.Status = source.Status;
+        target.Summary = source.Summary;
+        target.StageProgress = MergeByKey(
+            target.StageProgress,
+            source.StageProgress,
+            StageProgressKey,
+            CopyStageProgress,
+            stages => stages.OrderBy(stage => stage.StageNumber).ThenBy(stage => stage.StageKey, StringComparer.OrdinalIgnoreCase));
     }
 
     public async Task ScanNowAsync(CancellationToken ct = default)
@@ -485,7 +712,11 @@ public sealed class IngestionLiveDashboardState : IDisposable
 
         return jobs
             .GroupBy(job => job.JobId)
-            .Select(group => group.First())
+            .Select(group => group.OrderByDescending(job => job.LastUpdatedTime ?? DateTimeOffset.MinValue).First())
+            .OrderBy(JobSortKey)
+            .ThenBy(job => job.JobType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(job => job.MediaType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(job => job.JobId)
             .ToList();
     }
 

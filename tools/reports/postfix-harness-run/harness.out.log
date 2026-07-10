@@ -1,0 +1,15 @@
+
+Tuvima Library integration harness
+Engine : http://localhost:61495
+Stages : 123
+Wipe   : full
+Types  : books, audiobooks, movies, tv, music, comics
+Timeout: 10800 seconds
+
+Checking engine status...
+Engine reachable.
+
+Running full integration test. Destructive mode will wipe the configured harness source/library folders and generated runtime state.
+Saving report to: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\reports\postfix-harness-run\full-integration-postfix-2026-07-09-173723.html
+
+Report saved to C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\reports\postfix-harness-run\full-integration-postfix-2026-07-09-173723.html

@@ -106,6 +106,57 @@ public sealed class PipelineConfigurationTests
         Assert.Contains("musicbrainz_release_group_id", provider.RootElement.GetProperty("preferred_bridge_ids").GetProperty("Music").EnumerateArray().Select(element => element.GetString()));
     }
 
+    [Fact]
+    public void MusicBridgePriority_PrefersMusicBrainzIdsBeforeAppleIds()
+    {
+        using var provider = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "musicbrainz.json")));
+        using var wikidata = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "wikidata_reconciliation.json")));
+
+        var preferred = provider.RootElement
+            .GetProperty("preferred_bridge_ids")
+            .GetProperty("Music")
+            .EnumerateArray()
+            .Select(element => element.GetString() ?? "")
+            .ToArray();
+
+        Assert.Equal("musicbrainz_release_group_id", preferred[0]);
+        Assert.Contains("musicbrainz_recording_id", preferred);
+        Assert.DoesNotContain("apple_music_id", preferred);
+
+        var labels = wikidata.RootElement
+            .GetProperty("data_extension")
+            .GetProperty("property_labels");
+        Assert.Equal("musicbrainz_release_group_id", labels.GetProperty("P436").GetString());
+        Assert.Equal("musicbrainz_recording_id", labels.GetProperty("P4404").GetString());
+        Assert.Equal("apple_music_id", labels.GetProperty("P10110").GetString());
+    }
+
+    [Fact]
+    public void HydrationConfig_DeclaresCollectionRollupRelationshipTypes()
+    {
+        using var hydration = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "hydration.json")));
+        var types = hydration.RootElement
+            .GetProperty("collection_rollup_relationship_types")
+            .EnumerateArray()
+            .Select(element => element.GetString() ?? "")
+            .ToArray();
+
+        Assert.Equal(["series", "franchise", "fictional_universe", "based_on"], types);
+    }
+
+    [Fact]
+    public void Documentation_DescribesMusicBrainzFirstMusicIdentity()
+    {
+        var providerGuide = File.ReadAllText(FindRepoFile("docs", "guides", "configuring-providers.md"));
+        var architecture = File.ReadAllText(FindRepoFile("docs", "architecture", "ingestion-identity-enrichment-pipeline.md"));
+        var mediaTypes = File.ReadAllText(FindRepoFile("docs", "reference", "media-types.md"));
+
+        Assert.Contains("MusicBrainz first for identity, then Apple", providerGuide, StringComparison.Ordinal);
+        Assert.Contains("For music, Stage 1 is configured as MusicBrainz identity first and Apple API enrichment second.", architecture, StringComparison.Ordinal);
+        Assert.Contains("MusicBrainz - Stage 1 identity", mediaTypes, StringComparison.Ordinal);
+        Assert.Contains("Apple API - Stage 1 enrichment after MusicBrainz identity", mediaTypes, StringComparison.Ordinal);
+    }
+
     private static string[] ReadPriority(JsonDocument document, string mediaType, string field)
     {
         var root = document.RootElement;

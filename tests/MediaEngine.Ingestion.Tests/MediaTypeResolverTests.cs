@@ -5,6 +5,7 @@ using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Processors.Models;
+using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Ingestion.Tests;
@@ -285,6 +286,7 @@ public sealed class MediaTypeResolverTests
             monitor,
             new LibraryFolderResolver(monitor),
             advisor ?? new CountingAdvisor(Candidate(MediaType.Unknown, 0)),
+            new MediaTypeExtensionCatalog(new StubConfigurationLoader()),
             NullLogger<MediaTypeResolver>.Instance);
     }
 

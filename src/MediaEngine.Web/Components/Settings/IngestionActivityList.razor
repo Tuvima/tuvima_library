@@ -49,7 +49,7 @@
             {
                 @foreach (var row in CurrentRows)
                 {
-                    <article class="ingestion-current-row @row.StageClass">
+                    <article @key="row.Key" class="ingestion-current-row @row.StageClass">
                         <AppButton ButtonStyle="AppButtonStyle.Ghost"
                                    FullWidth="true"
                                    Class="@CurrentRowButtonClass(row)"
@@ -125,7 +125,7 @@
                             <ol class="ingestion-worker-items">
                                 @foreach (var item in detail.WorkingItems)
                                 {
-                                    <li>
+                                    <li @key="WorkerItemKey(item)">
                                         <span>@item.Label</span>
                                         <small>@item.Meta</small>
                                     </li>
@@ -141,7 +141,7 @@
                             <ol class="ingestion-worker-items">
                                 @foreach (var item in detail.CompletedItems)
                                 {
-                                    <li>
+                                    <li @key="WorkerItemKey(item)">
                                         <span>@item.Label</span>
                                         <small>@item.Meta</small>
                                     </li>
@@ -343,6 +343,9 @@
 
         return result;
     }
+
+    private static string WorkerItemKey(WorkerItem item) =>
+        $"{item.Meta ?? ""}:{item.Label}";
 
     private static bool ActivityMatchesWorker(string workerKey, string? actionType) =>
         workerKey switch

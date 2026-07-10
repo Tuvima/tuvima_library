@@ -755,6 +755,7 @@ public sealed class WorkerPipelineTests
             }
             """;
 
+        var configLoader = CreateAppleMusicIdentityConfig();
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -771,13 +772,13 @@ public sealed class WorkerPipelineTests
             ],
             new RetailMatchScoringService(
                 new ExactMatchFuzzyMatchingService(),
-                new StubConfigurationLoader(),
+                configLoader,
                 coverArtHash: null,
                 logger: null),
             new StubMetadataClaimRepository(),
             canonicalRepo,
             new StubScoringEngine(),
-            new StubConfigurationLoader(),
+            configLoader,
             new StubBridgeIdRepository(),
             new StubWorkRepository(),
             new WorkClaimRouter(),
@@ -895,7 +896,7 @@ public sealed class WorkerPipelineTests
             }
             """;
 
-        var configLoader = new StubConfigurationLoader();
+        var configLoader = CreateAppleMusicIdentityConfig();
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -1012,6 +1013,7 @@ public sealed class WorkerPipelineTests
             }
             """;
 
+        var configLoader = CreateAppleMusicIdentityConfig();
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -1028,13 +1030,13 @@ public sealed class WorkerPipelineTests
             ],
             new RetailMatchScoringService(
                 new ExactMatchFuzzyMatchingService(),
-                new StubConfigurationLoader(),
+                configLoader,
                 coverArtHash: null,
                 logger: null),
             new StubMetadataClaimRepository(),
             canonicalRepo,
             new StubScoringEngine(),
-            new StubConfigurationLoader(),
+            configLoader,
             new StubBridgeIdRepository(),
             new StubWorkRepository(),
             new WorkClaimRouter(),
@@ -1175,6 +1177,7 @@ public sealed class WorkerPipelineTests
             """;
 
         var requests = new List<string>();
+        var configLoader = CreateAppleMusicIdentityConfig();
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -1191,13 +1194,13 @@ public sealed class WorkerPipelineTests
             ],
             new RetailMatchScoringService(
                 new ExactMatchFuzzyMatchingService(),
-                new StubConfigurationLoader(),
+                configLoader,
                 coverArtHash: null,
                 logger: null),
             new StubMetadataClaimRepository(),
             canonicalRepo,
             new StubScoringEngine(),
-            new StubConfigurationLoader(),
+            configLoader,
             new StubBridgeIdRepository(),
             new StubWorkRepository(),
             new WorkClaimRouter(),
@@ -1314,6 +1317,7 @@ public sealed class WorkerPipelineTests
             """;
 
         var requests = new List<string>();
+        var configLoader = CreateAppleMusicIdentityConfig();
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -1330,13 +1334,13 @@ public sealed class WorkerPipelineTests
             ],
             new RetailMatchScoringService(
                 new ExactMatchFuzzyMatchingService(),
-                new StubConfigurationLoader(),
+                configLoader,
                 coverArtHash: null,
                 logger: null),
             new StubMetadataClaimRepository(),
             canonicalRepo,
             new StubScoringEngine(),
-            new StubConfigurationLoader(),
+            configLoader,
             new StubBridgeIdRepository(),
             new StubWorkRepository(),
             new WorkClaimRouter(),
@@ -1575,6 +1579,7 @@ public sealed class WorkerPipelineTests
             """;
 
         var requests = new List<string>();
+        var configLoader = CreateAppleMusicIdentityConfig();
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -1591,13 +1596,13 @@ public sealed class WorkerPipelineTests
             ],
             new RetailMatchScoringService(
                 new FuzzyMatchingService(),
-                new StubConfigurationLoader(),
+                configLoader,
                 coverArtHash: null,
                 logger: null),
             new StubMetadataClaimRepository(),
             canonicalRepo,
             new StubScoringEngine(),
-            new StubConfigurationLoader(),
+            configLoader,
             new StubBridgeIdRepository(),
             new StubWorkRepository(),
             new WorkClaimRouter(),
@@ -1703,11 +1708,11 @@ public sealed class WorkerPipelineTests
         });
         retailScoring.Results.Enqueue(new FieldMatchScores
         {
-            TitleScore = 0.95,
-            AuthorScore = 0.93,
+            TitleScore = 0.99,
+            AuthorScore = 0.99,
             YearScore = 0.0,
             FormatScore = 1.0,
-            CompositeScore = 0.94,
+            CompositeScore = 0.99,
         });
 
         var configLoader = new StubConfigurationLoader
@@ -1770,10 +1775,14 @@ public sealed class WorkerPipelineTests
         Assert.Equal([1, 2], candidateRepo.Candidates.Select(candidate => candidate.Rank).ToArray());
         Assert.NotNull(apple.Requests[0].PriorProviderBridgeIds);
         Assert.Contains(BridgeIdKeys.MusicBrainzRecordingId, apple.Requests[0].PriorProviderBridgeIds!.Keys);
+        var musicBrainzCandidate = Assert.Single(candidateRepo.Candidates, candidate => candidate.ProviderName == "musicbrainz");
+        var appleCandidate = Assert.Single(candidateRepo.Candidates, candidate => candidate.ProviderName == "apple_api");
+        Assert.True(appleCandidate.ScoreTotal > musicBrainzCandidate.ScoreTotal);
 
         var updatedJob = await jobRepo.GetByIdAsync(jobId);
         Assert.NotNull(updatedJob);
         Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+        Assert.Equal(musicBrainzCandidate.Id, updatedJob.SelectedCandidateId);
     }
 
     [Fact]
@@ -2868,6 +2877,28 @@ public sealed class WorkerPipelineTests
     }
 
     // ── StubConfigurationLoader ─────────────────────────────────────────
+
+    private static StubConfigurationLoader CreateAppleMusicIdentityConfig() => new()
+    {
+        PipelineConfiguration = new PipelineConfiguration
+        {
+            Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Music"] = new()
+                {
+                    Strategy = ProviderStrategy.Waterfall,
+                    Providers =
+                    [
+                        new PipelineProviderEntry { Rank = 1, Name = "apple_api", Purpose = "identity" },
+                    ],
+                },
+            },
+        },
+        Providers =
+        [
+            new() { Name = "apple_api", Enabled = true, ProviderId = WellKnownProviders.AppleApi.ToString(), Weight = 0.9 },
+        ],
+    };
 
     private sealed class StubConfigurationLoader : IConfigurationLoader
     {

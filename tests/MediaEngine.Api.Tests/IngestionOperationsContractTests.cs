@@ -242,6 +242,68 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void OperationsService_RecentBatchOrderingKeepsMeaningfulFullBatchFirst()
+    {
+        var startedAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var fullBatch = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = startedAt,
+            CreatedAt = startedAt,
+            UpdatedAt = DateTimeOffset.UtcNow.AddSeconds(-30),
+            Status = "running",
+            FilesTotal = 97,
+            FilesProcessed = 20,
+            FilesIdentified = 10,
+            FilesReview = 9,
+        };
+        var followOnBatch = new IngestionBatch
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            Status = "running",
+            FilesTotal = 4,
+            FilesProcessed = 0,
+        };
+        var buildGroupsMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "BuildRecentBatchGroups",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var orderGroupsMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "OrderRecentBatchGroupsForDisplay",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(buildGroupsMethod);
+        Assert.NotNull(orderGroupsMethod);
+
+        var groups = buildGroupsMethod.Invoke(null, [new[] { followOnBatch, fullBatch }])
+            ?? throw new InvalidOperationException("BuildRecentBatchGroups returned null.");
+        var ordered = Assert.IsAssignableFrom<IEnumerable>(orderGroupsMethod.Invoke(null, [groups]))
+            .Cast<object>()
+            .ToList();
+        var firstBatch = Assert.IsType<IngestionBatch>(
+            ordered[0].GetType().GetProperty("Batch")?.GetValue(ordered[0]));
+
+        Assert.Equal(fullBatch.Id, firstBatch.Id);
+    }
+
+    [Fact]
+    public void OperationsService_SynthesizesActiveJobFromCurrentActivityWhenBatchTimestampIsStale()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "IngestionOperationsStatusService.cs"));
+
+        Assert.Contains("activeJobs.Count == 0", source, StringComparison.Ordinal);
+        Assert.Contains("currentActivities.Any(IsActiveActivity)", source, StringComparison.Ordinal);
+        Assert.Contains("activeJobs.Add(ToActiveJob(displayBatch, scopedPipelineRows, pipelineStages))", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OperationsService_NumberedStageStatusTreatsTerminalPartialStageAsComplete()
     {
         var statusMethod = typeof(IngestionOperationsStatusService).GetMethod(
@@ -317,6 +379,26 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("\"abandoned\"", source, StringComparison.Ordinal);
         Assert.Contains("!IsFreshActiveBatch(batch)", source, StringComparison.Ordinal);
         Assert.Contains("julianday(js.updated_at) > julianday(@staleCutoff)", source, StringComparison.Ordinal);
+        Assert.Contains("staleQueuedWork ? snapshot.Queued : 0", source, StringComparison.Ordinal);
+        Assert.Contains("snapshot.StaleActive", source, StringComparison.Ordinal);
+        Assert.Contains("snapshot.StaleRunningOperations", source, StringComparison.Ordinal);
+        Assert.Contains("Math.Min(interrupted, Math.Max(0, batch.FilesTotal - terminal))", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BatchProgressService_DoesNotReusePersistedFailedCountWhenJobSnapshotExists()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Providers",
+            "Services",
+            "BatchProgressService.cs"));
+
+        Assert.Contains("snapshot.TotalJobs > 0", source, StringComparison.Ordinal);
+        Assert.Contains("snapshot.PipelineFailed", source, StringComparison.Ordinal);
+        Assert.Contains("batch.FilesFailed", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("var failed = Math.Max(batch.FilesFailed, snapshot.PipelineFailed);", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -643,6 +725,47 @@ public sealed class IngestionOperationsContractTests
         Assert.Equal(2, groupObjects.Count);
         Assert.Equal(96, firstGroupBatch.FilesTotal);
         Assert.Equal(3, firstSourceBatchIds.Cast<object>().Count());
+    }
+
+    [Fact]
+    public void OperationsService_PreservesCompletedFullRunSummaryOverTinyFollowOnBatch()
+    {
+        var started = DateTimeOffset.UtcNow.AddMinutes(-30);
+        var fullRun = new List<IngestionBatch>
+        {
+            Batch(started.AddSeconds(10), total: 31, processed: 31, identified: 26, review: 5),
+            Batch(started.AddSeconds(20), total: 28, processed: 28, identified: 23, review: 5),
+            Batch(started.AddSeconds(40), total: 38, processed: 38, identified: 31, review: 7),
+        };
+        var tinyFollowOn = Batch(
+            DateTimeOffset.UtcNow.AddMinutes(-1),
+            total: 4,
+            processed: 4,
+            identified: 4,
+            review: 0);
+        tinyFollowOn.Category = "Movies";
+
+        var selectMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "SelectDisplayBatches",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var aggregateMethod = typeof(IngestionOperationsStatusService).GetMethod(
+            "AggregateDisplayBatch",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(selectMethod);
+        Assert.NotNull(aggregateMethod);
+
+        var selected = Assert.IsAssignableFrom<IReadOnlyList<IngestionBatch>>(
+            selectMethod.Invoke(null, [new List<IngestionBatch> { tinyFollowOn }.Concat(fullRun).ToList()]));
+        var aggregate = Assert.IsType<IngestionBatch>(
+            aggregateMethod.Invoke(null, [selected]));
+
+        Assert.Equal(3, selected.Count);
+        Assert.Equal(97, aggregate.FilesTotal);
+        Assert.Equal(97, aggregate.FilesProcessed);
+        Assert.Equal(80, aggregate.FilesIdentified);
+        Assert.Equal(17, aggregate.FilesReview);
+        Assert.Equal("Mixed", aggregate.Category);
     }
 
     [Fact]

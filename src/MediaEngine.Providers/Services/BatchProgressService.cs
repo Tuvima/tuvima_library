@@ -178,7 +178,9 @@ public sealed class BatchProgressService
                 new { batchId, activeStates = ActiveStates }).ConfigureAwait(false);
 
             var total = Math.Max(batch.FilesTotal, snapshot.TotalJobs);
-            var failed = Math.Max(batch.FilesFailed, snapshot.PipelineFailed);
+            var failed = snapshot.TotalJobs > 0
+                ? Math.Max(0, snapshot.PipelineFailed)
+                : Math.Max(0, batch.FilesFailed);
             var ready = snapshot.FilesReady;
             var readyWithoutUniverse = snapshot.FilesReadyWithoutUniverse;
             var identified = ready + readyWithoutUniverse;

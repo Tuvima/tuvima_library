@@ -194,6 +194,22 @@ public interface IWorkRepository
     Task<WorkLineage?> GetLineageByAssetAsync(
         Guid assetId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Finds a trusted QID already assigned to an owned sibling variant in
+    /// another media type. Used by Stage 2 when an audiobook/book variant has
+    /// retail identity but the provider bridge does not resolve directly.
+    /// Implementations must require a normalized title match and should use
+    /// creator matching when a creator hint is available.
+    /// </summary>
+    Task<ConfirmedSiblingWorkQid?> FindConfirmedSiblingQidAsync(
+        MediaType sourceMediaType,
+        IReadOnlyList<MediaType> candidateMediaTypes,
+        string title,
+        string? creator,
+        Guid? excludeWorkId = null,
+        CancellationToken ct = default)
+        => Task.FromResult<ConfirmedSiblingWorkQid?>(null);
 }
 
 /// <summary>
@@ -227,3 +243,10 @@ public sealed record WorkLineage(
     /// </summary>
     public Guid TargetForSelfScope => WorkId;
 }
+
+public sealed record ConfirmedSiblingWorkQid(
+    Guid WorkId,
+    MediaType MediaType,
+    string WikidataQid,
+    string Title,
+    string? Creator);

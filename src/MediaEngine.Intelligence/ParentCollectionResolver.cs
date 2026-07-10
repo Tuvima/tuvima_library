@@ -13,7 +13,7 @@ namespace MediaEngine.Intelligence;
 ///
 /// A Parent Collection is created when 2+ shelf Collections share a
 /// <see cref="CollectionRelationship"/> with the same <c>rel_qid</c> and a
-/// <c>rel_type</c> in ("series", "franchise", "fictional_universe").
+/// configured collection rollup relationship type.
 ///
 /// The Parent Collection is itself a Collection row with <c>parent_collection_id = NULL</c>,
 /// its <see cref="Collection.DisplayName"/> taken from the relationship's
@@ -22,21 +22,19 @@ namespace MediaEngine.Intelligence;
 /// </summary>
 public sealed class ParentCollectionResolver : IParentCollectionResolver
 {
-    private static readonly HashSet<string> RollupRelTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "series",
-        "franchise",
-        "fictional_universe",
-    };
-
     private readonly ICollectionRepository _collectionRepo;
+    private readonly IConfigurationLoader? _configLoader;
     private readonly ILogger<ParentCollectionResolver> _logger;
 
-    public ParentCollectionResolver(ICollectionRepository collectionRepo, ILogger<ParentCollectionResolver> logger)
+    public ParentCollectionResolver(
+        ICollectionRepository collectionRepo,
+        ILogger<ParentCollectionResolver> logger,
+        IConfigurationLoader? configLoader = null)
     {
         ArgumentNullException.ThrowIfNull(collectionRepo);
         ArgumentNullException.ThrowIfNull(logger);
         _collectionRepo = collectionRepo;
+        _configLoader = configLoader;
         _logger = logger;
     }
 
@@ -61,8 +59,9 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
         }
 
         var relationships = await _collectionRepo.GetRelationshipsAsync(collectionId, ct).ConfigureAwait(false);
+        var rollupRelTypes = GetRollupRelationshipTypes();
         var rollupRels = relationships
-            .Where(r => RollupRelTypes.Contains(r.RelType))
+            .Where(r => rollupRelTypes.Contains(r.RelType))
             .ToList();
 
         if (rollupRels.Count == 0)
@@ -78,6 +77,26 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
             ct.ThrowIfCancellationRequested();
             await ProcessRollupAsync(collection, rel, ct).ConfigureAwait(false);
         }
+    }
+
+    private HashSet<string> GetRollupRelationshipTypes()
+    {
+        try
+        {
+            var configured = _configLoader?.LoadHydration().CollectionRollupRelationshipTypes
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList();
+            if (configured is { Count: > 0 })
+                return new HashSet<string>(configured, StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // Tests and first-run config can fall back to the model defaults.
+        }
+
+        return new HashSet<string>(
+            new MediaEngine.Storage.Models.HydrationSettings().CollectionRollupRelationshipTypes,
+            StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task ProcessRollupAsync(

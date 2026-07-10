@@ -51,6 +51,19 @@ public sealed class CollectionAssignmentServiceTests
     }
 
     [Fact]
+    public void CollectionAssignment_UsesArrayBackedBasedOnForCrossMediaRollups()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\CollectionAssignmentService.cs"));
+
+        Assert.Contains("MergeArrayBackedRelationshipHintsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetAllByEntityAsync(entityId", source, StringComparison.Ordinal);
+        Assert.Contains("arrays.TryGetValue(\"based_on\"", source, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.Characters", source, StringComparison.Ordinal);
+        Assert.Contains("AddArrayHint(lookup, \"based_on\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"fictional_universe\", \"based_on\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CollectionFinalization_IsSharedByQidAndRetainedRetailPaths()
     {
         var quickHydration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\QuickHydrationWorker.cs"));

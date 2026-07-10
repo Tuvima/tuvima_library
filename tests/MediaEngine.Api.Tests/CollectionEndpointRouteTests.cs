@@ -69,6 +69,24 @@ public sealed class CollectionEndpointRouteTests
     }
 
     [Fact]
+    public void TvSystemViewsExposeRootWorkIdsForWatchShowDetails()
+    {
+        var collectionSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var detailsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\DetailEndpoints.cs"));
+        var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Details\DetailComposerService.cs"));
+        var watchPageSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\WatchTvShowPage.razor"));
+
+        Assert.Contains("group.MapGet(\"/system-views\"", collectionSource, StringComparison.Ordinal);
+        Assert.Contains("groupField", collectionSource, StringComparison.Ordinal);
+        Assert.Contains("show_name", collectionSource, StringComparison.Ordinal);
+        Assert.Contains("root_work_id", collectionSource, StringComparison.Ordinal);
+        Assert.Contains("return $\"/details/tvshow/{row.WorkId:D}?context=watch\";", collectionSource, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/{entityType}/{id:guid}\"", detailsSource, StringComparison.Ordinal);
+        Assert.Contains("DetailEntityType.TvShow", composerSource, StringComparison.Ordinal);
+        Assert.Contains("GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch", watchPageSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ContentGroups_ResolveArtworkThroughManagedStreamUrls()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));

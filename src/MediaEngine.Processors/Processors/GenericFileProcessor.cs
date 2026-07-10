@@ -1,59 +1,42 @@
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
+using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Processors.Processors;
 
 /// <summary>
 /// Catch-all fallback processor that handles any file format not claimed by a
 /// more specific processor.
-///
-/// ──────────────────────────────────────────────────────────────────
-/// Dispatch contract (spec: Phase 5 – Format Fallback)
-/// ──────────────────────────────────────────────────────────────────
-///  • <see cref="Priority"/> = <see cref="int.MinValue"/> — always loses to any
-///    format-specific processor.
-///  • <see cref="CanProcess"/> always returns <see langword="true"/>; it is never
-///    called in practice because <see cref="MediaProcessorRouter"/> bypasses the
-///    <c>CanProcess</c> check for processors registered at <c>int.MinValue</c>.
-///
-/// ──────────────────────────────────────────────────────────────────
-/// Metadata produced (spec: Phase 5 – Metadata Extraction)
-/// ──────────────────────────────────────────────────────────────────
-///  • title (confidence 0.5) — file-name stem without extension.
-///  No cover image; <see cref="MediaType.Unknown"/> as detected type.
-///
-/// Spec: Phase 5 – Media Processor Architecture § Generic Fallback.
 /// </summary>
 public sealed class GenericFileProcessor : IMediaProcessor
 {
-    /// <summary>
-    /// File extensions claimed by format-specific processors.  A file with one
-    /// of these extensions that reaches the generic fallback is corrupt or has
-    /// a misleading extension — no format-specific processor could parse it.
-    /// </summary>
-    private static readonly HashSet<string> KnownFormatExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private readonly IMediaTypeExtensionCatalog? _extensionCatalog;
+    private readonly IReadOnlySet<string> _defaultKnownFormatExtensions;
+
+    public GenericFileProcessor()
+        : this(null)
     {
-        ".epub",
-        ".pdf",
-        ".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".wav", ".aac",
-        ".mp4", ".mkv", ".avi", ".webm",
-        ".cbz", ".cbr",
-    };
+    }
+
+    public GenericFileProcessor(IMediaTypeExtensionCatalog? extensionCatalog)
+    {
+        _extensionCatalog = extensionCatalog;
+        _defaultKnownFormatExtensions = MediaTypeConfiguration.DefaultTypes()
+            .SelectMany(type => type.Extensions)
+            .Select(NormalizeExtension)
+            .Where(extension => !string.IsNullOrWhiteSpace(extension))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
 
     /// <inheritdoc/>
     public MediaType SupportedType => MediaType.Unknown;
 
     /// <inheritdoc/>
-    /// <remarks>
-    /// <see cref="int.MinValue"/> ensures this processor is always outranked
-    /// by any registered format-specific processor.
-    /// </remarks>
     public int Priority => int.MinValue;
 
     /// <inheritdoc/>
-    /// <remarks>Always returns <see langword="true"/>; the libraryItem bypasses this
-    /// check for the fallback processor anyway.</remarks>
     public bool CanProcess(string filePath) => true;
 
     /// <inheritdoc/>
@@ -62,10 +45,8 @@ public sealed class GenericFileProcessor : IMediaProcessor
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        // A file with a known media extension that no format-specific processor
-        // could parse is corrupt, truncated, or has a misleading extension.
         var ext = Path.GetExtension(filePath);
-        if (KnownFormatExtensions.Contains(ext))
+        if (IsKnownFormatExtension(ext))
         {
             return Task.FromResult(new ProcessorResult
             {
@@ -79,7 +60,6 @@ public sealed class GenericFileProcessor : IMediaProcessor
             });
         }
 
-        // Derive a best-effort title from the file name stem.
         var stem = Path.GetFileNameWithoutExtension(filePath);
         var claims = new List<ExtractedClaim>();
 
@@ -93,13 +73,24 @@ public sealed class GenericFileProcessor : IMediaProcessor
             });
         }
 
-        var result = new ProcessorResult
+        return Task.FromResult(new ProcessorResult
         {
             FilePath     = filePath,
             DetectedType = MediaType.Unknown,
             Claims       = claims,
-        };
+        });
+    }
 
-        return Task.FromResult(result);
+    private bool IsKnownFormatExtension(string? extension) =>
+        _extensionCatalog?.IsKnownMediaExtension(extension) == true
+        || _defaultKnownFormatExtensions.Contains(NormalizeExtension(extension));
+
+    private static string NormalizeExtension(string? extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension))
+            return string.Empty;
+
+        var trimmed = extension.Trim().ToLowerInvariant();
+        return trimmed.StartsWith(".", StringComparison.Ordinal) ? trimmed : "." + trimmed;
     }
 }

@@ -22,16 +22,6 @@ public sealed class PlaybackCapabilitiesService
         ".mp3", ".m4a", ".m4b", ".aac", ".flac", ".ogg", ".wav",
     };
 
-    private static readonly HashSet<string> BookExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".epub", ".pdf",
-    };
-
-    private static readonly HashSet<string> ComicExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".cbz", ".cbr",
-    };
-
     private readonly IMediaAssetRepository _assets;
     private readonly IFFmpegService _ffmpeg;
     private readonly IDatabaseConnection _db;
@@ -39,6 +29,7 @@ public sealed class PlaybackCapabilitiesService
     private readonly IPlaybackSegmentRepository _segments;
     private readonly IUserPlaybackSettingsService _settings;
     private readonly AudiobookChapterTitleOverrideRepository _chapterTitleOverrides;
+    private readonly IMediaTypeExtensionCatalog _extensionCatalog;
     private readonly ILogger<PlaybackCapabilitiesService> _logger;
 
     public PlaybackCapabilitiesService(
@@ -49,6 +40,7 @@ public sealed class PlaybackCapabilitiesService
         IPlaybackSegmentRepository segments,
         IUserPlaybackSettingsService settings,
         AudiobookChapterTitleOverrideRepository chapterTitleOverrides,
+        IMediaTypeExtensionCatalog extensionCatalog,
         ILogger<PlaybackCapabilitiesService> logger)
     {
         _assets = assets;
@@ -58,6 +50,7 @@ public sealed class PlaybackCapabilitiesService
         _segments = segments;
         _settings = settings;
         _chapterTitleOverrides = chapterTitleOverrides;
+        _extensionCatalog = extensionCatalog;
         _logger = logger;
     }
 
@@ -229,11 +222,7 @@ public sealed class PlaybackCapabilitiesService
             return mediaType;
         }
 
-        if (VideoExtensions.Contains(extension)) return "Movies";
-        if (AudioExtensions.Contains(extension)) return string.Equals(extension, ".m4b", StringComparison.OrdinalIgnoreCase) ? "Audiobooks" : "Music";
-        if (BookExtensions.Contains(extension)) return "Books";
-        if (ComicExtensions.Contains(extension)) return "Comics";
-        return "Unknown";
+        return _extensionCatalog.ResolveMediaTypeFromExtension(extension).ToString();
     }
 
     private async Task<PlaybackResumeDto?> LoadResumeAsync(Guid assetId, CancellationToken ct)

@@ -137,9 +137,9 @@ Current shipped default note: `two_pass_enabled` is `false`, so the optional two
 | Field | Type | Description |
 |---|---|---|
 | `stage_concurrency` | int | Maximum concurrent provider calls within each stage. |
-| `stage1_timeout_seconds` | int | Per-provider HTTP timeout for the retail worker, shown as Stage 3 in the Ingestion page. |
-| `stage2_timeout_seconds` | int | Per-request timeout for the Wikidata worker, shown as Stage 4 in the Ingestion page. |
-| `stage3_timeout_seconds` | int | Timeout for scheduled enrichment work, shown across Stages 6-8 in the Ingestion page. |
+| `stage1_timeout_seconds` | int | Per-provider HTTP timeout for the Stage 1 provider identity/enrichment worker. |
+| `stage2_timeout_seconds` | int | Per-request timeout for the Stage 2 Wikidata worker. |
+| `stage3_timeout_seconds` | int | Timeout for scheduled Stage 3 enrichment work, shown across the People, Relationships, and Artwork rows in the Ingestion page. |
 | `retail_auto_accept_threshold` | float | Composite Retail score required for automatic acceptance. Current config: `0.90`. |
 | `retail_ambiguous_threshold` | float | Composite Retail score below which a candidate is treated as no match. Scores from this threshold up to the auto-accept threshold go to review. Current config: `0.65`. |
 | `auto_review_confidence_threshold` | float | Post-hydration confidence gate for creating review work. |
@@ -150,6 +150,7 @@ Current shipped default note: `two_pass_enabled` is `false`, so the optional two
 | `pass2_stale_threshold_hours` | int | Age after which a pending Pass 2 item is considered stale. |
 | `pass2_batch_size` | int | Maximum number of Pass 2 items processed in one batch. |
 | `wikidata_batch_size` | int | Maximum entities per Wikidata batch API call. |
+| `collection_rollup_relationship_types` | string[] | Relationship types that can create broader cross-media collection rollups. Defaults to `series`, `franchise`, `fictional_universe`, and `based_on`. |
 | `local_match_enabled` | bool | Enables the local match shortcut before external calls. |
 | `local_match_fuzzy_threshold` | float | Fuzzy threshold for local title+creator matching. |
 
@@ -162,7 +163,8 @@ Defines the ranked provider list and execution strategy per media type. This fil
 | Field | Type | Description |
 |---|---|---|
 | `{MediaType}.strategy` | string | Execution strategy: `"Waterfall"` (first match wins), `"Cascade"` (all run, claims merge), or `"Sequential"` (chained, each feeds the next). |
-| `{MediaType}.providers` | array | Ordered list of provider entries. Each entry has `rank` (int, execution order) and `name` (string, must match provider config `name` field). |
+| `{MediaType}.providers` | array | Ordered list of provider entries. Each entry has `rank` (int, execution order), `name` (string, must match provider config `name` field), and optional `purpose`. |
+| `{MediaType}.providers[].purpose` | string | Provider role in this media pipeline. `identity` candidates can own the selected identity; `enrichment` providers can still contribute fields, bridge IDs, artwork, and retained provider links. |
 | `{MediaType}.field_priorities` | object | Per-field provider priority overrides for this media type. Key = claim key (e.g., "cover", "description"). Value = ordered list of provider names. Checked before global `field_priorities.json`. |
 
 Default strategies:
@@ -171,6 +173,8 @@ Default strategies:
 - **Sequential:** Audiobooks, Music
 
 All six media types (Books, Audiobooks, Movies, TV, Music, Comics) must have at least one provider entry.
+
+Music is configured as a sequential Stage 1 chain: MusicBrainz has `purpose: "identity"` and Apple API has `purpose: "enrichment"`. That means MusicBrainz owns track, album, artist, release, and recording identity fields when available, while Apple can still win configured enrichment fields such as cover art, genre, storefront IDs, year, and retail metadata. This is a configuration rule, not a music-specific provider-order branch in orchestration code.
 
 ---
 
@@ -214,6 +218,19 @@ Defines typed media library folders. Contains a `libraries` array; each entry is
 | `intake_mode` | string | `"watch"` - continuous file monitoring. `"import"` - one-time scan of existing collection. |
 | `import_action` | string | `"move"` - move files after ingestion. `"copy"` - copy and leave originals in place. |
 | `include_subdirectories` | bool | Whether to recurse into subdirectories. |
+
+---
+
+## config/media_types.json
+
+Declares supported extensions by media type. The scanner, initial sweep, generic processor fallback, media-type resolver, and playback fallback read this catalog so extension behavior stays consistent across ingestion and Dashboard playback.
+
+| Field | Type | Description |
+|---|---|---|
+| `{MediaType}.extensions` | string[] | File extensions associated with the media type. Extensions can include or omit the leading dot. |
+| `{MediaType}.aliases` | string[] | Alternate labels normalized to the media type where present. |
+
+Ambiguous extensions can appear in more than one media type. The resolver uses folder context, embedded metadata, filename patterns, and stronger extension rules to pick a media type. Current governance rules treat `.m4b` as an audiobook fallback, `.mp3` as music when no stronger audiobook evidence exists, and video containers such as `.mkv` as movie fallbacks unless TV evidence is present.
 
 ---
 
@@ -261,14 +278,14 @@ One JSON file per metadata provider. All provider files are self-contained - add
 
 | File | Provider | Stage | Language Strategy |
 |---|---|---|---|
-| `apple_api.json` | Apple API (books, audiobooks, music enrichment) | Stage 3 retail metadata & primary artwork; runs after MusicBrainz for music | `localized` |
+| `apple_api.json` | Apple API (books, audiobooks, music enrichment) | Stage 1 provider metadata and primary artwork; for music, configured after MusicBrainz as enrichment | `localized` |
 | `open_library.json` | Open Library | Disabled by default | `source` |
-| `comicvine.json` | Comic Vine (comics) | Stage 3 retail metadata & primary artwork | `source` |
-| `musicbrainz.json` | MusicBrainz | Stage 3 music identity and Stage 8-capable enrichment | `source` |
-| `tmdb.json` | TMDB (movies, TV) | Stage 3 retail metadata & primary artwork | `localized` |
-| `wikidata_reconciliation.json` | Wikidata | Stage 4 Wikidata | `both` |
-| `local_filesystem.json` | Local file metadata (processors) | Stage 2 read media details | `source` |
-| `fanart_tv.json` | Fanart.tv (artwork) | Stage 8 deep artwork | `source` |
+| `comicvine.json` | Comic Vine (comics) | Stage 1 provider metadata and primary artwork | `source` |
+| `musicbrainz.json` | MusicBrainz | Stage 1 music identity; also available to slower enrichment where configured | `source` |
+| `tmdb.json` | TMDB (movies, TV) | Stage 1 provider metadata and primary artwork | `localized` |
+| `wikidata_reconciliation.json` | Wikidata | Stage 2 Wikidata | `both` |
+| `local_filesystem.json` | Local file metadata (processors) | Stage 0 read media details | `source` |
+| `fanart_tv.json` | Fanart.tv (artwork) | Stage 3 deep artwork | `source` |
 
 ### fanart_tv.json - Artwork field map
 
@@ -315,6 +332,7 @@ This file is the authoritative configuration for all Wikidata-related behaviour.
 | `language_strategy` | string | `"source"` - always English. `"localized"` - user's metadata language. `"both"` - query twice and merge. |
 | `rate_limit_ms` | int | Minimum milliseconds between requests to this provider. |
 | `cache_ttl_hours` | int | How long provider responses are cached in `provider_response_cache`. |
+| `preferred_bridge_ids` | object | Per-media-type ordered bridge identifiers preferred by this provider. Stage 2 uses this to order bridge resolution, so music tries MusicBrainz IDs before Apple IDs. |
 
 ---
 

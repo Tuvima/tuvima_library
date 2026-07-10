@@ -7,6 +7,7 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Processors.Models;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -14,28 +15,25 @@ namespace MediaEngine.Ingestion.Services;
 
 public sealed class MediaTypeResolver : IMediaTypeResolver
 {
-    private static readonly HashSet<string> UnambiguousExtensions =
-        new(StringComparer.OrdinalIgnoreCase) { ".epub", ".cbz", ".cbr", ".m4b", ".pdf" };
-
-    private static readonly HashSet<string> StrongFormatExtensions =
-        new(StringComparer.OrdinalIgnoreCase) { ".epub", ".cbz", ".cbr", ".m4b" };
-
     private const double RootWatchFolderMaxConfidence = 0.40;
 
     private readonly IOptionsMonitor<IngestionOptions> _options;
     private readonly ILibraryFolderResolver _libraryFolderResolver;
     private readonly IMediaTypeAdvisor _typeAdvisor;
+    private readonly IMediaTypeExtensionCatalog _extensionCatalog;
     private readonly ILogger<MediaTypeResolver> _logger;
 
     public MediaTypeResolver(
         IOptionsMonitor<IngestionOptions> options,
         ILibraryFolderResolver libraryFolderResolver,
         IMediaTypeAdvisor typeAdvisor,
+        IMediaTypeExtensionCatalog extensionCatalog,
         ILogger<MediaTypeResolver> logger)
     {
         _options = options;
         _libraryFolderResolver = libraryFolderResolver;
         _typeAdvisor = typeAdvisor;
+        _extensionCatalog = extensionCatalog;
         _logger = logger;
     }
 
@@ -210,7 +208,7 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
         }
     }
 
-    private static bool CanSingleTypeFolderOverride(
+    private bool CanSingleTypeFolderOverride(
         string filePath,
         MediaType processorType,
         IReadOnlyList<MediaType> folderTypes)
@@ -223,21 +221,13 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
             return true;
 
         var extension = Path.GetExtension(filePath);
-        if (StrongFormatExtensions.Contains(extension))
+        if (_extensionCatalog.IsStrongFormatExtension(extension))
             return false;
 
         return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
-            || IsVideoExtension(extension)
+            || _extensionCatalog.IsVideoExtension(extension)
             || processorType == MediaType.Unknown;
     }
-
-    private static bool IsVideoExtension(string? extension)
-        => extension is not null
-           && (extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase)
-               || extension.Equals(".m4v", StringComparison.OrdinalIgnoreCase)
-               || extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase)
-               || extension.Equals(".webm", StringComparison.OrdinalIgnoreCase)
-               || extension.Equals(".avi", StringComparison.OrdinalIgnoreCase));
 
     private bool ApplyRootWatchFolderCap(
         string filePath,
@@ -270,7 +260,7 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
         }
 
         var ext = Path.GetExtension(filePath)?.ToLowerInvariant();
-        if (UnambiguousExtensions.Contains(ext ?? string.Empty))
+        if (_extensionCatalog.IsUnambiguousExtension(ext))
             return false;
 
         if (matchedFolder?.MediaTypes.Count == 1)
