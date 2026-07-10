@@ -26,6 +26,18 @@ internal sealed class SchemaMigrator
             "works",
             "ordinal_sort",
             "ALTER TABLE works ADD COLUMN ordinal_sort REAL;");
+
+        AddColumnIfMissing(
+            conn,
+            "series_manifest_items",
+            "membership_scope",
+            "ALTER TABLE series_manifest_items ADD COLUMN membership_scope TEXT NOT NULL DEFAULT 'MainSequence';");
+
+        AddColumnIfMissing(
+            conn,
+            "series_manifest_items",
+            "ordinal_scope_qid",
+            "ALTER TABLE series_manifest_items ADD COLUMN ordinal_scope_qid TEXT;");
     }
 
     private static void SeedMetadataProviders(SqliteConnection conn)

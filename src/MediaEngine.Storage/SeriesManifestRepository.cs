@@ -50,11 +50,13 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             SELECT id AS Id, collection_id AS CollectionId, series_qid AS SeriesQid,
                    item_qid AS ItemQid, item_label AS ItemLabel, item_description AS ItemDescription,
                    media_type AS MediaType, raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
+                   ordinal_scope_qid AS OrdinalScopeQid,
                    sort_order AS SortOrder, publication_date AS PublicationDate,
                    previous_qid AS PreviousQid, next_qid AS NextQid,
                    parent_collection_qid AS ParentCollectionQid,
                    parent_collection_label AS ParentCollectionLabel,
                    is_collection AS IsCollection, is_expanded_from_collection AS IsExpandedFromCollection,
+                   membership_scope AS MembershipScope,
                    source_properties_json AS SourcePropertiesJson,
                    relationships_json AS RelationshipsJson, order_source AS OrderSource,
                    ownership_state AS OwnershipState, linked_work_id AS LinkedWorkId,
@@ -141,16 +143,16 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     """
                     INSERT INTO series_manifest_items
                         (id, collection_id, series_qid, item_qid, item_label, item_description,
-                         media_type, raw_ordinal, parsed_ordinal, sort_order, publication_date,
+                         media_type, raw_ordinal, parsed_ordinal, ordinal_scope_qid, sort_order, publication_date,
                          previous_qid, next_qid, parent_collection_qid, parent_collection_label,
-                         is_collection, is_expanded_from_collection, source_properties_json,
+                         is_collection, is_expanded_from_collection, membership_scope, source_properties_json,
                          relationships_json, order_source, ownership_state, linked_work_id,
                          last_hydrated_at, created_at, updated_at)
                     VALUES
                         (@Id, @CollectionId, @SeriesQid, @ItemQid, @ItemLabel, @ItemDescription,
-                         @MediaType, @RawOrdinal, @ParsedOrdinal, @SortOrder, @PublicationDate,
+                         @MediaType, @RawOrdinal, @ParsedOrdinal, @OrdinalScopeQid, @SortOrder, @PublicationDate,
                          @PreviousQid, @NextQid, @ParentCollectionQid, @ParentCollectionLabel,
-                         @IsCollection, @IsExpandedFromCollection, @SourcePropertiesJson,
+                         @IsCollection, @IsExpandedFromCollection, @MembershipScope, @SourcePropertiesJson,
                          @RelationshipsJson, @OrderSource, @OwnershipState, @LinkedWorkId,
                          @LastHydratedAt, @CreatedAt, @UpdatedAt)
                     ON CONFLICT(collection_id, item_qid) DO UPDATE SET
@@ -160,6 +162,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                         media_type = excluded.media_type,
                         raw_ordinal = excluded.raw_ordinal,
                         parsed_ordinal = excluded.parsed_ordinal,
+                        ordinal_scope_qid = excluded.ordinal_scope_qid,
                         sort_order = excluded.sort_order,
                         publication_date = excluded.publication_date,
                         previous_qid = excluded.previous_qid,
@@ -168,6 +171,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                         parent_collection_label = excluded.parent_collection_label,
                         is_collection = excluded.is_collection,
                         is_expanded_from_collection = excluded.is_expanded_from_collection,
+                        membership_scope = excluded.membership_scope,
                         source_properties_json = excluded.source_properties_json,
                         relationships_json = excluded.relationships_json,
                         order_source = excluded.order_source,
@@ -300,11 +304,13 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             SELECT id AS Id, collection_id AS CollectionId, series_qid AS SeriesQid,
                    item_qid AS ItemQid, item_label AS ItemLabel, item_description AS ItemDescription,
                    media_type AS MediaType, raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
+                   ordinal_scope_qid AS OrdinalScopeQid,
                    sort_order AS SortOrder, publication_date AS PublicationDate,
                    previous_qid AS PreviousQid, next_qid AS NextQid,
                    parent_collection_qid AS ParentCollectionQid,
                    parent_collection_label AS ParentCollectionLabel,
                    is_collection AS IsCollection, is_expanded_from_collection AS IsExpandedFromCollection,
+                   membership_scope AS MembershipScope,
                    source_properties_json AS SourcePropertiesJson,
                    relationships_json AS RelationshipsJson, order_source AS OrderSource,
                    ownership_state AS OwnershipState, linked_work_id AS LinkedWorkId,
@@ -316,13 +322,17 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             new { collectionId }).AsList();
 
         var items = rows.Select(r => r.ToDto()).ToList();
+        var primaryItems = items
+            .Where(i => !i.IsCollection
+                && string.Equals(i.MembershipScope, MediaEngine.Domain.Constants.SeriesMembershipScopeNames.MainSequence, StringComparison.OrdinalIgnoreCase))
+            .ToList();
         var warnings = DeserializeWarnings(hydration.WarningsJson);
         var metadata = DeserializeApiMetadata(hydration.ApiMetadataJson);
-        var ownedCount = items.Count(i => i.OwnershipState == "Owned");
-        var provisionalCount = items.Count(i => i.OwnershipState == "Provisional");
-        var ambiguousCount = items.Count(i => i.OwnershipState == "Ambiguous");
-        var rowMissingCount = items.Count(i => i.OwnershipState == "Missing");
-        var totalCount = Math.Max(items.Count, metadata.ExpectedTotal ?? 0);
+        var ownedCount = primaryItems.Count(i => i.OwnershipState == "Owned");
+        var provisionalCount = primaryItems.Count(i => i.OwnershipState == "Provisional");
+        var ambiguousCount = primaryItems.Count(i => i.OwnershipState == "Ambiguous");
+        var rowMissingCount = primaryItems.Count(i => i.OwnershipState == "Missing");
+        var totalCount = Math.Max(primaryItems.Count, metadata.ExpectedTotal ?? 0);
         var expectedMissingCount = Math.Max(0, totalCount - ownedCount - provisionalCount - ambiguousCount);
         var missingCount = Math.Max(rowMissingCount, expectedMissingCount);
 
@@ -342,6 +352,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             MissingCount = missingCount,
             ProvisionalCount = provisionalCount,
             AmbiguousCount = ambiguousCount,
+            SupplementaryCount = items.Count(i => string.Equals(i.MembershipScope, MediaEngine.Domain.Constants.SeriesMembershipScopeNames.Supplementary, StringComparison.OrdinalIgnoreCase)),
+            CollectedContentCount = items.Count(i => string.Equals(i.MembershipScope, MediaEngine.Domain.Constants.SeriesMembershipScopeNames.CollectedContent, StringComparison.OrdinalIgnoreCase)),
+            UnpositionedCount = items.Count(i => string.Equals(i.MembershipScope, MediaEngine.Domain.Constants.SeriesMembershipScopeNames.Unpositioned, StringComparison.OrdinalIgnoreCase)),
             Warnings = warnings,
             Items = items,
         });
@@ -376,6 +389,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             item.MediaType,
             item.RawOrdinal,
             item.ParsedOrdinal,
+            item.OrdinalScopeQid,
             item.SortOrder,
             item.PublicationDate,
             item.PreviousQid,
@@ -384,6 +398,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             item.ParentCollectionLabel,
             IsCollection = item.IsCollection ? 1 : 0,
             IsExpandedFromCollection = item.IsExpandedFromCollection ? 1 : 0,
+            item.MembershipScope,
             item.SourcePropertiesJson,
             item.RelationshipsJson,
             item.OrderSource,
@@ -531,6 +546,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         public string? MediaType { get; init; }
         public string? RawOrdinal { get; init; }
         public double? ParsedOrdinal { get; init; }
+        public string? OrdinalScopeQid { get; init; }
         public double? SortOrder { get; init; }
         public string? PublicationDate { get; init; }
         public string? PreviousQid { get; init; }
@@ -539,6 +555,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         public string? ParentCollectionLabel { get; init; }
         public int IsCollection { get; init; }
         public int IsExpandedFromCollection { get; init; }
+        public string MembershipScope { get; init; } = MediaEngine.Domain.Constants.SeriesMembershipScopeNames.MainSequence;
         public string SourcePropertiesJson { get; init; } = "[]";
         public string RelationshipsJson { get; init; } = "[]";
         public string OrderSource { get; init; } = "Unknown";
@@ -559,6 +576,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             MediaType = MediaType,
             RawOrdinal = RawOrdinal,
             ParsedOrdinal = ParsedOrdinal,
+            OrdinalScopeQid = OrdinalScopeQid,
             SortOrder = SortOrder,
             PublicationDate = PublicationDate,
             PreviousQid = PreviousQid,
@@ -567,6 +585,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             ParentCollectionLabel = ParentCollectionLabel,
             IsCollection = IsCollection == 1,
             IsExpandedFromCollection = IsExpandedFromCollection == 1,
+            MembershipScope = MembershipScope,
             SourcePropertiesJson = SourcePropertiesJson,
             RelationshipsJson = RelationshipsJson,
             OrderSource = OrderSource,
@@ -586,12 +605,14 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             MediaType = MediaType,
             RawOrdinal = RawOrdinal,
             ParsedOrdinal = ParsedOrdinal,
+            OrdinalScopeQid = OrdinalScopeQid,
             SortOrder = SortOrder,
             PublicationDate = PublicationDate,
             ParentCollectionQid = ParentCollectionQid,
             ParentCollectionLabel = ParentCollectionLabel,
             IsCollection = IsCollection == 1,
             IsExpandedFromCollection = IsExpandedFromCollection == 1,
+            MembershipScope = MembershipScope,
             OrderSource = OrderSource,
             OwnershipState = OwnershipState,
             LinkedWorkId = LinkedWorkId,

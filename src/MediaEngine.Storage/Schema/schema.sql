@@ -971,6 +971,7 @@ CREATE TABLE IF NOT EXISTS series_manifest_items (
     media_type                  TEXT,
     raw_ordinal                 TEXT,
     parsed_ordinal              REAL,
+    ordinal_scope_qid           TEXT,
     sort_order                  REAL,
     publication_date            TEXT,
     previous_qid                TEXT,
@@ -979,6 +980,8 @@ CREATE TABLE IF NOT EXISTS series_manifest_items (
     parent_collection_label     TEXT,
     is_collection               INTEGER NOT NULL DEFAULT 0,
     is_expanded_from_collection INTEGER NOT NULL DEFAULT 0,
+    membership_scope            TEXT NOT NULL DEFAULT 'MainSequence'
+        CHECK (membership_scope IN ('MainSequence','Supplementary','CollectedContent','BroaderContext','Unpositioned')),
     source_properties_json      TEXT NOT NULL DEFAULT '[]',
     relationships_json          TEXT NOT NULL DEFAULT '[]',
     order_source                TEXT NOT NULL,

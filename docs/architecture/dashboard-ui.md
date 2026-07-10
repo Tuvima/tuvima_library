@@ -65,6 +65,10 @@ the Engine:
   collapse into the same child row.
 - `Owned X of Y` uses `sequence_total` only when the total belongs to the
   displayed shelf, not a broader franchise or list article.
+- Scoped series manifests render main-sequence works separately from
+  supplementary short fiction and collected content. Exact source ordinals are
+  displayed unchanged; an unnumbered supplemental work is labeled by scope and
+  is not assigned an invented decimal or dense position.
 - Descriptions and metadata text sourced from Wikipedia, Wikidata, or providers
   should show attribution links on detail pages when attribution is present in
   the API response.

@@ -59,8 +59,12 @@ public sealed class BridgeIdHelper
         BridgeIdKeys.AudibleId => true,
         BridgeIdKeys.GoodreadsId => true,
         BridgeIdKeys.MusicBrainzId => true,
+        BridgeIdKeys.MusicBrainzArtistId => true,
+        BridgeIdKeys.MusicBrainzWorkId => true,
+        BridgeIdKeys.MusicBrainzReleaseId => true,
         BridgeIdKeys.MusicBrainzRecordingId => true,
         BridgeIdKeys.MusicBrainzReleaseGroupId => true,
+        BridgeIdKeys.Isrc => true,
         BridgeIdKeys.ComicVineId => true,
         BridgeIdKeys.OpenLibraryId => true,
         "gcd_id" => true,
@@ -112,8 +116,20 @@ public sealed class BridgeIdHelper
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzRecordingId))
                 map[BridgeIdKeys.MusicBrainzRecordingId] = "P4404";
 
+            if (!map.ContainsKey(BridgeIdKeys.MusicBrainzArtistId))
+                map[BridgeIdKeys.MusicBrainzArtistId] = "P434";
+
+            if (!map.ContainsKey(BridgeIdKeys.MusicBrainzWorkId))
+                map[BridgeIdKeys.MusicBrainzWorkId] = "P435";
+
+            if (!map.ContainsKey(BridgeIdKeys.MusicBrainzReleaseId))
+                map[BridgeIdKeys.MusicBrainzReleaseId] = "P5813";
+
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzReleaseGroupId))
                 map[BridgeIdKeys.MusicBrainzReleaseGroupId] = "P436";
+
+            if (!map.ContainsKey(BridgeIdKeys.Isrc))
+                map[BridgeIdKeys.Isrc] = "P1243";
 
             if (!map.ContainsKey(BridgeIdKeys.OpenLibraryId))
             {

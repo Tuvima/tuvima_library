@@ -768,10 +768,12 @@ Named factual entries in a Wikidata series manifest, including works the local l
 | `media_type` | TEXT | Tuvima media type context that triggered hydration. |
 | `raw_ordinal` | TEXT | Raw Wikidata ordinal qualifier. |
 | `parsed_ordinal` | REAL | Parsed numeric ordinal when available. |
+| `ordinal_scope_qid` | TEXT | Container QID that supplied the ordinal, so an anthology position is not presented as a broader-series position. |
 | `sort_order` | REAL | Display order for the manifest list. |
 | `publication_date` | TEXT | Publication date from Wikidata when available. |
 | `previous_qid`, `next_qid` | TEXT | Previous/next chain links when modeled. |
 | `parent_collection_qid`, `parent_collection_label` | TEXT | Parent collection for expanded collection entries such as short fiction. |
+| `membership_scope` | TEXT | Structural relationship scope: `MainSequence`, `Supplementary`, `CollectedContent`, `BroaderContext`, or `Unpositioned`. Main totals exclude non-main scopes without deleting their rows. |
 | `source_properties_json` | TEXT | Wikidata properties that included this row. |
 | `relationships_json` | TEXT | Relationship evidence from Tuvima.Wikidata. |
 | `order_source` | TEXT | How ordering was determined. |

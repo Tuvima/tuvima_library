@@ -1,4 +1,5 @@
 using MediaEngine.Providers.Services;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Models;
@@ -8,6 +9,43 @@ namespace MediaEngine.Providers.Tests;
 
 public sealed class CollectionAssignmentServiceTests
 {
+    [Fact]
+    public void ReconciliationAdapter_PromotesOnlyStructurallyImmediateP361Series()
+    {
+        var method = typeof(MediaEngine.Providers.Adapters.ReconciliationAdapter).GetMethod(
+            "AddImmediateBridgeSeriesClaims",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var result = Assert.IsAssignableFrom<IReadOnlyList<ProviderClaim>>(method!.Invoke(null,
+        [
+            Array.Empty<ProviderClaim>(),
+            new List<BridgeSeriesInfo>
+            {
+                new()
+                {
+                    SeriesQid = "Q19610143",
+                    SeriesLabel = "The Expanse",
+                    IsImmediateSeries = true,
+                    SourcePropertyId = "P361",
+                    Confidence = 0.75,
+                },
+                new()
+                {
+                    SeriesQid = "QUniverse",
+                    SeriesLabel = "Broad universe",
+                    IsImmediateSeries = false,
+                    SourcePropertyId = "P361",
+                    Confidence = 0.35,
+                },
+            },
+        ]));
+
+        Assert.Contains(result, claim => claim.Key == "series_qid" && claim.Value == "Q19610143::The Expanse");
+        Assert.Contains(result, claim => claim.Key == MetadataFieldConstants.SeriesMembershipSource && claim.Value == "P361");
+        Assert.DoesNotContain(result, claim => claim.Value.Contains("QUniverse", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void CollectionAssignment_UsesSeriesAsShelfAndDoesNotFallbackToBroadUniverse()
     {
@@ -280,7 +318,7 @@ public sealed class CollectionAssignmentServiceTests
     }
 
     [Fact]
-    public void SeriesManifestHydration_FiltersLiteraryManifestToMainlineNumberedWorks()
+    public void SeriesManifestHydration_RetainsSupplementalLiteraryWorksForScopedDisplay()
     {
         var items = new List<SeriesManifestItem>
         {
@@ -330,11 +368,11 @@ public sealed class CollectionAssignmentServiceTests
         var filtered = Assert.IsAssignableFrom<IEnumerable<SeriesManifestItem>>(
             method!.Invoke(null, [items, context, "QSeries"]));
 
-        Assert.Equal(["QBook1", "QBook2"], filtered.Select(item => item.Qid));
+        Assert.Equal(["QPrequel", "QBook1", "QPlay", "QBook2"], filtered.Select(item => item.Qid));
     }
 
     [Fact]
-    public void SeriesManifestHydration_FiltersKnownFilmTrilogiesToImmediateFilms()
+    public void SeriesManifestHydration_DoesNotUseTitleSpecificFilmAllowlists()
     {
         var items = new List<SeriesManifestItem>
         {
@@ -364,7 +402,14 @@ public sealed class CollectionAssignmentServiceTests
         var filtered = Assert.IsAssignableFrom<IEnumerable<SeriesManifestItem>>(
             method!.Invoke(null, [items, context, "Q190214"]));
 
-        Assert.Equal(["Q127367", "Q164963", "Q131074"], filtered.Select(item => item.Qid));
+        Assert.Equal(
+            ["Q127367", "Q164963", "Q131074", "Q107210110", "Q125858982"],
+            filtered.Select(item => item.Qid));
+
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\WikidataSeriesManifestHydrationService.cs"));
+        Assert.DoesNotContain("KnownMovieSeriesItemQids", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("tuvima-known-film-trilogy", source, StringComparison.Ordinal);
+        Assert.Contains("fact.Scope == SeriesManifestItemScope.MainSequence", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

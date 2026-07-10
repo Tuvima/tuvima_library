@@ -181,7 +181,7 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.Contains("ExpectedIdentityStatus", seedSource, StringComparison.Ordinal);
         Assert.Contains("ExpectedResolved", source, StringComparison.Ordinal);
         Assert.Contains("ExpectedExactQid", source, StringComparison.Ordinal);
-        Assert.Contains("ExpectedAnyQid", source, StringComparison.Ordinal);
+        Assert.Contains("ExpectedIdentityOnly", source, StringComparison.Ordinal);
         Assert.Contains("Preflight Expected Outcomes", source, StringComparison.Ordinal);
     }
 
@@ -191,8 +191,10 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
 
         Assert.Contains("expectsIdentification", source, StringComparison.Ordinal);
-        Assert.Contains("Pass = hasQid && exactQidMatches", source, StringComparison.Ordinal);
+        Assert.Contains("? hasQid && exactQidMatches", source, StringComparison.Ordinal);
+        Assert.Contains(": hasQid || hasIdentifiedState", source, StringComparison.Ordinal);
         Assert.Contains("expected a Wikidata QID", source, StringComparison.Ordinal);
+        Assert.Contains("QID optional", source, StringComparison.Ordinal);
         Assert.DoesNotContain("accepted re-check state", source, StringComparison.Ordinal);
         Assert.DoesNotContain("hasQid || retainedRetailWithoutQid", source, StringComparison.Ordinal);
     }

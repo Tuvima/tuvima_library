@@ -20,6 +20,7 @@ public sealed class ReconciliationProviderConfig
     [JsonPropertyName("instance_of_classes")] public Dictionary<string, List<string>> InstanceOfClasses { get; set; } = new();
     [JsonPropertyName("exclude_classes")] public Dictionary<string, List<string>> ExcludeClasses { get; set; } = new();
     [JsonPropertyName("edition_pivot")] public Dictionary<string, EditionPivotRuleEntry> EditionPivot { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    [JsonPropertyName("bridge_resolution")] public BridgeResolutionConfiguration BridgeResolution { get; set; } = new();
     [JsonPropertyName("data_extension")] public DataExtensionSettings DataExtension { get; set; } = new();
 
     /// <summary>
@@ -29,6 +30,27 @@ public sealed class ReconciliationProviderConfig
     {
         Rules = new Dictionary<string, EditionPivotRuleEntry>(EditionPivot, StringComparer.OrdinalIgnoreCase),
     };
+}
+
+public sealed class BridgeResolutionConfiguration
+{
+    [JsonPropertyName("scopes")]
+    public Dictionary<string, BridgeResolutionScopeConfiguration> Scopes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public BridgeResolutionScopeConfiguration? GetScope(string scope) =>
+        Scopes.TryGetValue(scope, out var configuration) ? configuration : null;
+}
+
+public sealed class BridgeResolutionScopeConfiguration
+{
+    [JsonPropertyName("target_ids")]
+    public List<string> TargetIds { get; set; } = [];
+
+    [JsonPropertyName("context_ids")]
+    public List<string> ContextIds { get; set; } = [];
+
+    [JsonPropertyName("allow_constrained_text_fallback")]
+    public bool AllowConstrainedTextFallback { get; set; }
 }
 
 public sealed class ReconciliationEndpoints

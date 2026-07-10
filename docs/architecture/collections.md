@@ -41,6 +41,15 @@ main sequence, extras included, standalone, collected edition, or broader
 franchise. The UI should show `Owned X of Y` only when `Y` came from the same
 immediate container shown to the user.
 
+Wikidata manifest rows also carry `membership_scope`. Incoming P179 and direct
+P527 works are `MainSequence`; incoming P361 works are `Supplementary`; children
+reached by expanding a P527 collection are `CollectedContent`; explicitly
+expanded P8345 franchise members are `BroaderContext`; ambiguous direct members
+without ordinal or chain evidence beside a positioned run are `Unpositioned`. All factual rows remain
+available, but lane totals use only the main sequence. Detail pages can switch
+to Short Fiction & Extras or Collected Content without inserting those works
+into the numbered main run.
+
 Domain note: `Collection`, `Work`, and `Edition` expose aggregate children and
 metadata property bags as read-only views. Code that changes membership or
 metadata history should use explicit domain methods such as `AddWork`,

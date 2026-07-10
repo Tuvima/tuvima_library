@@ -209,7 +209,7 @@ public static class IntegrationTestEndpoints
         public int TotalFiles { get; set; }
         public int ExpectedResolved { get; set; }
         public int ExpectedExactQid { get; set; }
-        public int ExpectedAnyQid { get; set; }
+        public int ExpectedIdentityOnly { get; set; }
         public int ExpectedReview { get; set; }
         public int ExpectedKnownNoQid { get; set; }
         public int ExpectedDuplicate { get; set; }
@@ -994,7 +994,7 @@ public static class IntegrationTestEndpoints
                 summary.ExpectedResolved++;
                 if (string.IsNullOrWhiteSpace(expectation.ExpectedQid))
                 {
-                    summary.ExpectedAnyQid++;
+                    summary.ExpectedIdentityOnly++;
                 }
                 else
                 {
@@ -1017,11 +1017,11 @@ public static class IntegrationTestEndpoints
     private static void LogExpectationPreflight(ExpectationPreflightSummary summary, ILogger logger)
     {
         logger.LogInformation(
-            "[Preflight] Expected outcomes: {Total} files; {Resolved} should resolve ({Exact} exact QID, {Any} any QID); {Review} expected review; {KnownNoQid} known no-QID",
+            "[Preflight] Expected outcomes: {Total} files; {Identified} should identify ({Exact} exact QID, {IdentityOnly} QID optional); {Review} expected review; {KnownNoQid} known no-QID",
             summary.TotalFiles,
             summary.ExpectedResolved,
             summary.ExpectedExactQid,
-            summary.ExpectedAnyQid,
+            summary.ExpectedIdentityOnly,
             summary.ExpectedReview,
             summary.ExpectedKnownNoQid);
     }
@@ -1668,9 +1668,7 @@ public static class IntegrationTestEndpoints
     {
         var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         var validationItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
-        var expectations = DevSeedEndpoints.GetAllExpectations()
-            .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var expectations = BuildExpectationIndex();
         var providerNamesById = await LoadProviderNamesByIdAsync(db);
 
         foreach (var item in validationItems)
@@ -1786,8 +1784,8 @@ public static class IntegrationTestEndpoints
 
             if (stages >= 12 && !check.HasWikidataQid)
             {
-                logger.LogWarning("  Library: '{Title}' missing Wikidata QID (Stage 2 expected)", item.Title);
-                if (expected?.ExpectIdentified == true)
+                logger.LogDebug("  Library: '{Title}' has no Wikidata QID", item.Title);
+                if (!string.IsNullOrWhiteSpace(expected?.ExpectedQid))
                 {
                     report.IssuesFound.Add($"Library: '{item.Title}' expected a Wikidata QID but has none");
                 }
@@ -1922,9 +1920,7 @@ public static class IntegrationTestEndpoints
         var workHierarchy = await LoadWorkHierarchyAsync(db);
         var watchRoots = ResolveLeafSourcePaths(configLoader);
         var requireSidecarArtwork = ShouldRequireSidecarArtwork(configLoader.LoadCore().StoragePolicy);
-        var expectations = DevSeedEndpoints.GetAllExpectations()
-            .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var expectations = BuildExpectationIndex();
 
         foreach (var item in validationItems)
         {
@@ -2070,9 +2066,7 @@ public static class IntegrationTestEndpoints
     {
         var allItems = await libraryItemRepo.GetPageAsync(new LibraryItemQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         var validationItems = allItems.Items.Where(IsOwnedValidationItem).ToList();
-        var expectations = DevSeedEndpoints.GetAllExpectations()
-            .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var expectations = BuildExpectationIndex();
 
         if (stages == 1)
         {
@@ -2104,42 +2098,63 @@ public static class IntegrationTestEndpoints
             foreach (var item in validationItems)
             {
                 expectations.TryGetValue(NormalizeExpectationKey(item.Title, item.MediaType), out var expected);
-                bool hasRetail = string.Equals(item.RetailMatch, "matched", StringComparison.OrdinalIgnoreCase);
                 bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid)
                     && !item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
-                bool expectsIdentification = expected?.ExpectIdentified ?? hasRetail;
+                bool expectsIdentification = expected?.ExpectIdentified ?? IsIdentifiedStatus(item.Status);
+                bool expectsReview = expected is { ExpectIdentified: false };
+                bool hasIdentifiedState = IsIdentifiedStatus(item.Status) && !IsReviewStatus(item.Status);
                 bool exactQidMatches = string.IsNullOrWhiteSpace(expected?.ExpectedQid)
                     || string.Equals(expected.ExpectedQid, item.WikidataQid, StringComparison.OrdinalIgnoreCase);
-                if (hasRetail || expectsIdentification)
+                if (expectsReview)
                 {
                     var result = new StageGatingResult
                     {
                         Title = item.Title,
-                        Check = "Stage 2: retail match -> QID expected",
-                        Pass = hasQid && exactQidMatches,
-                        Detail = hasQid
-                            ? exactQidMatches
-                                ? $"QID: {item.WikidataQid}"
-                                : $"Wrong QID: {item.WikidataQid}; expected {expected?.ExpectedQid}"
-                            : "Missing QID despite retail match",
+                        Check = "Stage 2: review expected by manifest",
+                        Pass = IsReviewStatus(item.Status) || !string.IsNullOrWhiteSpace(item.ReviewTrigger),
+                        Detail = item.ReviewTrigger ?? item.Status ?? "No review state",
                     };
                     report.StageGatingResults.Add(result);
                     if (!result.Pass)
                     {
-                        report.IssuesFound.Add($"Stage gating: '{item.Title}' expected a Wikidata QID but ended as status '{item.Status ?? "unknown"}' with retail '{item.RetailMatch ?? "none"}'");
-                        logger.LogWarning("  Stage gating: '{Title}' has retail match but no QID", item.Title);
+                        report.IssuesFound.Add($"Stage gating: '{item.Title}' expected review but ended as status '{item.Status ?? "unknown"}'");
+                    }
+                }
+                else if (expectsIdentification)
+                {
+                    bool requiresExactQid = !string.IsNullOrWhiteSpace(expected?.ExpectedQid);
+                    var result = new StageGatingResult
+                    {
+                        Title = item.Title,
+                        Check = requiresExactQid
+                            ? "Stage 2: exact QID expected by manifest"
+                            : "Stage 2: trusted identity expected; QID optional",
+                        Pass = requiresExactQid
+                            ? hasQid && exactQidMatches
+                            : hasQid || hasIdentifiedState,
+                        Detail = hasQid
+                            ? exactQidMatches
+                                ? $"QID: {item.WikidataQid}"
+                                : $"Wrong QID: {item.WikidataQid}; expected {expected?.ExpectedQid}"
+                            : hasIdentifiedState
+                                ? $"Identified without QID: {item.Status}"
+                                : "No trusted identity",
+                    };
+                    report.StageGatingResults.Add(result);
+                    if (!result.Pass)
+                    {
+                        report.IssuesFound.Add($"Stage gating: '{item.Title}' did not reach its declared identity outcome; status '{item.Status ?? "unknown"}', retail '{item.RetailMatch ?? "none"}'");
                     }
                 }
                 else
                 {
-                    var result = new StageGatingResult
+                    report.StageGatingResults.Add(new StageGatingResult
                     {
                         Title = item.Title,
-                        Check = "Stage 2: no QID expected by manifest",
+                        Check = "Stage 2: no identity outcome declared",
                         Pass = true,
-                        Detail = hasQid ? $"Unexpected-but-allowed QID: {item.WikidataQid}" : "Manifest allows no QID",
-                    };
-                    report.StageGatingResults.Add(result);
+                        Detail = item.Status ?? "Unknown",
+                    });
                 }
             }
 
@@ -3110,9 +3125,12 @@ public static class IntegrationTestEndpoints
 
         foreach (var exp in expectations)
         {
-            string titleLower = (exp.ReconciliationTitle ?? exp.Title).ToLowerInvariant();
             string mediaTypeLower = exp.MediaType.ToLowerInvariant();
-            var lookupKeys = BuildHarnessTitleMediaKeys(titleLower, mediaTypeLower).ToList();
+            var lookupKeys = new[] { exp.Title, exp.ReconciliationTitle }
+                .Where(title => !string.IsNullOrWhiteSpace(title))
+                .SelectMany(title => BuildHarnessTitleMediaKeys(title, mediaTypeLower))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             string expectedDesc = exp.ExpectIdentified
                 ? (string.IsNullOrWhiteSpace(exp.ExpectedQid) ? "Identified" : $"Identified as {exp.ExpectedQid}")
@@ -3195,13 +3213,16 @@ public static class IntegrationTestEndpoints
             bool hasQid = !string.IsNullOrWhiteSpace(actual.WikidataQid) &&
                                  !actual.WikidataQid!.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
             bool hasReview = !string.IsNullOrWhiteSpace(actual.ReviewTrigger);
+            bool hasIdentifiedState = IsIdentifiedStatus(actual.CuratorState) && !hasReview;
+            bool hasIdentifiedOutcome = hasQid || hasIdentifiedState;
             string actualTrigger = actual.ReviewTrigger ?? "";
 
             string actualDesc = hasQid ? "Identified"
                               : hasReview ? $"InReview ({actualTrigger})"
+                              : hasIdentifiedState ? $"Identified without QID ({actual.CuratorState})"
                               : "Unresolved";
 
-            if (hasQid)
+            if (hasIdentifiedOutcome)
                 summary.ActualResolved++;
             if (hasReview)
                 summary.ActualReview++;
@@ -3215,7 +3236,10 @@ public static class IntegrationTestEndpoints
             string classification;
             if (exp.ExpectIdentified)
             {
-                classification = hasQid ? "Match" : "UnexpectedReview";
+                bool requiresExactQid = !string.IsNullOrWhiteSpace(exp.ExpectedQid);
+                classification = requiresExactQid
+                    ? hasQid ? "Match" : "UnexpectedReview"
+                    : hasIdentifiedOutcome ? "Match" : "UnexpectedReview";
             }
             else
             {
@@ -3328,7 +3352,7 @@ public static class IntegrationTestEndpoints
             || summary.ExpectedReview != summary.ActualReview)
         {
             report.IssuesFound.Add(
-                $"Reconciliation count mismatch: expected {summary.ExpectedResolved} resolved ({summary.ExpectedExactQid} exact QID) and {summary.ExpectedReview} review; actual {summary.ActualResolved} resolved ({summary.ActualExactQid} exact QID) and {summary.ActualReview} review.");
+                $"Reconciliation count mismatch: expected {summary.ExpectedResolved} identified ({summary.ExpectedExactQid} exact QID) and {summary.ExpectedReview} review; actual {summary.ActualResolved} identified ({summary.ActualExactQid} exact QID) and {summary.ActualReview} review.");
         }
 
         report.Reconciliation = summary;
@@ -3557,7 +3581,7 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.TotalItems.ToString(), "Items Detected", "#8B9DC3");
         SummaryCard(sb, report.TotalIdentified.ToString(), "Identified", "#5DCAA5");
         SummaryCard(sb, report.TotalNeedsReview.ToString(), "Needs Review", "#EF9F27");
-        SummaryCard(sb, report.ExpectationPreflight.ExpectedResolved.ToString(), "Expected QID", "#F472B6");
+        SummaryCard(sb, report.ExpectationPreflight.ExpectedResolved.ToString(), "Expected Identity", "#F472B6");
         SummaryCard(sb, report.TotalFailed.ToString(), "Failed", "#E24B4A");
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
         SummaryCard(sb, report.LibraryChecks.Count(v => v.Pass).ToString() + "/" + report.LibraryChecks.Count, "Library Checks", "#22D3EE");
@@ -3615,13 +3639,13 @@ public static class IntegrationTestEndpoints
         {
             var expectation = report.ExpectationPreflight;
             sb.AppendLine("<h2>Preflight Expected Outcomes</h2>");
-            sb.AppendLine($"<p class=\"subtitle\">{expectation.TotalFiles} fixture(s): {expectation.ExpectedResolved} expected to resolve to QIDs ({expectation.ExpectedExactQid} exact, {expectation.ExpectedAnyQid} any real QID), {expectation.ExpectedReview} expected review, {expectation.ExpectedKnownNoQid} known no-QID.</p>");
+            sb.AppendLine($"<p class=\"subtitle\">{expectation.TotalFiles} fixture(s): {expectation.ExpectedResolved} expected identified outcomes ({expectation.ExpectedExactQid} exact QID, {expectation.ExpectedIdentityOnly} QID optional), {expectation.ExpectedReview} expected review, {expectation.ExpectedKnownNoQid} known no-QID.</p>");
             sb.AppendLine("<table>");
             sb.AppendLine("<tr><th>Media Type</th><th>Expected QID</th><th>Any QID</th><th>Expected Review</th><th>Known No-QID</th></tr>");
             foreach (var group in expectation.Items.GroupBy(i => i.MediaType).OrderBy(g => g.Key))
             {
                 int exact = group.Count(i => i.ExpectedStatus.Equals("ExactQid", StringComparison.OrdinalIgnoreCase));
-                int any = group.Count(i => i.ExpectedStatus.Equals("ResolvedQid", StringComparison.OrdinalIgnoreCase));
+                int any = group.Count(i => i.ExpectedStatus.Equals("Identified", StringComparison.OrdinalIgnoreCase));
                 int review = group.Count(i => i.ExpectedStatus.Equals("NeedsReview", StringComparison.OrdinalIgnoreCase));
                 int noQid = group.Count(i => i.ExpectedStatus.Equals("KnownNoWikidataEntity", StringComparison.OrdinalIgnoreCase));
                 sb.AppendLine($"<tr><td>{Esc(group.Key)}</td><td>{exact}</td><td>{any}</td><td>{review}</td><td>{noQid}</td></tr>");
@@ -4665,7 +4689,23 @@ public static class IntegrationTestEndpoints
     }
 
     private static string NormalizeExpectationKey(string title, string mediaType) =>
-        $"{title.Trim().ToLowerInvariant()}|{mediaType.Trim().ToLowerInvariant()}";
+        $"{NormalizeHarnessTitleKey(title)}|{mediaType.Trim().ToLowerInvariant()}";
+
+    private static Dictionary<string, DevSeedEndpoints.SeedExpectation> BuildExpectationIndex()
+    {
+        var index = new Dictionary<string, DevSeedEndpoints.SeedExpectation>(StringComparer.OrdinalIgnoreCase);
+        foreach (var expectation in DevSeedEndpoints.GetAllExpectations())
+        {
+            foreach (var title in new[] { expectation.Title, expectation.ReconciliationTitle }
+                         .Where(value => !string.IsNullOrWhiteSpace(value))
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                index.TryAdd(NormalizeExpectationKey(title!, expectation.MediaType), expectation);
+            }
+        }
+
+        return index;
+    }
 
     private static bool HasComicIssueTitleDrift(LibraryCatalogItem item, LibraryItemDetail? detail)
     {

@@ -75,6 +75,7 @@ Tuvima is Early Access, but it is not just a mockup. Current builds include:
 - Home, Read, Watch, Listen, Collections, Search, detail pages, Settings/Admin, and Review Queue surfaces. Home and Watch/Read lane landings use spotlight-and-shelf discovery; detailed browse tabs stay available under lane subroutes.
 - Folder scanning, ingestion operations, file fingerprinting, duplicate handling, review creation, and live progress.
 - SQLite persistence with startup schema initialization, `guid-blob-v1` internal GUID storage, and reset/reingest safety for legacy database epochs.
+- Relationship-scoped series manifests keep the main sequence separate from short fiction, collected content, and broader franchise context while preserving provider/Wikidata decimal ordinals exactly.
 - EPUB reading routes, video/audio streaming routes, playback/reader progress APIs, and personal playback preferences.
 - Inline media editing through the shared editor in normal, review, and batch modes.
 - Provider configuration, provider health/status, pipeline priority settings, and config-driven provider adapters.

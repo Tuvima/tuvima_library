@@ -295,8 +295,33 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                 workTitle,
                 processedCount,
                 totalCount,
-                hasUniversePath ? "Core universe" : "No universe path",
+                "Work relationships",
                 ct).ConfigureAwait(false);
+
+            await services.Enrichment.RunWorkScopedPassAsync(request.EntityId, request.WorkQid, ct).ConfigureAwait(false);
+
+            if (!hasUniversePath)
+            {
+                await PublishUniverseProgressAsync(
+                    services.EventPublisher,
+                    request.WorkQid,
+                    workTitle,
+                    processedCount,
+                    totalCount,
+                    "No universe path",
+                    ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await PublishUniverseProgressAsync(
+                    services.EventPublisher,
+                    request.WorkQid,
+                    workTitle,
+                    processedCount,
+                    totalCount,
+                    "Core universe",
+                    ct).ConfigureAwait(false);
+            }
 
             if (hasUniversePath)
             {

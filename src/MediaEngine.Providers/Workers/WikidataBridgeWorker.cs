@@ -11,6 +11,7 @@ using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Models;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
@@ -293,7 +294,8 @@ public sealed class WikidataBridgeWorker
                     lineage,
                     bridgeIds,
                     canonicals);
-                bridgeIds = OrderBridgeIdsForResolution(mediaType, bridgeIds);
+                var resolutionScope = ResolveBridgeResolutionScope(mediaType);
+                bridgeIds = OrderBridgeIdsForResolution(mediaType, resolutionScope, bridgeIds);
 
                 var bridgeDict  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -370,6 +372,7 @@ public sealed class WikidataBridgeWorker
                 {
                     CorrelationKey     = ctx.Job.Id.ToString(),
                     MediaType          = ctx.MediaType,
+                    ResolutionScope    = ResolveBridgeResolutionScope(ctx.MediaType),
                     Strategy           = ResolveStrategy.Auto,
                     BridgeIds          = ctx.BridgeDict,
                     WikidataProperties = ctx.WikidataProps,
@@ -1214,7 +1217,8 @@ public sealed class WikidataBridgeWorker
             lineage,
             bridgeIds,
             canonicals);
-        bridgeIds = OrderBridgeIdsForResolution(mediaType, bridgeIds);
+        var resolutionScope = ResolveBridgeResolutionScope(mediaType);
+        bridgeIds = OrderBridgeIdsForResolution(mediaType, resolutionScope, bridgeIds);
 
         var bridgeDict    = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1272,6 +1276,7 @@ public sealed class WikidataBridgeWorker
                 {
                     CorrelationKey     = job.Id.ToString(),
                     MediaType          = mediaType,
+                    ResolutionScope    = resolutionScope,
                     Strategy           = ResolveStrategy.Auto,
                     BridgeIds          = bridgeDict,
                     WikidataProperties = wikidataProps,
@@ -1437,12 +1442,16 @@ public sealed class WikidataBridgeWorker
             ? null
             : yearHint;
 
-    private static bool ShouldAllowConstrainedTextFallback(JobContext ctx)
+    private bool ShouldAllowConstrainedTextFallback(JobContext ctx)
     {
         if (!string.Equals(ctx.Job.State, IdentityJobState.RetailMatched.ToString(), StringComparison.OrdinalIgnoreCase))
             return false;
 
         if (string.IsNullOrWhiteSpace(ctx.TitleHint))
+            return false;
+
+        var policy = LoadBridgeResolutionScope(ResolveBridgeResolutionScope(ctx.MediaType));
+        if (policy?.AllowConstrainedTextFallback != true)
             return false;
 
         return ctx.MediaType switch
@@ -1564,8 +1573,23 @@ public sealed class WikidataBridgeWorker
 
     private IReadOnlyList<BridgeIdEntry> OrderBridgeIdsForResolution(
         MediaType mediaType,
+        string resolutionScope,
         IReadOnlyList<BridgeIdEntry> bridgeIds)
     {
+        var configuredScope = LoadBridgeResolutionScope(resolutionScope);
+        if (configuredScope is { TargetIds.Count: > 0 })
+        {
+            var targetIds = configuredScope.TargetIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return bridgeIds
+                .Where(entry => targetIds.Contains(entry.IdType))
+                .Select((entry, index) => (Entry: entry, Index: index))
+                .OrderBy(item => configuredScope.TargetIds.FindIndex(key =>
+                    string.Equals(key, item.Entry.IdType, StringComparison.OrdinalIgnoreCase)))
+                .ThenBy(item => item.Index)
+                .Select(item => item.Entry)
+                .ToList();
+        }
+
         if (bridgeIds.Count <= 1)
             return bridgeIds;
 
@@ -1580,6 +1604,15 @@ public sealed class WikidataBridgeWorker
             .Select(item => item.Entry)
             .ToList();
     }
+
+    private static string ResolveBridgeResolutionScope(MediaType mediaType) =>
+        mediaType == MediaType.Music ? "MusicTrack" : mediaType.ToString();
+
+    private BridgeResolutionScopeConfiguration? LoadBridgeResolutionScope(string scope) =>
+        _configLoader
+            .LoadConfig<ReconciliationProviderConfig>("providers", "wikidata_reconciliation")
+            ?.BridgeResolution
+            .GetScope(scope);
 
     private Dictionary<string, int> BuildBridgeIdPriority(MediaType mediaType)
     {

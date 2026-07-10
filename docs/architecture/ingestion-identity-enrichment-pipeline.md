@@ -54,6 +54,8 @@ media-specific rules. The shared normalized fields are:
 | `sequence_total` | Expected item count for the accepted immediate container. |
 | `sequence_total_scope` | Whether the total describes the main sequence, extras, standalone item, collected edition, or broader franchise. |
 | `sequence_format` | Structural format such as standard item, annual, special, omnibus, compilation, or TV special. |
+| `membership_scope` | Manifest relationship scope: main sequence, supplementary work, collected content, broader context, or unpositioned direct member. |
+| `ordinal_scope_qid` | The exact container that supplied an ordinal; only matching-container ordinals are displayed as sequence positions. |
 
 Immediate shelves and broader rollups are different products. `series_qid` is
 only for an ordered, lane-compatible container. `franchise_qid` or universe
@@ -68,6 +70,12 @@ Wikidata manifests for books/audiobooks when no stronger retail sequence source
 exists. Title-specific runtime facts are prohibited; examples such as decimal
 novella placement, comic annuals, and multi-disc tracks must work through the
 normal ordinal parser and child identity rules.
+
+The bridge can promote a P361 target to `series_qid` only when Tuvima.Wikidata
+classifies that target as an immediate ordered container. The manifest still
+records the row as `Supplementary`, so short fiction receives a series detail
+without inflating the primary count. P1545/provider ordinals are retained as
+supplied, including decimals; missing ordinals stay missing.
 
 ## Stages 1-2: Local Ingestion
 
@@ -102,7 +110,7 @@ Local processors read what the file itself can prove:
 
 ## Internal Stage 1: Provider Identity And Primary Artwork
 
-Stage 1 searches configured retail or catalog providers. It is the strict gate before Wikidata: if Stage 1 cannot identify the item through a provider source or bridge ID, Stage 2 is not attempted. The item stays visible as local data or goes to review depending on confidence. Stage 1 also includes quick metadata and first cover/poster evidence because those signals are returned with provider matches.
+Stage 1 searches configured retail or catalog providers. It is the strict gate before Wikidata: if Stage 1 cannot identify the item through a provider source or bridge ID, Stage 2 is not attempted. The item stays visible as local data or goes to review depending on confidence. Stage 1 also includes quick metadata and first cover/poster evidence because those signals are returned with provider matches. Provider order, `purpose`, `requires_identity`, and field priorities come from `config/pipelines.json`; orchestration should not hard-code media-title or provider-order policy outside provider adapters.
 
 Provider roles:
 
@@ -125,7 +133,7 @@ Provider secrets are config-file overlays. Base provider definitions live under 
 
 ## Internal Stage 2: Wikidata Lookup
 
-Stage 2 uses bridge IDs from Stage 1, not bare local filename QIDs. The old Tuvima `(Q12345)` path hint is intentionally ignored so filesystem naming cannot bypass provider gating. Supported bridge IDs include ISBN, ASIN, TMDB, IMDB, TVDB, MusicBrainz IDs, Apple IDs, and other provider-specific identifiers in `BridgeIdKeys`.
+Stage 2 uses bridge IDs from Stage 1, not bare local filename QIDs. The old Tuvima `(Q12345)` path hint is intentionally ignored so filesystem naming cannot bypass provider gating. Supported bridge IDs include ISBN, ASIN, TMDB, IMDB, TVDB, MusicBrainz IDs, Apple IDs, and other provider-specific identifiers in `BridgeIdKeys`. Entity-scoped bridge priority is configured in `config/providers/wikidata_reconciliation.json` under `bridge_resolution.scopes`, so track, album, movie, TV, book, audiobook, and comic resolution can use different target/context ID rules.
 
 Stage 2 resolves the canonical Wikidata QID and validates it for the requested media type. If a provider bridge points to an entity of the wrong type, the result is rejected and the item remains reviewable or retryable. If no QID is found, Tuvima keeps the Stage 1 provider data and schedules periodic re-checking instead of discarding useful metadata.
 

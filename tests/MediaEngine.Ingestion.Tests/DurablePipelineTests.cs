@@ -1222,6 +1222,9 @@ public sealed class DurablePipelineTests : IDisposable
         public Task RunUniversePassAsync(Guid entityId, string qid, CancellationToken ct = default)
             => Task.CompletedTask;
 
+        public Task RunWorkScopedPassAsync(Guid entityId, string qid, CancellationToken ct = default)
+            => Task.CompletedTask;
+
         public Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default)
             => Task.CompletedTask;
 
@@ -1301,7 +1304,7 @@ public sealed class DurablePipelineTests : IDisposable
         {
             Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
             {
-                ["Books"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_api" }] },
+                ["Books"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_api", Purpose = "identity" }] },
                 ["Movies"]     = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
                 ["TV"]         = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
                 ["Music"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },

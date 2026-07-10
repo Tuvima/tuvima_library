@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Constants;
 using Dapper;
 
 namespace MediaEngine.Storage.Tests;
@@ -78,6 +79,40 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         Assert.Contains(first, workIds);
         Assert.Contains(second, workIds);
         Assert.Equal(2, workIds.Count);
+    }
+
+    [Fact]
+    public async Task GetView_CountsMainSequenceWithoutDroppingSupplementaryWorks()
+    {
+        var repo = new SeriesManifestRepository(_db);
+        var collectionId = await CreateCollectionAsync("QExpanse", "The Expanse");
+        var now = DateTimeOffset.UtcNow;
+        var items = Enumerable.Range(1, 9)
+            .Select(index => Item(collectionId, "QExpanse", $"QBook{index}", $"Book {index}", index, "Missing", null, now))
+            .Append(Item(
+                collectionId,
+                "QExpanse",
+                "QChurn",
+                "The Churn",
+                10,
+                "Owned",
+                await CreateWorkAsync("QChurn"),
+                now,
+                membershipScope: SeriesMembershipScopeNames.Supplementary))
+            .ToList();
+
+        await repo.UpsertManifestAsync(Hydration(collectionId, "QExpanse", now), items);
+
+        var view = await repo.GetViewByCollectionIdAsync(collectionId);
+
+        Assert.NotNull(view);
+        Assert.Equal(9, view.TotalCount);
+        Assert.Equal(0, view.OwnedCount);
+        Assert.Equal(1, view.SupplementaryCount);
+        Assert.Equal(10, view.Items.Count);
+        Assert.Contains(view.Items, item =>
+            item.ItemQid == "QChurn"
+            && item.MembershipScope == SeriesMembershipScopeNames.Supplementary);
     }
 
     [Fact]
@@ -313,7 +348,8 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         string? parentCollectionQid = null,
         string? parentCollectionLabel = null,
         bool isCollection = false,
-        bool isExpandedFromCollection = false)
+        bool isExpandedFromCollection = false,
+        string membershipScope = SeriesMembershipScopeNames.MainSequence)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -329,6 +365,7 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
             ParentCollectionLabel = parentCollectionLabel,
             IsCollection = isCollection,
             IsExpandedFromCollection = isExpandedFromCollection,
+            MembershipScope = membershipScope,
             SourcePropertiesJson = """["P179"]""",
             RelationshipsJson = "[]",
             LastHydratedAt = now,

@@ -35,6 +35,7 @@ public static class MetadataFieldConstants
     public const string Rating          = "rating";
     public const string Series          = "series";
     public const string SeriesPosition  = "series_position";
+    public const string SeriesMembershipSource = "series_membership_source";
     public const string SeriesStartYear = "series_start_year";
     public const string Runtime         = "runtime";
     public const string Album           = "album";
@@ -68,6 +69,9 @@ public static class MetadataFieldConstants
     public const string Biography       = "biography";
     public const string QidResolutionMethod = "qid_resolution_method";
     public const string WikidataQidScope = "wikidata_qid_scope";
+    public const string IdentityProvider = "identity_provider";
+    public const string EnrichmentProviders = "enrichment_providers";
+    public const string BridgePending = "bridge_pending";
     public const string FictionalUniverse = "fictional_universe";
     public const string Characters = "characters";
     public const string NarrativeLocation = "narrative_location";
@@ -130,6 +134,7 @@ public static class MetadataFieldConstants
         "based_on",
         "fictional_universe",
         "first_appearance",
+        "enrichment_providers",
 
         // AI-generated vocabulary fields
         "themes",

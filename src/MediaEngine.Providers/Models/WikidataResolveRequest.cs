@@ -34,6 +34,12 @@ public sealed class WikidataResolveRequest
     public required MediaType MediaType { get; init; }
 
     /// <summary>
+    /// Configured entity scope used for bridge target selection and type
+    /// validation, such as <c>MusicTrack</c> or <c>MusicAlbum</c>.
+    /// </summary>
+    public string? ResolutionScope { get; init; }
+
+    /// <summary>
     /// Resolution strategy. Leave as <see cref="ResolveStrategy.Auto"/> to let
     /// the adapter pick the best strategy from the populated fields.
     /// </summary>

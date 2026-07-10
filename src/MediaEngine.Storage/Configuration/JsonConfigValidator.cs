@@ -124,8 +124,29 @@ public static class JsonConfigValidator
             {
                 AddPositive(errors, provider.Rank, $"{mediaType}.providers[].rank");
                 AddRequired(errors, provider.Name, $"{mediaType}.providers[].name");
+                AddRequired(errors, provider.Purpose, $"{mediaType}.providers[].purpose");
+                if (provider.Purpose is not null
+                    && provider.Purpose is not ("identity" or "enrichment" or "retail" or "artwork" or "text-track" or "canonical"))
+                {
+                    errors.Add($"{mediaType}.providers[].purpose has unsupported value '{provider.Purpose}'.");
+                }
+                if (provider.RequiresIdentity
+                    && !string.Equals(provider.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add($"{mediaType}.providers[].requires_identity is only valid for enrichment providers.");
+                }
                 if (!ranks.Add(provider.Rank))
                     errors.Add($"{mediaType}.providers rank values must be unique.");
+            }
+
+            var ordered = pipeline.Providers.OrderBy(provider => provider.Rank).ToList();
+            foreach (var provider in ordered.Where(provider => provider.RequiresIdentity))
+            {
+                if (!ordered.Any(candidate => candidate.Rank < provider.Rank
+                    && string.Equals(candidate.Purpose, "identity", StringComparison.OrdinalIgnoreCase)))
+                {
+                    errors.Add($"{mediaType}.providers enrichment provider '{provider.Name}' requires an earlier identity provider.");
+                }
             }
         }
     }

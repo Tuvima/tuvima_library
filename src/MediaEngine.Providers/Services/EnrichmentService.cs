@@ -84,9 +84,18 @@ public sealed class EnrichmentService : IEnrichmentService
     public async Task RunUniversePassAsync(Guid entityId, string qid, CancellationToken ct = default)
     {
         _logger.LogInformation("Universe pass starting for entity {Id} (QID {Qid})", entityId, qid);
+        await RunWorkScopedPassAsync(entityId, qid, ct);
         await RunUniverseCorePassAsync(entityId, qid, ct);
         await RunUniverseEnhancerPassAsync(entityId, qid, ct);
         _logger.LogInformation("Universe pass completed for entity {Id}", entityId);
+    }
+
+    public async Task RunWorkScopedPassAsync(Guid entityId, string qid, CancellationToken ct = default)
+    {
+        await _concurrency.RunAsync(
+            EnrichmentWorkKind.Wikidata,
+            token => _persons.EnrichActorCharacterMappingsAsync(entityId, qid, token),
+            ct);
     }
 
     public async Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default)
@@ -97,7 +106,6 @@ public sealed class EnrichmentService : IEnrichmentService
             {
                 await _children.DiscoverAsync(entityId, qid, token);
                 await _fictional.EnrichAsync(entityId, qid, token);
-                await _persons.EnrichActorCharacterMappingsAsync(entityId, qid, token);
                 await ResolveParentCollectionAsync(entityId, token);
             },
             ct);

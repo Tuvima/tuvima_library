@@ -97,10 +97,14 @@ public sealed class PipelineConfigurationTests
             .EnumerateArray()
             .Select(element => element.GetProperty("purpose").GetString() ?? "")
             .ToArray();
+        var appleEntry = musicPipeline
+            .EnumerateArray()
+            .Single(element => string.Equals(element.GetProperty("name").GetString(), "apple_api", StringComparison.OrdinalIgnoreCase));
 
         Assert.Equal("Sequential", pipelines.RootElement.GetProperty("Music").GetProperty("strategy").GetString());
         Assert.Equal(["musicbrainz", "apple_api"], musicProviders);
         Assert.Equal(["identity", "enrichment"], musicPurposes);
+        Assert.True(appleEntry.GetProperty("requires_identity").GetBoolean());
         Assert.True(provider.RootElement.GetProperty("enabled").GetBoolean());
         Assert.Equal([1, 3], provider.RootElement.GetProperty("hydration_stages").EnumerateArray().Select(element => element.GetInt32()).ToArray());
         Assert.Contains("musicbrainz_release_group_id", provider.RootElement.GetProperty("preferred_bridge_ids").GetProperty("Music").EnumerateArray().Select(element => element.GetString()));
@@ -119,13 +123,34 @@ public sealed class PipelineConfigurationTests
             .Select(element => element.GetString() ?? "")
             .ToArray();
 
-        Assert.Equal("musicbrainz_release_group_id", preferred[0]);
+        Assert.Equal("musicbrainz_recording_id", preferred[0]);
         Assert.Contains("musicbrainz_recording_id", preferred);
         Assert.DoesNotContain("apple_music_id", preferred);
+
+        var musicTrackScope = wikidata.RootElement
+            .GetProperty("bridge_resolution")
+            .GetProperty("scopes")
+            .GetProperty("MusicTrack");
+        var targetIds = musicTrackScope
+            .GetProperty("target_ids")
+            .EnumerateArray()
+            .Select(element => element.GetString() ?? "")
+            .ToArray();
+        var contextIds = musicTrackScope
+            .GetProperty("context_ids")
+            .EnumerateArray()
+            .Select(element => element.GetString() ?? "")
+            .ToArray();
+
+        Assert.Equal(["musicbrainz_recording_id", "musicbrainz_work_id", "isrc", "apple_music_id"], targetIds);
+        Assert.Contains("musicbrainz_release_group_id", contextIds);
+        Assert.Contains("apple_music_collection_id", contextIds);
+        Assert.False(musicTrackScope.GetProperty("allow_constrained_text_fallback").GetBoolean());
 
         var labels = wikidata.RootElement
             .GetProperty("data_extension")
             .GetProperty("property_labels");
+        Assert.Equal("open_library_id", labels.GetProperty("P648").GetString());
         Assert.Equal("musicbrainz_release_group_id", labels.GetProperty("P436").GetString());
         Assert.Equal("musicbrainz_recording_id", labels.GetProperty("P4404").GetString());
         Assert.Equal("apple_music_id", labels.GetProperty("P10110").GetString());

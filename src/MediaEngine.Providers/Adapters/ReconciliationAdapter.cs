@@ -1438,7 +1438,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // ── Music branch — album-aware grouping ─────────────────────────────
         var title = r.MediaType switch
         {
-            MediaType.Music when !string.IsNullOrWhiteSpace(r.AlbumTitle) => r.AlbumTitle,
+            MediaType.Music when string.Equals(r.ResolutionScope, "MusicAlbum", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(r.AlbumTitle) => r.AlbumTitle,
             MediaType.Comics when !string.IsNullOrWhiteSpace(r.SeriesTitle) => r.SeriesTitle,
             _ => r.Title,
         };
@@ -1491,6 +1492,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             CorrelationKey = request.CorrelationKey,
             MediaType = request.MediaType,
+            ResolutionScope = request.ResolutionScope,
             Strategy = request.Strategy,
             BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
             WikidataProperties = request.WikidataProperties,
@@ -1554,9 +1556,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             : string.IsNullOrWhiteSpace(request.IssueNumber)
             ? BridgeMediaKind.ComicSeries
             : BridgeMediaKind.ComicIssue,
-        MediaType.Music => !string.IsNullOrWhiteSpace(request.AlbumTitle)
-            ? BridgeMediaKind.MusicAlbum
-            : BridgeMediaKind.MusicWork,
+        MediaType.Music when string.Equals(request.ResolutionScope, "MusicAlbum", StringComparison.OrdinalIgnoreCase) => BridgeMediaKind.MusicAlbum,
+        MediaType.Music => BridgeMediaKind.MusicWork,
         _ => BridgeMediaKind.Unknown
     };
 
@@ -1880,6 +1881,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             var bridgeRollup = accepted.BridgeRollup;
             var bridgeSeries = accepted.BridgeSeries;
             var bridgeRelationships = accepted.BridgeRelationships;
+            claims = AddImmediateBridgeSeriesClaims(claims, bridgeSeries);
 
             // ── P31 media-type validation ─────────────────────────────────────
             // After the library resolves a QID (via bridge ID or text search),
@@ -1933,7 +1935,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     claims = parentClaims;
                     collectedBridgeIds = parentCollectedBridgeIds;
 
-                    if (!ValidateP31ForMediaType(parentInstanceOfQids, finalWorkQid, input.MediaType))
+                    if (!ValidateP31ForMediaType(parentInstanceOfQids, finalWorkQid, input.MediaType, input.ResolutionScope))
                     {
                         _logger.LogInformation(
                             "{Provider}: Stage2 â€” rejected normalized comics parent {Key} â†’ {QID}: P31 does not match {MediaType}",
@@ -2003,7 +2005,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             if (input is not null && input.MediaType != MediaType.Unknown)
             {
-                if (!ValidateP31ForMediaType(instanceOfQids, finalWorkQid, input.MediaType))
+                if (!ValidateP31ForMediaType(instanceOfQids, finalWorkQid, input.MediaType, input.ResolutionScope))
                 {
                     _logger.LogInformation(
                         "{Provider}: Stage2 - rejected {Key} -> {QID}: P31 does not match {MediaType}",
@@ -2069,6 +2071,43 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         return attempts;
+    }
+
+    private static IReadOnlyList<ProviderClaim> AddImmediateBridgeSeriesClaims(
+        IReadOnlyList<ProviderClaim> claims,
+        IReadOnlyList<BridgeSeriesInfo> bridgeSeries)
+    {
+        var merged = claims.ToList();
+        foreach (var series in bridgeSeries.Where(series =>
+                     series.IsImmediateSeries
+                     && !string.IsNullOrWhiteSpace(series.SeriesQid)))
+        {
+            var qid = series.SeriesQid!;
+            var label = string.IsNullOrWhiteSpace(series.SeriesLabel) ? qid : series.SeriesLabel!;
+            AddDistinctClaim(merged, MetadataFieldConstants.Series, label, series.Confidence);
+            AddDistinctClaim(merged, "series_qid", $"{qid}::{label}", series.Confidence);
+
+            if (!string.IsNullOrWhiteSpace(series.Position))
+                AddDistinctClaim(merged, MetadataFieldConstants.SeriesPosition, series.Position!, series.Confidence);
+
+            if (!string.IsNullOrWhiteSpace(series.SourcePropertyId))
+                AddDistinctClaim(merged, MetadataFieldConstants.SeriesMembershipSource, series.SourcePropertyId!, 1.0);
+        }
+
+        return merged;
+    }
+
+    private static void AddDistinctClaim(
+        List<ProviderClaim> claims,
+        string key,
+        string value,
+        double confidence)
+    {
+        if (!claims.Any(claim => string.Equals(claim.Key, key, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(claim.Value, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            claims.Add(new ProviderClaim(key, value, confidence));
+        }
     }
 
     private sealed record AcceptedBridgeCandidate(
@@ -2157,7 +2196,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private bool ValidateP31ForMediaType(
         IReadOnlyList<string> instanceOfQids,
         string qid,
-        MediaType mediaType)
+        MediaType mediaType,
+        string? resolutionScope = null)
     {
         if (instanceOfQids.Count == 0)
         {
@@ -2167,7 +2207,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return false;
         }
 
-        var mediaTypeKey = mediaType.ToString();
+        var mediaTypeKey = string.IsNullOrWhiteSpace(resolutionScope)
+            ? mediaType.ToString()
+            : resolutionScope;
 
         // Check exclude list first — if ANY P31 is excluded, reject immediately.
         if (_config.ExcludeClasses.TryGetValue(mediaTypeKey, out var excludedClasses)

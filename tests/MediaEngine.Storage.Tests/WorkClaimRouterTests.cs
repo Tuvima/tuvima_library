@@ -164,14 +164,14 @@ public class WorkClaimRouterTests
 
         var (forParent, forSelf) = _router.SplitClaims(lineage, claims);
 
-        Assert.Equal(2, forParent.Count);
+        Assert.Single(forParent);
         Assert.All(forParent, c => Assert.Equal(albumId, c.EntityId));
         Assert.Contains(forParent, c => c.ClaimKey == MetadataFieldConstants.Album);
-        Assert.Contains(forParent, c => c.ClaimKey == MetadataFieldConstants.Artist);
 
-        Assert.Equal(2, forSelf.Count);
+        Assert.Equal(3, forSelf.Count);
         Assert.All(forSelf, c => Assert.Equal(trackId, c.EntityId));
         Assert.Contains(forSelf, c => c.ClaimKey == MetadataFieldConstants.Title);
+        Assert.Contains(forSelf, c => c.ClaimKey == MetadataFieldConstants.Artist);
         Assert.Contains(forSelf, c => c.ClaimKey == MetadataFieldConstants.TrackNumber);
     }
 

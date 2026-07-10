@@ -29,26 +29,9 @@ public sealed class WikidataSeriesManifestHydrationService
         WriteIndented = false,
     };
 
-    private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> KnownMovieSeriesItemQids =
-        new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Q74331"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "Q80379",
-                "Q719915",
-                "Q919649",
-            },
-            ["Q190214"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "Q127367",
-                "Q164963",
-                "Q131074",
-            },
-        };
-
     private const int ManifestMaxDepth = 2;
     private const int ManifestMaxItems = 500;
-    private const string ManifestScopeFilter = "container-classified-v1";
+    private const string ManifestScopeFilter = "relationship-scoped-v2";
 
     public WikidataSeriesManifestHydrationService(
         WikidataReconciler reconciler,
@@ -522,7 +505,7 @@ public sealed class WikidataSeriesManifestHydrationService
         string? sourceSeriesQid = null,
         bool parentCollectionHydration = false)
     {
-        var expectedCounts = ExpectedCountsFor(manifest.SeriesQid, manifest.ExpectedCounts);
+        var expectedCounts = manifest.ExpectedCounts;
         var expectedTotal = SelectExpectedTotalFact(expectedCounts);
         return JsonSerializer.Serialize(new
         {
@@ -547,30 +530,9 @@ public sealed class WikidataSeriesManifestHydrationService
         }, JsonOptions);
     }
 
-    private static IReadOnlyList<ManifestCountFact> ExpectedCountsFor(
-        string seriesQid,
-        IReadOnlyList<ManifestCountFact> expectedCounts)
-    {
-        if (!KnownMovieSeriesItemQids.TryGetValue(seriesQid, out var itemQids))
-            return expectedCounts;
-
-        var trilogyFact = new ManifestCountFact
-        {
-            Kind = "films",
-            Count = itemQids.Count,
-            Source = "tuvima-known-film-trilogy",
-            Confidence = 0.95,
-            Note = "Known film trilogy total used to keep broader Wikidata film graph rows out of the immediate shelf count.",
-        };
-
-        return new[] { trilogyFact }
-            .Concat(expectedCounts.Where(fact => !string.Equals(fact.Kind, "films", StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-    }
-
     private static ManifestCountFact? SelectExpectedTotalFact(IReadOnlyList<ManifestCountFact> expectedCounts)
         => expectedCounts
-            .Where(fact => fact.Count > 0)
+            .Where(fact => fact.Count > 0 && fact.Scope == SeriesManifestItemScope.MainSequence)
             .OrderByDescending(fact => fact.Confidence)
             .ThenByDescending(fact => fact.Count)
             .FirstOrDefault();
@@ -582,13 +544,6 @@ public sealed class WikidataSeriesManifestHydrationService
     {
         foreach (var item in items)
         {
-            if (context.MediaType == MediaType.Movies
-                && KnownMovieSeriesItemQids.TryGetValue(seriesQid, out var allowedQids)
-                && !allowedQids.Contains(item.Qid))
-            {
-                continue;
-            }
-
             if (!IsManifestItemInScope(item, context, seriesQid))
                 continue;
 
@@ -619,63 +574,9 @@ public sealed class WikidataSeriesManifestHydrationService
             if (LooksLikeEditionOrTranslation(item))
                 return false;
 
-            if (item.SourceProperties.Count == 1
-                && item.SourceProperties.Contains("P361", StringComparer.OrdinalIgnoreCase)
-                && !currentWork
-                && item.ParsedSeriesOrdinal is null
-                && string.IsNullOrWhiteSpace(item.RawSeriesOrdinal)
-                && string.IsNullOrWhiteSpace(item.PreviousQid)
-                && string.IsNullOrWhiteSpace(item.NextQid))
-            {
-                return false;
-            }
-        }
-
-        if (context.MediaType is MediaType.Books or MediaType.Audiobooks
-            && !IsMainlineLiterarySeriesItem(item, currentWork))
-        {
-            return false;
         }
 
         return true;
-    }
-
-    private static bool IsMainlineLiterarySeriesItem(SeriesManifestItem item, bool currentWork)
-    {
-        if (currentWork)
-            return true;
-
-        if (item.ParsedSeriesOrdinal is null)
-            return false;
-
-        var ordinal = item.ParsedSeriesOrdinal.Value;
-        if (ordinal < 1 || decimal.Truncate(ordinal) != ordinal)
-            return false;
-
-        var haystack = string.Join(
-            ' ',
-            item.Label,
-            item.Description,
-            item.ParentCollectionLabel).ToLowerInvariant();
-
-        var derivativeMarkers = new[]
-        {
-            "prequel",
-            "sequel",
-            "spin-off",
-            "spinoff",
-            "play",
-            "script",
-            "screenplay",
-            "companion",
-            "guide",
-            "workbook",
-            "short story",
-            "anthology",
-            "collection",
-        };
-
-        return !derivativeMarkers.Any(marker => haystack.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsQidOnlyLabel(string label, string qid) =>
@@ -946,6 +847,7 @@ public sealed class WikidataSeriesManifestHydrationService
             MediaType = contextMediaType.ToString(),
             RawOrdinal = item.RawSeriesOrdinal,
             ParsedOrdinal = item.ParsedSeriesOrdinal.HasValue ? (double)item.ParsedSeriesOrdinal.Value : null,
+            OrdinalScopeQid = item.OrdinalScopeQid,
             SortOrder = sortOrder,
             PublicationDate = item.PublicationDate?.ToString("O"),
             PreviousQid = item.PreviousQid,
@@ -954,6 +856,7 @@ public sealed class WikidataSeriesManifestHydrationService
             ParentCollectionLabel = item.ParentCollectionLabel,
             IsCollection = item.IsCollection,
             IsExpandedFromCollection = item.IsExpandedFromCollection,
+            MembershipScope = item.MembershipScope.ToString(),
             SourcePropertiesJson = JsonSerializer.Serialize(item.SourceProperties, JsonOptions),
             RelationshipsJson = JsonSerializer.Serialize(item.Relationships, JsonOptions),
             OrderSource = item.OrderSource.ToString(),
@@ -1025,6 +928,7 @@ internal static class SeriesManifestRecordExtensions
             MediaType = item.MediaType,
             RawOrdinal = item.RawOrdinal,
             ParsedOrdinal = item.ParsedOrdinal,
+            OrdinalScopeQid = item.OrdinalScopeQid,
             SortOrder = item.SortOrder,
             PublicationDate = item.PublicationDate,
             PreviousQid = item.PreviousQid,
@@ -1033,6 +937,7 @@ internal static class SeriesManifestRecordExtensions
             ParentCollectionLabel = item.ParentCollectionLabel,
             IsCollection = item.IsCollection,
             IsExpandedFromCollection = item.IsExpandedFromCollection,
+            MembershipScope = item.MembershipScope,
             SourcePropertiesJson = item.SourcePropertiesJson,
             RelationshipsJson = item.RelationshipsJson,
             OrderSource = item.OrderSource,

@@ -4,7 +4,8 @@
     "providers": [
       {
         "rank": 1,
-        "name": "apple_api"
+        "name": "apple_api",
+        "purpose": "identity"
       }
     ],
     "field_priorities": {
@@ -25,7 +26,8 @@
     "providers": [
       {
         "rank": 1,
-        "name": "apple_api"
+        "name": "apple_api",
+        "purpose": "identity"
       }
     ],
     "field_priorities": {
@@ -64,7 +66,8 @@
       {
         "rank": 2,
         "name": "apple_api",
-        "purpose": "enrichment"
+        "purpose": "enrichment",
+        "requires_identity": true
       }
     ],
     "field_priorities": {
@@ -138,7 +141,8 @@
     "providers": [
       {
         "rank": 1,
-        "name": "tmdb"
+        "name": "tmdb",
+        "purpose": "identity"
       }
     ],
     "field_priorities": {
@@ -179,7 +183,8 @@
     "providers": [
       {
         "rank": 1,
-        "name": "tmdb"
+        "name": "tmdb",
+        "purpose": "identity"
       }
     ],
     "field_priorities": {
@@ -236,7 +241,8 @@
     "providers": [
       {
         "rank": 1,
-        "name": "comicvine"
+        "name": "comicvine",
+        "purpose": "identity"
       }
     ],
     "field_priorities": {

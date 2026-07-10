@@ -359,6 +359,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceContainerOpt
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceGroupViewModel
   Key: System.String | nullability=not-null | accessors=get,init
   Title: System.String | nullability=not-null | accessors=get,init
+  TotalKnownItems: System.Int32? | nullability=nullable | accessors=get,init
   Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SequenceItemViewModel> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceItemViewModel
@@ -372,6 +373,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceItemViewMode
   PositionText: System.String | nullability=nullable | accessors=get,init
   GroupKey: System.String | nullability=nullable | accessors=get,init
   GroupTitle: System.String | nullability=nullable | accessors=get,init
+  MembershipScope: System.String | nullability=not-null | accessors=get,init
   IsCurrent: System.Boolean | nullability=not-null | accessors=get,init
   IsOwned: System.Boolean | nullability=not-null | accessors=get,init
   ProgressState: MediaEngine.Contracts.Details.LibraryProgressState | nullability=not-null | accessors=get,init

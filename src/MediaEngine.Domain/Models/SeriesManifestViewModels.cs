@@ -18,6 +18,9 @@ public sealed class SeriesManifestViewDto
     [JsonPropertyName("missing_count")] public int MissingCount { get; init; }
     [JsonPropertyName("provisional_count")] public int ProvisionalCount { get; init; }
     [JsonPropertyName("ambiguous_count")] public int AmbiguousCount { get; init; }
+    [JsonPropertyName("supplementary_count")] public int SupplementaryCount { get; init; }
+    [JsonPropertyName("collected_content_count")] public int CollectedContentCount { get; init; }
+    [JsonPropertyName("unpositioned_count")] public int UnpositionedCount { get; init; }
     [JsonPropertyName("warnings")] public IReadOnlyList<SeriesManifestWarningDto> Warnings { get; init; } = [];
     [JsonPropertyName("items")] public IReadOnlyList<SeriesManifestItemDto> Items { get; init; } = [];
 }
@@ -31,12 +34,14 @@ public sealed class SeriesManifestItemDto
     [JsonPropertyName("media_type")] public string? MediaType { get; init; }
     [JsonPropertyName("raw_ordinal")] public string? RawOrdinal { get; init; }
     [JsonPropertyName("parsed_ordinal")] public double? ParsedOrdinal { get; init; }
+    [JsonPropertyName("ordinal_scope_qid")] public string? OrdinalScopeQid { get; init; }
     [JsonPropertyName("sort_order")] public double? SortOrder { get; init; }
     [JsonPropertyName("publication_date")] public string? PublicationDate { get; init; }
     [JsonPropertyName("parent_collection_qid")] public string? ParentCollectionQid { get; init; }
     [JsonPropertyName("parent_collection_label")] public string? ParentCollectionLabel { get; init; }
     [JsonPropertyName("is_collection")] public bool IsCollection { get; init; }
     [JsonPropertyName("is_expanded_from_collection")] public bool IsExpandedFromCollection { get; init; }
+    [JsonPropertyName("membership_scope")] public string MembershipScope { get; init; } = Constants.SeriesMembershipScopeNames.MainSequence;
     [JsonPropertyName("order_source")] public required string OrderSource { get; init; }
     [JsonPropertyName("ownership_state")] public required string OwnershipState { get; init; }
     [JsonPropertyName("linked_work_id")] public Guid? LinkedWorkId { get; init; }

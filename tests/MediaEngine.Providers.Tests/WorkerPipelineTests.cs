@@ -1727,7 +1727,7 @@ public sealed class WorkerPipelineTests
                         Providers =
                         [
                             new PipelineProviderEntry { Rank = 1, Name = "musicbrainz", Purpose = "identity" },
-                            new PipelineProviderEntry { Rank = 2, Name = "apple_api", Purpose = "enrichment" },
+                            new PipelineProviderEntry { Rank = 2, Name = "apple_api", Purpose = "enrichment", RequiresIdentity = true },
                         ],
                     },
                 },
@@ -1783,6 +1783,143 @@ public sealed class WorkerPipelineTests
         Assert.NotNull(updatedJob);
         Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
         Assert.Equal(musicBrainzCandidate.Id, updatedJob.SelectedCandidateId);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_MusicEnrichmentPersistsAfterAcceptedIdentityWithoutOwningIdentity()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var musicBrainzProviderId = Guid.NewGuid();
+        var appleProviderId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+        var claimRepo = new StubMetadataClaimRepository();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        var bridgeRepo = new StubBridgeIdRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var musicBrainz = new StubExternalMetadataProvider
+        {
+            Name = "musicbrainz",
+            ProviderId = musicBrainzProviderId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Example Track", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Author, "Example Artist", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Album, "Example Album", 0.95),
+                new ProviderClaim(BridgeIdKeys.MusicBrainzRecordingId, "mb-recording-1", 1.0),
+            ],
+        };
+        var apple = new StubExternalMetadataProvider
+        {
+            Name = "apple_api",
+            ProviderId = appleProviderId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Example Track", 0.90),
+                new ProviderClaim(MetadataFieldConstants.Author, "Example Artist", 0.90),
+                new ProviderClaim(MetadataFieldConstants.CoverUrl, "https://example.invalid/cover.jpg", 0.90),
+                new ProviderClaim(MetadataFieldConstants.Genre, "Rock", 0.70),
+                new ProviderClaim(BridgeIdKeys.AppleMusicId, "1440806768", 0.95),
+            ],
+        };
+
+        var retailScoring = new StubRetailMatchScoringService();
+        retailScoring.Results.Enqueue(new FieldMatchScores
+        {
+            TitleScore = 0.98,
+            AuthorScore = 0.96,
+            CompositeScore = 0.96,
+            FormatScore = 1.0,
+        });
+        retailScoring.Results.Enqueue(new FieldMatchScores
+        {
+            TitleScore = 0.99,
+            AuthorScore = 0.98,
+            CompositeScore = 0.40,
+            FormatScore = 1.0,
+        });
+
+        var configLoader = new StubConfigurationLoader
+        {
+            PipelineConfiguration = new PipelineConfiguration
+            {
+                Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Music"] = new()
+                    {
+                        Strategy = ProviderStrategy.Sequential,
+                        Providers =
+                        [
+                            new PipelineProviderEntry { Rank = 1, Name = "musicbrainz", Purpose = "identity" },
+                            new PipelineProviderEntry { Rank = 2, Name = "apple_api", Purpose = "enrichment", RequiresIdentity = true },
+                        ],
+                    },
+                },
+            },
+            Providers =
+            [
+                new() { Name = "musicbrainz", Enabled = true, ProviderId = musicBrainzProviderId.ToString(), Weight = 0.9 },
+                new() { Name = "apple_api", Enabled = true, ProviderId = appleProviderId.ToString(), Weight = 0.9 },
+            ],
+        };
+
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Example Track", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Artist, Value = "Example Artist", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Album, Value = "Example Album", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            new[] { musicBrainz, apple },
+            retailScoring,
+            claimRepo,
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            bridgeRepo,
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+        var musicBrainzCandidate = Assert.Single(candidateRepo.Candidates, candidate => candidate.ProviderName == "musicbrainz");
+        var appleCandidate = Assert.Single(candidateRepo.Candidates, candidate => candidate.ProviderName == "apple_api");
+        Assert.Equal("Rejected", appleCandidate.Outcome);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+        Assert.Equal(musicBrainzCandidate.Id, updatedJob.SelectedCandidateId);
+
+        Assert.Contains(claimRepo.Claims, claim =>
+            claim.EntityId == entityId
+            && claim.ProviderId == appleProviderId
+            && claim.ClaimKey == MetadataFieldConstants.CoverUrl);
+        Assert.Contains(bridgeRepo.Entries, entry =>
+            entry.EntityId == entityId
+            && entry.IdType == BridgeIdKeys.AppleMusicId
+            && entry.IdValue == "1440806768");
     }
 
     [Fact]
@@ -1848,7 +1985,7 @@ public sealed class WorkerPipelineTests
                         Providers =
                         [
                             new PipelineProviderEntry { Rank = 1, Name = "musicbrainz", Purpose = "identity" },
-                            new PipelineProviderEntry { Rank = 2, Name = "apple_api", Purpose = "enrichment" },
+                            new PipelineProviderEntry { Rank = 2, Name = "apple_api", Purpose = "enrichment", RequiresIdentity = true },
                         ],
                     },
                 },
@@ -1890,8 +2027,8 @@ public sealed class WorkerPipelineTests
 
         Assert.Equal(1, processed);
         Assert.Single(musicBrainz.Requests);
-        Assert.Single(apple.Requests);
-        Assert.Single(candidateRepo.Candidates, candidate => candidate.ProviderName == "apple_api");
+        Assert.Empty(apple.Requests);
+        Assert.Empty(candidateRepo.Candidates);
 
         var updatedJob = await jobRepo.GetByIdAsync(jobId);
         Assert.NotNull(updatedJob);
@@ -3029,8 +3166,8 @@ public sealed class WorkerPipelineTests
                     Strategy = ProviderStrategy.Waterfall,
                     Providers =
                     [
-                        new PipelineProviderEntry { Rank = 1, Name = "apple_api" },
-                        new PipelineProviderEntry { Rank = 2, Name = "openlibrary" },
+                        new PipelineProviderEntry { Rank = 1, Name = "apple_api", Purpose = "identity" },
+                        new PipelineProviderEntry { Rank = 2, Name = "openlibrary", Purpose = "identity" },
                     ],
                 },
                 ["Comics"] = new()
@@ -3038,7 +3175,7 @@ public sealed class WorkerPipelineTests
                     Strategy = ProviderStrategy.Waterfall,
                     Providers =
                     [
-                        new PipelineProviderEntry { Rank = 1, Name = "comicvine" },
+                        new PipelineProviderEntry { Rank = 1, Name = "comicvine", Purpose = "identity" },
                     ],
                 },
                 ["Music"] = new()
@@ -3046,7 +3183,7 @@ public sealed class WorkerPipelineTests
                     Strategy = ProviderStrategy.Waterfall,
                     Providers =
                     [
-                        new PipelineProviderEntry { Rank = 1, Name = "apple_api" },
+                        new PipelineProviderEntry { Rank = 1, Name = "apple_api", Purpose = "identity" },
                     ],
                 },
             },
@@ -3237,6 +3374,9 @@ public sealed class WorkerPipelineTests
         }
 
         public Task RunUniversePassAsync(Guid entityId, string qid, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task RunWorkScopedPassAsync(Guid entityId, string qid, CancellationToken ct = default)
             => Task.CompletedTask;
 
         public Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default)

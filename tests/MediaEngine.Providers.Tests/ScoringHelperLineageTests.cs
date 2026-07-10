@@ -212,17 +212,17 @@ public sealed class ScoringHelperLineageTests
         var trackClaims = claimRepo.Inserted.Where(c => c.EntityId == assetId).ToList();
         var albumClaims = claimRepo.Inserted.Where(c => c.EntityId == albumWorkId).ToList();
 
-        // Track row receives only the self-scope claims (Title, TrackNumber).
-        Assert.Equal(2, trackClaims.Count);
+        // Track row receives self-scope identity claims (Title, Author, TrackNumber).
+        Assert.Equal(3, trackClaims.Count);
         Assert.Contains(trackClaims, c => c.ClaimKey == MetadataFieldConstants.Title);
+        Assert.Contains(trackClaims, c => c.ClaimKey == MetadataFieldConstants.Author);
         Assert.Contains(trackClaims, c => c.ClaimKey == MetadataFieldConstants.TrackNumber);
 
-        // Album Work receives album, author, year, cover_url plus a synthesized
+        // Album Work receives album, year, cover_url plus a synthesized
         // Title (from Album) added by MaybeSynthesizeParentTitle so the album Work
         // renders with a real title rather than "Untitled".
-        Assert.Equal(5, albumClaims.Count);
+        Assert.Equal(4, albumClaims.Count);
         Assert.Contains(albumClaims, c => c.ClaimKey == MetadataFieldConstants.Album);
-        Assert.Contains(albumClaims, c => c.ClaimKey == MetadataFieldConstants.Author);
         Assert.Contains(albumClaims, c => c.ClaimKey == MetadataFieldConstants.Year);
         Assert.Contains(albumClaims, c => c.ClaimKey == MetadataFieldConstants.CoverUrl);
         Assert.Contains(albumClaims, c => c.ClaimKey == MetadataFieldConstants.Title);
@@ -231,6 +231,7 @@ public sealed class ScoringHelperLineageTests
         // Note: Title IS present on the album — added by MaybeSynthesizeParentTitle
         // (sourced from Album name) so the album Work renders with a real title.
         Assert.DoesNotContain(albumClaims, c => c.ClaimKey == MetadataFieldConstants.TrackNumber);
+        Assert.DoesNotContain(albumClaims, c => c.ClaimKey == MetadataFieldConstants.Author);
     }
 
     // ── Test 5: empty claim list short-circuits cleanly ──

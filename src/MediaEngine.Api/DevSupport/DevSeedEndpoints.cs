@@ -49,7 +49,8 @@ public static class DevSeedEndpoints
         string? ExpectedReason = null,
         string? ExpectedProvider = null,
         string? ExpectedQid = null,
-        bool ExpectedCoverArt = true);
+        bool ExpectedCoverArt = true,
+        string? ReconciliationTitle = null);
 
     /// <summary>A seed MP3 audiobook definition.</summary>
     private sealed record SeedAudiobook(
@@ -192,26 +193,28 @@ public static class DevSeedEndpoints
             TestCategory: "Foreign â€” French, accented author name",
             ExpectedQid: "Q25338"),
 
-        new("Cien aÃ±os de soledad",
-            "Gabriel GarcÃ­a MÃ¡rquez",
+        new("Cien años de soledad",
+            "Gabriel García Márquez",
             "9780307474728", 1967,
-            "La historia de la familia BuendÃ­a a lo largo de siete generaciones en el pueblo ficticio de Macondo.",
+            "La historia de la familia Buendía a lo largo de siete generaciones en el pueblo ficticio de Macondo.",
             Language: "es",
-            TestCategory: "Foreign â€” Spanish, special chars in title AND author"),
+            TestCategory: "Foreign â€” Spanish, special chars in title AND author",
+            ReconciliationTitle: "One Hundred Years of Solitude"),
 
         new("Die Verwandlung",
             "Franz Kafka",
             "9783150091319", 1915,
-            "Als Gregor Samsa eines Morgens aus unruhigen TrÃ¤umen erwachte, fand er sich in seinem Bett zu einem ungeheueren Ungeziefer verwandelt.",
+            "Als Gregor Samsa eines Morgens aus unruhigen Träumen erwachte, fand er sich in seinem Bett zu einem ungeheueren Ungeziefer verwandelt.",
             Language: "de",
             TestCategory: "Foreign â€” German"),
 
-        new("ãƒŽãƒ«ã‚¦ã‚§ã‚¤ã®æ£®",
-            "æ‘ä¸Šæ˜¥æ¨¹",
+        new("ノルウェイの森",
+            "村上春樹",
             "9784062748681", 1987,
-            "ãƒ¯ã‚¿ãƒŠãƒ™ãƒˆã‚ªãƒ«ãŒã€äº¡ãè¦ªå‹ã‚­ã‚ºã‚­ã®æ‹äººã§ã‚ã£ãŸç›´å­ã¨ã®é–¢ä¿‚ã‚’ä¸­å¿ƒã«ã€1960å¹´ä»£å¾ŒåŠã®æ±äº¬ã§ã®å¤§å­¦ç”Ÿæ´»ã‚’å›žæƒ³ã™ã‚‹ã€‚",
+            "ワタナベトオルが、亡き親友キズキの恋人であった直子との関係を中心に、1960年代後半の東京での大学生活を回想する。",
             Language: "ja",
-            TestCategory: "Foreign â€” Japanese, CJK title and author"),
+            TestCategory: "Foreign â€” Japanese, CJK title and author",
+            ReconciliationTitle: "Norwegian Wood"),
 
         // â”€â”€ Category 4: Series Books (Collection grouping + sequence) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -1491,7 +1494,7 @@ public static class DevSeedEndpoints
     {
         public string ExpectedIdentityStatus =>
             ExpectIdentified
-                ? (string.IsNullOrWhiteSpace(ExpectedQid) ? "ResolvedQid" : "ExactQid")
+                ? (string.IsNullOrWhiteSpace(ExpectedQid) ? "Identified" : "ExactQid")
                 : KnownNoWikidataEntity ? "KnownNoWikidataEntity" : "NeedsReview";
     }
 
@@ -1727,7 +1730,8 @@ public static class DevSeedEndpoints
                 ExpectedReason: b.ExpectedReason,
                 ExpectedProvider: b.ExpectedProvider,
                 ExpectedQid: b.ExpectedQid,
-                ExpectedCoverArt: b.ExpectedCoverArt));
+                ExpectedCoverArt: b.ExpectedCoverArt,
+                ReconciliationTitle: b.ReconciliationTitle));
 
         // Audiobooks
         foreach (var a in SeedAudiobooks)

@@ -86,7 +86,7 @@ When you save provider settings from the Dashboard, mutable provider settings ar
 
 ## Retail lookup inputs by media type
 
-Retail lookup is Stage 3. It searches the configured provider chain, then scores returned candidates against local file evidence. Open Library config exists, but it is disabled in the normal runtime path. Music uses a sequential Stage 1 chain: MusicBrainz first for identity, then Apple for cover art and retail enrichment.
+Retail lookup is Stage 1. It searches the configured provider chain, then scores returned candidates against local file evidence. Open Library config exists, but it is disabled in the normal runtime path. Music uses a sequential Stage 1 chain: MusicBrainz first for identity, then Apple for cover art and retail enrichment.
 
 | Media type | Active retail provider | Lookup inputs sent to provider | Candidate scoring metrics | Bridge IDs produced for Wikidata |
 |---|---|---|---|---|
@@ -103,9 +103,9 @@ Retail confidence uses the configured weights in `config/hydration.json`: title 
 
 ## Wikidata inputs by media type
 
-Wikidata is Stage 4. It is intentionally gated behind Stage 3: the Wikidata bridge worker only processes items that reached `RetailMatched` or `RetailMatchedNeedsReview`. Items with no safe retail match are not sent to Wikidata as a broad title-only fallback.
+Wikidata is Stage 2. It is intentionally gated behind Stage 1: the Wikidata bridge worker only processes items that reached `RetailMatched` or `RetailMatchedNeedsReview`. Items with no safe retail match are not sent to Wikidata as a broad title-only fallback.
 
-Stage 4 requires at least one real bridge ID. Title, creator, year, series, album, artist, and language hints help the resolver rank or roll up results, but they do not bypass the bridge-ID requirement.
+Stage 2 requires at least one real bridge ID. Title, creator, year, series, album, artist, and language hints help the resolver rank or roll up results, but they do not bypass the bridge-ID requirement.
 
 Wikidata relationship targets are classified before they become shelves. Ordered series, album releases, TV shows/seasons, comic series, and manga series can become immediate lane shelves. Franchises and universes are broader relationship context, and Wikimedia list articles or publisher/production lists are diagnostics only. A fresh ingestion uses this classification immediately; existing persisted rows are not backfilled or repaired in place.
 
@@ -132,7 +132,7 @@ For each media type, you can control which provider's data is preferred when mul
 4. You will see the providers listed in their current priority order.
 5. Drag providers up or down to change the order. Providers at the top are preferred over providers further down.
 
-The provider priority affects how providers run and how the Priority Cascade resolves conflicts. Sequential chains run in listed order, passing bridge IDs forward. For music, the default configured chain is MusicBrainz with purpose `identity`, then Apple API with purpose `enrichment`.
+The provider priority affects how providers run and how the Priority Cascade resolves conflicts. Sequential chains run in listed order, passing bridge IDs forward. For music, the default configured chain is MusicBrainz with purpose `identity`, then Apple API with purpose `enrichment` and `requires_identity: true`, so Apple runs only after the identity provider accepts an identity.
 
 The **Canonical Identity** stage is intentionally different. It shows Wikidata identity, bridge, and relationship settings so you can understand what canonical data is being tracked; it does not assign providers to media types. The **Enrichment & Artwork** stage shows focused enrichment providers such as Fanart.tv, LRCLIB, and OpenSubtitles.
 

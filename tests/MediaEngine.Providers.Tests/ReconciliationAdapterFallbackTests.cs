@@ -39,17 +39,19 @@ public sealed class ReconciliationAdapterFallbackTests
         {
             CorrelationKey = "luftballons",
             MediaType = MediaType.Music,
+            ResolutionScope = "MusicTrack",
+            Title = "99 Luftballons",
             AlbumTitle = "99 Luftballons",
             Artist = "Nena",
             BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.MusicBrainzRecordingId] = "7e093fc5-36f5-4e9f-92c5-822aef9e20fb",
                 [BridgeIdKeys.AppleMusicId] = "1446014714",
-                [BridgeIdKeys.AppleMusicCollectionId] = "1446014467",
             },
             WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.MusicBrainzRecordingId] = "P4404",
                 [BridgeIdKeys.AppleMusicId] = "P10110",
-                [BridgeIdKeys.AppleMusicCollectionId] = "P2281",
             },
             IsEditionAware = true,
         };
@@ -70,7 +72,12 @@ public sealed class ReconciliationAdapterFallbackTests
 
         var bridgeIds = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(bridgeIdsProperty!.GetValue(bridgeRequest));
         Assert.Equal(2, bridgeIds.Count);
-        Assert.Equal("1446014467", bridgeIds[BridgeIdKeys.AppleMusicCollectionId]);
+        Assert.Equal("7e093fc5-36f5-4e9f-92c5-822aef9e20fb", bridgeIds[BridgeIdKeys.MusicBrainzRecordingId]);
+        Assert.Equal("1446014714", bridgeIds[BridgeIdKeys.AppleMusicId]);
+
+        var typed = Assert.IsType<BridgeResolutionRequest>(bridgeRequest);
+        Assert.Equal(BridgeMediaKind.MusicWork, typed.MediaKind);
+        Assert.Equal("99 Luftballons", typed.Title);
     }
 
     [Fact]
@@ -112,14 +119,15 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
-    public void BuildBridgeResolutionRequest_LaVieEnRoseCarriesAppleMusicBridgeIdsForExpectedAlbumQid()
+    public void BuildBridgeResolutionRequest_LaVieEnRoseUsesTrackScopeForExpectedSongQid()
     {
-        const string expectedQid = "Q3824908";
+        const string expectedQid = "Q11986";
         var adapter = CreateAdapter();
         var request = new WikidataResolveRequest
         {
             CorrelationKey = "la-vie-en-rose",
             MediaType = MediaType.Music,
+            ResolutionScope = "MusicTrack",
             Title = "La Vie en rose",
             AlbumTitle = "La Vie en rose",
             Artist = "Édith Piaf",
@@ -127,11 +135,15 @@ public sealed class ReconciliationAdapterFallbackTests
             FileLanguage = "fr",
             BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.MusicBrainzRecordingId] = "6b6f8d90-2e30-45f2-9f5f-8c4ef7d7c7ba",
+                [BridgeIdKeys.MusicBrainzWorkId] = "b0e8d2de-7c2d-4cbf-9c5f-0af1d59e1535",
                 [BridgeIdKeys.AppleMusicId] = "1440848739",
                 [BridgeIdKeys.AppleMusicCollectionId] = "1440848685",
             },
             WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.MusicBrainzRecordingId] = "P4404",
+                [BridgeIdKeys.MusicBrainzWorkId] = "P435",
                 [BridgeIdKeys.AppleMusicId] = "P10110",
                 [BridgeIdKeys.AppleMusicCollectionId] = "P2281",
             },
@@ -140,14 +152,49 @@ public sealed class ReconciliationAdapterFallbackTests
 
         var bridgeRequest = BuildBridgeRequest(adapter, request);
 
-        Assert.Equal(expectedQid, "Q3824908");
+        Assert.Equal(expectedQid, "Q11986");
+        Assert.Equal(BridgeMediaKind.MusicWork, bridgeRequest.MediaKind);
         Assert.Equal("La Vie en rose", bridgeRequest.Title);
         Assert.Equal("Édith Piaf", bridgeRequest.Creator);
         Assert.Equal("fr", bridgeRequest.Language);
+        Assert.Equal("6b6f8d90-2e30-45f2-9f5f-8c4ef7d7c7ba", bridgeRequest.BridgeIds[BridgeIdKeys.MusicBrainzRecordingId]);
+        Assert.Equal("b0e8d2de-7c2d-4cbf-9c5f-0af1d59e1535", bridgeRequest.BridgeIds[BridgeIdKeys.MusicBrainzWorkId]);
         Assert.Equal("1440848739", bridgeRequest.BridgeIds[BridgeIdKeys.AppleMusicId]);
         Assert.Equal("1440848685", bridgeRequest.BridgeIds[BridgeIdKeys.AppleMusicCollectionId]);
+        Assert.Equal("P4404", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.MusicBrainzRecordingId]);
+        Assert.Equal("P435", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.MusicBrainzWorkId]);
         Assert.Equal("P10110", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.AppleMusicId]);
         Assert.Equal("P2281", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.AppleMusicCollectionId]);
+    }
+
+    [Fact]
+    public void BuildBridgeResolutionRequest_MusicAlbumScopeUsesAlbumTitle()
+    {
+        var adapter = CreateAdapter();
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "album",
+            MediaType = MediaType.Music,
+            ResolutionScope = "MusicAlbum",
+            Title = "Track title",
+            AlbumTitle = "Album title",
+            Artist = "Artist",
+            BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.MusicBrainzReleaseGroupId] = "d5345fdd-342e-4286-aec6-1792a17efbc0",
+            },
+            WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.MusicBrainzReleaseGroupId] = "P436",
+            },
+            IsEditionAware = true,
+        };
+
+        var bridgeRequest = BuildBridgeRequest(adapter, request);
+
+        Assert.Equal(BridgeMediaKind.MusicAlbum, bridgeRequest.MediaKind);
+        Assert.Equal("Album title", bridgeRequest.Title);
+        Assert.Equal("Artist", bridgeRequest.Creator);
     }
 
     [Fact]
@@ -311,7 +358,7 @@ public sealed class ReconciliationAdapterFallbackTests
 
         Assert.NotNull(method);
 
-        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q7889" }, "Q1133749", MediaType.Books])!;
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q7889" }, "Q1133749", MediaType.Books, null])!;
 
         Assert.False(accepted);
     }
@@ -326,7 +373,7 @@ public sealed class ReconciliationAdapterFallbackTests
 
         Assert.NotNull(method);
 
-        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q571" }, "Q20070", MediaType.Books])!;
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q571" }, "Q20070", MediaType.Books, null])!;
 
         Assert.True(accepted);
     }
@@ -341,7 +388,7 @@ public sealed class ReconciliationAdapterFallbackTests
 
         Assert.NotNull(method);
 
-        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q3297186", "Q7725634" }, "Q128444", MediaType.Comics])!;
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q3297186", "Q7725634" }, "Q128444", MediaType.Comics, null])!;
 
         Assert.True(accepted);
     }
@@ -356,7 +403,7 @@ public sealed class ReconciliationAdapterFallbackTests
 
         Assert.NotNull(method);
 
-        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q5" }, "Q1984", MediaType.Books])!;
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q5" }, "Q1984", MediaType.Books, null])!;
 
         Assert.False(accepted);
     }
@@ -371,7 +418,22 @@ public sealed class ReconciliationAdapterFallbackTests
 
         Assert.NotNull(method);
 
-        var accepted = (bool)method!.Invoke(adapter, [Array.Empty<string>(), "Q1984", MediaType.Books])!;
+        var accepted = (bool)method!.Invoke(adapter, [Array.Empty<string>(), "Q1984", MediaType.Books, null])!;
+
+        Assert.False(accepted);
+    }
+
+    [Fact]
+    public void ValidateP31ForMediaType_RejectsAlbumForMusicTrackScope()
+    {
+        var adapter = CreateAdapter();
+        var method = typeof(ReconciliationAdapter).GetMethod(
+            "ValidateP31ForMediaType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var accepted = (bool)method!.Invoke(adapter, [new[] { "Q482994" }, "Q482994", MediaType.Music, "MusicTrack"])!;
 
         Assert.False(accepted);
     }
@@ -478,12 +540,14 @@ public sealed class ReconciliationAdapterFallbackTests
             {
                 ["Books"] = ["Q7725634", "Q571", "Q8261"],
                 ["Music"] = ["Q105543609", "Q207628", "Q482994"],
+                ["MusicTrack"] = ["Q105543609", "Q207628", "Q7302866"],
                 ["MusicAlbum"] = ["Q482994", "Q208569", "Q222910"],
                 ["Comics"] = ["Q1004", "Q14406742", "Q3297186"],
             },
             ExcludeClasses = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Books"] = ["Q5", "Q7889", "Q11424", "Q5398426"],
+                ["MusicTrack"] = ["Q482994", "Q208569", "Q222910"],
             },
             EditionPivot = new Dictionary<string, EditionPivotRuleEntry>(StringComparer.OrdinalIgnoreCase)
             {

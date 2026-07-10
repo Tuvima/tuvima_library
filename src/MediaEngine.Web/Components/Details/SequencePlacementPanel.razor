@@ -175,7 +175,7 @@
     private int OwnedCount => ActiveItems.Count(item => item.IsOwned);
     private int MissingCount => Math.Max(0, TotalItems - OwnedCount);
     private int TotalItems => ShowGroupSelector
-        ? ActiveItems.Count
+        ? Math.Max(ActiveItems.Count, ActiveGroup?.TotalKnownItems ?? ActiveItems.Count)
         : Math.Max(ActiveItems.Count, Placement.TotalKnownItems ?? ActiveItems.Count);
     private bool HasCurrentPosition => FirstNonBlank(
         Placement.PositionText,

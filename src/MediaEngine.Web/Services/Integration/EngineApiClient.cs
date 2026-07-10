@@ -5357,6 +5357,7 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             Key = group.Key,
             Title = group.Title,
+            TotalKnownItems = group.TotalKnownItems,
             Items = group.Items.Select(NormalizeSequenceItem).OfType<SequenceItemViewModel>().ToList(),
         };
 
@@ -5375,6 +5376,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 PositionText = item.PositionText,
                 GroupKey = item.GroupKey,
                 GroupTitle = item.GroupTitle,
+                MembershipScope = item.MembershipScope,
                 IsCurrent = item.IsCurrent,
                 IsOwned = item.IsOwned,
                 ProgressState = item.ProgressState,

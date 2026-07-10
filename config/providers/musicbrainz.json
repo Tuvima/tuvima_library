@@ -5,14 +5,13 @@
   "weight": 0.7,
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
-  "capability_tags": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_id", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "track_count", "isrc"],
-  "available_fields": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_id", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album", "track_count"],
+  "capability_tags": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "track_count", "isrc"],
+  "available_fields": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album", "track_count"],
   "field_weights": {
     "title": 0.8,
     "author": 0.8,
     "year": 0.85,
     "genre": 0.7,
-    "musicbrainz_id": 1.0,
     "isrc": 0.9,
     "album": 0.75,
     "track_count": 0.8
@@ -45,7 +44,7 @@
   },
 
   "preferred_bridge_ids": {
-    "Music": ["musicbrainz_release_group_id", "musicbrainz_recording_id", "musicbrainz_id", "musicbrainz_release_id", "isrc"]
+    "Music": ["musicbrainz_recording_id", "isrc", "musicbrainz_release_group_id", "musicbrainz_release_id"]
   },
 
   "search_strategies": [
@@ -95,7 +94,6 @@
     { "claim_key": "year",           "json_path": "date",                      "confidence": 0.85, "source": "release",   "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "track_count",    "json_path": "track-count",               "confidence": 0.8,  "source": "release" },
     { "claim_key": "isrc",           "json_path": "isrcs[0]",                  "confidence": 0.92, "source": "recording" },
-    { "claim_key": "musicbrainz_id", "json_path": "release-group.id",          "confidence": 1.0,  "source": "release" },
     { "claim_key": "musicbrainz_release_id", "json_path": "id",                "confidence": 1.0,  "source": "release" },
     { "claim_key": "musicbrainz_recording_id", "json_path": "id",               "confidence": 1.0, "source": "recording" },
     { "claim_key": "musicbrainz_release_group_id", "json_path": "release-group.id", "confidence": 1.0, "source": "release" }

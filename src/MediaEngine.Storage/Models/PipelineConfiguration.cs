@@ -33,6 +33,13 @@ public sealed class PipelineProviderEntry
     [JsonPropertyName("purpose")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Purpose { get; set; }
+
+    /// <summary>
+    /// When true, this provider is skipped unless an earlier identity provider
+    /// produced an auto-accepted candidate.
+    /// </summary>
+    [JsonPropertyName("requires_identity")]
+    public bool RequiresIdentity { get; set; }
 }
 
 /// <summary>

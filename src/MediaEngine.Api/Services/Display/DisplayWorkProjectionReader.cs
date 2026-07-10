@@ -99,7 +99,11 @@ public sealed class DisplayWorkProjectionReader
                         FROM series_manifest_hydrations
                         WHERE collection_id = CollectionId
                     ),
-                    (SELECT COUNT(*) FROM series_manifest_items WHERE collection_id = CollectionId)
+                    (SELECT COUNT(*)
+                     FROM series_manifest_items
+                     WHERE collection_id = CollectionId
+                       AND membership_scope = 'MainSequence'
+                       AND is_collection = 0)
                 ) AS CollectionManifestTotalCount,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'narrator' LIMIT 1) AS Narrator,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,

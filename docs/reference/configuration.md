@@ -163,8 +163,9 @@ Defines the ranked provider list and execution strategy per media type. This fil
 | Field | Type | Description |
 |---|---|---|
 | `{MediaType}.strategy` | string | Execution strategy: `"Waterfall"` (first match wins), `"Cascade"` (all run, claims merge), or `"Sequential"` (chained, each feeds the next). |
-| `{MediaType}.providers` | array | Ordered list of provider entries. Each entry has `rank` (int, execution order), `name` (string, must match provider config `name` field), and optional `purpose`. |
+| `{MediaType}.providers` | array | Ordered list of provider entries. Each entry has `rank` (int, execution order), `name` (string, must match provider config `name` field), `purpose`, and optional role gates such as `requires_identity`. |
 | `{MediaType}.providers[].purpose` | string | Provider role in this media pipeline. `identity` candidates can own the selected identity; `enrichment` providers can still contribute fields, bridge IDs, artwork, and retained provider links. |
+| `{MediaType}.providers[].requires_identity` | bool | When true, the provider only runs after an earlier configured identity provider has accepted an identity in the same pipeline stage. This supports chains such as MusicBrainz identity followed by Apple enrichment without hard-coding provider names in orchestration. |
 | `{MediaType}.field_priorities` | object | Per-field provider priority overrides for this media type. Key = claim key (e.g., "cover", "description"). Value = ordered list of provider names. Checked before global `field_priorities.json`. |
 
 Default strategies:
@@ -311,6 +312,7 @@ This file is the authoritative configuration for all Wikidata-related behaviour.
 | `instance_of_classes` | Per-media-type P31 type allow-lists for Wikidata candidate filtering. Previously stored separately in `cirrus-type-filters.json` (now removed). |
 | `edition_pivot` | Per-media-type rules for walking from Wikidata edition items to work items. Previously stored in `edition-pivot.json` (now removed). Keys: `audiobooks`, `books`, `music`. Each has `work_classes`, `edition_classes`, and `prefer_edition`. |
 | `exclude_classes` | P31 classes to exclude from reconciliation results. |
+| `bridge_resolution.scopes` | Entity-scoped bridge-ID policy. Each scope declares `target_ids`, `context_ids`, and whether constrained text fallback is allowed. Music uses `MusicTrack` to prefer recording/work/ISRC IDs before Apple track IDs, while release/release-group/artist IDs stay contextual unless resolving `MusicAlbum`. |
 | `data_extension` | Properties fetched during the Data Extension API call after QID resolution. |
 
 **Removed config files (consolidated here):**

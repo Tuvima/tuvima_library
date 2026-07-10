@@ -356,6 +356,7 @@ public sealed class SequenceGroupViewModel
 {
     public string Key { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
+    public int? TotalKnownItems { get; init; }
     public IReadOnlyList<SequenceItemViewModel> Items { get; init; } = [];
 }
 
@@ -371,6 +372,7 @@ public sealed class SequenceItemViewModel
     public string? PositionText { get; init; }
     public string? GroupKey { get; init; }
     public string? GroupTitle { get; init; }
+    public string MembershipScope { get; init; } = "MainSequence";
     public bool IsCurrent { get; init; }
     public bool IsOwned { get; init; }
     public LibraryProgressState ProgressState { get; init; } = LibraryProgressState.Unknown;

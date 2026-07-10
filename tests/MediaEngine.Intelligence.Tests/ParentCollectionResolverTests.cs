@@ -137,6 +137,31 @@ public sealed class ParentCollectionResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveParentCollectionAsync_RollsBookSeriesAndTvAdaptationIntoFranchiseAcrossRelationshipTypes()
+    {
+        var books = CreateCollection("The Expanse books", "ContentGroup", "Q19610143");
+        var television = CreateCollection("The Expanse TV series", "ContentGroup", "Q18389644");
+        await _repo.UpsertAsync(books);
+        await _repo.UpsertAsync(television);
+        await _repo.InsertRelationshipsAsync(
+        [
+            CreateRelationship(books.Id, "series", "Q19610143", "The Expanse"),
+            CreateRelationship(television.Id, "based_on", "Q19610143", "The Expanse"),
+        ]);
+
+        await _resolver.ResolveParentCollectionAsync(television.Id);
+
+        var refreshedBooks = await _repo.GetByIdAsync(books.Id);
+        var refreshedTelevision = await _repo.GetByIdAsync(television.Id);
+        Assert.NotNull(refreshedBooks?.ParentCollectionId);
+        Assert.Equal(refreshedBooks!.ParentCollectionId, refreshedTelevision!.ParentCollectionId);
+
+        var parent = await _repo.GetByIdAsync(refreshedBooks.ParentCollectionId!.Value);
+        Assert.Equal("The Expanse", parent!.DisplayName);
+        Assert.Equal("Q19610143", parent.WikidataQid);
+    }
+
+    [Fact]
     public async Task ResolveParentCollectionAsync_DoesNotCreateParentWhenRelationshipMatchesCollectionQid()
     {
         var child = CreateCollection("The Expanse", "ContentGroup", "Q19610143");

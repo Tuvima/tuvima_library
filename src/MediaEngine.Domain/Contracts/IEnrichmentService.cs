@@ -20,14 +20,20 @@ public interface IEnrichmentService
 
     /// <summary>
     /// Universe pass: deep enrichment in background.
-    /// Runs child entity discovery, fictional entity enrichment, person actor-character
-    /// mapping, image enrichment, description enrichment, and write-back.
+    /// Runs work-scoped relationships, child entity discovery, fictional entity
+    /// enrichment, image enrichment, description enrichment, and write-back.
     /// </summary>
     Task RunUniversePassAsync(Guid entityId, string qid, CancellationToken ct = default);
 
     /// <summary>
+    /// Stage 3 work-scoped pass that does not require a broader universe path.
+    /// Runs relationship enrichment tied directly to the resolved work.
+    /// </summary>
+    Task RunWorkScopedPassAsync(Guid entityId, string qid, CancellationToken ct = default);
+
+    /// <summary>
     /// Core Stage 3 universe pass that gates file-level completion.
-    /// Runs child discovery, fictional entity enrichment, and actor-character mapping.
+    /// Runs child discovery and fictional entity enrichment for works with a universe path.
     /// </summary>
     Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default);
 

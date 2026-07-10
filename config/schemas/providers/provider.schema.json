@@ -18,6 +18,25 @@
       "additionalProperties": false
     },
     "hydration_stages": { "type": "array", "items": { "enum": [1, 2, 3] } },
+    "bridge_resolution": {
+      "type": "object",
+      "properties": {
+        "scopes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["target_ids", "context_ids", "allow_constrained_text_fallback"],
+            "properties": {
+              "target_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "context_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "allow_constrained_text_fallback": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "http_client": {
       "type": "object",
       "properties": {

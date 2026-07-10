@@ -90,9 +90,18 @@ Some Series are obvious sequential collections: the Dune novels in publication o
 - **Adaptation clusters**: all film adaptations of a specific novel
 - **Spin-off works**: tie-in novellas and short stories connected to a main series
 - **Thematic collections**: all standalone novels by an author set in the same fictional universe
-- **Cross-media narratives**: the audiobook version of a series in one Series alongside the ebook version in another
+- **Cross-media narratives**: a book shelf connected to a separate television or film adaptation shelf
 
 What defines a Series is **shared contextual metadata** - the same Wikidata series QID, the same franchise membership, the same author+universe combination. Not a shared file format, not a shared folder location.
+
+Within a series, relationship scope still matters. Main numbered works remain the
+main sequence, while P361-linked short fiction appears as supplementary material.
+An ebook and audiobook of the same title are formats of one Work, not two franchise
+members. Adaptations remain separate lane shelves and can converge under a broader
+franchise or fictional-universe collection when a trusted shared relationship
+connects them. A standalone work such as *The Hobbit* stays standalone at the
+series level while its fictional-universe relationship can still connect it to
+Tolkien's legendarium.
 
 ---
 

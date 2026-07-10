@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Api.Tests;
 
@@ -389,7 +390,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ApplyExactManifestPositionsAsync(items, manifestContainerId, entityType, ct)", source);
         Assert.Contains("SELECT linked_work_id AS LinkedWorkId", source);
         Assert.Contains("WHERE series_qid = @seriesQid", source);
-        Assert.Contains("ToManifestPosition", source);
+        Assert.Contains("ToManifestSourcePosition", source);
         Assert.Contains("ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct)", source);
         Assert.Contains("ResolveLocalSequenceContainerOptionAsync(workId, entityType, detail.MediaType, ct)", source);
         Assert.DoesNotContain("smi.parent_collection_qid AS ContainerId", source);
@@ -402,35 +403,177 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("TotalKnownItems = totalKnownItems", source);
         Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
         Assert.Contains("BuildOwnedPositionSet(merged)", source);
-        Assert.Contains("BuildManifestDisplayPositions(manifestItems)", source);
-        Assert.Contains("SequenceEqual(Enumerable.Range(1, sourcePositions.Count))", source);
-        Assert.Contains("NormalizeContiguousSequenceDisplayPositions(items, entityType)", source);
-        Assert.Contains("ShouldCompactContiguousSequenceDisplayPositions(entityType)", source);
-        Assert.Contains("=> entityType is DetailEntityType.Movie or DetailEntityType.MovieSeries", source);
-        Assert.Contains("positions.SequenceEqual(Enumerable.Range(min, positions.Count))", source);
+        Assert.Contains("ManifestSourcePosition(manifestItem)", source);
+        Assert.Contains("ManifestOrderingSort(manifestItem)", source);
+        Assert.Contains("ManifestScopeGroup(manifestItem.MembershipScope)", source);
+        Assert.DoesNotContain("BuildManifestDisplayPositions", source);
+        Assert.DoesNotContain("NormalizeContiguousSequenceDisplayPositions", source);
         Assert.Contains("BuildManifestMergeKey", source);
         Assert.DoesNotContain("if (isLinkedOwned || (!string.IsNullOrWhiteSpace(manifestItem.ItemQid) && ownedQids.Contains(manifestItem.ItemQid)))", source);
         Assert.Contains("Missing from library", source);
     }
 
     [Fact]
-    public void DetailComposer_DoesNotCompactComicIssueOrdinalsToOwnedSubsetPositions()
+    public void DetailComposer_PreservesOnlySourceOrdinalsAsDisplayedPositions()
+    {
+        var unnumbered = new SeriesManifestItemRecord
+        {
+            SeriesQid = "QSeries",
+            ItemQid = "QShort",
+            SortOrder = 10,
+            OrderSource = "PublicationDate",
+        };
+        var decimalNumbered = new SeriesManifestItemRecord
+        {
+            SeriesQid = "QSeries",
+            ItemQid = "QNovella",
+            RawOrdinal = "0.3",
+            ParsedOrdinal = 0.3,
+            SortOrder = 2,
+            OrderSource = "SeriesOrdinal",
+        };
+
+        var sourcePositionMethod = typeof(DetailComposerService).GetMethod(
+            "ManifestSourcePosition",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(sourcePositionMethod);
+        Assert.Null(sourcePositionMethod!.Invoke(null, [unnumbered]));
+        var orderingSortMethod = typeof(DetailComposerService).GetMethod(
+            "ManifestOrderingSort",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(orderingSortMethod);
+        Assert.Equal(10d, (double?)orderingSortMethod!.Invoke(null, [unnumbered]));
+        Assert.Equal(0.3d, (double?)sourcePositionMethod.Invoke(null, [decimalNumbered]));
+
+        var anthologyNumbered = new SeriesManifestItemRecord
+        {
+            SeriesQid = "QSeries",
+            ItemQid = "QShort",
+            RawOrdinal = "4",
+            ParsedOrdinal = 4,
+            OrdinalScopeQid = "QAnthology",
+            SortOrder = 10,
+            OrderSource = "SeriesOrdinal",
+        };
+        Assert.Null(sourcePositionMethod.Invoke(null, [anthologyNumbered]));
+    }
+
+    [Fact]
+    public void DetailComposer_DoesNotConsumeAnotherFormatsManifestLinkAsTheCurrentOwnedItem()
+    {
+        var currentWorkId = Guid.NewGuid();
+        var audiobookWorkId = Guid.NewGuid();
+        var ownedItems = new List<SequenceItemViewModel>
+        {
+            new()
+            {
+                Id = currentWorkId.ToString("D"),
+                EntityType = DetailEntityType.Book,
+                Title = "Leviathan Wakes",
+                PositionNumber = 1,
+                PositionSort = 1,
+                PositionLabel = "1",
+                PositionText = "1",
+                IsCurrent = true,
+                IsOwned = true,
+            },
+        };
+        var manifestItems = new List<SeriesManifestItemRecord>
+        {
+            new()
+            {
+                SeriesQid = "QSeries",
+                ItemQid = "QLeviathan",
+                ItemLabel = "Leviathan Wakes",
+                RawOrdinal = "1",
+                ParsedOrdinal = 1,
+                OrdinalScopeQid = "QSeries",
+                SortOrder = 1,
+                OrderSource = "SeriesOrdinal",
+                LinkedWorkId = currentWorkId,
+            },
+            new()
+            {
+                SeriesQid = "QSeries",
+                ItemQid = "QCaliban",
+                ItemLabel = "Caliban's War",
+                RawOrdinal = "2",
+                ParsedOrdinal = 2,
+                OrdinalScopeQid = "QSeries",
+                SortOrder = 2,
+                OrderSource = "SeriesOrdinal",
+                LinkedWorkId = audiobookWorkId,
+            },
+        };
+
+        var merged = InvokePrivate<List<SequenceItemViewModel>>(
+            "MergeManifestItems",
+            ownedItems,
+            manifestItems,
+            "QLeviathan",
+            currentWorkId,
+            DetailEntityType.Book);
+
+        Assert.Equal(2, merged.Count);
+        Assert.Equal(1, Assert.Single(merged, item => item.IsCurrent).PositionNumber);
+        var missingBook = Assert.Single(merged, item => item.Id == "missing-QCaliban");
+        Assert.False(missingBook.IsOwned);
+        Assert.Equal(2, missingBook.PositionNumber);
+    }
+
+    [Fact]
+    public void DetailComposer_DoesNotDisplayAnOrdinalBorrowedFromAnotherContainer()
+    {
+        var manifestItems = new List<SeriesManifestItemRecord>
+        {
+            new()
+            {
+                SeriesQid = "QSeries",
+                ItemQid = "QChurn",
+                ItemLabel = "The Churn",
+                RawOrdinal = "4",
+                ParsedOrdinal = 4,
+                OrdinalScopeQid = "QAnthology",
+                SortOrder = 7,
+                MembershipScope = "Supplementary",
+                OrderSource = "SeriesOrdinal",
+            },
+        };
+
+        var merged = InvokePrivate<List<SequenceItemViewModel>>(
+            "MergeManifestItems",
+            new List<SequenceItemViewModel>(),
+            manifestItems,
+            null,
+            Guid.Empty,
+            DetailEntityType.Book);
+
+        var churn = Assert.Single(merged);
+        Assert.Null(churn.PositionNumber);
+        Assert.Null(churn.PositionLabel);
+        Assert.Null(churn.PositionText);
+        Assert.Equal(7, churn.PositionSort);
+        Assert.Equal("supplementary", churn.GroupKey);
+    }
+
+    [Fact]
+    public void DetailComposer_SeparatesMainSeriesFromShortFictionCounts()
     {
         var items = new List<SequenceItemViewModel>
         {
-            new() { Title = "Batman", PositionNumber = 405, PositionSort = 405, PositionLabel = "405" },
-            new() { Title = "Batman", PositionNumber = 406, PositionSort = 406, PositionLabel = "406" },
-            new() { Title = "Batman", PositionNumber = 407, PositionSort = 407, PositionLabel = "407" },
+            new() { Title = "Leviathan Wakes", GroupKey = "main-sequence", GroupTitle = "Main Series", MembershipScope = "MainSequence" },
+            new() { Title = "The Churn", GroupKey = "supplementary", GroupTitle = "Short Fiction & Extras", MembershipScope = "Supplementary", IsCurrent = true },
         };
 
-        var normalized = InvokePrivate<List<SequenceItemViewModel>>(
-            "NormalizeContiguousSequenceDisplayPositions",
+        var groups = InvokePrivate<List<SequenceGroupViewModel>>(
+            "BuildSequenceGroups",
             items,
-            DetailEntityType.ComicIssue);
+            "Books",
+            9);
 
-        Assert.Equal([405, 406, 407], normalized.Select(item => item.PositionNumber));
-        Assert.Equal([405d, 406d, 407d], normalized.Select(item => item.PositionSort));
-        Assert.Equal(["405", "406", "407"], normalized.Select(item => item.PositionLabel));
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(9, Assert.Single(groups, group => group.Key == "main-sequence").TotalKnownItems);
+        Assert.Equal(1, Assert.Single(groups, group => group.Key == "supplementary").TotalKnownItems);
     }
 
     [Fact]
@@ -489,6 +632,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("SourceContainerId = FirstText(qid, providerKey)", source);
         Assert.Contains("EquivalentContainerIds = BuildSequenceContainerAliases", source);
         Assert.Contains("ShouldMergeSequenceContainerOptions", source);
+        Assert.Contains("DeduplicateSequenceContainerOptions", source);
+        Assert.Contains("CanChooseContainer = distinctContainers.Count > 1", source);
         Assert.Contains("SequenceContainerOptionMatches", source);
         Assert.Contains("PreferRoutableContainerId", source);
         Assert.DoesNotContain("key IN ('series', 'franchise')", source);
@@ -524,6 +669,38 @@ public sealed class DetailComposerServiceTests
         };
 
         Assert.True(InvokePrivate<bool>("ShouldMergeSequenceContainerOptions", localCollection, manifestSeries));
+    }
+
+    [Fact]
+    public void DetailComposer_DeduplicatesSequenceSelectorOptionsBeforeReturningDetailModel()
+    {
+        var localCollectionId = Guid.NewGuid().ToString("D");
+        var options = new List<SequenceContainerOptionViewModel>
+        {
+            new()
+            {
+                ContainerId = localCollectionId,
+                ContainerTitle = "Example Collection",
+                MediaScope = "Watch",
+                EquivalentContainerIds = [localCollectionId],
+            },
+            new()
+            {
+                ContainerId = "Q12345",
+                SourceContainerId = "Q12345",
+                ContainerTitle = "Example",
+                MediaScope = "Watch",
+                EquivalentContainerIds = ["Q12345"],
+            },
+        };
+
+        var distinct = InvokePrivate<List<SequenceContainerOptionViewModel>>(
+            "DeduplicateSequenceContainerOptions",
+            options);
+
+        var option = Assert.Single(distinct);
+        Assert.Equal(localCollectionId, option.ContainerId);
+        Assert.Contains("Q12345", option.EquivalentContainerIds);
     }
 
     [Fact]

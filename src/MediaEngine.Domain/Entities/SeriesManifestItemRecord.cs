@@ -14,6 +14,7 @@ public sealed class SeriesManifestItemRecord
     public string? MediaType { get; init; }
     public string? RawOrdinal { get; init; }
     public double? ParsedOrdinal { get; init; }
+    public string? OrdinalScopeQid { get; init; }
     public double? SortOrder { get; init; }
     public string? PublicationDate { get; init; }
     public string? PreviousQid { get; init; }
@@ -22,6 +23,7 @@ public sealed class SeriesManifestItemRecord
     public string? ParentCollectionLabel { get; init; }
     public bool IsCollection { get; init; }
     public bool IsExpandedFromCollection { get; init; }
+    public string MembershipScope { get; init; } = Constants.SeriesMembershipScopeNames.MainSequence;
     public string SourcePropertiesJson { get; init; } = "[]";
     public string RelationshipsJson { get; init; } = "[]";
     public required string OrderSource { get; init; }

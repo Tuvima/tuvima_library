@@ -51,6 +51,8 @@ public static class ClaimScopeCatalog
             [BridgeIdKeys.AppleMusicCollectionId]    = ClaimScope.Parent,
             [BridgeIdKeys.AppleArtistId]             = ClaimScope.Parent,
             [BridgeIdKeys.MusicBrainzId]             = ClaimScope.Parent,
+            [BridgeIdKeys.MusicBrainzArtistId]       = ClaimScope.Parent,
+            [BridgeIdKeys.MusicBrainzReleaseId]      = ClaimScope.Parent,
             [BridgeIdKeys.MusicBrainzReleaseGroupId] = ClaimScope.Parent,
             [BridgeIdKeys.TvdbId]                    = ClaimScope.Parent,
             [BridgeIdKeys.ComicVineId]               = ClaimScope.Parent,
@@ -86,15 +88,19 @@ public static class ClaimScopeCatalog
         {
             [MediaType.Music] = new(StringComparer.OrdinalIgnoreCase)
             {
-                [BridgeIdKeys.WikidataQid]         = ClaimScope.Parent,  // resolved QID is the album, not the track
-                [MetadataFieldConstants.Author]      = ClaimScope.Parent,  // album artist
-                [MetadataFieldConstants.Artist]      = ClaimScope.Parent,
+                [BridgeIdKeys.WikidataQid]           = ClaimScope.Self,
+                [BridgeIdKeys.MusicBrainzRecordingId] = ClaimScope.Self,
+                [BridgeIdKeys.MusicBrainzWorkId]     = ClaimScope.Self,
+                [BridgeIdKeys.Isrc]                  = ClaimScope.Self,
+                [MetadataFieldConstants.Author]      = ClaimScope.Self,
+                [MetadataFieldConstants.Artist]      = ClaimScope.Self,
+                ["album_artist"]                    = ClaimScope.Parent,
                 [MetadataFieldConstants.Year]        = ClaimScope.Parent,  // album release year
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
                 [MetadataFieldConstants.Description] = ClaimScope.Parent,  // album-level
                 [MetadataFieldConstants.Cover]       = ClaimScope.Parent,  // album art
                 [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
-                [MetadataFieldConstants.Composer]    = ClaimScope.Parent,
+                [MetadataFieldConstants.Composer]    = ClaimScope.Self,
             },
             [MediaType.TV] = new(StringComparer.OrdinalIgnoreCase)
             {

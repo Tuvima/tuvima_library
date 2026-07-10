@@ -2223,6 +2223,43 @@ public sealed class RetailMatchWorker
     private static bool IsIdentityPurpose(string? purpose) =>
         string.Equals(purpose, "identity", StringComparison.OrdinalIgnoreCase);
 
+    private static bool ShouldPersistProviderClaims(
+        RetailDecision decision,
+        PipelineProviderEntry? pipelineEntry,
+        bool acceptedIdentity,
+        FieldMatchScores retailScore,
+        IReadOnlyList<ProviderClaim> claims)
+    {
+        if (decision.Outcome != "Rejected")
+            return true;
+
+        if (!acceptedIdentity
+            || pipelineEntry?.RequiresIdentity != true
+            || !string.Equals(pipelineEntry.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!claims.Any(IsEnrichmentClaim))
+            return false;
+
+        return retailScore.TitleScore >= 0.85
+               && retailScore.AuthorScore >= 0.75;
+    }
+
+    private static bool IsEnrichmentClaim(ProviderClaim claim)
+        => claim.Key is MetadataFieldConstants.CoverUrl
+            or MetadataFieldConstants.Genre
+            or MetadataFieldConstants.Year
+            or MetadataFieldConstants.TrackNumber
+            or MetadataFieldConstants.DurationField
+            or BridgeIdKeys.AppleMusicId
+            or BridgeIdKeys.AppleMusicCollectionId
+            or BridgeIdKeys.AppleArtistId
+            or "disc_number"
+            or "disc_count"
+            or "track_count";
+
     private async Task<Dictionary<string, string>> BuildFileHintsAsync(Guid entityId, CancellationToken ct)
     {
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -2413,11 +2450,24 @@ public sealed class RetailMatchWorker
         var providerRank = 0;
         var providerFailures = 0;
         var sequentialBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var acceptedIdentity = false;
+        var acceptedEnrichmentProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Iterate providers per strategy
         foreach (var providerName in enabledProviders)
         {
             providerRank++;
+            var pipelineEntry = pipeline.Providers.FirstOrDefault(entry =>
+                string.Equals(entry.Name, providerName, StringComparison.OrdinalIgnoreCase));
+            if (pipelineEntry?.RequiresIdentity == true && !acceptedIdentity)
+            {
+                _logger.LogInformation(
+                    "Provider {Provider} skipped for entity {EntityId} because its configured enrichment role requires an accepted identity",
+                    providerName,
+                    job.EntityId);
+                continue;
+            }
+
             var provider = _providers.FirstOrDefault(p =>
                 string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
 
@@ -2527,6 +2577,12 @@ public sealed class RetailMatchWorker
 
                 allCandidates.Add(candidate);
 
+                if (IsIdentityPurpose(pipelineEntry?.Purpose)
+                    && decision.Outcome == "AutoAccepted")
+                {
+                    acceptedIdentity = true;
+                }
+
                 // Track best candidate
                 if (IsBetterCandidate(candidate, bestCandidate))
                 {
@@ -2534,9 +2590,20 @@ public sealed class RetailMatchWorker
                     bestCandidate = candidate;
                 }
 
-                // Persist claims if candidate is accepted or ambiguous
-                if (decision.Outcome != "Rejected")
+                var shouldPersistProviderClaims = ShouldPersistProviderClaims(
+                    decision,
+                    pipelineEntry,
+                    acceptedIdentity,
+                    retailScore,
+                    claims);
+
+                // Persist claims if candidate is accepted/ambiguous, or if a configured
+                // enrichment provider safely corroborates the accepted identity.
+                if (shouldPersistProviderClaims)
                 {
+                    if (string.Equals(pipelineEntry?.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+                        acceptedEnrichmentProviders.Add(provider.Name);
+
                     // Phase 3c: pass lineage so parent-scope claims mirror
                     // onto the parent Work (book series → series Work,
                     // audiobook series → series Work, etc.).
@@ -2620,6 +2687,11 @@ public sealed class RetailMatchWorker
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, bestCandidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched, ct: ct);
+            await PersistProviderProvenanceAsync(
+                job.EntityId,
+                bestCandidate.ProviderName,
+                acceptedEnrichmentProviders,
+                ct).ConfigureAwait(false);
             await _timeline.RecordRetailMatchedAsync(
                 job.EntityId, bestCandidate.ProviderName,
                 allCandidates.Count, job.IngestionRunId, ct);
@@ -2719,6 +2791,41 @@ public sealed class RetailMatchWorker
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
             : lineage.TargetForSelfScope;
+    }
+
+    private async Task PersistProviderProvenanceAsync(
+        Guid entityId,
+        string identityProvider,
+        IReadOnlyCollection<string> enrichmentProviders,
+        CancellationToken ct)
+    {
+        await _canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue
+            {
+                EntityId = entityId,
+                Key = MetadataFieldConstants.IdentityProvider,
+                Value = identityProvider,
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+        ], ct).ConfigureAwait(false);
+
+        if (_arrayRepo is null)
+            return;
+
+        var entries = enrichmentProviders
+            .OrderBy(provider => provider, StringComparer.OrdinalIgnoreCase)
+            .Select((provider, ordinal) => new CanonicalArrayEntry
+            {
+                Ordinal = ordinal,
+                Value = provider,
+            })
+            .ToList();
+        await _arrayRepo.SetValuesAsync(
+            entityId,
+            MetadataFieldConstants.EnrichmentProviders,
+            entries,
+            ct).ConfigureAwait(false);
     }
 
 }
