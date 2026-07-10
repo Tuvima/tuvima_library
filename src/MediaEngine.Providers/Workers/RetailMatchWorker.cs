@@ -2217,7 +2217,7 @@ public sealed class RetailMatchWorker
                 identityBest = candidate;
         }
 
-        return identityBest ?? currentBest;
+        return identityBest;
     }
 
     private static bool IsIdentityPurpose(string? purpose) =>

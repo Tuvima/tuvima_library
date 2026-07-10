@@ -2464,8 +2464,8 @@ public sealed class DetailComposerService
             return false;
         }
 
-        var existingTitle = NormalizeSeriesTitle(existing.ContainerTitle);
-        var candidateTitle = NormalizeSeriesTitle(candidate.ContainerTitle);
+        var existingTitle = NormalizeSequenceContainerTitleForOptionMatch(existing.ContainerTitle);
+        var candidateTitle = NormalizeSequenceContainerTitleForOptionMatch(candidate.ContainerTitle);
         if (string.IsNullOrWhiteSpace(existingTitle)
             || !string.Equals(existingTitle, candidateTitle, StringComparison.OrdinalIgnoreCase))
         {
@@ -3384,6 +3384,32 @@ public sealed class DetailComposerService
 
         return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
+
+    private static string? NormalizeSequenceContainerTitleForOptionMatch(string? value)
+    {
+        var normalized = NormalizeSeriesTitle(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return normalized;
+        }
+
+        var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (words.Count > 1 && string.Equals(words[0], "the", StringComparison.OrdinalIgnoreCase))
+        {
+            words.RemoveAt(0);
+        }
+
+        while (words.Count > 1 && IsGenericSequenceContainerWord(words[^1]))
+        {
+            words.RemoveAt(words.Count - 1);
+        }
+
+        return words.Count == 0 ? normalized : string.Join(' ', words);
+    }
+
+    private static bool IsGenericSequenceContainerWord(string value)
+        => string.Equals(value, "collection", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(value, "series", StringComparison.OrdinalIgnoreCase);
 
     private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(Guid collectionId, Guid? rootWorkId, CancellationToken ct)
     {

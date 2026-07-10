@@ -402,6 +402,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-position-summary__donut", source);
         Assert.Contains("tl-series-position-summary__center", source);
         Assert.Contains("OnClick=\"() => SelectContainerAsync(option)\"", source);
+        Assert.Contains("DistinctAvailableContainers", source);
+        Assert.Contains("CanChooseDistinctContainer", source);
+        Assert.Contains("NormalizeContainerOptionTitle", source);
+        Assert.Contains("IsGenericContainerWord", source);
         Assert.Contains("=> OnContainerSelected.InvokeAsync(option)", source);
         Assert.DoesNotContain("Disabled=\"@option.IsSelected\"", source);
         Assert.DoesNotContain("Current position", source, StringComparison.OrdinalIgnoreCase);

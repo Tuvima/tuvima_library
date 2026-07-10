@@ -113,6 +113,40 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void IntegrationHarness_ReportShowsUtf8IssueCategoriesAndProviderProvenance()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+        var script = File.ReadAllText(GetRepoFilePath(@"tools\Run-FullIntegration.ps1"));
+
+        Assert.Contains("text/html; charset=utf-8", source, StringComparison.Ordinal);
+        Assert.Contains("File.WriteAllTextAsync(filePath, html, Encoding.UTF8, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("Results.Content(html, \"text/html; charset=utf-8\", Encoding.UTF8)", source, StringComparison.Ordinal);
+        Assert.Contains("CategorizeIssue", source, StringComparison.Ordinal);
+        Assert.Contains("Product data failure", source, StringComparison.Ordinal);
+        Assert.Contains("Harness expectation drift", source, StringComparison.Ordinal);
+        Assert.Contains("Provider/runtime transient", source, StringComparison.Ordinal);
+        Assert.Contains("Dashboard/API tracking", source, StringComparison.Ordinal);
+        Assert.Contains("Identity Provider", source, StringComparison.Ordinal);
+        Assert.Contains("Enrichment Providers", source, StringComparison.Ordinal);
+        Assert.Contains("Bridge Provider", source, StringComparison.Ordinal);
+        Assert.Contains("Bridge ID", source, StringComparison.Ordinal);
+        Assert.Contains("ArtworkCompleteness", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveIdentityProvider", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveEnrichmentProviders", source, StringComparison.Ordinal);
+        Assert.Contains("ProviderMatchesExpectation", source, StringComparison.Ordinal);
+        Assert.Contains("ProviderForExpectationComparison", source, StringComparison.Ordinal);
+        Assert.Contains("UsesIdentityProviderExpectation", source, StringComparison.Ordinal);
+        Assert.Contains("identity provider", source, StringComparison.Ordinal);
+        Assert.Contains("musicbrainz_recording_id", source, StringComparison.Ordinal);
+        Assert.Contains("apple_music_id", source, StringComparison.Ordinal);
+        Assert.Contains("BuildHarnessTitleMediaKeys", source, StringComparison.Ordinal);
+        Assert.Contains("NormalizeHarnessTitleKey", source, StringComparison.Ordinal);
+        Assert.Contains("TextEncodingRepair.RepairMojibake", source, StringComparison.Ordinal);
+        Assert.Contains("CharUnicodeInfo.GetUnicodeCategory", source, StringComparison.Ordinal);
+        Assert.Contains("-OutFile $OutputPath", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IntegrationHarness_ReadsCurrentSchemaGuidBlobs()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));

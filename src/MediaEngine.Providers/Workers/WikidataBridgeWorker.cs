@@ -849,14 +849,31 @@ public sealed class WikidataBridgeWorker
             await _timeline.RecordBridgeNoMatchAsync(
                 job.EntityId, job.IngestionRunId, ct);
 
+            var reviewCreated = ShouldCreateReviewForBridgeNoMatch(ctx);
+            if (reviewCreated)
+            {
+                await _outcomeFactory.CreateWikidataBridgeFailedAsync(
+                    job.EntityId,
+                    "Wikidata bridge resolution did not find a confirmed identity after the item had already been marked for review.",
+                    job.IngestionRunId,
+                    null,
+                    ct).ConfigureAwait(false);
+            }
+
             await TryOrganizeRetainedRetailIdentityAsync(job, ct);
             await MarkBridgeNoResultAsync(ctx.Operation, job, "No Wikidata candidate matched the retail bridge IDs or title hints.", ct).ConfigureAwait(false);
 
             _logger.LogInformation(
-                "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity without review [entity {EntityId}]",
-                ctx.TitleHint ?? "(unknown)", ctx.MediaType, ctx.BridgeIds.Count, job.EntityId);
+                "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity; review_created={ReviewCreated} [entity {EntityId}]",
+                ctx.TitleHint ?? "(unknown)", ctx.MediaType, ctx.BridgeIds.Count, reviewCreated, job.EntityId);
         }
     }
+
+    private static bool ShouldCreateReviewForBridgeNoMatch(JobContext ctx) =>
+        string.Equals(
+            ctx.Job.State,
+            IdentityJobState.RetailMatchedNeedsReview.ToString(),
+            StringComparison.OrdinalIgnoreCase);
 
     private async Task TryResolveComicSeriesRollupsAsync(
         IEnumerable<JobContext> contexts,

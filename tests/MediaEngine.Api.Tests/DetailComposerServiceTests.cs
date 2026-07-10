@@ -507,6 +507,26 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_MergesEquivalentSequenceContainerDisplayTitlesWithoutMediaSpecificRules()
+    {
+        var localCollection = new SequenceContainerOptionViewModel
+        {
+            ContainerId = Guid.NewGuid().ToString("D"),
+            ContainerTitle = "Example Collection",
+            MediaScope = "Watch",
+        };
+        var manifestSeries = new SequenceContainerOptionViewModel
+        {
+            ContainerId = "Q12345",
+            SourceContainerId = "Q12345",
+            ContainerTitle = "Example",
+            MediaScope = "Watch",
+        };
+
+        Assert.True(InvokePrivate<bool>("ShouldMergeSequenceContainerOptions", localCollection, manifestSeries));
+    }
+
+    [Fact]
     public void DetailComposer_FormatsRatingsAndUsesCreditImageFallbacks()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));

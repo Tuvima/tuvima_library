@@ -20,10 +20,10 @@
             {
                 <h2>@ContainerTitleDisplay</h2>
             }
-            @if (Placement.CanChooseContainer)
+            @if (CanChooseDistinctContainer)
             {
                 <div class="tl-series-selector">
-                    @foreach (var option in Placement.AvailableContainers)
+                    @foreach (var option in DistinctAvailableContainers)
                     {
                         <AppNativeButton Type="button" Class='@($"tl-series-selector__option {(option.IsSelected ? " is-selected" : null)}")' OnClick="() => SelectContainerAsync(option)">
                             @option.ContainerTitle
@@ -211,7 +211,9 @@
     private bool CanPageRight => WindowStart + VisibleCount < ActiveItems.Count;
     private string LeftArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--left{(CanPageLeft ? string.Empty : " is-hidden")}";
     private string RightArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--right{(CanPageRight ? string.Empty : " is-hidden")}";
-    private bool ShowSetDefault => _canCurateSequence && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
+    private IReadOnlyList<SequenceContainerOptionViewModel> DistinctAvailableContainers => BuildDistinctContainerOptions(Placement.AvailableContainers);
+    private bool CanChooseDistinctContainer => Placement.CanChooseContainer && DistinctAvailableContainers.Count > 1;
+    private bool ShowSetDefault => _canCurateSequence && CanChooseDistinctContainer && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
     private List<ChartSeries<double>> SequenceDonutSeries =>
     [
         new() { Name = Placement.ItemPluralLabel, Data = new ChartData<double>([Math.Max(OwnedCount, 0), Math.Max(MissingCount, 0)]) },
@@ -359,4 +361,134 @@
                 ? word
                 : textInfo.ToTitleCase(word)));
     }
+
+    private static IReadOnlyList<SequenceContainerOptionViewModel> BuildDistinctContainerOptions(IReadOnlyList<SequenceContainerOptionViewModel> options)
+    {
+        if (options.Count <= 1)
+            return options;
+
+        var distinct = new List<SequenceContainerOptionViewModel>();
+        foreach (var option in options)
+        {
+            var existingIndex = distinct.FindIndex(existing => ShouldMergeContainerOptions(existing, option));
+            if (existingIndex >= 0)
+            {
+                distinct[existingIndex] = MergeContainerOptions(distinct[existingIndex], option);
+                continue;
+            }
+
+            distinct.Add(option);
+        }
+
+        return distinct;
+    }
+
+    private static bool ShouldMergeContainerOptions(SequenceContainerOptionViewModel existing, SequenceContainerOptionViewModel candidate)
+    {
+        if (ContainerOptionMatches(existing, candidate.ContainerId)
+            || ContainerOptionMatches(existing, candidate.SourceContainerId)
+            || candidate.EquivalentContainerIds.Any(alias => ContainerOptionMatches(existing, alias)))
+        {
+            return true;
+        }
+
+        if (!string.Equals(existing.MediaScope, candidate.MediaScope, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return string.Equals(
+            NormalizeContainerOptionTitle(existing.ContainerTitle),
+            NormalizeContainerOptionTitle(candidate.ContainerTitle),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static SequenceContainerOptionViewModel MergeContainerOptions(SequenceContainerOptionViewModel existing, SequenceContainerOptionViewModel candidate)
+        => new()
+        {
+            ContainerId = PreferRoutableContainerId(existing.ContainerId, candidate.ContainerId),
+            SourceContainerId = FirstNonBlank(existing.SourceContainerId, candidate.SourceContainerId),
+            ContainerTitle = PreferContainerTitle(existing.ContainerTitle, candidate.ContainerTitle),
+            IsSelected = existing.IsSelected || candidate.IsSelected,
+            IsDefault = existing.IsDefault || candidate.IsDefault,
+            MediaScope = FirstNonBlank(existing.MediaScope, candidate.MediaScope),
+            EquivalentContainerIds = BuildContainerAliases(existing, candidate),
+        };
+
+    private static IReadOnlyList<string> BuildContainerAliases(SequenceContainerOptionViewModel existing, SequenceContainerOptionViewModel candidate)
+    {
+        var aliases = new List<string>();
+        AddContainerAlias(aliases, existing.ContainerId);
+        AddContainerAlias(aliases, existing.SourceContainerId);
+        AddContainerAlias(aliases, candidate.ContainerId);
+        AddContainerAlias(aliases, candidate.SourceContainerId);
+        foreach (var alias in existing.EquivalentContainerIds.Concat(candidate.EquivalentContainerIds))
+        {
+            AddContainerAlias(aliases, alias);
+        }
+
+        return aliases;
+    }
+
+    private static void AddContainerAlias(List<string> aliases, string? value)
+    {
+        var normalized = NormalizeContainerId(value);
+        if (!string.IsNullOrWhiteSpace(normalized)
+            && !aliases.Any(alias => string.Equals(NormalizeContainerId(alias), normalized, StringComparison.OrdinalIgnoreCase)))
+        {
+            aliases.Add(normalized);
+        }
+    }
+
+    private static bool ContainerOptionMatches(SequenceContainerOptionViewModel option, string? id)
+    {
+        var normalized = NormalizeContainerId(id);
+        return !string.IsNullOrWhiteSpace(normalized)
+               && (string.Equals(NormalizeContainerId(option.ContainerId), normalized, StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(NormalizeContainerId(option.SourceContainerId), normalized, StringComparison.OrdinalIgnoreCase)
+                   || option.EquivalentContainerIds.Any(alias => string.Equals(NormalizeContainerId(alias), normalized, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string? NormalizeContainerId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        if (trimmed.Contains('/', StringComparison.Ordinal))
+            trimmed = trimmed[(trimmed.LastIndexOf('/') + 1)..];
+
+        return trimmed;
+    }
+
+    private static string PreferRoutableContainerId(string existing, string candidate)
+        => Guid.TryParse(existing, out _) ? existing : Guid.TryParse(candidate, out _) ? candidate : existing;
+
+    private static string PreferContainerTitle(string existing, string candidate)
+        => string.IsNullOrWhiteSpace(existing) || LooksLikeContainerId(existing) ? candidate : existing;
+
+    private static bool LooksLikeContainerId(string? value)
+        => Guid.TryParse(value, out _)
+           || (!string.IsNullOrWhiteSpace(value) && value.Length > 1 && value[0] == 'Q' && value.Skip(1).All(char.IsDigit))
+           || (!string.IsNullOrWhiteSpace(value) && value.Contains(':', StringComparison.Ordinal));
+
+    private static string? NormalizeContainerOptionTitle(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = new string(value.Trim().ToLowerInvariant()
+            .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
+            .ToArray());
+        var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (words.Count > 1 && words[0] == "the")
+            words.RemoveAt(0);
+
+        while (words.Count > 1 && IsGenericContainerWord(words[^1]))
+            words.RemoveAt(words.Count - 1);
+
+        return words.Count == 0 ? null : string.Join(' ', words);
+    }
+
+    private static bool IsGenericContainerWord(string value)
+        => string.Equals(value, "collection", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(value, "series", StringComparison.OrdinalIgnoreCase);
 }
