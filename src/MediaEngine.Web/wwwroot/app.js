@@ -404,13 +404,14 @@ window.positionMediaTileHover = function (cardEl) {
         panel.style.removeProperty('--media-tile-hover-max-height');
         panel.style.removeProperty('--media-tile-hover-art-max-height');
         panel.style.setProperty('--media-tile-hover-anchor-width', Math.round(cardRect.width) + 'px');
-        panel.style.setProperty('--media-tile-hover-max-height', Math.max(180, viewportHeight - (gutter * 2)) + 'px');
+        panel.style.setProperty('--media-tile-hover-anchor-height', Math.round(cardRect.height) + 'px');
+        panel.style.setProperty('--media-tile-hover-max-height', Math.round(cardRect.height) + 'px');
         panel.style.left = '';
         panel.style.top = '';
 
         var body = panel.querySelector('.media-tile-hover-body');
         var bodyHeight = body ? body.getBoundingClientRect().height : 0;
-        panel.style.setProperty('--media-tile-hover-art-max-height', Math.max(96, viewportHeight - (gutter * 2) - bodyHeight) + 'px');
+        panel.style.setProperty('--media-tile-hover-art-max-height', Math.round(cardRect.height) + 'px');
 
         var panelRect = panel.getBoundingClientRect();
         var panelStyle = window.getComputedStyle ? window.getComputedStyle(panel) : null;
@@ -442,7 +443,10 @@ window.positionMediaTileHover = function (cardEl) {
 
         panelHeight = Math.max(panelHeight, Math.min(estimatedPanelHeight, viewportHeight - (gutter * 2)));
 
-        var panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);
+        var panelLeft = cardRect.left;
+        if (cardRect.left + panelWidth > viewportWidth - gutter) {
+            panelLeft = cardRect.right - panelWidth;
+        }
         var minLeft = gutter;
         var maxLeft = viewportWidth - gutter - panelWidth;
         if (maxLeft < minLeft) {
@@ -451,14 +455,7 @@ window.positionMediaTileHover = function (cardEl) {
             panelLeft = Math.min(Math.max(panelLeft, minLeft), maxLeft);
         }
 
-        var panelTop = cardRect.top - 10;
-        var minTop = gutter;
-        var maxTop = viewportHeight - gutter - panelHeight;
-        if (maxTop < minTop) {
-            panelTop = minTop;
-        } else {
-            panelTop = Math.min(Math.max(panelTop, minTop), maxTop);
-        }
+        var panelTop = cardRect.top;
 
         panel.style.setProperty('--media-tile-hover-left', Math.round(panelLeft) + 'px');
         panel.style.setProperty('--media-tile-hover-top', Math.round(panelTop) + 'px');
@@ -477,46 +474,10 @@ window.correctMediaTileHoverViewport = function (cardEl) {
     var panel = cardEl.__mediaTileHoverPanel || cardEl.querySelector('.media-tile-hover-panel');
     if (!panel || !panel.classList.contains('is-visible')) return;
 
-    var viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    var viewportHeight = document.documentElement.clientHeight || window.innerHeight;
-    var gutter = 12;
-    var panelRect = panel.getBoundingClientRect();
-    var panelTop = parseFloat(panel.style.getPropertyValue('--media-tile-hover-top'));
-    var panelLeft = parseFloat(panel.style.getPropertyValue('--media-tile-hover-left'));
-
-    if (!Number.isFinite(panelTop)) {
-        panelTop = panelRect.top;
-    }
-
-    if (!Number.isFinite(panelLeft)) {
-        panelLeft = panelRect.left;
-    }
-
-    var overflowBottom = panelRect.bottom - (viewportHeight - gutter);
-    if (overflowBottom > 0) {
-        panelTop -= overflowBottom;
-    }
-
-    var overflowTop = gutter - panelRect.top;
-    if (overflowTop > 0) {
-        panelTop += overflowTop;
-    }
-
-    var overflowRight = panelRect.right - (viewportWidth - gutter);
-    if (overflowRight > 0) {
-        panelLeft -= overflowRight;
-    }
-
-    var overflowLeft = gutter - panelRect.left;
-    if (overflowLeft > 0) {
-        panelLeft += overflowLeft;
-    }
-
-    var maxLeft = Math.max(gutter, viewportWidth - gutter - panelRect.width);
-    var maxTop = Math.max(gutter, viewportHeight - gutter - panelRect.height);
-    panel.style.setProperty('--media-tile-hover-left', Math.round(Math.min(Math.max(gutter, panelLeft), maxLeft)) + 'px');
-    panel.style.setProperty('--media-tile-hover-top', Math.round(Math.min(Math.max(gutter, panelTop), maxTop)) + 'px');
-    window.shiftMediaTileHoverRow(cardEl);
+    window.positionMediaTileHover(cardEl);
+    window.requestAnimationFrame(function () {
+        window.shiftMediaTileHoverRow(cardEl);
+    });
 };
 
 window.scheduleMediaTileHoverViewportCorrection = function (cardEl) {
@@ -540,6 +501,30 @@ window.mountMediaTileHover = function (cardEl) {
 
     if (!Object.prototype.hasOwnProperty.call(panel, '__mediaTileHoverOriginalNextSibling')) {
         panel.__mediaTileHoverOriginalNextSibling = panel.nextSibling;
+    }
+
+    if (window.getComputedStyle) {
+        var cardStyle = window.getComputedStyle(cardEl);
+        [
+            '--media-tile-accent',
+            '--media-tile-secondary-accent',
+            '--media-tile-action-accent',
+            '--media-tile-progress-accent',
+            '--art-bg-base',
+            '--art-bg-base-dark',
+            '--art-bg-accent',
+            '--art-bg-accent-muted',
+            '--art-bg-glow',
+            '--art-bg-glow-secondary',
+            '--art-bg-border',
+            '--art-bg-shadow',
+            '--art-bg-overlay'
+        ].forEach(function (propertyName) {
+            var propertyValue = cardStyle.getPropertyValue(propertyName);
+            if (propertyValue) {
+                panel.style.setProperty(propertyName, propertyValue.trim());
+            }
+        });
     }
 
     var mountParent = window.getMediaTileHoverHost();
@@ -686,10 +671,10 @@ window.unlockMediaTileHoverRowScroll = function (cardEl) {
 window.clearMediaTileHoverRowShift = function (cardEl) {
     if (!cardEl) return;
 
-    var scrollEl = cardEl.__mediaTileHoverScrollElement || cardEl.closest('.media-tile-shelf-scroll');
-    if (!scrollEl) return;
+    var rowContainer = cardEl.__mediaTileHoverScrollElement || cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid');
+    if (!rowContainer) return;
 
-    scrollEl.querySelectorAll('.media-tile.is-row-shifted').forEach(function (tile) {
+    rowContainer.querySelectorAll('.media-tile.is-row-shifted').forEach(function (tile) {
         tile.classList.remove('is-row-shifted');
         tile.style.removeProperty('--media-tile-row-shift-x');
     });
@@ -699,8 +684,8 @@ window.shiftMediaTileHoverRow = function (cardEl) {
     if (!cardEl) return;
 
     var panel = cardEl.__mediaTileHoverPanel || cardEl.querySelector('.media-tile-hover-panel');
-    var scrollEl = cardEl.__mediaTileHoverScrollElement || cardEl.closest('.media-tile-shelf-scroll');
-    if (!panel || !scrollEl || !panel.classList.contains('is-visible')) return;
+    var rowContainer = cardEl.__mediaTileHoverScrollElement || cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid');
+    if (!panel || !rowContainer || !panel.classList.contains('is-visible')) return;
 
     window.clearMediaTileHoverRowShift(cardEl);
 
@@ -708,12 +693,15 @@ window.shiftMediaTileHoverRow = function (cardEl) {
     var panelRect = panel.getBoundingClientRect();
     var leftExpansion = Math.max(0, cardRect.left - panelRect.left + 10);
     var rightExpansion = Math.max(0, panelRect.right - cardRect.right + 10);
-    var cards = Array.from(scrollEl.querySelectorAll('.media-tile'));
+    var cards = Array.from(rowContainer.querySelectorAll('.media-tile'));
     var activeIndex = cards.indexOf(cardEl);
     if (activeIndex < 0) return;
 
     cards.forEach(function (tile, index) {
         if (tile === cardEl) return;
+
+        var tileRect = tile.getBoundingClientRect();
+        if (Math.abs(tileRect.top - cardRect.top) > Math.max(8, cardRect.height * 0.25)) return;
 
         var shift = index < activeIndex ? -leftExpansion : rightExpansion;
         if (Math.abs(shift) < 1) return;
@@ -815,6 +803,7 @@ window.clearMediaTileHover = function (cardEl) {
         panel.style.removeProperty('--media-tile-hover-left');
         panel.style.removeProperty('--media-tile-hover-top');
         panel.style.removeProperty('--media-tile-hover-anchor-width');
+        panel.style.removeProperty('--media-tile-hover-anchor-height');
         panel.style.removeProperty('--media-tile-hover-max-height');
         panel.style.removeProperty('--media-tile-hover-art-max-height');
         panel.style.left = '';

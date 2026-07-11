@@ -2,6 +2,7 @@ using Bunit;
 using MediaEngine.Web.Components.MediaTiles;
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 
@@ -50,6 +51,10 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Empty(cut.FindAll(".media-tile-source-badge"));
         Assert.Empty(cut.FindAll(".media-tile-progress-strip"));
         Assert.Empty(cut.FindAll(".media-tile-logo"));
+        Assert.NotEmpty(cut.FindAll("div[style*='display: contents']"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-cover-stage.is-book-stage"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-book-pages"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-book-spine"));
         Assert.Contains("Leviathan Wakes", cut.Find(".media-tile-hover-title").TextContent);
         Assert.Contains("The Expanse, Book 1", cut.Find(".media-tile-hover-subtitle").TextContent);
         Assert.Contains("592 pages", cut.Markup);
@@ -59,6 +64,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-progress"));
+
+        cut.Find(".media-tile").TriggerEvent("onkeydown", new KeyboardEventArgs { Key = "ArrowDown" });
+        Assert.Contains("is-expanded", cut.Find(".media-tile").ClassList);
     }
 
     [Fact]
@@ -167,12 +175,20 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
         var appJs = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.js"));
 
-        Assert.Contains("grid-template-columns: minmax(280px, 1fr) minmax(210px, 0.72fr)", css);
-        Assert.Contains("--media-tile-media-height: clamp(300px, 23vw, 390px)", css);
+        Assert.Contains("grid-template-columns: minmax(520px, 1.25fr) minmax(360px, .75fr)", css);
+        Assert.Contains("--media-tile-media-height: clamp(400px, 25vw, 500px)", css);
+        Assert.Contains(".media-tile-book-pages", css);
+        Assert.Contains("background: transparent", css);
         Assert.Contains(".media-tile-feedback-control:focus-within", css);
-        Assert.Contains("width: 138px", css);
+        Assert.Contains("width: 188px", css);
+        Assert.Contains("--media-tile-hover-anchor-height", css);
+        Assert.Contains("clamp(820px, 52vw, 980px)", css);
+        Assert.Contains("object-fit: contain", css);
+        Assert.Contains("var(--art-bg-base-dark, #080c12)", css);
         Assert.Contains("window.shiftMediaTileHoverRow", appJs);
         Assert.Contains("--media-tile-row-shift-x", appJs);
+        Assert.Contains("cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid')", appJs);
+        Assert.Contains("var panelTop = cardRect.top;", appJs);
         Assert.Contains("window.clearMediaTileHoverRowShift", appJs);
     }
 

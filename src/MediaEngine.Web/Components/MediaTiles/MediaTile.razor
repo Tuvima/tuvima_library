@@ -11,11 +11,13 @@
 @inject IServiceProvider Services
 @implements IAsyncDisposable
 
+<AppCssElement Tag="div"
+               Css="@PaletteScopeStyle">
 <div class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")} {(_dismissedFromContinue ? "is-dismissed" : "")}")'
      @ref="_cardRef"
      tabindex="0"
      aria-label="@Item.Title"
-     @onkeydown="@HandleKeyDown">
+     @onkeydown="HandleKeyDown">
     <div class="media-tile-frame">
         <div class="media-tile-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenDetails">
             @if (ShowCollectionBanner)
@@ -87,14 +89,21 @@
                      @onclick:stopPropagation="true">
                     @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
                     {
-                        <img src="@ActiveHoverImageUrl"
-                             srcset="@Item.HoverImageSrcSet"
-                             sizes="@Item.HoverImageSizes"
-                             alt="@Item.Title"
-                             class="media-tile-hover-image @HoverImageFitClass"
-                             loading="lazy"
-                             decoding="async"
-                             @onerror="HandleHoverImageError" />
+                        <div class="@HoverCoverStageClass">
+                            @if (UseBookPageTreatment)
+                            {
+                                <span class="media-tile-book-pages" aria-hidden="true"></span>
+                                <span class="media-tile-book-spine" aria-hidden="true"></span>
+                            }
+                            <img src="@ActiveHoverImageUrl"
+                                 srcset="@Item.HoverImageSrcSet"
+                                 sizes="@Item.HoverImageSizes"
+                                 alt="@Item.Title"
+                                 class="media-tile-hover-image @HoverImageFitClass"
+                                 loading="lazy"
+                                 decoding="async"
+                                 @onerror="HandleHoverImageError" />
+                        </div>
                     }
                     else
                     {
@@ -152,17 +161,16 @@
                                         <MudIcon Icon="@Icons.Material.Outlined.Add" />
                                         <span class="media-tile-visually-hidden">Add to Collection</span>
                                     </AppNativeButton>
-                                    <span class="media-tile-hover-action-label">Add</span>
                                 </div>
 
                                 <div class="media-tile-hover-action-unit media-tile-hover-action-unit-feedback">
                                     <div class="media-tile-feedback-control" role="group" aria-label="Rate this title">
                                         <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-dislike-action")" AriaLabel="Dislike" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbDown" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
                                             <span class="media-tile-visually-hidden">Dislike</span>
                                         </AppNativeButton>
                                         <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Like, "media-tile-like-action")" AriaLabel="Like" Title="I like this" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Like))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbUp" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
                                             <span class="media-tile-visually-hidden">Like</span>
                                         </AppNativeButton>
                                         <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Love, "media-tile-love-action")" AriaLabel="Love" Title="I love this" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Love))">
@@ -178,7 +186,6 @@
                                     <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
                                     <span class="media-tile-visually-hidden">Details</span>
                                 </AppNativeButton>
-                                <span class="media-tile-hover-action-label">Details</span>
                             </div>
                         </div>
 
@@ -213,6 +220,10 @@
                                         <span>@RatingFactDisplay</span>
                                     </span>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(HoverKindFact))
+                                {
+                                    <span class="media-tile-hover-fact media-tile-hover-kind">@HoverKindFact</span>
+                                }
                                 @foreach (var fact in DisplayHoverFacts)
                                 {
                                     <span class="@HoverFactClass(fact)">@fact</span>
@@ -226,6 +237,7 @@
         </MediaTileOverlay>
     }
 </div>
+</AppCssElement>
 
 @code {
     [Parameter, EditorRequired] public MediaTileViewModel Item { get; set; } = default!;
@@ -268,6 +280,27 @@
     };
 
     private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
+
+    private string TileStyle => $"{Item.ArtworkPalette?.CssVariableStyle} --media-tile-accent: {Item.AccentColor}; --media-tile-secondary-accent: {Item.SecondaryAccentColor};";
+
+    private string PaletteScopeStyle => $"display: contents; {TileStyle}";
+
+    private bool UseBookPageTreatment =>
+        Item.MediaKind == "Book"
+        && Item.HoverLayout == MediaTileHoverLayout.ArtOnlyPopover
+        && !Item.IsCollection;
+
+    private string HoverCoverStageClass =>
+        $"media-tile-hover-cover-stage {(UseBookPageTreatment ? "is-book-stage" : string.Empty)}";
+
+    private string? HoverKindFact => Item.MediaKind switch
+    {
+        "Book" => "Book",
+        "Comic" => "Comic",
+        "Audiobook" => "Audiobook",
+        "Music" => "Music",
+        _ => null,
+    };
 
     private string ShapeClass => Item.Shape switch
     {
@@ -919,7 +952,11 @@
 
     private void HandleKeyDown(KeyboardEventArgs args)
     {
-        if (args.Key is "Enter" or " ")
+        if (args.Key == "ArrowDown" && IsHoverEnabled)
+        {
+            _expanded = true;
+        }
+        else if (args.Key is "Enter" or " ")
         {
             OpenDetails();
         }

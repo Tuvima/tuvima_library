@@ -64,7 +64,7 @@
         --media-tile-shelf-arrow-rail: 64px;
         display: grid;
         grid-template-columns: var(--media-tile-shelf-arrow-rail) minmax(0, 1fr) var(--media-tile-shelf-arrow-rail);
-        align-items: start;
+        align-items: stretch;
         position: relative;
         overflow: visible;
     }
@@ -97,11 +97,13 @@
     .media-tile-shelf-arrow-slot {
         --media-tile-hover-lift: clamp(12px, 1.8vw, 18px);
         min-width: 0;
-        min-height: calc(var(--media-tile-hover-lift) + 8px + var(--media-tile-media-height) + 12px);
+        min-height: 0;
+        align-self: stretch;
         display: flex;
         align-items: center;
         justify-content: center;
         padding-top: calc(var(--media-tile-hover-lift) + 8px);
+        padding-bottom: 12px;
         box-sizing: border-box;
     }
 
