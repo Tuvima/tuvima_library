@@ -22,7 +22,7 @@
     --hero-focus-x: 68%;
     --hero-focus-y: 42%;
     position: relative;
-    min-height: clamp(680px, 86vh, 920px);
+    min-height: 1000px;
     overflow: hidden;
     isolation: isolate;
     background-color: rgb(var(--hero-shadow-rgb));
@@ -162,14 +162,21 @@
 }
 
 ::deep .tl-detail-hero--watch {
-    min-height: calc(100vh - 5.75rem);
-    min-height: calc(100dvh - 5.75rem);
+    min-height: 1000px;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
-    background-size: cover;
+    background-size: contain;
     background-position: right center;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
+    z-index: 1;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-media-stage__overlay {
+    z-index: 2;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__overlays,
@@ -206,7 +213,7 @@
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
     ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
-        background-size: cover;
+        background-size: contain;
         background-position: right center;
     }
 }
@@ -227,8 +234,7 @@
 }
 
 ::deep .tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch) {
-    min-height: calc(100vh - 5.75rem);
-    min-height: calc(100dvh - 5.75rem);
+    min-height: 1000px;
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch),
@@ -2537,13 +2543,19 @@
     width: auto;
     min-height: clamp(3.9rem, 5vw, 4.25rem);
     padding-inline: clamp(2rem, 3vw, 2.85rem);
-    border: 1px solid rgba(255, 225, 155, 0.78);
+    border: 1px solid rgba(216, 180, 254, 0.88);
     border-radius: 0.52rem;
-    background: linear-gradient(180deg, #ffd76a 0%, #f1b53f 58%, #d99829 100%);
-    color: #07080b;
+    background:
+        radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.22), transparent 34%),
+        linear-gradient(180deg, var(--tl-accent-primary, #8b5cf6) 0%, var(--tl-accent-primary-active, #7652d6) 100%);
+    color: #fff;
     font-size: clamp(1.08rem, 1.45vw, 1.28rem);
     font-weight: 900;
-    box-shadow: 0 0.85rem 2rem rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+    box-shadow:
+        0 0 0 1px rgba(196, 181, 253, 0.24),
+        0 0 28px rgba(139, 92, 246, 0.48),
+        0 16px 34px rgba(139, 92, 246, 0.34),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 ::deep .tl-detail-actions--watch .tl-detail-action--primary .mud-icon-root {
@@ -2552,7 +2564,11 @@
 
 ::deep .tl-detail-actions--watch .tl-detail-action--primary:hover,
 ::deep .tl-detail-actions--watch .tl-detail-action--primary:focus-visible {
-    background: linear-gradient(180deg, #ffe07d 0%, #f6be4a 58%, #e0a22d 100%);
+    border-color: #ddd6fe;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 86%, white 14%) 0%,
+        var(--tl-accent-primary-active, #7652d6) 100%);
 }
 
 ::deep .tl-detail-secondary-action--watch {
@@ -5426,26 +5442,28 @@
    fallback text presentation must not. */
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy h1,
 ::deep .tl-audio-detail__copy h1 {
-    max-width: 16ch;
+    max-width: 15ch;
     margin: 0;
-    font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
-    font-size: clamp(3rem, 7vw, 6.6rem);
-    font-weight: var(--media-identity-title-weight, 850);
-    line-height: var(--media-identity-title-line-height, .96);
-    letter-spacing: var(--media-identity-title-letter-spacing, 0);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(3.25rem, 6vw, 6.35rem);
+    font-weight: 500;
+    line-height: .94;
+    letter-spacing: -.018em;
     text-transform: none;
     text-wrap: balance;
 }
 
 ::deep .tl-detail-hero.tl-detail-hero--title-long:not(.tl-detail-hero--person) .tl-detail-hero__copy h1,
 ::deep .tl-audio-detail__hero--title-long .tl-audio-detail__copy h1 {
-    font-size: clamp(2.65rem, 5.8vw, 5.35rem);
-    line-height: .98;
+    max-width: 18ch;
+    font-size: clamp(2.55rem, 4.8vw, 4.8rem);
+    line-height: .97;
 }
 
 ::deep .tl-detail-hero.tl-detail-hero--title-dense:not(.tl-detail-hero--person) .tl-detail-hero__copy h1,
 ::deep .tl-audio-detail__hero--title-dense .tl-audio-detail__copy h1 {
-    font-size: clamp(2.2rem, 4.7vw, 4.35rem);
+    max-width: 22ch;
+    font-size: clamp(2.15rem, 3.8vw, 3.75rem);
     line-height: 1;
 }
 

@@ -189,8 +189,6 @@
     </MudMainContent>
 </MudLayout>
 
-<div id="media-tile-hover-host" class="media-tile-hover-host"></div>
-
 <ListenNowPlayingBar />
 
 @code {
@@ -625,17 +623,6 @@
 
     .skip-to-content:focus {
         transform: translateY(0);
-    }
-
-    .media-tile-hover-host {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 4000;
-    }
-
-    .media-tile-hover-host > .media-tile-hover-panel {
-        pointer-events: auto;
     }
 
     .layout-shell__engine-banner {

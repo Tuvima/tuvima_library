@@ -171,10 +171,11 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void MediaTile_CssAndJavascriptProvideWideFallbackAndSiblingShift()
+    public void MediaTile_CssAndJavascriptProvideWideFallbackAndInRowExpansion()
     {
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
         var appJs = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.js"));
+        var layout = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Shared/MainLayout.razor"));
 
         Assert.Contains("grid-template-columns: minmax(520px, 1.25fr) minmax(360px, .75fr)", css);
         Assert.Contains("--media-tile-media-height: clamp(400px, 25vw, 500px)", css);
@@ -188,13 +189,18 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("var(--art-bg-base-dark, #080c12)", css);
         Assert.Contains("filter: blur(42px) saturate(1.18) brightness(.72)", css);
         Assert.Contains("width: fit-content", css);
-        Assert.Contains("window.shiftMediaTileHoverRow", appJs);
-        Assert.Contains("--media-tile-row-shift-x", appJs);
+        Assert.Contains(".media-tile-hover-panel.is-inline-expanded", css);
+        Assert.Contains("width .32s cubic-bezier(.16, 1, .3, 1)", css);
+        Assert.Contains("panel.classList.add('is-inline-expanded')", appJs);
+        Assert.Contains("cardEl.style.setProperty('--media-tile-hover-anchor-width'", appJs);
+        Assert.Contains("cardEl.style.setProperty('--media-tile-hover-anchor-height'", appJs);
         Assert.Contains("cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid')", appJs);
-        Assert.Contains("var panelTop = cardRect.top;", appJs);
         Assert.Contains("previousCard && previousCard !== cardEl", appJs);
-        Assert.Contains("}, 360);", appJs);
-        Assert.Contains("window.clearMediaTileHoverRowShift", appJs);
+        Assert.Contains("}, 180);", appJs);
+        Assert.DoesNotContain("window.mountMediaTileHover(cardEl);", appJs);
+        Assert.DoesNotContain("window.lockMediaTileHoverRowScroll(cardEl);", appJs);
+        Assert.DoesNotContain("position: fixed !important", css);
+        Assert.DoesNotContain("media-tile-hover-host", layout);
     }
 
     private static string FindRepoRoot()

@@ -80,8 +80,7 @@
 
     @if (IsHoverEnabled)
     {
-        <MediaTileOverlay>
-            <div class="@HoverPanelClass"
+        <div class="@HoverPanelClass"
                  @onclick="OpenDetails"
                  @onclick:stopPropagation="true">
                 <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
@@ -233,8 +232,7 @@
 
                     </div>
                 }
-            </div>
-        </MediaTileOverlay>
+        </div>
     }
 </div>
 </AppCssElement>

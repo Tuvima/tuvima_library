@@ -50,10 +50,14 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("background-size: cover", styles);
         Assert.Contains("background-position: var(--hero-image-position, center right)", styles);
         Assert.Contains("background-position: right center", styles);
-        Assert.DoesNotContain("background-size: contain", styles);
+        Assert.Contains("background-size: contain", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-hero__artwork", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork::after", styles);
-        Assert.Contains("min-height: clamp(680px, 86vh, 920px)", styles);
+        Assert.Contains("min-height: 1000px", styles);
+        Assert.Contains("font-family: Georgia, \"Times New Roman\", serif", styles);
+        Assert.Contains("font-weight: 500", styles);
+        Assert.Contains("max-width: 22ch", styles);
+        Assert.DoesNotContain("min-height: calc(100dvh - 5.75rem)", styles);
         Assert.DoesNotContain("tl-detail-backdrop", styles);
         Assert.DoesNotContain("tl-hero-art", styles);
         Assert.DoesNotContain("var(--tl-detail-accent) 30%", styles);
@@ -105,6 +109,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
         Assert.Contains("background: rgba(20, 23, 28, 0.78)", styles);
+        Assert.Contains("border: 1px solid rgba(216, 180, 254, 0.88)", styles);
+        Assert.Contains("linear-gradient(180deg, var(--tl-accent-primary, #8b5cf6) 0%, var(--tl-accent-primary-active, #7652d6) 100%)", styles);
+        Assert.Contains("0 0 28px rgba(139, 92, 246, 0.48)", styles);
         Assert.Contains("IsDetailShell", layout);
         Assert.Contains("layout-shell__appbar--detail", layout);
         Assert.Contains("MainContainerClass", layout);
@@ -113,6 +120,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains(".layout-shell__appbar--detail", layoutStyles);
         Assert.Contains("body:has(.tl-detail-page) .main-content-with-topbar", appStyles);
         Assert.Contains(".layout-shell__appbar--detail", appStyles);
+        Assert.Contains("padding-top: 0 !important", layoutStyles);
+        Assert.Contains("background: rgba(8, 12, 18, 0.68) !important", layoutStyles);
+        Assert.Contains("backdrop-filter: blur(18px) saturate(1.12)", layoutStyles);
+        Assert.Contains("body:has(.tl-detail-page) .layout-shell__appbar", appStyles);
+        Assert.Contains("background: transparent !important", appStyles);
     }
 
     [Fact]

@@ -26,7 +26,6 @@ The Dashboard is organized around discovery and media use, not a separate media 
 - Profile switcher.
 - Engine health/status copy.
 - Command palette host.
-- Global overlay host.
 - Persistent Listen now-playing bar.
 - Device context initialization.
 - Keyboard shortcut registration and unregister on disposal.
@@ -53,6 +52,8 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 - `/settings` and `/settings/{Section}` are Settings/Admin.
 
 `LibraryBrowsePage` and `LaneLandingView` render cinematic spotlight-and-shelf discovery surfaces. `MediaBrowseShell` provides shared detailed browse behavior for current media lane tab routes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
+
+Desktop `MediaTile` previews expand the tile's flex item inside its existing shelf row. The resting cover is replaced at the same vertical position, neighboring cards shift horizontally, and leaving the preview restores the row. Media previews must not be portaled into a fixed overlay host or drawn over cards in another shelf.
 
 ## Sequence, Attribution, And Artwork Display
 
