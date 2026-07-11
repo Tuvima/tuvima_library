@@ -36,11 +36,30 @@ public sealed class DisplayCardBuilder
         };
     }
 
-    public DisplayCardDto FromJourney(DisplayJourneyRow row, string context)
+    public DisplayCardDto FromJourney(DisplayJourneyRow row, string context, IReadOnlyList<DisplayCardDto>? tvShowCards = null)
     {
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(row.MediaType);
         var title = DisplayTitleFor(mediaKind, row.Title, row.Series, row.SeriesPosition);
         var action = PrimaryAction(row.AssetId, row.WorkId, row.CollectionId, mediaKind, row.ProgressPct);
+        if (mediaKind == "TV" && tvShowCards is not null)
+        {
+            var showCard = tvShowCards.FirstOrDefault(card =>
+                !string.IsNullOrWhiteSpace(row.ShowName)
+                && string.Equals(card.Title, row.ShowName, StringComparison.OrdinalIgnoreCase));
+            if (showCard is not null)
+            {
+                var showRoute = showCard.Actions.FirstOrDefault()?.WebUrl;
+                var resumeAction = action with { WebUrl = showRoute };
+                return showCard with
+                {
+                    TileTextMode = string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
+                    Progress = ToProgress(row, resumeAction),
+                    Actions = [resumeAction, .. showCard.Actions],
+                    SortTimestamp = row.LastAccessed,
+                };
+            }
+        }
+
         return new DisplayCardDto(
             Id: row.WorkId,
             WorkId: row.WorkId,

@@ -51,6 +51,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("background-position: var(--hero-image-position, center right)", styles);
         Assert.Contains("background-position: right center", styles);
         Assert.Contains("background-size: contain", styles);
+        Assert.Contains("tl-detail-media-stage--background::before", styles);
+        Assert.Contains("mask-image: linear-gradient(to right", styles);
+        Assert.Contains("background-size: cover", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-hero__artwork", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork::after", styles);
         Assert.Contains("min-height: 1000px", styles);
@@ -189,12 +192,17 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("watch-party", composer);
         Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", composer);
         Assert.Contains("IsStub = true", composer);
-        Assert.Contains("Label = \"Watchlist\"", composer);
+        Assert.Contains("Label = \"My List\"", composer);
         Assert.Contains("=> \"Want to Read\"", composer);
         Assert.Contains("=> \"Want to Listen\"", composer);
         Assert.Contains("BuildFavoriteAction", composer);
-        Assert.DoesNotContain("BuildReactionAction", composer);
-        Assert.DoesNotContain("reaction-menu", composer);
+        Assert.Contains("BuildReactionAction", composer);
+        Assert.Contains("reaction-menu", composer);
+        Assert.Contains("reaction-dislike", composer);
+        Assert.Contains("reaction-like", composer);
+        Assert.Contains("reaction-love", composer);
+        Assert.Contains("tl-detail-flat-action", source);
+        Assert.Contains("ReactionStateClass", source);
         Assert.Contains("border-radius: 0.5rem", styles);
         Assert.Contains("border-radius: 0.75rem", styles);
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-genre-chip", styles);
@@ -243,11 +251,18 @@ public sealed class UnifiedDetailComponentTests
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/EpisodesTab.razor");
 
-        Assert.Contains("VisibleGroups.Count > 1", source);
-        Assert.Contains("<AppNativeSelect Value=\"@SelectedKey\" OnChange=\"SelectSeason\">", source);
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+
+        Assert.Contains("VisibleGroups.Count > 0", source);
+        Assert.Contains("Disabled=\"@(VisibleGroups.Count == 1)\"", source);
+        Assert.Contains("<AppNativeSelect Value=\"@SelectedKey\" OnChange=\"SelectSeason\"", source);
         Assert.Contains("<option value=\"@group.Key\">@group.Title</option>", source);
         Assert.Contains("VisibleGroups[0].Key", source);
         Assert.Contains("episode.IsOwned && episode.Actions.Any", source);
+        Assert.Contains("tl-episode-grid", source);
+        Assert.Contains("tl-episode-card__play", source);
+        Assert.Contains("grid-template-columns: repeat(4, minmax(0, 1fr))", styles);
+        Assert.Contains("var(--tl-accent-primary, #8b5cf6)", styles);
     }
 
     [Fact]

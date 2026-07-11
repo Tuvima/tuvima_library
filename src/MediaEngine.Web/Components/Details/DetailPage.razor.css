@@ -173,7 +173,45 @@
 
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
     z-index: 1;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
+    mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
 }
+
+/* Fill the 1000px canvas edge-to-edge without sacrificing the complete 16:9 frame. */
+::deep .tl-detail-hero--watch .tl-detail-media-stage--background::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: var(--hero-image-position, center right);
+    background-repeat: no-repeat;
+    filter: saturate(0.88) brightness(0.58);
+    opacity: 0.92;
+}
+
+::deep .tl-detail-hero--backdrop .tl-detail-media-stage--background::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: var(--hero-image-position, center right);
+    background-repeat: no-repeat;
+    filter: saturate(0.88) brightness(0.58);
+    opacity: 0.92;
+}
+
+::deep .tl-detail-hero--backdrop .tl-detail-media-stage__background {
+    z-index: 1;
+    background-size: contain;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
+    mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
+}
+
+::deep .tl-detail-hero--backdrop .tl-detail-media-stage__overlay { z-index: 2; }
 
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__overlay {
     z-index: 2;
@@ -5436,6 +5474,269 @@
         grid-column: 2;
         grid-row: 1;
     }
+}
+
+/* Cinematic hero controls: a prominent transport row and flat utilities below. */
+::deep .tl-detail-actions--watch {
+    display: grid;
+    justify-items: start;
+    gap: 1rem;
+    width: min(46rem, 100%);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-primary-actions {
+    display: grid;
+    grid-template-columns: minmax(15rem, 1.55fr) minmax(10rem, 1fr);
+    width: 100%;
+    gap: 0.75rem;
+}
+
+::deep .tl-detail-actions--watch .tl-detail-primary-actions:has(> :only-child) {
+    grid-template-columns: minmax(18rem, 34rem);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-action--primary {
+    width: 100%;
+    min-height: 4.8rem;
+    border-radius: 0.5rem;
+    font-size: clamp(1.2rem, 1.5vw, 1.45rem);
+}
+
+::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary,
+::deep .tl-detail-hero--listen:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary,
+::deep .tl-detail-hero--music:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary,
+::deep .tl-detail-hero--fallback-surface:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary {
+    width: 100%;
+    min-width: 0;
+    min-height: 4.8rem;
+    font-size: clamp(1.2rem, 1.5vw, 1.45rem);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-action--restart {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(20, 23, 29, 0.76);
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 0.9rem 2rem rgba(0,0,0,0.26);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-action--restart:hover,
+::deep .tl-detail-actions--watch .tl-detail-action--restart:focus-visible {
+    background: rgba(37, 40, 49, 0.9);
+    border-color: rgba(255,255,255,0.32);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(1.15rem, 2.3vw, 2.25rem);
+}
+
+::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch { min-width: 4.75rem; }
+
+::deep .tl-detail-flat-action {
+    min-width: 4.75rem;
+    min-height: 3.9rem;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.18rem;
+    padding: 0.25rem 0.45rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: rgba(255,255,255,0.96);
+    cursor: pointer;
+}
+
+::deep .tl-detail-flat-action .mud-icon-root { font-size: 1.8rem; }
+::deep .tl-detail-flat-action span { font-size: 0.76rem; font-weight: 760; }
+
+::deep .tl-detail-flat-action:hover,
+::deep .tl-detail-flat-action:focus-visible { background: rgba(255,255,255,0.1); }
+
+::deep .tl-detail-flat-action.is-selected,
+::deep .tl-detail-reaction-choice.is-selected {
+    background: rgba(139, 92, 246, 0.22);
+    color: #c4b5fd;
+    box-shadow: inset 0 0 0 1px rgba(167,139,250,0.52), 0 0 1.25rem rgba(139,92,246,0.3);
+}
+
+::deep .tl-detail-flat-action--stub { opacity: 0.78; }
+
+::deep .tl-reaction-menu .tl-hover-action-menu__tray {
+    border-color: rgba(167,139,250,0.38);
+    background: rgba(17, 18, 24, 0.96);
+}
+
+::deep .tl-detail-reaction-choice {
+    width: 3.15rem;
+    height: 3.15rem;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+}
+
+/* Prime-style episode browser. */
+::deep .tl-episode-panel {
+    width: min(118rem, calc(100% - 3rem));
+    margin: 0 auto;
+    padding: 1.4rem 0 0;
+}
+
+::deep .tl-episode-panel__controls { display: flex; margin-bottom: 1.35rem; }
+::deep .tl-season-dropdown { min-width: min(11rem, 70vw); }
+
+::deep .tl-season-dropdown select {
+    min-height: 3rem;
+    padding: 0 2.8rem 0 1rem;
+    border: 1px solid rgba(167,139,250,0.34);
+    border-radius: 0.72rem;
+    background: rgba(38, 40, 49, 0.96);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0.75rem 1.8rem rgba(0,0,0,0.22);
+}
+
+::deep .tl-season-dropdown select:focus-visible {
+    outline: 2px solid var(--tl-accent-primary, #8b5cf6);
+    outline-offset: 2px;
+}
+
+::deep .tl-season-dropdown select:disabled { opacity: 0.94; cursor: default; }
+::deep .tl-episode-panel__header { margin-bottom: 1.25rem; }
+
+::deep .tl-episode-panel__header h2 {
+    color: rgba(255,255,255,0.68);
+    font-size: 1rem;
+    font-weight: 620;
+}
+
+::deep .tl-episode-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: clamp(1.25rem, 2vw, 2.1rem);
+    row-gap: clamp(2rem, 3vw, 3rem);
+}
+
+::deep .tl-episode-card {
+    min-width: 0;
+    display: block;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #fff;
+}
+
+::deep .tl-episode-card__media {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border-radius: 0.38rem;
+    background: rgba(255,255,255,0.07);
+    color: inherit;
+    text-decoration: none;
+}
+
+::deep .tl-episode-card__media img,
+::deep .tl-episode-card__media .tl-generated-identity {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter 180ms ease, transform 220ms ease;
+}
+
+::deep .tl-episode-card__play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4rem;
+    height: 4rem;
+    border: 2px solid rgba(255,255,255,0.92);
+    border-radius: 50%;
+    background: linear-gradient(145deg, #9f7aea, var(--tl-accent-primary, #8b5cf6));
+    box-shadow: 0 0 2rem rgba(139,92,246,0.58);
+    transform: translate(-50%, -50%) scale(0.84);
+    opacity: 0;
+    transition: opacity 160ms ease, transform 180ms ease;
+}
+
+::deep .tl-episode-card__play::before {
+    content: "";
+    position: absolute;
+    left: 1.55rem;
+    top: 1.15rem;
+    border-left: 1.05rem solid #fff;
+    border-top: 0.72rem solid transparent;
+    border-bottom: 0.72rem solid transparent;
+}
+
+::deep .tl-episode-card:hover .tl-episode-card__media img,
+::deep .tl-episode-card:focus-within .tl-episode-card__media img {
+    filter: brightness(0.56);
+    transform: scale(1.025);
+}
+
+::deep .tl-episode-card:hover .tl-episode-card__play,
+::deep .tl-episode-card:focus-within .tl-episode-card__play {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+::deep .tl-episode-card__body { padding-top: 0.75rem; }
+
+::deep .tl-episode-card__body h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 820;
+    line-height: 1.35;
+}
+
+::deep .tl-episode-card__body p {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    margin: 0.55rem 0 0;
+    color: rgba(255,255,255,0.62);
+    font-size: 0.9rem;
+    font-weight: 540;
+    line-height: 1.45;
+}
+
+::deep .tl-episode-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    color: rgba(255,255,255,0.66);
+    font-size: 0.8rem;
+    font-weight: 620;
+}
+
+::deep .tl-episode-card__meta span + span::before {
+    content: "•";
+    margin-right: 0.5rem;
+    color: rgba(255,255,255,0.36);
+}
+
+@media (max-width: 1400px) {
+    ::deep .tl-episode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 960px) {
+    ::deep .tl-episode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+    ::deep .tl-detail-actions--watch .tl-detail-primary-actions { grid-template-columns: 1fr; }
+    ::deep .tl-episode-panel { width: calc(100% - 2rem); }
+    ::deep .tl-episode-grid { grid-template-columns: 1fr; }
 }
 
 /* Shared media identity typography. Artwork treatment may vary by media type;

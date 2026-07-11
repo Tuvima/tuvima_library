@@ -21,17 +21,20 @@ public sealed class DisplayComposerService
         var journey = await _repository.LoadJourneyAsync(null, ct);
         var homeCollections = await _repository.LoadHomeCollectionsAsync(profileId, ct);
         var progressByWork = LatestProgressByWork(journey);
+        var tvShowCards = _cards.BuildTvShowCards(works);
 
         var continueCards = journey
             .OrderByDescending(item => item.LastAccessed)
             .Take(Math.Max(1, shelfLimit))
-            .Select(item => _cards.FromJourney(item, "home"))
+            .Select(item => _cards.FromJourney(item, "home", tvShowCards))
             .ToList();
 
         var freshCards = works
-            .OrderByDescending(work => work.CreatedAt)
-            .Take(Math.Max(1, shelfLimit))
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) != "TV")
             .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
+            .Concat(tvShowCards.Select(card => card with { TileTextMode = "coverOnly" }))
+            .OrderByDescending(card => card.SortTimestamp)
+            .Take(Math.Max(1, shelfLimit))
             .ToList();
 
         var readCards = works
@@ -42,10 +45,11 @@ public sealed class DisplayComposerService
             .ToList();
 
         var watchCards = works
-            .Where(work => DisplayMediaRules.IsWatchKind(work.MediaType))
-            .OrderByDescending(work => progressByWork.TryGetValue(work.WorkId, out var p) ? p.LastAccessed : work.CreatedAt)
-            .Take(Math.Max(1, shelfLimit))
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Movie")
             .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
+            .Concat(tvShowCards.Select(card => card with { TileTextMode = "coverOnly" }))
+            .OrderByDescending(card => card.SortTimestamp)
+            .Take(Math.Max(1, shelfLimit))
             .ToList();
 
         var listenCards = works
@@ -77,7 +81,10 @@ public sealed class DisplayComposerService
             Hero: heroCard is null ? null : DisplayCardBuilder.ToHero(heroCard, continueCards.Count > 0 ? "Jump Back In" : "New in your library"),
             Shelves: shelves,
             Catalog: includeCatalog
-                ? works.Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId))).ToList()
+                ? works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) != "TV")
+                    .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
+                    .Concat(tvShowCards.Select(card => card with { TileTextMode = "coverOnly" }))
+                    .ToList()
                 : []);
     }
 

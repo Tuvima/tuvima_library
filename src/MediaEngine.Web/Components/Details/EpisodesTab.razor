@@ -2,26 +2,25 @@
 @using MediaEngine.Contracts.Details
 
 <section class="tl-episode-panel">
-    <div class="tl-episode-panel__header">
-        <div>
-            <h2>Episodes</h2>
-            @if (ActiveGroup is not null)
-            {
-                <div class="tl-episode-panel__meta">@ActiveGroup.Items.Count @EpisodeWord(ActiveGroup.Items.Count)</div>
-            }
-        </div>
-
-        @if (VisibleGroups.Count > 1)
-        {
+    @if (VisibleGroups.Count > 0)
+    {
+        <div class="tl-episode-panel__controls">
             <label class="tl-season-dropdown">
                 <span class="sr-only">Season</span>
-                <AppNativeSelect Value="@SelectedKey" OnChange="SelectSeason">
+                <AppNativeSelect Value="@SelectedKey" OnChange="SelectSeason" Disabled="@(VisibleGroups.Count == 1)">
                     @foreach (var group in VisibleGroups)
                     {
                         <option value="@group.Key">@group.Title</option>
                     }
                 </AppNativeSelect>
             </label>
+        </div>
+    }
+
+    <div class="tl-episode-panel__header">
+        @if (ActiveGroup is not null)
+        {
+            <h2>@ActiveGroup.Items.Count @EpisodeWord(ActiveGroup.Items.Count)</h2>
         }
     </div>
 
@@ -31,38 +30,30 @@
     }
     else
     {
-        <div class="tl-episode-list">
+        <div class="tl-episode-grid">
             @foreach (var item in ActiveGroup.Items.Select((episode, index) => (episode, index)))
             {
                 var route = item.episode.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route;
                 var episodeNumber = EpisodeNumber(item.episode, item.index);
                 var runtime = RuntimeLabel(item.episode);
-                var secondaryMeta = SecondaryMetadata(item.episode, runtime);
+                var secondaryMeta = SecondaryMetadataItems(item.episode, runtime);
 
-                <article class="tl-episode-row">
-                    <div class="tl-episode-row__number">@episodeNumber</div>
-
+                <article class="tl-episode-card">
                     @if (!string.IsNullOrWhiteSpace(route))
                     {
-                        <a class="tl-episode-row__thumb" href="@route" aria-label="@($"Open {item.episode.Title}")">
+                        <a class="tl-episode-card__media" href="@route" aria-label="@($"Play {item.episode.Title}")">
                             @Thumbnail(item.episode)
                         </a>
                     }
                     else
                     {
-                        <div class="tl-episode-row__thumb">
+                        <div class="tl-episode-card__media">
                             @Thumbnail(item.episode)
                         </div>
                     }
 
-                    <div class="tl-episode-row__body">
-                        <div class="tl-episode-row__titleline">
-                            <h3>@item.episode.Title</h3>
-                            @if (!string.IsNullOrWhiteSpace(runtime))
-                            {
-                                <span>@runtime</span>
-                            }
-                        </div>
+                    <div class="tl-episode-card__body">
+                        <h3><span>@episodeNumber.</span> @item.episode.Title</h3>
 
                         @if (!string.IsNullOrWhiteSpace(item.episode.Description))
                         {
@@ -73,9 +64,14 @@
                             <p>@item.episode.Subtitle</p>
                         }
 
-                        @if (!string.IsNullOrWhiteSpace(secondaryMeta))
+                        @if (!string.IsNullOrWhiteSpace(runtime) || secondaryMeta.Count > 0)
                         {
-                            <div class="tl-episode-row__meta">@secondaryMeta</div>
+                            <div class="tl-episode-card__meta">
+                                @foreach (var label in secondaryMeta.Prepend(runtime).Where(label => !string.IsNullOrWhiteSpace(label)))
+                                {
+                                    <span>@label</span>
+                                }
+                            </div>
                         }
                     </div>
                 </article>
@@ -142,7 +138,7 @@
         }
 
         builder.OpenElement(5, "span");
-        builder.AddAttribute(6, "class", "tl-episode-row__play");
+        builder.AddAttribute(6, "class", "tl-episode-card__play");
         builder.AddAttribute(7, "aria-hidden", "true");
         builder.CloseElement();
     };
@@ -171,16 +167,13 @@
         => episode.Metadata.FirstOrDefault(m => string.Equals(m.Kind, "duration", StringComparison.OrdinalIgnoreCase))?.Label
             ?? episode.Metadata.FirstOrDefault(m => LooksLikeRuntime(m.Label))?.Label;
 
-    private static string? SecondaryMetadata(MediaGroupingItemViewModel episode, string? runtime)
-    {
-        var labels = episode.Metadata
+    private static IReadOnlyList<string> SecondaryMetadataItems(MediaGroupingItemViewModel episode, string? runtime)
+        => episode.Metadata
             .Select(m => m.Label)
             .Where(label => !string.IsNullOrWhiteSpace(label) && !string.Equals(label, runtime, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
             .ToList();
-
-        return labels.Count == 0 ? null : string.Join("  -  ", labels);
-    }
 
     private static bool LooksLikeRuntime(string? value)
         => !string.IsNullOrWhiteSpace(value)

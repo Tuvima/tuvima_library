@@ -53,8 +53,9 @@ public sealed class DisplayShelfBuilder
         var take = Math.Max(1, shelfLimit);
         var shelves = new List<DisplayShelfDto>();
         var groupShelf = _groupPolicy.GetShelf("watch");
+        var tvShowCards = _cards.BuildTvShowCards(works);
         AddShelf(shelves, "continue-watching", "Continue watching", "Movies and shows already in progress",
-            journey.Take(take).Select(item => _cards.FromJourney(item, "watch")).ToList(), "/watch/movies");
+            journey.Take(take).Select(item => _cards.FromJourney(item, "watch", tvShowCards)).ToList(), "/watch/movies");
         if (groupShelf.Enabled)
         {
             AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,
@@ -74,7 +75,14 @@ public sealed class DisplayShelfBuilder
                 Key: $"genre-{DisplayMediaRules.StableKey(group.Key)}",
                 Title: group.Key,
                 Subtitle: $"{group.Count()} titles",
-                Items: group.Take(12).Select(item => _cards.FromWork(item.Work, "watch", progressByWork.GetValueOrDefault(item.Work.WorkId))).ToList(),
+                Items: group.Select(item => DisplayMediaRules.NormalizeDisplayKind(item.Work.MediaType) == "TV"
+                        ? tvShowCards.FirstOrDefault(card => string.Equals(card.Title, item.Work.ShowName, StringComparison.OrdinalIgnoreCase))
+                        : _cards.FromWork(item.Work, "watch", progressByWork.GetValueOrDefault(item.Work.WorkId)))
+                    .Where(card => card is not null)
+                    .Cast<DisplayCardDto>()
+                    .DistinctBy(card => card.Id)
+                    .Take(12)
+                    .ToList(),
                 SeeAllRoute: null));
 
         shelves.AddRange(genreShelves);

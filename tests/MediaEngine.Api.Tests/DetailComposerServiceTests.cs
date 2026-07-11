@@ -207,7 +207,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildHeroProgress", source);
         Assert.Contains("BuildCollectionHeroProgress", source);
         Assert.Contains("LEFT JOIN user_states us ON us.asset_id = ma.id", source);
-        Assert.Contains("Label = heroProgress is null ? \"Watch\" : \"Continue Watching\"", source);
+        Assert.Contains("Label = progress is null ? \"Watch\" : \"Resume\"", source);
+        Assert.Contains("Key = \"restart\"", source);
         Assert.Contains("Continue watching", source);
         Assert.Contains("public ProgressViewModel? Progress { get; init; }", contracts);
     }
@@ -262,25 +263,25 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Key = \"watch-party\"", source);
         Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", source);
         Assert.Contains("IsStub = true", source);
-        Assert.Contains("Label = \"Watchlist\"", source);
-        Assert.Contains("BuildFavoriteAction", source);
-        Assert.Contains("Key = \"favorite\"", source);
-        Assert.Contains("Icon = isSelected ? \"favorite_filled\" : \"favorite\"", source);
-        Assert.DoesNotContain("BuildReactionAction", source);
-        Assert.DoesNotContain("reaction-menu", source);
-        Assert.DoesNotContain("Thumbs up", source);
-        Assert.DoesNotContain("Thumbs down", source);
+        Assert.Contains("Label = \"My List\"", source);
+        Assert.Contains("BuildReactionAction", source);
+        Assert.Contains("Key = \"reaction-menu\"", source);
+        Assert.Contains("Key = \"reaction-dislike\"", source);
+        Assert.Contains("Key = \"reaction-like\"", source);
+        Assert.Contains("Key = \"reaction-love\"", source);
         Assert.Contains("return actions;", source);
         Assert.DoesNotContain("&& SupportsWatchParty(entityType)", source);
     }
 
     [Fact]
-    public void DetailComposer_UsesChildArtworkFallbackForCollectionDetails()
+    public void DetailComposer_UsesChildArtworkFallbackExceptForTvShows()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
         Assert.Contains("fallbackBackdrop", source);
         Assert.Contains("fallbackCover", source);
+        Assert.Contains("var allowChildArtworkFallback = entityType != DetailEntityType.TvShow", source);
+        Assert.Contains("allowChildArtworkFallback ? relatedArt : []", source);
         Assert.Contains("collectionBackdrop = FirstNonBlank", source);
         Assert.Contains("collectionCover = FirstNonBlank", source);
         Assert.Contains("'hero_url', 'hero'", source);

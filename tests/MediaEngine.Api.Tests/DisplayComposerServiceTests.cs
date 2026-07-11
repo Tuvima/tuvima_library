@@ -382,6 +382,33 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public async Task Home_UsesOneShowLevelCoverCardInsteadOfEpisodeStillCards()
+    {
+        var showRootId = Guid.Parse("aaaaaaaa-6666-6666-6666-aaaaaaaaaaaa");
+        var firstEpisode = Guid.Parse("aaaaaaaa-7777-7777-7777-aaaaaaaaaaaa");
+        var secondEpisode = Guid.Parse("aaaaaaaa-8888-8888-8888-aaaaaaaaaaaa");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(firstEpisode, "TV", "Pilot", showName: "Severance", season: "1", episode: "1", coverUrl: "/episodes/pilot.jpg", rootCoverUrl: "/shows/severance-cover.jpg", rootBackgroundUrl: "/shows/severance-bg.jpg", rootWorkId: showRootId),
+                Work(secondEpisode, "TV", "Half Loop", showName: "Severance", season: "1", episode: "2", coverUrl: "/episodes/half-loop.jpg", rootCoverUrl: "/shows/severance-cover.jpg", rootBackgroundUrl: "/shows/severance-bg.jpg", rootWorkId: showRootId),
+            ],
+            [Journey(firstEpisode, "TV", "Pilot", 38, showName: "Severance")]);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildHomeAsync(includeCatalog: true);
+
+        foreach (var key in new[] { "continue", "watch-next", "fresh" })
+        {
+            var showCard = Assert.Single(page.Shelves.Single(shelf => shelf.Key == key).Items, card => card.Title == "Severance");
+            Assert.Equal("/shows/severance-cover.jpg", showCard.Artwork.CoverUrl);
+            Assert.DoesNotContain(page.Shelves.Single(shelf => shelf.Key == key).Items, card => card.Title is "Pilot" or "Half Loop");
+        }
+
+        Assert.Single(page.Catalog, card => card.Title == "Severance");
+        Assert.DoesNotContain(page.Catalog, card => card.Title is "Pilot" or "Half Loop");
+    }
+
+    [Fact]
     public async Task ShelfPage_ReturnsCursorPagedShelfItems()
     {
         var firstId = Guid.Parse("77777777-1111-1111-1111-777777777777");
@@ -482,6 +509,8 @@ public sealed class DisplayComposerServiceTests
         string? backgroundUrl = null,
         string? rootBackgroundUrl = null,
         string? collectionBackgroundUrl = null,
+        string? coverUrl = null,
+        string? rootCoverUrl = null,
         Guid? rootWorkId = null)
     {
         return new DisplayWorkRow
@@ -513,6 +542,8 @@ public sealed class DisplayComposerServiceTests
             BackgroundUrl = backgroundUrl,
             RootBackgroundUrl = rootBackgroundUrl,
             CollectionBackgroundUrl = collectionBackgroundUrl,
+            CoverUrl = coverUrl,
+            RootCoverUrl = rootCoverUrl,
         };
     }
 
@@ -533,7 +564,8 @@ public sealed class DisplayComposerServiceTests
         Guid? collectionId = null,
         string? network = null,
         string? source = null,
-        string? quality = null)
+        string? quality = null,
+        string? showName = null)
     {
         return new DisplayJourneyRow
         {
@@ -556,6 +588,7 @@ public sealed class DisplayComposerServiceTests
             Network = network,
             Source = source,
             Quality = quality,
+            ShowName = showName,
         };
     }
 

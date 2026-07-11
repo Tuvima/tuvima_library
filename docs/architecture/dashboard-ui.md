@@ -55,6 +55,10 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 
 Desktop `MediaTile` previews expand the tile's flex item inside its existing shelf row. The resting cover is replaced at the same vertical position, neighboring cards shift horizontally, and leaving the preview restores the row. Media previews must not be portaled into a fixed overlay host or drawn over cards in another shelf.
 
+TV show shelves use show-level cover art at rest; episode stills are reserved for the episode browser. A TV detail hero uses an enriched show backdrop when one exists and otherwise falls back only to the show cover, never a child episode still. Enriched detail backdrops fill the 1000px hero edge to edge with a full-bleed atmosphere layer plus a complete-frame foreground layer, then fade into the Overview or Episodes tabs. TV episodes are grouped behind a styled season selector and rendered as a responsive still grid with a purple play affordance on hover or keyboard focus.
+
+Detail hero actions use one prominent Read, Watch, or Listen transport row. In-progress watch titles expose Resume and Restart together. Watch Party, My List, and the expandable dislike/like/love rating control sit below as flat icon-and-label actions; selected ratings use the application purple active state.
+
 ## Sequence, Attribution, And Artwork Display
 
 Lane pages, shelf cards, album pages, collection pages, detail pages, search

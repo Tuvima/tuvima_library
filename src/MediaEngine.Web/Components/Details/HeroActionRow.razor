@@ -5,7 +5,7 @@
     <div class="tl-detail-primary-actions">
         @foreach (var action in PrimaryActions)
         {
-            <AppNativeButton Type="button" Class="tl-detail-action tl-detail-action--primary" Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
+            <AppNativeButton Type="button" Class='@($"tl-detail-action tl-detail-action--primary tl-detail-action--{ActionKeyClass(action)}")' Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
                 <MudIcon Icon="@IconFor(action)" Size="Size.Medium" />
                 <span>@PrimaryLabel(action)</span>
             </AppNativeButton>
@@ -48,14 +48,15 @@
             {
                 <div class="tl-detail-secondary-action @(IsPrimaryHeroActionRow ? "tl-detail-secondary-action--watch" : null)">
                     <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
-                        <AppNativeButton Type="button" Class="tl-detail-watch-secondary tl-detail-watch-secondary--icon tl-detail-reaction-button" AriaLabel="@action.Label">
+                        <AppNativeButton Type="button" Class="tl-detail-flat-action tl-detail-reaction-button" AriaLabel="@action.Label">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                            <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
                         <div class="tl-hover-action-menu__tray">
                             @foreach (var child in OrderedReactionChildren(action))
                             {
                                 <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
-                                    <AppNativeButton Type="button" Class="tl-detail-watch-secondary tl-detail-watch-secondary--icon tl-detail-reaction-button" AriaLabel="@child.Label" Disabled="@child.IsDisabled" OnClick="@(() => Select(child))">
+                                    <AppNativeButton Type="button" Class='@($"tl-detail-reaction-choice {ReactionStateClass(child)}")' AriaLabel="@child.Label" Disabled="@child.IsDisabled" OnClick="@(() => SelectReaction(child))">
                                         <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
                                     </AppNativeButton>
                                 </MudTooltip>
@@ -93,8 +94,9 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class='@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon {ActionStateClass(action)} {(action.IsStub ? " tl-detail-watch-secondary--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                            <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
                     </MudTooltip>
                 </div>
@@ -112,8 +114,9 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class='@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon {ActionStateClass(action)} {(action.IsStub ? " tl-detail-watch-secondary--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                            <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
                     </MudTooltip>
                 </div>
@@ -189,6 +192,17 @@
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);
 
+    private string? _selectedReactionKey;
+
+    private async Task SelectReaction(DetailAction action)
+    {
+        if (action.IsDisabled)
+            return;
+
+        _selectedReactionKey = action.Key;
+        await OnActionSelected.InvokeAsync(action);
+    }
+
     private IReadOnlyDictionary<string, object>? AttributesFor(DetailAction action) =>
         ActionAttributes?.Invoke(action);
 
@@ -202,13 +216,19 @@
     {
         "add-to-collection" => action.Label,
         "reaction-menu" => "Rate",
-        "watch-party" => "Party",
+        "watch-party" => "Watch Party",
         "format-tools" => "Tools",
         _ => action.Label,
     };
 
     private static string ActionStateClass(DetailAction action)
         => action.IsSelected ? "is-selected" : string.Empty;
+
+    private string ReactionStateClass(DetailAction action)
+        => string.Equals(_selectedReactionKey, action.Key, StringComparison.OrdinalIgnoreCase) ? "is-selected" : string.Empty;
+
+    private static string ActionKeyClass(DetailAction action)
+        => new string(action.Key.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-').ToArray()).Trim('-');
 
     private static IEnumerable<DetailAction> OrderedReactionChildren(DetailAction action)
         => action.Children.OrderBy(child => child.Key switch
@@ -221,6 +241,7 @@
     public static string IconFor(DetailAction action) => action.Icon switch
     {
         "play_arrow" => Icons.Material.Filled.PlayArrow,
+        "restart_alt" => Icons.Material.Outlined.RestartAlt,
         "headphones" => Icons.Material.Outlined.Headphones,
         "menu_book" => Icons.Material.Outlined.MenuBook,
         "groups" => Icons.Material.Outlined.Groups,

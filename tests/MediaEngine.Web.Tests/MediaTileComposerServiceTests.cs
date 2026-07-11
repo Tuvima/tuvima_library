@@ -207,6 +207,54 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_UsesShowCoverInsteadOfEpisodeStyleBackgroundForTvSeries()
+    {
+        var collectionId = Guid.Parse("77777777-1111-1111-1111-777777777777");
+        var card = new DisplayCardDto(
+            Id: collectionId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: collectionId,
+            MediaType: "TV",
+            GroupingType: "tvSeries",
+            Title: "The Expanse",
+            Subtitle: "6 seasons",
+            Facts: ["6 seasons"],
+            Artwork: new DisplayArtworkDto(
+                CoverUrl: "/shows/expanse-cover.jpg",
+                CoverSmallUrl: "/shows/expanse-cover-s.jpg",
+                CoverMediumUrl: "/shows/expanse-cover-m.jpg",
+                CoverLargeUrl: "/shows/expanse-cover-l.jpg",
+                SquareUrl: null, SquareSmallUrl: null, SquareMediumUrl: null, SquareLargeUrl: null,
+                BannerUrl: null, BannerSmallUrl: null, BannerMediumUrl: null, BannerLargeUrl: null,
+                BackgroundUrl: "/episodes/still.jpg",
+                BackgroundSmallUrl: "/episodes/still-s.jpg",
+                BackgroundMediumUrl: "/episodes/still-m.jpg",
+                BackgroundLargeUrl: "/episodes/still-l.jpg",
+                LogoUrl: null,
+                CoverWidthPx: 1000, CoverHeightPx: 1500,
+                SquareWidthPx: null, SquareHeightPx: null,
+                BannerWidthPx: null, BannerHeightPx: null,
+                BackgroundWidthPx: 1920, BackgroundHeightPx: 1080,
+                AccentColor: "#8b5cf6"),
+            PreferredShape: "portrait",
+            Presentation: "tvSeries",
+            TileTextMode: "coverOnly",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [new DisplayActionDto("openSeries", "Details", CollectionId: collectionId, WebUrl: $"/watch/tv/{collectionId}")],
+            Flags: new DisplayCardFlagsDto(true, false, true, true, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-07-11T12:00:00Z"));
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.Equal(MediaTileShape.Portrait, mapped.Shape);
+        Assert.Equal(MediaTileSurfaceKind.CoverPortrait, mapped.SurfaceKind);
+        Assert.Equal("/shows/expanse-cover-s.jpg", mapped.TileImageUrl);
+        Assert.Equal("/episodes/still-m.jpg", mapped.HoverImageUrl);
+    }
+
+    [Fact]
     public void FromDisplayCard_MapsReadSeriesCollectionsToExpandedHover()
     {
         var collectionId = Guid.Parse("66666666-2222-2222-2222-666666666666");

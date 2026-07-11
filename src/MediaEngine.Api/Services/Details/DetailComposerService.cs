@@ -341,8 +341,15 @@ public sealed class DetailComposerService
             GetValue(values, "plot_summary"),
             row.Description);
         var heroSummary = await BuildHeroSummaryAsync(row.Tagline, longDescription, row.WikidataQid, values, entityType, ct);
-        var fallbackBackdrop = works.Select(w => w.BackgroundUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
-        var fallbackCover = works.Select(w => w.ArtworkUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+        // Episode artwork must never stand in for show artwork. An unenriched TV show
+        // deliberately falls back to its own cover (or the generated placeholder).
+        var allowChildArtworkFallback = entityType != DetailEntityType.TvShow;
+        var fallbackBackdrop = allowChildArtworkFallback
+            ? works.Select(w => w.BackgroundUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
+            : null;
+        var fallbackCover = allowChildArtworkFallback
+            ? works.Select(w => w.ArtworkUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
+            : null;
         var collectionBackdrop = FirstNonBlank(
             row.BackgroundUrl,
             GetValue(values, "background_url"),
@@ -376,7 +383,7 @@ public sealed class DetailComposerService
             collectionCover,
             null,
             values,
-            relatedArt,
+            allowChildArtworkFallback ? relatedArt : [],
             0,
             null,
             collectionLogo);
@@ -4424,8 +4431,8 @@ public sealed class DetailComposerService
     {
         return entityType switch
         {
-            DetailEntityType.Movie => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", Route = $"/watch/player/resolve?workId={id}", IsPrimary = true }],
-            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.Movie => BuildWatchActions($"/watch/player/resolve?workId={id}", heroProgress),
+            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => BuildWatchActions(null, heroProgress),
             DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
@@ -4502,12 +4509,12 @@ public sealed class DetailComposerService
             actions.Add(new DetailAction
             {
                 Key = "add-to-collection",
-                Label = "Watchlist",
+                Label = "My List",
                 Icon = "add",
-                Tooltip = "Add to watchlist",
+                Tooltip = "Add to My List",
                 DisplayStyle = "icon",
             });
-            actions.Add(BuildFavoriteAction(isFavorite));
+            actions.Add(BuildReactionAction());
 
             return actions;
         }
@@ -4570,6 +4577,50 @@ public sealed class DetailComposerService
             DisplayStyle = "icon",
             IsSelected = isSelected,
         };
+
+    private static DetailAction BuildReactionAction()
+        => new()
+        {
+            Key = "reaction-menu",
+            Label = "Rate",
+            Icon = "thumb_up",
+            Tooltip = "Rate this title",
+            DisplayStyle = "icon",
+            Children =
+            [
+                new DetailAction { Key = "reaction-dislike", Label = "Not for me", Icon = "thumb_down" },
+                new DetailAction { Key = "reaction-like", Label = "I like this", Icon = "thumb_up" },
+                new DetailAction { Key = "reaction-love", Label = "I love this", Icon = "favorite" },
+            ],
+        };
+
+    private static IReadOnlyList<DetailAction> BuildWatchActions(string? route, ProgressViewModel? progress)
+    {
+        var watch = new DetailAction
+        {
+            Key = "watch",
+            Label = progress is null ? "Watch" : "Resume",
+            Icon = "play_arrow",
+            Route = route,
+            IsPrimary = true,
+        };
+
+        return progress is null
+            ? [watch]
+            :
+            [
+                watch,
+                new DetailAction
+                {
+                    Key = "restart",
+                    Label = "Restart",
+                    Icon = "restart_alt",
+                    Route = route is null ? null : $"{route}&restart=true",
+                    IsPrimary = true,
+                    DisplayStyle = "secondary",
+                },
+            ];
+    }
 
     private static bool HasReadListenCompanion(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
         => entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work
@@ -5661,7 +5712,7 @@ public sealed class DetailComposerService
     private static IReadOnlyList<DetailAction> BuildCollectionActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, ProgressViewModel? heroProgress)
         => entityType switch
         {
-            DetailEntityType.TvShow => [new DetailAction { Key = "watch", Label = heroProgress is null ? "Watch" : "Continue Watching", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.TvShow => BuildWatchActions(null, heroProgress),
             DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
