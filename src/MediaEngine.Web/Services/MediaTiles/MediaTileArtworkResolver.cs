@@ -61,10 +61,19 @@ public static class MediaTileArtworkResolver
     {
         var tileVariant = SelectTileVariant(bucket, presentation, variants, preferLandscapeTile);
         var hoverVariant = SelectHoverVariant(variants) ?? tileVariant;
-        var shape = preferLandscapeTile ? MediaTileShape.Landscape : MediaTileShape.Portrait;
+        var useSquareTile = !preferLandscapeTile
+                            && (bucket == MediaTileBucket.Audiobook
+                                || (bucket == MediaTileBucket.Music && tileVariant?.Shape == MediaTileShape.Square));
+        var shape = preferLandscapeTile
+            ? MediaTileShape.Landscape
+            : useSquareTile
+                ? MediaTileShape.Square
+                : MediaTileShape.Portrait;
         var surfaceKind = preferLandscapeTile
             ? MediaTileSurfaceKind.BannerLandscape
-            : MediaTileSurfaceKind.CoverPortrait;
+            : useSquareTile
+                ? MediaTileSurfaceKind.CoverSquare
+                : MediaTileSurfaceKind.CoverPortrait;
         var hoverLayout = hoverVariant is not null && IsCinematic(hoverVariant)
             ? MediaTileHoverLayout.BannerPopover
             : MediaTileHoverLayout.ArtOnlyPopover;

@@ -281,9 +281,22 @@
 
     private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
 
-    private string TileStyle => $"{Item.ArtworkPalette?.CssVariableStyle} --media-tile-accent: {Item.AccentColor}; --media-tile-secondary-accent: {Item.SecondaryAccentColor};";
+    private string TileStyle => $"{Item.ArtworkPalette?.CssVariableStyle} --media-tile-accent: {Item.AccentColor}; --media-tile-secondary-accent: {Item.SecondaryAccentColor}; {HoverAtmosphereStyle}";
+
+    private string HoverAtmosphereStyle => string.IsNullOrWhiteSpace(HoverAtmosphereImageUrl)
+        ? string.Empty
+        : $"--media-tile-hover-image: url(\"{EscapeCssString(HoverAtmosphereImageUrl)}\");";
+
+    private string? HoverAtmosphereImageUrl => FirstNonBlank(
+        Item.HeroBackgroundImageUrl,
+        Item.HoverImageUrl,
+        Item.TileImageUrl,
+        Item.CoverUrl);
 
     private string PaletteScopeStyle => $"display: contents; {TileStyle}";
+
+    private static string EscapeCssString(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
 
     private bool UseBookPageTreatment =>
         Item.MediaKind == "Book"

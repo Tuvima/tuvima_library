@@ -24,17 +24,30 @@ public sealed class MediaTileArtworkResolverTests
     }
 
     [Fact]
-    public void Resolve_SquareMusicArtIsContainedInPortraitFrame()
+    public void Resolve_SquareMusicArtUsesArtworkOnlySquareFrame()
     {
         var surface = MediaTileArtworkResolver.Resolve(
             MediaTileBucket.Music,
             MediaTilePresentation.Album,
             [new MediaTileArtworkVariant(ArtworkRole.Square, "/art/album-s.jpg", "/art/album-m.jpg", "/art/album-l.jpg", 1000, 1000)]);
 
-        Assert.Equal(MediaTileShape.Portrait, surface.Shape);
-        Assert.Equal(MediaTileSurfaceKind.CoverPortrait, surface.SurfaceKind);
+        Assert.Equal(MediaTileShape.Square, surface.Shape);
+        Assert.Equal(MediaTileSurfaceKind.CoverSquare, surface.SurfaceKind);
         Assert.Equal(MediaTileImageFitMode.Contain, surface.TileImageFitMode);
         Assert.Equal(MediaTileHoverLayout.ArtOnlyPopover, surface.HoverLayout);
+    }
+
+    [Fact]
+    public void Resolve_AudiobookUsesArtworkOnlySquareFrame()
+    {
+        var surface = MediaTileArtworkResolver.Resolve(
+            MediaTileBucket.Audiobook,
+            MediaTilePresentation.Default,
+            [new MediaTileArtworkVariant(ArtworkRole.Cover, "/art/audio-s.jpg", "/art/audio-m.jpg", "/art/audio-l.jpg", 680, 1080)]);
+
+        Assert.Equal(MediaTileShape.Square, surface.Shape);
+        Assert.Equal(MediaTileSurfaceKind.CoverSquare, surface.SurfaceKind);
+        Assert.Equal(MediaTileImageFitMode.Fill, surface.TileImageFitMode);
     }
 
     [Fact]

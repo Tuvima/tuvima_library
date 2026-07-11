@@ -52,6 +52,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Empty(cut.FindAll(".media-tile-progress-strip"));
         Assert.Empty(cut.FindAll(".media-tile-logo"));
         Assert.NotEmpty(cut.FindAll("div[style*='display: contents']"));
+        Assert.Contains("--media-tile-hover-image", cut.Markup);
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-cover-stage.is-book-stage"));
         Assert.NotEmpty(cut.FindAll(".media-tile-book-pages"));
         Assert.NotEmpty(cut.FindAll(".media-tile-book-spine"));
@@ -185,10 +186,14 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("clamp(820px, 52vw, 980px)", css);
         Assert.Contains("object-fit: contain", css);
         Assert.Contains("var(--art-bg-base-dark, #080c12)", css);
+        Assert.Contains("filter: blur(42px) saturate(1.18) brightness(.72)", css);
+        Assert.Contains("width: fit-content", css);
         Assert.Contains("window.shiftMediaTileHoverRow", appJs);
         Assert.Contains("--media-tile-row-shift-x", appJs);
         Assert.Contains("cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid')", appJs);
         Assert.Contains("var panelTop = cardRect.top;", appJs);
+        Assert.Contains("previousCard && previousCard !== cardEl", appJs);
+        Assert.Contains("}, 360);", appJs);
         Assert.Contains("window.clearMediaTileHoverRowShift", appJs);
     }
 

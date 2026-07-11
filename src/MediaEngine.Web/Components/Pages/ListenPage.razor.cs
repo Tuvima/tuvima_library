@@ -3093,9 +3093,9 @@ public partial class ListenPage
             LogoUrl = work?.LogoUrl,
             HoverFacts = facts,
             MediaKind = "Audiobook",
-            Shape = MediaTileShape.Portrait,
+            Shape = MediaTileShape.Square,
             Presentation = MediaTilePresentation.Default,
-            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
             HoverLayout = string.IsNullOrWhiteSpace(backgroundMedium)
                 ? MediaTileHoverLayout.ArtOnlyPopover
                 : MediaTileHoverLayout.BannerPopover,
@@ -3105,7 +3105,7 @@ public partial class ListenPage
             TileImageSrcSet = MediaTileArtworkUrl.SrcSet(small, medium),
             HoverImageUrl = backgroundMedium ?? medium,
             HoverImageSrcSet = MediaTileArtworkUrl.SrcSet(backgroundMedium ?? medium, backgroundLarge),
-            TileImageFitMode = MediaTileImageFitMode.Fill,
+            TileImageFitMode = MediaTileImageFitMode.Contain,
             HoverImageFitMode = string.IsNullOrWhiteSpace(backgroundMedium)
                 ? MediaTileImageFitMode.Contain
                 : MediaTileImageFitMode.Fill,
@@ -3185,9 +3185,9 @@ public partial class ListenPage
             LogoUrl = logoUrl,
             HoverFacts = facts ?? [],
             MediaKind = "Music",
-            Shape = MediaTileShape.Portrait,
+            Shape = MediaTileShape.Square,
             Presentation = presentation,
-            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
             HoverLayout = !string.IsNullOrWhiteSpace(backgroundMedium) || !string.IsNullOrWhiteSpace(bannerMedium)
                 ? MediaTileHoverLayout.BannerPopover
                 : MediaTileHoverLayout.ArtOnlyPopover,

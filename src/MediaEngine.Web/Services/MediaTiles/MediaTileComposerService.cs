@@ -187,8 +187,19 @@ public sealed class MediaTileComposerService
         var seriesBackdropUrl = useOrderedSeriesStack
             ? FirstNonBlank(card.Artwork.BackgroundSmallUrl, card.Artwork.BannerSmallUrl, card.Artwork.BackgroundMediumUrl, card.Artwork.BannerMediumUrl, card.Artwork.BackgroundUrl, card.Artwork.BannerUrl)
             : null;
-        var tileShape = useLandscapeGroup || useOrderedSeriesStack ? MediaTileShape.Landscape : MediaTileShape.Portrait;
-        var surfaceKind = useLandscapeGroup || useOrderedSeriesStack ? MediaTileSurfaceKind.BannerLandscape : MediaTileSurfaceKind.CoverPortrait;
+        var useSquareIndividual = !card.Flags.IsCollection
+                                  && (bucket == MediaTileBucket.Audiobook
+                                      || (bucket == MediaTileBucket.Music && surface.Shape == MediaTileShape.Square));
+        var tileShape = useLandscapeGroup || useOrderedSeriesStack
+            ? MediaTileShape.Landscape
+            : useSquareIndividual
+                ? MediaTileShape.Square
+                : MediaTileShape.Portrait;
+        var surfaceKind = useLandscapeGroup || useOrderedSeriesStack
+            ? MediaTileSurfaceKind.BannerLandscape
+            : useSquareIndividual
+                ? MediaTileSurfaceKind.CoverSquare
+                : MediaTileSurfaceKind.CoverPortrait;
         var hoverLayout = surface.HoverLayout;
 
         return new MediaTileViewModel

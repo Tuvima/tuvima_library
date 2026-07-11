@@ -684,6 +684,16 @@
     background: color-mix(in srgb, var(--media-tile-secondary-accent) 82%, #080b12);
 }
 
+.media-tile.is-square:not(.is-collection-card) {
+    --media-tile-media-height: clamp(300px, 18vw, 340px);
+    width: var(--media-tile-media-height);
+}
+
+.media-tile.is-square:not(.is-collection-card) .media-tile-image {
+    object-fit: cover;
+    background: transparent;
+}
+
 .media-tile.is-hover-active,
 .media-tile.is-expanded {
     transform: none;
@@ -711,9 +721,39 @@
         0 0 0 1px rgba(255, 255, 255, .035),
         0 0 48px color-mix(in srgb, var(--media-tile-accent) 16%, transparent);
     backdrop-filter: none;
+    isolation: isolate;
 }
 
-.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) {
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover:not(.is-collection-hover)::before {
+    content: '';
+    position: absolute;
+    inset: -8%;
+    z-index: 0;
+    background-image: var(--media-tile-hover-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(42px) saturate(1.18) brightness(.72);
+    opacity: .78;
+    transform: scale(1.08);
+    pointer-events: none;
+}
+
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover:not(.is-collection-hover)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        linear-gradient(to right, color-mix(in srgb, var(--art-bg-base-dark, #080c12) 94%, transparent) 0%, color-mix(in srgb, var(--art-bg-base-dark, #080c12) 72%, transparent) 46%, color-mix(in srgb, var(--art-bg-base-dark, #080c12) 24%, transparent) 100%),
+        radial-gradient(circle at 76% 46%, color-mix(in srgb, var(--media-tile-accent) 22%, transparent), transparent 54%),
+        linear-gradient(to bottom, transparent 48%, color-mix(in srgb, var(--art-bg-base-dark, #080c12) 72%, transparent) 100%);
+    pointer-events: none;
+}
+
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover),
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-square:not(.is-collection-hover) {
+    display: grid;
     grid-template-columns: minmax(430px, 1.2fr) minmax(280px, .8fr);
     width: min(calc(100vw - 24px), clamp(820px, 52vw, 980px));
     max-width: 980px;
@@ -722,7 +762,12 @@
     max-height: var(--media-tile-hover-anchor-height, var(--media-tile-media-height));
 }
 
-.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-art {
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-art,
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-square:not(.is-collection-hover) .media-tile-hover-art {
+    position: relative;
+    z-index: 2;
+    grid-column: 2;
+    grid-row: 1;
     height: 100%;
     min-height: 0;
     max-height: none;
@@ -730,7 +775,12 @@
     background: transparent;
 }
 
-.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-body {
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-body,
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-square:not(.is-collection-hover) .media-tile-hover-body {
+    position: relative;
+    z-index: 2;
+    grid-column: 1;
+    grid-row: 1;
     height: 100%;
     min-height: 0;
     padding: clamp(28px, 3vw, 46px);
@@ -740,13 +790,39 @@
 }
 
 .media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-cover-stage.is-book-stage {
-    width: min(86%, 300px);
-    max-height: calc(100% - 8px);
+    display: block;
+    width: fit-content;
+    height: calc(100% - 12px);
+    max-width: calc(100% - 28px);
+    max-height: calc(100% - 12px);
+    aspect-ratio: auto;
+}
+
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-cover-stage.is-book-stage .media-tile-hover-image {
+    width: auto;
+    max-width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-cover-stage.is-book-stage .media-tile-book-pages {
+    right: -20px;
+    top: 1.5%;
+    bottom: 1.5%;
+    width: 24px;
+}
+
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-cover-stage.is-book-stage .media-tile-book-spine {
+    width: 7%;
 }
 
 .media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-portrait:not(.is-collection-hover) .media-tile-hover-title,
 .media-tile-hover-panel.is-viewport-mounted.is-banner-popover:not(.is-collection-hover) .media-tile-hover-title {
     font-size: clamp(2.2rem, 3vw, 3.2rem);
+}
+
+.media-tile-hover-panel.is-viewport-mounted.is-art-popover.is-square:not(.is-collection-hover) .media-tile-hover-title {
+    font-size: clamp(1.8rem, 2.2vw, 2.6rem);
 }
 
 .media-tile-hover-panel.is-viewport-mounted:not(.is-collection-hover) .media-tile-hover-subtitle {
