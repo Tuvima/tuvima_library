@@ -5,96 +5,102 @@ namespace MediaEngine.Api.Tests;
 public sealed class DisplayFactBuilderTests
 {
     [Fact]
-    public void MovieFacts_UseYearAndUniqueGenres()
+    public void MovieFacts_UseClassificationYearRuntimeAndStarScore()
     {
         var facts = DisplayFactBuilder.Build(
-            mediaKind: "Movie",
-            title: "Arrival",
+            "Movie",
+            "Arrival",
             year: "2016",
-            genre: "Science Fiction; Drama; Science Fiction");
+            contentRating: "PG-13",
+            runtime: "1h 56m",
+            starRating: "7.9");
 
-        Assert.Equal(["2016", "Science Fiction", "Drama"], facts);
+        Assert.Equal(["PG-13", "2016", "1h 56m", "★ 7.9"], facts);
     }
 
     [Fact]
-    public void MovieFacts_FormatRatingAsStarFact()
+    public void MovieFacts_LabelNumericRuntimeAndRoundStarScore()
     {
         var facts = DisplayFactBuilder.Build(
-            mediaKind: "Movie",
-            title: "Inception",
-            year: "2010",
-            rating: "8.8",
-            genre: "Science Fiction");
+            "Movie",
+            "The Shawshank Redemption",
+            year: "1994",
+            contentRating: "R",
+            runtime: "142",
+            starRating: "8.724");
 
-        Assert.Equal(["2010", "\u2605 8.8", "Science Fiction"], facts);
+        Assert.Equal(["R", "1994", "142 min", "★ 8.7"], facts);
     }
 
     [Fact]
-    public void BookFacts_UseAuthorAndGenresWithoutRepeatingTitle()
+    public void BookFacts_UseAuthorClassificationYearPagesAndStarScore()
     {
         var facts = DisplayFactBuilder.Build(
-            mediaKind: "Book",
-            title: "Dune",
-            author: "Frank Herbert",
-            series: "Dune Saga",
-            genre: "Science Fiction;Adventure");
+            "Book",
+            "Leviathan Wakes",
+            year: "2011",
+            author: "James S. A. Corey",
+            contentRating: "M",
+            pageCount: "592",
+            starRating: "4.3");
 
-        Assert.Equal(["Frank Herbert", "Science Fiction", "Adventure"], facts);
+        Assert.Equal(["James S. A. Corey", "M", "2011", "592 pages", "★ 4.3"], facts);
     }
 
     [Fact]
-    public void AudiobookFacts_IncludeNarratorWithoutDuplicatingAuthor()
+    public void AudiobookFacts_UseAuthorYearDurationAndScoreWithoutNarratorOrGenre()
     {
         var facts = DisplayFactBuilder.Build(
-            mediaKind: "Audiobook",
-            title: "Project Hail Mary",
+            "Audiobook",
+            "Project Hail Mary",
+            year: "2021",
             author: "Andy Weir",
             narrator: "Ray Porter",
-            genre: "Science Fiction");
+            genre: "Science Fiction",
+            duration: "16h 10m",
+            starRating: "4.8");
 
-        Assert.Equal(["Andy Weir", "Narrated by Ray Porter", "Science Fiction"], facts);
+        Assert.Equal(["Andy Weir", "2021", "16h 10m", "★ 4.8"], facts);
     }
 
     [Fact]
-    public void TvFacts_UseEpisodeAndGenre()
+    public void MusicFacts_UseArtistYearDurationAndScore()
     {
         var facts = DisplayFactBuilder.Build(
-            mediaKind: "TV",
-            title: "Pilot",
+            "Music",
+            "Not Strong Enough",
+            year: "2023",
+            artist: "boygenius",
+            duration: "3:54",
+            starRating: "4.6");
+
+        Assert.Equal(["boygenius", "2023", "3:54", "★ 4.6"], facts);
+    }
+
+    [Fact]
+    public void MusicFacts_FormatProviderMillisecondsAsTrackLength()
+    {
+        var facts = DisplayFactBuilder.Build(
+            "Music",
+            "Soul Love",
+            artist: "David Bowie",
+            duration: "214200");
+
+        Assert.Equal(["David Bowie", "3:34"], facts);
+    }
+
+    [Fact]
+    public void GenresAndEpisodeLabels_AreNotHoverFacts()
+    {
+        var facts = DisplayFactBuilder.Build(
+            "TV",
+            "Pilot",
             year: "2008",
             genre: "Crime",
             showName: "Breaking Bad",
             season: "1",
             episode: "1");
 
-        Assert.Equal(["Breaking Bad", "2008", "S1 E1", "Crime"], facts);
-    }
-
-    [Fact]
-    public void ComicFacts_UseVolumeAndIssue()
-    {
-        var facts = DisplayFactBuilder.Build(
-            mediaKind: "Comic",
-            title: "Absent Friends",
-            author: "Alan Moore",
-            series: "Watchmen",
-            seriesPosition: "2",
-            genre: "Superhero");
-
-        Assert.Equal(["Watchmen", "Issue #2", "Alan Moore", "Superhero"], facts);
-    }
-
-    [Fact]
-    public void MusicFacts_UseArtistAlbumTrackAndGenre()
-    {
-        var facts = DisplayFactBuilder.Build(
-            mediaKind: "Music",
-            title: "Not Strong Enough",
-            artist: "boygenius",
-            album: "The Record",
-            track: "6",
-            genre: "Indie Rock");
-
-        Assert.Equal(["boygenius", "The Record", "Track 6", "Indie Rock"], facts);
+        Assert.Equal(["2008"], facts);
     }
 }

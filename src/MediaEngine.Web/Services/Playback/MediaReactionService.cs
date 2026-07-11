@@ -9,12 +9,14 @@ public enum MediaReaction
     Neutral,
     Like,
     Dislike,
+    Love,
 }
 
 public sealed class MediaReactionService
 {
     private const string LikedCollectionName = "Liked Media";
     private const string DislikedCollectionName = "Disliked Media";
+    private const string LovedCollectionName = "Loved Media";
     private const int CollectionItemFetchLimit = 4000;
 
     private readonly IEngineApiClient _apiClient;
@@ -36,6 +38,11 @@ public sealed class MediaReactionService
         if (state.DislikedWorkIds.Contains(workId))
         {
             return MediaReaction.Dislike;
+        }
+
+        if (state.LovedWorkIds.Contains(workId))
+        {
+            return MediaReaction.Love;
         }
 
         return state.FavoriteWorkIds.Contains(workId)
@@ -63,14 +70,19 @@ public sealed class MediaReactionService
             return;
         }
 
-        if (reaction is MediaReaction.Neutral or MediaReaction.Dislike)
+        if (reaction is MediaReaction.Neutral or MediaReaction.Dislike or MediaReaction.Love)
         {
             await RemoveFromCollectionIfPresentAsync(workId, state.FavoritesCollectionId, state.FavoriteItemsByWorkId, profileId, ct);
         }
 
-        if (reaction is MediaReaction.Neutral or MediaReaction.Like)
+        if (reaction is MediaReaction.Neutral or MediaReaction.Like or MediaReaction.Love)
         {
             await RemoveFromCollectionIfPresentAsync(workId, state.DislikedCollectionId, state.DislikedItemsByWorkId, profileId, ct);
+        }
+
+        if (reaction is MediaReaction.Neutral or MediaReaction.Like or MediaReaction.Dislike)
+        {
+            await RemoveFromCollectionIfPresentAsync(workId, state.LovedCollectionId, state.LovedItemsByWorkId, profileId, ct);
         }
 
         if (reaction == MediaReaction.Like && state.FavoritesCollectionId.HasValue && !state.FavoriteWorkIds.Contains(workId))
@@ -84,6 +96,14 @@ public sealed class MediaReactionService
         if (reaction == MediaReaction.Dislike && state.DislikedCollectionId.HasValue && !state.DislikedWorkIds.Contains(workId))
         {
             if (await _apiClient.AddCollectionItemAsync(state.DislikedCollectionId.Value, workId, profileId, ct))
+            {
+                await ReloadStateAsync(profileId!.Value, ct);
+            }
+        }
+
+        if (reaction == MediaReaction.Love && state.LovedCollectionId.HasValue && !state.LovedWorkIds.Contains(workId))
+        {
+            if (await _apiClient.AddCollectionItemAsync(state.LovedCollectionId.Value, workId, profileId, ct))
             {
                 await ReloadStateAsync(profileId!.Value, ct);
             }
@@ -149,7 +169,7 @@ public sealed class MediaReactionService
 
         if (_cache.TryGetValue(profileId.Value, out var cached))
         {
-            if (!createCollections || (cached.FavoritesCollectionId.HasValue && cached.DislikedCollectionId.HasValue))
+            if (!createCollections || (cached.FavoritesCollectionId.HasValue && cached.DislikedCollectionId.HasValue && cached.LovedCollectionId.HasValue))
             {
                 return cached;
             }
@@ -168,6 +188,10 @@ public sealed class MediaReactionService
         var disliked = collections.FirstOrDefault(collection =>
             string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
             && string.Equals(collection.Name, DislikedCollectionName, StringComparison.OrdinalIgnoreCase)
+            && collection.ProfileId == profileId);
+        var loved = collections.FirstOrDefault(collection =>
+            string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(collection.Name, LovedCollectionName, StringComparison.OrdinalIgnoreCase)
             && collection.ProfileId == profileId);
 
         if (createCollections && favorites is null)
@@ -216,11 +240,38 @@ public sealed class MediaReactionService
                 && collection.ProfileId == profileId);
         }
 
+
+        if (createCollections && loved is null)
+        {
+            await _apiClient.CreateCollectionAsync(
+                LovedCollectionName,
+                "Profile-level strongest positive feedback across the library.",
+                Icons.Material.Outlined.FavoriteBorder,
+                "Playlist",
+                [],
+                "all",
+                null,
+                "desc",
+                false,
+                "private",
+                profileId,
+                ct);
+
+            collections = await _apiClient.GetManagedCollectionsAsync(profileId, ct);
+            loved = collections.FirstOrDefault(collection =>
+                string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(collection.Name, LovedCollectionName, StringComparison.OrdinalIgnoreCase)
+                && collection.ProfileId == profileId);
+        }
+
         var favoriteItems = favorites is not null
             ? await _apiClient.GetCollectionItemsAsync(favorites.Id, CollectionItemFetchLimit, profileId, ct)
             : [];
         var dislikedItems = disliked is not null
             ? await _apiClient.GetCollectionItemsAsync(disliked.Id, CollectionItemFetchLimit, profileId, ct)
+            : [];
+        var lovedItems = loved is not null
+            ? await _apiClient.GetCollectionItemsAsync(loved.Id, CollectionItemFetchLimit, profileId, ct)
             : [];
 
         var state = new ProfileReactionState
@@ -229,12 +280,17 @@ public sealed class MediaReactionService
             FavoritesCollectionId = favorites?.Id,
             DislikedCollection = disliked,
             DislikedCollectionId = disliked?.Id,
+            LovedCollectionId = loved?.Id,
             FavoriteWorkIds = favoriteItems.Select(item => item.WorkId).ToHashSet(),
             DislikedWorkIds = dislikedItems.Select(item => item.WorkId).ToHashSet(),
+            LovedWorkIds = lovedItems.Select(item => item.WorkId).ToHashSet(),
             FavoriteItemsByWorkId = favoriteItems
                 .GroupBy(item => item.WorkId)
                 .ToDictionary(group => group.Key, group => group.First().Id),
             DislikedItemsByWorkId = dislikedItems
+                .GroupBy(item => item.WorkId)
+                .ToDictionary(group => group.Key, group => group.First().Id),
+            LovedItemsByWorkId = lovedItems
                 .GroupBy(item => item.WorkId)
                 .ToDictionary(group => group.Key, group => group.First().Id),
         };
@@ -249,9 +305,12 @@ public sealed class MediaReactionService
         public Guid? FavoritesCollectionId { get; set; }
         public ManagedCollectionViewModel? DislikedCollection { get; set; }
         public Guid? DislikedCollectionId { get; set; }
+        public Guid? LovedCollectionId { get; set; }
         public HashSet<Guid> FavoriteWorkIds { get; set; } = [];
         public HashSet<Guid> DislikedWorkIds { get; set; } = [];
+        public HashSet<Guid> LovedWorkIds { get; set; } = [];
         public Dictionary<Guid, Guid> FavoriteItemsByWorkId { get; set; } = [];
         public Dictionary<Guid, Guid> DislikedItemsByWorkId { get; set; } = [];
+        public Dictionary<Guid, Guid> LovedItemsByWorkId { get; set; } = [];
     }
 }

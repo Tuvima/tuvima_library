@@ -1,7 +1,15 @@
 .book-detail-page {
         min-height: 100vh;
         padding-bottom: 5rem;
-    }
+}
+
+.book-detail-title {
+    font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
+    font-weight: var(--media-identity-title-weight, 850);
+    line-height: var(--media-identity-title-line-height, .96);
+    letter-spacing: var(--media-identity-title-letter-spacing, 0);
+    text-transform: none;
+}
 
     .book-detail-page *:focus:not(:focus-visible) {
         outline: none !important;
@@ -753,4 +761,12 @@
             rgba(6, 10, 22, 0.85) 60%,
             rgba(6, 10, 22, 1.00) 85%
         );
+    }
+
+    .book-detail-title {
+        font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
+        font-weight: var(--media-identity-title-weight, 850);
+        line-height: var(--media-identity-title-line-height, .96);
+        letter-spacing: var(--media-identity-title-letter-spacing, 0);
+        text-transform: none;
     }

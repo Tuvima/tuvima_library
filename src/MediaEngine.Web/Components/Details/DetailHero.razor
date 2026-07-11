@@ -154,7 +154,7 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
-    private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.IsWatchHero, Presentation.UseLogo);
+    private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
     private string HeroCreditStackClass => Model.EntityType == DetailEntityType.Audiobook
         ? "tl-detail-hero-credit-stack tl-detail-hero-credit-stack--audiobook"
@@ -233,9 +233,9 @@
     private static string? FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-    private static string ResolveTitleDensityClass(string title, bool isWatchHero, bool useLogo)
+    private static string ResolveTitleDensityClass(string title, bool useLogo)
     {
-        if (!isWatchHero || useLogo || string.IsNullOrWhiteSpace(title))
+        if (useLogo || string.IsNullOrWhiteSpace(title))
             return string.Empty;
 
         var words = title.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

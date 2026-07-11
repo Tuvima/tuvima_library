@@ -40,6 +40,11 @@
     --tl-text-on-accent: #FFFFFF;
     --tl-text-on-warning: #1F1303;
     --tl-font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    --media-identity-font-family: var(--app-font-brand, 'Montserrat', 'Inter', 'Segoe UI', system-ui, sans-serif);
+    --media-identity-title-weight: 850;
+    --media-identity-title-line-height: 0.96;
+    --media-identity-title-letter-spacing: 0;
+    --media-identity-subtitle-weight: 650;
 
     --tl-border-subtle: rgba(148, 163, 184, 0.10);
     --tl-border-default: rgba(148, 163, 184, 0.16);

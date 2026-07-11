@@ -26,6 +26,7 @@
             {
                 <MediaShelf Shelf="@shelf"
                             SectionType="@SectionType"
+                            OnPrimaryClicked="@OnPrimaryClicked"
                             HideSourceBadges="@(SectionType == MediaHubSectionType.Watch)" />
             }
         }
@@ -45,6 +46,7 @@
     [Parameter] public string RouteBase { get; set; } = "/";
     [Parameter] public bool SupportsHero { get; set; } = true;
     [Parameter] public bool SupportsContinueRow { get; set; } = true;
+    [Parameter] public EventCallback<MediaTileViewModel> OnPrimaryClicked { get; set; }
 
     private string SectionName => SectionType.ToString().ToLowerInvariant();
 

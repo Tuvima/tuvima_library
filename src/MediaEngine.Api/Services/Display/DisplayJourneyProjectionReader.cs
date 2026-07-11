@@ -32,13 +32,57 @@ public sealed class DisplayJourneyProjectionReader
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'short_description' LIMIT 1),
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = ma.id AND key = 'short_description' LIMIT 1)
                 ) AS Description,
-                cv_author_w.value AS Author,
-                cv_artist_w.value AS Artist,
-                cv_album_w.value AS Album,
-                cv_year_w.value AS Year,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('author', 'creator') LIMIT 1),
+                    cv_author_w.value,
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('author', 'creator') LIMIT 1)
+                ) AS Author,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'artist' LIMIT 1),
+                    cv_artist_w.value,
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'artist' LIMIT 1)
+                ) AS Artist,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'album' LIMIT 1),
+                    cv_album_w.value,
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'album' LIMIT 1)
+                ) AS Album,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('release_year', 'year') LIMIT 1),
+                    cv_year_w.value,
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('release_year', 'year') LIMIT 1)
+                ) AS Year,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('content_rating', 'certification') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('content_rating', 'certification') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('content_rating', 'certification') LIMIT 1)
+                ) AS ContentRating,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'runtime' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'runtime' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'runtime' LIMIT 1)
+                ) AS Runtime,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('duration', 'duration_sec', 'duration_seconds') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('duration', 'duration_sec', 'duration_seconds') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('duration', 'duration_sec', 'duration_seconds') LIMIT 1)
+                ) AS Duration,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'page_count' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'page_count' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'page_count' LIMIT 1)
+                ) AS PageCount,
                 COALESCE(cv_rating_w.value, cv_rating_item.value, cv_rating_a.value) AS Rating,
-                cv_genre_w.value AS Genre,
-                cv_series_w.value AS Series,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'genre' LIMIT 1),
+                    cv_genre_w.value,
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'genre' LIMIT 1)
+                ) AS Genre,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'series' LIMIT 1),
+                    cv_series_w.value,
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'series' LIMIT 1)
+                ) AS Series,
                 COALESCE(cv_issue_a.value, cv_issue_w.value, cv_series_position_a.value) AS SeriesPosition,
                 cv_show_w.value AS ShowName,
                 cv_narrator_w.value AS Narrator,

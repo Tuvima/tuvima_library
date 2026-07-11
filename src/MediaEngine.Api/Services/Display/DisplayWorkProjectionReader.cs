@@ -68,17 +68,61 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = RootWorkId AND key = 'short_description' LIMIT 1),
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = AssetId AND key = 'short_description' LIMIT 1)
                 ) AS Description,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('author', 'creator') LIMIT 1) AS Author,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artist' LIMIT 1) AS Artist,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'album' LIMIT 1) AS Album,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('release_year', 'year') LIMIT 1) AS Year,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('author', 'creator') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('author', 'creator') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('author', 'creator') LIMIT 1)
+                ) AS Author,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'artist' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artist' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'artist' LIMIT 1)
+                ) AS Artist,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'album' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'album' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'album' LIMIT 1)
+                ) AS Album,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('release_year', 'year') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('release_year', 'year') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('release_year', 'year') LIMIT 1)
+                ) AS Year,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('content_rating', 'certification') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('content_rating', 'certification') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('content_rating', 'certification') LIMIT 1)
+                ) AS ContentRating,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'runtime' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'runtime' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'runtime' LIMIT 1)
+                ) AS Runtime,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('duration', 'duration_sec', 'duration_seconds') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('duration', 'duration_sec', 'duration_seconds') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('duration', 'duration_sec', 'duration_seconds') LIMIT 1)
+                ) AS Duration,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'page_count' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'page_count' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'page_count' LIMIT 1)
+                ) AS PageCount,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'rating' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'rating' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'rating' LIMIT 1)
                 ) AS Rating,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'genre' LIMIT 1) AS Genre,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'series' LIMIT 1) AS Series,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'genre' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'genre' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'genre' LIMIT 1)
+                ) AS Genre,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'series' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'series' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'series' LIMIT 1)
+                ) AS Series,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'issue_number' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'issue_number' LIMIT 1),

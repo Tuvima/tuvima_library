@@ -5421,3 +5421,46 @@
         grid-row: 1;
     }
 }
+
+/* Shared media identity typography. Artwork treatment may vary by media type;
+   fallback text presentation must not. */
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy h1,
+::deep .tl-audio-detail__copy h1 {
+    max-width: 16ch;
+    margin: 0;
+    font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
+    font-size: clamp(3rem, 7vw, 6.6rem);
+    font-weight: var(--media-identity-title-weight, 850);
+    line-height: var(--media-identity-title-line-height, .96);
+    letter-spacing: var(--media-identity-title-letter-spacing, 0);
+    text-transform: none;
+    text-wrap: balance;
+}
+
+::deep .tl-detail-hero.tl-detail-hero--title-long:not(.tl-detail-hero--person) .tl-detail-hero__copy h1,
+::deep .tl-audio-detail__hero--title-long .tl-audio-detail__copy h1 {
+    font-size: clamp(2.65rem, 5.8vw, 5.35rem);
+    line-height: .98;
+}
+
+::deep .tl-detail-hero.tl-detail-hero--title-dense:not(.tl-detail-hero--person) .tl-detail-hero__copy h1,
+::deep .tl-audio-detail__hero--title-dense .tl-audio-detail__copy h1 {
+    font-size: clamp(2.2rem, 4.7vw, 4.35rem);
+    line-height: 1;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__subtitle,
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__tagline,
+::deep .tl-audio-detail__subtitle {
+    font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
+    font-weight: var(--media-identity-subtitle-weight, 650);
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+@media (max-width: 720px) {
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy h1,
+    ::deep .tl-audio-detail__copy h1 {
+        font-size: clamp(2.35rem, 12vw, 4rem);
+    }
+}

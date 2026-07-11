@@ -20,7 +20,7 @@ public sealed class DisplayCardBuilder
             GroupingType: "work",
             Title: title,
             Subtitle: SubtitleFor(mediaKind, CreatorFor(row), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
-            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album, row.Rating),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -50,7 +50,7 @@ public sealed class DisplayCardBuilder
             GroupingType: "work",
             Title: title,
             Subtitle: SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
-            Facts: BuildFacts(mediaKind, title, row.Year, row.Genre, row.Author, row.Artist, row.Narrator, row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber, row.TrackNumber, row.Album, row.Rating),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -396,8 +396,28 @@ public sealed class DisplayCardBuilder
         return ArtworkFor(row);
     }
 
-    private static IReadOnlyList<string> BuildFacts(string mediaKind, string title, string? year, string? genre, string? author, string? artist, string? narrator, string? series, string? seriesPosition, string? showName, string? season, string? episode, string? track, string? album, string? rating)
-        => DisplayFactBuilder.Build(mediaKind, title, year, genre, author, artist, narrator, series, seriesPosition, showName, season, episode, track, album, rating);
+    private static IReadOnlyList<string> BuildFacts(
+        string mediaKind,
+        string title,
+        string? year,
+        string? author,
+        string? artist,
+        string? contentRating,
+        string? runtime,
+        string? duration,
+        string? pageCount,
+        string? starRating)
+        => DisplayFactBuilder.Build(
+            mediaKind,
+            title,
+            year: year,
+            author: author,
+            artist: artist,
+            contentRating: contentRating,
+            runtime: runtime,
+            duration: duration,
+            pageCount: pageCount,
+            starRating: starRating);
 
     private static string PreferredShape(string mediaType, string? backgroundUrl, string? bannerUrl, string? squareUrl)
     {
@@ -851,10 +871,32 @@ public sealed class DisplayCardBuilder
 
         if (mediaKind == "Comic")
         {
-            return string.Join(" - ", new[] { series, FormatIssue(seriesPosition), creator }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            return SeriesSubtitle(series, seriesPosition, "Issue") ?? creator;
+        }
+
+        if (mediaKind is "Book" or "Audiobook")
+        {
+            return SeriesSubtitle(series, seriesPosition, "Book") ?? creator;
+        }
+
+        if (mediaKind == "Movie")
+        {
+            return SeriesSubtitle(series, seriesPosition, "Film");
         }
 
         return FirstNonBlank(creator, series);
+    }
+
+    private static string? SeriesSubtitle(string? series, string? position, string memberLabel)
+    {
+        if (string.IsNullOrWhiteSpace(series))
+        {
+            return null;
+        }
+
+        return string.IsNullOrWhiteSpace(position)
+            ? series.Trim()
+            : $"{series.Trim()}, {memberLabel} {position.Trim()}";
     }
 
     private static string? FormatSeasonEpisode(string? season, string? episode)

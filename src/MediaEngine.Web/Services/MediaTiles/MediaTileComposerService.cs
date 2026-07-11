@@ -164,6 +164,13 @@ public sealed class MediaTileComposerService
                                or MediaTilePresentation.ComicSeries
                                or MediaTilePresentation.AudiobookSeries
                                or MediaTilePresentation.Album;
+        var useLandscapeGroup = card.Flags.IsCollection
+                                && (presentation is MediaTilePresentation.TvSeries
+                                    or MediaTilePresentation.MovieSeries
+                                    or MediaTilePresentation.BookSeries
+                                    or MediaTilePresentation.ComicSeries
+                                    or MediaTilePresentation.AudiobookSeries
+                                    || string.Equals(card.GroupingType, "collection", StringComparison.OrdinalIgnoreCase));
 
         var surface = MediaTileArtworkResolver.Resolve(
             bucket,
@@ -173,15 +180,16 @@ public sealed class MediaTileComposerService
                 new MediaTileArtworkVariant(ArtworkRole.Banner, card.Artwork.BannerSmallUrl, card.Artwork.BannerMediumUrl, card.Artwork.BannerLargeUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
                 new MediaTileArtworkVariant(ArtworkRole.Square, card.Artwork.SquareSmallUrl, card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
                 new MediaTileArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverSmallUrl, card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
-            ]);
+            ],
+            preferLandscapeTile: useLandscapeGroup);
         var artworkStackItems = BuildArtworkStackItems(card);
         var useOrderedSeriesStack = UsesOrderedSeriesStack(presentation, artworkStackItems);
         var seriesBackdropUrl = useOrderedSeriesStack
             ? FirstNonBlank(card.Artwork.BackgroundSmallUrl, card.Artwork.BannerSmallUrl, card.Artwork.BackgroundMediumUrl, card.Artwork.BannerMediumUrl, card.Artwork.BackgroundUrl, card.Artwork.BannerUrl)
             : null;
-        var tileShape = useOrderedSeriesStack ? MediaTileShape.Landscape : surface.Shape;
-        var surfaceKind = useOrderedSeriesStack ? MediaTileSurfaceKind.BannerLandscape : surface.SurfaceKind;
-        var hoverLayout = useOrderedSeriesStack ? MediaTileHoverLayout.BannerPopover : surface.HoverLayout;
+        var tileShape = useLandscapeGroup || useOrderedSeriesStack ? MediaTileShape.Landscape : MediaTileShape.Portrait;
+        var surfaceKind = useLandscapeGroup || useOrderedSeriesStack ? MediaTileSurfaceKind.BannerLandscape : MediaTileSurfaceKind.CoverPortrait;
+        var hoverLayout = surface.HoverLayout;
 
         return new MediaTileViewModel
         {

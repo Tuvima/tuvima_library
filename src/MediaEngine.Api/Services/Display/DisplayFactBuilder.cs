@@ -19,52 +19,52 @@ public static class DisplayFactBuilder
         string? episode = null,
         string? track = null,
         string? album = null,
-        string? rating = null)
+        string? rating = null,
+        string? contentRating = null,
+        string? runtime = null,
+        string? duration = null,
+        string? pageCount = null,
+        string? starRating = null)
     {
         var facts = new List<string>();
         switch (mediaKind)
         {
             case "Movie":
-                AddFact(facts, year, title);
-                AddFact(facts, FormatRating(rating), title);
-                break;
             case "TV":
-                AddFact(facts, showName, title);
+                AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
-                AddFact(facts, FormatRating(rating), title);
-                AddFact(facts, FormatEpisode(season, episode), title);
-                break;
-            case "Comic":
-                AddFact(facts, series, title);
-                AddFact(facts, FormatIssue(seriesPosition), title);
-                AddFact(facts, author, title);
-                AddFact(facts, FormatRating(rating), title);
+                AddFact(facts, FormatDuration(FirstNonBlank(runtime, duration), mediaKind), title);
+                AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
             case "Book":
+            case "Comic":
                 AddFact(facts, author, title);
-                AddFact(facts, FormatRating(rating), title);
+                AddFact(facts, NormalizeContentRating(contentRating), title);
+                AddFact(facts, year, title);
+                AddFact(facts, FormatPageCount(pageCount), title);
+                AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
             case "Audiobook":
                 AddFact(facts, author, title);
-                AddFact(facts, narrator is null ? null : $"Narrated by {narrator}", title, author);
-                AddFact(facts, FormatRating(rating), title);
+                AddFact(facts, NormalizeContentRating(contentRating), title);
+                AddFact(facts, year, title);
+                AddFact(facts, FormatDuration(FirstNonBlank(duration, runtime), mediaKind), title);
+                AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
             case "Music":
                 AddFact(facts, artist ?? author, title);
-                AddFact(facts, album, title);
-                AddFact(facts, track is null ? null : $"Track {track}", title);
-                AddFact(facts, FormatRating(rating), title);
+                AddFact(facts, NormalizeContentRating(contentRating), title);
+                AddFact(facts, year, title);
+                AddFact(facts, FormatDuration(FirstNonBlank(duration, runtime), mediaKind), title);
+                AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
             default:
                 AddFact(facts, author ?? artist, title);
+                AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
-                AddFact(facts, FormatRating(rating), title);
+                AddFact(facts, FormatDuration(FirstNonBlank(runtime, duration), mediaKind), title);
+                AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
-        }
-
-        foreach (var item in SplitGenres(genre).Take(3))
-        {
-            AddFact(facts, item, title);
         }
 
         return facts;
@@ -89,27 +89,7 @@ public static class DisplayFactBuilder
         }
     }
 
-    private static IEnumerable<string> SplitGenres(string? genre)
-    {
-        if (string.IsNullOrWhiteSpace(genre))
-        {
-            return [];
-        }
-
-        return genre.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    }
-
-    private static string? FormatEpisode(string? season, string? episode) =>
-        !string.IsNullOrWhiteSpace(season) && !string.IsNullOrWhiteSpace(episode)
-            ? $"S{season} E{episode}"
-            : null;
-
-    private static string? FormatIssue(string? seriesPosition) =>
-        string.IsNullOrWhiteSpace(seriesPosition)
-            ? null
-            : $"Issue #{seriesPosition}";
-
-    private static string? FormatRating(string? rating)
+    private static string? FormatStarRating(string? rating)
     {
         if (string.IsNullOrWhiteSpace(rating))
         {
@@ -117,24 +97,80 @@ public static class DisplayFactBuilder
         }
 
         var cleaned = rating.Trim();
-        if (cleaned.Contains('\u2605'))
+        if (cleaned.StartsWith('\u2605'))
         {
             return cleaned;
         }
 
         if (cleaned.StartsWith("rating", StringComparison.OrdinalIgnoreCase))
         {
+            cleaned = cleaned["rating".Length..].Trim(' ', ':');
+        }
+
+        if (double.TryParse(cleaned, NumberStyles.Float, CultureInfo.InvariantCulture, out var score))
+        {
+            cleaned = score.ToString("0.0", CultureInfo.InvariantCulture);
+        }
+
+        return string.IsNullOrWhiteSpace(cleaned) ? null : $"\u2605 {cleaned}";
+    }
+
+    private static string? NormalizeContentRating(string? rating)
+        => string.IsNullOrWhiteSpace(rating) ? null : rating.Trim();
+
+    private static string? FormatPageCount(string? pageCount)
+    {
+        if (string.IsNullOrWhiteSpace(pageCount))
+        {
+            return null;
+        }
+
+        var cleaned = pageCount.Trim();
+        return cleaned.Contains("page", StringComparison.OrdinalIgnoreCase)
+            ? cleaned
+            : $"{cleaned} pages";
+    }
+
+    private static string? FormatDuration(string? duration, string mediaKind)
+    {
+        if (string.IsNullOrWhiteSpace(duration))
+        {
+            return null;
+        }
+
+        var cleaned = duration.Trim();
+        if (!double.TryParse(cleaned, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+        {
             return cleaned;
         }
 
-        if (double.TryParse(cleaned, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+        if (mediaKind == "Music")
         {
-            var formatted = numeric % 1 == 0
-                ? numeric.ToString("0", CultureInfo.InvariantCulture)
-                : numeric.ToString("0.0", CultureInfo.InvariantCulture);
-            return $"\u2605 {formatted}";
+            return FormatElapsed(TimeSpan.FromMilliseconds(numeric));
         }
 
-        return $"Rating {cleaned}";
+        if (mediaKind == "Audiobook")
+        {
+            var elapsed = numeric >= 100_000
+                ? TimeSpan.FromMilliseconds(numeric)
+                : TimeSpan.FromSeconds(numeric);
+            return FormatElapsed(elapsed);
+        }
+
+        return $"{numeric:0.#} min";
     }
+
+    private static string FormatElapsed(TimeSpan elapsed)
+    {
+        if (elapsed.TotalHours >= 1)
+        {
+            var hours = (int)Math.Floor(elapsed.TotalHours);
+            return elapsed.Minutes > 0 ? $"{hours}h {elapsed.Minutes}m" : $"{hours}h";
+        }
+
+        return $"{Math.Max(0, (int)elapsed.TotalMinutes)}:{elapsed.Seconds:00}";
+    }
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

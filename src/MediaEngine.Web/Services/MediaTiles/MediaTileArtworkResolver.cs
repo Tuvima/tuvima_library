@@ -56,27 +56,35 @@ public static class MediaTileArtworkResolver
     public static MediaTileSurfaceSelection Resolve(
         MediaTileBucket bucket,
         MediaTilePresentation presentation,
-        IReadOnlyList<MediaTileArtworkVariant> variants)
+        IReadOnlyList<MediaTileArtworkVariant> variants,
+        bool preferLandscapeTile = false)
     {
-        var selected = SelectVariant(bucket, presentation, variants);
-        var shape = ShapeForSelected(bucket, presentation, selected);
-        var surfaceKind = SurfaceFor(presentation, shape);
-        var hoverLayout = surfaceKind == MediaTileSurfaceKind.BannerLandscape
+        var tileVariant = SelectTileVariant(bucket, presentation, variants, preferLandscapeTile);
+        var hoverVariant = SelectHoverVariant(variants) ?? tileVariant;
+        var shape = preferLandscapeTile ? MediaTileShape.Landscape : MediaTileShape.Portrait;
+        var surfaceKind = preferLandscapeTile
+            ? MediaTileSurfaceKind.BannerLandscape
+            : MediaTileSurfaceKind.CoverPortrait;
+        var hoverLayout = hoverVariant is not null && IsCinematic(hoverVariant)
             ? MediaTileHoverLayout.BannerPopover
             : MediaTileHoverLayout.ArtOnlyPopover;
-        var fit = FitFor(bucket, selected, shape);
+        var tileFit = preferLandscapeTile || tileVariant?.Shape == MediaTileShape.Portrait
+            ? MediaTileImageFitMode.Fill
+            : MediaTileImageFitMode.Contain;
 
         return new MediaTileSurfaceSelection(
             surfaceKind,
             hoverLayout,
-            TileImageUrl: selected?.TileUrl,
-            TileImageSrcSet: BuildSrcSet((selected?.SmallUrl, 320), (selected?.MediumUrl, 960)),
-            HoverImageUrl: selected?.HoverUrl,
-            HoverImageSrcSet: BuildSrcSet((selected?.MediumUrl, 960), (selected?.LargeUrl, 2160)),
-            HeroBackgroundImageUrl: selected?.HeroUrl,
-            PreviewImageUrl: selected?.HoverUrl,
-            TileImageFitMode: fit,
-            HoverImageFitMode: surfaceKind == MediaTileSurfaceKind.BannerLandscape ? MediaTileImageFitMode.Fill : MediaTileImageFitMode.Contain,
+            TileImageUrl: tileVariant?.TileUrl,
+            TileImageSrcSet: BuildSrcSet((tileVariant?.SmallUrl, 320), (tileVariant?.MediumUrl, 960)),
+            HoverImageUrl: hoverVariant?.HoverUrl,
+            HoverImageSrcSet: BuildSrcSet((hoverVariant?.MediumUrl, 960), (hoverVariant?.LargeUrl, 2160)),
+            HeroBackgroundImageUrl: hoverVariant?.HeroUrl,
+            PreviewImageUrl: tileVariant?.HoverUrl,
+            TileImageFitMode: tileFit,
+            HoverImageFitMode: hoverVariant is not null && IsCinematic(hoverVariant)
+                ? MediaTileImageFitMode.Fill
+                : MediaTileImageFitMode.Contain,
             Shape: shape);
     }
 
@@ -111,79 +119,48 @@ public static class MediaTileArtworkResolver
         };
     }
 
-    private static MediaTileArtworkVariant? SelectVariant(
+    private static MediaTileArtworkVariant? SelectTileVariant(
         MediaTileBucket bucket,
         MediaTilePresentation presentation,
-        IReadOnlyList<MediaTileArtworkVariant> variants)
+        IReadOnlyList<MediaTileArtworkVariant> variants,
+        bool preferLandscapeTile)
     {
+        if (preferLandscapeTile)
+        {
+            return First(variants, ArtworkRole.Background, ArtworkRole.Banner, ArtworkRole.Cover, ArtworkRole.Square);
+        }
+
         if (presentation == MediaTilePresentation.Artist)
         {
-            return First(variants, ArtworkRole.ArtistPhoto);
+            return First(variants, ArtworkRole.ArtistPhoto, ArtworkRole.Cover, ArtworkRole.Square);
         }
 
         return bucket switch
         {
-            MediaTileBucket.Movie or MediaTileBucket.Tv =>
-                First(variants, ArtworkRole.Background, ArtworkRole.Banner, ArtworkRole.Hero)
-                ?? First(variants, ArtworkRole.Cover),
-            MediaTileBucket.Music =>
-                First(variants, ArtworkRole.Square, ArtworkRole.Cover),
-            MediaTileBucket.Audiobook =>
-                First(variants, ArtworkRole.Square, ArtworkRole.Cover),
+            MediaTileBucket.Movie or MediaTileBucket.Tv => First(variants, ArtworkRole.Cover, ArtworkRole.Square),
+            MediaTileBucket.Music => First(variants, ArtworkRole.Square, ArtworkRole.Cover),
+            MediaTileBucket.Audiobook => First(variants, ArtworkRole.Cover, ArtworkRole.Square),
             MediaTileBucket.Book or MediaTileBucket.Comic =>
                 First(variants, ArtworkRole.Cover, ArtworkRole.Square),
-            _ => First(variants, ArtworkRole.Cover, ArtworkRole.Square, ArtworkRole.Background, ArtworkRole.Banner, ArtworkRole.ArtistPhoto),
+            _ => First(variants, ArtworkRole.Cover, ArtworkRole.Square, ArtworkRole.ArtistPhoto),
         };
     }
 
-    private static MediaTileShape ShapeForSelected(
-        MediaTileBucket bucket,
-        MediaTilePresentation presentation,
-        MediaTileArtworkVariant? selected)
+    private static MediaTileArtworkVariant? SelectHoverVariant(IReadOnlyList<MediaTileArtworkVariant> variants)
     {
-        if (presentation == MediaTilePresentation.Artist)
-            return MediaTileShape.Square;
-
-        if (bucket is MediaTileBucket.Music or MediaTileBucket.Audiobook)
-            return MediaTileShape.Square;
-
-        return selected?.Shape ?? DefaultShape(bucket);
+        return variants.FirstOrDefault(variant => variant.Role == ArtworkRole.Background && variant.HasUrl && IsCinematic(variant))
+               ?? variants.FirstOrDefault(variant => variant.Role == ArtworkRole.Banner && variant.HasUrl && IsCinematic(variant));
     }
 
-    private static MediaTileShape DefaultShape(MediaTileBucket bucket) => bucket switch
+    private static bool IsCinematic(MediaTileArtworkVariant variant)
     {
-        MediaTileBucket.Movie or MediaTileBucket.Tv => MediaTileShape.Portrait,
-        MediaTileBucket.Music or MediaTileBucket.Audiobook => MediaTileShape.Square,
-        _ => MediaTileShape.Portrait,
-    };
-
-    private static MediaTileSurfaceKind SurfaceFor(MediaTilePresentation presentation, MediaTileShape shape)
-    {
-        if (presentation == MediaTilePresentation.Artist)
-            return MediaTileSurfaceKind.ArtistPhotoSquare;
-
-        return shape switch
+        if (variant.WidthPx is > 0 && variant.HeightPx is > 0)
         {
-            MediaTileShape.Landscape => MediaTileSurfaceKind.BannerLandscape,
-            MediaTileShape.Square => MediaTileSurfaceKind.CoverSquare,
-            _ => MediaTileSurfaceKind.CoverPortrait,
-        };
-    }
-
-    private static MediaTileImageFitMode FitFor(MediaTileBucket bucket, MediaTileArtworkVariant? selected, MediaTileShape shape)
-    {
-        if (selected is null)
-            return MediaTileImageFitMode.Fill;
-
-        if (shape == MediaTileShape.Square
-            && bucket == MediaTileBucket.Audiobook
-            && selected.Role == ArtworkRole.Cover
-            && selected.Shape == MediaTileShape.Portrait)
-        {
-            return MediaTileImageFitMode.Contain;
+            var ratio = variant.WidthPx.Value / (double)variant.HeightPx.Value;
+            return ratio is >= 1.45 and <= 2.2;
         }
 
-        return MediaTileImageFitMode.Fill;
+        return variant.Role == ArtworkRole.Background;
     }
 
     private static MediaTileArtworkVariant? First(IReadOnlyList<MediaTileArtworkVariant> variants, params ArtworkRole[] roles)

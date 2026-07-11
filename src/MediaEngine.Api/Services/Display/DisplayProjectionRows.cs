@@ -46,6 +46,10 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? Artist { get; set; }
     public string? Album { get; set; }
     public string? Year { get; set; }
+    public string? ContentRating { get; set; }
+    public string? Runtime { get; set; }
+    public string? Duration { get; set; }
+    public string? PageCount { get; set; }
     public string? Rating { get; set; }
     public string? Genre { get; set; }
     public string? Series { get; set; }
@@ -145,6 +149,10 @@ public sealed class DisplayJourneyRow : IDisplayArtworkRow
     public string? Artist { get; set; }
     public string? Album { get; set; }
     public string? Year { get; set; }
+    public string? ContentRating { get; set; }
+    public string? Runtime { get; set; }
+    public string? Duration { get; set; }
+    public string? PageCount { get; set; }
     public string? Rating { get; set; }
     public string? Genre { get; set; }
     public string? Series { get; set; }

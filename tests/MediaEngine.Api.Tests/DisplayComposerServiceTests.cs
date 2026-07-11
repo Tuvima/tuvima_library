@@ -34,7 +34,7 @@ public sealed class DisplayComposerServiceTests
         var continueCard = page.Shelves.Single(shelf => shelf.Key == "continue-watching").Items.Single();
         Assert.Equal(42, continueCard.Progress?.Percent);
         Assert.Equal("Continue Watching", continueCard.Actions[0].Label);
-        Assert.Equal(["2016", "Science Fiction", "Drama"], continueCard.Facts);
+        Assert.Equal(["2016"], continueCard.Facts);
 
         var showCard = page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items.Single();
         Assert.Equal("Breaking Bad", showCard.Title);
@@ -70,7 +70,7 @@ public sealed class DisplayComposerServiceTests
         var continueCard = page.Shelves.Single(shelf => shelf.Key == "continue-reading").Items.Single();
         Assert.Equal("smart", continueCard.PreviewPlacement);
         Assert.Equal("Continue Reading", continueCard.Actions[0].Label);
-        Assert.Equal(["Frank Herbert", "Science Fiction", "Adventure"], continueCard.Facts);
+        Assert.Equal(["Frank Herbert"], continueCard.Facts);
 
         var catalogCard = page.Catalog.Single(card => card.Title == "Dune");
         Assert.Equal("smart", catalogCard.PreviewPlacement);
@@ -127,7 +127,7 @@ public sealed class DisplayComposerServiceTests
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "listen-collections");
 
         var musicCard = page.Shelves.Single(shelf => shelf.Key == "music").Items.Single();
-        Assert.Equal(["boygenius", "The Record", "Track 6", "Indie Rock"], musicCard.Facts);
+        Assert.Equal(["boygenius"], musicCard.Facts);
         Assert.Equal("square", musicCard.PreferredShape);
 
         var audiobookCard = page.Shelves.Single(shelf => shelf.Key == "continue-listening").Items.Single();
@@ -274,7 +274,7 @@ public sealed class DisplayComposerServiceTests
         var repository = new StubDisplayProjectionRepository(
             [
                 Work(Guid.Parse("77777777-1111-cccc-9999-777777777777"), "Book", "Spirited Away", collectionId: singleCollectionId, series: "Studio Ghibli Feature Films", collectionTitle: "Studio Ghibli Feature Films"),
-                Work(Guid.Parse("77777777-1111-dddd-9999-777777777777"), "Book", "Leviathan Wakes", collectionId: multiCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
+                Work(Guid.Parse("77777777-1111-dddd-9999-777777777777"), "Book", "Leviathan Wakes", collectionId: multiCollectionId, series: "The Expanse", seriesPosition: "1", collectionTitle: "The Expanse"),
                 Work(Guid.Parse("77777777-2222-dddd-9999-777777777777"), "Book", "Caliban's War", collectionId: multiCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
             ],
             []);
@@ -284,7 +284,8 @@ public sealed class DisplayComposerServiceTests
 
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "series-and-reading-lists");
         var recentlyAdded = page.Shelves.Single(shelf => shelf.Key == "recently-added").Items;
-        Assert.Contains(recentlyAdded, card => card.Title == "Leviathan Wakes");
+        var leviathanWakes = Assert.Single(recentlyAdded, card => card.Title == "Leviathan Wakes");
+        Assert.Equal("The Expanse, Book 1", leviathanWakes.Subtitle);
         Assert.Contains(recentlyAdded, card => card.Title == "Caliban's War");
         Assert.Contains(recentlyAdded, card => card.Title == "Spirited Away");
     }
@@ -476,6 +477,7 @@ public sealed class DisplayComposerServiceTests
         string? quality = null,
         string? showName = null,
         string? series = null,
+        string? seriesPosition = null,
         string? collectionTitle = null,
         string? backgroundUrl = null,
         string? rootBackgroundUrl = null,
@@ -498,6 +500,7 @@ public sealed class DisplayComposerServiceTests
             Year = year,
             Genre = genre,
             Series = series,
+            SeriesPosition = seriesPosition,
             CollectionTitle = collectionTitle,
             ShowName = showName,
             Narrator = narrator,

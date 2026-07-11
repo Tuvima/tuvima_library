@@ -384,7 +384,7 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal(["2016", "Science Fiction"], mapped.Hero?.MetaPills);
         Assert.Equal(["Arrival"], mapped.Spotlights.Select(slide => slide.Title));
         Assert.Equal(["2016", "Science Fiction"], mapped.Catalog[0].HoverFacts);
-        Assert.Equal("/background-s.jpg", mapped.Catalog[0].TileImageUrl);
+        Assert.Equal("/cover-s.jpg", mapped.Catalog[0].TileImageUrl);
         Assert.Equal("/background-m.jpg", mapped.Catalog[0].HoverImageUrl);
     }
 

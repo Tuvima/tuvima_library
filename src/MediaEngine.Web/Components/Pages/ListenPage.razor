@@ -58,6 +58,7 @@ else if (IsListenHub)
                       HeroItems="@_listenHubPage.Spotlights"
                       Shelves="@ListenHubShelves"
                       SearchPlaceholder="Search music and audiobooks..."
+                      OnPrimaryClicked="HandleListenTilePrimaryAsync"
                       RouteBase="/listen" />
     }
 }
@@ -212,7 +213,7 @@ else
                     <div class="listen-home__content">
                         @foreach (var shelf in _musicHomePage.Shelves)
                         {
-                            <MediaTileShelf Shelf="@shelf" />
+                            <MediaTileShelf Shelf="@shelf" OnPrimaryClicked="HandleListenTilePrimaryAsync" />
                         }
 
                         @if (HomePlaylistTiles.Count > 0)
@@ -227,7 +228,7 @@ else
                                 </div>
 
                                 <MediaTileGrid Items="@HomePlaylistTiles"
-                                               HoverMode="@MediaTileHoverMode.None"
+                                               OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                                Class="listen-card-grid" />
                             </section>
                         }
@@ -290,7 +291,7 @@ else
                     else
                     {
                         <MediaTileGrid Items="@AlbumTiles"
-                                       HoverMode="@MediaTileHoverMode.None"
+                                       OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                        Class="listen-card-grid listen-card-grid--albums" />
                     }
                 </section>
@@ -489,7 +490,7 @@ else
                                         </div>
                                     </div>
                                     <MediaTileGrid Items="@ArtistAlbumTiles"
-                                                   HoverMode="@MediaTileHoverMode.None"
+                                                   OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                                    Class="listen-card-grid listen-card-grid--albums" />
                                 </section>
                             }
@@ -607,7 +608,7 @@ else
                     else
                     {
                         <MediaTileGrid Items="@PlaylistTiles"
-                                       HoverMode="@MediaTileHoverMode.None"
+                                       OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                        Class="listen-card-grid" />
                     }
                 </section>
@@ -992,43 +993,49 @@ else
                         }
                         else
                         {
-                            <div class="@AudiobookBooksLayoutClass">
-                                @foreach (var audiobook in AudiobookBrowseItems)
-                                {
-                                    var title = AudiobookTitle(audiobook);
-                                    var route = AudiobookRoute(audiobook);
-                                    var coverUrl = AudiobookCoverUrl(audiobook);
-                                    var progress = AudiobookProgressPercent(audiobook);
-                                    <article class="audiobooks-book-card">
-                                        <a class="audiobooks-book-card__cover" href="@route">
-                                            @if (!string.IsNullOrWhiteSpace(coverUrl))
-                                            {
-                                                <img src="@coverUrl" alt="@title" />
-                                            }
-                                            else
-                                            {
-                                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-42px" />
-                                            }
-                                        </a>
-                                        <div class="audiobooks-book-card__copy">
-                                            <a class="audiobooks-card-title" href="@route">@title</a>
-                                            <span>@AudiobookCreatorLine(audiobook)</span>
-                                            <span>@AudiobookSecondaryLine(audiobook)</span>
-                                            <div class="audiobooks-book-card__badges">
-                                                <span>@AudiobookBadge(audiobook)</span>
-                                                <span>@AudiobookDurationLabel(audiobook)</span>
+                            @if (_audiobookLayout == LibraryLayoutMode.Card)
+                            {
+                                <MediaTileGrid Items="@AudiobookBrowseTiles"
+                                               OnPrimaryClicked="HandleListenTilePrimaryAsync"
+                                               Class="listen-card-grid listen-card-grid--audiobooks" />
+                            }
+                            else
+                            {
+                                <div class="@AudiobookBooksLayoutClass">
+                                    @foreach (var audiobook in AudiobookBrowseItems)
+                                    {
+                                        var title = AudiobookTitle(audiobook);
+                                        var route = AudiobookRoute(audiobook);
+                                        var coverUrl = AudiobookCoverUrl(audiobook);
+                                        var progress = AudiobookProgressPercent(audiobook);
+                                        <article class="audiobooks-book-card">
+                                            <a class="audiobooks-book-card__cover" href="@route">
+                                                @if (!string.IsNullOrWhiteSpace(coverUrl))
+                                                {
+                                                    <img src="@coverUrl" alt="@title" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Class="tl-u-font-size-42px" />
+                                                }
+                                            </a>
+                                            <div class="audiobooks-book-card__copy">
+                                                <a class="audiobooks-card-title" href="@route">@title</a>
+                                                <span>@AudiobookCreatorLine(audiobook)</span>
+                                                <span>@AudiobookSecondaryLine(audiobook)</span>
+                                                <div class="audiobooks-book-card__badges">
+                                                    <span>@AudiobookBadge(audiobook)</span>
+                                                    <span>@AudiobookDurationLabel(audiobook)</span>
+                                                </div>
+                                                <div class="audiobooks-book-card__progress-row">
+                                                    <progress class="audiobooks-progress" value="@progress" max="100" aria-label="@AudiobookProgressLabel(audiobook)"></progress>
+                                                    <span>@AudiobookProgressLabel(audiobook)</span>
+                                                </div>
                                             </div>
-                                            <div class="audiobooks-book-card__progress-row">
-                                                <progress class="audiobooks-progress" value="@progress" max="100" aria-label="@AudiobookProgressLabel(audiobook)"></progress>
-                                                <span>@AudiobookProgressLabel(audiobook)</span>
-                                            </div>
-                                        </div>
-                                        <AppNativeButton Type="button" Class="audiobooks-card-menu" AriaLabel="@($"Play {title}")" OnClick='@(() => PlayAudiobookItemAsync(audiobook))'>
-                                            <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-20px" />
-                                        </AppNativeButton>
-                                    </article>
-                                }
-                            </div>
+                                        </article>
+                                    }
+                                </div>
+                            }
                         }
                     </section>
 

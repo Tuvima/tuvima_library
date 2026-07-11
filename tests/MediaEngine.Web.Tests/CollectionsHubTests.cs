@@ -61,8 +61,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("--media-tile-secondary-accent", cardStylesSource, StringComparison.Ordinal);
         Assert.Contains("<TuvimaArtworkStack", cardSource, StringComparison.Ordinal);
         Assert.Contains("CollectionArtworkStackItems", cardSource, StringComparison.Ordinal);
-        Assert.Contains("media-tile-collection-copy", cardSource, StringComparison.Ordinal);
-        Assert.Contains("ShowMediaKindBadge => !HideMediaKindBadge && !ShowCollectionBanner", cardSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("media-tile-collection-copy", cardSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowMediaKindBadge => !HideMediaKindBadge && !ShowCollectionBanner", cardSource, StringComparison.Ordinal);
         Assert.Contains("16 / 7.25", cardStylesSource, StringComparison.Ordinal);
         Assert.Contains("media-tile-artwork-stack--collection-tile", cardStylesSource, StringComparison.Ordinal);
         Assert.Contains("Palette=\"@Item.ArtworkPalette\"", cardSource, StringComparison.Ordinal);

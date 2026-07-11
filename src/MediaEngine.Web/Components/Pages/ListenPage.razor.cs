@@ -210,6 +210,7 @@ public partial class ListenPage
     private IReadOnlyList<AudiobookDisplayItem> AudiobookDisplayItems => BuildAudiobookDisplayItems();
     private IReadOnlyList<AudiobookDisplayItem> FilteredAudiobookItems => ApplyAudiobookFilters();
     private IReadOnlyList<AudiobookDisplayItem> AudiobookBrowseItems => BuildAudiobookBrowseItems();
+    private IReadOnlyList<MediaTileViewModel> AudiobookBrowseTiles => AudiobookBrowseItems.Select(ToAudiobookTile).ToList();
     private IReadOnlyList<ContentGroupViewModel> AudiobookSeriesGroups => ApplyAudiobookSeriesFilters();
     private IReadOnlyList<ContentGroupViewModel> FeaturedAudiobookSeries => _audiobookSeriesGroups
         .Where(group => group.WorkCount >= 2)
@@ -1587,6 +1588,31 @@ public partial class ListenPage
     {
         await Playback.PlayWorkAsync(work, sourceLabel);
         Snackbar.Add($"{work.Title} added to the queue", Severity.Success);
+    }
+
+    private async Task HandleListenTilePrimaryAsync(MediaTileViewModel item)
+    {
+        if (item.Presentation == MediaTilePresentation.Album && item.CollectionId.HasValue)
+        {
+            var album = _albumGroups.FirstOrDefault(group => group.CollectionId == item.CollectionId.Value);
+            if (album is not null)
+            {
+                await PlayTracksAsync(AlbumWorksFor(album), null, album.DisplayName);
+                return;
+            }
+        }
+
+        if (item.WorkId.HasValue)
+        {
+            var work = _musicWorks.Concat(_audiobookWorks).FirstOrDefault(candidate => candidate.Id == item.WorkId.Value);
+            if (work is not null)
+            {
+                await PlaySingleWorkAsync(work, item.MediaKind == "Audiobook" ? "Audiobooks" : "Listen");
+                return;
+            }
+        }
+
+        NavigateTo(item.PrimaryNavigationUrl ?? item.NavigationUrl);
     }
 
     private async Task PlayTracksAsync(IReadOnlyList<WorkViewModel> works, Guid? startWorkId, string? sourceLabel, bool shuffle = false)
@@ -2974,7 +3000,9 @@ public partial class ListenPage
     {
         if (string.Equals(collection.Name, "Watchlist", StringComparison.OrdinalIgnoreCase)
             || string.Equals(collection.Name, "Favorites", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Disliked Media", StringComparison.OrdinalIgnoreCase))
+            || string.Equals(collection.Name, "Liked Media", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.Name, "Disliked Media", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.Name, "Loved Media", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -3028,12 +3056,81 @@ public partial class ListenPage
             primaryActionLabel: "Open");
     }
 
+    private MediaTileViewModel ToAudiobookTile(AudiobookDisplayItem item)
+    {
+        if (item.Card is not null)
+        {
+            return MediaTileComposerService.FromDisplayCard(item.Card);
+        }
+
+        var work = item.Work;
+        var cover = work?.CoverUrl ?? work?.CoverUrlMedium ?? work?.CoverUrlSmall;
+        var small = MediaTileArtworkUrl.Sized(cover, "s");
+        var medium = MediaTileArtworkUrl.Sized(cover, "m");
+        var backgroundMedium = MediaTileArtworkUrl.Sized(work?.BackgroundUrl, "m");
+        var backgroundLarge = MediaTileArtworkUrl.Sized(work?.BackgroundUrl, "l");
+        var route = AudiobookRoute(item);
+        var facts = new[]
+            {
+                AudiobookCreatorLine(item),
+                work?.Year,
+                AudiobookDurationLabel(item),
+                work is null ? null : GetCanonicalValue(work, "content_rating", "certification"),
+                work is null ? null : GetCanonicalValue(work, "rating"),
+            }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .ToList();
+
+        return new MediaTileViewModel
+        {
+            Id = work?.Id ?? item.Card?.Id ?? Guid.NewGuid(),
+            WorkId = work?.Id,
+            Title = AudiobookTitle(item),
+            Subtitle = AudiobookCreatorLine(item),
+            CoverUrl = cover,
+            BackgroundUrl = work?.BackgroundUrl,
+            LogoUrl = work?.LogoUrl,
+            HoverFacts = facts,
+            MediaKind = "Audiobook",
+            Shape = MediaTileShape.Portrait,
+            Presentation = MediaTilePresentation.Default,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = string.IsNullOrWhiteSpace(backgroundMedium)
+                ? MediaTileHoverLayout.ArtOnlyPopover
+                : MediaTileHoverLayout.BannerPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileTextMode = MediaTileTextMode.CoverOnly,
+            TileImageUrl = small,
+            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(small, medium),
+            HoverImageUrl = backgroundMedium ?? medium,
+            HoverImageSrcSet = MediaTileArtworkUrl.SrcSet(backgroundMedium ?? medium, backgroundLarge),
+            TileImageFitMode = MediaTileImageFitMode.Fill,
+            HoverImageFitMode = string.IsNullOrWhiteSpace(backgroundMedium)
+                ? MediaTileImageFitMode.Contain
+                : MediaTileImageFitMode.Fill,
+            NavigationUrl = route,
+            DetailsNavigationUrl = route,
+            PrimaryNavigationUrl = route,
+            PrimaryActionLabel = AudiobookProgressPercent(item) > 0 ? "Resume" : "Play",
+            ProgressPct = AudiobookProgressPercent(item),
+            ProgressLabel = AudiobookProgressLabel(item),
+            AccentColor = "var(--tl-media-audio)",
+            SortTimestamp = AudiobookSortTimestamp(item),
+        };
+    }
+
     private MediaTileViewModel ToAlbumTile(ContentGroupViewModel album) =>
         SquareTile(
             id: album.CollectionId,
             title: album.DisplayName,
             subtitle: FirstNonBlank(album.Creator, album.Year, Pluralize(album.WorkCount, "track")),
             imageUrl: album.CoverUrl ?? album.ArtistPhotoUrl,
+            backgroundUrl: album.BackgroundUrl ?? album.HeroUrl,
+            bannerUrl: album.BannerUrl,
+            logoUrl: album.LogoUrl,
+            description: album.Description,
+            facts: string.IsNullOrWhiteSpace(album.Year) ? [] : [album.Year],
             route: BuildAlbumDetailRoute(album.DisplayName, album.Creator),
             presentation: MediaTilePresentation.Album,
             primaryActionLabel: "Open");
@@ -3062,27 +3159,48 @@ public partial class ListenPage
         string? imageUrl,
         string route,
         MediaTilePresentation presentation,
-        string primaryActionLabel)
+        string primaryActionLabel,
+        string? backgroundUrl = null,
+        string? bannerUrl = null,
+        string? logoUrl = null,
+        string? description = null,
+        IReadOnlyList<string>? facts = null)
     {
         var small = MediaTileArtworkUrl.Sized(imageUrl, "s");
         var medium = MediaTileArtworkUrl.Sized(imageUrl, "m");
+        var backgroundMedium = MediaTileArtworkUrl.Sized(backgroundUrl, "m");
+        var backgroundLarge = MediaTileArtworkUrl.Sized(backgroundUrl, "l");
+        var bannerMedium = MediaTileArtworkUrl.Sized(bannerUrl, "m");
+        var bannerLarge = MediaTileArtworkUrl.Sized(bannerUrl, "l");
+        var hoverImage = FirstNonBlankOrNull(backgroundMedium, bannerMedium, medium);
         return new MediaTileViewModel
         {
             Id = id,
             Title = title,
             Subtitle = subtitle,
+            Description = description,
             CoverUrl = imageUrl,
+            BackgroundUrl = backgroundUrl,
+            BannerUrl = bannerUrl,
+            LogoUrl = logoUrl,
+            HoverFacts = facts ?? [],
             MediaKind = "Music",
-            Shape = MediaTileShape.Square,
+            Shape = MediaTileShape.Portrait,
             Presentation = presentation,
-            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
-            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
-            HoverMode = MediaTileHoverMode.None,
-            TileTextMode = MediaTileTextMode.Caption,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = !string.IsNullOrWhiteSpace(backgroundMedium) || !string.IsNullOrWhiteSpace(bannerMedium)
+                ? MediaTileHoverLayout.BannerPopover
+                : MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileTextMode = MediaTileTextMode.CoverOnly,
             TileImageUrl = small,
             TileImageSrcSet = MediaTileArtworkUrl.SrcSet(small, medium),
-            HoverImageUrl = medium,
-            HoverImageSrcSet = string.IsNullOrWhiteSpace(medium) ? null : $"{medium} 960w",
+            HoverImageUrl = hoverImage,
+            HoverImageSrcSet = MediaTileArtworkUrl.SrcSet(hoverImage, FirstNonBlankOrNull(backgroundLarge, bannerLarge, medium)),
+            TileImageFitMode = MediaTileImageFitMode.Contain,
+            HoverImageFitMode = !string.IsNullOrWhiteSpace(backgroundMedium) || !string.IsNullOrWhiteSpace(bannerMedium)
+                ? MediaTileImageFitMode.Fill
+                : MediaTileImageFitMode.Contain,
             NavigationUrl = route,
             DetailsNavigationUrl = route,
             PrimaryNavigationUrl = route,
