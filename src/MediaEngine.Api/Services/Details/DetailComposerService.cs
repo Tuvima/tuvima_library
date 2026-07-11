@@ -1261,7 +1261,8 @@ public sealed class DetailComposerService
             !string.IsNullOrWhiteSpace(defaultContainerId)
             && SequenceContainerOptionMatches(option, defaultContainerId))
             ?? availableContainers[0];
-        var containerTitle = selectedContainer.ContainerTitle;
+        var containerTitle = SeriesDisplayFormatter.NormalizeContainerTitle(selectedContainer.ContainerTitle, isStructuralSeries: true)
+            ?? selectedContainer.ContainerTitle;
         var containerId = NormalizeSequenceContainerId(selectedContainer.ContainerId) ?? selectedContainer.ContainerId;
         var sourceContainerId = NormalizeSequenceContainerId(selectedContainer.SourceContainerId) ?? selectedContainer.SourceContainerId;
         var manifestContainerId = IsManifestBackedSequenceContainerId(sourceContainerId)
@@ -1426,7 +1427,8 @@ public sealed class DetailComposerService
             {
                 ContainerId = option.ContainerId,
                 SourceContainerId = option.SourceContainerId,
-                ContainerTitle = option.ContainerTitle,
+                ContainerTitle = SeriesDisplayFormatter.NormalizeContainerTitle(option.ContainerTitle, isStructuralSeries: true)
+                    ?? option.ContainerTitle,
                 MediaScope = option.MediaScope,
                 EquivalentContainerIds = option.EquivalentContainerIds,
                 IsSelected = SequenceContainerOptionMatches(option, selectedContainer.ContainerId)
@@ -1446,7 +1448,7 @@ public sealed class DetailComposerService
             TotalKnownItems = totalKnownItems,
             PositionLabel = current.PositionLabel,
             PositionText = current.PositionText,
-            PositionSummary = BuildSequencePositionSummary(entityType, current, totalKnownItems, containerTitle, labels),
+            PositionSummary = BuildSequencePositionSummary(entityType, current, containerTitle, labels),
             OrderingType = entityType switch
             {
                 DetailEntityType.TvEpisode => SequenceOrderingType.EpisodeNumber,
@@ -4733,8 +4735,6 @@ public sealed class DetailComposerService
             DetailEntityType.Movie => ["overview", "cast", "details"],
             DetailEntityType.MovieSeries when hasUniverse => ["overview", "media", "cast", "universe", "details"],
             DetailEntityType.MovieSeries => ["overview", "media", "cast", "details"],
-            DetailEntityType.TvEpisode when hasSeries && hasUniverse => ["overview", "sequence", "cast", "characters", "universe", "details"],
-            DetailEntityType.TvEpisode when hasSeries => ["overview", "sequence", "cast", "characters", "details"],
             DetailEntityType.TvEpisode when hasUniverse => ["overview", "cast", "characters", "universe", "details"],
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "details"],
             DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "details"],
@@ -4747,8 +4747,6 @@ public sealed class DetailComposerService
             DetailEntityType.BookSeries => ["overview", "works", "credits", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "details"],
             DetailEntityType.Work => ["overview", "credits", "formats", "details"],
-            DetailEntityType.ComicIssue when hasSeries && hasUniverse => ["overview", "sequence", "credits", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue when hasSeries => ["overview", "sequence", "credits", "editions", "details"],
             DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "editions", "details"],
             DetailEntityType.ComicIssue => ["overview", "credits", "editions", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "issues", "credits", "universe", "details"],
@@ -4766,6 +4764,11 @@ public sealed class DetailComposerService
             _ => ["overview", "people", "characters", "related", "details"],
         };
 
+        if (hasSeries && SupportsSeriesTab(entityType))
+        {
+            keys = ["series", "overview", .. keys.Where(key => key is not "overview" and not "sequence" and not "series")];
+        }
+
         var tabs = keys.Select(key => new DetailTab { Key = key, Label = ToTabLabel(key) }).ToList();
         if (isAdminView)
         {
@@ -4774,6 +4777,15 @@ public sealed class DetailComposerService
 
         return tabs;
     }
+
+    private static bool SupportsSeriesTab(DetailEntityType entityType)
+        => entityType is DetailEntityType.Work
+            or DetailEntityType.Movie
+            or DetailEntityType.TvEpisode
+            or DetailEntityType.Book
+            or DetailEntityType.Audiobook
+            or DetailEntityType.ComicIssue
+            or DetailEntityType.MusicAlbum;
 
     private static void AddPlain(List<MetadataPill> values, string? label, string kind)
     {
@@ -6984,32 +6996,19 @@ public sealed class DetailComposerService
     private static string? BuildSequencePositionSummary(
         DetailEntityType type,
         SequenceItemViewModel current,
-        int total,
         string containerTitle,
         SequenceLabels labels)
     {
         if (type == DetailEntityType.TvEpisode)
         {
-            var season = current.GroupTitle;
-            var episode = FirstText(current.PositionText, current.PositionLabel, current.PositionNumber?.ToString(CultureInfo.InvariantCulture));
-            return string.Join(", ", new[] { season, string.IsNullOrWhiteSpace(episode) ? null : $"Episode {episode.TrimStart('E')}" }
-                .Where(value => !string.IsNullOrWhiteSpace(value))) + $" in {containerTitle}";
+            return SeriesDisplayFormatter.FormatEpisodePosition(
+                current.GroupTitle?.Replace("Season ", string.Empty, StringComparison.OrdinalIgnoreCase),
+                FirstText(current.PositionText, current.PositionLabel, current.PositionNumber?.ToString(CultureInfo.InvariantCulture)),
+                containerTitle);
         }
 
         var position = FirstText(current.PositionText, current.PositionLabel, current.PositionNumber?.ToString(CultureInfo.InvariantCulture));
-        if (string.IsNullOrWhiteSpace(position))
-        {
-            return !string.IsNullOrWhiteSpace(current.GroupTitle)
-                ? $"{current.GroupTitle} in {containerTitle}"
-                : null;
-        }
-
-        if (type == DetailEntityType.TvEpisode && !string.IsNullOrWhiteSpace(current.GroupTitle))
-        {
-            return $"{labels.ItemLabel} {position} in {current.GroupTitle} of {containerTitle}";
-        }
-
-        return $"{labels.ItemLabel} {position} of {total} in {containerTitle}";
+        return SeriesDisplayFormatter.FormatPosition(labels.ItemLabel, position, containerTitle);
     }
 
     private static string? FormatSeasonEpisode(string? season, string? episode)
@@ -7222,7 +7221,22 @@ public sealed class DetailComposerService
                 "TV Show");
         }
 
-        return FirstNonBlank(displayName, GetValue(values, MetadataFieldConstants.Title), "Collection");
+        if (entityType is DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries)
+        {
+            var structuralTitle = FirstNonBlank(
+                GetValue(rootValues, MetadataFieldConstants.Series),
+                GetValue(values, MetadataFieldConstants.Series),
+                displayName,
+                GetValue(values, MetadataFieldConstants.Title),
+                FormatEntityType(entityType));
+            return SeriesDisplayFormatter.NormalizeContainerTitle(structuralTitle, isStructuralSeries: true)
+                ?? structuralTitle;
+        }
+
+        return SeriesDisplayFormatter.NormalizeContainerTitle(
+                FirstNonBlank(displayName, GetValue(values, MetadataFieldConstants.Title), "Collection"),
+                isStructuralSeries: false)
+            ?? "Collection";
     }
 
     private static string? StripUniverseSuffix(string? value)

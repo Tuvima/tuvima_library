@@ -4,7 +4,8 @@
 <AppCssElement Tag="div" Class="@StageClass" Css="@StageStyle">
     @if (IsBackdropMode && !string.IsNullOrWhiteSpace(HeroImageUrl))
     {
-        <div class="tl-detail-hero__artwork tl-detail-media-stage__background" aria-hidden="true"></div>
+        <img class="tl-detail-media-stage__background-fill" src="@HeroImageUrl" alt="" aria-hidden="true" @onerror="HandleImageError" />
+        <img class="tl-detail-hero__artwork tl-detail-media-stage__background" src="@HeroImageUrl" alt="" aria-hidden="true" @onerror="HandleImageError" />
         <div class="tl-detail-hero__overlays tl-detail-media-stage__overlay" aria-hidden="true"></div>
     }
     else if (IsArtworkFallbackMode && !string.IsNullOrWhiteSpace(HeroImageUrl))

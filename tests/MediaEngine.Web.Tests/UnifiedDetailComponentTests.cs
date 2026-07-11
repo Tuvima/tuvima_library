@@ -13,6 +13,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("HeroArtworkMode.BackdropWithRenderedTitle", source);
         Assert.Contains("HeroArtworkMode.ArtworkFallback", source);
         Assert.Contains("tl-detail-media-stage--background", source);
+        Assert.Contains("tl-detail-media-stage__background-fill", source);
         Assert.Contains("tl-detail-media-stage--artwork-fallback", source);
         Assert.Contains("tl-detail-hero__artwork", source);
         Assert.Contains("tl-detail-hero__overlays", source);
@@ -45,13 +46,14 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("0 0 0 1px rgba(255, 255, 255, 0.10)", styles);
         Assert.Contains("content: none", styles);
         Assert.Contains("filter: none", styles);
-        Assert.Contains("background-size: auto 100%", styles);
+        Assert.Contains("object-fit: contain", styles);
         Assert.Contains("tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch)", styles);
         Assert.Contains("background-size: cover", styles);
-        Assert.Contains("background-position: var(--hero-image-position, center right)", styles);
-        Assert.Contains("background-position: right center", styles);
-        Assert.Contains("background-size: contain", styles);
-        Assert.Contains("tl-detail-media-stage--background::before", styles);
+        Assert.Contains("object-position: var(--hero-image-position, center right)", styles);
+        Assert.Contains("object-position: right center", styles);
+        Assert.Contains("tl-detail-media-stage__background-fill", styles);
+        Assert.Contains("object-fit: cover", styles);
+        Assert.DoesNotContain("tl-detail-media-stage--background::before", styles);
         Assert.Contains("mask-image: linear-gradient(to right", styles);
         Assert.Contains("background-size: cover", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-hero__artwork", styles);
@@ -213,7 +215,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-hero--read:not(.tl-detail-hero--watch)", styles);
         Assert.Contains("tl-detail-hero-credit-stack--audiobook", styles);
         Assert.Contains("::deep .tl-detail-hero-credit-stack__line", styles);
-        Assert.Contains("letter-spacing: 0.42em", styles);
+        Assert.Contains("letter-spacing: 0.03em", styles);
         Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", styles);
         Assert.Contains("overflow: visible", styles);
         Assert.Contains("height: min(47rem, 78vh)", styles);
@@ -301,8 +303,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-media-overview-card__top", source);
         Assert.Contains("tl-media-overview-card__summary", source);
         Assert.Contains("tl-media-overview-card__credits", source);
-        Assert.Contains("SequencePlacementPanel", source);
-        Assert.Contains("Compact=\"true\"", source);
+        Assert.DoesNotContain("SequencePlacementPanel", source);
+        Assert.DoesNotContain("SequencePlacementPanel Placement=", source);
         Assert.Contains("MoreLikeThisItems", source);
         Assert.Contains("IsRecommendationGroup", source);
         Assert.Contains("IsRecommendationCandidate", source);

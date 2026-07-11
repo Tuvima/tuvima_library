@@ -1,5 +1,6 @@
 using System.Globalization;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Api.Services.Details;
 
 namespace MediaEngine.Api.Services.Display;
 
@@ -160,7 +161,10 @@ public sealed class DisplayCardBuilder
             return null;
         }
 
-        var title = FirstNonBlank(representative.CollectionTitle, representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
+        var rawTitle = FirstNonBlank(representative.CollectionTitle, representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
+        var title = mediaKind is "Movie" or "Book" or "Comic" or "Audiobook"
+            ? SeriesDisplayFormatter.NormalizeContainerTitle(rawTitle, isStructuralSeries: true) ?? rawTitle
+            : rawTitle;
         var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind, title));
         var artwork = CollectionArtworkFor(representative);
         var presentation = CollectionPresentation(lane, mediaKind);
@@ -885,7 +889,7 @@ public sealed class DisplayCardBuilder
     {
         if (mediaKind == "TV")
         {
-            return string.Join(" - ", new[] { showName, FormatSeasonEpisode(season, episode) }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            return SeriesDisplayFormatter.FormatEpisodePosition(season, episode, showName);
         }
 
         if (mediaKind == "Comic")
@@ -895,12 +899,12 @@ public sealed class DisplayCardBuilder
 
         if (mediaKind is "Book" or "Audiobook")
         {
-            return SeriesSubtitle(series, seriesPosition, "Book") ?? creator;
+            return SeriesSubtitle(series, seriesPosition, mediaKind == "Audiobook" ? "Audiobook" : "Book") ?? creator;
         }
 
         if (mediaKind == "Movie")
         {
-            return SeriesSubtitle(series, seriesPosition, "Film");
+            return SeriesSubtitle(series, seriesPosition, "Movie");
         }
 
         return FirstNonBlank(creator, series);
@@ -913,23 +917,7 @@ public sealed class DisplayCardBuilder
             return null;
         }
 
-        return string.IsNullOrWhiteSpace(position)
-            ? series.Trim()
-            : $"{series.Trim()}, {memberLabel} {position.Trim()}";
-    }
-
-    private static string? FormatSeasonEpisode(string? season, string? episode)
-    {
-        if (string.IsNullOrWhiteSpace(season) && string.IsNullOrWhiteSpace(episode))
-            return null;
-
-        if (string.IsNullOrWhiteSpace(season))
-            return $"Episode {episode}";
-
-        if (string.IsNullOrWhiteSpace(episode))
-            return $"Season {season}";
-
-        return $"S{season} E{episode}";
+        return SeriesDisplayFormatter.FormatPosition(memberLabel, position, series);
     }
 
     private static string? FormatIssue(string? seriesPosition)

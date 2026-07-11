@@ -242,6 +242,39 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public async Task WatchSeriesShelf_RemovesRedundantStructuralCollectionSuffix()
+    {
+        var collectionId = Guid.Parse("77777777-9999-abab-9999-777777777777");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(Guid.Parse("77777777-1111-abab-9999-777777777777"), "Movie", "Dune", collectionId: collectionId, series: "Dune", seriesPosition: "1", collectionTitle: "Dune Collection"),
+                Work(Guid.Parse("77777777-2222-abab-9999-777777777777"), "Movie", "Dune: Part Two", collectionId: collectionId, series: "Dune", seriesPosition: "2", collectionTitle: "Dune Collection"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
+
+        var card = Assert.Single(page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items);
+        Assert.Equal("Dune", card.Title);
+        Assert.Equal("movieSeries", card.Presentation);
+    }
+
+    [Fact]
+    public void HomeCollections_PreserveCuratedCollectionNames()
+    {
+        var card = DisplayCardBuilder.FromHomeCollection(new DisplayHomeCollectionRow
+        {
+            CollectionId = Guid.NewGuid(),
+            Title = "The Criterion Collection",
+            ItemCount = 12,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        Assert.Equal("The Criterion Collection", card.Title);
+    }
+
+    [Fact]
     public async Task WatchSeriesShelf_UsesTvRootInsteadOfSharedBookCollection()
     {
         var sharedCollectionId = Guid.Parse("77777777-9999-fafa-9999-777777777777");
@@ -285,7 +318,7 @@ public sealed class DisplayComposerServiceTests
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "series-and-reading-lists");
         var recentlyAdded = page.Shelves.Single(shelf => shelf.Key == "recently-added").Items;
         var leviathanWakes = Assert.Single(recentlyAdded, card => card.Title == "Leviathan Wakes");
-        Assert.Equal("The Expanse, Book 1", leviathanWakes.Subtitle);
+        Assert.Equal("Book 1 in The Expanse", leviathanWakes.Subtitle);
         Assert.Contains(recentlyAdded, card => card.Title == "Caliban's War");
         Assert.Contains(recentlyAdded, card => card.Title == "Spirited Away");
     }

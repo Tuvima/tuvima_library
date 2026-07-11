@@ -135,13 +135,7 @@
                 </div>
             </div>
 
-            @if (Model.SequencePlacement is not null)
-            {
-                <div class="tl-media-overview-card__series">
-                    <SequencePlacementPanel Placement="Model.SequencePlacement" OnContainerSelected="OnContainerSelected" Compact="true" />
-                </div>
-            }
-            else if (MoreLikeThisItems.Count > 0)
+            @if (MoreLikeThisItems.Count > 0)
             {
                 <div class="tl-media-overview-card__more-like-this">
                     <div class="tl-media-overview-card__row-heading">

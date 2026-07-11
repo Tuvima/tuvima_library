@@ -667,6 +667,39 @@ window.unlockMediaTileHoverRowScroll = function (cardEl) {
     cardEl.__mediaTileHoverScrollElement = null;
 };
 
+window.keepMediaTileHoverInRowViewport = function (cardEl) {
+    if (!cardEl) return;
+
+    var row = cardEl.closest('.media-tile-shelf-scroll');
+    if (!row) return;
+
+    var cardRect = cardEl.getBoundingClientRect();
+    var rowRect = row.getBoundingClientRect();
+    var gutter = 8;
+    var delta = 0;
+
+    if (cardRect.right > rowRect.right - gutter) {
+        delta = cardRect.right - rowRect.right + gutter;
+    } else if (cardRect.left < rowRect.left + gutter) {
+        delta = cardRect.left - rowRect.left - gutter;
+    }
+
+    if (Math.abs(delta) < 1) return;
+
+    row.__swimlaneAllowScroll = true;
+    row.scrollTo({ left: row.scrollLeft + delta, behavior: 'smooth' });
+
+    if (row.__mediaTileHoverEdgeTimer) {
+        window.clearTimeout(row.__mediaTileHoverEdgeTimer);
+    }
+
+    row.__mediaTileHoverEdgeTimer = window.setTimeout(function () {
+        row.__swimlaneStableScrollLeft = row.scrollLeft;
+        row.__swimlaneAllowScroll = false;
+        row.__mediaTileHoverEdgeTimer = null;
+    }, 360);
+};
+
 window.showMediaTileHover = function (cardEl) {
     if (!cardEl) return;
 
@@ -690,8 +723,17 @@ window.showMediaTileHover = function (cardEl) {
 
     var frame = cardEl.querySelector('.media-tile-frame') || cardEl;
     var frameRect = frame.getBoundingClientRect();
+    var rowRect = rowContainer ? rowContainer.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
+    var expandedWidth = Math.min(
+        Math.max(frameRect.width * 2.15, 520),
+        Math.max(frameRect.width, rowRect.width - 16),
+        720);
     cardEl.style.setProperty('--media-tile-hover-anchor-width', Math.round(frameRect.width) + 'px');
     cardEl.style.setProperty('--media-tile-hover-anchor-height', Math.round(frameRect.height) + 'px');
+    cardEl.style.setProperty('--media-tile-expanded-width', Math.round(expandedWidth) + 'px');
+    if (rowContainer) {
+        rowContainer.classList.add('has-active-in-row-hover');
+    }
     cardEl.classList.add('is-hover-active');
     panel.classList.add('is-inline-expanded');
 
@@ -707,6 +749,11 @@ window.showMediaTileHover = function (cardEl) {
         window.requestAnimationFrame(function () {
             if (cardEl.classList.contains('is-hover-active')) {
                 panel.classList.add('is-visible');
+                window.setTimeout(function () {
+                    if (cardEl.classList.contains('is-hover-active')) {
+                        window.keepMediaTileHoverInRowViewport(cardEl);
+                    }
+                }, 370);
             }
         });
     });
@@ -735,7 +782,12 @@ window.clearMediaTileHover = function (cardEl) {
 
         cardEl.style.removeProperty('--media-tile-hover-anchor-width');
         cardEl.style.removeProperty('--media-tile-hover-anchor-height');
-    }, 340);
+        cardEl.style.removeProperty('--media-tile-expanded-width');
+        var row = cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid');
+        if (row && !row.querySelector('.media-tile.is-hover-active')) {
+            row.classList.remove('has-active-in-row-hover');
+        }
+    }, 380);
 };
 
 window.setMediaTileHoverExpanded = function (cardEl, expanded) {
@@ -766,10 +818,14 @@ window.registerMediaTileHover = function (cardEl) {
             window.clearTimeout(cardEl.__mediaTileShowTimer);
         }
 
+        var row = cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid');
+        var activeCard = row ? row.querySelector('.media-tile.is-hover-active') : null;
+        var showDelay = activeCard && activeCard !== cardEl ? 45 : 240;
+
         cardEl.__mediaTileShowTimer = window.setTimeout(function () {
             cardEl.__mediaTileShowTimer = null;
             window.showMediaTileHover(cardEl);
-        }, 280);
+        }, showDelay);
     };
 
     var isWithinHoverSurface = function (target) {
@@ -807,7 +863,7 @@ window.registerMediaTileHover = function (cardEl) {
             }
 
             window.clearMediaTileHover(cardEl);
-        }, 180);
+        }, 110);
     };
 
     var keepOpen = function () {

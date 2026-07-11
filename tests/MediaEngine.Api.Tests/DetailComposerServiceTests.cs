@@ -809,6 +809,27 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("Results.Redirect(remoteUri.ToString())", source);
     }
 
+    [Theory]
+    [InlineData(DetailEntityType.Book)]
+    [InlineData(DetailEntityType.Audiobook)]
+    [InlineData(DetailEntityType.Movie)]
+    [InlineData(DetailEntityType.ComicIssue)]
+    public void BuildTabs_PlacesSeriesBeforeOverviewForSeriesMembers(DetailEntityType entityType)
+    {
+        var tabs = InvokePrivate<List<DetailTab>>(
+            "BuildTabs",
+            entityType,
+            DetailPresentationContext.Default,
+            false,
+            true,
+            false,
+            true);
+
+        Assert.Equal("series", tabs[0].Key);
+        Assert.Equal("overview", tabs[1].Key);
+        Assert.DoesNotContain(tabs, tab => tab.Key == "sequence");
+    }
+
     private static string? InvokePrivateString(string methodName, params object?[] args)
     {
         var method = typeof(DetailComposerService).GetMethod(

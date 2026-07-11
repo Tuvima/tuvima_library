@@ -57,7 +57,7 @@ Desktop `MediaTile` previews expand the tile's flex item inside its existing she
 
 TV show shelves use show-level cover art at rest; episode stills are reserved for the episode browser. A TV detail hero uses an enriched show backdrop when one exists and otherwise falls back only to the show cover, never a child episode still. Enriched detail backdrops fill the 1000px hero edge to edge with a full-bleed atmosphere layer plus a complete-frame foreground layer, then fade into the Overview or Episodes tabs. TV episodes are grouped behind a styled season selector and rendered as a responsive still grid with a purple play affordance on hover or keyboard focus.
 
-Detail hero actions use one prominent Read, Watch, or Listen transport row. In-progress watch titles expose Resume and Restart together. Watch Party, My List, and the expandable dislike/like/love rating control sit below as flat icon-and-label actions; selected ratings use the application purple active state.
+Detail hero actions use one prominent purple Read, Watch, or Listen transport row. In-progress watch titles expose Resume and Restart together. Watch Party, My List, and the expandable dislike/like/love rating control sit below as flat icon-and-label actions; selected ratings use the application purple active state. Backdrops render as image elements rather than repeated CSS backgrounds: an edge-to-edge cover layer fills the 1000px canvas while an uncropped contain layer preserves the complete enriched frame above it.
 
 ## Sequence, Attribution, And Artwork Display
 
@@ -74,6 +74,13 @@ the Engine:
   supplementary short fiction and collected content. Exact source ordinals are
   displayed unchanged; an unnumbered supplemental work is labeled by scope and
   is not assigned an invented decimal or dense position.
+- A media item with structural series placement exposes `Series` as its first
+  detail tab and `Overview` as its second. The hero, Series tab, and hover card
+  share concise placement copy such as `Book 1 in The Expanse` or
+  `Movie 1 in The Lord of the Rings`; they do not append an `of N` total.
+- Structural shelf names remove a redundant trailing `Series` or `Collection`
+  for presentation (`Dune Collection` becomes `Dune`). Curated collection
+  names preserve those words because they are part of the collection identity.
 - Descriptions and metadata text sourced from Wikipedia, Wikidata, or providers
   should show attribution links on detail pages when attribution is present in
   the API response.

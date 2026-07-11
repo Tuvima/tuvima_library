@@ -4,6 +4,8 @@
         radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), transparent 30rem),
         radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), transparent 24rem),
         #101115;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
     color: #f6f0e8;
     font-family: "Montserrat", "Inter", "Segoe UI", system-ui, sans-serif;
 }
@@ -59,10 +61,20 @@
     z-index: 0;
     width: 100%;
     height: 100%;
-    background-image: var(--hero-image);
-    background-size: auto 100%;
-    background-position: var(--hero-image-position, center right);
-    background-repeat: no-repeat;
+    object-fit: contain;
+    object-position: var(--hero-image-position, center right);
+}
+
+::deep .tl-detail-media-stage__background-fill {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: var(--hero-image-position, center right);
+    filter: saturate(0.88) brightness(0.58);
+    opacity: 0.92;
 }
 
 ::deep .tl-detail-hero__overlays,
@@ -167,8 +179,8 @@
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
-    background-size: contain;
-    background-position: right center;
+    object-fit: contain;
+    object-position: right center;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
@@ -177,36 +189,10 @@
     mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
 }
 
-/* Fill the 1000px canvas edge-to-edge without sacrificing the complete 16:9 frame. */
-::deep .tl-detail-hero--watch .tl-detail-media-stage--background::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background-image: var(--hero-image);
-    background-size: cover;
-    background-position: var(--hero-image-position, center right);
-    background-repeat: no-repeat;
-    filter: saturate(0.88) brightness(0.58);
-    opacity: 0.92;
-}
-
-::deep .tl-detail-hero--backdrop .tl-detail-media-stage--background::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background-image: var(--hero-image);
-    background-size: cover;
-    background-position: var(--hero-image-position, center right);
-    background-repeat: no-repeat;
-    filter: saturate(0.88) brightness(0.58);
-    opacity: 0.92;
-}
-
 ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__background {
     z-index: 1;
-    background-size: contain;
+    object-fit: contain;
+    object-position: var(--hero-image-position, center right);
     -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
     mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
 }
@@ -245,14 +231,14 @@
 @media (max-width: 1240px) {
     ::deep .tl-detail-hero--backdrop .tl-detail-hero__artwork,
     ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__background {
-        background-size: cover;
-        background-position: var(--hero-image-position, center right);
+        object-fit: contain;
+        object-position: var(--hero-image-position, center right);
     }
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
     ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
-        background-size: contain;
-        background-position: right center;
+        object-fit: contain;
+        object-position: right center;
     }
 }
 
@@ -483,6 +469,15 @@
     max-width: 42rem;
 }
 
+::deep .tl-detail-hero__series-context {
+    margin: 0;
+    color: color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 72%, #fff);
+    font-size: clamp(0.95rem, 1.2vw, 1.18rem);
+    font-weight: 720;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+}
+
 ::deep .tl-detail-hero-credit-stack {
     display: grid;
     gap: 0.78rem;
@@ -498,18 +493,18 @@
 
 ::deep .tl-detail-hero-credit-stack__label {
     color: color-mix(in srgb, var(--tl-detail-primary, #dca53e) 78%, #fff);
-    font-size: 0.72rem;
-    font-weight: 820;
-    letter-spacing: 0.28em;
+    font-size: 0.66rem;
+    font-weight: 760;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
 }
 
 ::deep .tl-detail-hero-credit-stack__value {
     color: color-mix(in srgb, var(--tl-detail-primary, #dca53e) 62%, #fff);
-    font-size: clamp(1.25rem, 2.35vw, 2.05rem);
-    font-weight: 760;
-    letter-spacing: 0.42em;
-    text-transform: uppercase;
+    font-size: clamp(0.98rem, 1.35vw, 1.28rem);
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    text-transform: none;
 }
 
 ::deep .tl-detail-hero--listen:not(.tl-detail-hero--watch) .tl-detail-hero-credit-stack--audiobook {
@@ -2669,13 +2664,15 @@
     min-width: 0;
     min-height: clamp(3.9rem, 5vw, 4.25rem);
     padding-inline: clamp(2rem, 3vw, 2.85rem);
-    border: 1px solid rgba(255, 225, 155, 0.78);
+    border: 1px solid rgba(216, 180, 254, 0.82);
     border-radius: 0.52rem;
-    background: linear-gradient(180deg, #ffd76a 0%, #f1b53f 58%, #d99829 100%);
-    color: #07080b;
+    background:
+        radial-gradient(circle at 22% 8%, rgba(255,255,255,0.2), transparent 42%),
+        linear-gradient(135deg, color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 92%, #b794f6) 0%, var(--tl-accent-primary, #7c3aed) 100%);
+    color: #fff;
     font-size: clamp(1.08rem, 1.45vw, 1.28rem);
     font-weight: 900;
-    box-shadow: 0 0.85rem 2rem rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+    box-shadow: 0 0.85rem 2rem rgba(76, 29, 149, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary:hover,
@@ -2686,7 +2683,9 @@
 ::deep .tl-detail-hero--music:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary:focus-visible,
 ::deep .tl-detail-hero--fallback-surface:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary:hover,
 ::deep .tl-detail-hero--fallback-surface:not(.tl-detail-hero--watch) .tl-detail-actions--watch .tl-detail-action--primary:focus-visible {
-    background: linear-gradient(180deg, #ffe07d 0%, #f6be4a 58%, #e0a22d 100%);
+    background:
+        radial-gradient(circle at 22% 8%, rgba(255,255,255,0.26), transparent 42%),
+        linear-gradient(135deg, color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 82%, #c4b5fd) 0%, color-mix(in srgb, var(--tl-accent-primary, #7c3aed) 86%, #a78bfa) 100%);
 }
 
 ::deep .tl-detail-icon-action,

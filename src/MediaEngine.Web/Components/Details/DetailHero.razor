@@ -92,6 +92,11 @@
                 <h1>@Presentation.Title</h1>
             }
 
+            @if (!string.IsNullOrWhiteSpace(SeriesContextLabel))
+            {
+                <p class="tl-detail-hero__series-context">@SeriesContextLabel</p>
+            }
+
             @if (HeroCreditLines.Count > 0)
             {
                 <div class="@HeroCreditStackClass" aria-label="Primary credits">
@@ -154,6 +159,7 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
+    private string? SeriesContextLabel => Model.SequencePlacement?.PositionSummary;
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
     private string HeroCreditStackClass => Model.EntityType == DetailEntityType.Audiobook

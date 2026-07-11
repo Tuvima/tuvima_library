@@ -55,6 +55,33 @@ public sealed class DetailTabNavigationTests
     }
 
     [Fact]
+    public void Resolve_SeriesTabUsesSequencePlacementAndRemainsFirst()
+    {
+        var model = new DetailPageViewModel
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            EntityType = DetailEntityType.Book,
+            Title = "Leviathan Wakes",
+            Tabs = [
+                new DetailTab { Key = "series", Label = "Series" },
+                new DetailTab { Key = "overview", Label = "Overview" },
+                new DetailTab { Key = "details", Label = "Details" },
+            ],
+            SequencePlacement = new SequencePlacementViewModel
+            {
+                ContainerId = Guid.NewGuid().ToString("D"),
+                ContainerTitle = "The Expanse",
+                PositionSummary = "Book 1 in The Expanse",
+            },
+        };
+
+        var resolution = DetailTabNavigation.Resolve(model, null);
+
+        Assert.Equal("series", resolution.ActiveTab);
+        Assert.False(resolution.ShouldRedirect);
+    }
+
+    [Fact]
     public void MediaNavigation_DoesNotCreateDetailTabUrls()
     {
         var workId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");

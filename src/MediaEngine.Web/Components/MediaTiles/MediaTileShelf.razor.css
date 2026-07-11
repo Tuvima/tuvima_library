@@ -112,6 +112,10 @@
         overscroll-behavior-y: auto;
     }
 
+    .media-tile-shelf-scroll.has-active-in-row-hover {
+        scroll-snap-type: none;
+    }
+
     .media-tile-shelf-scroll.is-hover-scroll-locked {
         overflow-y: clip;
         overscroll-behavior-x: contain;

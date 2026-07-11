@@ -56,6 +56,7 @@ public static class DetailTabNavigation
                 model.ContributorGroups.Count > 0 || model.CharacterGroups.Count > 0,
             "characters" or "portrayals" =>
                 model.CharacterGroups.Count > 0,
+            "series" => model.SequencePlacement is not null,
             _ => true,
         };
     }
