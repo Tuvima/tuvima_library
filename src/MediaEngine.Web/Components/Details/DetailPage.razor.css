@@ -2279,7 +2279,7 @@
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
     align-content: center;
-    transform: none;
+    transform: translateY(-1rem);
 }
 
 ::deep .tl-detail-hero__copy h1 {
@@ -2296,7 +2296,7 @@
 ::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy {
     max-width: min(52rem, 56vw);
     gap: 0.56rem;
-    transform: none;
+    transform: translateY(-1rem);
 }
 
 ::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy h1 {
@@ -3116,6 +3116,19 @@
     overflow: hidden;
 }
 
+::deep .tl-series-date-range {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 1rem 0;
+    border-top: 1px solid rgba(255,255,255,0.09);
+    border-bottom: 1px solid rgba(255,255,255,0.09);
+    color: rgba(235, 241, 252, 0.82);
+    font-size: 0.92rem;
+    font-weight: 680;
+}
+
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-owned-summary {
     width: 100%;
     flex-wrap: wrap;
@@ -3193,6 +3206,14 @@
 
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-item__title.is-very-long {
     font-size: clamp(0.68rem, 0.78vw, 0.84rem);
+}
+
+::deep .tl-series-item__date {
+    margin-top: 0.28rem;
+    color: rgba(214, 222, 237, 0.56);
+    font-size: clamp(0.72rem, 0.8vw, 0.84rem);
+    line-height: 1.2;
+    text-align: center;
 }
 
 @media (max-width: 900px) {
@@ -5691,7 +5712,7 @@
     display: grid;
     justify-items: start;
     gap: 1rem;
-    width: min(46rem, 100%);
+    width: min(34rem, 100%);
 }
 
 ::deep .tl-detail-actions--watch .tl-detail-primary-actions {
@@ -5737,21 +5758,37 @@
 
 ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
     display: flex;
-    align-items: flex-start;
-    gap: clamp(1.15rem, 2.3vw, 2.25rem);
+    align-items: stretch;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
 }
 
-::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch { min-width: 4.75rem; }
+::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch + .tl-detail-secondary-action--watch::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 18%;
+    bottom: 18%;
+    width: 1px;
+    background: rgba(255,255,255,0.14);
+}
 
 ::deep .tl-detail-flat-action {
-    min-width: 4.75rem;
-    min-height: 3.9rem;
+    min-width: 0;
+    min-height: 3.35rem;
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.18rem;
-    padding: 0.25rem 0.45rem;
+    padding: 0.2rem 0.3rem;
     border: 0;
     border-radius: 0.5rem;
     background: transparent;

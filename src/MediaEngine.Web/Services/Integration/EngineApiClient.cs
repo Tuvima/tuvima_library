@@ -5371,6 +5371,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 EntityType = item.EntityType,
                 Title = item.Title,
                 ArtworkUrl = NormalizeOptionalUrl(item.ArtworkUrl),
+                PublicationDate = item.PublicationDate,
                 PositionNumber = item.PositionNumber,
                 PositionSort = item.PositionSort,
                 PositionLabel = item.PositionLabel,

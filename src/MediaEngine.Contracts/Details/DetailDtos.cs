@@ -367,6 +367,7 @@ public sealed class SequenceItemViewModel
     public DetailEntityType EntityType { get; init; }
     public string Title { get; init; } = string.Empty;
     public string? ArtworkUrl { get; init; }
+    public string? PublicationDate { get; init; }
     public int? PositionNumber { get; init; }
     public double? PositionSort { get; init; }
     public string? PositionLabel { get; init; }

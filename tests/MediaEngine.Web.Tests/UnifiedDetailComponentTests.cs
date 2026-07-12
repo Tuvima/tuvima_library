@@ -137,6 +137,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("object-position: right top", styles);
         Assert.Contains("tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner", styles);
         Assert.Contains("align-items: center", styles);
+        Assert.Contains("width: min(34rem, 100%)", styles);
+        Assert.Contains("tl-detail-secondary-action--watch + .tl-detail-secondary-action--watch::before", styles);
+        Assert.Contains("transform: translateY(-1rem)", styles);
     }
 
     [Fact]
@@ -459,6 +462,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("WindowSize = 6", source);
         Assert.Contains("SequenceItemTitleClass", source);
         Assert.Contains("is-very-long", source);
+        Assert.Contains("SeriesDateRange", source);
+        Assert.Contains("SequenceItemDate", source);
+        Assert.Contains("item.PublicationDate", source);
         Assert.DoesNotContain("tl-series-item__owned-badge", source);
         Assert.DoesNotContain("Icons.Material.Filled.Check\" Size=\"Size.Small\"", source);
         Assert.Contains("ItemNoun", source);
@@ -471,6 +477,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-layout", styles);
         Assert.Contains("grid-template-columns: minmax(15rem, 0.24fr) minmax(0, 0.76fr)", styles);
         Assert.Contains("tl-series-description", styles);
+        Assert.Contains("tl-series-date-range", styles);
+        Assert.Contains("tl-series-item__date", styles);
         Assert.Contains("repeat(var(--series-count, 6), clamp(10.25rem, 11vw, 13rem))", styles);
         Assert.Contains("tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip::before", styles);
         Assert.Contains("justify-content: start", styles);

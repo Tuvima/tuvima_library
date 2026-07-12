@@ -1307,6 +1307,9 @@ public sealed class DetailComposerService
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover') LIMIT 1)) AS TEXT) AS ArtworkUrl
+                  ,CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('publication_date', 'release_date', 'year') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('publication_date', 'release_date', 'year') LIMIT 1)) AS TEXT) AS PublicationDate
             FROM works w
             LEFT JOIN works parent ON parent.id = w.parent_work_id
             LEFT JOIN works grandparent ON grandparent.id = parent.parent_work_id
@@ -1354,6 +1357,7 @@ public sealed class DetailComposerService
                 EntityType = entityType,
                 Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
                 ArtworkUrl = row.ArtworkUrl,
+                PublicationDate = row.PublicationDate,
                 PositionNumber = positionNumber,
                 PositionSort = positionSort,
                 PositionLabel = positionLabel ?? positionNumber?.ToString(CultureInfo.InvariantCulture),
@@ -1382,6 +1386,7 @@ public sealed class DetailComposerService
                 EntityType = entityType,
                 Title = detail.Title,
                 ArtworkUrl = detail.CoverUrl,
+                PublicationDate = FirstNonBlank(detail.ReleaseDate, detail.Year),
                 PositionLabel = fallbackPositionLabel,
                 PositionNumber = fallbackPositionNumber,
                 PositionSort = fallbackPositionSort,
@@ -2810,6 +2815,7 @@ public sealed class DetailComposerService
                 EntityType = item.EntityType,
                 Title = item.Title,
                 ArtworkUrl = item.ArtworkUrl,
+                PublicationDate = item.PublicationDate,
                 PositionNumber = position ?? item.PositionNumber,
                 PositionSort = positionSort,
                 PositionLabel = sourcePosition.HasValue ? positionLabel : item.PositionLabel,
@@ -3083,6 +3089,7 @@ public sealed class DetailComposerService
                 Id = $"missing-{manifestItem.ItemQid}",
                 EntityType = entityType,
                 Title = FirstNonBlank(manifestItem.ItemLabel, manifestItem.ItemQid) ?? "Missing from library",
+                PublicationDate = manifestItem.PublicationDate,
                 PositionNumber = position,
                 PositionSort = positionSort,
                 PositionLabel = positionLabel,
@@ -3189,6 +3196,7 @@ public sealed class DetailComposerService
             EntityType = item.EntityType,
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
+            PublicationDate = FirstNonBlank(manifestItem.PublicationDate, item.PublicationDate),
             PositionNumber = position ?? item.PositionNumber,
             PositionSort = positionSort ?? item.PositionSort,
             PositionLabel = manifestPositionLabel ?? item.PositionLabel,
@@ -3235,6 +3243,7 @@ public sealed class DetailComposerService
             EntityType = item.EntityType,
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
+            PublicationDate = FirstNonBlank(manifestItem.PublicationDate, item.PublicationDate),
             PositionNumber = position ?? item.PositionNumber,
             PositionSort = positionSort ?? item.PositionSort,
             PositionLabel = manifestPositionLabel ?? item.PositionLabel,
@@ -6923,6 +6932,7 @@ public sealed class DetailComposerService
                 EntityType = item.EntityType,
                 Title = item.Title,
                 ArtworkUrl = item.ArtworkUrl,
+                PublicationDate = item.PublicationDate,
                 PositionNumber = item.PositionNumber,
                 PositionSort = item.PositionSort,
                 PositionLabel = item.PositionLabel,
@@ -7536,6 +7546,7 @@ public sealed class DetailComposerService
         public string? SeasonLabel { get; init; }
         public string? EpisodeLabel { get; init; }
         public string? ArtworkUrl { get; init; }
+        public string? PublicationDate { get; init; }
     }
 
     private sealed class SeriesManifestItemRow

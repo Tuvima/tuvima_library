@@ -63,6 +63,14 @@
             <div class="tl-series-position-summary__label">@PositionSummaryLabel</div>
         </div>
 
+        @if (SeriesDateRange is not null)
+        {
+            <div class="tl-series-date-range">
+                <MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small" />
+                <span>@SeriesDateRange</span>
+            </div>
+        }
+
         @if (!Compact && !string.IsNullOrWhiteSpace(Placement.ContainerDescription))
         {
             <p class="tl-series-description">@Placement.ContainerDescription</p>
@@ -248,6 +256,22 @@
     };
     private string ItemNoun => FirstNonBlank(Placement.ItemLabel, "Item")!;
     private string CurrentItemBadge => $"This {ItemNoun.ToLowerInvariant()}";
+    private string? SeriesDateRange
+    {
+        get
+        {
+            var years = ActiveItems
+                .Select(item => SequenceYear(item.PublicationDate))
+                .Where(year => year.HasValue)
+                .Select(year => year!.Value)
+                .Distinct()
+                .OrderBy(year => year)
+                .ToList();
+            if (years.Count == 0)
+                return null;
+            return years.Count == 1 ? years[0].ToString() : $"{years[0]} – {years[^1]}";
+        }
+    }
     private string? SeriesWikidataQid => ResolveSeriesWikidataQid();
     private string? SeriesWikidataUrl => SeriesWikidataQid is { } qid
         ? $"https://www.wikidata.org/wiki/{qid}"
@@ -339,6 +363,10 @@
             }
         </div>
         <div class="@SequenceItemTitleClass(item)">@SequenceItemTitle(item)</div>
+        @if (SequenceItemDate(item) is { } itemDate)
+        {
+            <div class="tl-series-item__date">@itemDate</div>
+        }
     </text>;
 
     private static string ToRouteEntityType(DetailEntityType entityType)
@@ -356,6 +384,20 @@
     {
         var length = SequenceItemTitle(item).Length;
         return $"tl-series-item__title{(length > 44 ? " is-very-long" : length > 26 ? " is-long" : string.Empty)}";
+    }
+
+    private static string? SequenceItemDate(SequenceItemViewModel item)
+        => SequenceYear(item.PublicationDate)?.ToString()
+           ?? FirstNonBlank(item.PublicationDate);
+
+    private static int? SequenceYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var trimmed = value.Trim();
+        if (trimmed.Length >= 4 && int.TryParse(trimmed[..4], out var year) && year is >= 1000 and <= 9999)
+            return year;
+        return DateTimeOffset.TryParse(trimmed, out var parsed) ? parsed.Year : null;
     }
 
     private static string SequenceNumber(SequenceItemViewModel item)
