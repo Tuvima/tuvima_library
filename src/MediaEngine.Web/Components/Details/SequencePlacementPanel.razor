@@ -6,7 +6,8 @@
 @inject UIOrchestratorService Orchestrator
 
 <section class="tl-series-placement @PanelClass">
-    <div class="tl-series-header">
+    <div class="tl-series-layout">
+    <aside class="tl-series-header">
         <div>
             <div class="tl-series-eyebrow">
                 <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
@@ -60,12 +61,37 @@
                 </div>
             </div>
             <div class="tl-series-position-summary__label">@PositionSummaryLabel</div>
-            <div class="tl-series-owned-chip">
-                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
-                <span>@OwnedCount owned</span>
-            </div>
         </div>
-    </div>
+
+        @if (!Compact && !string.IsNullOrWhiteSpace(Placement.ContainerDescription))
+        {
+            <p class="tl-series-description">@Placement.ContainerDescription</p>
+        }
+
+        <div class="tl-series-owned-summary">
+            <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
+            <span>@OwnedCount owned</span>
+            <span class="tl-series-owned-summary__dot" aria-hidden="true"></span>
+            <span>@MissingCount missing</span>
+            @if (SeriesWikidataUrl is not null)
+            {
+                <a class="tl-series-wikidata-link"
+                   href="@SeriesWikidataUrl"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   aria-label="Open @SeriesWikidataQid on Wikidata in a new tab">
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
+                    <span>Series metadata: Wikidata @SeriesWikidataQid</span>
+                </a>
+            }
+            @if (ShowSetDefault)
+            {
+                <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
+                    Set as default
+                </AppNativeButton>
+            }
+        </div>
+    </aside>
 
     <div class="tl-series-carousel">
         <AppIconButton Class="@LeftArrowClass"
@@ -99,18 +125,6 @@
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />
     </div>
-
-    <div class="tl-series-owned-summary">
-        <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
-        <span>@OwnedCount owned</span>
-        <span class="tl-series-owned-summary__dot" aria-hidden="true"></span>
-        <span>@MissingCount missing</span>
-        @if (ShowSetDefault)
-        {
-            <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
-                Set as default
-            </AppNativeButton>
-        }
     </div>
 </section>
 
@@ -120,7 +134,7 @@
     [Parameter] public bool Compact { get; set; }
 
     private const int LongSequenceThreshold = 9;
-    private const int WindowSize = 7;
+    private const int WindowSize = 6;
     private string? _placementKey;
     private string? _selectedGroupKey;
     private int _windowCenterIndex;
@@ -234,6 +248,10 @@
     };
     private string ItemNoun => FirstNonBlank(Placement.ItemLabel, "Item")!;
     private string CurrentItemBadge => $"This {ItemNoun.ToLowerInvariant()}";
+    private string? SeriesWikidataQid => ResolveSeriesWikidataQid();
+    private string? SeriesWikidataUrl => SeriesWikidataQid is { } qid
+        ? $"https://www.wikidata.org/wiki/{qid}"
+        : null;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -320,7 +338,7 @@
                 <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
             }
         </div>
-        <div class="tl-series-item__title">@SequenceItemTitle(item)</div>
+        <div class="@SequenceItemTitleClass(item)">@SequenceItemTitle(item)</div>
     </text>;
 
     private static string ToRouteEntityType(DetailEntityType entityType)
@@ -333,6 +351,12 @@
         DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries or DetailEntityType.Work => "read",
         _ => "default",
     };
+
+    private string SequenceItemTitleClass(SequenceItemViewModel item)
+    {
+        var length = SequenceItemTitle(item).Length;
+        return $"tl-series-item__title{(length > 44 ? " is-very-long" : length > 26 ? " is-long" : string.Empty)}";
+    }
 
     private static string SequenceNumber(SequenceItemViewModel item)
         => FirstNonBlank(
@@ -491,4 +515,22 @@
     private static bool IsGenericContainerWord(string value)
         => string.Equals(value, "collection", StringComparison.OrdinalIgnoreCase)
            || string.Equals(value, "series", StringComparison.OrdinalIgnoreCase);
+
+    private string? ResolveSeriesWikidataQid()
+    {
+        var candidates = new[] { Placement.SourceContainerId, Placement.ContainerId }
+            .Concat(DistinctAvailableContainers
+                .Where(option => option.IsSelected)
+                .SelectMany(option => new[] { option.SourceContainerId, option.ContainerId }.Concat(option.EquivalentContainerIds)));
+
+        return candidates
+            .Select(NormalizeContainerId)
+            .FirstOrDefault(IsWikidataQid);
+    }
+
+    private static bool IsWikidataQid(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && value.Length > 1
+           && value[0] is 'Q' or 'q'
+           && value.Skip(1).All(char.IsDigit);
 }

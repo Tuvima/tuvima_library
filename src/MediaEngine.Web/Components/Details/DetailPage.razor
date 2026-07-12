@@ -53,7 +53,8 @@
                 {
                     @if (Model.SequencePlacement is not null)
                     {
-                        <SequencePlacementPanel Placement="Model.SequencePlacement" OnContainerSelected="HandleContainerSelectedAsync" />
+                        <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                                OnContainerSelected="HandleContainerSelectedAsync" />
                     }
                     else
                     {
@@ -117,6 +118,7 @@
     [Parameter] public string? ActiveTab { get; set; }
     [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+
 
     private IReadOnlyList<DetailTab> VisibleTabs =>
         Model is null ? [] : DetailTabNavigation.GetVisibleTabs(Model);

@@ -299,6 +299,7 @@ public sealed class SequencePlacementViewModel
     public string ContainerId { get; init; } = string.Empty;
     public string? SourceContainerId { get; init; }
     public string ContainerTitle { get; init; } = string.Empty;
+    public string? ContainerDescription { get; init; }
     public string SelectedContainerId { get; init; } = string.Empty;
     public bool CanChooseContainer { get; init; }
     public bool CanSetDefaultContainer { get; init; }

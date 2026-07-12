@@ -5315,6 +5315,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 ContainerId = placement.ContainerId,
                 SourceContainerId = placement.SourceContainerId,
                 ContainerTitle = placement.ContainerTitle,
+                ContainerDescription = placement.ContainerDescription,
                 SelectedContainerId = placement.SelectedContainerId,
                 CanChooseContainer = placement.CanChooseContainer,
                 CanSetDefaultContainer = placement.CanSetDefaultContainer,

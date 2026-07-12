@@ -414,6 +414,7 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("<h2>@ContainerTitleDisplay</h2>", source);
         Assert.Contains("[Parameter] public bool Compact { get; set; }", source);
+        Assert.Contains("Placement.ContainerDescription", source);
         Assert.Contains("tl-series-placement--compact", source);
         Assert.Contains("@(Compact ? ContainerTitleDisplay : Placement.ContainerLabel)", source);
         Assert.Contains("item.IsCurrent && !Compact", source);
@@ -448,6 +449,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("owned of {TotalItems}", source);
         Assert.Contains("tl-series-placement--long", source);
         Assert.Contains("LongSequenceThreshold = 9", source);
+        Assert.Contains("WindowSize = 6", source);
+        Assert.Contains("SequenceItemTitleClass", source);
+        Assert.Contains("is-very-long", source);
         Assert.DoesNotContain("tl-series-item__owned-badge", source);
         Assert.DoesNotContain("Icons.Material.Filled.Check\" Size=\"Size.Small\"", source);
         Assert.Contains("ItemNoun", source);
@@ -457,6 +461,14 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-placement--long .tl-series-strip::before", styles);
         Assert.Contains("content: none", styles);
         Assert.Contains("min-width: clamp(5.8rem, 7.2vw, 7.3rem)", styles);
+        Assert.Contains("tl-series-layout", styles);
+        Assert.Contains("grid-template-columns: minmax(15rem, 0.24fr) minmax(0, 0.76fr)", styles);
+        Assert.Contains("tl-series-description", styles);
+        Assert.Contains("repeat(var(--series-count, 6), clamp(9.5rem, 10vw, 12rem))", styles);
+        Assert.Contains("tl-series-wikidata-link", source);
+        Assert.Contains("https://www.wikidata.org/wiki/{qid}", source);
+        Assert.Contains("Series metadata: Wikidata", source);
+        Assert.DoesNotContain("tl-series-owned-chip\"", source);
         Assert.Contains("tl-series-item.is-current .tl-series-item__art", styles);
         Assert.Contains("tl-series-item__current-badge", styles);
         Assert.DoesNotContain("tl-series-item__owned-badge", styles);

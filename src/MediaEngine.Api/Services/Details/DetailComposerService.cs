@@ -1408,6 +1408,12 @@ public sealed class DetailComposerService
 
         var expectedTotal = await LoadSequenceExpectedTotalAsync(containerId, ct)
             ?? await LoadSequenceExpectedTotalAsync(sourceContainerId, ct);
+        var containerDescription = await LoadSequenceContainerDescriptionAsync(containerId, sourceContainerId, ct)
+            ?? GetDetailCanonicalValue(detail, "series_description")
+            ?? (entityType is DetailEntityType.BookSeries or DetailEntityType.ComicSeries
+                or DetailEntityType.MovieSeries or DetailEntityType.TvShow
+                    ? detail.Description
+                    : null);
         var currentIndex = Math.Max(0, items.FindIndex(i => i.IsCurrent));
         var current = items[currentIndex];
         var groups = BuildSequenceGroups(items, labels.ItemPluralLabel, expectedTotal);
@@ -1419,6 +1425,7 @@ public sealed class DetailComposerService
             ContainerId = containerId,
             SourceContainerId = sourceContainerId,
             ContainerTitle = containerTitle,
+            ContainerDescription = containerDescription,
             SelectedContainerId = containerId,
             CanChooseContainer = distinctContainers.Count > 1,
             CanSetDefaultContainer = distinctContainers.Count > 1
@@ -1461,6 +1468,43 @@ public sealed class DetailComposerService
             OrderedItems = items,
             Groups = groups,
         };
+    }
+
+    private async Task<string?> LoadSequenceContainerDescriptionAsync(
+        string? containerId,
+        string? sourceContainerId,
+        CancellationToken ct)
+    {
+        var localId = Guid.TryParse(containerId, out var parsedContainerId)
+            ? parsedContainerId
+            : Guid.TryParse(sourceContainerId, out var parsedSourceContainerId)
+                ? parsedSourceContainerId
+                : (Guid?)null;
+        var containerQid = IsWikidataQid(containerId) ? containerId : null;
+        var sourceQid = IsWikidataQid(sourceContainerId) ? sourceContainerId : null;
+
+        if (localId is null && containerQid is null && sourceQid is null)
+            return null;
+
+        using var conn = _db.CreateConnection();
+        return await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+            """
+            SELECT COALESCE(
+                       NULLIF(TRIM(c.description), ''),
+                       (SELECT NULLIF(TRIM(CAST(cv.value AS TEXT)), '')
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = c.id
+                          AND cv.key IN ('description', 'overview')
+                        LIMIT 1))
+            FROM collections c
+            WHERE (@localId IS NOT NULL AND c.id = @localId)
+               OR (@containerQid IS NOT NULL AND c.wikidata_qid = @containerQid)
+               OR (@sourceQid IS NOT NULL AND c.wikidata_qid = @sourceQid)
+            ORDER BY CASE WHEN @localId IS NOT NULL AND c.id = @localId THEN 0 ELSE 1 END
+            LIMIT 1
+            """,
+            new { localId, containerQid, sourceQid },
+            cancellationToken: ct));
     }
 
     private async Task<int?> LoadSequenceExpectedTotalAsync(string? containerId, CancellationToken ct)
