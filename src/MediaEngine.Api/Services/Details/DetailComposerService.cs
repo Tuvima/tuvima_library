@@ -4488,7 +4488,7 @@ public sealed class DetailComposerService
             {
                 Key = "add-to-collection",
                 Label = "Add to Collection",
-                Icon = "add",
+                Icon = "account_tree",
                 Tooltip = "Add to collection",
                 DisplayStyle = "icon",
             });
@@ -4543,7 +4543,7 @@ public sealed class DetailComposerService
         {
             Key = "my-list",
             Label = isSelected ? "In My List" : "My List",
-            Icon = isSelected ? "playlist_add_check" : "playlist_add",
+            Icon = isSelected ? "check_circle" : "add",
             Tooltip = isSelected ? "Remove from My List" : "Add to My List",
             DisplayStyle = "icon",
             IsSelected = isSelected,

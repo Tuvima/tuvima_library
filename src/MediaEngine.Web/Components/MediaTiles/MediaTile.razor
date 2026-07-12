@@ -157,37 +157,27 @@
 
                                 <div class="media-tile-hover-action-unit">
                                     <AppNativeButton Type="button" Class="@MyListButtonClass" AriaLabel="@MyListActionLabel" Title="@MyListActionLabel" Disabled="@(!Item.WorkId.HasValue)" OnClick="ToggleMyListAsync" StopPropagation="true">
-                                        <MudIcon Icon="@(_isInMyList ? Icons.Material.Filled.PlaylistAddCheck : Icons.Material.Outlined.PlaylistAdd)" />
+                                        <MudIcon Icon="@(_isInMyList ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Add)" />
                                         <span class="media-tile-visually-hidden">@MyListActionLabel</span>
                                     </AppNativeButton>
                                 </div>
 
-                                <div class="media-tile-hover-action-unit">
-                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-dislike-action")" AriaLabel="Not for me" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
-                                        <span class="media-tile-visually-hidden">Not for me</span>
+                                <div class="media-tile-hover-action-unit media-tile-reaction-menu" tabindex="0" aria-label="Rate this title">
+                                    <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-reaction-trigger" AriaLabel="Rate this title" Title="Rate this title" StopPropagation="true">
+                                        <MudIcon Icon="@ReactionTriggerIcon" />
+                                        <span class="media-tile-visually-hidden">Rate this title</span>
                                     </AppNativeButton>
-                                </div>
-
-                                <div class="media-tile-hover-action-unit">
-                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Like, "media-tile-like-action")" AriaLabel="Like" Title="Like" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Like))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
-                                        <span class="media-tile-visually-hidden">Like</span>
-                                    </AppNativeButton>
-                                </div>
-
-                                <div class="media-tile-hover-action-unit">
-                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Love, "media-tile-love-action")" AriaLabel="Love" Title="Love" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Love))">
-                                        <MudIcon Icon="@(_reaction == MediaReaction.Love ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
-                                        <span class="media-tile-visually-hidden">Love</span>
-                                    </AppNativeButton>
-                                </div>
-
-                                <div class="media-tile-hover-action-unit">
-                                    <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-add-action" AriaLabel="Add to collection" Title="Add to collection" Disabled="@(!Item.CanAddToCollection)" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                        <span class="media-tile-visually-hidden">Add to Collection</span>
-                                    </AppNativeButton>
+                                    <div class="media-tile-reaction-tray">
+                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-dislike-action")" AriaLabel="Not for me" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
+                                        </AppNativeButton>
+                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Like, "media-tile-like-action")" AriaLabel="Like" Title="Like" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Like))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
+                                        </AppNativeButton>
+                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Love, "media-tile-love-action")" AriaLabel="Love" Title="Love" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Love))">
+                                            <MudIcon Icon="@(_reaction == MediaReaction.Love ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
+                                        </AppNativeButton>
+                                    </div>
                                 </div>
                             </div>
 
@@ -928,6 +918,13 @@
 
     private string ReactionButtonClass(MediaReaction reaction, string roleClass) =>
         $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-reaction-action {roleClass} {(_reaction == reaction ? "is-selected" : string.Empty)}";
+
+    private string ReactionTriggerIcon => _reaction switch
+    {
+        MediaReaction.Dislike => Icons.Material.Outlined.ThumbDownOffAlt,
+        MediaReaction.Love => Icons.Material.Filled.Favorite,
+        _ => Icons.Material.Outlined.ThumbUpOffAlt
+    };
 
     private string MyListButtonClass =>
         $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-my-list-action {(_isInMyList ? "is-selected" : string.Empty)}";

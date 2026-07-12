@@ -65,6 +65,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-reaction-menu button[aria-label='Rate this title']"));
+        Assert.Empty(cut.FindAll("button[aria-label='Add to collection']"));
         Assert.NotEmpty(cut.FindAll(".tl-media-action--compact"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-progress"));
 
@@ -199,6 +201,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.NotEmpty(cut.FindAll("button[aria-label='Not for me']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
+        Assert.Empty(cut.FindAll("button[aria-label='Add to collection']"));
     }
 
     [Fact]
