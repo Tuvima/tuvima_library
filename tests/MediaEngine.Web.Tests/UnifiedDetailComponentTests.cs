@@ -464,7 +464,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-layout", styles);
         Assert.Contains("grid-template-columns: minmax(15rem, 0.24fr) minmax(0, 0.76fr)", styles);
         Assert.Contains("tl-series-description", styles);
-        Assert.Contains("repeat(var(--series-count, 6), clamp(9.5rem, 10vw, 12rem))", styles);
+        Assert.Contains("repeat(var(--series-count, 6), clamp(10.25rem, 11vw, 13rem))", styles);
+        Assert.Contains("tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip::before", styles);
+        Assert.Contains("justify-content: start", styles);
         Assert.Contains("tl-series-wikidata-link", source);
         Assert.Contains("https://www.wikidata.org/wiki/{qid}", source);
         Assert.Contains("Series metadata: Wikidata", source);

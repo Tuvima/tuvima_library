@@ -3097,15 +3097,15 @@
 
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip,
 ::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-placement--long .tl-series-strip {
-    grid-template-columns: repeat(var(--series-count, 6), clamp(9.5rem, 10vw, 12rem));
+    grid-template-columns: repeat(var(--series-count, 6), clamp(10.25rem, 11vw, 13rem));
     gap: clamp(0.85rem, 1.25vw, 1.45rem);
     width: 100%;
-    justify-content: center;
+    justify-content: start;
     padding: 0.5rem 0 0;
 }
 
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip::before {
-    top: 1.75rem;
+    content: none;
 }
 
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-item {
@@ -3155,7 +3155,7 @@
 
     ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip,
     ::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-placement--long .tl-series-strip {
-        grid-template-columns: repeat(var(--series-count, 6), minmax(8.5rem, 10.5rem));
+        grid-template-columns: repeat(var(--series-count, 6), minmax(10.25rem, 13rem));
         justify-content: start;
         overflow-x: auto;
     }
