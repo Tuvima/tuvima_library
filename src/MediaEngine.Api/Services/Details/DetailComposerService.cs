@@ -1413,7 +1413,8 @@ public sealed class DetailComposerService
 
         var expectedTotal = await LoadSequenceExpectedTotalAsync(containerId, ct)
             ?? await LoadSequenceExpectedTotalAsync(sourceContainerId, ct);
-        var containerDescription = await LoadSequenceContainerDescriptionAsync(containerId, sourceContainerId, ct)
+        var containerMetadata = await LoadSequenceContainerMetadataAsync(containerId, sourceContainerId, ct);
+        var containerDescription = containerMetadata?.Description
             ?? GetDetailCanonicalValue(detail, "series_description")
             ?? (entityType is DetailEntityType.BookSeries or DetailEntityType.ComicSeries
                 or DetailEntityType.MovieSeries or DetailEntityType.TvShow
@@ -1431,6 +1432,7 @@ public sealed class DetailComposerService
             SourceContainerId = sourceContainerId,
             ContainerTitle = containerTitle,
             ContainerDescription = containerDescription,
+            ContainerWikipediaUrl = containerMetadata?.WikipediaUrl,
             SelectedContainerId = containerId,
             CanChooseContainer = distinctContainers.Count > 1,
             CanSetDefaultContainer = distinctContainers.Count > 1
@@ -1475,7 +1477,7 @@ public sealed class DetailComposerService
         };
     }
 
-    private async Task<string?> LoadSequenceContainerDescriptionAsync(
+    private async Task<SequenceContainerMetadataRow?> LoadSequenceContainerMetadataAsync(
         string? containerId,
         string? sourceContainerId,
         CancellationToken ct)
@@ -1492,15 +1494,25 @@ public sealed class DetailComposerService
             return null;
 
         using var conn = _db.CreateConnection();
-        return await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+        return await conn.QueryFirstOrDefaultAsync<SequenceContainerMetadataRow>(new CommandDefinition(
             """
             SELECT COALESCE(
                        NULLIF(TRIM(c.description), ''),
                        (SELECT NULLIF(TRIM(CAST(cv.value AS TEXT)), '')
                         FROM canonical_values cv
                         WHERE cv.entity_id = c.id
-                          AND cv.key IN ('description', 'overview')
-                        LIMIT 1))
+                          AND cv.key IN ('wikipedia_extract', 'description', 'overview')
+                        ORDER BY CASE cv.key WHEN 'wikipedia_extract' THEN 0 WHEN 'description' THEN 1 ELSE 2 END
+                        LIMIT 1),
+                       (SELECT NULLIF(TRIM(ql.description), '')
+                        FROM qid_labels ql
+                        WHERE ql.qid = c.wikidata_qid
+                        LIMIT 1)) AS Description,
+                   (SELECT NULLIF(TRIM(CAST(cv.value AS TEXT)), '')
+                    FROM canonical_values cv
+                    WHERE cv.entity_id = c.id
+                      AND cv.key = 'wikipedia_url'
+                    LIMIT 1) AS WikipediaUrl
             FROM collections c
             WHERE (@localId IS NOT NULL AND c.id = @localId)
                OR (@containerQid IS NOT NULL AND c.wikidata_qid = @containerQid)
@@ -7535,6 +7547,7 @@ public sealed class DetailComposerService
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator, double? ProgressPct);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SequenceLabels(string ContainerLabel, string ItemLabel, string ItemPluralLabel, string? GroupLabel);
+    private sealed record SequenceContainerMetadataRow(string? Description, string? WikipediaUrl);
 
     private sealed class SequenceRow
     {

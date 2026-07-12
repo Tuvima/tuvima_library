@@ -5316,6 +5316,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 SourceContainerId = placement.SourceContainerId,
                 ContainerTitle = placement.ContainerTitle,
                 ContainerDescription = placement.ContainerDescription,
+                ContainerWikipediaUrl = NormalizeOptionalUrl(placement.ContainerWikipediaUrl),
                 SelectedContainerId = placement.SelectedContainerId,
                 CanChooseContainer = placement.CanChooseContainer,
                 CanSetDefaultContainer = placement.CanSetDefaultContainer,

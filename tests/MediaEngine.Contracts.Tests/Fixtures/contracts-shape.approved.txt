@@ -386,6 +386,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequencePlacementVie
   SourceContainerId: System.String | nullability=nullable | accessors=get,init
   ContainerTitle: System.String | nullability=not-null | accessors=get,init
   ContainerDescription: System.String | nullability=nullable | accessors=get,init
+  ContainerWikipediaUrl: System.String | nullability=nullable | accessors=get,init
   SelectedContainerId: System.String | nullability=not-null | accessors=get,init
   CanChooseContainer: System.Boolean | nullability=not-null | accessors=get,init
   CanSetDefaultContainer: System.Boolean | nullability=not-null | accessors=get,init

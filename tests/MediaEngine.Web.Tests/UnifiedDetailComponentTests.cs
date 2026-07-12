@@ -482,9 +482,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("repeat(var(--series-count, 6), clamp(10.25rem, 11vw, 13rem))", styles);
         Assert.Contains("tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip::before", styles);
         Assert.Contains("justify-content: start", styles);
-        Assert.Contains("tl-series-wikidata-link", source);
+        Assert.Contains("tl-series-source-link", source);
         Assert.Contains("https://www.wikidata.org/wiki/{qid}", source);
-        Assert.Contains("Series metadata: Wikidata", source);
+        Assert.Contains("Series: Wikidata (@SeriesWikidataQid)", source);
+        Assert.Contains("Series: Wikipedia", source);
+        Assert.Contains("Placement.ContainerWikipediaUrl", source);
         Assert.DoesNotContain("tl-series-owned-chip\"", source);
         Assert.Contains("tl-series-item.is-current .tl-series-item__art", styles);
         Assert.Contains("tl-series-item__current-badge", styles);

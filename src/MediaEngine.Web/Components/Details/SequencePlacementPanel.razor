@@ -83,13 +83,24 @@
             <span>@MissingCount missing</span>
             @if (SeriesWikidataUrl is not null)
             {
-                <a class="tl-series-wikidata-link"
+                <a class="tl-series-source-link"
                    href="@SeriesWikidataUrl"
                    target="_blank"
                    rel="noopener noreferrer"
-                   aria-label="Open @SeriesWikidataQid on Wikidata in a new tab">
+                    aria-label="Open @SeriesWikidataQid on Wikidata in a new tab">
                     <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
-                    <span>Series metadata: Wikidata @SeriesWikidataQid</span>
+                    <span>Series: Wikidata (@SeriesWikidataQid)</span>
+                </a>
+            }
+            @if (!string.IsNullOrWhiteSpace(Placement.ContainerWikipediaUrl))
+            {
+                <a class="tl-series-source-link"
+                   href="@Placement.ContainerWikipediaUrl"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   aria-label="Open the series article on Wikipedia in a new tab">
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
+                    <span>Series: Wikipedia</span>
                 </a>
             }
             @if (ShowSetDefault)
