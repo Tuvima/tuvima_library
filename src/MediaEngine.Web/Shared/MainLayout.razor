@@ -219,8 +219,8 @@
 
     private bool IsDetailShell => IsDetailPath(_currentPath);
     private string LayoutShellClass => IsDetailShell ? "app-bg app-bg--detail" : "app-bg";
-    private string AppBarClass => IsDetailShell ? "layout-shell__appbar layout-shell__appbar--detail" : "layout-shell__appbar";
-    private string MainContentClass => IsDetailShell ? "main-content-with-topbar main-content-with-topbar--detail" : "main-content-with-topbar";
+    private const string AppBarClass = "layout-shell__appbar";
+    private const string MainContentClass = "main-content-with-topbar";
     private string MainContainerClass => IsDetailShell ? "px-0 py-0" : "py-6 px-0";
 
     [Inject] private IJSRuntime JS { get; set; } = default!;

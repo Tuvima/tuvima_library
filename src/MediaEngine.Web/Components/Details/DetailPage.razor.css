@@ -24,7 +24,9 @@
     --hero-focus-x: 68%;
     --hero-focus-y: 42%;
     position: relative;
-    min-height: 1000px;
+    height: clamp(42rem, calc(100svh - 8.75rem), 56rem);
+    min-height: 42rem;
+    max-height: 56rem;
     overflow: hidden;
     isolation: isolate;
     background-color: rgb(var(--hero-shadow-rgb));
@@ -44,7 +46,9 @@
 }
 
 ::deep .tl-detail-media-stage--background {
-    background: rgb(var(--hero-shadow-rgb));
+    background:
+        radial-gradient(circle at 18% 38%, rgba(var(--hero-accent-rgb), 0.16), transparent 31rem),
+        linear-gradient(90deg, rgb(var(--hero-bg-rgb)) 0%, rgb(var(--hero-bg-rgb)) 31%, rgb(var(--hero-shadow-rgb)) 66%, rgb(var(--hero-shadow-rgb)) 100%);
 }
 
 ::deep .tl-detail-media-stage__background,
@@ -63,18 +67,6 @@
     height: 100%;
     object-fit: contain;
     object-position: var(--hero-image-position, center right);
-}
-
-::deep .tl-detail-media-stage__background-fill {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: var(--hero-image-position, center right);
-    filter: saturate(0.88) brightness(0.58);
-    opacity: 0.92;
 }
 
 ::deep .tl-detail-hero__overlays,
@@ -174,7 +166,7 @@
 }
 
 ::deep .tl-detail-hero--watch {
-    min-height: 1000px;
+    min-height: 42rem;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
@@ -185,16 +177,19 @@
 
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
     z-index: 1;
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
-    mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
 }
 
 ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__background {
     z-index: 1;
-    object-fit: contain;
-    object-position: var(--hero-image-position, center right);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
-    mask-image: linear-gradient(to right, transparent 0%, #000 13%, #000 100%);
+    left: auto;
+    right: 0;
+    width: clamp(74%, 80vw, 88%);
+    object-fit: cover;
+    object-position: right top;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
 }
 
 ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__overlay { z-index: 2; }
@@ -2241,7 +2236,20 @@
 ::deep .tl-detail-hero--watch .tl-detail-hero__copy {
     max-width: min(47.5rem, 52vw);
     gap: 0.62rem;
-    transform: translateY(clamp(2.5rem, 8vh, 6rem));
+    transform: none;
+}
+
+::deep .tl-detail-hero--backdrop .tl-detail-hero__inner {
+    display: flex;
+    align-items: center;
+    min-height: 100%;
+    padding-top: clamp(3rem, 7vh, 5rem);
+    padding-bottom: clamp(3rem, 7vh, 5rem);
+}
+
+::deep .tl-detail-hero--backdrop .tl-detail-hero__copy {
+    align-content: center;
+    transform: none;
 }
 
 ::deep .tl-detail-hero__copy h1 {
@@ -2258,7 +2266,7 @@
 ::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy {
     max-width: min(52rem, 56vw);
     gap: 0.56rem;
-    transform: translateY(clamp(1.1rem, 3vh, 2.6rem));
+    transform: none;
 }
 
 ::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy h1 {
@@ -2987,6 +2995,9 @@
 }
 
 ::deep .tl-detail-tabs {
+    position: relative;
+    z-index: 3;
+    isolation: isolate;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -3003,7 +3014,20 @@
 }
 
 ::deep .tl-detail-body {
-    background: #14161c;
+    background: #090c12;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.055), 0 -1.5rem 3.5rem rgba(4, 7, 12, 0.44);
+}
+
+::deep .tl-detail-tabs::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: clamp(3.5rem, 8vh, 6rem);
+    pointer-events: none;
+    background: linear-gradient(to top, rgba(9, 12, 18, 0.98) 0%, rgba(9, 12, 18, 0.62) 48%, transparent 100%);
 }
 
 /* Full series presentation: reusable information rail + large sequence artwork. */
@@ -4866,7 +4890,9 @@
 
 @media (max-width: 760px) {
     ::deep .tl-detail-hero {
+        height: auto;
         min-height: auto;
+        max-height: none;
     }
 
     ::deep .tl-detail-hero__inner {

@@ -3131,32 +3131,6 @@ textarea.tl-textarea,
     align-items: center !important;
 }
 
-.main-content-with-topbar--detail,
-body:has(.tl-detail-page) .main-content-with-topbar {
-    padding-top: 0 !important;
-}
-
-body:has(.tl-detail-page) .mud-container,
-.main-content-with-topbar--detail .mud-container {
-    padding-top: 0 !important;
-}
-
-.layout-shell__appbar--detail,
-.layout-shell__appbar--detail.mud-appbar,
-body:has(.tl-detail-page) .layout-shell__appbar,
-body:has(.tl-detail-page) .layout-shell__appbar.mud-appbar {
-    background: rgba(8, 12, 18, 0.68) !important;
-    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 0.65rem 2rem rgba(0, 0, 0, 0.18) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.12);
-    backdrop-filter: blur(18px) saturate(1.12);
-}
-
-.layout-shell__appbar--detail .mud-toolbar,
-body:has(.tl-detail-page) .layout-shell__appbar .mud-toolbar {
-    background: transparent !important;
-}
-
 @media (max-width: 1100px) {
     .layout-shell__appbar .mud-toolbar {
         grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem) minmax(0, 1fr) !important;

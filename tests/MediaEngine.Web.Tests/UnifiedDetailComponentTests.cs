@@ -13,7 +13,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("HeroArtworkMode.BackdropWithRenderedTitle", source);
         Assert.Contains("HeroArtworkMode.ArtworkFallback", source);
         Assert.Contains("tl-detail-media-stage--background", source);
-        Assert.Contains("tl-detail-media-stage__background-fill", source);
+        Assert.DoesNotContain("tl-detail-media-stage__background-fill", source);
         Assert.Contains("tl-detail-media-stage--artwork-fallback", source);
         Assert.Contains("tl-detail-hero__artwork", source);
         Assert.Contains("tl-detail-hero__overlays", source);
@@ -51,14 +51,17 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("background-size: cover", styles);
         Assert.Contains("object-position: var(--hero-image-position, center right)", styles);
         Assert.Contains("object-position: right center", styles);
-        Assert.Contains("tl-detail-media-stage__background-fill", styles);
-        Assert.Contains("object-fit: cover", styles);
+        Assert.DoesNotContain("tl-detail-media-stage__background-fill", styles);
         Assert.DoesNotContain("tl-detail-media-stage--background::before", styles);
         Assert.Contains("mask-image: linear-gradient(to right", styles);
         Assert.Contains("background-size: cover", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-hero__artwork", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork::after", styles);
-        Assert.Contains("min-height: 1000px", styles);
+        Assert.Contains("height: clamp(42rem, calc(100svh - 8.75rem), 56rem)", styles);
+        Assert.Contains("max-height: 56rem", styles);
+        Assert.Contains("rgba(0,0,0,0.76) 43%", styles);
+        Assert.Contains("tl-detail-tabs::before", styles);
+        Assert.Contains("background: #090c12", styles);
         Assert.Contains("font-family: Georgia, \"Times New Roman\", serif", styles);
         Assert.Contains("font-weight: 500", styles);
         Assert.Contains("max-width: 22ch", styles);
@@ -118,18 +121,19 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("linear-gradient(180deg, var(--tl-accent-primary, #8b5cf6) 0%, var(--tl-accent-primary-active, #7652d6) 100%)", styles);
         Assert.Contains("0 0 28px rgba(139, 92, 246, 0.48)", styles);
         Assert.Contains("IsDetailShell", layout);
-        Assert.Contains("layout-shell__appbar--detail", layout);
         Assert.Contains("MainContainerClass", layout);
         Assert.Contains("py-0", layout);
-        Assert.Contains(".main-content-with-topbar--detail", layoutStyles);
-        Assert.Contains(".layout-shell__appbar--detail", layoutStyles);
-        Assert.Contains("body:has(.tl-detail-page) .main-content-with-topbar", appStyles);
-        Assert.Contains(".layout-shell__appbar--detail", appStyles);
-        Assert.Contains("padding-top: 0 !important", layoutStyles);
-        Assert.Contains("background: rgba(8, 12, 18, 0.68) !important", layoutStyles);
-        Assert.Contains("backdrop-filter: blur(18px) saturate(1.12)", layoutStyles);
-        Assert.Contains("body:has(.tl-detail-page) .layout-shell__appbar", appStyles);
-        Assert.Contains("background: transparent !important", appStyles);
+        Assert.Contains("private const string AppBarClass = \"layout-shell__appbar\"", layout);
+        Assert.Contains("private const string MainContentClass = \"main-content-with-topbar\"", layout);
+        Assert.DoesNotContain("main-content-with-topbar--detail", layoutStyles);
+        Assert.DoesNotContain("layout-shell__appbar--detail", layoutStyles);
+        Assert.DoesNotContain("body:has(.tl-detail-page) .main-content-with-topbar", appStyles);
+        Assert.DoesNotContain("body:has(.tl-detail-page) .layout-shell__appbar,", appStyles);
+        Assert.Contains("background: var(--app-surface, #1e1f27) !important", layoutStyles);
+        Assert.Contains("width: clamp(74%, 80vw, 88%)", styles);
+        Assert.Contains("object-position: right top", styles);
+        Assert.Contains("tl-detail-hero--backdrop .tl-detail-hero__inner", styles);
+        Assert.Contains("align-items: center", styles);
     }
 
     [Fact]
