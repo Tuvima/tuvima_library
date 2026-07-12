@@ -5,7 +5,7 @@
     <div class="tl-detail-primary-actions">
         @foreach (var action in PrimaryActions)
         {
-            <AppNativeButton Type="button" Class='@($"tl-detail-action tl-detail-action--primary tl-detail-action--{ActionKeyClass(action)}")' Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
+            <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--{ActionKeyClass(action)}")' Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
                 <MudIcon Icon="@IconFor(action)" Size="Size.Medium" />
                 <span>@PrimaryLabel(action)</span>
             </AppNativeButton>
@@ -48,7 +48,7 @@
             {
                 <div class="tl-detail-secondary-action @(IsPrimaryHeroActionRow ? "tl-detail-secondary-action--watch" : null)">
                     <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
-                        <AppNativeButton Type="button" Class="tl-detail-flat-action tl-detail-reaction-button" AriaLabel="@action.Label">
+                        <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-detail-flat-action tl-detail-reaction-button" AriaLabel="@action.Label">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                             <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
@@ -94,7 +94,7 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class='@($"tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--flat tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                             <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
@@ -114,7 +114,7 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class='@($"tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--flat tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                             <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
@@ -253,6 +253,7 @@
         "favorite" when action.IsSelected => Icons.Material.Filled.Favorite,
         "favorite_filled" => Icons.Material.Filled.Favorite,
         "favorite" => Icons.Material.Outlined.FavoriteBorder,
+        "playlist_add_check" => Icons.Material.Filled.PlaylistAddCheck,
         "check_circle" => Icons.Material.Outlined.CheckCircle,
         "link" => Icons.Material.Outlined.Link,
         "compare_arrows" => Icons.Material.Outlined.CompareArrows,

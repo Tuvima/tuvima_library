@@ -772,6 +772,65 @@ body {
     margin: 0 !important;
 }
 
+/* Shared media actions: detail pages are the full-size source; hovers use the compact variant. */
+.tl-media-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .55rem;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: .52rem;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-weight: 850;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.tl-media-action--primary {
+    background: linear-gradient(180deg, var(--tl-accent-primary, #8b5cf6), var(--tl-accent-primary-active, #7652d6));
+    border-color: rgba(216, 180, 254, .82);
+    color: #fff;
+}
+
+.tl-media-action--flat {
+    background: rgba(13, 15, 20, .62);
+    border-color: rgba(255, 255, 255, .22);
+    color: rgba(255, 255, 255, .96);
+    backdrop-filter: blur(12px);
+}
+
+.tl-media-action--compact {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 13px;
+    border-radius: 7px;
+    font-size: .92rem;
+}
+
+.tl-media-action--compact.tl-media-action--primary {
+    min-width: 112px;
+}
+
+.tl-media-action--compact.tl-media-action--flat {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+}
+
+.tl-media-action:hover,
+.tl-media-action:focus-visible {
+    border-color: rgba(255, 255, 255, .48);
+    background-color: rgba(255, 255, 255, .12);
+    transform: translateY(-1px);
+}
+
+.tl-media-action.is-selected {
+    border-color: rgba(255, 216, 106, .72);
+    color: #ffd76a;
+    background: rgba(255, 216, 106, .13);
+}
+
 .settings-admin-panel .settings-tab-strip {
     background: transparent !important;
     display: flex !important;

@@ -194,10 +194,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("watch-party", composer);
         Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", composer);
         Assert.Contains("IsStub = true", composer);
-        Assert.Contains("Label = \"My List\"", composer);
-        Assert.Contains("=> \"Want to Read\"", composer);
-        Assert.Contains("=> \"Want to Listen\"", composer);
-        Assert.Contains("BuildFavoriteAction", composer);
+        Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", composer);
+        Assert.Contains("Key = \"my-list\"", composer);
+        Assert.Contains("Label = \"Add to Collection\"", composer);
+        Assert.Contains("BuildMyListAction", composer);
         Assert.Contains("BuildReactionAction", composer);
         Assert.Contains("reaction-menu", composer);
         Assert.Contains("reaction-dislike", composer);
@@ -233,8 +233,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Nav.NavigateTo($\"/read/{assetId.Value:D}\")", source);
         Assert.Contains("FavoriteService Favorites", source);
         Assert.Contains("ToggleFavoriteAsync(action)", source);
-        Assert.DoesNotContain("MediaReactionService Reactions", source);
-        Assert.DoesNotContain("SetReactionAsync(action.Key == \"like\"", source);
+        Assert.Contains("MediaReactionService Reactions", source);
+        Assert.Contains("SetReactionAsync(action)", source);
+        Assert.Contains("action.Key == \"my-list\"", source);
     }
 
     [Fact]

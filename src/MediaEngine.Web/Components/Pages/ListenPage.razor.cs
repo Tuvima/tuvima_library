@@ -1435,21 +1435,35 @@ public partial class ListenPage
             Metadata = BuildAlbumDetailMetadata(detail, tracks.Count),
             PrimaryActions =
             [
-                new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true },
+                new DetailAction { Key = "play-album", Label = "Listen", Icon = "headphones", IsPrimary = true },
             ],
             SecondaryActions =
             [
-                new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle", DisplayStyle = "icon" },
-                new DetailAction { Key = "add-to-collection", Label = "Add", Icon = "add", Tooltip = "Add to playlist", DisplayStyle = "icon" },
                 new DetailAction
                 {
-                    Key = "favorite",
-                    Label = _favoriteWorkIds.Contains(id) ? "Favorited" : "Favorite",
-                    Icon = _favoriteWorkIds.Contains(id) ? "favorite_filled" : "favorite",
-                    Tooltip = _favoriteWorkIds.Contains(id) ? "Remove from favorites" : "Add to favorites",
+                    Key = "my-list",
+                    Label = _favoriteWorkIds.Contains(id) ? "In My List" : "My List",
+                    Icon = _favoriteWorkIds.Contains(id) ? "playlist_add_check" : "playlist_add",
+                    Tooltip = _favoriteWorkIds.Contains(id) ? "Remove from My List" : "Add to My List",
                     DisplayStyle = "icon",
                     IsSelected = _favoriteWorkIds.Contains(id),
                 },
+                new DetailAction
+                {
+                    Key = "reaction-menu",
+                    Label = "Rate",
+                    Icon = "thumb_up",
+                    Tooltip = "Rate this title",
+                    DisplayStyle = "icon",
+                    Children =
+                    [
+                        new DetailAction { Key = "reaction-dislike", Label = "Not for me", Icon = "thumb_down" },
+                        new DetailAction { Key = "reaction-like", Label = "I like this", Icon = "thumb_up" },
+                        new DetailAction { Key = "reaction-love", Label = "I love this", Icon = "favorite" },
+                    ],
+                },
+                new DetailAction { Key = "add-to-collection", Label = "Add to Collection", Icon = "add", Tooltip = "Add to collection", DisplayStyle = "icon" },
+                new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle", DisplayStyle = "icon" },
             ],
             OverflowActions = [],
             ContributorGroups = contributors,

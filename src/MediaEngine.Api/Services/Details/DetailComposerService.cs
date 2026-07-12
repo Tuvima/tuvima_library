@@ -4439,8 +4439,8 @@ public sealed class DetailComposerService
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", Route = $"/listen/audiobook/{id}", IsPrimary = true }],
-            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
-            DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Listen", Icon = "headphones", IsPrimary = true }],
+            DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Listen", Icon = "headphones", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
     }
@@ -4478,8 +4478,47 @@ public sealed class DetailComposerService
     private static IReadOnlyList<DetailAction> BuildSecondaryActions(Guid id, DetailEntityType entityType, bool isFavorite, IReadOnlyList<OwnedFormatViewModel>? formats = null)
     {
         var actions = new List<DetailAction>();
-
         var hasReadListenCompanion = HasReadListenCompanion(entityType, formats ?? []);
+
+        if (CanFavoriteEntity(entityType))
+        {
+            actions.Add(BuildMyListAction(isFavorite));
+            actions.Add(BuildReactionAction());
+            actions.Add(new DetailAction
+            {
+                Key = "add-to-collection",
+                Label = "Add to Collection",
+                Icon = "add",
+                Tooltip = "Add to collection",
+                DisplayStyle = "icon",
+            });
+        }
+
+        if (entityType == DetailEntityType.MusicAlbum)
+        {
+            actions.Add(new DetailAction
+            {
+                Key = "shuffle",
+                Label = "Shuffle",
+                Icon = "shuffle",
+                Tooltip = "Shuffle album",
+                DisplayStyle = "icon",
+            });
+        }
+
+        if (IsWatchEntity(entityType))
+        {
+            actions.Add(new DetailAction
+            {
+                Key = "watch-party",
+                Label = "Watch Party",
+                Subtitle = "Watch together",
+                Icon = "groups",
+                Tooltip = "Watch Party setup is coming soon",
+                IsStub = true,
+                DisplayStyle = "icon",
+            });
+        }
 
         if (hasReadListenCompanion)
         {
@@ -4496,86 +4535,16 @@ public sealed class DetailComposerService
             });
         }
 
-        if (IsWatchEntity(entityType))
-        {
-            actions.Add(new DetailAction
-            {
-                Key = "watch-party",
-                Label = "Watch Party",
-                Subtitle = "Watch together",
-                Icon = "groups",
-                Tooltip = "Watch Party setup is coming soon",
-                IsStub = true,
-                DisplayStyle = "icon",
-            });
-            actions.Add(new DetailAction
-            {
-                Key = "add-to-collection",
-                Label = "My List",
-                Icon = "add",
-                Tooltip = "Add to My List",
-                DisplayStyle = "icon",
-            });
-            actions.Add(BuildReactionAction());
-
-            return actions;
-        }
-
-        if (entityType == DetailEntityType.MusicAlbum)
-        {
-            actions.Add(new DetailAction
-            {
-                Key = "shuffle",
-                Label = "Shuffle",
-                Icon = "shuffle",
-                Tooltip = "Shuffle album",
-                DisplayStyle = "icon",
-            });
-            actions.Add(new DetailAction
-            {
-                Key = "add-to-collection",
-                Label = "Add",
-                Icon = "add",
-                Tooltip = "Add to playlist",
-                DisplayStyle = "icon",
-            });
-            actions.Add(BuildFavoriteAction(isFavorite));
-            return actions;
-        }
-
-        if (CanFavoriteEntity(entityType))
-        {
-            actions.Add(new DetailAction
-            {
-                Key = "add-to-collection",
-                Label = entityType switch
-                {
-                    DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
-                    DetailEntityType.Audiobook => "Want to Listen",
-                    _ => "Add",
-                },
-                Icon = "add",
-                Tooltip = entityType switch
-                {
-                    DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
-                    DetailEntityType.Audiobook => "Want to Listen",
-                    _ => "Add to collection",
-                },
-                DisplayStyle = "icon",
-            });
-            actions.Add(BuildFavoriteAction(isFavorite));
-        }
-
         return actions;
     }
 
-    private static DetailAction BuildFavoriteAction(bool isSelected)
+    private static DetailAction BuildMyListAction(bool isSelected)
         => new()
         {
-            Key = "favorite",
-            Label = isSelected ? "Favorited" : "Favorite",
-            Icon = isSelected ? "favorite_filled" : "favorite",
-            Tooltip = isSelected ? "Remove from favorites" : "Add to favorites",
+            Key = "my-list",
+            Label = isSelected ? "In My List" : "My List",
+            Icon = isSelected ? "playlist_add_check" : "playlist_add",
+            Tooltip = isSelected ? "Remove from My List" : "Add to My List",
             DisplayStyle = "icon",
             IsSelected = isSelected,
         };

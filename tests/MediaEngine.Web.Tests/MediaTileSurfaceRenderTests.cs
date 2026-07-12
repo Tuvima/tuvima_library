@@ -61,9 +61,11 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("592 pages", cut.Markup);
         Assert.Contains("4.3", cut.Find(".media-tile-rating-pill").TextContent);
         Assert.DoesNotContain(item.Description, cut.Markup);
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Dislike']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Not for me']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
+        Assert.NotEmpty(cut.FindAll(".tl-media-action--compact"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-progress"));
 
         cut.Find(".media-tile").TriggerEvent("onkeydown", new KeyboardEventArgs { Key = "ArrowDown" });
@@ -171,6 +173,35 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTile_AudioPrimaryActionUsesUnifiedListenLabel()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            WorkId = Guid.NewGuid(),
+            Title = "Long Audiobook",
+            MediaKind = "Audiobook",
+            Shape = MediaTileShape.Square,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/audio.jpg",
+            HoverImageUrl = "/art/audio.jpg",
+            NavigationUrl = "/listen/audiobook/1",
+            PrimaryNavigationUrl = "/listen/audiobook/1",
+            PrimaryActionLabel = "Play",
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Listen']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Not for me']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
+    }
+
+    [Fact]
     public void MediaTile_CssAndJavascriptProvideWideFallbackAndInRowExpansion()
     {
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
@@ -194,7 +225,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("grid-template-columns: minmax(0, 1.15fr) minmax(180px, .85fr)", css);
         Assert.Contains("-webkit-line-clamp: 2", css);
         Assert.Contains("font-size: clamp(1.2rem, 1.45vw, 1.6rem)", css);
-        Assert.Contains("height: 48px", css);
+        Assert.Contains("height: 44px", css);
+        Assert.Contains("window.updateMediaTileShelfStableHeight", appJs);
+        Assert.Contains("--media-tile-row-height", appJs);
         Assert.Contains("panel.classList.add('is-inline-expanded')", appJs);
         Assert.Contains("cardEl.style.setProperty('--media-tile-hover-anchor-width'", appJs);
         Assert.Contains("cardEl.style.setProperty('--media-tile-hover-anchor-height'", appJs);

@@ -149,39 +149,50 @@
                         <div class="media-tile-hover-actions">
                             <div class="media-tile-hover-actions-left">
                                 <div class="media-tile-hover-action-unit media-tile-hover-action-unit-primary">
-                                    <AppNativeButton Type="button" Class="media-tile-hover-control media-tile-hover-control-primary" AriaLabel="@PrimaryActionDisplayLabel" Title="@PrimaryActionDisplayLabel" OnClick="OpenPrimary" StopPropagation="true">
+                                    <AppNativeButton Type="button" Class="tl-media-action tl-media-action--primary tl-media-action--compact media-tile-hover-control media-tile-hover-control-primary" AriaLabel="@PrimaryActionDisplayLabel" Title="@PrimaryActionDisplayLabel" OnClick="OpenPrimary" StopPropagation="true">
                                         <MudIcon Icon="@PrimaryMudIcon" />
                                         <span>@PrimaryActionShortLabel</span>
                                     </AppNativeButton>
                                 </div>
 
                                 <div class="media-tile-hover-action-unit">
-                                    <AppNativeButton Type="button" Class="media-tile-hover-control media-tile-hover-control-secondary media-tile-add-action" AriaLabel="Add to collection" Title="Add to collection" Disabled="@(!Item.CanAddToCollection)" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
+                                    <AppNativeButton Type="button" Class="@MyListButtonClass" AriaLabel="@MyListActionLabel" Title="@MyListActionLabel" Disabled="@(!Item.WorkId.HasValue)" OnClick="ToggleMyListAsync" StopPropagation="true">
+                                        <MudIcon Icon="@(_isInMyList ? Icons.Material.Filled.PlaylistAddCheck : Icons.Material.Outlined.PlaylistAdd)" />
+                                        <span class="media-tile-visually-hidden">@MyListActionLabel</span>
+                                    </AppNativeButton>
+                                </div>
+
+                                <div class="media-tile-hover-action-unit">
+                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-dislike-action")" AriaLabel="Not for me" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
+                                        <span class="media-tile-visually-hidden">Not for me</span>
+                                    </AppNativeButton>
+                                </div>
+
+                                <div class="media-tile-hover-action-unit">
+                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Like, "media-tile-like-action")" AriaLabel="Like" Title="Like" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Like))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
+                                        <span class="media-tile-visually-hidden">Like</span>
+                                    </AppNativeButton>
+                                </div>
+
+                                <div class="media-tile-hover-action-unit">
+                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Love, "media-tile-love-action")" AriaLabel="Love" Title="Love" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Love))">
+                                        <MudIcon Icon="@(_reaction == MediaReaction.Love ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
+                                        <span class="media-tile-visually-hidden">Love</span>
+                                    </AppNativeButton>
+                                </div>
+
+                                <div class="media-tile-hover-action-unit">
+                                    <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-add-action" AriaLabel="Add to collection" Title="Add to collection" Disabled="@(!Item.CanAddToCollection)" OnClick="OpenAddToCollectionAsync" StopPropagation="true">
                                         <MudIcon Icon="@Icons.Material.Outlined.Add" />
                                         <span class="media-tile-visually-hidden">Add to Collection</span>
                                     </AppNativeButton>
                                 </div>
-
-                                <div class="media-tile-hover-action-unit media-tile-hover-action-unit-feedback">
-                                    <div class="media-tile-feedback-control" role="group" aria-label="Rate this title">
-                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-dislike-action")" AriaLabel="Dislike" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
-                                            <span class="media-tile-visually-hidden">Dislike</span>
-                                        </AppNativeButton>
-                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Like, "media-tile-like-action")" AriaLabel="Like" Title="I like this" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Like))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
-                                            <span class="media-tile-visually-hidden">Like</span>
-                                        </AppNativeButton>
-                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Love, "media-tile-love-action")" AriaLabel="Love" Title="I love this" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Love))">
-                                            <MudIcon Icon="@(_reaction == MediaReaction.Love ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
-                                            <span class="media-tile-visually-hidden">Love</span>
-                                        </AppNativeButton>
-                                    </div>
-                                </div>
                             </div>
 
                             <div class="media-tile-hover-action-unit media-tile-hover-action-unit-details">
-                                <AppNativeButton Type="button" Class="media-tile-hover-control media-tile-hover-control-secondary media-tile-details-action" AriaLabel="Details" Title="Details" OnClick="OpenDetails" StopPropagation="true">
+                                <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-details-action" AriaLabel="Details" Title="Details" OnClick="OpenDetails" StopPropagation="true">
                                     <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
                                     <span class="media-tile-visually-hidden">Details</span>
                                 </AppNativeButton>
@@ -252,6 +263,8 @@
     private int _hoverImageIndex;
     private bool _reactionLoaded;
     private MediaReaction _reaction;
+    private bool _myListLoaded;
+    private bool _isInMyList;
     private ElementReference _cardRef;
     private ElementReference CardElement => _cardRef;
 
@@ -621,7 +634,7 @@
     private string PrimaryMudIcon => Item.MediaKind switch
     {
         "Movie" or "TV" => Icons.Material.Filled.PlayArrow,
-        "Music" or "Audiobook" => Icons.Material.Filled.PlayArrow,
+        "Music" or "Audiobook" => Icons.Material.Outlined.Headphones,
         "Comic" or "Book" => Icons.Material.Filled.MenuBook,
         _ => Icons.Material.Filled.PlayArrow,
     };
@@ -649,7 +662,7 @@
 
             if (label.Contains("Play", StringComparison.OrdinalIgnoreCase))
             {
-                return "Play";
+                return Item.MediaKind is "Music" or "Audiobook" ? "Listen" : "Play";
             }
 
             return label.Length <= 12 ? label : "Open";
@@ -666,7 +679,8 @@
                 return Item.MediaKind switch
                 {
                     "Book" or "Comic" => "Read",
-                    "Movie" or "TV" or "Music" or "Audiobook" => "Play",
+                    "Movie" or "TV" => "Play",
+                    "Music" or "Audiobook" => "Listen",
                     _ => "Open",
                 };
             }
@@ -695,7 +709,13 @@
 
             if (label.Equals("Listen", StringComparison.OrdinalIgnoreCase))
             {
-                return Item.MediaKind is "Music" or "Audiobook" ? "Play" : label;
+                return label;
+            }
+
+            if (label.Equals("Play", StringComparison.OrdinalIgnoreCase)
+                && Item.MediaKind is "Music" or "Audiobook")
+            {
+                return "Listen";
             }
 
             if (label.Equals("Open Book", StringComparison.OrdinalIgnoreCase)
@@ -709,7 +729,8 @@
                 return Item.MediaKind switch
                 {
                     "Book" or "Comic" => "Read",
-                    "Movie" or "TV" or "Music" or "Audiobook" => "Play",
+                    "Movie" or "TV" => "Play",
+                    "Music" or "Audiobook" => "Listen",
                     _ => label,
                 };
             }
@@ -853,6 +874,12 @@
             _reactionLoaded = true;
             await LoadReactionAsync();
         }
+
+        if (!_myListLoaded && Item.WorkId.HasValue)
+        {
+            _myListLoaded = true;
+            await LoadMyListAsync();
+        }
     }
 
     private async Task LoadReactionAsync()
@@ -900,7 +927,56 @@
     }
 
     private string ReactionButtonClass(MediaReaction reaction, string roleClass) =>
-        $"media-tile-feedback-button {roleClass} {(_reaction == reaction ? "is-selected" : string.Empty)}";
+        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-reaction-action {roleClass} {(_reaction == reaction ? "is-selected" : string.Empty)}";
+
+    private string MyListButtonClass =>
+        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-my-list-action {(_isInMyList ? "is-selected" : string.Empty)}";
+
+    private string MyListActionLabel => _isInMyList ? "Remove from My List" : "Add to My List";
+
+    private async Task LoadMyListAsync()
+    {
+        var favorites = Services.GetService<FavoriteService>();
+        var orchestrator = Services.GetService<UIOrchestratorService>();
+        if (favorites is null || orchestrator is null || !Item.WorkId.HasValue)
+        {
+            return;
+        }
+
+        try
+        {
+            var profile = await orchestrator.GetActiveProfileAsync();
+            var membership = await favorites.GetMembershipAsync(Item.WorkId.Value, profile?.Id);
+            _isInMyList = membership?.IsFavorite == true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not load My List state for {WorkId}.", Item.WorkId);
+        }
+    }
+
+    private async Task ToggleMyListAsync()
+    {
+        var favorites = Services.GetService<FavoriteService>();
+        var orchestrator = Services.GetService<UIOrchestratorService>();
+        if (favorites is null || orchestrator is null || !Item.WorkId.HasValue)
+        {
+            return;
+        }
+
+        try
+        {
+            var profile = await orchestrator.GetActiveProfileAsync();
+            var membership = await favorites.ToggleAsync(Item.WorkId.Value, profile?.Id);
+            _isInMyList = membership?.IsFavorite == true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not update My List for {WorkId}.", Item.WorkId);
+        }
+    }
 
     private async Task OpenPrimary()
     {

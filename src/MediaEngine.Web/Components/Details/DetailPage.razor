@@ -13,6 +13,7 @@
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject IDialogService DialogService
 @inject FavoriteService Favorites
+@inject MediaReactionService Reactions
 @inject PlaybackSessionController Playback
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
@@ -162,9 +163,15 @@
             return;
         }
 
-        if (action.Key == "favorite")
+        if (action.Key == "my-list")
         {
             await ToggleFavoriteAsync(action);
+            return;
+        }
+
+        if (action.Key is "reaction-dislike" or "reaction-like" or "reaction-love")
+        {
+            await SetReactionAsync(action);
             return;
         }
 
@@ -405,14 +412,14 @@
         var profile = await Orchestrator.GetActiveProfileAsync();
         if (!TryResolveFavoriteWorkId(out var workId))
         {
-            Snackbar.Add("This item cannot be added to favorites yet.", Severity.Warning);
+            Snackbar.Add("This item cannot be added to My List yet.", Severity.Warning);
             return;
         }
 
         var membership = await Favorites.ToggleAsync(workId, profile?.Id);
         if (membership is null)
         {
-            Snackbar.Add("Favorites require an active profile.", Severity.Warning);
+            Snackbar.Add("My List requires an active profile.", Severity.Warning);
             return;
         }
 
@@ -443,11 +450,33 @@
     {
         foreach (var item in actions)
         {
-            if (item.Key == "favorite")
+            if (item.Key == "my-list")
                 item.IsSelected = isFavorite;
 
             SetFavoriteSelection(item.Children, isFavorite);
         }
+    }
+
+    private async Task SetReactionAsync(DetailAction action)
+    {
+        if (!TryResolveFavoriteWorkId(out var workId))
+        {
+            Snackbar.Add("This item cannot be rated yet.", Severity.Warning);
+            return;
+        }
+
+        var reaction = action.Key switch
+        {
+            "reaction-dislike" => MediaReaction.Dislike,
+            "reaction-like" => MediaReaction.Like,
+            "reaction-love" => MediaReaction.Love,
+            _ => MediaReaction.Neutral,
+        };
+
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var current = await Reactions.GetReactionAsync(workId, profile?.Id);
+        await Reactions.SetReactionAsync(workId, current == reaction ? MediaReaction.Neutral : reaction, profile?.Id);
+        await OnActionSelected.InvokeAsync(action);
     }
 
     private async Task PlayAlbumAsync(bool shuffle)

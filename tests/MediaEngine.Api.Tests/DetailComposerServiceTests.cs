@@ -263,7 +263,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Key = \"watch-party\"", source);
         Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", source);
         Assert.Contains("IsStub = true", source);
-        Assert.Contains("Label = \"My List\"", source);
+        Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", source);
+        Assert.Contains("Key = \"my-list\"", source);
+        Assert.Contains("Label = \"Add to Collection\"", source);
         Assert.Contains("BuildReactionAction", source);
         Assert.Contains("Key = \"reaction-menu\"", source);
         Assert.Contains("Key = \"reaction-dislike\"", source);

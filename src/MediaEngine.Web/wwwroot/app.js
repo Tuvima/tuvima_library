@@ -279,6 +279,30 @@ window.isVerticalMediaTileWheel = function (event) {
     return Math.abs(event.deltaY || 0) >= Math.abs(event.deltaX || 0);
 };
 
+window.updateMediaTileShelfStableHeight = function (el) {
+    if (!el) return;
+
+    var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    var paddingTop = style ? parseFloat(style.paddingTop || '0') : 0;
+    var paddingBottom = style ? parseFloat(style.paddingBottom || '0') : 0;
+    paddingTop = Number.isFinite(paddingTop) ? paddingTop : 0;
+    paddingBottom = Number.isFinite(paddingBottom) ? paddingBottom : 0;
+
+    var restingHeight = 0;
+    Array.prototype.forEach.call(el.querySelectorAll('.media-tile'), function (tile) {
+        if (tile.closest('.media-tile-shelf-scroll') !== el) return;
+        var frame = tile.querySelector('.media-tile-frame');
+        if (!frame) return;
+        var rect = frame.getBoundingClientRect();
+        restingHeight = Math.max(restingHeight, rect.height || frame.offsetHeight || 0);
+    });
+
+    if (restingHeight > 0) {
+        el.style.height = Math.ceil(restingHeight + paddingTop + paddingBottom) + 'px';
+        el.style.setProperty('--media-tile-row-height', Math.ceil(restingHeight) + 'px');
+    }
+};
+
 window.registerMediaTileShelfScrollGuard = function (el) {
     if (!el || el.__mediaTileShelfScrollGuard) return;
 
@@ -326,11 +350,16 @@ window.registerMediaTileShelfScrollGuard = function (el) {
         el.__mediaTileShelfResizeFrame = window.requestAnimationFrame(function () {
             el.__mediaTileShelfResizeFrame = null;
             window.updateMediaTileShelfVisibleWidth(el);
+            window.updateMediaTileShelfStableHeight(el);
             restoreStablePosition();
         });
     };
 
     window.updateMediaTileShelfVisibleWidth(el);
+    window.updateMediaTileShelfStableHeight(el);
+    window.requestAnimationFrame(function () {
+        window.updateMediaTileShelfStableHeight(el);
+    });
     el.__swimlaneStableScrollLeft = el.scrollLeft;
     el.__mediaTileShelfScrollGuard = {
         onWheel: onWheel,
@@ -363,6 +392,8 @@ window.unregisterMediaTileShelfScrollGuard = function (el) {
 
     el.style.removeProperty('--media-tile-shelf-visible-width');
     el.style.removeProperty('--media-tile-shelf-arrow-offset');
+    el.style.removeProperty('--media-tile-row-height');
+    el.style.removeProperty('height');
     el.classList.remove('is-row-scroll-guarded');
     el.__mediaTileShelfScrollGuard = null;
     el.__swimlaneAllowScroll = false;
