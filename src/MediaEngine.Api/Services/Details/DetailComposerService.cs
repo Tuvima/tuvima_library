@@ -195,7 +195,7 @@ public sealed class DetailComposerService
             ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
         var descriptionSelection = ResolveLongDescription(detail, values, entityType);
         var longDescription = descriptionSelection.Text;
-        var heroSummary = await BuildHeroSummaryAsync(detail.Tagline, longDescription, detail.WikidataQid, values, entityType, ct);
+        var heroSummary = BuildHeroSummary(values);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
         var relationships = BuildRelationshipStrip(detail, sequencePlacement);
@@ -340,7 +340,7 @@ public sealed class DetailComposerService
             GetValue(values, "overview"),
             GetValue(values, "plot_summary"),
             row.Description);
-        var heroSummary = await BuildHeroSummaryAsync(row.Tagline, longDescription, row.WikidataQid, values, entityType, ct);
+        var heroSummary = BuildHeroSummary(values);
         // Episode artwork must never stand in for show artwork. An unenriched TV show
         // deliberately falls back to its own cover (or the generated placeholder).
         var allowChildArtworkFallback = entityType != DetailEntityType.TvShow;
@@ -3819,35 +3819,8 @@ public sealed class DetailComposerService
         return FirstNonBlank(FormatIssue(issueNumber), string.IsNullOrWhiteSpace(series) ? null : $"Issue in {series}");
     }
 
-    private Task<string?> BuildHeroSummaryAsync(
-        string? tagline,
-        string? description,
-        string? wikidataQid,
-        IReadOnlyDictionary<string, string> canonicalValues,
-        DetailEntityType entityType,
-        CancellationToken ct)
-    {
-        var shortDescription = FirstText(
-            GetValue(canonicalValues, MetadataFieldConstants.ShortDescription),
-            IsWatchEntity(entityType) ? tagline : null);
-
-        if (!string.IsNullOrWhiteSpace(shortDescription))
-        {
-            return Task.FromResult(NormalizeHeroSummary(shortDescription));
-        }
-
-        var canonicalSummary = FirstText(
-            GetValue(canonicalValues, "wikidata_description"),
-            GetValue(canonicalValues, "wikidata_summary"),
-            GetValue(canonicalValues, "summary"));
-
-        if (!string.IsNullOrWhiteSpace(canonicalSummary))
-        {
-            return Task.FromResult(NormalizeHeroSummary(canonicalSummary));
-        }
-
-        return Task.FromResult(BuildFallbackHeroSummary(description));
-    }
+    private static string? BuildHeroSummary(IReadOnlyDictionary<string, string> canonicalValues)
+        => NormalizeHeroSummary(GetValue(canonicalValues, "tldr"));
 
     private async Task<WorkArtworkFallback> LoadWorkArtworkFallbackAsync(Guid workId, CancellationToken ct)
     {
@@ -7189,20 +7162,6 @@ public sealed class DetailComposerService
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
         return normalized.Length <= 260 ? normalized : normalized[..260].TrimEnd() + "...";
-    }
-
-    private static string? BuildFallbackHeroSummary(string? description)
-    {
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            return null;
-        }
-
-        var firstParagraph = description.Replace("\r", "\n", StringComparison.Ordinal)
-            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .FirstOrDefault();
-
-        return NormalizeHeroSummary(firstParagraph ?? description);
     }
 
     private static string FirstNonBlank(params string?[] values)

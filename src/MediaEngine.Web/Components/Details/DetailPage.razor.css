@@ -202,6 +202,15 @@
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__overlay,
 ::deep .tl-detail-hero--watch .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
     background:
+        linear-gradient(
+            to right,
+            rgb(var(--hero-bg-rgb)) 0%,
+            rgb(var(--hero-bg-rgb)) 30%,
+            rgba(var(--hero-bg-rgb), 0.92) 33%,
+            rgba(var(--hero-bg-rgb), 0.55) 37%,
+            rgba(var(--hero-bg-rgb), 0.18) 42%,
+            transparent 47%
+        ),
         radial-gradient(
             ellipse at 72% 42%,
             rgba(220, 165, 62, 0.10) 0%,
@@ -466,11 +475,27 @@
 
 ::deep .tl-detail-hero__series-context {
     margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: fit-content;
     color: color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 72%, #fff);
-    font-size: clamp(0.95rem, 1.2vw, 1.18rem);
-    font-weight: 720;
+    font-size: clamp(0.78rem, 0.9vw, 0.95rem);
+    font-weight: 820;
     line-height: 1.35;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+::deep .tl-detail-hero__tagline--ai {
+    max-width: min(42rem, 50vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .tl-detail-hero__tagline--ai.is-empty {
+    display: none;
 }
 
 ::deep .tl-detail-hero-credit-stack {

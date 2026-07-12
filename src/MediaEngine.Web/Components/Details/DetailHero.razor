@@ -83,6 +83,14 @@
                 <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
             }
 
+            @if (!string.IsNullOrWhiteSpace(SeriesContextLabel))
+            {
+                <p class="tl-detail-hero__series-context">
+                    <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
+                    <span>@SeriesContextLabel</span>
+                </p>
+            }
+
             @if (Presentation.UseLogo)
             {
                 <img class="tl-detail-hero__logo" src="@Presentation.LogoUrl" alt="@Presentation.Title" />
@@ -90,11 +98,6 @@
             else
             {
                 <h1>@Presentation.Title</h1>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(SeriesContextLabel))
-            {
-                <p class="tl-detail-hero__series-context">@SeriesContextLabel</p>
             }
 
             @if (HeroCreditLines.Count > 0)
@@ -143,10 +146,9 @@
 
             <HeroProgressBlock Progress="Presentation.Progress" />
 
-            @if (!string.IsNullOrWhiteSpace(Presentation.HeroCopy))
-            {
-                <p class="tl-detail-hero__tagline">@Presentation.HeroCopy</p>
-            }
+            <p class="@HeroSummaryClass"
+               data-ai-summary-slot="tldr"
+               aria-live="polite">@Presentation.HeroCopy</p>
 
             <HeroGenreChips Metadata="Model.Metadata" />
             </div>
@@ -159,7 +161,8 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
-    private string? SeriesContextLabel => Model.SequencePlacement?.PositionSummary;
+    private string? SeriesContextLabel => BuildSeriesContextLabel(Model.SequencePlacement);
+    private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
     private string HeroCreditStackClass => Model.EntityType == DetailEntityType.Audiobook
@@ -234,6 +237,35 @@
         return DateTimeOffset.TryParse(value, out var parsed)
             ? parsed.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
             : value;
+    }
+
+    private static string? BuildSeriesContextLabel(SequencePlacementViewModel? placement)
+    {
+        if (placement is null || string.IsNullOrWhiteSpace(placement.ContainerTitle))
+            return null;
+
+        var seriesTitle = placement.ContainerTitle.Trim();
+        if (!seriesTitle.EndsWith(" series", StringComparison.OrdinalIgnoreCase))
+            seriesTitle += " Series";
+
+        var position = FirstNonBlank(
+            placement.PositionText,
+            placement.CurrentItem.PositionText,
+            placement.PositionLabel,
+            placement.CurrentItem.PositionLabel,
+            placement.PositionNumber?.ToString(),
+            placement.CurrentItem.PositionNumber?.ToString());
+        if (string.IsNullOrWhiteSpace(position))
+            return seriesTitle;
+
+        var itemLabel = FirstNonBlank(placement.ItemLabel, "Item")!;
+        var positionedItem = position.StartsWith(itemLabel, StringComparison.OrdinalIgnoreCase)
+            ? position
+            : $"{itemLabel} {position}";
+        var total = Math.Max(placement.OrderedItems.Count, placement.TotalKnownItems ?? 0);
+        return total > 0
+            ? $"{seriesTitle} · {positionedItem} of {total}"
+            : $"{seriesTitle} · {positionedItem}";
     }
 
     private static string? FirstNonBlank(params string?[] values)

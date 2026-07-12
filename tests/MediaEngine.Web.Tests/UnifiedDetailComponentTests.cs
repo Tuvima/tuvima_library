@@ -115,6 +115,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("rgba(0, 3, 5, 0.34) 0%", styles);
         Assert.Contains("rgba(0, 3, 5, 0.10) 42%", styles);
         Assert.Contains("rgba(0, 3, 5, 0.98) 100%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.55) 37%", styles);
+        Assert.Contains("transparent 47%", styles);
         Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
         Assert.Contains("background: rgba(20, 23, 28, 0.78)", styles);
@@ -537,14 +539,19 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void DetailComposer_UsesWikidataDescriptionForHeroSummary()
+    public void DetailComposer_UsesOnlyLocalAiTldrForHeroSummary()
     {
         var source = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+        var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
 
-        Assert.Contains("BuildHeroSummaryAsync", source);
-        Assert.Contains("MetadataFieldConstants.ShortDescription", source);
-        Assert.Contains("wikidata_description", source);
-        Assert.Contains("wikidata_summary", source);
+        Assert.Contains("BuildHeroSummary(values)", source);
+        Assert.Contains("GetValue(canonicalValues, \"tldr\")", source);
+        Assert.DoesNotContain("BuildFallbackHeroSummary", source);
+        Assert.Contains("data-ai-summary-slot=\"tldr\"", hero);
+        Assert.Contains("tl-detail-hero__tagline--ai", hero);
+        Assert.Contains("BuildSeriesContextLabel", hero);
+        Assert.Contains("seriesTitle += \" Series\"", hero);
+        Assert.Contains("{positionedItem} of {total}", hero);
     }
 
     [Fact]

@@ -54,13 +54,9 @@ public sealed class DetailHeroPresentation
         var isWatchHero = IsWatchEntity(model.EntityType);
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
-        var copy = model.EntityType == DetailEntityType.MusicAlbum
-            ? null
-            : !string.IsNullOrWhiteSpace(model.Tagline)
-                ? model.Tagline
-                : !string.IsNullOrWhiteSpace(model.Description)
-                    ? Truncate(model.Description, 260)
-                    : null;
+        var copy = !string.IsNullOrWhiteSpace(model.Tagline)
+            ? Truncate(model.Tagline, 220)
+            : null;
 
         return new DetailHeroPresentation(
             BuildHeroClass(mode, model.EntityType, isWatchHero),
