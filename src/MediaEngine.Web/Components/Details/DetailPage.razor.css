@@ -485,6 +485,11 @@
     line-height: 1.35;
     letter-spacing: 0.12em;
     text-transform: uppercase;
+    min-height: 1.35rem;
+}
+
+::deep .tl-detail-hero__series-context.is-empty {
+    visibility: hidden;
 }
 
 ::deep .tl-detail-hero__tagline--ai {
@@ -2264,7 +2269,7 @@
     transform: none;
 }
 
-::deep .tl-detail-hero--backdrop .tl-detail-hero__inner {
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
     display: flex;
     align-items: center;
     min-height: 100%;
@@ -2272,7 +2277,7 @@
     padding-bottom: clamp(3rem, 7vh, 5rem);
 }
 
-::deep .tl-detail-hero--backdrop .tl-detail-hero__copy {
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
     align-content: center;
     transform: none;
 }

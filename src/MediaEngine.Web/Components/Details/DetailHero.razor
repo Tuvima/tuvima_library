@@ -83,13 +83,10 @@
                 <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
             }
 
-            @if (!string.IsNullOrWhiteSpace(SeriesContextLabel))
-            {
-                <p class="tl-detail-hero__series-context">
-                    <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
-                    <span>@SeriesContextLabel</span>
-                </p>
-            }
+            <p class="@SeriesContextClass" aria-hidden="@(SeriesContextLabel is null)">
+                <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
+                <span>@SeriesContextLabel</span>
+            </p>
 
             @if (Presentation.UseLogo)
             {
@@ -162,6 +159,7 @@
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private string? SeriesContextLabel => BuildSeriesContextLabel(Model.SequencePlacement);
+    private string SeriesContextClass => $"tl-detail-hero__series-context{(SeriesContextLabel is null ? " is-empty" : string.Empty)}";
     private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
@@ -262,7 +260,20 @@
         var positionedItem = position.StartsWith(itemLabel, StringComparison.OrdinalIgnoreCase)
             ? position
             : $"{itemLabel} {position}";
-        var total = Math.Max(placement.OrderedItems.Count, placement.TotalKnownItems ?? 0);
+        var mainSequenceItems = placement.OrderedItems
+            .Where(item => string.Equals(item.MembershipScope, "MainSequence", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var currentGroupKey = FirstNonBlank(placement.CurrentItem.GroupKey, placement.CurrentGroupKey);
+        if (!string.IsNullOrWhiteSpace(currentGroupKey))
+        {
+            var groupedItems = mainSequenceItems
+                .Where(item => string.Equals(item.GroupKey, currentGroupKey, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (groupedItems.Count > 0)
+                mainSequenceItems = groupedItems;
+        }
+
+        var total = mainSequenceItems.Count > 0 ? mainSequenceItems.Count : placement.OrderedItems.Count;
         return total > 0
             ? $"{seriesTitle} · {positionedItem} of {total}"
             : $"{seriesTitle} · {positionedItem}";

@@ -135,7 +135,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("background: var(--app-surface, #1e1f27) !important", layoutStyles);
         Assert.Contains("width: clamp(74%, 80vw, 88%)", styles);
         Assert.Contains("object-position: right top", styles);
-        Assert.Contains("tl-detail-hero--backdrop .tl-detail-hero__inner", styles);
+        Assert.Contains("tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner", styles);
         Assert.Contains("align-items: center", styles);
     }
 
@@ -552,6 +552,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("BuildSeriesContextLabel", hero);
         Assert.Contains("seriesTitle += \" Series\"", hero);
         Assert.Contains("{positionedItem} of {total}", hero);
+        Assert.Contains("MembershipScope, \"MainSequence\"", hero);
+        Assert.DoesNotContain("placement.TotalKnownItems", hero);
+        Assert.Contains("SeriesContextClass", hero);
+        Assert.Contains("tl-detail-hero__series-context.is-empty", ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css"));
     }
 
     [Fact]
