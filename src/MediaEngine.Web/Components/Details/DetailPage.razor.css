@@ -24,9 +24,9 @@
     --hero-focus-x: 68%;
     --hero-focus-y: 42%;
     position: relative;
-    height: clamp(42rem, calc(100svh - 8.75rem), 56rem);
-    min-height: 42rem;
-    max-height: 56rem;
+    height: calc(80svh - var(--app-topbar-height, 65px) - 1rem);
+    min-height: 28rem;
+    max-height: none;
     overflow: hidden;
     isolation: isolate;
     background-color: rgb(var(--hero-shadow-rgb));
@@ -166,7 +166,7 @@
 }
 
 ::deep .tl-detail-hero--watch {
-    min-height: 42rem;
+    min-height: 28rem;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__artwork,
@@ -186,7 +186,7 @@
     left: auto;
     right: 0;
     width: clamp(74%, 80vw, 88%);
-    object-fit: cover;
+    object-fit: contain;
     object-position: right top;
     -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
     mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);

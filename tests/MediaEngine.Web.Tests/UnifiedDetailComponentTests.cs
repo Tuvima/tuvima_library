@@ -57,8 +57,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("background-size: cover", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-hero__artwork", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork::after", styles);
-        Assert.Contains("height: clamp(42rem, calc(100svh - 8.75rem), 56rem)", styles);
-        Assert.Contains("max-height: 56rem", styles);
+        Assert.Contains("height: calc(80svh - var(--app-topbar-height, 65px) - 1rem)", styles);
+        Assert.Contains("min-height: 28rem", styles);
+        Assert.Contains("max-height: none", styles);
         Assert.Contains("rgba(0,0,0,0.76) 43%", styles);
         Assert.Contains("tl-detail-tabs::before", styles);
         Assert.Contains("background: #090c12", styles);
