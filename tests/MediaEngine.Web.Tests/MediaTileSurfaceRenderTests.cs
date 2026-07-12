@@ -229,6 +229,10 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("-webkit-line-clamp: 2", css);
         Assert.Contains("font-size: clamp(1.2rem, 1.45vw, 1.6rem)", css);
         Assert.Contains("height: 44px", css);
+        Assert.Contains("background: linear-gradient(to top, rgba(4, 7, 12, .38)", css);
+        Assert.Contains("grid-template-columns: minmax(0, auto) 18px", css);
+        Assert.Contains("max-height: calc(var(--media-tile-media-height, 400px) - 44px)", css);
+        Assert.Contains("margin-block: 2%", css);
         Assert.Contains("window.updateMediaTileShelfStableHeight", appJs);
         Assert.Contains("--media-tile-row-height", appJs);
         Assert.Contains("panel.classList.add('is-inline-expanded')", appJs);
