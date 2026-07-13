@@ -1494,9 +1494,9 @@ public sealed class DetailComposerService
             return null;
 
         using var conn = _db.CreateConnection();
-        return await conn.QueryFirstOrDefaultAsync<SequenceContainerMetadataRow>(new CommandDefinition(
+        var row = await conn.QueryFirstOrDefaultAsync<SequenceContainerMetadataDbRow>(new CommandDefinition(
             """
-            SELECT COALESCE(
+            SELECT CAST(COALESCE(
                        NULLIF(TRIM(c.description), ''),
                        (SELECT NULLIF(TRIM(CAST(cv.value AS TEXT)), '')
                         FROM canonical_values cv
@@ -1507,12 +1507,12 @@ public sealed class DetailComposerService
                        (SELECT NULLIF(TRIM(ql.description), '')
                         FROM qid_labels ql
                         WHERE ql.qid = c.wikidata_qid
-                        LIMIT 1)) AS Description,
-                   (SELECT NULLIF(TRIM(CAST(cv.value AS TEXT)), '')
+                        LIMIT 1)) AS TEXT) AS Description,
+                   CAST((SELECT NULLIF(TRIM(CAST(cv.value AS TEXT)), '')
                     FROM canonical_values cv
                     WHERE cv.entity_id = c.id
                       AND cv.key = 'wikipedia_url'
-                    LIMIT 1) AS WikipediaUrl
+                    LIMIT 1) AS TEXT) AS WikipediaUrl
             FROM collections c
             WHERE (@localId IS NOT NULL AND c.id = @localId)
                OR (@containerQid IS NOT NULL AND c.wikidata_qid = @containerQid)
@@ -1522,6 +1522,25 @@ public sealed class DetailComposerService
             """,
             new { localId, containerQid, sourceQid },
             cancellationToken: ct));
+
+        return row is null
+            ? null
+            : new SequenceContainerMetadataRow(
+                NormalizeSqliteText(row.Description),
+                NormalizeSqliteText(row.WikipediaUrl));
+    }
+
+    private static string? NormalizeSqliteText(object? value)
+    {
+        var text = value switch
+        {
+            null or DBNull => null,
+            string stringValue => stringValue,
+            byte[] bytes => Encoding.UTF8.GetString(bytes),
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture),
+        };
+
+        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     }
 
     private async Task<int?> LoadSequenceExpectedTotalAsync(string? containerId, CancellationToken ct)
@@ -7553,6 +7572,12 @@ public sealed class DetailComposerService
     private sealed record OwnedFormatRow(Guid EditionId, string? FormatLabel, Guid AssetId, string FilePathRoot, string? AssetCoverUrl, string? EditionCoverUrl, string? Runtime, string? PageCount, string? Narrator, double? ProgressPct);
     private sealed record CollectionDetailRow(Guid Id, string? DisplayName, string? WikidataQid, string? Description, string? Tagline, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? HeroBrandLabel, string? HeroBrandImageUrl);
     private sealed record SequenceLabels(string ContainerLabel, string ItemLabel, string ItemPluralLabel, string? GroupLabel);
+    private sealed class SequenceContainerMetadataDbRow
+    {
+        public object? Description { get; init; }
+        public object? WikipediaUrl { get; init; }
+    }
+
     private sealed record SequenceContainerMetadataRow(string? Description, string? WikipediaUrl);
 
     private sealed class SequenceRow
