@@ -13,6 +13,9 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ArtworkSet
   PrimaryColor: System.String | nullability=nullable | accessors=get,init
   SecondaryColor: System.String | nullability=nullable | accessors=get,init
   AccentColor: System.String | nullability=nullable | accessors=get,init
+  BackdropLeftTopColor: System.String | nullability=nullable | accessors=get,init
+  BackdropLeftMiddleColor: System.String | nullability=nullable | accessors=get,init
+  BackdropLeftBottomColor: System.String | nullability=nullable | accessors=get,init
   HeroArtwork: MediaEngine.Contracts.Details.HeroArtworkViewModel | nullability=not-null | accessors=get,init
   PresentationMode: MediaEngine.Contracts.Details.ArtworkPresentationMode | nullability=not-null | accessors=get,init
   Source: MediaEngine.Contracts.Details.ArtworkSource | nullability=not-null | accessors=get,init

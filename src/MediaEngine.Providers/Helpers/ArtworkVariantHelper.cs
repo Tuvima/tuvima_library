@@ -35,7 +35,9 @@ public static class ArtworkVariantHelper
         asset.HeightPx = bitmap.Height;
         asset.AspectClass = ClassifyAspect(bitmap.Width, bitmap.Height);
 
-        var palette = ArtworkPaletteColorEngine.ExtractLegacyPalette(bitmap);
+        var palette = string.Equals(asset.AssetTypeValue, "Background", StringComparison.OrdinalIgnoreCase)
+            ? ExtractBackdropLeftEdgePalette(bitmap)
+            : ArtworkPaletteColorEngine.ExtractLegacyPalette(bitmap);
         asset.PrimaryHex = palette.PrimaryHex;
         asset.SecondaryHex = palette.SecondaryHex;
         asset.AccentHex = palette.AccentHex;
@@ -58,6 +60,48 @@ public static class ArtworkVariantHelper
         WriteRendition(bitmap, asset.LocalImagePathSmall, extension, SmallLongEdge, longEdge);
         WriteRendition(bitmap, asset.LocalImagePathMedium, extension, MediumLongEdge, longEdge);
         WriteRendition(bitmap, asset.LocalImagePathLarge, extension, LargeLongEdge, longEdge);
+    }
+
+    internal static (string PrimaryHex, string SecondaryHex, string AccentHex) ExtractBackdropLeftEdgePalette(SKBitmap bitmap)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+
+        var sampleWidth = Math.Max(1, (int)Math.Ceiling(bitmap.Width * 0.24));
+        var third = Math.Max(1, bitmap.Height / 3);
+        return (
+            DominantRegionColor(bitmap, sampleWidth, 0, third),
+            DominantRegionColor(bitmap, sampleWidth, third, Math.Min(bitmap.Height, third * 2)),
+            DominantRegionColor(bitmap, sampleWidth, Math.Min(bitmap.Height, third * 2), bitmap.Height));
+    }
+
+    private static string DominantRegionColor(SKBitmap bitmap, int sampleWidth, int top, int bottom)
+    {
+        var buckets = new Dictionary<int, (long R, long G, long B, int Count)>();
+        var stepX = Math.Max(1, sampleWidth / 96);
+        var stepY = Math.Max(1, Math.Max(1, bottom - top) / 72);
+
+        for (var y = top; y < bottom; y += stepY)
+        {
+            for (var x = 0; x < sampleWidth; x += stepX)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                if (pixel.Alpha < 32)
+                    continue;
+
+                var key = ((pixel.Red >> 4) << 8) | ((pixel.Green >> 4) << 4) | (pixel.Blue >> 4);
+                buckets.TryGetValue(key, out var bucket);
+                buckets[key] = (bucket.R + pixel.Red, bucket.G + pixel.Green, bucket.B + pixel.Blue, bucket.Count + 1);
+            }
+        }
+
+        var dominant = buckets.Values
+            .OrderByDescending(bucket => bucket.Count)
+            .ThenByDescending(bucket => bucket.R + bucket.G + bucket.B)
+            .FirstOrDefault();
+        if (dominant.Count == 0)
+            return "#080C12";
+
+        return $"#{dominant.R / dominant.Count:X2}{dominant.G / dominant.Count:X2}{dominant.B / dominant.Count:X2}";
     }
 
     public static bool ShouldGenerateRenditions(string assetTypeValue) => assetTypeValue switch

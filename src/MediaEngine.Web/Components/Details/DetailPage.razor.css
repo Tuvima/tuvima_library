@@ -21,6 +21,9 @@
     --hero-accent-rgb: 220, 165, 62;
     --hero-surface-rgb: 14, 18, 24;
     --hero-text-rgb: 245, 247, 250;
+    --hero-backdrop-top-rgb: var(--hero-bg-rgb);
+    --hero-backdrop-middle-rgb: var(--hero-bg-rgb);
+    --hero-backdrop-bottom-rgb: var(--hero-bg-rgb);
     --hero-focus-x: 68%;
     --hero-focus-y: 42%;
     position: relative;
@@ -47,8 +50,20 @@
 
 ::deep .tl-detail-media-stage--background {
     background:
-        radial-gradient(circle at 18% 38%, rgba(var(--hero-accent-rgb), 0.16), transparent 31rem),
-        linear-gradient(90deg, rgb(var(--hero-bg-rgb)) 0%, rgb(var(--hero-bg-rgb)) 31%, rgb(var(--hero-shadow-rgb)) 66%, rgb(var(--hero-shadow-rgb)) 100%);
+        linear-gradient(to bottom, rgb(var(--hero-backdrop-top-rgb)), rgb(var(--hero-backdrop-middle-rgb)) 50%, rgb(var(--hero-backdrop-bottom-rgb)));
+}
+
+::deep .tl-detail-media-stage--background::before {
+    content: "";
+    position: absolute;
+    inset: -3%;
+    z-index: 0;
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: var(--hero-image-position, center);
+    filter: blur(22px) saturate(1.04);
+    opacity: 0.72;
+    transform: scale(1.04);
 }
 
 ::deep .tl-detail-media-stage__background,
@@ -177,19 +192,19 @@
 
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__background {
     z-index: 1;
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
-    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.20) 18%, rgba(0,0,0,0.48) 34%, rgba(0,0,0,0.78) 50%, #000 66%, #000 100%);
+    mask-image: linear-gradient(to right, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.20) 18%, rgba(0,0,0,0.48) 34%, rgba(0,0,0,0.78) 50%, #000 66%, #000 100%);
 }
 
 ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__background {
     z-index: 1;
-    left: auto;
+    left: 0;
     right: 0;
-    width: clamp(74%, 80vw, 88%);
+    width: 100%;
     object-fit: contain;
     object-position: right top;
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
-    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.76) 43%, #000 58%, #000 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.20) 18%, rgba(0,0,0,0.48) 34%, rgba(0,0,0,0.78) 50%, #000 66%, #000 100%);
+    mask-image: linear-gradient(to right, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.20) 18%, rgba(0,0,0,0.48) 34%, rgba(0,0,0,0.78) 50%, #000 66%, #000 100%);
 }
 
 ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__overlay { z-index: 2; }
@@ -202,35 +217,32 @@
 ::deep .tl-detail-hero--watch .tl-detail-media-stage__overlay,
 ::deep .tl-detail-hero--watch .tl-detail-media-stage--background .tl-detail-media-stage__overlay {
     background:
-        linear-gradient(
-            to right,
-            rgb(var(--hero-bg-rgb)) 0%,
-            rgb(var(--hero-bg-rgb)) 27%,
-            rgba(var(--hero-bg-rgb), 0.96) 32%,
-            rgba(var(--hero-bg-rgb), 0.82) 38%,
-            rgba(var(--hero-bg-rgb), 0.58) 44%,
-            rgba(var(--hero-bg-rgb), 0.34) 50%,
-            rgba(var(--hero-bg-rgb), 0.16) 56%,
-            transparent 63%
+        radial-gradient(
+            ellipse at 17% 48%,
+            rgba(var(--hero-bg-rgb), 0.90) 0%,
+            rgba(var(--hero-bg-rgb), 0.78) 24%,
+            rgba(var(--hero-bg-rgb), 0.46) 43%,
+            rgba(var(--hero-bg-rgb), 0.18) 58%,
+            transparent 72%
         ),
         radial-gradient(
             ellipse at 72% 42%,
-            rgba(220, 165, 62, 0.10) 0%,
-            rgba(220, 165, 62, 0.05) 26%,
-            rgba(220, 165, 62, 0.02) 48%,
+            rgba(var(--hero-accent-rgb), 0.10) 0%,
+            rgba(var(--hero-accent-rgb), 0.05) 26%,
+            rgba(var(--hero-accent-rgb), 0.02) 48%,
             transparent 72%
         ),
         linear-gradient(
             to bottom,
-            rgba(0, 3, 5, 0.34) 0%,
-            rgba(0, 3, 5, 0.10) 42%,
-            rgba(0, 3, 5, 0.64) 78%,
-            rgba(0, 3, 5, 0.98) 100%
+            rgba(var(--hero-shadow-rgb), 0.24) 0%,
+            rgba(var(--hero-shadow-rgb), 0.06) 42%,
+            rgba(var(--hero-shadow-rgb), 0.58) 78%,
+            rgba(var(--hero-shadow-rgb), 0.96) 100%
         ),
         radial-gradient(
             ellipse at center,
             transparent 38%,
-            rgba(0, 3, 5, 0.38) 100%
+            rgba(var(--hero-shadow-rgb), 0.32) 100%
         );
 }
 

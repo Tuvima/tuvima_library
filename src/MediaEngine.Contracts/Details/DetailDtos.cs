@@ -174,6 +174,9 @@ public sealed class ArtworkSet
     public string? PrimaryColor { get; init; }
     public string? SecondaryColor { get; init; }
     public string? AccentColor { get; init; }
+    public string? BackdropLeftTopColor { get; init; }
+    public string? BackdropLeftMiddleColor { get; init; }
+    public string? BackdropLeftBottomColor { get; init; }
 
     public HeroArtworkViewModel HeroArtwork { get; init; } = new();
     public ArtworkPresentationMode PresentationMode { get; init; } = ArtworkPresentationMode.GeneratedIdentity;

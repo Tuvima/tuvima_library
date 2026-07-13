@@ -3938,6 +3938,9 @@ public sealed class DetailComposerService
         var primary = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkPrimaryHex), GetValue(values, "primary_color"), "#C9922E");
         var secondary = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkSecondaryHex), GetValue(values, "secondary_color"), "#271A3A");
         var accent = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkAccentHex), GetValue(values, "accent_color"), "#4F7DBA");
+        var backdropTop = !string.IsNullOrWhiteSpace(backdropUrl) ? GetValue(values, "background_primary_hex") : null;
+        var backdropMiddle = !string.IsNullOrWhiteSpace(backdropUrl) ? GetValue(values, "background_secondary_hex") : null;
+        var backdropBottom = !string.IsNullOrWhiteSpace(backdropUrl) ? GetValue(values, "background_accent_hex") : null;
         var mode = ResolveArtworkPresentationMode(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, relatedArtwork.Count, ownedFormatCount);
         var characterImageUrl = entityType == DetailEntityType.Character ? portraitUrl : null;
         var resolvedLogoUrl = FirstNonBlank(logoUrl, GetValue(values, "clear_logo_url"), GetValue(values, "clear_logo"), GetValue(values, "logo_url"), GetValue(values, "logo"));
@@ -3957,6 +3960,9 @@ public sealed class DetailComposerService
             PrimaryColor = primary,
             SecondaryColor = secondary,
             AccentColor = accent,
+            BackdropLeftTopColor = backdropTop,
+            BackdropLeftMiddleColor = backdropMiddle,
+            BackdropLeftBottomColor = backdropBottom,
             HeroArtwork = heroArtwork,
             PresentationMode = mode,
             Source = ResolveArtworkSource(artworkSource),

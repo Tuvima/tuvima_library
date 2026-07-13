@@ -52,7 +52,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("object-position: var(--hero-image-position, center right)", styles);
         Assert.Contains("object-position: right center", styles);
         Assert.DoesNotContain("tl-detail-media-stage__background-fill", styles);
-        Assert.DoesNotContain("tl-detail-media-stage--background::before", styles);
+        Assert.Contains("tl-detail-media-stage--background::before", styles);
+        Assert.Contains("background-image: var(--hero-image)", styles);
         Assert.Contains("mask-image: linear-gradient(to right", styles);
         Assert.Contains("background-size: cover", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-hero__artwork", styles);
@@ -60,7 +61,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("height: calc(80svh - var(--app-topbar-height, 65px) - 1rem)", styles);
         Assert.Contains("min-height: 28rem", styles);
         Assert.Contains("max-height: none", styles);
-        Assert.Contains("rgba(0,0,0,0.76) 43%", styles);
+        Assert.Contains("rgba(0,0,0,0.48) 34%", styles);
+        Assert.Contains("rgba(0,0,0,0.78) 50%", styles);
         Assert.Contains("tl-detail-tabs::before", styles);
         Assert.Contains("background: #090c12", styles);
         Assert.Contains("font-family: Georgia, \"Times New Roman\", serif", styles);
@@ -95,7 +97,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("(R: 8, G: 12, B: 18)", presentation);
         Assert.Contains("(R: 4, G: 7, B: 12)", presentation);
         Assert.Contains("(R: 220, G: 165, B: 62)", presentation);
-        Assert.Contains("--hero-shadow-rgb:0, 3, 5", presentation);
+        Assert.Contains("BuildArtworkBackground(parsedColors)", presentation);
         Assert.Contains("ResolveSubtitle(model, isWatchHero)", presentation);
         Assert.Contains("isWatchHero || UsesPrimaryHeroChrome(model.EntityType)", presentation);
         Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
@@ -112,12 +114,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("--hero-progress", progress);
         Assert.Contains("Progress = detail.Progress", client);
         Assert.Contains(".tl-detail-hero-progress__fill", styles);
-        Assert.Contains("rgba(0, 3, 5, 0.34) 0%", styles);
-        Assert.Contains("rgba(0, 3, 5, 0.10) 42%", styles);
-        Assert.Contains("rgba(0, 3, 5, 0.98) 100%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.58) 44%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.16) 56%", styles);
-        Assert.Contains("transparent 63%", styles);
+        Assert.Contains("rgba(var(--hero-shadow-rgb), 0.24) 0%", styles);
+        Assert.Contains("rgba(var(--hero-shadow-rgb), 0.06) 42%", styles);
+        Assert.Contains("rgba(var(--hero-shadow-rgb), 0.96) 100%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.46) 43%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.18) 58%", styles);
+        Assert.Contains("transparent 72%", styles);
         Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
         Assert.Contains("background: rgba(20, 23, 28, 0.78)", styles);
@@ -134,7 +136,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("body:has(.tl-detail-page) .main-content-with-topbar", appStyles);
         Assert.DoesNotContain("body:has(.tl-detail-page) .layout-shell__appbar,", appStyles);
         Assert.Contains("background: var(--app-surface, #1e1f27) !important", layoutStyles);
-        Assert.Contains("width: clamp(74%, 80vw, 88%)", styles);
+        Assert.Contains("width: 100%", styles);
         Assert.Contains("object-position: right top", styles);
         Assert.Contains("tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner", styles);
         Assert.Contains("align-items: center", styles);

@@ -60,7 +60,7 @@ public sealed class DetailHeroPresentation
 
         return new DetailHeroPresentation(
             BuildHeroClass(mode, model.EntityType, isWatchHero),
-            BuildGradientStyle(model.Artwork, isWatchHero),
+            BuildGradientStyle(model.Artwork),
             usePrimaryHeroChrome ? string.Empty : FormatEntityType(model.EntityType),
             useLogo,
             useLogo ? model.Artwork.LogoUrl : null,
@@ -139,34 +139,24 @@ public sealed class DetailHeroPresentation
     private static bool IsWatchEntity(DetailEntityType entityType)
         => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
 
-    private static string BuildGradientStyle(ArtworkSet artwork, bool isWatchHero)
+    private static string BuildGradientStyle(ArtworkSet artwork)
     {
-        if (isWatchHero)
-        {
-            return string.Join(
-                ';',
-                "--tl-detail-primary:#DCA53E",
-                "--tl-detail-secondary:#0E1218",
-                "--tl-detail-accent:#DCA53E",
-                "--hero-bg-rgb:8, 10, 14",
-                "--hero-accent-rgb:220, 165, 62",
-                "--hero-shadow-rgb:0, 3, 5",
-                "--hero-surface-rgb:16, 18, 23",
-                "--hero-text-rgb:245, 247, 250") + ';';
-        }
-
         var primary = artwork.PrimaryColor ?? "#DCA53E";
         var secondary = artwork.SecondaryColor ?? "#0E1218";
         var accent = artwork.AccentColor ?? "#DCA53E";
-        var parsedColors = new[] { artwork.PrimaryColor, artwork.SecondaryColor, artwork.AccentColor }
+        var backdropColors = new[] { artwork.BackdropLeftTopColor, artwork.BackdropLeftMiddleColor, artwork.BackdropLeftBottomColor };
+        var paletteInputs = artwork.HeroArtwork.Mode is HeroArtworkMode.BackdropWithLogo or HeroArtworkMode.BackdropWithRenderedTitle
+            && backdropColors.Any(color => !string.IsNullOrWhiteSpace(color))
+            ? backdropColors
+            : new[] { artwork.PrimaryColor, artwork.SecondaryColor, artwork.AccentColor };
+        var parsedColors = paletteInputs
             .Select(TryParseHexColor)
             .Where(color => color is not null)
             .Select(color => color!.Value)
             .ToList();
-        var hasPalette = parsedColors.Count > 0
-            && new[] { artwork.PrimaryColor, artwork.SecondaryColor, artwork.AccentColor }.Any(color => !IsKnownFallbackColor(color));
+        var hasPalette = parsedColors.Count > 0 && paletteInputs.Any(color => !IsKnownFallbackColor(color));
         var background = hasPalette
-            ? parsedColors.OrderBy(RelativeLuminance).First()
+            ? BuildArtworkBackground(parsedColors)
             : (R: 8, G: 12, B: 18);
         var accentColor = hasPalette
             ? parsedColors.OrderByDescending(Saturation).ThenByDescending(RelativeLuminance).First()
@@ -187,7 +177,34 @@ public sealed class DetailHeroPresentation
             $"--hero-accent-rgb:{ToRgb(accentColor)}",
             $"--hero-shadow-rgb:{ToRgb(shadow)}",
             $"--hero-surface-rgb:{ToRgb(surface)}",
+            $"--hero-backdrop-top-rgb:{ToRgb(ParseOrDefault(artwork.BackdropLeftTopColor, background))}",
+            $"--hero-backdrop-middle-rgb:{ToRgb(ParseOrDefault(artwork.BackdropLeftMiddleColor, background))}",
+            $"--hero-backdrop-bottom-rgb:{ToRgb(ParseOrDefault(artwork.BackdropLeftBottomColor, background))}",
             "--hero-text-rgb:245, 247, 250") + ';';
+    }
+
+    private static (int R, int G, int B) ParseOrDefault(string? value, (int R, int G, int B) fallback)
+        => TryParseHexColor(value) ?? fallback;
+
+    private static (int R, int G, int B) BuildArtworkBackground(IReadOnlyList<(int R, int G, int B)> colors)
+    {
+        // Prefer a representative chromatic color over pure black so the copy surface
+        // feels like an extension of the artwork while remaining dark enough for text.
+        var source = colors
+            .Where(color => RelativeLuminance(color) >= 10)
+            .OrderByDescending(color => Saturation(color) * 0.7 + Math.Min(RelativeLuminance(color), 150) / 255d * 0.3)
+            .FirstOrDefault();
+
+        if (source == default)
+            source = colors.OrderByDescending(RelativeLuminance).First();
+
+        var luminance = RelativeLuminance(source);
+        if (luminance > 72)
+            source = Mix(source, (0, 0, 0), 1 - (72 / luminance));
+        else if (luminance < 26)
+            source = Mix(source, (255, 255, 255), Math.Min(0.18, (26 - luminance) / 110));
+
+        return source;
     }
 
     private static string FormatEntityType(DetailEntityType entityType) => entityType switch

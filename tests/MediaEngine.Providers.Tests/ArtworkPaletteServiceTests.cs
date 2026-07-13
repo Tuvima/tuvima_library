@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Services;
+using MediaEngine.Providers.Helpers;
 using SkiaSharp;
 
 namespace MediaEngine.Providers.Tests;
@@ -108,6 +109,27 @@ public sealed class ArtworkPaletteServiceTests : IDisposable
         Assert.DoesNotContain("210, 142, 96", palette.GlowColor, StringComparison.Ordinal);
         Assert.True(palette.IsDarkSafe);
         Assert.Contains("--art-bg-glow", palette.CssVariableStyle);
+    }
+
+    [Fact]
+    public void BackdropLeftEdgePalette_SamplesVerticalRegionsFromBackdropLeftSide()
+    {
+        using var bitmap = new SKBitmap(200, 120);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.Magenta);
+        using var paint = new SKPaint();
+        paint.Color = new SKColor(24, 54, 88);
+        canvas.DrawRect(new SKRect(0, 0, 48, 40), paint);
+        paint.Color = new SKColor(46, 76, 102);
+        canvas.DrawRect(new SKRect(0, 40, 48, 80), paint);
+        paint.Color = new SKColor(18, 36, 42);
+        canvas.DrawRect(new SKRect(0, 80, 48, 120), paint);
+
+        var palette = ArtworkVariantHelper.ExtractBackdropLeftEdgePalette(bitmap);
+
+        Assert.Equal("#183658", palette.PrimaryHex, ignoreCase: true);
+        Assert.Equal("#2E4C66", palette.SecondaryHex, ignoreCase: true);
+        Assert.Equal("#12242A", palette.AccentHex, ignoreCase: true);
     }
 
     private string WriteImage(string name, SKColor primary, SKColor secondary)
