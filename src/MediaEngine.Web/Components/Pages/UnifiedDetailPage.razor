@@ -93,7 +93,8 @@ else
             return false;
         }
 
-        return Enum.TryParse(normalized, ignoreCase: true, out entityType);
+        return Enum.TryParse(normalized, ignoreCase: true, out entityType)
+            && entityType != DetailEntityType.TvEpisode;
     }
 
     private static DetailPresentationContext ParseContext(string? value)

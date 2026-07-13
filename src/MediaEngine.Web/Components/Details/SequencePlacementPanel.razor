@@ -47,17 +47,20 @@
         </div>
 
         <div class="tl-series-position-summary" aria-label="@PositionSummary">
-            <div class="tl-series-position-summary__donut">
-                <MudChart T="double"
-                          ChartType="ChartType.Donut"
-                          ChartSeries="@SequenceDonutSeries"
-                          ChartLabels="@SequenceDonutLabels"
-                          ChartOptions="@SequenceDonutOptions"
-                          Width="8.8rem"
-                          Height="8.8rem" />
+            <div class="@CoverageVisualClass">
+                @if (ShowCoverageDonut)
+                {
+                    <MudChart T="double"
+                              ChartType="ChartType.Donut"
+                              ChartSeries="@SequenceDonutSeries"
+                              ChartLabels="@SequenceDonutLabels"
+                              ChartOptions="@SequenceDonutOptions"
+                              Width="8.8rem"
+                              Height="8.8rem" />
+                }
                 <div class="tl-series-position-summary__center">
-                    <span class="tl-series-position-summary__number">@CurrentPositionText</span>
-                    <span class="tl-series-position-summary__total">of @TotalItems</span>
+                    <span class="tl-series-position-summary__number">@CoveragePrimaryText</span>
+                    <span class="tl-series-position-summary__total">@CoverageSecondaryText</span>
                 </div>
             </div>
             <div class="tl-series-position-summary__label">@PositionSummaryLabel</div>
@@ -78,9 +81,12 @@
 
         <div class="tl-series-owned-summary">
             <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
-            <span>@OwnedCount owned</span>
-            <span class="tl-series-owned-summary__dot" aria-hidden="true"></span>
-            <span>@MissingCount missing</span>
+            <span>@OwnedSummary</span>
+            @if (ShowCoverageDonut)
+            {
+                <span class="tl-series-owned-summary__dot" aria-hidden="true"></span>
+                <span>@MissingCount missing</span>
+            }
             @if (SeriesWikidataUrl is not null)
             {
                 <a class="tl-series-source-link"
@@ -207,6 +213,8 @@
     private bool IsLongSequence => TotalItems >= LongSequenceThreshold;
     private int OwnedCount => ActiveItems.Count(item => item.IsOwned);
     private int MissingCount => Math.Max(0, TotalItems - OwnedCount);
+    private bool IsComicSequence => Placement.CurrentItem.EntityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
+    private bool ShowCoverageDonut => !IsComicSequence && Placement.HasAuthoritativeTotal && TotalItems > 0;
     private int TotalItems => ShowGroupSelector
         ? Math.Max(ActiveItems.Count, ActiveGroup?.TotalKnownItems ?? ActiveItems.Count)
         : Math.Max(ActiveItems.Count, Placement.TotalKnownItems ?? ActiveItems.Count);
@@ -230,8 +238,8 @@
         "?")!;
     private string PositionSummary => FirstNonBlank(
         Placement.PositionSummary,
-        !HasCurrentPosition && TotalItems > 0 ? $"{OwnedCount} owned of {TotalItems} in {LowerContainerLabel}" : null,
-        TotalItems > 0 ? $"{CurrentPositionText} of {TotalItems} in {LowerContainerLabel}" : null,
+        !HasCurrentPosition && OwnedCount > 0 ? $"{OwnedSummary} in {LowerContainerLabel}" : null,
+        HasCurrentPosition ? $"{ItemNoun} {CurrentPositionText} in {Placement.ContainerTitle}" : null,
         ContainerTitleDisplay)!;
     private string ContainerTitleDisplay => TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel);
     private string LowerContainerLabel => FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
@@ -247,6 +255,18 @@
     private IReadOnlyList<SequenceContainerOptionViewModel> DistinctAvailableContainers => BuildDistinctContainerOptions(Placement.AvailableContainers);
     private bool CanChooseDistinctContainer => Placement.CanChooseContainer && DistinctAvailableContainers.Count > 1;
     private bool ShowSetDefault => _canCurateSequence && CanChooseDistinctContainer && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
+    private string CoverageVisualClass => $"tl-series-position-summary__donut{(ShowCoverageDonut ? string.Empty : " is-count-only")}";
+    private string CoveragePrimaryText => ShowCoverageDonut
+        ? OwnedCount.ToString(CultureInfo.InvariantCulture)
+        : IsComicSequence && HasCurrentPosition
+            ? CurrentPositionText
+            : OwnedCount.ToString(CultureInfo.InvariantCulture);
+    private string CoverageSecondaryText => ShowCoverageDonut
+        ? $"of {TotalItems}"
+        : IsComicSequence && HasCurrentPosition
+            ? ItemNoun.ToLowerInvariant()
+            : "owned";
+    private string OwnedSummary => $"{OwnedCount} {(OwnedCount == 1 ? ItemNoun : Placement.ItemPluralLabel).ToLowerInvariant()} owned";
     private List<ChartSeries<double>> SequenceDonutSeries =>
     [
         new() { Name = Placement.ItemPluralLabel, Data = new ChartData<double>([Math.Max(OwnedCount, 0), Math.Max(MissingCount, 0)]) },
@@ -345,7 +365,10 @@
 
     private string? SequenceItemRoute(SequenceItemViewModel item)
     {
-        if (!item.IsOwned || item.IsCurrent || !Guid.TryParse(item.Id, out var id))
+        if (!item.IsOwned
+            || item.IsCurrent
+            || item.EntityType == DetailEntityType.TvEpisode
+            || !Guid.TryParse(item.Id, out var id))
             return null;
 
         return $"/details/{ToRouteEntityType(item.EntityType)}/{id:D}?context={ContextKey(item.EntityType)}";

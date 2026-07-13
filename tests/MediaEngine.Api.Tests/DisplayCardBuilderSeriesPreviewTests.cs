@@ -32,7 +32,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
     }
 
     [Fact]
-    public void BuildCollectionCards_UsesManifestTotalForKnownSeriesSize()
+    public void BuildCollectionCards_DoesNotPresentComicRunAsCompletionTarget()
     {
         var collectionId = Guid.Parse("44444444-2222-3333-4444-555555555555");
         var createdAt = DateTimeOffset.Parse("2026-06-01T12:00:00Z");
@@ -47,9 +47,9 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             .Single();
 
         Assert.Equal("comicSeries", card.Presentation);
-        Assert.Equal("2 of 75 issues owned", card.Subtitle);
-        Assert.Equal(["2 of 75 issues owned"], card.Facts);
-        Assert.Equal(75, card.PreviewTotalCount);
+        Assert.Equal("2 owned issues", card.Subtitle);
+        Assert.Equal(["2 owned issues"], card.Facts);
+        Assert.Equal(2, card.PreviewTotalCount);
     }
 
     [Fact]

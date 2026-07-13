@@ -34,7 +34,7 @@ The product is branded as **Tuvima Library**. The code still uses `MediaEngine.*
 - **Story-first organization:** Home highlights what to resume, then Watch, Read, Listen, placed Collections & Lists, and new arrivals. Read and Watch open as cinematic lane landings, while `/read/books`, `/read/comics`, `/watch/movies`, and `/watch/tv` keep detailed browsing. Ingestion creates lane shelves from trusted QIDs, provider IDs, or local grouping metadata; Collections appear only when a broader world spans multiple shelves.
 - **Local-first privacy:** Your files, database, models, and processing stay on your machine. Provider calls are only for metadata lookups that you configure.
 - **Honest automation:** Strong matches flow through automatically. Low-confidence, blocked, or uncertain items go to the Review Queue instead of being silently misfiled.
-- **One dashboard:** Home, media lanes, Search, detail pages, Settings/Admin, and Review Queue work together instead of forcing every correction into a separate management workspace.
+- **One dashboard:** Home, media lanes, Search, detail pages, Settings/Admin, and Review Queue work together instead of forcing every correction into a separate management workspace. TV episodes stay inside their season on the show detail page; Continue cards identify the resumable child as `Sx Ey` without creating episode detail pages.
 - **Extensible architecture:** Config-driven providers, processors, plugins, and a typed Engine/Dashboard boundary make the system practical to extend.
 
 ## How It Works

@@ -3738,6 +3738,12 @@
     height: 100% !important;
 }
 
+::deep .tl-series-position-summary__donut.is-count-only {
+    border: 0.15rem solid rgba(92, 125, 255, 0.52);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(31, 51, 101, 0.4), rgba(7, 12, 21, 0.82));
+}
+
 ::deep .tl-series-position-summary__center {
     position: absolute;
     inset: 23%;
@@ -5880,6 +5886,34 @@
     color: rgba(255,255,255,0.68);
     font-size: 1rem;
     font-weight: 620;
+}
+
+::deep .tl-episode-coverage {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.85rem;
+    font-weight: 720;
+}
+
+::deep .tl-episode-coverage__ring {
+    position: relative;
+    width: 3rem;
+    height: 3rem;
+    display: grid;
+    place-items: center;
+}
+
+::deep .tl-episode-coverage__ring .mud-progress-circular {
+    position: absolute;
+    inset: 0;
+}
+
+::deep .tl-episode-coverage__ring strong {
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1;
 }
 
 ::deep .tl-episode-grid {

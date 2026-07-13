@@ -11,6 +11,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
@@ -374,7 +375,7 @@ public sealed class DetailComposerService
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var manifest = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
         var displayWorks = MergeCollectionManifestPlaceholders(entityType, works, manifest);
-        var expectedTotal = manifest?.ExpectedTotal;
+        var expectedTotal = AuthoritativeManifestTotal(manifest);
         var artwork = BuildArtwork(
             entityType,
             collectionBackdrop,
@@ -1460,6 +1461,7 @@ public sealed class DetailComposerService
             PositionNumber = current.PositionNumber,
             PositionSort = current.PositionSort,
             TotalKnownItems = totalKnownItems,
+            HasAuthoritativeTotal = expectedTotal.HasValue,
             PositionLabel = current.PositionLabel,
             PositionText = current.PositionText,
             PositionSummary = BuildSequencePositionSummary(entityType, current, containerTitle, labels),
@@ -1557,9 +1559,21 @@ public sealed class DetailComposerService
                 WHERE entity_id = @collectionId
                   AND key = @key
                   AND CAST(value AS INTEGER) > 0
+                  AND EXISTS (
+                      SELECT 1
+                      FROM canonical_values scope
+                      WHERE scope.entity_id = @collectionId
+                        AND scope.key = @scopeKey
+                        AND scope.value = @mainSequenceScope)
                 LIMIT 1;
                 """,
-                new { collectionId, key = MetadataFieldConstants.SequenceTotal },
+                new
+                {
+                    collectionId,
+                    key = MetadataFieldConstants.SequenceTotal,
+                    scopeKey = MetadataFieldConstants.SequenceTotalScope,
+                    mainSequenceScope = SequenceCountScope.MainSequence.ToString(),
+                },
                 cancellationToken: ct));
 
             if (collectionTotal is > 0)
@@ -1578,6 +1592,7 @@ public sealed class DetailComposerService
                 json_extract(api_metadata_json, '$.expected_total')) AS INTEGER)
             FROM series_manifest_hydrations
             WHERE series_qid = @seriesQid
+              AND json_extract(api_metadata_json, '$.completeness') = 'Complete'
               AND COALESCE(
                     CAST(json_extract(api_metadata_json, '$.expectedTotal') AS INTEGER),
                     CAST(json_extract(api_metadata_json, '$.expected_total') AS INTEGER),
@@ -1587,6 +1602,18 @@ public sealed class DetailComposerService
             """,
             new { seriesQid = normalized },
             cancellationToken: ct));
+    }
+
+    private static int? AuthoritativeManifestTotal(SeriesManifestViewDto? manifest)
+    {
+        if (manifest?.ExpectedTotal is not > 0
+            || string.Equals(manifest.ExpectedTotalSource, "wikidata-manifest-rows", StringComparison.OrdinalIgnoreCase)
+            || manifest.ExpectedTotalConfidence is < 0.8)
+        {
+            return null;
+        }
+
+        return manifest.ExpectedTotal;
     }
 
     private static bool HasSequencePositionEvidence(SequenceItemViewModel item)
@@ -5647,12 +5674,14 @@ public sealed class DetailComposerService
         => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
 
     private static MediaGroupingItemViewModel ToMediaItem(CollectionWorkSummary work, IReadOnlySet<Guid> favoriteWorkIds)
-        => new()
+    {
+        var entityType = InferMediaItemEntityType(work);
+        return new MediaGroupingItemViewModel
         {
             Id = work.Id,
-            EntityType = InferMediaItemEntityType(work),
+            EntityType = entityType,
             Title = work.Title,
-            Subtitle = InferMediaItemEntityType(work) == DetailEntityType.MusicTrack
+            Subtitle = entityType == DetailEntityType.MusicTrack
                 ? FirstNonBlank(work.Artist, work.Year, FormatTrackDuration(work.Duration))
                 : FirstNonBlank(FormatSeasonEpisode(work.Season, work.Episode), work.Year, FormatTrackDuration(work.Duration)),
             Description = work.Description,
@@ -5664,11 +5693,20 @@ public sealed class DetailComposerService
             Quality = work.Quality,
             ProgressPercent = work.ProgressPercent,
             Metadata = BuildEpisodeMetadata(FormatTrackDuration(work.Duration), work.Year),
-            Actions = work.IsOwned ? [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", Route = BuildWorkRoute(work) }] : [],
+            Actions = work.IsOwned
+                ? [new DetailAction
+                {
+                    Key = entityType == DetailEntityType.TvEpisode ? "play" : "open",
+                    Label = entityType == DetailEntityType.TvEpisode ? "Play" : "Open",
+                    Icon = entityType == DetailEntityType.TvEpisode ? "play_arrow" : "open_in_new",
+                    Route = BuildWorkRoute(work),
+                }]
+                : [],
             IsOwned = work.IsOwned,
             IsFavorite = Guid.TryParse(work.Id, out var workId) && favoriteWorkIds.Contains(workId),
             ProgressState = work.IsOwned ? LibraryProgressState.Unstarted : LibraryProgressState.Missing,
         };
+    }
 
     private static IReadOnlyList<MetadataPill> BuildEpisodeMetadata(string? duration, string? year)
     {
@@ -5724,7 +5762,7 @@ public sealed class DetailComposerService
     private static string BuildWorkRoute(CollectionWorkSummary work) => InferMediaItemEntityType(work) switch
     {
         DetailEntityType.Movie => $"/watch/movie/{work.Id}",
-        DetailEntityType.TvEpisode => $"/details/tvepisode/{work.Id}?context=watch",
+        DetailEntityType.TvEpisode => $"/watch/player/resolve?workId={work.Id}",
         DetailEntityType.Audiobook => $"/listen/audiobook/{work.Id}",
         DetailEntityType.MusicTrack => $"/details/musictrack/{work.Id}?context=listen",
         _ => $"/book/{work.Id}",
@@ -6995,6 +7033,7 @@ public sealed class DetailComposerService
                 Key = group.Key,
                 Title = group.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.GroupTitle))?.GroupTitle ?? fallbackTitle,
                 TotalKnownItems = string.Equals(group.Key, "main-sequence", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(group.Key, "all", StringComparison.OrdinalIgnoreCase)
                     ? Math.Max(group.Count(), mainSequenceExpectedTotal ?? 0)
                     : group.Count(),
                 Items = group.ToList(),

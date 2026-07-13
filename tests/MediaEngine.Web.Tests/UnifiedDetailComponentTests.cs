@@ -465,8 +465,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SequenceItemRoute(item)", source);
         Assert.Contains("href=\"@route\"", source);
         Assert.Contains("Placement.TotalKnownItems", source);
+        Assert.Contains("Placement.HasAuthoritativeTotal", source);
+        Assert.Contains("IsComicSequence", source);
+        Assert.Contains("CoveragePrimaryText", source);
         Assert.Contains("SequenceNumberOrNull", source);
-        Assert.Contains("owned of {TotalItems}", source);
+        Assert.DoesNotContain("owned of {TotalItems}", source);
+        Assert.Contains("item.EntityType == DetailEntityType.TvEpisode", source);
         Assert.Contains("tl-series-placement--long", source);
         Assert.Contains("LongSequenceThreshold = 9", source);
         Assert.Contains("WindowSize = 6", source);
@@ -510,6 +514,21 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
+    public void TvShowEpisodes_UseSeasonCoverageAndPlaybackWithoutEpisodeDetailNavigation()
+    {
+        var episodes = ReadSource("src/MediaEngine.Web/Components/Details/EpisodesTab.razor");
+        var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+        var navigation = ReadSource("src/MediaEngine.Web/Services/Navigation/MediaNavigation.cs");
+
+        Assert.Contains("tl-episode-coverage", episodes);
+        Assert.Contains("known {EpisodeWord(ActiveTotalCount)} owned", episodes);
+        Assert.Contains("/watch/player/resolve?workId={work.Id}", composer);
+        Assert.DoesNotContain("/details/tvepisode/", composer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("/episode/{workId}", navigation, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("/details/TvEpisode/", navigation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void RoutePages_DoNotChooseHeroArtwork()
     {
         var root = FindRepoRoot();
@@ -517,7 +536,6 @@ public sealed class UnifiedDetailComponentTests
         {
             "WatchMoviePage.razor",
             "WatchTvShowPage.razor",
-            "WatchTvEpisodePage.razor",
             "BookDetail.razor",
             "UnifiedDetailPage.razor",
         };
@@ -539,14 +557,14 @@ public sealed class UnifiedDetailComponentTests
         var unified = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
         var movie = ReadSource("src/MediaEngine.Web/Components/Pages/WatchMoviePage.razor");
         var show = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvShowPage.razor");
-        var episode = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvEpisodePage.razor");
-        var routePages = new[] { book, unified, movie, show, episode };
+        var routePages = new[] { book, unified, movie, show };
 
         Assert.Contains("@page \"/book/{Id:guid}\"", book);
         Assert.Contains("@page \"/details/{EntityType}/{Id:guid}\"", unified);
         Assert.Contains("@page \"/watch/movie/{WorkId:guid}\"", movie);
         Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}\"", show);
-        Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}\"", episode);
+        Assert.Contains("entityType != DetailEntityType.TvEpisode", unified);
+        Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Pages/WatchTvEpisodePage.razor")));
 
         foreach (var source in routePages)
         {
@@ -570,9 +588,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("data-ai-summary-slot=\"tldr\"", hero);
         Assert.Contains("tl-detail-hero__tagline--ai", hero);
         Assert.Contains("BuildSeriesContextLabel", hero);
-        Assert.Contains("seriesTitle += \" Series\"", hero);
-        Assert.Contains("{positionedItem} of {total}", hero);
-        Assert.Contains("MembershipScope, \"MainSequence\"", hero);
+        Assert.Contains("{containerTitle} · {positionedItem}", hero);
+        Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode", hero);
+        Assert.DoesNotContain("{positionedItem} of {total}", hero);
+        Assert.DoesNotContain("MembershipScope", hero);
         Assert.DoesNotContain("placement.TotalKnownItems", hero);
         Assert.Contains("SeriesContextClass", hero);
         Assert.Contains("tl-detail-hero__series-context.is-empty", ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css"));

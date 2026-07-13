@@ -68,8 +68,16 @@ the Engine:
 - Sequence cards show one immediate shelf, ordered by `ordinal_sort`; decimal
   positions, comic annuals, TV specials, and multi-disc tracks should not
   collapse into the same child row.
-- `Owned X of Y` uses `sequence_total` only when the total belongs to the
-  displayed shelf, not a broader franchise or list article.
+- `Owned X of Y` uses `sequence_total` only for an authoritative finite/known
+  immediate container, never a broader franchise, partial manifest, or loaded
+  row count. When that evidence is absent, the UI shows `X owned` without a
+  missing count or completion donut.
+- Comics show their issue identifier (`Batman · Issue 405`) and owned issue
+  count without an `of N` completion target. Provider run totals remain internal
+  matching and diagnostic facts because an ongoing comic run may keep growing.
+- TV has show detail pages, not episode detail pages. Seasons contain episode
+  rows and owned-versus-known coverage; Continue surfaces identify the playback
+  target with compact copy such as `Continue · S5 E1`.
 - Scoped series manifests render main-sequence works separately from
   supplementary short fiction and collected content. Exact source ordinals are
   displayed unchanged; an unnumbered supplemental work is labeled by scope and

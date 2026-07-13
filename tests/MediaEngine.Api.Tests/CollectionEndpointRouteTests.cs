@@ -80,7 +80,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("groupField", collectionSource, StringComparison.Ordinal);
         Assert.Contains("show_name", collectionSource, StringComparison.Ordinal);
         Assert.Contains("root_work_id", collectionSource, StringComparison.Ordinal);
-        Assert.Contains("return $\"/details/tvshow/{row.WorkId:D}?context=watch\";", collectionSource, StringComparison.Ordinal);
+        Assert.Contains("return $\"/watch/tv/show/{row.WorkId:D}\";", collectionSource, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/{entityType}/{id:guid}\"", detailsSource, StringComparison.Ordinal);
         Assert.Contains("DetailEntityType.TvShow", composerSource, StringComparison.Ordinal);
         Assert.Contains("GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch", watchPageSource, StringComparison.Ordinal);

@@ -318,6 +318,7 @@ public sealed class SequencePlacementViewModel
     public int? PositionNumber { get; init; }
     public double? PositionSort { get; init; }
     public int? TotalKnownItems { get; init; }
+    public bool HasAuthoritativeTotal { get; init; }
     public string? PositionLabel { get; init; }
     public string? PositionText { get; init; }
     public string? PositionSummary { get; init; }

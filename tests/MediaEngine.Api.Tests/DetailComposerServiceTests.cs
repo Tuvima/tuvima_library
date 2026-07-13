@@ -243,13 +243,14 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("CASE WHEN MAX(ma.id) IS NULL THEN 0 ELSE 1 END AS HasAsset", source);
         Assert.Contains("COALESCE(w.is_catalog_only, 0) AS IsCatalogOnly", source);
         Assert.Contains("ApplyMediaGroupCompletion", source);
-        Assert.Contains("var expectedTotal = manifest?.ExpectedTotal", source);
+        Assert.Contains("var expectedTotal = AuthoritativeManifestTotal(manifest)", source);
         Assert.Contains("BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal)", source);
         Assert.Contains("var total = Math.Max(group.Items.Count, group.TotalCount)", source);
         Assert.Contains("DetailEntityType.MovieSeries => \"Films\"", source);
         Assert.Contains("DetailEntityType.BookSeries => \"Books\"", source);
         Assert.Contains("InitiallyCollapsed = total > 0 && owned == 0", source);
-        Assert.Contains("Actions = work.IsOwned ?", source);
+        Assert.Contains("Actions = work.IsOwned", source);
+        Assert.Contains("DetailEntityType.TvEpisode ? \"play\" : \"open\"", source);
         Assert.Contains("public int OwnedCount { get; init; }", contracts);
         Assert.Contains("public double CompletionPercent { get; init; }", contracts);
     }
@@ -404,6 +405,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("LoadSequenceExpectedTotalAsync(containerId, ct)", source);
         Assert.Contains("?? await LoadSequenceExpectedTotalAsync(sourceContainerId, ct)", source);
         Assert.Contains("TotalKnownItems = totalKnownItems", source);
+        Assert.Contains("HasAuthoritativeTotal = expectedTotal.HasValue", source);
+        Assert.Contains("json_extract(api_metadata_json, '$.completeness') = 'Complete'", source);
+        Assert.Contains("wikidata-manifest-rows", source);
         Assert.Contains("DeduplicateManifestMergeItems(merged)", source);
         Assert.Contains("BuildOwnedPositionSet(merged)", source);
         Assert.Contains("ManifestSourcePosition(manifestItem)", source);
@@ -577,6 +581,24 @@ public sealed class DetailComposerServiceTests
         Assert.Equal(2, groups.Count);
         Assert.Equal(9, Assert.Single(groups, group => group.Key == "main-sequence").TotalKnownItems);
         Assert.Equal(1, Assert.Single(groups, group => group.Key == "supplementary").TotalKnownItems);
+    }
+
+    [Fact]
+    public void DetailComposer_AppliesAuthoritativeTotalToUngroupedFiniteSeries()
+    {
+        var items = new List<SequenceItemViewModel>
+        {
+            new() { Title = "Film One", GroupKey = "all", GroupTitle = "Films", IsCurrent = true },
+            new() { Title = "Film Two", GroupKey = "all", GroupTitle = "Films" },
+        };
+
+        var groups = InvokePrivate<List<SequenceGroupViewModel>>(
+            "BuildSequenceGroups",
+            items,
+            "Films",
+            5);
+
+        Assert.Equal(5, Assert.Single(groups).TotalKnownItems);
     }
 
     [Fact]

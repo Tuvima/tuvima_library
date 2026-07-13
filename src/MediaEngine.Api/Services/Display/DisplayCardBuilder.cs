@@ -53,6 +53,7 @@ public sealed class DisplayCardBuilder
                 var resumeAction = action with { WebUrl = showRoute };
                 return showCard with
                 {
+                    Subtitle = ContinueEpisodeSubtitle(row.SeasonNumber, row.EpisodeNumber) ?? showCard.Subtitle,
                     TileTextMode = string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
                     Progress = ToProgress(row, resumeAction),
                     Actions = [resumeAction, .. showCard.Actions],
@@ -69,7 +70,10 @@ public sealed class DisplayCardBuilder
             MediaType: mediaKind,
             GroupingType: "work",
             Title: title,
-            Subtitle: SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
+            Subtitle: mediaKind == "TV"
+                ? ContinueEpisodeSubtitle(row.SeasonNumber, row.EpisodeNumber)
+                    ?? SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber)
+                : SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
             Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
@@ -194,7 +198,9 @@ public sealed class DisplayCardBuilder
         {
             Description = representative.Description,
             PreviewItems = previewItems,
-            PreviewTotalCount = previewItems.Count > 0 ? knownTotalCount ?? ownedCount : null,
+            PreviewTotalCount = previewItems.Count > 0
+                ? mediaKind == "Comic" ? ownedCount : knownTotalCount ?? ownedCount
+                : null,
         };
     }
 
@@ -290,7 +296,7 @@ public sealed class DisplayCardBuilder
         return mediaKind switch
         {
             "Movie" => $"/watch/movie/{workId}",
-            "TV" => $"/details/tvepisode/{workId}?context=watch",
+            "TV" => "/watch",
             "Music" => $"/listen/music/tracks/{workId}",
             "Audiobook" => $"/listen/audiobook/{workId}",
             "Comic" => $"/book/{workId}?mode=read",
@@ -734,9 +740,38 @@ public sealed class DisplayCardBuilder
             _ => knownTotalCount is > 1 ? "titles" : ownedCount == 1 ? "title" : "titles",
         };
 
-        return knownTotalCount is > 0
+        return mediaKind == "Comic"
+            ? $"{ownedCount} owned {noun}"
+            : knownTotalCount is > 0
             ? $"{ownedCount} of {knownTotalCount.Value} {noun} owned"
             : $"{ownedCount} owned {noun}";
+    }
+
+    private static string? ContinueEpisodeSubtitle(string? season, string? episode)
+    {
+        var normalizedSeason = NormalizeEpisodeOrdinal(season);
+        var normalizedEpisode = NormalizeEpisodeOrdinal(episode);
+        if (normalizedSeason is null && normalizedEpisode is null)
+        {
+            return null;
+        }
+
+        return normalizedSeason is null
+            ? $"Continue · E{normalizedEpisode}"
+            : normalizedEpisode is null
+                ? $"Continue · S{normalizedSeason}"
+                : $"Continue · S{normalizedSeason} E{normalizedEpisode}";
+    }
+
+    private static string? NormalizeEpisodeOrdinal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim().TrimStart('0');
+        return trimmed.Length == 0 ? "0" : trimmed;
     }
 
     private static int CollectionArtworkScore(DisplayWorkRow work)

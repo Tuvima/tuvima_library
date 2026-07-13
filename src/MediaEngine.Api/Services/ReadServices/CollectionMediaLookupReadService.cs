@@ -331,7 +331,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         {
             if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
             {
-                return $"/details/tvshow/{row.WorkId:D}?context=watch";
+                return $"/watch/tv/show/{row.WorkId:D}";
             }
 
             if (row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase))
@@ -352,7 +352,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
 
         if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/details/tvepisode/{row.WorkId:D}?context=watch";
+            return $"/watch/tv/show/{row.WorkId:D}";
         }
 
         if (row.MediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))

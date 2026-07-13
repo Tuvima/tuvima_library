@@ -135,6 +135,12 @@ public sealed class DisplayWorkProjectionReader
                      WHERE entity_id = CollectionId
                        AND key = 'sequence_total'
                        AND CAST(value AS INTEGER) > 0
+                       AND EXISTS (
+                           SELECT 1
+                           FROM canonical_values scope
+                           WHERE scope.entity_id = CollectionId
+                             AND scope.key = 'sequence_total_scope'
+                             AND scope.value = 'MainSequence')
                      LIMIT 1),
                     (
                         SELECT MAX(COALESCE(
@@ -142,12 +148,8 @@ public sealed class DisplayWorkProjectionReader
                             CAST(json_extract(api_metadata_json, '$.expected_total') AS INTEGER)))
                         FROM series_manifest_hydrations
                         WHERE collection_id = CollectionId
-                    ),
-                    (SELECT COUNT(*)
-                     FROM series_manifest_items
-                     WHERE collection_id = CollectionId
-                       AND membership_scope = 'MainSequence'
-                       AND is_collection = 0)
+                          AND json_extract(api_metadata_json, '$.completeness') = 'Complete'
+                    )
                 ) AS CollectionManifestTotalCount,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'narrator' LIMIT 1) AS Narrator,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,

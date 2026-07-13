@@ -20,7 +20,14 @@
     <div class="tl-episode-panel__header">
         @if (ActiveGroup is not null)
         {
-            <h2>@ActiveGroup.Items.Count @EpisodeWord(ActiveGroup.Items.Count)</h2>
+            <h2>@ActiveOwnedCount @EpisodeWord(ActiveOwnedCount)</h2>
+            <div class="tl-episode-coverage" aria-label="@CoverageLabel">
+                <div class="tl-episode-coverage__ring">
+                    <MudProgressCircular Value="@ActiveCoveragePercent" Size="Size.Large" />
+                    <strong>@ActiveOwnedCount</strong>
+                </div>
+                <span>@CoverageLabel</span>
+            </div>
         }
     </div>
 
@@ -90,6 +97,10 @@
         {
             Key = group.Key,
             Title = group.Title,
+            OwnedCount = group.OwnedCount,
+            TotalCount = group.TotalCount,
+            MissingCount = group.MissingCount,
+            CompletionPercent = group.CompletionPercent,
             Items = group.Items.Where(IsVisibleEpisode).ToList(),
         })
         .Where(group => group.Items.Count > 0)
@@ -113,6 +124,15 @@
         => SelectedKey is null
             ? null
             : VisibleGroups.FirstOrDefault(group => group.Key == SelectedKey);
+
+    private int ActiveOwnedCount => ActiveGroup?.Items.Count ?? 0;
+    private int ActiveTotalCount => Math.Max(ActiveOwnedCount, ActiveGroup?.TotalCount ?? 0);
+    private double ActiveCoveragePercent => ActiveTotalCount == 0
+        ? 0
+        : ActiveOwnedCount * 100.0 / ActiveTotalCount;
+    private string CoverageLabel => ActiveTotalCount == 0
+        ? "No known episodes"
+        : $"{ActiveOwnedCount} of {ActiveTotalCount} known {EpisodeWord(ActiveTotalCount)} owned";
 
     private void SelectSeason(ChangeEventArgs args)
     {

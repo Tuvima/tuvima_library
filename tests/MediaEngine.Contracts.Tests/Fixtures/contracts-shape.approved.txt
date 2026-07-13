@@ -404,6 +404,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequencePlacementVie
   PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
   PositionSort: System.Double? | nullability=nullable | accessors=get,init
   TotalKnownItems: System.Int32? | nullability=nullable | accessors=get,init
+  HasAuthoritativeTotal: System.Boolean | nullability=not-null | accessors=get,init
   PositionLabel: System.String | nullability=nullable | accessors=get,init
   PositionText: System.String | nullability=nullable | accessors=get,init
   PositionSummary: System.String | nullability=nullable | accessors=get,init

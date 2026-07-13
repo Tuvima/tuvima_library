@@ -38,8 +38,12 @@ counts, or list articles appearing as real series.
 Counts are stored as facts about the accepted container. `sequence_total` records
 the expected count, and `sequence_total_scope` states what the count means:
 main sequence, extras included, standalone, collected edition, or broader
-franchise. The UI should show `Owned X of Y` only when `Y` came from the same
-immediate container shown to the user.
+franchise. The UI should show `Owned X of Y` only for an authoritative
+finite/known `Y` from the same immediate container shown to the user. Partial
+manifest row counts degrade to `X owned`. Comics never present the provider's
+current run count as a completion target; their UI shows issue identity and the
+number of owned issues while retaining the count internally for matching and
+diagnostics.
 
 Wikidata manifest rows also carry `membership_scope`. Incoming P179 and direct
 P527 works are `MainSequence`; incoming P361 works are `Supplementary`; children

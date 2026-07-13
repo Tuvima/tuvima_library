@@ -158,7 +158,7 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
-    private string? SeriesContextLabel => BuildSeriesContextLabel(Model.SequencePlacement);
+    private string? SeriesContextLabel => BuildSeriesContextLabel(Model.EntityType, Model.SequencePlacement);
     private string SeriesContextClass => $"tl-detail-hero__series-context{(SeriesContextLabel is null ? " is-empty" : string.Empty)}";
     private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
@@ -237,14 +237,16 @@
             : value;
     }
 
-    private static string? BuildSeriesContextLabel(SequencePlacementViewModel? placement)
+    private static string? BuildSeriesContextLabel(DetailEntityType entityType, SequencePlacementViewModel? placement)
     {
-        if (placement is null || string.IsNullOrWhiteSpace(placement.ContainerTitle))
+        if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode
+            || placement is null
+            || string.IsNullOrWhiteSpace(placement.ContainerTitle))
+        {
             return null;
+        }
 
-        var seriesTitle = placement.ContainerTitle.Trim();
-        if (!seriesTitle.EndsWith(" series", StringComparison.OrdinalIgnoreCase))
-            seriesTitle += " Series";
+        var containerTitle = placement.ContainerTitle.Trim();
 
         var position = FirstNonBlank(
             placement.PositionText,
@@ -254,29 +256,13 @@
             placement.PositionNumber?.ToString(),
             placement.CurrentItem.PositionNumber?.ToString());
         if (string.IsNullOrWhiteSpace(position))
-            return seriesTitle;
+            return containerTitle;
 
         var itemLabel = FirstNonBlank(placement.ItemLabel, "Item")!;
         var positionedItem = position.StartsWith(itemLabel, StringComparison.OrdinalIgnoreCase)
             ? position
             : $"{itemLabel} {position}";
-        var mainSequenceItems = placement.OrderedItems
-            .Where(item => string.Equals(item.MembershipScope, "MainSequence", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        var currentGroupKey = FirstNonBlank(placement.CurrentItem.GroupKey, placement.CurrentGroupKey);
-        if (!string.IsNullOrWhiteSpace(currentGroupKey))
-        {
-            var groupedItems = mainSequenceItems
-                .Where(item => string.Equals(item.GroupKey, currentGroupKey, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            if (groupedItems.Count > 0)
-                mainSequenceItems = groupedItems;
-        }
-
-        var total = mainSequenceItems.Count > 0 ? mainSequenceItems.Count : placement.OrderedItems.Count;
-        return total > 0
-            ? $"{seriesTitle} · {positionedItem} of {total}"
-            : $"{seriesTitle} · {positionedItem}";
+        return $"{containerTitle} · {positionedItem}";
     }
 
     private static string? FirstNonBlank(params string?[] values)

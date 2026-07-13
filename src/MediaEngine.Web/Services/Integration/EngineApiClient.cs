@@ -5331,6 +5331,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 PositionNumber = placement.PositionNumber,
                 PositionSort = placement.PositionSort,
                 TotalKnownItems = placement.TotalKnownItems,
+                HasAuthoritativeTotal = placement.HasAuthoritativeTotal,
                 PositionLabel = placement.PositionLabel,
                 PositionText = placement.PositionText,
                 PositionSummary = placement.PositionSummary,

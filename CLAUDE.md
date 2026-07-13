@@ -633,7 +633,6 @@ Reusable visual components, organised by feature slice.
 | `/watch`, `/watch/{Tab}` | `WatchPage.razor` | Movies + TV browse |
 | `/watch/movie/{WorkId:guid}` | `WatchMoviePage.razor` | Movie detail |
 | `/watch/tv/show/{CollectionId:guid}` | `WatchTvShowPage.razor` | TV show detail |
-| `/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}` | `WatchTvEpisodePage.razor` | TV episode detail |
 | `/watch/player/{AssetId:guid}` | `WatchPlayerPage.razor` | Video player |
 | `/listen`, `/listen/music`, `/listen/music/{Section}`, `/listen/music/albums/{CollectionId:guid}`, `/listen/music/artists/{ArtistKey}`, `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}`, `/listen/audiobooks`, `/listen/audiobook/{WorkId:guid}` | `ListenPage.razor` (+ `.razor.cs` code-behind) | Music + audiobooks browse |
 | `/listen/player-popup` | `ListenPlayerPopupPage.razor` | Detached listen window |
@@ -643,6 +642,10 @@ Reusable visual components, organised by feature slice.
 | `/detail/{Type}/{Id}` (and similar) | `UnifiedDetailPage.razor` | Unified detail surface (work / edition / collection / person) — uses `Components/Details/` slice |
 | `/universe/{Qid}/explore` | `ChronicleExplorer.razor` | Universe graph explorer |
 | `/search` | `SearchPage.razor` | Global search |
+
+TV episodes are children of the show detail page, organized by season; they do
+not have standalone detail routes. Continue surfaces retain the episode playback
+target and identify it with compact copy such as `Continue · S5 E1`.
 | `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`, ingestion at `/settings/ingestion`, temporary harness at `/settings/dev-harness`) |
 | `/not-found`, `/Error` | `NotFound.razor`, `Error.razor` | Error pages |
 
