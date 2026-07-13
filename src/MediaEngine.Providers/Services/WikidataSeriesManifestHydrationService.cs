@@ -573,11 +573,23 @@ public sealed class WikidataSeriesManifestHydrationService
         {
             if (LooksLikeEditionOrTranslation(item))
                 return false;
-
         }
 
-        return true;
+        return IsMemberMediaCompatible(item.MediaKind, context.MediaType);
     }
+
+    private static bool IsMemberMediaCompatible(SeriesManifestMediaKind itemKind, MediaType contextMediaType)
+        => contextMediaType switch
+        {
+            MediaType.Books => itemKind is SeriesManifestMediaKind.Unknown or SeriesManifestMediaKind.LiteraryWork,
+            MediaType.Audiobooks => itemKind is SeriesManifestMediaKind.Unknown
+                or SeriesManifestMediaKind.LiteraryWork
+                or SeriesManifestMediaKind.Audiobook,
+            MediaType.Comics => itemKind is SeriesManifestMediaKind.Unknown or SeriesManifestMediaKind.Comic,
+            MediaType.Movies => itemKind is SeriesManifestMediaKind.Unknown or SeriesManifestMediaKind.Film,
+            MediaType.TV => itemKind is SeriesManifestMediaKind.Unknown or SeriesManifestMediaKind.Television,
+            _ => itemKind != SeriesManifestMediaKind.StageWork,
+        };
 
     private static bool IsQidOnlyLabel(string label, string qid) =>
         string.Equals(label, qid, StringComparison.OrdinalIgnoreCase)
@@ -845,6 +857,8 @@ public sealed class WikidataSeriesManifestHydrationService
             ItemLabel = string.IsNullOrWhiteSpace(item.Label) ? item.Qid : item.Label,
             ItemDescription = item.Description,
             MediaType = contextMediaType.ToString(),
+            MediaKind = item.MediaKind.ToString(),
+            InstanceOfQidsJson = JsonSerializer.Serialize(item.InstanceOfQids, JsonOptions),
             RawOrdinal = item.RawSeriesOrdinal,
             ParsedOrdinal = item.ParsedSeriesOrdinal.HasValue ? (double)item.ParsedSeriesOrdinal.Value : null,
             OrdinalScopeQid = item.OrdinalScopeQid,
@@ -926,6 +940,8 @@ internal static class SeriesManifestRecordExtensions
             ItemLabel = item.ItemLabel,
             ItemDescription = item.ItemDescription,
             MediaType = item.MediaType,
+            MediaKind = item.MediaKind,
+            InstanceOfQidsJson = item.InstanceOfQidsJson,
             RawOrdinal = item.RawOrdinal,
             ParsedOrdinal = item.ParsedOrdinal,
             OrdinalScopeQid = item.OrdinalScopeQid,

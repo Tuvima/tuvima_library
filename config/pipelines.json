@@ -175,6 +175,9 @@
       "sequence_format": [
         "tmdb",
         "wikidata_reconciliation"
+      ],
+      "sequence_manifest_json": [
+        "tmdb"
       ]
     }
   },

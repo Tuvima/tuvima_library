@@ -3978,6 +3978,27 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     background: var(--tl-accent-primary-soft) !important;
 }
 
+.app-native-select {
+    min-height: 2.75rem;
+    width: 100%;
+    padding: 0 2.5rem 0 0.85rem;
+    border: 1px solid var(--app-control-border, rgba(135, 151, 184, 0.48));
+    border-radius: var(--app-control-radius, 0.65rem);
+    background-color: var(--app-control-surface, rgba(11, 18, 29, 0.86));
+    color: var(--app-control-text, #f4f7ff);
+    font: inherit;
+    color-scheme: dark;
+}
+
+.app-native-select:hover {
+    border-color: var(--app-control-border-hover, rgba(142, 170, 235, 0.78));
+}
+
+.app-native-select:focus-visible {
+    outline: 2px solid var(--app-control-focus, #6d96ff);
+    outline-offset: 2px;
+}
+
 .app-select__option-icon {
     margin-right: var(--tl-space-2);
 }

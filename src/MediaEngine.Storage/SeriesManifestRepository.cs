@@ -49,7 +49,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             """
             SELECT id AS Id, collection_id AS CollectionId, series_qid AS SeriesQid,
                    item_qid AS ItemQid, item_label AS ItemLabel, item_description AS ItemDescription,
-                   media_type AS MediaType, raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
+                   media_type AS MediaType, media_kind AS MediaKind,
+                   instance_of_qids_json AS InstanceOfQidsJson,
+                   raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
                    ordinal_scope_qid AS OrdinalScopeQid,
                    sort_order AS SortOrder, publication_date AS PublicationDate,
                    previous_qid AS PreviousQid, next_qid AS NextQid,
@@ -100,6 +102,44 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<Guid>>>(result);
     }
 
+    public Task<IReadOnlyDictionary<string, IReadOnlyList<Guid>>> FindWorkIdsByExternalIdsAsync(
+        string externalIdKey,
+        IReadOnlyCollection<string> externalIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(externalIdKey);
+        if (externalIds.Count == 0)
+        {
+            return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<Guid>>>(
+                new Dictionary<string, IReadOnlyList<Guid>>(StringComparer.OrdinalIgnoreCase));
+        }
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<WorkExternalIdRow>(
+            """
+            SELECT id AS WorkId,
+                   CAST(json_extract(external_identifiers, @jsonPath) AS TEXT) AS ExternalId
+            FROM works
+            WHERE CAST(json_extract(external_identifiers, @jsonPath) AS TEXT) IN @externalIds;
+            """,
+            new
+            {
+                jsonPath = $"$.{externalIdKey}",
+                externalIds = externalIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            }).AsList();
+
+        var result = rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.ExternalId))
+            .GroupBy(row => row.ExternalId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<Guid>)group.Select(row => row.WorkId).Distinct().ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
+        return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<Guid>>>(result);
+    }
+
     public async Task UpsertManifestAsync(
         SeriesManifestHydration hydration,
         IReadOnlyList<SeriesManifestItemRecord> items,
@@ -137,20 +177,36 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                 ToHydrationParams(hydration),
                 tx);
 
+            var retainedItemQids = items.Select(item => item.ItemQid).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (retainedItemQids.Length > 0)
+            {
+                conn.Execute(
+                    """
+                    DELETE FROM series_manifest_items
+                    WHERE collection_id = @CollectionId
+                      AND series_qid = @SeriesQid
+                      AND item_qid NOT IN @RetainedItemQids;
+                    """,
+                    new { hydration.CollectionId, hydration.SeriesQid, RetainedItemQids = retainedItemQids },
+                    tx);
+            }
+
             foreach (var item in items)
             {
                 conn.Execute(
                     """
                     INSERT INTO series_manifest_items
                         (id, collection_id, series_qid, item_qid, item_label, item_description,
-                         media_type, raw_ordinal, parsed_ordinal, ordinal_scope_qid, sort_order, publication_date,
+                         media_type, media_kind, instance_of_qids_json,
+                         raw_ordinal, parsed_ordinal, ordinal_scope_qid, sort_order, publication_date,
                          previous_qid, next_qid, parent_collection_qid, parent_collection_label,
                          is_collection, is_expanded_from_collection, membership_scope, source_properties_json,
                          relationships_json, order_source, ownership_state, linked_work_id,
                          last_hydrated_at, created_at, updated_at)
                     VALUES
                         (@Id, @CollectionId, @SeriesQid, @ItemQid, @ItemLabel, @ItemDescription,
-                         @MediaType, @RawOrdinal, @ParsedOrdinal, @OrdinalScopeQid, @SortOrder, @PublicationDate,
+                         @MediaType, @MediaKind, @InstanceOfQidsJson,
+                         @RawOrdinal, @ParsedOrdinal, @OrdinalScopeQid, @SortOrder, @PublicationDate,
                          @PreviousQid, @NextQid, @ParentCollectionQid, @ParentCollectionLabel,
                          @IsCollection, @IsExpandedFromCollection, @MembershipScope, @SourcePropertiesJson,
                          @RelationshipsJson, @OrderSource, @OwnershipState, @LinkedWorkId,
@@ -160,6 +216,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                         item_label = excluded.item_label,
                         item_description = excluded.item_description,
                         media_type = excluded.media_type,
+                        media_kind = excluded.media_kind,
+                        instance_of_qids_json = excluded.instance_of_qids_json,
                         raw_ordinal = excluded.raw_ordinal,
                         parsed_ordinal = excluded.parsed_ordinal,
                         ordinal_scope_qid = excluded.ordinal_scope_qid,
@@ -303,7 +361,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             """
             SELECT id AS Id, collection_id AS CollectionId, series_qid AS SeriesQid,
                    item_qid AS ItemQid, item_label AS ItemLabel, item_description AS ItemDescription,
-                   media_type AS MediaType, raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
+                   media_type AS MediaType, media_kind AS MediaKind,
+                   instance_of_qids_json AS InstanceOfQidsJson,
+                   raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
                    ordinal_scope_qid AS OrdinalScopeQid,
                    sort_order AS SortOrder, publication_date AS PublicationDate,
                    previous_qid AS PreviousQid, next_qid AS NextQid,
@@ -387,6 +447,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             item.ItemLabel,
             item.ItemDescription,
             item.MediaType,
+            item.MediaKind,
+            item.InstanceOfQidsJson,
             item.RawOrdinal,
             item.ParsedOrdinal,
             item.OrdinalScopeQid,
@@ -419,6 +481,21 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             return JsonSerializer.Deserialize<IReadOnlyList<SeriesManifestWarningDto>>(json, JsonOptions) ?? [];
         }
         catch
+        {
+            return [];
+        }
+    }
+
+    private static IReadOnlyList<string> DeserializeStringArray(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            return JsonSerializer.Deserialize<IReadOnlyList<string>>(json, JsonOptions) ?? [];
+        }
+        catch (JsonException)
         {
             return [];
         }
@@ -544,6 +621,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         public string? ItemLabel { get; init; }
         public string? ItemDescription { get; init; }
         public string? MediaType { get; init; }
+        public string? MediaKind { get; init; }
+        public string InstanceOfQidsJson { get; init; } = "[]";
         public string? RawOrdinal { get; init; }
         public double? ParsedOrdinal { get; init; }
         public string? OrdinalScopeQid { get; init; }
@@ -574,6 +653,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             ItemLabel = ItemLabel,
             ItemDescription = ItemDescription,
             MediaType = MediaType,
+            MediaKind = MediaKind,
+            InstanceOfQidsJson = InstanceOfQidsJson,
             RawOrdinal = RawOrdinal,
             ParsedOrdinal = ParsedOrdinal,
             OrdinalScopeQid = OrdinalScopeQid,
@@ -603,6 +684,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             ItemLabel = ItemLabel,
             ItemDescription = ItemDescription,
             MediaType = MediaType,
+            MediaKind = MediaKind,
+            InstanceOfQids = DeserializeStringArray(InstanceOfQidsJson),
             RawOrdinal = RawOrdinal,
             ParsedOrdinal = ParsedOrdinal,
             OrdinalScopeQid = OrdinalScopeQid,
@@ -623,5 +706,11 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
     {
         public Guid WorkId { get; init; }
         public string? Qid { get; init; }
+    }
+
+    private sealed class WorkExternalIdRow
+    {
+        public Guid WorkId { get; init; }
+        public string? ExternalId { get; init; }
     }
 }

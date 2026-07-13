@@ -466,6 +466,49 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_CollapsesCurrentWorkFallbackAtTheSameStructuralSlot()
+    {
+        var linkedWorkId = Guid.NewGuid();
+        var currentWorkId = Guid.NewGuid();
+        var items = new List<SequenceItemViewModel>
+        {
+            new()
+            {
+                Id = linkedWorkId.ToString("D"),
+                EntityType = DetailEntityType.Book,
+                Title = "Example Volume",
+                PositionNumber = 3,
+                PositionSort = 3,
+                PositionLabel = "3",
+                IsOwned = true,
+            },
+            new()
+            {
+                Id = currentWorkId.ToString("D"),
+                EntityType = DetailEntityType.Book,
+                Title = "Example Volume",
+                PositionNumber = 3,
+                PositionSort = 3,
+                PositionLabel = "3",
+                IsCurrent = true,
+                IsOwned = true,
+            },
+        };
+
+        var method = typeof(DetailComposerService).GetMethod(
+            "DeduplicateManifestMergeItems",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+        var deduplicated = Assert.IsAssignableFrom<IEnumerable<SequenceItemViewModel>>(
+                method!.Invoke(null, [items]))
+            .ToList();
+
+        var item = Assert.Single(deduplicated);
+        Assert.True(item.IsCurrent);
+        Assert.True(item.IsOwned);
+    }
+
+    [Fact]
     public void DetailComposer_DoesNotConsumeAnotherFormatsManifestLinkAsTheCurrentOwnedItem()
     {
         var currentWorkId = Guid.NewGuid();
@@ -677,7 +720,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void DetailComposer_MergesEquivalentSequenceContainerDisplayTitlesWithoutMediaSpecificRules()
+    public void DetailComposer_DoesNotMergeSequenceContainersByDisplayTitleAlone()
     {
         var localCollection = new SequenceContainerOptionViewModel
         {
@@ -693,11 +736,41 @@ public sealed class DetailComposerServiceTests
             MediaScope = "Watch",
         };
 
-        Assert.True(InvokePrivate<bool>("ShouldMergeSequenceContainerOptions", localCollection, manifestSeries));
+        Assert.False(InvokePrivate<bool>("ShouldMergeSequenceContainerOptions", localCollection, manifestSeries));
     }
 
     [Fact]
-    public void DetailComposer_DeduplicatesSequenceSelectorOptionsBeforeReturningDetailModel()
+    public void SeriesProjection_DoesNotContainKnownTitleOrQidExceptions()
+    {
+        var root = FindRepoRoot();
+        var source = string.Join('\n', new[]
+        {
+            "src/MediaEngine.Api/Services/Details/DetailComposerService.cs",
+            "src/MediaEngine.Providers/Services/CollectionAssignmentService.cs",
+            "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs",
+        }.Select(path => File.ReadAllText(Path.Combine(root, path))));
+
+        foreach (var forbidden in new[]
+        {
+            "Dune",
+            "Harry Potter",
+            "Lord of the Rings",
+            "Blade Runner",
+            "Spider-Verse",
+            "Dark Knight",
+            "The Matrix",
+            "Q2307877",
+            "Q2111133",
+            "Q99601314",
+            "Q12859908",
+        })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public void DetailComposer_PreservesDistinctSequenceSelectorIdentities()
     {
         var localCollectionId = Guid.NewGuid().ToString("D");
         var options = new List<SequenceContainerOptionViewModel>
@@ -723,9 +796,9 @@ public sealed class DetailComposerServiceTests
             "DeduplicateSequenceContainerOptions",
             options);
 
-        var option = Assert.Single(distinct);
-        Assert.Equal(localCollectionId, option.ContainerId);
-        Assert.Contains("Q12345", option.EquivalentContainerIds);
+        Assert.Equal(2, distinct.Count);
+        Assert.Contains(distinct, option => option.ContainerId == localCollectionId);
+        Assert.Contains(distinct, option => option.ContainerId == "Q12345");
     }
 
     [Fact]

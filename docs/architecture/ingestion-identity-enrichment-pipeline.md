@@ -54,8 +54,10 @@ media-specific rules. The shared normalized fields are:
 | `sequence_total` | Expected item count for the accepted immediate container. |
 | `sequence_total_scope` | Whether the total describes the main sequence, extras, standalone item, collected edition, or broader franchise. |
 | `sequence_format` | Structural format such as standard item, annual, special, omnibus, compilation, or TV special. |
+| `sequence_manifest_json` | Provider-neutral ordered members for an immediate container, including stable external IDs, titles, source ordinals, and dates. |
 | `membership_scope` | Manifest relationship scope: main sequence, supplementary work, collected content, broader context, or unpositioned direct member. |
 | `ordinal_scope_qid` | The exact container that supplied an ordinal; only matching-container ordinals are displayed as sequence positions. |
+| `media_kind` / `instance_of_qids_json` | The manifest member's own media classification and supporting Wikidata P31 evidence. |
 
 Immediate shelves and broader rollups are different products. `series_qid` is
 only for an ordered, lane-compatible container. `franchise_qid` or universe
@@ -70,6 +72,19 @@ Wikidata manifests for books/audiobooks when no stronger retail sequence source
 exists. Title-specific runtime facts are prohibited; examples such as decimal
 novella placement, comic annuals, and multi-disc tracks must work through the
 normal ordinal parser and child identity rules.
+
+TMDB movie collections persist the complete ordered `parts` response as a
+provider sequence manifest. Owned works are linked by TMDB ID and all remaining
+members stay as missing placeholders. A finite ownership donut is shown only
+when the authoritative total is backed by enough manifest rows to render every
+position; otherwise the detail surface shows the owned count without claiming
+completion coverage.
+
+Series container equivalence requires shared stable identity evidence. A local
+collection, provider container, and Wikidata series are never merged solely
+because their display titles normalize to the same text. Broader franchise or
+"in film" contexts remain selectable alternatives rather than silently becoming
+the immediate shelf.
 
 The bridge can promote a P361 target to `series_qid` only when Tuvima.Wikidata
 classifies that target as an immediate ordered container. The manifest still

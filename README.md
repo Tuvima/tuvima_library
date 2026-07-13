@@ -76,6 +76,8 @@ Tuvima is Early Access, but it is not just a mockup. Current builds include:
 - Folder scanning, ingestion operations, file fingerprinting, duplicate handling, review creation, and live progress.
 - SQLite persistence with startup schema initialization, `guid-blob-v1` internal GUID storage, and reset/reingest safety for legacy database epochs.
 - Relationship-scoped series manifests keep the main sequence separate from short fiction, collected content, and broader franchise context while preserving provider/Wikidata decimal ordinals exactly.
+- Provider-neutral sequence manifests retain missing TMDB/Wikidata members, link ownership through stable external IDs, and only show finite completion totals when every position can be represented.
+- Series details use consistent Series Set/Series selectors, two-line partial ownership counts, a Jump to selector for groups over five entries, and carousel arrows adjacent to the visible cards.
 - EPUB reading routes, video/audio streaming routes, playback/reader progress APIs, and personal playback preferences.
 - Inline media editing through the shared editor in normal, review, and batch modes.
 - Provider configuration, provider health/status, pipeline priority settings, and config-driven provider adapters.

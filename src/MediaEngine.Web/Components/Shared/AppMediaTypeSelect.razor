@@ -6,8 +6,8 @@
            Variant="Variant.Outlined"
            Dense="true"
            Margin="Margin.Dense"
-           Class="@($"app-media-type-select {Class}".Trim())"
-           PopoverClass="app-media-type-select__popover">
+           Class="@($"app-control app-select app-media-type-select {Class}".Trim())"
+           PopoverClass="app-select__popover app-media-type-select__popover">
     @foreach (var option in Options)
     {
         <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>

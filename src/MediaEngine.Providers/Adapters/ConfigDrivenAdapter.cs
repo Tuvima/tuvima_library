@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -11,6 +12,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Providers.Adapters;
@@ -1475,6 +1477,29 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             AddIfMissing(claims, MetadataFieldConstants.SequenceTotal, parts.Count.ToString(CultureInfo.InvariantCulture), 0.90);
             AddIfMissing(claims, MetadataFieldConstants.SequenceTotalScope, SequenceCountScope.MainSequence.ToString(), 0.90);
             AddIfMissing(claims, MetadataFieldConstants.SequenceFormat, SequenceFormat.Standard.ToString(), 0.80);
+
+            var collectionName = collection["name"]?.GetValue<string>();
+            var manifest = new ProviderSequenceManifest
+            {
+                Provider = "tmdb",
+                ContainerId = $"tmdb:collection:{collectionId}",
+                ContainerLabel = collectionName,
+                ExternalIdKey = BridgeIdKeys.TmdbId,
+                MediaType = MediaType.Movies.ToString(),
+                IsAuthoritative = true,
+                Items = parts.Select((part, index) => new ProviderSequenceManifestItem
+                {
+                    ExternalId = part.Id,
+                    Title = part.Title,
+                    Ordinal = (index + 1).ToString(CultureInfo.InvariantCulture),
+                    ReleaseDate = part.ReleaseDate?.ToString("O", CultureInfo.InvariantCulture),
+                }).ToList(),
+            };
+            AddIfMissing(
+                claims,
+                MetadataFieldConstants.SequenceManifestJson,
+                JsonSerializer.Serialize(manifest),
+                1.0);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -12,6 +12,8 @@ public sealed class SeriesManifestItemRecord
     public string? ItemLabel { get; init; }
     public string? ItemDescription { get; init; }
     public string? MediaType { get; init; }
+    public string? MediaKind { get; init; }
+    public string InstanceOfQidsJson { get; init; } = "[]";
     public string? RawOrdinal { get; init; }
     public double? ParsedOrdinal { get; init; }
     public string? OrdinalScopeQid { get; init; }

@@ -1399,6 +1399,7 @@ public sealed class DetailComposerService
             });
         }
 
+        items = DeduplicateManifestMergeItems(items).ToList();
         items = NormalizeSequenceItems(items, entityType);
         items = SortSequenceItems(items);
         var hasPositionEvidence = items.Any(HasSequencePositionEvidence);
@@ -1412,7 +1413,7 @@ public sealed class DetailComposerService
             return null;
         }
 
-        var expectedTotal = await LoadSequenceExpectedTotalAsync(containerId, ct)
+        var expectedTotalCandidate = await LoadSequenceExpectedTotalAsync(containerId, ct)
             ?? await LoadSequenceExpectedTotalAsync(sourceContainerId, ct);
         var containerMetadata = await LoadSequenceContainerMetadataAsync(containerId, sourceContainerId, ct);
         var containerDescription = containerMetadata?.Description
@@ -1423,6 +1424,12 @@ public sealed class DetailComposerService
                     : null);
         var currentIndex = Math.Max(0, items.FindIndex(i => i.IsCurrent));
         var current = items[currentIndex];
+        var mainSequenceItemCount = items.Count(item =>
+            string.IsNullOrWhiteSpace(item.MembershipScope)
+            || string.Equals(item.MembershipScope, SeriesMembershipScopeNames.MainSequence, StringComparison.OrdinalIgnoreCase));
+        var expectedTotal = expectedTotalCandidate is > 0 && mainSequenceItemCount >= expectedTotalCandidate
+            ? expectedTotalCandidate
+            : null;
         var groups = BuildSequenceGroups(items, labels.ItemPluralLabel, expectedTotal);
         var currentGroup = groups.FirstOrDefault(group => string.Equals(group.Key, current.GroupKey ?? "all", StringComparison.OrdinalIgnoreCase));
         var totalKnownItems = currentGroup?.TotalKnownItems ?? Math.Max(items.Count, expectedTotal ?? 0);
@@ -1580,7 +1587,7 @@ public sealed class DetailComposerService
                 return collectionTotal;
         }
 
-        if (!IsWikidataQid(normalized))
+        if (!IsManifestBackedSequenceContainerId(normalized))
         {
             return null;
         }
@@ -2601,21 +2608,7 @@ public sealed class DetailComposerService
             return true;
         }
 
-        if (!string.Equals(existing.MediaScope, candidate.MediaScope, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var existingTitle = NormalizeSequenceContainerTitleForOptionMatch(existing.ContainerTitle);
-        var candidateTitle = NormalizeSequenceContainerTitleForOptionMatch(candidate.ContainerTitle);
-        if (string.IsNullOrWhiteSpace(existingTitle)
-            || !string.Equals(existingTitle, candidateTitle, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return IsLocalOrProviderBackedSequenceContainer(existing)
-            || IsLocalOrProviderBackedSequenceContainer(candidate);
+        return false;
     }
 
     private static SequenceContainerOptionViewModel MergeSequenceContainerOptions(
@@ -2693,7 +2686,7 @@ public sealed class DetailComposerService
            || option.EquivalentContainerIds.Any(alias => Guid.TryParse(alias, out _) || IsProviderSequenceContainerId(alias));
 
     private static bool IsManifestBackedSequenceContainerId(string? containerId)
-        => IsWikidataQid(containerId);
+        => IsWikidataQid(containerId) || IsProviderSequenceContainerId(containerId);
 
     private static bool IsProviderSequenceContainerId(string? containerId)
         => !string.IsNullOrWhiteSpace(containerId)
@@ -2811,7 +2804,7 @@ public sealed class DetailComposerService
         CancellationToken ct)
     {
         var normalizedContainerId = NormalizeSequenceContainerId(containerId);
-        if (items.Count == 0 || !IsWikidataQid(normalizedContainerId))
+        if (items.Count == 0 || !IsManifestBackedSequenceContainerId(normalizedContainerId))
         {
             return items;
         }
@@ -2896,7 +2889,7 @@ public sealed class DetailComposerService
     {
         var ordinalScopeQid = StringValue(GetDapperValue(row, "OrdinalScopeQid"));
         if (!string.IsNullOrWhiteSpace(ordinalScopeQid)
-            && !string.Equals(ExtractQid(ordinalScopeQid), ExtractQid(seriesQid), StringComparison.OrdinalIgnoreCase))
+            && !SequenceContainerIdEquals(ordinalScopeQid, seriesQid))
         {
             return null;
         }
@@ -2941,6 +2934,8 @@ public sealed class DetailComposerService
                    item_label AS ItemLabel,
                    item_description AS ItemDescription,
                    media_type AS MediaType,
+                   media_kind AS MediaKind,
+                   instance_of_qids_json AS InstanceOfQidsJson,
                    raw_ordinal AS RawOrdinal,
                    parsed_ordinal AS ParsedOrdinal,
                    ordinal_scope_qid AS OrdinalScopeQid,
@@ -2988,6 +2983,8 @@ public sealed class DetailComposerService
                    item_label AS ItemLabel,
                    item_description AS ItemDescription,
                    media_type AS MediaType,
+                   media_kind AS MediaKind,
+                   instance_of_qids_json AS InstanceOfQidsJson,
                    raw_ordinal AS RawOrdinal,
                    parsed_ordinal AS ParsedOrdinal,
                    ordinal_scope_qid AS OrdinalScopeQid,
@@ -3209,9 +3206,6 @@ public sealed class DetailComposerService
 
     private static string BuildManifestMergeKey(SequenceItemViewModel item)
     {
-        if (Guid.TryParse(item.Id, out var linkedWorkId))
-            return $"work:{linkedWorkId:D}";
-
         if (item.Id.StartsWith("missing-", StringComparison.OrdinalIgnoreCase))
             return $"qid:{item.Id["missing-".Length..]}";
 
@@ -3219,6 +3213,9 @@ public sealed class DetailComposerService
         var positionKey = SequencePositionKey(item.PositionSort ?? item.PositionNumber);
         if (!string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(positionKey))
             return $"title-position:{title}:{positionKey}";
+
+        if (Guid.TryParse(item.Id, out var linkedWorkId))
+            return $"work:{linkedWorkId:D}";
 
         if (!string.IsNullOrWhiteSpace(title))
             return $"title:{title}";
@@ -3328,14 +3325,27 @@ public sealed class DetailComposerService
 
     private static bool IsManifestItemInMediaScope(SeriesManifestItemRecord item, DetailEntityType entityType)
     {
-        if (item.LinkedWorkId.HasValue)
-        {
-            return true;
-        }
-
-        if (item.IsCollection)
+        if (item.IsCollection
+            && !(string.Equals(item.MembershipScope, SeriesMembershipScopeNames.MainSequence, StringComparison.OrdinalIgnoreCase)
+                && ManifestSourcePosition(item).HasValue))
         {
             return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.MediaKind)
+            && !string.Equals(item.MediaKind, "Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return entityType switch
+            {
+                DetailEntityType.Movie or DetailEntityType.MovieSeries => item.MediaKind.Equals("Film", StringComparison.OrdinalIgnoreCase),
+                DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => item.MediaKind.Equals("Television", StringComparison.OrdinalIgnoreCase),
+                DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => item.MediaKind.Equals("Comic", StringComparison.OrdinalIgnoreCase),
+                DetailEntityType.Audiobook => item.MediaKind.Equals("Audiobook", StringComparison.OrdinalIgnoreCase)
+                    || item.MediaKind.Equals("LiteraryWork", StringComparison.OrdinalIgnoreCase),
+                DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.Work => item.MediaKind.Equals("LiteraryWork", StringComparison.OrdinalIgnoreCase),
+                DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.MusicArtist => item.MediaKind.Equals("Music", StringComparison.OrdinalIgnoreCase),
+                _ => !item.MediaKind.Equals("StageWork", StringComparison.OrdinalIgnoreCase),
+            };
         }
 
         var text = string.Join(' ', new[]
@@ -7641,6 +7651,8 @@ public sealed class DetailComposerService
         public string? ItemLabel { get; set; }
         public string? ItemDescription { get; set; }
         public string? MediaType { get; set; }
+        public string? MediaKind { get; set; }
+        public string InstanceOfQidsJson { get; set; } = "[]";
         public string? RawOrdinal { get; set; }
         public double? ParsedOrdinal { get; set; }
         public string? OrdinalScopeQid { get; set; }
@@ -7671,6 +7683,8 @@ public sealed class DetailComposerService
             ItemLabel = ItemLabel,
             ItemDescription = ItemDescription,
             MediaType = MediaType,
+            MediaKind = MediaKind,
+            InstanceOfQidsJson = InstanceOfQidsJson,
             RawOrdinal = RawOrdinal,
             ParsedOrdinal = ParsedOrdinal,
             OrdinalScopeQid = OrdinalScopeQid,

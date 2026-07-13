@@ -15,6 +15,11 @@ public interface ISeriesManifestRepository
         IReadOnlyCollection<string> qids,
         CancellationToken ct = default);
 
+    Task<IReadOnlyDictionary<string, IReadOnlyList<Guid>>> FindWorkIdsByExternalIdsAsync(
+        string externalIdKey,
+        IReadOnlyCollection<string> externalIds,
+        CancellationToken ct = default);
+
     Task UpsertManifestAsync(
         SeriesManifestHydration hydration,
         IReadOnlyList<SeriesManifestItemRecord> items,

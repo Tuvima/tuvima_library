@@ -23,6 +23,7 @@
     "sequence_total",
     "sequence_total_scope",
     "sequence_format",
+    "sequence_manifest_json",
     "tmdb_id",
     "imdb_id",
     "rating",

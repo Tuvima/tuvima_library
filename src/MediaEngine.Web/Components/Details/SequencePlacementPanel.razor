@@ -8,43 +8,59 @@
 <section class="tl-series-placement @PanelClass">
     <div class="tl-series-layout">
     <aside class="tl-series-header">
-        <div>
+        @if (Compact)
+        {
             <div class="tl-series-eyebrow">
-                <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
-                <span>@(Compact ? ContainerTitleDisplay : Placement.ContainerLabel)</span>
-                @if (Compact)
-                {
-                    <small>@PositionSummary</small>
-                }
+                <span>Series</span>
+                <small>@ContainerTitleDisplay</small>
             </div>
-            @if (!Compact)
-            {
-                <h2>@ContainerTitleDisplay</h2>
-            }
+        }
+        else
+        {
+        <div class="tl-series-controls">
             @if (CanChooseDistinctContainer)
             {
-                <div class="tl-series-selector">
-                    @foreach (var option in DistinctAvailableContainers)
+                <div class="tl-series-control-row">
+                    <AppSelect Label="Series Set"
+                               Value="@SelectedContainerValue"
+                               ValueChanged="SelectContainerValueAsync"
+                               Options="@ContainerSelectOptions"
+                               LeadingIcon="@Icons.Material.Outlined.Layers"
+                               Class="tl-series-control tl-series-control--set"
+                               PopoverClass="app-select__popover tl-series-select-popover" />
+                    @if (ShowSetDefault)
                     {
-                        <AppNativeButton Type="button" Class='@($"tl-series-selector__option {(option.IsSelected ? " is-selected" : null)}")' OnClick="() => SelectContainerAsync(option)">
-                            @option.ContainerTitle
+                        <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
+                            Make default
                         </AppNativeButton>
                     }
                 </div>
             }
+            else
+            {
+                <div class="tl-series-static-control">
+                    <span>Series Set</span>
+                    <strong>@ContainerTitleDisplay</strong>
+                </div>
+            }
             @if (ShowGroupSelector)
             {
-                <label class="tl-series-selector">
-                    <span class="sr-only">@Placement.GroupLabel</span>
-                    <AppNativeSelect Value="@SelectedGroupKey" OnChange="SelectGroup">
-                        @foreach (var group in VisibleGroups)
-                        {
-                            <option value="@group.Key">@group.Title</option>
-                        }
-                    </AppNativeSelect>
-                </label>
+                <AppSelect Label="Series"
+                           Value="@SelectedGroupKey"
+                           ValueChanged="SelectGroup"
+                           Options="@GroupSelectOptions"
+                           Class="tl-series-control tl-series-control--group"
+                           PopoverClass="app-select__popover tl-series-select-popover" />
+            }
+            else if (ActiveGroup is not null)
+            {
+                <div class="tl-series-static-control tl-series-static-control--group">
+                    <span>Series</span>
+                    <strong>@ActiveGroup.Title</strong>
+                </div>
             }
         </div>
+        }
 
         <div class="tl-series-position-summary" aria-label="@PositionSummary">
             <div class="@CoverageVisualClass">
@@ -117,14 +133,20 @@
                     <span>Series: Wikipedia</span>
                 </a>
             }
-            @if (ShowSetDefault)
-            {
-                <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
-                    Set as default
-                </AppNativeButton>
-            }
         </div>
     </aside>
+
+    @if (!Compact && ShowJumpSelector)
+    {
+        <div class="tl-series-jump">
+            <AppSelect Label="Jump to"
+                       Value="@JumpSelectionValue"
+                       ValueChanged="SelectJump"
+                       Options="@JumpSelectOptions"
+                       Class="tl-series-control tl-series-control--jump"
+                       PopoverClass="app-select__popover tl-series-select-popover" />
+        </div>
+    }
 
     <div class="tl-series-carousel">
         <AppIconButton Class="@LeftArrowClass"
@@ -166,10 +188,11 @@
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
     [Parameter] public bool Compact { get; set; }
 
-    private const int LongSequenceThreshold = 9;
+    private const int LongSequenceThreshold = 6;
     private const int WindowSize = 6;
     private string? _placementKey;
     private string? _selectedGroupKey;
+    private string? _jumpSelectionValue;
     private int _windowCenterIndex;
     private bool _canCurateSequence;
     private bool _settingDefault;
@@ -188,6 +211,9 @@
             : [new SequenceGroupViewModel { Key = "all", Title = Placement.ItemPluralLabel, Items = Placement.OrderedItems }];
 
     private bool ShowGroupSelector => VisibleGroups.Count > 1 && !string.IsNullOrWhiteSpace(Placement.GroupLabel);
+    private IReadOnlyList<AppSelectOption> GroupSelectOptions => VisibleGroups
+        .Select(group => new AppSelectOption(group.Key, group.Title))
+        .ToList();
 
     private string? SelectedGroupKey
     {
@@ -219,6 +245,13 @@
             : Placement.OrderedItems;
 
     private bool IsLongSequence => TotalItems >= LongSequenceThreshold;
+    private bool ShowJumpSelector => ActiveItems.Count > 5;
+    private string? JumpSelectionValue => _jumpSelectionValue;
+    private IReadOnlyList<AppSelectOption> JumpSelectOptions => ActiveItems
+        .Select((item, index) => new AppSelectOption(
+            index.ToString(CultureInfo.InvariantCulture),
+            $"#{SequenceNumber(item)} — {SequenceItemTitle(item)}"))
+        .ToList();
     private int OwnedCount => ActiveItems.Count(item => item.IsOwned);
     private int MissingCount => Math.Max(0, TotalItems - OwnedCount);
     private bool IsComicSequence => Placement.CurrentItem.EntityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
@@ -262,9 +295,14 @@
     private string RightArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--right{(CanPageRight ? string.Empty : " is-hidden")}";
     private IReadOnlyList<SequenceContainerOptionViewModel> DistinctAvailableContainers => BuildDistinctContainerOptions(Placement.AvailableContainers);
     private bool CanChooseDistinctContainer => Placement.CanChooseContainer && DistinctAvailableContainers.Count > 1;
+    private string? SelectedContainerValue => DistinctAvailableContainers.FirstOrDefault(option => option.IsSelected)?.ContainerId
+        ?? Placement.SelectedContainerId;
+    private IReadOnlyList<AppSelectOption> ContainerSelectOptions => DistinctAvailableContainers
+        .Select(option => new AppSelectOption(option.ContainerId, ContainerOptionLabel(option), Icons.Material.Outlined.Layers))
+        .ToList();
     private bool ShowSetDefault => _canCurateSequence && CanChooseDistinctContainer && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
     private string CoverageVisualClass => $"tl-series-position-summary__donut{(ShowCoverageDonut ? string.Empty : " is-count-only")}";
-    private string CoverageCenterClass => $"tl-series-position-summary__center{(IsComicSequence && HasCurrentPosition ? " is-comic-position" : string.Empty)}";
+    private string CoverageCenterClass => $"tl-series-position-summary__center{(!ShowCoverageDonut ? " is-stacked" : string.Empty)}{(IsComicSequence && HasCurrentPosition ? " is-comic-position" : string.Empty)}";
     private string CoveragePrimaryText => ShowCoverageDonut
         ? OwnedCount.ToString(CultureInfo.InvariantCulture)
         : IsComicSequence && HasCurrentPosition
@@ -324,6 +362,7 @@
         {
             _placementKey = key;
             _selectedGroupKey = Placement.CurrentGroupKey;
+            _jumpSelectionValue = null;
             _windowCenterIndex = Math.Max(0, ActiveItems.ToList().FindIndex(item => item.IsCurrent));
         }
 
@@ -331,14 +370,27 @@
         _canCurateSequence = profile?.Role is "Administrator" or "Curator";
     }
 
-    private void SelectGroup(ChangeEventArgs args)
+    private void SelectGroup(string? value)
     {
-        var value = args.Value?.ToString();
         if (string.IsNullOrWhiteSpace(value))
             return;
 
         _selectedGroupKey = value;
+        _jumpSelectionValue = null;
         _windowCenterIndex = Math.Max(0, ActiveItems.ToList().FindIndex(item => item.IsCurrent));
+    }
+
+    private void SelectJump(string? value)
+    {
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
+            || index < 0
+            || index >= ActiveItems.Count)
+        {
+            return;
+        }
+
+        _jumpSelectionValue = value;
+        _windowCenterIndex = index;
     }
 
     private void PageLeft()
@@ -349,6 +401,13 @@
 
     private Task SelectContainerAsync(SequenceContainerOptionViewModel option)
         => OnContainerSelected.InvokeAsync(option);
+
+    private Task SelectContainerValueAsync(string? containerId)
+    {
+        var option = DistinctAvailableContainers.FirstOrDefault(candidate =>
+            string.Equals(candidate.ContainerId, containerId, StringComparison.OrdinalIgnoreCase));
+        return option is null ? Task.CompletedTask : SelectContainerAsync(option);
+    }
 
     private async Task SetDefaultSequenceAsync()
     {
@@ -395,10 +454,20 @@
             }
             else
             {
-                <div class="tl-series-item__missing-art" aria-label="Missing from library">
-                    <MudIcon Icon="@MissingIcon" Size="Size.Large" />
-                    <span>Not in library</span>
-                </div>
+                @if (item.IsOwned)
+                {
+                    <div class="tl-series-item__missing-art is-owned-placeholder" aria-label="Artwork unavailable">
+                        <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                        <span>Artwork unavailable</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="tl-series-item__missing-art" aria-label="Missing from library">
+                        <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                        <span>Not in library</span>
+                    </div>
+                }
             }
             @if (item.IsCurrent && !Compact)
             {
@@ -492,6 +561,31 @@
         return distinct;
     }
 
+    private string ContainerOptionLabel(SequenceContainerOptionViewModel option)
+    {
+        var title = FirstNonBlank(option.ContainerTitle, option.ContainerId)!;
+        var hasDuplicateTitle = DistinctAvailableContainers.Count(candidate =>
+            string.Equals(candidate.ContainerTitle?.Trim(), option.ContainerTitle?.Trim(), StringComparison.OrdinalIgnoreCase)) > 1;
+        return hasDuplicateTitle ? $"{title} · {ContainerSourceLabel(option)}" : title;
+    }
+
+    private static string ContainerSourceLabel(SequenceContainerOptionViewModel option)
+    {
+        var ids = new[] { option.SourceContainerId, option.ContainerId }
+            .Concat(option.EquivalentContainerIds)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .ToList();
+        if (ids.Any(IsWikidataQid))
+            return "Wikidata";
+
+        var providerId = ids.FirstOrDefault(value => value.Contains(':', StringComparison.Ordinal));
+        if (providerId is not null)
+            return providerId.Split(':', 2)[0].ToUpperInvariant();
+
+        return "Library";
+    }
+
     private static bool ShouldMergeContainerOptions(SequenceContainerOptionViewModel existing, SequenceContainerOptionViewModel candidate)
     {
         if (ContainerOptionMatches(existing, candidate.ContainerId)
@@ -501,13 +595,7 @@
             return true;
         }
 
-        if (!string.Equals(existing.MediaScope, candidate.MediaScope, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        return string.Equals(
-            NormalizeContainerOptionTitle(existing.ContainerTitle),
-            NormalizeContainerOptionTitle(candidate.ContainerTitle),
-            StringComparison.OrdinalIgnoreCase);
+        return false;
     }
 
     private static SequenceContainerOptionViewModel MergeContainerOptions(SequenceContainerOptionViewModel existing, SequenceContainerOptionViewModel candidate)
@@ -578,28 +666,6 @@
         => Guid.TryParse(value, out _)
            || (!string.IsNullOrWhiteSpace(value) && value.Length > 1 && value[0] == 'Q' && value.Skip(1).All(char.IsDigit))
            || (!string.IsNullOrWhiteSpace(value) && value.Contains(':', StringComparison.Ordinal));
-
-    private static string? NormalizeContainerOptionTitle(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var normalized = new string(value.Trim().ToLowerInvariant()
-            .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
-            .ToArray());
-        var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
-        if (words.Count > 1 && words[0] == "the")
-            words.RemoveAt(0);
-
-        while (words.Count > 1 && IsGenericContainerWord(words[^1]))
-            words.RemoveAt(words.Count - 1);
-
-        return words.Count == 0 ? null : string.Join(' ', words);
-    }
-
-    private static bool IsGenericContainerWord(string value)
-        => string.Equals(value, "collection", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(value, "series", StringComparison.OrdinalIgnoreCase);
 
     private string? ResolveSeriesWikidataQid()
     {

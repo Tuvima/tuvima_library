@@ -32,6 +32,8 @@ public sealed class SeriesManifestItemDto
     [JsonPropertyName("item_label")] public string? ItemLabel { get; init; }
     [JsonPropertyName("item_description")] public string? ItemDescription { get; init; }
     [JsonPropertyName("media_type")] public string? MediaType { get; init; }
+    [JsonPropertyName("media_kind")] public string? MediaKind { get; init; }
+    [JsonPropertyName("instance_of_qids")] public IReadOnlyList<string> InstanceOfQids { get; init; } = [];
     [JsonPropertyName("raw_ordinal")] public string? RawOrdinal { get; init; }
     [JsonPropertyName("parsed_ordinal")] public double? ParsedOrdinal { get; init; }
     [JsonPropertyName("ordinal_scope_qid")] public string? OrdinalScopeQid { get; init; }

@@ -969,6 +969,8 @@ CREATE TABLE IF NOT EXISTS series_manifest_items (
     item_label                  TEXT,
     item_description            TEXT,
     media_type                  TEXT,
+    media_kind                  TEXT,
+    instance_of_qids_json       TEXT NOT NULL DEFAULT '[]',
     raw_ordinal                 TEXT,
     parsed_ordinal              REAL,
     ordinal_scope_qid           TEXT,

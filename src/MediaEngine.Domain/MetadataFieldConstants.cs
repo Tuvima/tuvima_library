@@ -90,6 +90,7 @@ public static class MetadataFieldConstants
     public const string SequenceTotalScope = "sequence_total_scope";
     public const string SequenceFormat    = "sequence_format";
     public const string ChildEntitiesJson = "child_entities_json";
+    public const string SequenceManifestJson = "sequence_manifest_json";
 
     // ── Multi-valued claim keys also used in claim creation ──────────────────
     public const string Narrator        = "narrator";

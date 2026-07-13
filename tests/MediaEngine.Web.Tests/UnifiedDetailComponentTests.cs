@@ -432,11 +432,13 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.Contains("<h2>@ContainerTitleDisplay</h2>", source);
+        Assert.Contains("<span>Series Set</span>", source);
+        Assert.Contains("<strong>@ContainerTitleDisplay</strong>", source);
+        Assert.Contains("Label=\"Series Set\"", source);
+        Assert.Contains("Label=\"Series\"", source);
         Assert.Contains("[Parameter] public bool Compact { get; set; }", source);
         Assert.Contains("Placement.ContainerDescription", source);
         Assert.Contains("tl-series-placement--compact", source);
-        Assert.Contains("@(Compact ? ContainerTitleDisplay : Placement.ContainerLabel)", source);
         Assert.Contains("item.IsCurrent && !Compact", source);
         Assert.DoesNotContain("Part of", source);
         Assert.Contains("TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel)", source);
@@ -452,11 +454,19 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-position-summary", source);
         Assert.Contains("tl-series-position-summary__donut", source);
         Assert.Contains("tl-series-position-summary__center", source);
-        Assert.Contains("OnClick=\"() => SelectContainerAsync(option)\"", source);
+        Assert.Contains("ValueChanged=\"SelectContainerValueAsync\"", source);
+        Assert.Contains("ShowJumpSelector => ActiveItems.Count > 5", source);
+        Assert.Contains("ValueChanged=\"SelectJump\"", source);
+        Assert.Contains("is-stacked", source);
         Assert.Contains("DistinctAvailableContainers", source);
         Assert.Contains("CanChooseDistinctContainer", source);
-        Assert.Contains("NormalizeContainerOptionTitle", source);
-        Assert.Contains("IsGenericContainerWord", source);
+        Assert.Contains("ContainerOptionLabel(option)", source);
+        Assert.Contains("ContainerSourceLabel", source);
+        Assert.DoesNotContain("NormalizeContainerOptionTitle", source);
+        Assert.DoesNotContain("IsGenericContainerWord", source);
+        Assert.Contains("item.IsOwned", source);
+        Assert.Contains("Artwork unavailable", source);
+        Assert.Contains("is-owned-placeholder", styles);
         Assert.Contains("=> OnContainerSelected.InvokeAsync(option)", source);
         Assert.DoesNotContain("Disabled=\"@option.IsSelected\"", source);
         Assert.DoesNotContain("Current position", source, StringComparison.OrdinalIgnoreCase);
@@ -475,7 +485,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("owned of {TotalItems}", source);
         Assert.Contains("item.EntityType == DetailEntityType.TvEpisode", source);
         Assert.Contains("tl-series-placement--long", source);
-        Assert.Contains("LongSequenceThreshold = 9", source);
+        Assert.Contains("LongSequenceThreshold = 6", source);
         Assert.Contains("WindowSize = 6", source);
         Assert.Contains("SequenceItemTitleClass", source);
         Assert.Contains("is-very-long", source);

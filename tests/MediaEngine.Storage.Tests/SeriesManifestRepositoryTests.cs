@@ -82,6 +82,44 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task FindWorkIdsByExternalIds_ReturnsProviderMatches()
+    {
+        var repo = new SeriesManifestRepository(_db);
+        var workId = await CreateWorkAsync("QWork");
+        using (var conn = _db.CreateConnection())
+        {
+            conn.Execute(
+                "UPDATE works SET external_identifiers = @json WHERE id = @workId;",
+                new { json = "{\"tmdb_id\":\"78\"}", workId });
+        }
+
+        var matches = await repo.FindWorkIdsByExternalIdsAsync("tmdb_id", ["78", "999"]);
+
+        Assert.True(matches.TryGetValue("78", out var workIds));
+        Assert.Equal([workId], workIds);
+        Assert.False(matches.ContainsKey("999"));
+    }
+
+    [Fact]
+    public async Task UpsertManifest_ReplacesRemovedProviderItemsAndPersistsClassification()
+    {
+        var repo = new SeriesManifestRepository(_db);
+        var collectionId = await CreateCollectionAsync(string.Empty, "Provider sequence");
+        var now = DateTimeOffset.UtcNow;
+        var first = Item(collectionId, "provider:series:1", "provider:item:1", "One", 1, "Missing", null, now, mediaKind: "Film");
+        var second = Item(collectionId, "provider:series:1", "provider:item:2", "Two", 2, "Missing", null, now);
+
+        await repo.UpsertManifestAsync(Hydration(collectionId, "provider:series:1", now), [first, second]);
+        await repo.UpsertManifestAsync(Hydration(collectionId, "provider:series:1", now.AddMinutes(1)), [first]);
+
+        var view = await repo.GetViewByCollectionIdAsync(collectionId);
+        Assert.NotNull(view);
+        var retained = Assert.Single(view.Items);
+        Assert.Equal("provider:item:1", retained.ItemQid);
+        Assert.Equal("Film", retained.MediaKind);
+    }
+
+    [Fact]
     public async Task GetView_CountsMainSequenceWithoutDroppingSupplementaryWorks()
     {
         var repo = new SeriesManifestRepository(_db);
@@ -349,7 +387,8 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
         string? parentCollectionLabel = null,
         bool isCollection = false,
         bool isExpandedFromCollection = false,
-        string membershipScope = SeriesMembershipScopeNames.MainSequence)
+        string membershipScope = SeriesMembershipScopeNames.MainSequence,
+        string? mediaKind = null)
         => new()
         {
             Id = Guid.NewGuid(),
@@ -357,6 +396,7 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
             SeriesQid = seriesQid,
             ItemQid = qid,
             ItemLabel = label,
+            MediaKind = mediaKind,
             SortOrder = sortOrder,
             OrderSource = "SeriesOrdinal",
             OwnershipState = ownership,

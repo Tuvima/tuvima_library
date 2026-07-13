@@ -1174,6 +1174,13 @@ public sealed class AdapterFallbackTests
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotal && c.Value == "2");
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceTotalScope && c.Value == SequenceCountScope.MainSequence.ToString());
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.SequenceFormat && c.Value == SequenceFormat.Standard.ToString());
+        var manifestClaim = Assert.Single(claims, c => c.Key == MetadataFieldConstants.SequenceManifestJson);
+        var manifest = JsonSerializer.Deserialize<ProviderSequenceManifest>(manifestClaim.Value);
+        Assert.NotNull(manifest);
+        Assert.Equal("tmdb:collection:422837", manifest.ContainerId);
+        Assert.True(manifest.IsAuthoritative);
+        Assert.Equal(["78", "335984"], manifest.Items.Select(item => item.ExternalId));
+        Assert.Equal(["1", "2"], manifest.Items.Select(item => item.Ordinal));
     }
 
     [Fact]

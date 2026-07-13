@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
@@ -8,6 +10,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Models;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -30,6 +33,7 @@ public sealed class CollectionAssignmentService
     private readonly ICanonicalValueArrayRepository? _arrayRepo;
     private readonly IWorkRepository _workRepo;
     private readonly ILogger<CollectionAssignmentService> _logger;
+    private readonly ISeriesManifestRepository? _manifestRepo;
 
     // Per-shelf semaphores serialise concurrent find-or-create calls so two
     // workers cannot race past lookup and both UpsertAsync the same ContentGroup
@@ -41,13 +45,15 @@ public sealed class CollectionAssignmentService
         ICanonicalValueRepository canonicalRepo,
         IWorkRepository workRepo,
         ILogger<CollectionAssignmentService> logger,
-        ICanonicalValueArrayRepository? arrayRepo = null)
+        ICanonicalValueArrayRepository? arrayRepo = null,
+        ISeriesManifestRepository? manifestRepo = null)
     {
         _collectionRepo = collectionRepo;
         _canonicalRepo = canonicalRepo;
         _arrayRepo = arrayRepo;
         _workRepo = workRepo;
         _logger = logger;
+        _manifestRepo = manifestRepo;
     }
 
     /// <summary>
@@ -113,6 +119,7 @@ public sealed class CollectionAssignmentService
                 await UpgradeCollectionIdentityAsync(existingCollection, shelf, ct);
                 var relationshipsAdded = await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
                 await EnsureSequenceFactsAsync(existingCollection.Id, mediaType, lookup, ct);
+                await UpsertProviderSequenceManifestAsync(existingCollection.Id, lookup, ct);
 
                 _logger.LogDebug(
                     "CollectionAssignment: work {WorkId} already assigned to collection {CollectionId}",
@@ -183,6 +190,7 @@ public sealed class CollectionAssignmentService
             relationshipCount = await EnsureCollectionRelationshipsAsync(collection.Id, lookup, ct);
             await EnsureSequenceFactsAsync(collection.Id, mediaType, lookup, ct);
             await _collectionRepo.AssignWorkToCollectionAsync(workId.Value, collection.Id, ct);
+            await UpsertProviderSequenceManifestAsync(collection.Id, lookup, ct);
         }
         finally
         {
@@ -304,6 +312,133 @@ public sealed class CollectionAssignmentService
             ],
             ct);
     }
+
+    private async Task UpsertProviderSequenceManifestAsync(
+        Guid collectionId,
+        Dictionary<string, string> lookup,
+        CancellationToken ct)
+    {
+        if (_manifestRepo is null
+            || !TryGetValue(lookup, MetadataFieldConstants.SequenceManifestJson, out var rawManifest))
+        {
+            return;
+        }
+
+        ProviderSequenceManifest? manifest;
+        try
+        {
+            manifest = JsonSerializer.Deserialize<ProviderSequenceManifest>(rawManifest);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "CollectionAssignment: invalid provider sequence manifest for collection {CollectionId}", collectionId);
+            return;
+        }
+
+        if (manifest is null
+            || string.IsNullOrWhiteSpace(manifest.Provider)
+            || string.IsNullOrWhiteSpace(manifest.ContainerId)
+            || string.IsNullOrWhiteSpace(manifest.ExternalIdKey)
+            || manifest.Items.Count == 0)
+        {
+            return;
+        }
+
+        var externalIds = manifest.Items
+            .Select(item => item.ExternalId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var ownedByExternalId = await _manifestRepo.FindWorkIdsByExternalIdsAsync(
+            manifest.ExternalIdKey,
+            externalIds,
+            ct).ConfigureAwait(false);
+
+        var now = DateTimeOffset.UtcNow;
+        var rows = manifest.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.ExternalId) && !string.IsNullOrWhiteSpace(item.Title))
+            .Select((item, index) =>
+            {
+                var linkedWorkId = ownedByExternalId.TryGetValue(item.ExternalId, out var workIds)
+                    ? workIds.FirstOrDefault()
+                    : (Guid?)null;
+                var parsedOrdinal = double.TryParse(item.Ordinal, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                    ? parsed
+                    : (double?)null;
+
+                return new SeriesManifestItemRecord
+                {
+                    Id = Guid.NewGuid(),
+                    CollectionId = collectionId,
+                    SeriesQid = manifest.ContainerId,
+                    ItemQid = $"{manifest.Provider}:{manifest.ExternalIdKey}:{item.ExternalId}",
+                    ItemLabel = item.Title,
+                    MediaType = manifest.MediaType,
+                    MediaKind = ResolveProviderManifestMediaKind(manifest.MediaType),
+                    RawOrdinal = item.Ordinal,
+                    ParsedOrdinal = parsedOrdinal,
+                    OrdinalScopeQid = manifest.ContainerId,
+                    SortOrder = parsedOrdinal ?? index + 1,
+                    PublicationDate = item.ReleaseDate,
+                    MembershipScope = SeriesMembershipScopeNames.MainSequence,
+                    SourcePropertiesJson = JsonSerializer.Serialize(new[] { $"{manifest.Provider}:sequence-manifest" }),
+                    RelationshipsJson = "[]",
+                    OrderSource = "ProviderOrdinal",
+                    OwnershipState = linkedWorkId.HasValue ? "Owned" : "Missing",
+                    LinkedWorkId = linkedWorkId,
+                    LastHydratedAt = now,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                };
+            })
+            .ToList();
+
+        if (rows.Count == 0)
+            return;
+
+        var manifestHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            string.Join('|', rows.Select(row => $"{row.ItemQid}:{row.RawOrdinal}"))))).ToLowerInvariant();
+        var hydration = new SeriesManifestHydration
+        {
+            SeriesQid = manifest.ContainerId,
+            CollectionId = collectionId,
+            SeriesLabel = manifest.ContainerLabel,
+            ManifestSource = manifest.Provider,
+            ManifestVersion = "1",
+            ManifestHash = manifestHash,
+            KnownItemQidsHash = manifestHash,
+            WarningsJson = "[]",
+            ApiMetadataJson = JsonSerializer.Serialize(new
+            {
+                containerKind = "OrderedSeries",
+                completeness = manifest.IsAuthoritative ? "Complete" : "Partial",
+                expectedTotal = rows.Count,
+                expectedTotalKind = "manifest_items",
+                expectedTotalSource = $"{manifest.Provider}-sequence-manifest",
+                expectedTotalConfidence = manifest.IsAuthoritative ? 1.0 : 0.7,
+            }),
+            LastHydratedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+
+        await _manifestRepo.UpsertManifestAsync(hydration, rows, ct).ConfigureAwait(false);
+        await _manifestRepo.LinkOwnedWorksAsync(collectionId, rows, ct).ConfigureAwait(false);
+    }
+
+    private static string ResolveProviderManifestMediaKind(string mediaType)
+        => Enum.TryParse<MediaType>(mediaType, true, out var parsed)
+            ? parsed switch
+            {
+                MediaType.Books => "LiteraryWork",
+                MediaType.Audiobooks => "Audiobook",
+                MediaType.Movies => "Film",
+                MediaType.TV => "Television",
+                MediaType.Comics => "Comic",
+                MediaType.Music => "Music",
+                _ => "Unknown",
+            }
+            : "Unknown";
 
     private static bool CollectionMatchesShelf(Collection collection, ShelfIdentity shelf)
     {

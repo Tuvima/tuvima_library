@@ -1,6 +1,6 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<select class="@Class"
+<select class="@RootClass"
         value="@Value"
         disabled="@Disabled"
         @onchange="@HandleChange"
@@ -16,6 +16,9 @@
     [Parameter] public EventCallback<ChangeEventArgs> OnChange { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string RootClass => string.Join(" ", new[] { "app-control", "app-native-select", Class }
+        .Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private async Task HandleChange(ChangeEventArgs args)
     {
