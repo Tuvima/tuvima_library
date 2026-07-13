@@ -205,11 +205,13 @@
         linear-gradient(
             to right,
             rgb(var(--hero-bg-rgb)) 0%,
-            rgb(var(--hero-bg-rgb)) 30%,
-            rgba(var(--hero-bg-rgb), 0.92) 33%,
-            rgba(var(--hero-bg-rgb), 0.55) 37%,
-            rgba(var(--hero-bg-rgb), 0.18) 42%,
-            transparent 47%
+            rgb(var(--hero-bg-rgb)) 27%,
+            rgba(var(--hero-bg-rgb), 0.96) 32%,
+            rgba(var(--hero-bg-rgb), 0.82) 38%,
+            rgba(var(--hero-bg-rgb), 0.58) 44%,
+            rgba(var(--hero-bg-rgb), 0.34) 50%,
+            rgba(var(--hero-bg-rgb), 0.16) 56%,
+            transparent 63%
         ),
         radial-gradient(
             ellipse at 72% 42%,

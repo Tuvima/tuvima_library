@@ -115,8 +115,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("rgba(0, 3, 5, 0.34) 0%", styles);
         Assert.Contains("rgba(0, 3, 5, 0.10) 42%", styles);
         Assert.Contains("rgba(0, 3, 5, 0.98) 100%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.55) 37%", styles);
-        Assert.Contains("transparent 47%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.58) 44%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.16) 56%", styles);
+        Assert.Contains("transparent 63%", styles);
         Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
         Assert.Contains("background: rgba(20, 23, 28, 0.78)", styles);
