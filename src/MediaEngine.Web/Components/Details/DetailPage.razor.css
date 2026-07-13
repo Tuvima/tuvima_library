@@ -62,9 +62,9 @@
     background-repeat: no-repeat;
     background-size: cover;
     background-position: var(--hero-image-position, center);
-    filter: blur(22px) saturate(1.04);
-    opacity: 0.72;
-    transform: scale(1.04);
+    filter: blur(28px) saturate(0.96);
+    opacity: 0.60;
+    transform: scale(1.06);
 }
 
 ::deep .tl-detail-media-stage__background,
@@ -91,8 +91,8 @@
     object-fit: contain;
     object-position: var(--hero-image-position, center right);
     transform: translateY(-50%);
-    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 14%, rgba(0, 0, 0, 0.46) 30%, rgba(0, 0, 0, 0.78) 45%, #000 60%, #000 100%);
-    mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 14%, rgba(0, 0, 0, 0.46) 30%, rgba(0, 0, 0, 0.78) 45%, #000 60%, #000 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.25) 6%, rgba(0, 0, 0, 0.60) 14%, rgba(0, 0, 0, 0.86) 23%, #000 32%, #000 100%);
+    mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.25) 6%, rgba(0, 0, 0, 0.60) 14%, rgba(0, 0, 0, 0.86) 23%, #000 32%, #000 100%);
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
     -webkit-mask-size: 100% 100%;
@@ -211,14 +211,13 @@
         linear-gradient(
             to right,
             rgba(var(--hero-bg-rgb), 0.94) 0%,
-            rgba(var(--hero-bg-rgb), 0.90) 18%,
-            rgba(var(--hero-bg-rgb), 0.80) 30%,
-            rgba(var(--hero-bg-rgb), 0.64) 42%,
-            rgba(var(--hero-bg-rgb), 0.46) 54%,
-            rgba(var(--hero-bg-rgb), 0.28) 66%,
-            rgba(var(--hero-bg-rgb), 0.12) 78%,
-            rgba(var(--hero-bg-rgb), 0.04) 90%,
-            rgba(var(--hero-bg-rgb), 0) 100%
+            rgba(var(--hero-bg-rgb), 0.86) 14%,
+            rgba(var(--hero-bg-rgb), 0.68) 26%,
+            rgba(var(--hero-bg-rgb), 0.46) 38%,
+            rgba(var(--hero-bg-rgb), 0.26) 48%,
+            rgba(var(--hero-bg-rgb), 0.12) 58%,
+            rgba(var(--hero-bg-rgb), 0.04) 68%,
+            rgba(var(--hero-bg-rgb), 0) 78%
         ),
         radial-gradient(
             ellipse at 72% 42%,

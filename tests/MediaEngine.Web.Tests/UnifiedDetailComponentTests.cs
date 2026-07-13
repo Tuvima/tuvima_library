@@ -68,8 +68,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("height: calc(80svh - var(--app-topbar-height, 65px) - 1rem)", styles);
         Assert.Contains("min-height: 28rem", styles);
         Assert.Contains("max-height: none", styles);
-        Assert.Contains("rgba(0, 0, 0, 0.46) 30%", styles);
-        Assert.Contains("rgba(0, 0, 0, 0.78) 45%", styles);
+        Assert.Contains("rgba(0, 0, 0, 0.60) 14%", styles);
+        Assert.Contains("rgba(0, 0, 0, 0.86) 23%", styles);
+        Assert.Contains("#000 32%", styles);
         Assert.Contains("tl-detail-tabs::before", styles);
         Assert.Contains("background: #090c12", styles);
         Assert.Contains("font-family: Georgia, \"Times New Roman\", serif", styles);
@@ -124,9 +125,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("rgba(var(--hero-shadow-rgb), 0.24) 0%", styles);
         Assert.Contains("rgba(var(--hero-shadow-rgb), 0.06) 42%", styles);
         Assert.Contains("rgba(var(--hero-shadow-rgb), 0.96) 100%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.46) 54%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.12) 78%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0) 100%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.46) 38%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.12) 58%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0) 78%", styles);
         Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
         Assert.Contains("background: rgba(20, 23, 28, 0.78)", styles);
