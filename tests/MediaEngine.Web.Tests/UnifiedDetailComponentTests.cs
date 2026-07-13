@@ -468,6 +468,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Placement.HasAuthoritativeTotal", source);
         Assert.Contains("IsComicSequence", source);
         Assert.Contains("CoveragePrimaryText", source);
+        Assert.Contains("IsComicSequence && HasCurrentPosition", source);
+        Assert.Contains("CoverageCenterClass", source);
+        Assert.Contains("is-comic-position", styles);
         Assert.Contains("SequenceNumberOrNull", source);
         Assert.DoesNotContain("owned of {TotalItems}", source);
         Assert.Contains("item.EntityType == DetailEntityType.TvEpisode", source);

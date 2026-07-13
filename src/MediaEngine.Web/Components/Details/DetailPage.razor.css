@@ -3757,6 +3757,21 @@
     pointer-events: none;
 }
 
+::deep .tl-series-position-summary__center.is-comic-position {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-items: center;
+    row-gap: 0.2rem;
+}
+
+::deep .tl-series-position-summary__center.is-comic-position .tl-series-position-summary__total {
+    font-size: clamp(0.78rem, 1.1vw, 0.95rem);
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
 ::deep .tl-series-position-summary__number {
     font-size: clamp(2.2rem, 4vw, 3.3rem);
     font-weight: 950;

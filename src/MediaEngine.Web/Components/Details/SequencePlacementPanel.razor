@@ -58,9 +58,17 @@
                               Width="8.8rem"
                               Height="8.8rem" />
                 }
-                <div class="tl-series-position-summary__center">
-                    <span class="tl-series-position-summary__number">@CoveragePrimaryText</span>
-                    <span class="tl-series-position-summary__total">@CoverageSecondaryText</span>
+                <div class="@CoverageCenterClass">
+                    @if (IsComicSequence && HasCurrentPosition)
+                    {
+                        <span class="tl-series-position-summary__total">@CoverageSecondaryText</span>
+                        <span class="tl-series-position-summary__number">@CoveragePrimaryText</span>
+                    }
+                    else
+                    {
+                        <span class="tl-series-position-summary__number">@CoveragePrimaryText</span>
+                        <span class="tl-series-position-summary__total">@CoverageSecondaryText</span>
+                    }
                 </div>
             </div>
             <div class="tl-series-position-summary__label">@PositionSummaryLabel</div>
@@ -256,6 +264,7 @@
     private bool CanChooseDistinctContainer => Placement.CanChooseContainer && DistinctAvailableContainers.Count > 1;
     private bool ShowSetDefault => _canCurateSequence && CanChooseDistinctContainer && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
     private string CoverageVisualClass => $"tl-series-position-summary__donut{(ShowCoverageDonut ? string.Empty : " is-count-only")}";
+    private string CoverageCenterClass => $"tl-series-position-summary__center{(IsComicSequence && HasCurrentPosition ? " is-comic-position" : string.Empty)}";
     private string CoveragePrimaryText => ShowCoverageDonut
         ? OwnedCount.ToString(CultureInfo.InvariantCulture)
         : IsComicSequence && HasCurrentPosition
