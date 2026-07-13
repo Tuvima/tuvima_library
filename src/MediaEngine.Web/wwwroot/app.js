@@ -126,6 +126,22 @@ window.getSwimlaneScrollState = function (el) {
     };
 };
 
+window.getSwimlaneItems = function (el) {
+    if (!el) return [];
+
+    if (el.classList && el.classList.contains('media-tile-shelf-scroll')) {
+        return Array.prototype.filter.call(el.querySelectorAll('.media-tile'), function (item) {
+            return item
+                && item.offsetWidth > 0
+                && item.closest('.media-tile-shelf-scroll') === el;
+        });
+    }
+
+    return Array.prototype.filter.call(el.children || [], function (child) {
+        return child && child.offsetWidth > 0;
+    });
+};
+
 window.getSwimlaneSnapTargets = function (el) {
     if (!el) return [];
 
@@ -133,12 +149,13 @@ window.getSwimlaneSnapTargets = function (el) {
     var containerRect = el.getBoundingClientRect();
     var currentLeft = el.scrollLeft;
     var targets = [0, maxScroll];
+    var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    var paddingLeft = style ? parseFloat(style.paddingLeft || '0') : 0;
+    paddingLeft = Number.isFinite(paddingLeft) ? paddingLeft : 0;
 
-    Array.prototype.forEach.call(el.children || [], function (child) {
-        if (!child || child.offsetWidth <= 0) return;
-
+    window.getSwimlaneItems(el).forEach(function (child) {
         var childRect = child.getBoundingClientRect();
-        var target = currentLeft + childRect.left - containerRect.left;
+        var target = currentLeft + childRect.left - containerRect.left - paddingLeft;
         target = Math.min(Math.max(target, 0), maxScroll);
         targets.push(Math.round(target));
     });
@@ -227,9 +244,7 @@ window.updateMediaTileShelfVisibleWidth = function (el) {
         ? el.parentElement
         : track;
     var availableWidth = viewport ? viewport.clientWidth : el.clientWidth;
-    var items = Array.prototype.filter.call(el.children || [], function (child) {
-        return child && child.offsetWidth > 0;
-    });
+    var items = window.getSwimlaneItems(el);
 
     if (!availableWidth || items.length === 0) {
         return;

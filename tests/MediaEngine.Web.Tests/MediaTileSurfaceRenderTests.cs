@@ -234,6 +234,10 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("max-height: calc(var(--media-tile-media-height, 400px) - 44px)", css);
         Assert.Contains("margin-block: 2%", css);
         Assert.Contains("window.updateMediaTileShelfStableHeight", appJs);
+        Assert.Contains("window.getSwimlaneItems", appJs);
+        Assert.Contains("el.querySelectorAll('.media-tile')", appJs);
+        Assert.Contains("window.getSwimlaneItems(el).forEach", appJs);
+        Assert.Contains("childRect.left - containerRect.left - paddingLeft", appJs);
         Assert.Contains("--media-tile-row-height", appJs);
         Assert.Contains("panel.classList.add('is-inline-expanded')", appJs);
         Assert.Contains("cardEl.style.setProperty('--media-tile-hover-anchor-width'", appJs);
