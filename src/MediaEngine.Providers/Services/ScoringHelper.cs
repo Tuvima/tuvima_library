@@ -49,7 +49,8 @@ public static class ScoringHelper
         ICanonicalValueArrayRepository? arrayRepo = null,
         ILogger? logger = null,
         ISearchIndexRepository? searchIndex = null,
-        MediaType detectedMediaType = MediaType.Unknown)
+        MediaType detectedMediaType = MediaType.Unknown,
+        Guid? decisionSourceProviderId = null)
     {
         // Wrap provider claims as domain MetadataClaim rows.
         var domainClaims = claims
@@ -58,6 +59,7 @@ public static class ScoringHelper
                 Id           = Guid.NewGuid(),
                 EntityId     = entityId,
                 ProviderId   = providerId,
+                DecisionSourceProviderId = decisionSourceProviderId,
                 ClaimKey     = pc.Key,
                 ClaimValue   = pc.Value,
                 Confidence   = pc.Confidence,
@@ -458,7 +460,8 @@ public static class ScoringHelper
         CancellationToken ct,
         ICanonicalValueArrayRepository? arrayRepo = null,
         ILogger? logger = null,
-        ISearchIndexRepository? searchIndex = null)
+        ISearchIndexRepository? searchIndex = null,
+        Guid? decisionSourceProviderId = null)
     {
         // No lineage → fall back to single-target write on the asset id.
         if (lineage is null)
@@ -466,7 +469,8 @@ public static class ScoringHelper
             return await PersistClaimsAndScoreAsync(
                 entityId, claims, providerId,
                 claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-                arrayRepo, logger, searchIndex).ConfigureAwait(false);
+                arrayRepo, logger, searchIndex,
+                decisionSourceProviderId: decisionSourceProviderId).ConfigureAwait(false);
         }
 
         // Partition claims by scope. The split is media-type aware.
@@ -487,7 +491,7 @@ public static class ScoringHelper
         var assetResult = await PersistClaimsAndScoreAsync(
             entityId, selfClaims, providerId,
             claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-            arrayRepo, logger, searchIndex, lineage.MediaType).ConfigureAwait(false);
+            arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId).ConfigureAwait(false);
 
         // 2. Parent-Work write — only parent-scope claims, always against the
         //    topmost Work id (collapses to the movie's own Work for standalone
@@ -521,7 +525,7 @@ public static class ScoringHelper
                     parentClaims,
                     providerId,
                     claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-                    arrayRepo, logger, searchIndex, lineage.MediaType).ConfigureAwait(false);
+                    arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId).ConfigureAwait(false);
 
                 logger?.LogDebug(
                     "Lineage write: {ParentCount} parent-scope + {SelfCount} self-scope claim(s) for asset {AssetId} → parent Work {ParentWorkId} ({MediaType})",

@@ -16,7 +16,7 @@ public sealed class SeriesAligner : ISeriesAligner
         _logger = logger;
     }
 
-    public async Task<int?> InferPositionAsync(
+    public async Task<SeriesPositionInference?> InferPositionAsync(
         string workTitle,
         string seriesName,
         IReadOnlyList<string> siblingTitles,
@@ -30,7 +30,10 @@ public sealed class SeriesAligner : ISeriesAligner
             PromptTemplates.SeriesPositionGrammar,
             ct);
 
-        if (result is null || !result.Position.HasValue || result.Position < 1)
+        if (result is null
+            || !result.Position.HasValue
+            || result.Position < 1
+            || result.Confidence is < 0 or > 1)
         {
             _logger.LogDebug("SeriesAligner could not determine position for \"{Title}\" in \"{Series}\"",
                 workTitle, seriesName);
@@ -41,7 +44,7 @@ public sealed class SeriesAligner : ISeriesAligner
             "SeriesAligner: \"{Title}\" is position {Pos} in \"{Series}\" (confidence: {Conf:F2})",
             workTitle, result.Position, seriesName, result.Confidence);
 
-        return result.Position;
+        return new SeriesPositionInference(result.Position.Value, result.Confidence);
     }
 
     public Task<IReadOnlyList<(Guid WorkId, Guid SuggestedCollectionId)>> DetectUngroupedAsync(

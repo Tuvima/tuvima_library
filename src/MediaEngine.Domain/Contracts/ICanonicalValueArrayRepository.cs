@@ -41,6 +41,14 @@ public interface ICanonicalValueArrayRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns every value for a multi-valued key. Intended for bounded aggregate
+    /// calculations such as local taste profiling.
+    /// </summary>
+    Task<IReadOnlyList<CanonicalArrayEntry>> FindValuesByKeyAsync(
+        string key,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Deletes all multi-valued entries for a given entity.
     /// Used during orphan cleanup.
     /// </summary>

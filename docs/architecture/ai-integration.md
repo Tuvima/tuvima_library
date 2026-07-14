@@ -37,7 +37,7 @@ Model roles are small-first functional slots. Only one selected model is loaded 
 | Role | Default model | Memory footprint | Use |
 |---|---|---|---|
 | `text_fast` | Qwen3 0.6B Q8 | ~639 MB | On-demand tasks: search intent parsing, TL;DR, recommendation explanations |
-| `text_quality` | Qwen3 1.7B Q8 | ~1.8 GB | Batch tasks: ingestion manifest analysis, vibe tagging, QID disambiguation |
+| `text_quality` | Qwen3 1.7B Q5_K_M | ~1.26 GB | Batch tasks: ingestion manifest analysis, vibe tagging, QID disambiguation |
 | `text_scholar` | Qwen3 4B Q4_K_M | ~2.5 GB | Hard enrichment, relationship extraction, and long-context analysis |
 | `text_cjk` | Qwen3 4B Q4_K_M | ~2.5 GB | Chinese, Japanese, Korean, and broader multilingual analysis |
 | `audio` | Whisper Medium | ~1.5 GB | Timestamped transcription, language detection, audiobook sync, subtitle sync |

@@ -23,6 +23,9 @@ The core rule is simple: **your library runs on your machine**.
 - Internal artwork, thumbnails, cache files, staging files, and generated metadata stay under configured local paths.
 - The Engine and Dashboard run as local apps.
 - Local AI inference runs on your CPU/GPU.
+- AI evaluation fixtures, outputs, promotion reports, and model files remain on the Engine host unless an administrator deliberately exports them.
+- Hardware benchmarking and live model evaluation require explicit opt-in; ordinary test runs use recorded fixtures and do not load model weights.
+- Gated models require deliberate license acceptance and installation of a verified artifact; a source link is provenance, not a cloud inference endpoint.
 - Profiles, settings, playback preferences, and review state are stored locally.
 
 There is no Tuvima-hosted account service and no built-in telemetry pipeline.

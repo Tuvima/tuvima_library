@@ -172,9 +172,12 @@ public sealed class ProfileOverviewReadServiceTests : IDisposable
 
     private sealed class FakeTasteProfiler : ITasteProfiler
     {
-        public Task<TasteProfile> GetProfileAsync(Guid userId, CancellationToken ct = default) =>
-            Task.FromResult(new TasteProfile { UserId = userId, LastUpdatedAt = DateTimeOffset.UtcNow });
-
-        public Task UpdateAsync(Guid userId, Guid assetId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<TasteProfileBuildResult> GetProfileAsync(Guid userId, CancellationToken ct = default) =>
+            Task.FromResult(new TasteProfileBuildResult(
+                TasteProfileBuildStatus.Generated,
+                userId,
+                new TasteProfile { UserId = userId, LastUpdatedAt = DateTimeOffset.UtcNow },
+                SignalCount: 3,
+                InputFingerprint: "test"));
     }
 }

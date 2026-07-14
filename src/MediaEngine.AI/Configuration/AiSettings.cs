@@ -23,6 +23,14 @@ public sealed class AiSettings
     [JsonPropertyName("inference_timeout_seconds")]
     public int InferenceTimeoutSeconds { get; set; } = 60;
 
+    /// <summary>Global upper bound for concurrent local inference requests.</summary>
+    [JsonPropertyName("max_concurrent_inferences")]
+    public int MaxConcurrentInferences { get; set; } = 1;
+
+    /// <summary>Free disk space retained after a model download completes.</summary>
+    [JsonPropertyName("minimum_free_disk_mb")]
+    public int MinimumFreeDiskMB { get; set; } = 1024;
+
     /// <summary>Model definitions by role.</summary>
     [JsonPropertyName("models")]
     public AiModelDefinitions Models { get; set; } = new();
@@ -34,6 +42,15 @@ public sealed class AiSettings
     /// <summary>Small-first validation gates for each functional model role.</summary>
     [JsonPropertyName("role_requirements")]
     public Dictionary<string, AiRoleRequirement> RoleRequirements { get; set; } = AiModelCatalogDefaults.CreateRoleRequirements();
+
+    /// <summary>
+    /// Runtime-neutral role definitions for text, audio, embedding, function, and
+    /// multimodal workloads. Keys are configuration-owned and are not limited to
+    /// the legacy <see cref="Domain.Enums.AiModelRole"/> enum.
+    /// </summary>
+    [JsonPropertyName("operational_roles")]
+    public Dictionary<string, AiOperationalRoleDefinition> OperationalRoles { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Per-feature enable/disable flags.</summary>
     [JsonPropertyName("features")]
@@ -85,8 +102,9 @@ public sealed class AiModelDefinitions
         Description = "On-demand text tasks (search parsing, TL;DR, Why Factor)",
         File = "Qwen3-0.6B-Q8_0.gguf",
         DownloadUrl = "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf",
-        SizeMB = 639,
-        ContextLength = 32768,
+        Sha256 = "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+        SizeMB = 610,
+        ContextLength = 4096,
         MaxTokens = 256,
         Temperature = 0.1,
     };
@@ -94,12 +112,13 @@ public sealed class AiModelDefinitions
     [JsonPropertyName("text_quality")]
     public AiModelDefinition TextQuality { get; set; } = new()
     {
-        CatalogKey = "qwen3_1_7b_q8",
+        CatalogKey = "qwen3_1_7b_q5",
         Description = "Batch/scheduled tasks (ingestion manifest, vibe tags, disambiguation)",
-        File = "Qwen3-1.7B-Q8_0.gguf",
-        DownloadUrl = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf",
-        SizeMB = 1830,
-        ContextLength = 32768,
+        File = "Qwen3-1.7B-Q5_K_M.gguf",
+        DownloadUrl = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf",
+        Sha256 = "b0949de5b2e06cbed6aa96517f9bd8afb334584b6f95ee83479292ff4bdd8ed3",
+        SizeMB = 1260,
+        ContextLength = 8192,
         MaxTokens = 512,
         Temperature = 0.1,
     };
@@ -111,8 +130,9 @@ public sealed class AiModelDefinitions
         CatalogKey = "qwen3_4b_q4",
         File = "Qwen3-4B-Q4_K_M.gguf",
         DownloadUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
-        SizeMB = 2500,
-        ContextLength = 32768,
+        Sha256 = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        SizeMB = 2382,
+        ContextLength = 16384,
         MaxTokens = 1024,
         Temperature = 0.1,
     };
@@ -124,7 +144,8 @@ public sealed class AiModelDefinitions
         Description = "Whisper transcription and language detection",
         File = "ggml-medium.bin",
         DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
-        SizeMB = 1500,
+        Sha256 = "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
+        SizeMB = 1463,
         Language = "auto",
     };
 
@@ -135,8 +156,9 @@ public sealed class AiModelDefinitions
         Description = "Multilingual model with strong CJK support for Chinese, Japanese, and Korean content analysis",
         File = "Qwen3-4B-Q4_K_M.gguf",
         DownloadUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
-        SizeMB = 2500,
-        ContextLength = 32768,
+        Sha256 = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        SizeMB = 2382,
+        ContextLength = 8192,
         MaxTokens = 512,
         Temperature = 0.1,
     };
@@ -238,6 +260,9 @@ public sealed class AiModelCatalogEntry
     [JsonPropertyName("download_url")]
     public string DownloadUrl { get; set; } = "";
 
+    [JsonPropertyName("sha256")]
+    public string? Sha256 { get; set; }
+
     [JsonPropertyName("source_url")]
     public string SourceUrl { get; set; } = "";
 
@@ -255,6 +280,21 @@ public sealed class AiModelCatalogEntry
 
     [JsonPropertyName("context_length")]
     public int ContextLength { get; set; }
+
+    [JsonPropertyName("memory_envelope_mb")]
+    public int MemoryEnvelopeMB { get; set; }
+
+    [JsonPropertyName("max_context_length")]
+    public int MaxContextLength { get; set; }
+
+    [JsonPropertyName("experimental")]
+    public bool Experimental { get; set; }
+
+    [JsonPropertyName("compatibility")]
+    public AiModelCompatibility Compatibility { get; set; } = new();
+
+    [JsonPropertyName("readiness")]
+    public AiModelReadiness Readiness { get; set; } = new();
 
     [JsonPropertyName("capabilities")]
     public AiModelCapabilities Capabilities { get; set; } = new();
@@ -306,6 +346,75 @@ public sealed class AiModelCapabilities
 
     [JsonPropertyName("experimental_multimodal")]
     public bool ExperimentalMultimodal { get; set; }
+
+    [JsonPropertyName("embedding_output")]
+    public bool EmbeddingOutput { get; set; }
+
+    [JsonPropertyName("function_calling")]
+    public bool FunctionCalling { get; set; }
+
+    [JsonPropertyName("tool_calling")]
+    public bool ToolCalling { get; set; }
+}
+
+public sealed class AiModelCompatibility
+{
+    [JsonPropertyName("supported_backends")]
+    public List<string> SupportedBackends { get; set; } = [];
+
+    [JsonPropertyName("minimum_runtime_version")]
+    public string? MinimumRuntimeVersion { get; set; }
+
+    [JsonPropertyName("requires_mmproj")]
+    public bool RequiresMmproj { get; set; }
+
+    [JsonPropertyName("requires_audio_encoder")]
+    public bool RequiresAudioEncoder { get; set; }
+}
+
+public sealed class AiModelReadiness
+{
+    [JsonPropertyName("configuration_ready")]
+    public bool ConfigurationReady { get; set; }
+
+    [JsonPropertyName("runtime_ready")]
+    public bool RuntimeReady { get; set; }
+
+    [JsonPropertyName("validated")]
+    public bool Validated { get; set; }
+
+    [JsonPropertyName("blocking_reasons")]
+    public List<string> BlockingReasons { get; set; } = [];
+}
+
+public sealed class AiOperationalRoleDefinition
+{
+    [JsonPropertyName("catalog_key")]
+    public string CatalogKey { get; set; } = "";
+
+    [JsonPropertyName("runtime_kind")]
+    public string RuntimeKind { get; set; } = "text";
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    [JsonPropertyName("experimental")]
+    public bool Experimental { get; set; }
+
+    [JsonPropertyName("memory_envelope_mb")]
+    public int MemoryEnvelopeMB { get; set; }
+
+    [JsonPropertyName("max_context_length")]
+    public int MaxContextLength { get; set; }
+
+    [JsonPropertyName("max_output_tokens")]
+    public int MaxOutputTokens { get; set; }
+
+    [JsonPropertyName("temperature")]
+    public double Temperature { get; set; } = 0.1;
+
+    [JsonPropertyName("max_concurrency")]
+    public int MaxConcurrency { get; set; } = 1;
 }
 
 public sealed class AiModelValidationProfile
@@ -369,6 +478,15 @@ public sealed class AiRoleRequirement
 
     [JsonPropertyName("benchmark_suite")]
     public string BenchmarkSuite { get; set; } = "";
+
+    [JsonPropertyName("memory_envelope_mb")]
+    public int MemoryEnvelopeMB { get; set; }
+
+    [JsonPropertyName("max_context_length")]
+    public int MaxContextLength { get; set; }
+
+    [JsonPropertyName("experimental_allowed")]
+    public bool ExperimentalAllowed { get; set; }
 }
 
 /// <summary>Per-feature enable/disable flags.</summary>

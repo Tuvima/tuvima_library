@@ -31,7 +31,7 @@ public sealed class ProfileOverviewReadService(
         var recentlyAdded = ReadRecentlyAddedItems(limit: 12);
         var libraryCounts = ReadLibraryCounts();
         var profileActivity = await activity.GetRecentByProfileAsync(profileId, 20, ct);
-        var taste = await tasteProfiler.GetProfileAsync(profileId, ct);
+        var tasteResult = await tasteProfiler.GetProfileAsync(profileId, ct);
         var completedThreshold = 95d;
 
         var stats = new ProfileOverviewStatsDto
@@ -75,7 +75,9 @@ public sealed class ProfileOverviewReadService(
                 Detail = entry.Detail,
                 EntityId = entry.EntityId,
             }).ToList(),
-            Taste = taste,
+            Taste = tasteResult.Status == Domain.Models.TasteProfileBuildStatus.Generated
+                ? tasteResult.Profile
+                : null,
         };
     }
 

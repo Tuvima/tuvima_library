@@ -6029,39 +6029,142 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public Task<bool> StartAiModelDownloadAsync(string role, CancellationToken ct = default) =>
+    public Task<AiOperationResultDto> StartAiModelDownloadAsync(string role, CancellationToken ct = default) =>
         SendAiActionAsync(HttpMethod.Post, $"/ai/models/{Uri.EscapeDataString(role)}/download", "start download", ct);
 
-    public Task<bool> CancelAiModelDownloadAsync(string role, CancellationToken ct = default) =>
+    public Task<AiOperationResultDto> CancelAiModelDownloadAsync(string role, CancellationToken ct = default) =>
         SendAiActionAsync(HttpMethod.Delete, $"/ai/models/{Uri.EscapeDataString(role)}/download", "cancel download", ct);
 
-    public Task<bool> LoadAiModelAsync(string role, CancellationToken ct = default) =>
+    public Task<AiOperationResultDto> LoadAiModelAsync(string role, CancellationToken ct = default) =>
         SendAiActionAsync(HttpMethod.Post, $"/ai/models/{Uri.EscapeDataString(role)}/load", "load model", ct);
 
-    public Task<bool> UnloadAiModelAsync(string role, CancellationToken ct = default) =>
+    public Task<AiOperationResultDto> UnloadAiModelAsync(string role, CancellationToken ct = default) =>
         SendAiActionAsync(HttpMethod.Post, $"/ai/models/{Uri.EscapeDataString(role)}/unload", "unload model", ct);
 
-    private async Task<bool> SendAiActionAsync(HttpMethod method, string endpoint, string action, CancellationToken ct)
+    private async Task<AiOperationResultDto> SendAiActionAsync(HttpMethod method, string endpoint, string action, CancellationToken ct)
     {
         try
         {
             using var request = new HttpRequestMessage(method, endpoint);
-            var response = await _http.SendAsync(request, ct);
+            using var response = await _http.SendAsync(request, ct);
             if (response.IsSuccessStatusCode)
-                return true;
+                return AiOperationResultDto.Success();
 
-            LastError = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogWarning("AI {Action} failed for {Endpoint}: {Status} {Message}", action, endpoint, response.StatusCode, LastError);
-            return false;
+            var problem = await ReadAiProblemAsync(response, "AI model operation failed", ct);
+            LastError = problem.ToUserMessage();
+            _logger.LogWarning("AI {Action} failed for {Endpoint}: {Status} {ProblemType}", action, endpoint, response.StatusCode, problem.Type);
+            return AiOperationResultDto.Failure(problem);
         }
-        catch (OperationCanceledException) { return false; }
+        catch (OperationCanceledException)
+        {
+            return AiOperationResultDto.Failure(ClientProblem("AI operation cancelled", "The operation was cancelled before the Engine completed it."));
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "AI {Action} failed for {Endpoint}", action, endpoint);
-            LastError = ex.Message;
-            return false;
+            var problem = ClientProblem("Engine communication failed", "The Dashboard could not reach the Engine for this operation.");
+            LastError = problem.ToUserMessage();
+            return AiOperationResultDto.Failure(problem);
         }
     }
+
+    public async Task<AiOperationResultDto<AiBenchmarkReportDto>> RunAiModelBenchmarkAsync(
+        string suiteKey,
+        string catalogKey,
+        bool allowHardwareBenchmark,
+        bool allowModelExecution,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(
+                $"/ai/benchmark/suites/{Uri.EscapeDataString(suiteKey)}/run",
+                new { catalogKey, allowHardwareBenchmark, allowModelExecution }, ct);
+            if (!response.IsSuccessStatusCode)
+                return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
+                    await ReadAiProblemAsync(response, "AI validation failed", ct));
+
+            var report = await response.Content.ReadFromJsonAsync<AiBenchmarkReportDto>(cancellationToken: ct);
+            return report is null
+                ? AiOperationResultDto<AiBenchmarkReportDto>.Failure(ClientProblem("Invalid Engine response", "The validation report was empty."))
+                : AiOperationResultDto<AiBenchmarkReportDto>.Success(report);
+        }
+        catch (OperationCanceledException)
+        {
+            return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
+                ClientProblem("AI validation cancelled", "The validation run was cancelled."));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AI validation {Suite} failed", suiteKey);
+            return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
+                ClientProblem("Engine communication failed", "The Dashboard could not reach the Engine for this validation run."));
+        }
+    }
+
+    private static async Task<AiProblemDetailsDto> ReadAiProblemAsync(
+        HttpResponseMessage response,
+        string fallbackTitle,
+        CancellationToken ct)
+    {
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var root = document.RootElement;
+            var type = GetProblemString(root, "type", "about:blank", 300);
+            if (!type.StartsWith("https://tuvima.local/problems/", StringComparison.OrdinalIgnoreCase))
+            {
+                return ClientProblem(
+                    fallbackTitle,
+                    $"The Engine returned HTTP {(int)response.StatusCode}. Review Engine logs for diagnostic details.",
+                    (int)response.StatusCode);
+            }
+            var reasons = root.TryGetProperty("blockingReasons", out var blockingReasons)
+                && blockingReasons.ValueKind == JsonValueKind.Array
+                ? blockingReasons.EnumerateArray()
+                    .Where(value => value.ValueKind == JsonValueKind.String)
+                    .Select(value => SafeProblemText(value.GetString(), 500))
+                    .Where(value => value.Length > 0)
+                    .ToList()
+                : [];
+            return new AiProblemDetailsDto
+            {
+                Type = type,
+                Title = GetProblemString(root, "title", fallbackTitle, 200),
+                Status = root.TryGetProperty("status", out var status) && status.TryGetInt32(out var value)
+                    ? value
+                    : (int)response.StatusCode,
+                Detail = GetProblemString(root, "detail", $"The Engine returned HTTP {(int)response.StatusCode}.", 1000),
+                BlockingReasons = reasons,
+            };
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or InvalidOperationException)
+        {
+            return ClientProblem(fallbackTitle, $"The Engine returned HTTP {(int)response.StatusCode} without readable problem details.", (int)response.StatusCode);
+        }
+    }
+
+    private static string GetProblemString(JsonElement root, string property, string fallback, int maxLength) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? SafeProblemText(value.GetString(), maxLength, fallback)
+            : fallback;
+
+    private static string SafeProblemText(string? value, int maxLength, string fallback = "")
+    {
+        var normalized = string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength] + "...";
+    }
+
+    private static AiProblemDetailsDto ClientProblem(string title, string detail, int? status = null) => new()
+    {
+        Type = "https://tuvima.local/problems/dashboard/engine-communication",
+        Title = title,
+        Detail = detail,
+        Status = status,
+    };
 
     public async Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default)
     {
@@ -6115,20 +6218,29 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     // -- POST /ai/benchmark ----------------------------------------------------
 
-    public async Task<HardwareProfileDto?> RunBenchmarkAsync(CancellationToken ct = default)
+    public async Task<AiOperationResultDto<HardwareProfileDto>> RunBenchmarkAsync(CancellationToken ct = default)
     {
         try
         {
-            var response = await _http.PostAsync("/ai/benchmark", null, ct);
-            if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<HardwareProfileDto>(cancellationToken: ct);
+            using var response = await _http.PostAsync("/ai/benchmark", null, ct);
+            if (!response.IsSuccessStatusCode)
+                return AiOperationResultDto<HardwareProfileDto>.Failure(
+                    await ReadAiProblemAsync(response, "Hardware benchmark failed", ct));
+            var profile = await response.Content.ReadFromJsonAsync<HardwareProfileDto>(cancellationToken: ct);
+            return profile is null
+                ? AiOperationResultDto<HardwareProfileDto>.Failure(ClientProblem("Invalid Engine response", "The hardware benchmark result was empty."))
+                : AiOperationResultDto<HardwareProfileDto>.Success(profile);
         }
-        catch (OperationCanceledException) { return null; }
+        catch (OperationCanceledException)
+        {
+            return AiOperationResultDto<HardwareProfileDto>.Failure(
+                ClientProblem("Hardware benchmark cancelled", "The benchmark was cancelled."));
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /ai/benchmark failed");
-            LastError = ex.Message;
-            return null;
+            return AiOperationResultDto<HardwareProfileDto>.Failure(
+                ClientProblem("Engine communication failed", "The Dashboard could not reach the Engine for the hardware benchmark."));
         }
     }
 

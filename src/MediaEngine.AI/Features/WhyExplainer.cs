@@ -31,16 +31,31 @@ public sealed class WhyExplainer : IWhyExplainer
             userId, workId);
 
         // 1. Load the user's taste profile.
-        TasteProfile profile;
+        TasteProfileBuildResult profileResult;
         try
         {
-            profile = await _tasteProfiler.GetProfileAsync(userId, ct).ConfigureAwait(false);
+            profileResult = await _tasteProfiler.GetProfileAsync(userId, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "WhyExplainer: failed to load taste profile — skipping explanation");
             return null;
         }
+
+        if (profileResult.Status == TasteProfileBuildStatus.InsufficientData)
+        {
+            _logger.LogDebug(
+                "WhyExplainer: profile {UserId} has insufficient taste data; returning deterministic guidance",
+                userId);
+            return "Keep reading, watching, or listening to improve personalized explanations for this profile.";
+        }
+
+        var profile = profileResult.Profile
+            ?? throw new InvalidDataException("Generated taste outcome did not include a profile.");
 
         // 2. Load the work's canonical values.
         var canonicals = await _canonicalRepo.GetByEntityAsync(workId, ct).ConfigureAwait(false);

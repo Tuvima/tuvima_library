@@ -339,10 +339,24 @@ internal class EngineApiClientStub : DispatchProxy
                 },
             ]);
 
-        _handlers[nameof(IEngineApiClient.StartAiModelDownloadAsync)] = _ => Task.FromResult(true);
-        _handlers[nameof(IEngineApiClient.CancelAiModelDownloadAsync)] = _ => Task.FromResult(true);
-        _handlers[nameof(IEngineApiClient.LoadAiModelAsync)] = _ => Task.FromResult(true);
-        _handlers[nameof(IEngineApiClient.UnloadAiModelAsync)] = _ => Task.FromResult(true);
+        _handlers[nameof(IEngineApiClient.StartAiModelDownloadAsync)] = _ => Task.FromResult(AiOperationResultDto.Success());
+        _handlers[nameof(IEngineApiClient.CancelAiModelDownloadAsync)] = _ => Task.FromResult(AiOperationResultDto.Success());
+        _handlers[nameof(IEngineApiClient.LoadAiModelAsync)] = _ => Task.FromResult(AiOperationResultDto.Success());
+        _handlers[nameof(IEngineApiClient.UnloadAiModelAsync)] = _ => Task.FromResult(AiOperationResultDto.Success());
+        _handlers[nameof(IEngineApiClient.RunAiModelBenchmarkAsync)] = _ =>
+            Task.FromResult(AiOperationResultDto<AiBenchmarkReportDto>.Success(new AiBenchmarkReportDto
+            {
+                SuiteKey = "text_instant",
+                Role = "text_fast",
+                CatalogKey = "qwen3_0_6b_q8",
+                Passed = true,
+            }));
+        _handlers[nameof(IEngineApiClient.RunBenchmarkAsync)] = _ =>
+            Task.FromResult(AiOperationResultDto<HardwareProfileDto>.Success(new HardwareProfileDto
+            {
+                Tier = "starter",
+                Backend = "cpu",
+            }));
 
         _handlers[nameof(IEngineApiClient.GetAiConfigAsync)] =
             _ => Task.FromResult<AiConfigDto?>(new AiConfigDto

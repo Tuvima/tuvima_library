@@ -1172,6 +1172,9 @@ public sealed class ClaimDto
     [JsonPropertyName("provider_id")]
     public Guid ProviderId { get; init; }
 
+    [JsonPropertyName("decision_source_provider_id")]
+    public Guid? DecisionSourceProviderId { get; init; }
+
     [JsonPropertyName("confidence")]
     public double Confidence { get; init; }
 
@@ -1187,6 +1190,7 @@ public sealed class ClaimDto
         ClaimKey     = c.ClaimKey,
         ClaimValue   = c.ClaimValue,
         ProviderId   = c.ProviderId,
+        DecisionSourceProviderId = c.DecisionSourceProviderId,
         Confidence   = c.Confidence,
         IsUserLocked = c.IsUserLocked,
         ClaimedAt    = c.ClaimedAt,

@@ -1,6 +1,6 @@
 using MediaEngine.AI.Configuration;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
@@ -13,32 +13,58 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed class VibeBatchService : BackgroundService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private const string FeatureKey = "vibe";
+    private const string ModelId = "text_quality";
+    private const string PromptVersion = "vibe-v1";
     private readonly AiSettings _settings;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IVibeTagger _tagger;
+    private readonly ICanonicalValueRepository _canonicals;
+    private readonly ICanonicalValueArrayRepository _canonicalArrays;
+    private readonly IAiFeaturePersistenceRepository _featurePersistence;
+    private readonly ILibraryItemRepository _libraryItems;
     private readonly ILogger<VibeBatchService> _logger;
 
     public VibeBatchService(
-        IServiceScopeFactory scopeFactory,
         AiSettings settings,
         IConfigurationLoader configLoader,
+        IVibeTagger tagger,
+        ICanonicalValueRepository canonicals,
+        ICanonicalValueArrayRepository canonicalArrays,
+        IAiFeaturePersistenceRepository featurePersistence,
+        ILibraryItemRepository libraryItems,
         ILogger<VibeBatchService> logger)
     {
-        ArgumentNullException.ThrowIfNull(scopeFactory);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(tagger);
+        ArgumentNullException.ThrowIfNull(canonicals);
+        ArgumentNullException.ThrowIfNull(canonicalArrays);
+        ArgumentNullException.ThrowIfNull(featurePersistence);
+        ArgumentNullException.ThrowIfNull(libraryItems);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _scopeFactory = scopeFactory;
         _settings     = settings;
         _configLoader = configLoader;
+        _tagger = tagger;
+        _canonicals = canonicals;
+        _canonicalArrays = canonicalArrays;
+        _featurePersistence = featurePersistence;
+        _libraryItems = libraryItems;
         _logger       = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Initial delay — let the Engine fully start.
-        await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
+        try
+        {
+            await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return;
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -46,7 +72,7 @@ public sealed class VibeBatchService : BackgroundService
             {
                 await RunBatchAsync(stoppingToken);
             }
-            catch (OperationCanceledException) { break; }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "VibeBatchService batch failed");
@@ -63,68 +89,72 @@ public sealed class VibeBatchService : BackgroundService
 
     private async Task RunBatchAsync(CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var tagger        = scope.ServiceProvider.GetRequiredService<IVibeTagger>();
-        var canonicalRepo = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
-        var libraryItemRepo  = scope.ServiceProvider.GetRequiredService<ILibraryItemRepository>();
-
         _logger.LogInformation("VibeBatchService: scanning for entities needing vibe tags");
 
         // Page through the libraryItem to find entities (up to 200 candidates per batch).
         // We load a larger set then filter in-memory for those missing vibe tags.
-        var page = await libraryItemRepo.GetPageAsync(
+        var page = await _libraryItems.GetPageAsync(
             new LibraryItemQuery(Offset: 0, Limit: 200, Sort: "newest"), ct);
 
         int tagged = 0;
+        var batchLimit = Math.Clamp(_settings.EnrichmentBatchSize, 1, 50);
 
         foreach (var item in page.Items)
         {
             if (ct.IsCancellationRequested) break;
-            if (tagged >= 50) break; // Batch cap.
+            if (tagged >= batchLimit) break;
 
-            var canonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
-
-            // Skip if already has vibe tags.
-            if (canonicals.Any(c => string.Equals(c.Key, "vibe", StringComparison.OrdinalIgnoreCase)))
-                continue;
+            var canonicals = await _canonicals.GetByEntityAsync(item.EntityId, ct);
+            var arrays = await _canonicalArrays.GetAllByEntityAsync(item.EntityId, ct);
 
             // Need a description to generate vibes.
             var description = canonicals.FirstOrDefault(c =>
                 string.Equals(c.Key, "description", StringComparison.OrdinalIgnoreCase));
             if (description is null) continue;
 
-            var genres = canonicals
-                .Where(c => string.Equals(c.Key, "genre", StringComparison.OrdinalIgnoreCase))
-                .Select(c => c.Value)
-                .ToList();
+            var genres = arrays.GetValueOrDefault("genre")?.Select(value => value.Value).ToList() ?? [];
 
             var mediaType = canonicals.FirstOrDefault(c =>
                 string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase));
 
             var title = canonicals.FirstOrDefault(c =>
                 string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase));
+            var inputFingerprint = AiFeatureFingerprint.Compute(
+                title?.Value,
+                description.Value,
+                mediaType?.Value,
+                string.Join('\n', genres));
+            var state = await _featurePersistence.GetAiFeatureStateAsync(item.EntityId, FeatureKey, ct);
+            if (state?.IsCurrent(inputFingerprint) == true || state?.CanAttempt(DateTimeOffset.UtcNow) == false)
+                continue;
+            if (state is null && arrays.GetValueOrDefault("vibe")?.Count > 0)
+                continue;
 
             try
             {
-                var tags = await tagger.TagAsync(
+                var tags = await _tagger.TagAsync(
                     title?.Value ?? "Unknown",
                     description.Value,
                     genres,
                     mediaType?.Value ?? "books",
                     ct);
 
-                if (tags.Count > 0)
+                var result = await _featurePersistence.ReplaceAiFeatureAsync(
+                    new AiFeatureWriteRequest(
+                        item.EntityId,
+                        FeatureKey,
+                        new Dictionary<string, IReadOnlyList<string>> { ["vibe"] = tags },
+                        new Dictionary<string, string?>(),
+                        WellKnownProviders.AiProvider,
+                        ClaimConfidence.AiDescription,
+                        PublishThreshold: 0.65,
+                        ReviewThreshold: 0.75,
+                        ModelId,
+                        PromptVersion,
+                        inputFingerprint),
+                    ct);
+                if (tags.Count > 0 && result.Status is AiFeatureStatus.Published or AiFeatureStatus.ReviewRequired)
                 {
-                    // Store each tag as a separate vibe canonical value.
-                    var vibeValues = tags.Select(tag => new CanonicalValue
-                    {
-                        EntityId     = item.EntityId,
-                        Key          = "vibe",
-                        Value        = tag,
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                    }).ToList();
-
-                    await canonicalRepo.UpsertBatchAsync(vibeValues, ct);
                     tagged++;
 
                     _logger.LogDebug(
@@ -132,9 +162,25 @@ public sealed class VibeBatchService : BackgroundService
                         item.EntityId, tags.Count);
                 }
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
+                var failure = await _featurePersistence.RecordAiFeatureFailureAsync(
+                    new AiFeatureFailureRequest(
+                        item.EntityId,
+                        FeatureKey,
+                        WellKnownProviders.AiProvider,
+                        ModelId,
+                        PromptVersion,
+                        inputFingerprint,
+                        ex.Message),
+                    ct);
                 _logger.LogWarning(ex, "VibeBatchService: failed to tag entity {Id}", item.EntityId);
+                if (failure.Status == AiFeatureStatus.Poisoned)
+                    _logger.LogError("VibeBatchService: quarantined poison entity {Id} after {Attempts} attempts", item.EntityId, failure.Attempts);
             }
         }
 

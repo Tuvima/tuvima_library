@@ -12,6 +12,15 @@ public interface IModelDownloadManager
     /// <summary>Start downloading a model by its role. Returns immediately; progress via SignalR.</summary>
     Task StartDownloadAsync(AiModelRole role, CancellationToken ct = default);
 
+    /// <summary>
+    /// Await the terminal result of the active download for this role's physical
+    /// artifact. The wait token cancels only the waiter; use CancelDownloadAsync
+    /// to cancel the owned download itself.
+    /// </summary>
+    Task<ModelDownloadResult> WaitForCompletionAsync(
+        AiModelRole role,
+        CancellationToken ct = default);
+
     /// <summary>Cancel an in-progress download.</summary>
     Task CancelDownloadAsync(AiModelRole role, CancellationToken ct = default);
 

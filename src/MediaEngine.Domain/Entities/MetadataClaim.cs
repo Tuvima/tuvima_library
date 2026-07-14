@@ -31,6 +31,14 @@ public sealed class MetadataClaim
     public Guid ProviderId { get; set; }
 
     /// <summary>
+    /// Optional provider/process that selected or orchestrated this observation.
+    /// For example, an AI workflow may decide to reconcile a person while the
+    /// observed QID still comes from Wikidata. This field never replaces the
+    /// factual observation source in <see cref="ProviderId"/>.
+    /// </summary>
+    public Guid? DecisionSourceProviderId { get; set; }
+
+    /// <summary>
     /// The metadata field name this claim pertains to.
     /// Examples: <c>"title"</c>, <c>"release_year"</c>, <c>"genre"</c>.
     /// Forms one half of the key-value property bag.

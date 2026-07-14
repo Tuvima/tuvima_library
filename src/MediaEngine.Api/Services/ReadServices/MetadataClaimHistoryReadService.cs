@@ -39,7 +39,7 @@ public sealed class MetadataClaimHistoryReadService(
                     allClaims.AddRange(await claimRepo.GetByEntityAsync(assetId, ct));
 
                 claims = allClaims
-                    .GroupBy(c => (c.ClaimKey, c.ClaimValue, c.ProviderId))
+                    .GroupBy(c => (c.ClaimKey, c.ClaimValue, c.ProviderId, c.DecisionSourceProviderId))
                     .Select(g => g.OrderByDescending(c => c.Confidence).First())
                     .OrderBy(c => c.ClaimedAt)
                     .ToList();

@@ -38,6 +38,12 @@ internal sealed class SchemaMigrator
             "series_manifest_items",
             "ordinal_scope_qid",
             "ALTER TABLE series_manifest_items ADD COLUMN ordinal_scope_qid TEXT;");
+
+        AddColumnIfMissing(
+            conn,
+            "metadata_claims",
+            "decision_source_provider_id",
+            "ALTER TABLE metadata_claims ADD COLUMN decision_source_provider_id BLOB REFERENCES metadata_providers(id);");
     }
 
     private static void SeedMetadataProviders(SqliteConnection conn)

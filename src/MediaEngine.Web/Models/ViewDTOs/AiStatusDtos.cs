@@ -114,6 +114,42 @@ public sealed class AiModelStatusDto
 
     [JsonPropertyName("capabilities")]
     public List<string> Capabilities { get; set; } = [];
+
+    [JsonPropertyName("diskStatus")]
+    public string DiskStatus { get; set; } = "unknown";
+
+    [JsonPropertyName("diskSizeMB")]
+    public long DiskSizeMB { get; set; }
+
+    [JsonPropertyName("memoryEnvelopeMB")]
+    public int MemoryEnvelopeMB { get; set; }
+
+    [JsonPropertyName("quantization")]
+    public string Quantization { get; set; } = "";
+
+    [JsonPropertyName("sourceUrl")]
+    public string SourceUrl { get; set; } = "";
+
+    [JsonPropertyName("checksumStatus")]
+    public string ChecksumStatus { get; set; } = "unknown";
+
+    [JsonPropertyName("configurationReady")]
+    public bool ConfigurationReady { get; set; }
+
+    [JsonPropertyName("runtimeReady")]
+    public bool RuntimeReady { get; set; }
+
+    [JsonPropertyName("validated")]
+    public bool Validated { get; set; }
+
+    [JsonPropertyName("canOperate")]
+    public bool CanOperate { get; set; } = true;
+
+    [JsonPropertyName("experimental")]
+    public bool Experimental { get; set; }
+
+    [JsonPropertyName("blockingReasons")]
+    public List<string> BlockingReasons { get; set; } = [];
 }
 
 public sealed class AiConfigDto
@@ -135,6 +171,9 @@ public sealed class AiConfigDto
 
     [JsonPropertyName("model_catalog")]
     public Dictionary<string, AiModelCatalogEntryDto> ModelCatalog { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("operational_roles")]
+    public Dictionary<string, AiOperationalRoleDto> OperationalRoles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("role_requirements")]
     public Dictionary<string, AiRoleRequirementDto> RoleRequirements { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -225,6 +264,75 @@ public sealed class AiModelCatalogEntryDto
 
     [JsonPropertyName("selection_rationale")]
     public string SelectionRationale { get; set; } = "";
+}
+
+public sealed class AiProblemDetailsDto
+{
+    public string Type { get; init; } = "about:blank";
+    public string Title { get; init; } = "AI operation failed";
+    public int? Status { get; init; }
+    public string Detail { get; init; } = "The Engine could not complete the operation.";
+    public List<string> BlockingReasons { get; init; } = [];
+
+    public string ToUserMessage()
+    {
+        var parts = new List<string> { Title };
+        if (!string.IsNullOrWhiteSpace(Detail) && !string.Equals(Detail, Title, StringComparison.Ordinal))
+            parts.Add(Detail);
+        parts.AddRange(BlockingReasons.Where(reason => !string.IsNullOrWhiteSpace(reason)));
+        return string.Join(" ", parts.Distinct(StringComparer.Ordinal));
+    }
+}
+
+public sealed record AiOperationResultDto(bool Succeeded, AiProblemDetailsDto? Problem = null)
+{
+    public static AiOperationResultDto Success() => new(true);
+    public static AiOperationResultDto Failure(AiProblemDetailsDto problem) => new(false, problem);
+}
+
+public sealed record AiOperationResultDto<T>(bool Succeeded, T? Value = default, AiProblemDetailsDto? Problem = null)
+{
+    public static AiOperationResultDto<T> Success(T value) => new(true, value);
+    public static AiOperationResultDto<T> Failure(AiProblemDetailsDto problem) => new(false, default, problem);
+}
+
+public sealed class AiBenchmarkReportDto
+{
+    [JsonPropertyName("suiteKey")]
+    public string SuiteKey { get; set; } = "";
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = "";
+
+    [JsonPropertyName("catalogKey")]
+    public string CatalogKey { get; set; } = "";
+
+    [JsonPropertyName("passed")]
+    public bool Passed { get; set; }
+
+    [JsonPropertyName("failures")]
+    public List<string> Failures { get; set; } = [];
+}
+
+public sealed class AiOperationalRoleDto
+{
+    [JsonPropertyName("catalog_key")]
+    public string CatalogKey { get; set; } = "";
+
+    [JsonPropertyName("runtime_kind")]
+    public string RuntimeKind { get; set; } = "text";
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("experimental")]
+    public bool Experimental { get; set; }
+
+    [JsonPropertyName("memory_envelope_mb")]
+    public int MemoryEnvelopeMB { get; set; }
+
+    [JsonPropertyName("max_context_length")]
+    public int MaxContextLength { get; set; }
 }
 
 public sealed class AiRoleRequirementDto

@@ -32,7 +32,7 @@ public sealed class Phase7AiConfigurationTests
         var settings = new AiSettings();
 
         Assert.Equal("qwen3_0_6b_q8", settings.Models.TextFast.CatalogKey);
-        Assert.Equal("qwen3_1_7b_q8", settings.Models.TextQuality.CatalogKey);
+        Assert.Equal("qwen3_1_7b_q5", settings.Models.TextQuality.CatalogKey);
         Assert.Equal("qwen3_4b_q4", settings.Models.TextScholar.CatalogKey);
         Assert.Equal("whisper_medium", settings.Models.Audio.CatalogKey);
         Assert.True(settings.Models.TextScholar.SizeMB < 3000);
@@ -62,8 +62,8 @@ public sealed class Phase7AiConfigurationTests
         var advisor = new AiModelSelectionAdvisor(settings);
 
         var scholar = advisor.GetDecision(AiModelRole.TextScholar);
-        Assert.Contains(scholar.Warnings, warning => warning.Contains("Escalation model", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(scholar.Warnings, warning => warning.Contains("above the role default cap", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("escalation", scholar.SelectionTier, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(scholar.Warnings, warning => warning.Contains("above the role cap", StringComparison.OrdinalIgnoreCase));
 
         var audio = advisor.GetDecision(AiModelRole.Audio);
         Assert.Contains(audio.Warnings, warning => warning.Contains("timestamp_segments", StringComparison.OrdinalIgnoreCase));

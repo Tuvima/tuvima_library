@@ -274,6 +274,7 @@ builder.Services.AddSingleton<IProviderConfigurationRepository, ProviderConfigur
 builder.Services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IProfileRepository, ProfileRepository>();
+builder.Services.AddSingleton<ITasteProfileRepository, TasteProfileRepository>();
 builder.Services.AddSingleton<IProfileService, ProfileService>();
 builder.Services.AddSingleton<IProfileExternalLoginRepository, ProfileExternalLoginRepository>();
 builder.Services.AddSingleton<IProfileExternalLoginService, ProfileExternalLoginService>();
@@ -495,6 +496,8 @@ foreach (ProviderConfiguration providerConfig in providerConfigurations)
 // Storage repositories (Phase 9 — claim + canonical + person persistence).
 builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository>();
 builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
+builder.Services.AddSingleton<IAiFeaturePersistenceRepository>(sp =>
+    (IAiFeaturePersistenceRepository)sp.GetRequiredService<ICanonicalValueRepository>());
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
 builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
 builder.Services.AddSingleton<ISeriesManifestRepository, SeriesManifestRepository>();
@@ -804,17 +807,20 @@ builder.Services.AddHostedService<StorageMaintenanceHostedService>();
 // -- AI Services --------------------------------------------------------------
 // Load AI settings from config/ai.json (uses the generic loader to avoid circular refs).
 var aiSettings = configLoader.LoadAi<MediaEngine.AI.Configuration.AiSettings>()
-    ?? new MediaEngine.AI.Configuration.AiSettings();
+    ?? throw new InvalidOperationException("config/ai.json is required and must contain valid AI settings.");
 
 // Resolve the models directory from environment variable or config default.
 var modelsDir = Environment.GetEnvironmentVariable("TUVIMA_MODELS_DIR");
 if (!string.IsNullOrEmpty(modelsDir))
     aiSettings.ModelsDirectory = modelsDir;
 
+MediaEngine.AI.Configuration.AiSettingsValidator.ValidateAndThrow(aiSettings);
 builder.Services.AddSingleton(aiSettings);
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.ModelInventory>();
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.AiModelSelectionAdvisor>();
 builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.AiBenchmarkHarness>();
+builder.Services.AddSingleton<MediaEngine.AI.Infrastructure.IAiBenchmarkModelRunner,
+    MediaEngine.AI.Infrastructure.LocalTextBenchmarkModelRunner>();
 builder.Services.AddSingleton<IModelDownloadManager, MediaEngine.AI.Infrastructure.ModelDownloadManager>();
 builder.Services.AddSingleton<IModelLifecycleManager, MediaEngine.AI.Infrastructure.ModelLifecycleManager>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.ModelAutoDownloadService>();

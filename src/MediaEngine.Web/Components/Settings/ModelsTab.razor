@@ -34,8 +34,23 @@
                     {
                         <span class="model-card__meta">@ModelFamilyLine(model)</span>
                     }
-                    <span class="model-card__meta">@model.ModelFile</span>
-                    <span class="model-card__meta">Size: @FormatMb(model.SizeMB). Source: @(model.DownloadUrlHost ?? "not configured"). Validation suite: @(string.IsNullOrWhiteSpace(model.BenchmarkSuite) ? "not configured" : model.BenchmarkSuite).</span>
+                    <span class="model-card__meta">File: @(string.IsNullOrWhiteSpace(model.ModelFile) ? "manual gated artifact" : model.ModelFile)</span>
+                    <span class="model-card__meta">Catalog size: @FormatMb(model.SizeMB) · On disk: @DiskLabel(model)</span>
+                    <span class="model-card__meta">Memory envelope: @FormatMb(model.MemoryEnvelopeMB) · Quantization: @(string.IsNullOrWhiteSpace(model.Quantization) ? "not specified" : model.Quantization)</span>
+                    <span class="model-card__meta">Checksum: @model.ChecksumStatus · Validation: @(model.Validated ? "passed" : "pending") · Suite: @(string.IsNullOrWhiteSpace(model.BenchmarkSuite) ? "not configured" : model.BenchmarkSuite)</span>
+                    @if (!string.IsNullOrWhiteSpace(model.SourceUrl))
+                    {
+                        <a class="model-card__meta" href="@model.SourceUrl" target="_blank" rel="noopener noreferrer">Official/source model page</a>
+                    }
+                    else
+                    {
+                        <span class="model-card__meta">Source: @(model.DownloadUrlHost ?? "not configured")</span>
+                    }
+                    <div class="model-card__header mt-2">
+                        <AppChip Text="@(model.ConfigurationReady ? "Config ready" : "Config blocked")" Tone="@(model.ConfigurationReady ? AppUiTone.Success : AppUiTone.Warning)" />
+                        <AppChip Text="@(model.RuntimeReady ? "Runtime ready" : "Runtime blocked")" Tone="@(model.RuntimeReady ? AppUiTone.Success : AppUiTone.Warning)" />
+                        @if (model.Experimental) { <AppChip Text="Experimental" Tone="AppUiTone.Warning" /> }
+                    </div>
                     @if (!string.IsNullOrWhiteSpace(model.RoleRequirement))
                     {
                         <span class="model-card__meta">Requirement: @model.RoleRequirement</span>
@@ -64,7 +79,7 @@
                         <AppAlert Tone="AppUiTone.Error" Class="mt-3">@model.ErrorMessage</AppAlert>
                     }
 
-                    @foreach (var warning in model.ValidationWarnings)
+                    @foreach (var warning in AllWarnings(model))
                     {
                         <AppAlert Tone="AppUiTone.Warning" Class="mt-3">@warning</AppAlert>
                     }
@@ -103,6 +118,12 @@
                                        StartIcon="@Icons.Material.Outlined.Stop"
                                        Disabled="@(!CanUnload(model))"
                                        OnClick="@(() => RunAction(model.Role, AiModelAction.Unload))" />
+                            <AppButton Label="Run validation"
+                                       Size="AppControlSize.Compact"
+                                       Tone="AppUiTone.Info"
+                                       StartIcon="@Icons.Material.Outlined.FactCheck"
+                                       Disabled="@(!CanValidate(model))"
+                                       OnClick="@(() => RunValidation(model))" />
                         </AppActionBar>
                     }
                 </AppCard>
@@ -136,17 +157,46 @@
     private async Task RunAction(string role, AiModelAction action)
     {
         _message = null;
-        var ok = action switch
+        var result = action switch
         {
             AiModelAction.Download => await Orchestrator.StartAiModelDownloadAsync(role),
             AiModelAction.Cancel => await Orchestrator.CancelAiModelDownloadAsync(role),
             AiModelAction.Load => await Orchestrator.LoadAiModelAsync(role),
             AiModelAction.Unload => await Orchestrator.UnloadAiModelAsync(role),
-            _ => false,
+            _ => AiOperationResultDto.Failure(new AiProblemDetailsDto
+            {
+                Title = "Unsupported AI action",
+                Detail = "The Dashboard does not recognize this model action.",
+            }),
         };
 
-        _messageSeverity = ok ? Severity.Success : Severity.Error;
-        _message = ok ? $"{action} requested for {role}." : $"{action} failed for {role}. State was not changed locally.";
+        _messageSeverity = result.Succeeded ? Severity.Success : Severity.Error;
+        _message = result.Succeeded
+            ? $"{action} requested for {role}."
+            : result.Problem?.ToUserMessage() ?? $"{action} failed for {role}.";
+        await RefreshAsync();
+    }
+
+    private async Task RunValidation(AiModelStatusDto model)
+    {
+        _message = null;
+        var result = await Orchestrator.RunAiModelBenchmarkAsync(
+            model.BenchmarkSuite,
+            model.CatalogKey!,
+            allowHardwareBenchmark: true,
+            allowModelExecution: true);
+        if (!result.Succeeded)
+        {
+            _messageSeverity = Severity.Error;
+            _message = result.Problem?.ToUserMessage() ?? "AI validation failed.";
+            return;
+        }
+
+        var report = result.Value!;
+        _messageSeverity = report.Passed ? Severity.Success : Severity.Warning;
+        _message = report.Passed
+            ? $"{report.SuiteKey} passed for {report.CatalogKey}."
+            : $"{report.SuiteKey} did not pass. {string.Join(" ", report.Failures)}";
         await RefreshAsync();
     }
 
@@ -165,13 +215,18 @@
     }
 
     private static bool CanDownload(AiModelStatusDto m) =>
-        m.Supported && IsState(m, "NotDownloaded", "Error") && !string.IsNullOrWhiteSpace(m.ModelFile);
+        m.Supported && m.CanOperate && IsState(m, "NotDownloaded", "Error") && !string.IsNullOrWhiteSpace(m.ModelFile);
 
     private static bool CanCancel(AiModelStatusDto m) => m.Supported && IsState(m, "Downloading");
 
-    private static bool CanLoad(AiModelStatusDto m) => m.Supported && IsState(m, "Ready") && !m.Loaded;
+    private static bool CanLoad(AiModelStatusDto m) => m.Supported && m.CanOperate && IsState(m, "Ready") && !m.Loaded;
 
     private static bool CanUnload(AiModelStatusDto m) => m.Supported && (m.Loaded || m.Active || IsState(m, "Loaded"));
+
+    private static bool CanValidate(AiModelStatusDto m) =>
+        m.Supported && m.CanOperate && IsState(m, "Ready", "Loaded")
+        && !string.IsNullOrWhiteSpace(m.BenchmarkSuite)
+        && !string.IsNullOrWhiteSpace(m.CatalogKey);
 
     private static bool IsState(AiModelStatusDto m, params string[] states) =>
         states.Any(s => string.Equals(m.State, s, StringComparison.OrdinalIgnoreCase));
@@ -218,6 +273,16 @@
     };
 
     private static string FormatMb(long mb) => mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";
+
+    private static string DiskLabel(AiModelStatusDto model) => model.DiskStatus switch
+    {
+        "present" => model.DiskSizeMB > 0 ? FormatMb(model.DiskSizeMB) : "present",
+        "missing" => "not downloaded",
+        _ => "not configured",
+    };
+
+    private static IEnumerable<string> AllWarnings(AiModelStatusDto model) =>
+        model.ValidationWarnings.Concat(model.BlockingReasons).Distinct(StringComparer.Ordinal);
 
     private enum AiModelAction { Download, Cancel, Load, Unload }
 

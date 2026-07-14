@@ -1453,17 +1453,25 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<IReadOnlyList<AiModelStatusDto>> GetAiModelStatusesAsync(CancellationToken ct = default)
         => _api.GetAiModelStatusesAsync(ct);
 
-    public Task<bool> StartAiModelDownloadAsync(string role, CancellationToken ct = default)
+    public Task<AiOperationResultDto> StartAiModelDownloadAsync(string role, CancellationToken ct = default)
         => _api.StartAiModelDownloadAsync(role, ct);
 
-    public Task<bool> CancelAiModelDownloadAsync(string role, CancellationToken ct = default)
+    public Task<AiOperationResultDto> CancelAiModelDownloadAsync(string role, CancellationToken ct = default)
         => _api.CancelAiModelDownloadAsync(role, ct);
 
-    public Task<bool> LoadAiModelAsync(string role, CancellationToken ct = default)
+    public Task<AiOperationResultDto> LoadAiModelAsync(string role, CancellationToken ct = default)
         => _api.LoadAiModelAsync(role, ct);
 
-    public Task<bool> UnloadAiModelAsync(string role, CancellationToken ct = default)
+    public Task<AiOperationResultDto> UnloadAiModelAsync(string role, CancellationToken ct = default)
         => _api.UnloadAiModelAsync(role, ct);
+
+    public Task<AiOperationResultDto<AiBenchmarkReportDto>> RunAiModelBenchmarkAsync(
+        string suiteKey,
+        string catalogKey,
+        bool allowHardwareBenchmark,
+        bool allowModelExecution,
+        CancellationToken ct = default)
+        => _api.RunAiModelBenchmarkAsync(suiteKey, catalogKey, allowHardwareBenchmark, allowModelExecution, ct);
 
     public Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default)
         => _api.GetAiConfigAsync(ct);
@@ -1474,7 +1482,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default)
         => _api.GetAiProfileAsync(ct);
 
-    public Task<HardwareProfileDto?> RunBenchmarkAsync(CancellationToken ct = default)
+    public Task<AiOperationResultDto<HardwareProfileDto>> RunBenchmarkAsync(CancellationToken ct = default)
         => _api.RunBenchmarkAsync(ct);
 
     public Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default)

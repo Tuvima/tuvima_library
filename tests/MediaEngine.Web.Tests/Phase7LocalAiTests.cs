@@ -24,6 +24,9 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("CancelAiModelDownloadAsync", source, StringComparison.Ordinal);
         Assert.Contains("LoadAiModelAsync", source, StringComparison.Ordinal);
         Assert.Contains("UnloadAiModelAsync", source, StringComparison.Ordinal);
+        Assert.Contains("RunAiModelBenchmarkAsync", source, StringComparison.Ordinal);
+        Assert.Contains("result.Problem?.ToUserMessage()", source, StringComparison.Ordinal);
+        Assert.Contains("Run validation", source, StringComparison.Ordinal);
         Assert.Contains("Configured, but lifecycle endpoints do not support this role", source, StringComparison.Ordinal);
         Assert.DoesNotContain("catalogue-only", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Task.Delay", source, StringComparison.Ordinal);

@@ -105,8 +105,10 @@ nav:
       - Understand Enrichment: explanation/how-hydration-works.md
       - Understand Scoring: explanation/how-scoring-works.md
       - Understand Local AI: explanation/how-ai-works.md
+      - Roll Out a Local AI Model: guides/local-ai-model-rollout.md
   - Reference:
       - Configuration Reference: reference/configuration.md
+      - AI Configuration Reference: reference/ai-configuration.md
       - Providers Reference: reference/providers.md
       - Plugin Catalog: reference/plugin-catalog.md
       - Media Types: reference/media-types.md
@@ -133,6 +135,7 @@ nav:
       - Inline Media Editing: architecture/inline-media-editing.md
       - Universe Graph: architecture/universe-graph.md
       - Local AI Integration: architecture/ai-integration.md
+      - Local AI Model Portfolio: architecture/local-ai-model-portfolio.md
       - Performance and Large Libraries: architecture/performance-and-large-libraries.md
       - Security Architecture: architecture/security.md
       - Future State:

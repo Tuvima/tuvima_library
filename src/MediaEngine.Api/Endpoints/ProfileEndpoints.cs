@@ -79,7 +79,7 @@ public static class ProfileEndpoints
         })
         .WithName("GetProfileTaste")
         .WithSummary("Get the computed taste profile for a user profile.")
-        .Produces<TasteProfile>(StatusCodes.Status200OK)
+        .Produces<TasteProfileBuildResult>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 

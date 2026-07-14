@@ -23,32 +23,89 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed class DescriptionIntelligenceBatchService : BackgroundService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private const string FeatureKey = "description_intelligence";
+    private const string PromptVersion = "description-intelligence-v1";
     private readonly AiSettings _settings;
     private readonly IConfigurationLoader _configLoader;
+    private readonly ResourceMonitorService _resourceMonitor;
+    private readonly ICanonicalValueRepository _canonicals;
+    private readonly IAiFeaturePersistenceRepository _featurePersistence;
+    private readonly IWorkRepository _works;
+    private readonly IDescriptionIntelligenceService _descriptionIntelligence;
+    private readonly IPersonReconciliationService _personReconciliation;
+    private readonly IMetadataClaimRepository _claims;
+    private readonly IScoringEngine _scoring;
+    private readonly ICanonicalValueArrayRepository _canonicalArrays;
+    private readonly ISearchIndexRepository _searchIndex;
+    private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
+    private readonly IRecursiveIdentityService _identityService;
+    private readonly IMetadataHarvestingService _harvesting;
     private readonly ILogger<DescriptionIntelligenceBatchService> _logger;
 
     public DescriptionIntelligenceBatchService(
-        IServiceScopeFactory scopeFactory,
         AiSettings settings,
         IConfigurationLoader configLoader,
+        ResourceMonitorService resourceMonitor,
+        ICanonicalValueRepository canonicals,
+        IAiFeaturePersistenceRepository featurePersistence,
+        IWorkRepository works,
+        IDescriptionIntelligenceService descriptionIntelligence,
+        IPersonReconciliationService personReconciliation,
+        IMetadataClaimRepository claims,
+        IScoringEngine scoring,
+        ICanonicalValueArrayRepository canonicalArrays,
+        ISearchIndexRepository searchIndex,
+        IEnumerable<IExternalMetadataProvider> providers,
+        IRecursiveIdentityService identityService,
+        IMetadataHarvestingService harvesting,
         ILogger<DescriptionIntelligenceBatchService> logger)
     {
-        ArgumentNullException.ThrowIfNull(scopeFactory);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(resourceMonitor);
+        ArgumentNullException.ThrowIfNull(canonicals);
+        ArgumentNullException.ThrowIfNull(featurePersistence);
+        ArgumentNullException.ThrowIfNull(works);
+        ArgumentNullException.ThrowIfNull(descriptionIntelligence);
+        ArgumentNullException.ThrowIfNull(personReconciliation);
+        ArgumentNullException.ThrowIfNull(claims);
+        ArgumentNullException.ThrowIfNull(scoring);
+        ArgumentNullException.ThrowIfNull(canonicalArrays);
+        ArgumentNullException.ThrowIfNull(searchIndex);
+        ArgumentNullException.ThrowIfNull(providers);
+        ArgumentNullException.ThrowIfNull(identityService);
+        ArgumentNullException.ThrowIfNull(harvesting);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _scopeFactory = scopeFactory;
         _settings     = settings;
         _configLoader = configLoader;
+        _resourceMonitor = resourceMonitor;
+        _canonicals = canonicals;
+        _featurePersistence = featurePersistence;
+        _works = works;
+        _descriptionIntelligence = descriptionIntelligence;
+        _personReconciliation = personReconciliation;
+        _claims = claims;
+        _scoring = scoring;
+        _canonicalArrays = canonicalArrays;
+        _searchIndex = searchIndex;
+        _providers = providers.ToList();
+        _identityService = identityService;
+        _harvesting = harvesting;
         _logger       = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Initial delay — let ingestion and hydration pipelines settle.
-        await Task.Delay(TimeSpan.FromMinutes(3), stoppingToken);
+        try
+        {
+            await Task.Delay(TimeSpan.FromMinutes(3), stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return;
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -56,7 +113,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             {
                 await ProcessBatchAsync(stoppingToken);
             }
-            catch (OperationCanceledException) { break; }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[DESCRIPTION-INTEL-BATCH] Batch run failed");
@@ -67,7 +124,14 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             var delay = CronScheduler.UntilNext(cron, TimeSpan.FromMinutes(15));
 
             _logger.LogInformation("[DESCRIPTION-INTEL-BATCH] Next run in {Delay}", delay);
-            await Task.Delay(delay, stoppingToken);
+            try
+            {
+                await Task.Delay(delay, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
         }
     }
 
@@ -79,17 +143,14 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             return;
         }
 
-        using var scope = _scopeFactory.CreateScope();
-
         // Check hardware tier and select the best model available right now.
         var features = HardwareTierPolicy.GetFeatures(_settings.HardwareProfile.Tier);
 
         // Check if resources allow enrichment right now.
-        var resourceMonitor = scope.ServiceProvider.GetRequiredService<ResourceMonitorService>();
         var modelSize = features.ScholarAvailable
             ? _settings.Models.TextScholar.SizeMB
             : _settings.Models.TextQuality.SizeMB;
-        var recommendation = resourceMonitor.CanLoadModel(modelSize);
+        var recommendation = _resourceMonitor.CanLoadModel(modelSize);
         if (!recommendation.CanLoad)
         {
             _logger.LogInformation("[DESCRIPTION-INTEL-BATCH] Deferring: {Reason}", recommendation.Reason);
@@ -100,20 +161,21 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             "[DESCRIPTION-INTEL-BATCH] Using {Model} for enrichment (ScholarAvailable={Scholar})",
             features.ScholarAvailable ? "text_scholar (8B)" : "text_quality (3B)",
             features.ScholarAvailable);
-        var canonicalRepo  = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
-        var workRepo       = scope.ServiceProvider.GetRequiredService<IWorkRepository>();
-        var descIntel      = scope.ServiceProvider.GetRequiredService<IDescriptionIntelligenceService>();
-        var personRecon    = scope.ServiceProvider.GetService<IPersonReconciliationService>();
-        var claimRepo      = scope.ServiceProvider.GetRequiredService<IMetadataClaimRepository>();
-        var scoringEngine  = scope.ServiceProvider.GetRequiredService<IScoringEngine>();
-        var configLoader   = scope.ServiceProvider.GetRequiredService<IConfigurationLoader>();
-        var arrayRepo      = scope.ServiceProvider.GetRequiredService<ICanonicalValueArrayRepository>();
-        var searchIndex    = scope.ServiceProvider.GetRequiredService<ISearchIndexRepository>();
-        var providers      = scope.ServiceProvider.GetServices<IExternalMetadataProvider>();
-        var identityService = scope.ServiceProvider.GetRequiredService<IRecursiveIdentityService>();
-        var harvesting     = scope.ServiceProvider.GetRequiredService<IMetadataHarvestingService>();
+        var modelId = features.ScholarAvailable ? "text_scholar" : "text_quality";
+        var canonicalRepo = _canonicals;
+        var workRepo = _works;
+        var descIntel = _descriptionIntelligence;
+        var personRecon = _personReconciliation;
+        var claimRepo = _claims;
+        var scoringEngine = _scoring;
+        var configLoader = _configLoader;
+        var arrayRepo = _canonicalArrays;
+        var searchIndex = _searchIndex;
+        var providers = _providers;
+        var identityService = _identityService;
+        var harvesting = _harvesting;
 
-        var batchSize = _settings.EnrichmentBatchSize > 0 ? _settings.EnrichmentBatchSize : 10;
+        var batchSize = Math.Clamp(_settings.EnrichmentBatchSize, 1, 50);
 
         // Find entities that have a description (or plot_summary) but no themes yet.
         var entityIds = await canonicalRepo.GetEntitiesNeedingEnrichmentAsync(
@@ -139,6 +201,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             if (ct.IsCancellationRequested) break;
 
             var entityId = entityIds[i];
+            string? inputFingerprint = null;
 
             try
             {
@@ -149,99 +212,55 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                 var mediaCategory = canonicals
                     .FirstOrDefault(c => string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase))
                     ?.Value ?? "books";
+                var sourceDescription = canonicals
+                    .FirstOrDefault(c => string.Equals(c.Key, "description", StringComparison.OrdinalIgnoreCase))
+                    ?.Value
+                    ?? canonicals.FirstOrDefault(c =>
+                        string.Equals(c.Key, "plot_summary", StringComparison.OrdinalIgnoreCase))?.Value
+                    ?? string.Empty;
+                inputFingerprint = AiFeatureFingerprint.Compute(sourceDescription, mediaCategory);
+                var featureState = await _featurePersistence.GetAiFeatureStateAsync(
+                    entityId,
+                    FeatureKey,
+                    ct).ConfigureAwait(false);
+                if (featureState?.IsCurrent(inputFingerprint) == true
+                    || featureState?.CanAttempt(DateTimeOffset.UtcNow) == false)
+                    continue;
 
                 var diResult = await descIntel.AnalyzeAsync(entityId, mediaCategory, ct)
                     .ConfigureAwait(false);
 
                 if (diResult is not null)
                 {
-                    var aiValues = new List<CanonicalValue>();
-                    var now      = DateTimeOffset.UtcNow;
-
-                    foreach (var theme in diResult.Themes)
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "themes",
-                            Value        = theme,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    foreach (var mood in diResult.Mood)
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "mood",
-                            Value        = mood,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    if (!string.IsNullOrWhiteSpace(diResult.Tldr))
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "tldr",
-                            Value        = diResult.Tldr,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    if (!string.IsNullOrWhiteSpace(diResult.Setting))
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "setting",
-                            Value        = diResult.Setting,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    if (!string.IsNullOrWhiteSpace(diResult.TimePeriod))
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "time_period",
-                            Value        = diResult.TimePeriod,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    if (!string.IsNullOrWhiteSpace(diResult.Audience))
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "audience",
-                            Value        = diResult.Audience,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    foreach (var warning in diResult.ContentWarnings)
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "content_warnings",
-                            Value        = warning,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    if (!string.IsNullOrWhiteSpace(diResult.Pace))
-                        aiValues.Add(new CanonicalValue
-                        {
-                            EntityId     = entityId,
-                            Key          = "pace",
-                            Value        = diResult.Pace,
-                            LastScoredAt = now,
-                            WinningProviderId = WellKnownProviders.AiProvider,
-                        });
-
-                    if (aiValues.Count > 0)
                     {
-                        await canonicalRepo.UpsertBatchAsync(aiValues, ct).ConfigureAwait(false);
-                        processed++;
+                        var persistenceResult = await _featurePersistence.ReplaceAiFeatureAsync(
+                            new AiFeatureWriteRequest(
+                                entityId,
+                                FeatureKey,
+                                new Dictionary<string, IReadOnlyList<string>>
+                                {
+                                    ["themes"] = diResult.Themes,
+                                    ["mood"] = diResult.Mood,
+                                    ["content_warnings"] = diResult.ContentWarnings,
+                                },
+                                new Dictionary<string, string?>
+                                {
+                                    ["tldr"] = diResult.Tldr,
+                                    ["setting"] = diResult.Setting,
+                                    ["time_period"] = diResult.TimePeriod,
+                                    ["audience"] = diResult.Audience,
+                                    ["pace"] = diResult.Pace,
+                                },
+                                WellKnownProviders.AiProvider,
+                                ClaimConfidence.AiDescription,
+                                PublishThreshold: 0.65,
+                                ReviewThreshold: 0.75,
+                                modelId,
+                                PromptVersion,
+                                inputFingerprint),
+                            ct).ConfigureAwait(false);
+                        if (persistenceResult.PublishedFields.Count > 0)
+                            processed++;
 
                         _logger.LogDebug(
                             "[DESCRIPTION-INTEL-BATCH] Enriched entity {EntityId} — {Themes} themes, {Mood} mood",
@@ -335,7 +354,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                             string.Equals(c.ClaimKey, nameKey, StringComparison.OrdinalIgnoreCase));
                                         if (!hasNameClaim)
                                         {
-                                            aiPersonClaims.Add(new ProviderClaim(nameKey, person.Name, 0.75));
+                                            aiPersonClaims.Add(new ProviderClaim(nameKey, searchResult.Name, 0.75));
                                         }
 
                                         _logger.LogInformation(
@@ -369,7 +388,8 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                 await ScoringHelper.PersistAndScoreWithLineageAsync(
                                     entityId, aiPersonClaims, wikidataProviderId, lineage,
                                     claimRepo, canonicalRepo, scoringEngine, configLoader,
-                                    providers, ct, arrayRepo, _logger, searchIndex).ConfigureAwait(false);
+                                    providers, ct, arrayRepo, _logger, searchIndex,
+                                    decisionSourceProviderId: WellKnownProviders.AiProvider).ConfigureAwait(false);
 
                                 // Create Person records for the newly resolved QIDs.
                                 var personRefs = aiPersonClaims
@@ -428,9 +448,37 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                     }
                 }
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
+                if (inputFingerprint is not null)
+                {
+                    try
+                    {
+                        var failure = await _featurePersistence.RecordAiFeatureFailureAsync(
+                            new AiFeatureFailureRequest(
+                                entityId,
+                                FeatureKey,
+                                WellKnownProviders.AiProvider,
+                                modelId,
+                                PromptVersion,
+                                inputFingerprint,
+                                ex.Message),
+                            ct).ConfigureAwait(false);
+                        if (failure.Status == AiFeatureStatus.Poisoned)
+                            _logger.LogError(
+                                "[DESCRIPTION-INTEL-BATCH] Quarantined poison entity {Id} after {Attempts} attempts",
+                                entityId,
+                                failure.Attempts);
+                    }
+                    catch (Exception persistenceEx) when (persistenceEx is not OperationCanceledException)
+                    {
+                        _logger.LogError(
+                            persistenceEx,
+                            "[DESCRIPTION-INTEL-BATCH] Could not persist failure state for entity {Id}",
+                            entityId);
+                    }
+                }
                 _logger.LogWarning(ex,
                     "[DESCRIPTION-INTEL-BATCH] Failed to process entity {Id} — skipping",
                     entityId);

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -5,52 +6,51 @@ using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;
 
-/// <summary>
-/// Tracks available and downloaded AI models by scanning the models directory.
-/// </summary>
+/// <summary>Tracks verified model artifacts and the roles that share each artifact.</summary>
 public sealed class ModelInventory
 {
-    private readonly AiSettings _settings;
+    private static readonly StringComparer ArtifactComparer = OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
+
+    private readonly AiRuntimeSettingsSnapshot _settings;
     private readonly ILogger<ModelInventory> _logger;
-    private readonly Dictionary<AiModelRole, AiModelState> _states = new();
+    private readonly Dictionary<AiModelRole, AiModelState> _states = [];
     private readonly object _lock = new();
 
     public ModelInventory(AiSettings settings, ILogger<ModelInventory> logger)
     {
-        _settings = settings;
+        _settings = AiRuntimeSettingsSnapshot.Create(settings);
         _logger = logger;
         Refresh();
     }
 
-    /// <summary>Scan the models directory and update state for all roles.</summary>
+    /// <summary>Scans each unique artifact once and applies its state to every sharing role.</summary>
     public void Refresh()
     {
         lock (_lock)
         {
+            var refreshed = new HashSet<string>(ArtifactComparer);
             foreach (var role in Enum.GetValues<AiModelRole>())
             {
-                var definition = _settings.Models.GetByRole(role);
-                var modelPath = GetModelPath(role);
-
-                if (string.IsNullOrEmpty(definition.File))
+                var artifact = GetArtifactKey(role);
+                if (refreshed.Add(artifact))
                 {
-                    _states[role] = AiModelState.NotDownloaded;
-                }
-                else if (File.Exists(modelPath))
-                {
-                    _states[role] = AiModelState.Ready;
-                    _logger.LogInformation("Model {Role} found at {Path}", role, modelPath);
-                }
-                else
-                {
-                    _states[role] = AiModelState.NotDownloaded;
-                    _logger.LogInformation("Model {Role} not found at {Path}", role, modelPath);
+                    RefreshArtifactCore(role);
                 }
             }
         }
     }
 
-    /// <summary>Get the current state of a model role.</summary>
+    /// <summary>Refreshes all roles backed by the same resolved model file.</summary>
+    public void RefreshArtifact(AiModelRole role)
+    {
+        lock (_lock)
+        {
+            RefreshArtifactCore(role);
+        }
+    }
+
     public AiModelState GetState(AiModelRole role)
     {
         lock (_lock)
@@ -59,7 +59,6 @@ public sealed class ModelInventory
         }
     }
 
-    /// <summary>Set the state of a model role (used by download/lifecycle managers).</summary>
     public void SetState(AiModelRole role, AiModelState state)
     {
         lock (_lock)
@@ -68,43 +67,166 @@ public sealed class ModelInventory
         }
     }
 
-    /// <summary>Get the full file path for a model role.</summary>
-    public string GetModelPath(AiModelRole role)
+    /// <summary>Sets the state for every role backed by the same model file.</summary>
+    public void SetArtifactState(AiModelRole role, AiModelState state)
     {
-        var definition = _settings.Models.GetByRole(role);
-        var subdirectory = role == AiModelRole.Audio ? "whisper" : "llama";
-        return Path.Combine(_settings.ModelsDirectory, subdirectory, definition.File);
+        lock (_lock)
+        {
+            foreach (var sharedRole in GetRolesSharingArtifactCore(role))
+            {
+                _states[sharedRole] = state;
+            }
+        }
     }
 
-    /// <summary>Get the model definition for a role.</summary>
-    public AiModelDefinition GetDefinition(AiModelRole role) => _settings.Models.GetByRole(role);
+    public string GetModelPath(AiModelRole role)
+    {
+        var definition = _settings.GetModel(role);
+        var subdirectory = role == AiModelRole.Audio ? "whisper" : "llama";
+        var roleDirectory = Path.GetFullPath(Path.Combine(_settings.ModelsDirectory, subdirectory));
+        var candidate = Path.GetFullPath(Path.Combine(roleDirectory, definition.File));
+        var requiredPrefix = roleDirectory.EndsWith(Path.DirectorySeparatorChar)
+            ? roleDirectory
+            : roleDirectory + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!candidate.StartsWith(requiredPrefix, comparison))
+        {
+            throw new InvalidOperationException($"Model file for {role} resolves outside its managed directory.");
+        }
 
-    /// <summary>Check if all required models are ready (downloaded and verified).</summary>
+        return candidate;
+    }
+
+    public string GetArtifactKey(AiModelRole role) => GetModelPath(role);
+
+    public IReadOnlyList<AiModelRole> GetRolesSharingArtifact(AiModelRole role)
+    {
+        lock (_lock)
+        {
+            return GetRolesSharingArtifactCore(role);
+        }
+    }
+
+    public AiModelRuntimeDefinition GetDefinition(AiModelRole role) => _settings.GetModel(role);
+
     public bool AreAllReady()
     {
         lock (_lock)
         {
-            return Enum.GetValues<AiModelRole>().All(r => _states.GetValueOrDefault(r) == AiModelState.Ready);
+            return Enum.GetValues<AiModelRole>()
+                .All(role => _states.GetValueOrDefault(role) is AiModelState.Ready or AiModelState.Loaded);
         }
     }
 
-    /// <summary>Get status for all model roles.</summary>
     public IReadOnlyList<AiModelStatus> GetAllStatuses()
     {
         lock (_lock)
         {
             return Enum.GetValues<AiModelRole>().Select(role =>
             {
-                var def = _settings.Models.GetByRole(role);
+                var definition = _settings.GetModel(role);
                 return new AiModelStatus
                 {
                     Role = role,
                     ModelType = role == AiModelRole.Audio ? AiModelType.Audio : AiModelType.Text,
                     State = _states.GetValueOrDefault(role, AiModelState.NotDownloaded),
-                    ModelFile = def.File,
-                    SizeMB = def.SizeMB,
+                    ModelFile = definition.File,
+                    SizeMB = definition.SizeMB,
                 };
             }).ToList();
+        }
+    }
+
+    private void RefreshArtifactCore(AiModelRole role)
+    {
+        var sharedRoles = GetRolesSharingArtifactCore(role);
+        var modelPath = GetModelPath(role);
+        AiModelState artifactState;
+        if (!File.Exists(modelPath))
+        {
+            artifactState = AiModelState.NotDownloaded;
+        }
+        else if (ValidateExistingArtifact(modelPath, sharedRoles))
+        {
+            artifactState = AiModelState.Ready;
+        }
+        else
+        {
+            artifactState = AiModelState.Error;
+        }
+
+        foreach (var sharedRole in sharedRoles)
+        {
+            if (_states.GetValueOrDefault(sharedRole) == AiModelState.Loaded
+                && artifactState == AiModelState.Ready)
+            {
+                continue;
+            }
+
+            _states[sharedRole] = artifactState;
+            _logger.LogInformation(
+                "Model artifact for {Role} at {Path} is {State}",
+                sharedRole,
+                modelPath,
+                artifactState);
+        }
+    }
+
+    private AiModelRole[] GetRolesSharingArtifactCore(AiModelRole role)
+    {
+        var artifact = GetArtifactKey(role);
+        return Enum.GetValues<AiModelRole>()
+            .Where(candidate => ArtifactComparer.Equals(GetArtifactKey(candidate), artifact))
+            .ToArray();
+    }
+
+    private bool ValidateExistingArtifact(string modelPath, IReadOnlyList<AiModelRole> roles)
+    {
+        try
+        {
+            var file = new FileInfo(modelPath);
+            if (file.Length <= 0)
+            {
+                _logger.LogWarning("Shared model artifact is empty: {Path}", modelPath);
+                return false;
+            }
+
+            var checksums = roles
+                .Select(role => _settings.GetModel(role).Sha256)
+                .Where(checksum => !string.IsNullOrWhiteSpace(checksum))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (checksums.Length == 0)
+            {
+                return true;
+            }
+
+            if (checksums.Length > 1)
+            {
+                _logger.LogError("Roles sharing {Path} specify conflicting checksums", modelPath);
+                return false;
+            }
+
+            using var stream = File.OpenRead(modelPath);
+            var actual = Convert.ToHexStringLower(SHA256.HashData(stream));
+            if (actual.Equals(checksums[0], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            _logger.LogError(
+                "Model checksum validation failed for {Path}: expected {Expected}, got {Actual}",
+                modelPath,
+                checksums[0],
+                actual);
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError(ex, "Could not validate shared model artifact at {Path}", modelPath);
+            return false;
         }
     }
 }

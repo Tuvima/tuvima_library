@@ -40,7 +40,7 @@ The AI layer uses multiple specialized roles rather than one model doing everyth
 | Model | Size | Role | What it handles |
 |---|---|---|---|
 | Qwen3 0.6B | ~639 MB | Quick tasks | Search query parsing, TL;DR summaries, on-demand requests |
-| Qwen3 1.7B | ~1.8 GB | Ingestion | Filename cleaning, Wikidata candidate matching, vibe tag generation |
+| Qwen3 1.7B Q5_K_M | ~1.26 GB | Ingestion | Filename cleaning, Wikidata candidate matching, vibe tag generation |
 | Qwen3 4B | ~2.5 GB | Scholar/CJK | Deep enrichment, long-context analysis, CJK/multilingual processing |
 | Whisper Medium | ~1.5 GB | Audio | Timestamped transcription, language detection, subtitle synchronization |
 

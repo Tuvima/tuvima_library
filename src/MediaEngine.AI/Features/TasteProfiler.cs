@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -8,128 +10,157 @@ namespace MediaEngine.AI.Features;
 
 public sealed class TasteProfiler : ITasteProfiler
 {
+    private const int MinimumTasteSignals = 3;
+    private const int MaximumTasteSignals = 500;
+
     private readonly ILlamaInferenceService _llama;
-    private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ITasteProfileRepository _profiles;
     private readonly ILogger<TasteProfiler> _logger;
 
     public TasteProfiler(
         ILlamaInferenceService llama,
-        ICanonicalValueRepository canonicalRepo,
+        ITasteProfileRepository profiles,
         ILogger<TasteProfiler> logger)
     {
+        ArgumentNullException.ThrowIfNull(llama);
+        ArgumentNullException.ThrowIfNull(profiles);
+        ArgumentNullException.ThrowIfNull(logger);
         _llama = llama;
-        _canonicalRepo = canonicalRepo;
+        _profiles = profiles;
         _logger = logger;
     }
 
-    public async Task<TasteProfile> GetProfileAsync(Guid userId, CancellationToken ct = default)
+    public async Task<TasteProfileBuildResult> GetProfileAsync(
+        Guid userId,
+        CancellationToken ct = default)
     {
-        _logger.LogDebug("TasteProfiler.GetProfileAsync: building profile for user {User}", userId);
-
-        // TODO: Build and persist true per-profile taste from user history/progress in user_taste_profiles.
-        // This fallback still scans canonical library values until that calculation is implemented.
-        var genreCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var eraCounts   = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var typeCounts  = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var moodCounts  = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        // Walk every entity that has a genre canonical value to build distributions.
-        // This is a heuristic scan — we use FindByValueAsync with empty prefix to get all.
-        var allGenreOwners = await _canonicalRepo.FindByKeyAndPrefixAsync("genre", "", ct).ConfigureAwait(false);
-        foreach (var cv in allGenreOwners)
+        _logger.LogDebug("TasteProfiler: building profile-scoped taste for {UserId}", userId);
+        var signals = await _profiles.GetSignalsAsync(userId, MaximumTasteSignals, ct)
+            .ConfigureAwait(false);
+        var inputFingerprint = ComputeInputFingerprint(signals);
+        if (signals.Count < MinimumTasteSignals)
         {
-            if (!string.IsNullOrWhiteSpace(cv.Value))
-                IncrementKey(genreCounts, cv.Value.Trim().ToLowerInvariant());
+            return new TasteProfileBuildResult(
+                TasteProfileBuildStatus.InsufficientData,
+                userId,
+                Profile: null,
+                signals.Count,
+                inputFingerprint,
+                $"At least {MinimumTasteSignals} profile interactions are required; found {signals.Count}.");
         }
 
-        var allYearOwners = await _canonicalRepo.FindByKeyAndPrefixAsync("release_year", "", ct).ConfigureAwait(false);
-        foreach (var cv in allYearOwners)
+        var genreWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var eraWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var typeWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var moodWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var signal in signals)
         {
-            if (int.TryParse(cv.Value, out var year))
-            {
-                var decade = $"{(year / 10) * 10}s";
-                IncrementKey(eraCounts, decade);
-            }
+            var weight = Math.Max(0.10, Math.Clamp(signal.ProgressPct, 0, 100) / 100.0);
+            foreach (var genre in signal.Genres.Where(value => !string.IsNullOrWhiteSpace(value)))
+                Increment(genreWeights, genre.Trim().ToLowerInvariant(), weight);
+            foreach (var mood in signal.Moods.Where(value => !string.IsNullOrWhiteSpace(value)))
+                Increment(moodWeights, mood.Trim().ToLowerInvariant(), weight);
+            if (signal.ReleaseYear is > 0)
+                Increment(eraWeights, $"{(signal.ReleaseYear.Value / 10) * 10}s", weight);
+            if (!string.IsNullOrWhiteSpace(signal.MediaType))
+                Increment(typeWeights, signal.MediaType.Trim(), weight);
         }
 
-        var allTypeOwners = await _canonicalRepo.FindByKeyAndPrefixAsync("media_type", "", ct).ConfigureAwait(false);
-        foreach (var cv in allTypeOwners)
+        var genreDistribution = ToDistribution(genreWeights);
+        var eraDistribution = ToDistribution(eraWeights);
+        var typeDistribution = ToDistribution(typeWeights);
+        var moodDistribution = ToDistribution(moodWeights);
+        var summary = await GenerateSummaryAsync(
+            genreDistribution,
+            eraDistribution,
+            typeDistribution,
+            ct).ConfigureAwait(false);
+
+        var profile = new TasteProfile
         {
-            if (!string.IsNullOrWhiteSpace(cv.Value))
-                IncrementKey(typeCounts, cv.Value.Trim());
-        }
-
-        var allVibeOwners = await _canonicalRepo.FindByKeyAndPrefixAsync("vibe", "", ct).ConfigureAwait(false);
-        foreach (var cv in allVibeOwners)
-        {
-            if (!string.IsNullOrWhiteSpace(cv.Value))
-                IncrementKey(moodCounts, cv.Value.Trim().ToLowerInvariant());
-        }
-
-        var genreDist = ToDistribution(genreCounts);
-        var eraDist   = ToDistribution(eraCounts);
-        var typeDist  = ToDistribution(typeCounts);
-        var moodDist  = ToDistribution(moodCounts);
-
-        // Generate a human-readable summary using the LLM.
-        string? summary = null;
-        if (genreDist.Count > 0 || typeDist.Count > 0)
-        {
-            try
-            {
-                var topGenres  = string.Join(", ", genreDist.OrderByDescending(kv => kv.Value).Take(3).Select(kv => kv.Key));
-                var topTypes   = string.Join(", ", typeDist.OrderByDescending(kv => kv.Value).Take(3).Select(kv => kv.Key));
-                var topEras    = string.Join(", ", eraDist.OrderByDescending(kv => kv.Value).Take(2).Select(kv => kv.Key));
-                var prompt     = $"""
-                    Summarize this reader/viewer's taste profile in 1-2 sentences.
-                    Favorite genres: {(string.IsNullOrEmpty(topGenres) ? "mixed" : topGenres)}
-                    Preferred media types: {(string.IsNullOrEmpty(topTypes) ? "mixed" : topTypes)}
-                    Favorite eras: {(string.IsNullOrEmpty(topEras) ? "mixed" : topEras)}
-                    Be concise and friendly. Do not use bullet points.
-                    """;
-
-                summary = await _llama.InferAsync(AiModelRole.TextFast, prompt, ct: ct).ConfigureAwait(false);
-                summary = summary?.Trim();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "TasteProfiler: LLM summary generation failed — using fallback");
-                summary = "Profile generated from library patterns.";
-            }
-        }
-
-        return new TasteProfile
-        {
-            UserId            = userId,
-            GenreDistribution = genreDist,
-            EraPreferences    = eraDist,
-            MediaTypeMix      = typeDist,
-            MoodPreferences   = moodDist,
-            Summary           = summary ?? "Profile not yet generated — add more items to your library.",
-            LastUpdatedAt     = DateTimeOffset.UtcNow,
+            UserId = userId,
+            GenreDistribution = genreDistribution,
+            EraPreferences = eraDistribution,
+            MediaTypeMix = typeDistribution,
+            MoodPreferences = moodDistribution,
+            Summary = summary,
+            LastUpdatedAt = DateTimeOffset.UtcNow,
         };
+
+        return new TasteProfileBuildResult(
+            TasteProfileBuildStatus.Generated,
+            userId,
+            profile,
+            signals.Count,
+            inputFingerprint);
     }
 
-    public Task UpdateAsync(Guid userId, Guid assetId, CancellationToken ct = default)
+    private async Task<string> GenerateSummaryAsync(
+        IReadOnlyDictionary<string, double> genres,
+        IReadOnlyDictionary<string, double> eras,
+        IReadOnlyDictionary<string, double> mediaTypes,
+        CancellationToken ct)
     {
-        _logger.LogDebug("TasteProfiler.UpdateAsync: incremental update for user {User}, asset {Asset}", userId, assetId);
-        // Full incremental update will be implemented when UserState tracking (§3.15) is in place.
-        return Task.CompletedTask;
+        var topGenres = string.Join(", ", genres.OrderByDescending(pair => pair.Value).Take(3).Select(pair => pair.Key));
+        var topTypes = string.Join(", ", mediaTypes.OrderByDescending(pair => pair.Value).Take(3).Select(pair => pair.Key));
+        var topEras = string.Join(", ", eras.OrderByDescending(pair => pair.Value).Take(2).Select(pair => pair.Key));
+        var prompt = $"""
+            Summarize this reader/viewer's taste profile in 1-2 sentences.
+            Favorite genres: {(string.IsNullOrEmpty(topGenres) ? "mixed" : topGenres)}
+            Preferred media types: {(string.IsNullOrEmpty(topTypes) ? "mixed" : topTypes)}
+            Favorite eras: {(string.IsNullOrEmpty(topEras) ? "mixed" : topEras)}
+            Be concise and friendly. Do not use bullet points.
+            """;
+
+        try
+        {
+            var summary = await _llama.InferAsync(AiModelRole.TextFast, prompt, ct: ct)
+                .ConfigureAwait(false);
+            return string.IsNullOrWhiteSpace(summary)
+                ? "Profile generated from this profile's listening, reading, and viewing history."
+                : summary.Trim();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "TasteProfiler: summary generation failed; using a local fallback");
+            return "Profile generated from this profile's listening, reading, and viewing history.";
+        }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private static void IncrementKey(Dictionary<string, int> dict, string key)
+    private static string ComputeInputFingerprint(IReadOnlyList<TasteSignal> signals)
     {
-        dict[key] = dict.TryGetValue(key, out var v) ? v + 1 : 1;
+        var payload = new StringBuilder();
+        foreach (var signal in signals.OrderBy(value => value.AssetId))
+        {
+            payload.Append(signal.AssetId.ToString("N")).Append('|')
+                .Append(signal.ProgressPct.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+                .Append(signal.LastAccessed.ToUniversalTime().ToString("O")).Append('|')
+                .Append(signal.MediaType).Append('|')
+                .Append(signal.ReleaseYear).Append('|')
+                .AppendJoin(',', signal.Genres.Order(StringComparer.OrdinalIgnoreCase)).Append('|')
+                .AppendJoin(',', signal.Moods.Order(StringComparer.OrdinalIgnoreCase)).Append('\n');
+        }
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload.ToString())));
     }
 
-    private static IReadOnlyDictionary<string, double> ToDistribution(Dictionary<string, int> counts)
+    private static void Increment(Dictionary<string, double> values, string key, double weight) =>
+        values[key] = values.GetValueOrDefault(key) + weight;
+
+    private static IReadOnlyDictionary<string, double> ToDistribution(Dictionary<string, double> weights)
     {
-        if (counts.Count == 0) return new Dictionary<string, double>();
-        var total = (double)counts.Values.Sum();
-        return counts.ToDictionary(
-            kv => kv.Key,
-            kv => Math.Round(kv.Value / total, 2));
+        if (weights.Count == 0)
+            return new Dictionary<string, double>();
+
+        var total = weights.Values.Sum();
+        return weights.ToDictionary(
+            pair => pair.Key,
+            pair => Math.Round(pair.Value / total, 4),
+            StringComparer.OrdinalIgnoreCase);
     }
 }

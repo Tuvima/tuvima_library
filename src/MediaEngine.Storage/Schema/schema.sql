@@ -316,6 +316,32 @@ CREATE TABLE IF NOT EXISTS fictional_entity_work_links (
     PRIMARY KEY (entity_id, work_qid, link_type)
 );
 
+-- Durable provenance and orchestration state for generated AI features.
+-- Canonical values remain the user-facing projection; this table records who
+-- generated that projection and whether it was published, gated for review,
+-- deferred for retry, or quarantined as poison work.
+CREATE TABLE IF NOT EXISTS ai_feature_artifacts (
+    entity_id             BLOB NOT NULL,
+    feature_key           TEXT NOT NULL,
+    source_provider_id    BLOB NOT NULL,
+    status                TEXT NOT NULL
+        CHECK (status IN ('Published', 'ReviewRequired', 'Protected', 'InsufficientData', 'RetryPending', 'Poisoned')),
+    confidence            REAL,
+    model_id              TEXT,
+    prompt_version        TEXT,
+    input_fingerprint     TEXT,
+    output_fingerprint    TEXT,
+    attempts              INTEGER NOT NULL DEFAULT 0,
+    next_retry_at         TEXT,
+    last_error            TEXT,
+    outcome_reason        TEXT,
+    published_fields_json TEXT NOT NULL DEFAULT '[]',
+    protected_fields_json TEXT NOT NULL DEFAULT '[]',
+    published_values_json TEXT NOT NULL DEFAULT '{}',
+    updated_at            TEXT NOT NULL,
+    PRIMARY KEY (entity_id, feature_key)
+);
+
 CREATE TABLE IF NOT EXISTS plugin_lore_sources (
     id                  BLOB PRIMARY KEY,
     universe_qid        TEXT NOT NULL,
@@ -543,6 +569,7 @@ CREATE TABLE IF NOT EXISTS metadata_claims (
     id          BLOB NOT NULL PRIMARY KEY,  -- UUID
     entity_id   BLOB NOT NULL,              -- FK Ã¢â€ â€™ works.id | editions.id (polymorphic)
     provider_id BLOB NOT NULL REFERENCES metadata_providers(id),
+    decision_source_provider_id BLOB REFERENCES metadata_providers(id),
     claim_key   TEXT NOT NULL,
     claim_value TEXT NOT NULL,
     confidence  REAL NOT NULL DEFAULT 1.0,

@@ -257,6 +257,32 @@ public sealed class ScoringHelperLineageTests
     // Minimal stubs (self-contained — no dependency on WorkerPipelineTests)
     // ─────────────────────────────────────────────────────────────────────
 
+    [Fact]
+    public async Task DecisionSource_IsPersistedSeparatelyFromObservationProvider()
+    {
+        var entityId = Guid.NewGuid();
+        var observationProvider = WellKnownProviders.Wikidata;
+        var decisionProvider = WellKnownProviders.AiProvider;
+        var claims = new RecordingClaimRepository();
+
+        await ScoringHelper.PersistAndScoreWithLineageAsync(
+            entityId,
+            [new ProviderClaim("author_qid", "Q42::Douglas Adams", 0.75)],
+            observationProvider,
+            lineage: null,
+            claims,
+            new RecordingCanonicalRepository(),
+            new RecordingScoringEngine(),
+            new MinimalConfigLoader(),
+            allProviders: [],
+            CancellationToken.None,
+            decisionSourceProviderId: decisionProvider);
+
+        var persisted = Assert.Single(claims.Inserted);
+        Assert.Equal(observationProvider, persisted.ProviderId);
+        Assert.Equal(decisionProvider, persisted.DecisionSourceProviderId);
+    }
+
     private sealed class RecordingClaimRepository : IMetadataClaimRepository
     {
         public List<MetadataClaim> Inserted { get; } = [];

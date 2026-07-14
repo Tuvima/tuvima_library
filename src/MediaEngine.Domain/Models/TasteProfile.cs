@@ -1,5 +1,45 @@
 namespace MediaEngine.Domain.Models;
 
+public enum TasteProfileBuildStatus
+{
+    Generated,
+    InsufficientData,
+}
+
+/// <summary>
+/// One profile-scoped interaction enriched with metadata for the consumed work.
+/// </summary>
+public sealed record TasteSignal(
+    Guid AssetId,
+    double ProgressPct,
+    DateTimeOffset LastAccessed,
+    string MediaType,
+    int? ReleaseYear,
+    IReadOnlyList<string> Genres,
+    IReadOnlyList<string> Moods);
+
+/// <summary>
+/// Explicit outcome of attempting to build a profile. Insufficient interaction
+/// data never falls back to another profile or to global library composition.
+/// </summary>
+public sealed record TasteProfileBuildResult(
+    TasteProfileBuildStatus Status,
+    Guid UserId,
+    TasteProfile? Profile,
+    int SignalCount,
+    string InputFingerprint,
+    string? Reason = null);
+
+public sealed record TasteProfilePersistenceRequest(
+    TasteProfileBuildResult BuildResult,
+    string FeatureKey,
+    Guid ProviderId,
+    double Confidence,
+    double PublishThreshold,
+    double ReviewThreshold,
+    string ModelId,
+    string PromptVersion);
+
 /// <summary>
 /// A user's taste profile built from their library patterns.
 /// Stored in the user_taste_profiles table as JSON.

@@ -10,7 +10,7 @@ public interface ISeriesAligner
     /// Infer the position of a work within a series from its title and sibling titles.
     /// Returns null if position cannot be determined.
     /// </summary>
-    Task<int?> InferPositionAsync(
+    Task<SeriesPositionInference?> InferPositionAsync(
         string workTitle,
         string seriesName,
         IReadOnlyList<string> siblingTitles,
@@ -23,3 +23,9 @@ public interface ISeriesAligner
     Task<IReadOnlyList<(Guid WorkId, Guid SuggestedCollectionId)>> DetectUngroupedAsync(
         CancellationToken ct = default);
 }
+
+/// <summary>
+/// A structural series-position inference together with the model confidence
+/// that must be used by the caller's publication policy.
+/// </summary>
+public sealed record SeriesPositionInference(int Position, double Confidence);

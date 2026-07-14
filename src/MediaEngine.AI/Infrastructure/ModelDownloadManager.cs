@@ -8,20 +8,24 @@ using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;
 
-/// <summary>
-/// Downloads AI model files from configured URLs with progress reporting and SHA-256 validation.
-/// </summary>
-public sealed class ModelDownloadManager : IModelDownloadManager
+/// <summary>Owns verified downloads keyed by physical model artifact.</summary>
+public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposable, IDisposable
 {
-    private readonly AiSettings _settings;
+    private static readonly StringComparer ArtifactComparer = OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
+
     private readonly ModelInventory _inventory;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IEventPublisher _eventPublisher;
     private readonly ILogger<ModelDownloadManager> _logger;
-
-    private readonly Dictionary<AiModelRole, CancellationTokenSource> _activeDownloads = new();
-    private readonly Dictionary<AiModelRole, (long Downloaded, long Total)> _progress = new();
+    private readonly int _minimumFreeDiskMb;
+    private readonly CancellationTokenSource _shutdownCts = new();
+    private readonly Dictionary<string, DownloadOperation> _activeDownloads = new(ArtifactComparer);
+    private readonly Dictionary<string, ModelDownloadResult> _completedDownloads = new(ArtifactComparer);
+    private readonly Dictionary<string, (long Downloaded, long Total)> _progress = new(ArtifactComparer);
     private readonly object _lock = new();
+    private bool _disposed;
 
     public ModelDownloadManager(
         AiSettings settings,
@@ -30,169 +34,127 @@ public sealed class ModelDownloadManager : IModelDownloadManager
         IEventPublisher eventPublisher,
         ILogger<ModelDownloadManager> logger)
     {
-        _settings = settings;
-        _inventory = inventory;
-        _httpClientFactory = httpClientFactory;
-        _eventPublisher = eventPublisher;
-        _logger = logger;
+        var snapshot = AiRuntimeSettingsSnapshot.Create(settings);
+        _minimumFreeDiskMb = snapshot.MinimumFreeDiskMB;
+        _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
+        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task StartDownloadAsync(AiModelRole role, CancellationToken ct = default)
+    public Task StartDownloadAsync(AiModelRole role, CancellationToken ct = default)
     {
+        ThrowIfDisposed();
+        ct.ThrowIfCancellationRequested();
         var definition = _inventory.GetDefinition(role);
-        if (string.IsNullOrEmpty(definition.DownloadUrl))
+        if (definition.DownloadUri is null)
         {
-            _logger.LogWarning("No download URL configured for model role {Role}", role);
-            return;
+            throw new InvalidOperationException($"No download URL is configured for model role {role}.");
         }
 
-        // Cancel any existing download for this role.
-        await CancelDownloadAsync(role, ct);
-
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        lock (_lock) { _activeDownloads[role] = cts; }
-
-        _inventory.SetState(role, AiModelState.Downloading);
-        var host = Uri.TryCreate(definition.DownloadUrl, UriKind.Absolute, out var uri) ? uri.Host : "configured URL";
-        _logger.LogInformation("Starting download for {Role} from {Host}", role, host);
-
-        _ = Task.Run(async () =>
+        var artifact = _inventory.GetArtifactKey(role);
+        var sharedRoles = _inventory.GetRolesSharingArtifact(role);
+        lock (_lock)
         {
-            try
+            ThrowIfDisposed();
+            if (_activeDownloads.ContainsKey(artifact))
             {
-                await DownloadCoreAsync(role, definition, cts.Token);
+                return Task.CompletedTask;
             }
-            catch (OperationCanceledException)
+
+            if (sharedRoles.Any(sharedRole => _inventory.GetState(sharedRole) == AiModelState.Loaded))
             {
-                _logger.LogInformation("Download cancelled for {Role}", role);
-                _inventory.SetState(role, AiModelState.NotDownloaded);
+                throw new InvalidOperationException(
+                    $"Cannot replace model artifact {Path.GetFileName(artifact)} while it is loaded.");
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Download failed for {Role}", role);
-                _inventory.SetState(role, AiModelState.Error);
-            }
-            finally
-            {
-                lock (_lock)
-                {
-                    _activeDownloads.Remove(role);
-                    _progress.Remove(role);
-                }
-            }
-        }, CancellationToken.None);
+
+            var previousStates = sharedRoles.ToDictionary(
+                sharedRole => sharedRole,
+                _inventory.GetState);
+            var operation = new DownloadOperation(
+                role,
+                sharedRoles,
+                previousStates,
+                CancellationTokenSource.CreateLinkedTokenSource(_shutdownCts.Token));
+            _activeDownloads[artifact] = operation;
+            _completedDownloads.Remove(artifact);
+            _inventory.SetArtifactState(role, AiModelState.Downloading);
+            operation.Execution = RunDownloadAsync(artifact, definition, operation);
+        }
+
+        return Task.CompletedTask;
     }
 
-    private async Task DownloadCoreAsync(AiModelRole role, AiModelDefinition definition, CancellationToken ct)
+    public async Task<ModelDownloadResult> WaitForCompletionAsync(
+        AiModelRole role,
+        CancellationToken ct = default)
     {
-        var modelPath = _inventory.GetModelPath(role);
-        var directory = Path.GetDirectoryName(modelPath)!;
-        Directory.CreateDirectory(directory);
-
-        var tempPath = modelPath + ".downloading";
-
-        var client = _httpClientFactory.CreateClient("ModelDownload");
-        using var response = await client.GetAsync(definition.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-
-        var totalBytes = response.Content.Headers.ContentLength ?? (definition.SizeMB * 1024L * 1024L);
-        lock (_lock) { _progress[role] = (0, totalBytes); }
-
-        await using var contentStream = await response.Content.ReadAsStreamAsync(ct);
-        await using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920);
-
-        var buffer = new byte[81920];
-        long downloaded = 0;
-        int bytesRead;
-        var lastProgressReport = DateTimeOffset.MinValue;
-
-        while ((bytesRead = await contentStream.ReadAsync(buffer, ct)) > 0)
+        ThrowIfDisposed();
+        var artifact = _inventory.GetArtifactKey(role);
+        Task<ModelDownloadResult>? completion;
+        ModelDownloadResult? completed;
+        lock (_lock)
         {
-            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
-            downloaded += bytesRead;
-
-            lock (_lock) { _progress[role] = (downloaded, totalBytes); }
-
-            // Report progress at most every 500ms to avoid flooding SignalR.
-            if (DateTimeOffset.UtcNow - lastProgressReport > TimeSpan.FromMilliseconds(500))
-            {
-                lastProgressReport = DateTimeOffset.UtcNow;
-                var percent = totalBytes > 0 ? (int)(downloaded * 100 / totalBytes) : 0;
-                await _eventPublisher.PublishAsync(SignalREvents.ModelDownloadProgress, new
-                {
-                    Role = role.ToString(),
-                    Percent = percent,
-                    BytesDownloaded = downloaded,
-                    TotalBytes = totalBytes,
-                }, ct);
-            }
+            completion = _activeDownloads.GetValueOrDefault(artifact)?.Completion.Task;
+            _completedDownloads.TryGetValue(artifact, out completed);
         }
 
-        // Validate SHA-256 if configured.
-        if (!string.IsNullOrEmpty(definition.Sha256))
+        if (completion is not null)
         {
-            _logger.LogInformation("Validating SHA-256 for {Role}...", role);
-            fileStream.Position = 0;
-            var hash = await SHA256.HashDataAsync(fileStream, ct);
-            var hashHex = Convert.ToHexStringLower(hash);
-
-            if (!hashHex.Equals(definition.Sha256, StringComparison.OrdinalIgnoreCase))
-            {
-                File.Delete(tempPath);
-                throw new InvalidOperationException(
-                    $"SHA-256 mismatch for {role}: expected {definition.Sha256}, got {hashHex}");
-            }
+            var result = await completion.WaitAsync(ct).ConfigureAwait(false);
+            return result with { Role = role };
         }
 
-        // Atomic rename.
-        fileStream.Close();
-        File.Move(tempPath, modelPath, overwrite: true);
-
-        _inventory.SetState(role, AiModelState.Ready);
-        _logger.LogInformation("Model {Role} downloaded successfully: {Path} ({MB} MB)", role, modelPath, downloaded / (1024 * 1024));
-
-        await _eventPublisher.PublishAsync(SignalREvents.ModelStateChanged, new
+        if (completed is not null)
         {
-            Role = role.ToString(),
-            OldState = AiModelState.Downloading.ToString(),
-            NewState = AiModelState.Ready.ToString(),
-        }, ct);
+            return completed with { Role = role };
+        }
+
+        var state = _inventory.GetState(role);
+        return state is AiModelState.Ready or AiModelState.Loaded
+            ? new(role, ModelDownloadOutcome.AlreadyAvailable)
+            : new(role, ModelDownloadOutcome.NotStarted, "No download has been started for this artifact.");
     }
 
     public async Task CancelDownloadAsync(AiModelRole role, CancellationToken ct = default)
     {
-        CancellationTokenSource? cts;
-        lock (_lock) { _activeDownloads.TryGetValue(role, out cts); }
-        if (cts is not null)
+        var artifact = _inventory.GetArtifactKey(role);
+        DownloadOperation? operation;
+        lock (_lock)
         {
-            await cts.CancelAsync();
+            _activeDownloads.TryGetValue(artifact, out operation);
         }
+
+        if (operation is null)
+        {
+            return;
+        }
+
+        await operation.RequestCancellationAsync().ConfigureAwait(false);
+        await operation.Completion.Task.WaitAsync(ct).ConfigureAwait(false);
     }
 
     public AiModelStatus GetStatus(AiModelRole role)
     {
-        var def = _inventory.GetDefinition(role);
-        long downloaded = 0, total = 0;
+        var definition = _inventory.GetDefinition(role);
+        var artifact = _inventory.GetArtifactKey(role);
         lock (_lock)
         {
-            if (_progress.TryGetValue(role, out var p))
+            var progress = _progress.GetValueOrDefault(artifact);
+            return new AiModelStatus
             {
-                downloaded = p.Downloaded;
-                total = p.Total;
-            }
+                Role = role,
+                ModelType = role == AiModelRole.Audio ? AiModelType.Audio : AiModelType.Text,
+                State = _inventory.GetState(role),
+                ModelFile = definition.File,
+                SizeMB = definition.SizeMB,
+                DownloadProgressPercent = progress.Total > 0
+                    ? (int)Math.Clamp(progress.Downloaded * 100 / progress.Total, 0, 100)
+                    : 0,
+                BytesDownloaded = progress.Downloaded,
+                TotalBytes = progress.Total,
+            };
         }
-
-        return new AiModelStatus
-        {
-            Role = role,
-            ModelType = role == AiModelRole.Audio ? AiModelType.Audio : AiModelType.Text,
-            State = _inventory.GetState(role),
-            ModelFile = def.File,
-            SizeMB = def.SizeMB,
-            DownloadProgressPercent = total > 0 ? (int)(downloaded * 100 / total) : 0,
-            BytesDownloaded = downloaded,
-            TotalBytes = total,
-        };
     }
 
     public IReadOnlyList<AiModelStatus> GetAllStatuses() =>
@@ -200,15 +162,319 @@ public sealed class ModelDownloadManager : IModelDownloadManager
 
     public bool AreAllModelsReady() => _inventory.AreAllReady();
 
-    public Task DeleteModelAsync(AiModelRole role, CancellationToken ct = default)
+    public async Task DeleteModelAsync(AiModelRole role, CancellationToken ct = default)
     {
-        var path = _inventory.GetModelPath(role);
-        if (File.Exists(path))
+        ThrowIfDisposed();
+        await CancelDownloadAsync(role, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        var artifact = _inventory.GetArtifactKey(role);
+        var sharedRoles = _inventory.GetRolesSharingArtifact(role);
+        if (sharedRoles.Any(sharedRole => _inventory.GetState(sharedRole) == AiModelState.Loaded))
         {
-            File.Delete(path);
-            _logger.LogInformation("Deleted model file for {Role}: {Path}", role, path);
+            throw new InvalidOperationException(
+                $"Cannot delete model artifact {Path.GetFileName(artifact)} while it is loaded.");
         }
-        _inventory.SetState(role, AiModelState.NotDownloaded);
-        return Task.CompletedTask;
+
+        if (File.Exists(artifact))
+        {
+            File.Delete(artifact);
+        }
+
+        TryDelete(artifact + ".downloading");
+        lock (_lock)
+        {
+            _completedDownloads.Remove(artifact);
+            _progress.Remove(artifact);
+        }
+
+        _inventory.RefreshArtifact(role);
+    }
+
+    private async Task RunDownloadAsync(
+        string artifact,
+        AiModelRuntimeDefinition definition,
+        DownloadOperation operation)
+    {
+        ModelDownloadResult result;
+        try
+        {
+            await DownloadCoreAsync(artifact, definition, operation, operation.Cancellation.Token)
+                .ConfigureAwait(false);
+            result = new(operation.RequestedRole, ModelDownloadOutcome.Succeeded);
+        }
+        catch (OperationCanceledException) when (operation.Cancellation.IsCancellationRequested)
+        {
+            RestorePreviousStates(operation);
+            result = new(operation.RequestedRole, ModelDownloadOutcome.Cancelled);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Download failed for model artifact {Artifact}", artifact);
+            if (operation.PreviousStates.Values.Any(
+                    state => state is AiModelState.Ready or AiModelState.Loaded))
+            {
+                RestorePreviousStates(operation);
+            }
+            else
+            {
+                _inventory.SetArtifactState(operation.RequestedRole, AiModelState.Error);
+            }
+
+            result = new(operation.RequestedRole, ModelDownloadOutcome.Failed, ex.Message);
+        }
+        finally
+        {
+            TryDelete(artifact + ".downloading");
+        }
+
+        lock (_lock)
+        {
+            _completedDownloads[artifact] = result;
+            if (_activeDownloads.GetValueOrDefault(artifact) == operation)
+            {
+                _activeDownloads.Remove(artifact);
+            }
+
+            _progress.Remove(artifact);
+        }
+
+        operation.Completion.TrySetResult(result);
+        operation.Cancellation.Dispose();
+    }
+
+    private async Task DownloadCoreAsync(
+        string artifact,
+        AiModelRuntimeDefinition definition,
+        DownloadOperation operation,
+        CancellationToken ct)
+    {
+        var directory = Path.GetDirectoryName(artifact)
+            ?? throw new InvalidOperationException("Model path has no parent directory.");
+        Directory.CreateDirectory(directory);
+        var estimatedBytes = checked(definition.SizeMB * 1024L * 1024L);
+        EnsureDiskCapacity(directory, estimatedBytes);
+
+        var client = _httpClientFactory.CreateClient("ModelDownload");
+        using var response = await client.GetAsync(
+            definition.DownloadUri,
+            HttpCompletionOption.ResponseHeadersRead,
+            ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        var totalBytes = response.Content.Headers.ContentLength ?? estimatedBytes;
+        if (totalBytes <= 0)
+        {
+            throw new InvalidOperationException(
+                $"Download for {operation.RequestedRole} did not provide a valid size.");
+        }
+
+        EnsureDiskCapacity(directory, totalBytes);
+        lock (_lock)
+        {
+            _progress[artifact] = (0, totalBytes);
+        }
+
+        var tempPath = artifact + ".downloading";
+        await using var contentStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        await using var fileStream = new FileStream(
+            tempPath,
+            FileMode.Create,
+            FileAccess.ReadWrite,
+            FileShare.None,
+            128 * 1024,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        var buffer = new byte[128 * 1024];
+        long downloaded = 0;
+        var lastProgressReport = DateTimeOffset.MinValue;
+        while (true)
+        {
+            var bytesRead = await contentStream.ReadAsync(buffer, ct).ConfigureAwait(false);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
+            downloaded = checked(downloaded + bytesRead);
+            lock (_lock)
+            {
+                _progress[artifact] = (downloaded, totalBytes);
+            }
+
+            if (DateTimeOffset.UtcNow - lastProgressReport >= TimeSpan.FromMilliseconds(500))
+            {
+                lastProgressReport = DateTimeOffset.UtcNow;
+                await PublishProgressAsync(operation.SharedRoles, downloaded, totalBytes, ct)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        if (response.Content.Headers.ContentLength.HasValue && downloaded != totalBytes)
+        {
+            throw new IOException(
+                $"Incomplete model download: expected {totalBytes} bytes, received {downloaded}.");
+        }
+
+        await fileStream.FlushAsync(ct).ConfigureAwait(false);
+        fileStream.Position = 0;
+        if (!string.IsNullOrWhiteSpace(definition.Sha256))
+        {
+            var actual = await SHA256.HashDataAsync(fileStream, ct).ConfigureAwait(false);
+            var expected = Convert.FromHexString(definition.Sha256);
+            if (!CryptographicOperations.FixedTimeEquals(actual, expected))
+            {
+                throw new InvalidDataException(
+                    $"SHA-256 mismatch for model artifact {Path.GetFileName(artifact)}.");
+            }
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Model artifact {Artifact} has no SHA-256 configured; transport integrity relies on HTTPS",
+                artifact);
+        }
+
+        await fileStream.DisposeAsync().ConfigureAwait(false);
+        File.Move(tempPath, artifact, overwrite: true);
+        _inventory.RefreshArtifact(operation.RequestedRole);
+        await PublishStateChangedAsync(operation.SharedRoles).ConfigureAwait(false);
+    }
+
+    private void RestorePreviousStates(DownloadOperation operation)
+    {
+        foreach (var (role, state) in operation.PreviousStates)
+        {
+            _inventory.SetState(role, state);
+        }
+    }
+
+    private void EnsureDiskCapacity(string directory, long downloadBytes)
+    {
+        var root = Path.GetPathRoot(Path.GetFullPath(directory))
+            ?? throw new InvalidOperationException("Could not resolve the model volume.");
+        var available = new DriveInfo(root).AvailableFreeSpace;
+        var reserve = checked(_minimumFreeDiskMb * 1024L * 1024L);
+        if (downloadBytes > available - Math.Min(available, reserve))
+        {
+            throw new IOException(
+                $"Insufficient disk space for model download: {available} bytes available; " +
+                $"{downloadBytes} bytes required plus {reserve} bytes reserved.");
+        }
+    }
+
+    private async Task PublishProgressAsync(
+        IReadOnlyList<AiModelRole> roles,
+        long downloaded,
+        long total,
+        CancellationToken ct)
+    {
+        foreach (var role in roles)
+        {
+            try
+            {
+                await _eventPublisher.PublishAsync(SignalREvents.ModelDownloadProgress, new
+                {
+                    Role = role.ToString(),
+                    Percent = (int)Math.Clamp(downloaded * 100 / total, 0, 100),
+                    BytesDownloaded = downloaded,
+                    TotalBytes = total,
+                }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Could not publish model download progress for {Role}", role);
+            }
+        }
+    }
+
+    private async Task PublishStateChangedAsync(IReadOnlyList<AiModelRole> roles)
+    {
+        foreach (var role in roles)
+        {
+            try
+            {
+                await _eventPublisher.PublishAsync(SignalREvents.ModelStateChanged, new
+                {
+                    Role = role.ToString(),
+                    OldState = AiModelState.Downloading.ToString(),
+                    NewState = AiModelState.Ready.ToString(),
+                }, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not publish downloaded model state for {Role}", role);
+            }
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort cleanup; the next download uses FileMode.Create and replaces it.
+        }
+    }
+
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    public async ValueTask DisposeAsync()
+    {
+        List<DownloadOperation> operations;
+        lock (_lock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            operations = _activeDownloads.Values.ToList();
+        }
+
+        await _shutdownCts.CancelAsync().ConfigureAwait(false);
+        foreach (var operation in operations)
+        {
+            await operation.RequestCancellationAsync().ConfigureAwait(false);
+        }
+
+        await Task.WhenAll(operations.Select(operation => operation.Execution)).ConfigureAwait(false);
+        _shutdownCts.Dispose();
+    }
+
+    private sealed class DownloadOperation(
+        AiModelRole requestedRole,
+        IReadOnlyList<AiModelRole> sharedRoles,
+        IReadOnlyDictionary<AiModelRole, AiModelState> previousStates,
+        CancellationTokenSource cancellation)
+    {
+        public AiModelRole RequestedRole { get; } = requestedRole;
+        public IReadOnlyList<AiModelRole> SharedRoles { get; } = sharedRoles;
+        public IReadOnlyDictionary<AiModelRole, AiModelState> PreviousStates { get; } = previousStates;
+        public CancellationTokenSource Cancellation { get; } = cancellation;
+        public TaskCompletionSource<ModelDownloadResult> Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task Execution { get; set; } = Task.CompletedTask;
+
+        public async ValueTask RequestCancellationAsync()
+        {
+            try
+            {
+                await Cancellation.CancelAsync().ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Completion won the race and already released the operation token.
+            }
+        }
     }
 }

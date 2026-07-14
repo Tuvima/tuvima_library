@@ -143,6 +143,7 @@ public static class MetadataFieldConstants
         "themes",
         "mood",
         "content_warnings",
+        "vibe",
 
         // Companion QID keys (paired with above)
         "genre_qid",

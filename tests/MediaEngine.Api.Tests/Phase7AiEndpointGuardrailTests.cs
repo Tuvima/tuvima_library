@@ -41,6 +41,23 @@ public sealed class Phase7AiEndpointGuardrailTests
         Assert.Contains("SelectionRationale", source, StringComparison.Ordinal);
         Assert.Contains("ValidationWarnings", source, StringComparison.Ordinal);
         Assert.Contains("Capabilities", source, StringComparison.Ordinal);
+        Assert.Contains("DiskStatus", source, StringComparison.Ordinal);
+        Assert.Contains("MemoryEnvelopeMB", source, StringComparison.Ordinal);
+        Assert.Contains("ChecksumStatus", source, StringComparison.Ordinal);
+        Assert.Contains("ModelInventory inventory", source, StringComparison.Ordinal);
+        Assert.Contains("inventory.GetModelPath(status.Role)", source, StringComparison.Ordinal);
+        Assert.Equal(0, CountOccurrences(source, "configLoader.LoadAi<AiSettings>() ?? new AiSettings()"));
+        Assert.DoesNotContain("?? new AiSettings()", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AiOperations_ReturnTypedProblemsWithoutRawExceptionDetails()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
+
+        Assert.Contains("unknown-model-role", source, StringComparison.Ordinal);
+        Assert.Contains("AiBenchmarkRuntimeUnavailableException", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ex.Message}", source, StringComparison.Ordinal);
     }
 
     private static int CountOccurrences(string value, string pattern) =>

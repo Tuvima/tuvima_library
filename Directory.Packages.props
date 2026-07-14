@@ -51,10 +51,10 @@
     <PackageVersion Include="LLamaSharp.Backend.Cuda12" Version="0.27.0" />
     <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="Whisper.net" Version="1.8.0" />
+    <PackageVersion Include="Whisper.net" Version="1.9.1" />
     <!-- Whisper.net CPU runtime for cross-platform inference.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="Whisper.net.Runtime" Version="1.8.0" />
+    <PackageVersion Include="Whisper.net.Runtime" Version="1.9.1" />
     <!-- Windows Service hosting: integrates with Service Control Manager for .exe installer.
          MIT license — no-op on Linux/macOS/Docker; safe to include unconditionally. -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.3" />

@@ -1,6 +1,7 @@
 using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -133,10 +134,9 @@ public sealed class ModelAutoDownloadService : BackgroundService
 
         var status = _downloadManager.GetStatus(role);
 
-        // Skip roles that are already downloaded or currently downloading.
+        // Ready roles need no work. StartDownloadAsync joins an active shared-artifact download.
         if (status.State is AiModelState.Ready
-                         or AiModelState.Loaded
-                         or AiModelState.Downloading)
+                         or AiModelState.Loaded)
         {
             _logger.LogDebug(
                 "ModelAutoDownloadService: skipping {Role} — already in state {State}",
@@ -152,8 +152,22 @@ public sealed class ModelAutoDownloadService : BackgroundService
 
             await _downloadManager.StartDownloadAsync(role, ct);
 
+            var result = await _downloadManager.WaitForCompletionAsync(role, ct);
+            if (!result.IsSuccess)
+            {
+                if (result.Outcome == ModelDownloadOutcome.Cancelled && ct.IsCancellationRequested)
+                    throw new OperationCanceledException(ct);
+
+                _logger.LogWarning(
+                    "ModelAutoDownloadService: download for {Role} ended as {Outcome}: {Error}",
+                    role,
+                    result.Outcome,
+                    result.ErrorMessage ?? "No additional details");
+                return;
+            }
+
             _logger.LogInformation(
-                "ModelAutoDownloadService: download initiated for {Role}",
+                "ModelAutoDownloadService: download completed for {Role}",
                 role);
         }
         catch (OperationCanceledException)

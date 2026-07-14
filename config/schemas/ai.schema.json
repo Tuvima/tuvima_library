@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tuvima.local/schemas/ai.schema.json",
+  "title": "Tuvima Library AI configuration",
+  "type": "object",
+  "required": [
+    "models_directory",
+    "idle_unload_seconds",
+    "inference_timeout_seconds",
+    "models"
+  ],
+  "properties": {
+    "dev_skip_download": { "type": "boolean" },
+    "models_directory": { "type": "string", "minLength": 1 },
+    "idle_unload_seconds": { "type": "integer", "minimum": 1 },
+    "inference_timeout_seconds": { "type": "integer", "minimum": 1 },
+    "max_concurrent_inferences": { "const": 1 },
+    "minimum_free_disk_mb": { "type": "integer", "minimum": 256 },
+    "enrichment_batch_size": { "type": "integer", "minimum": 1 },
+    "models": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/executableModel" }
+    },
+    "operational_roles": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/operationalRole" }
+    },
+    "model_catalog": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/catalogEntry" }
+    },
+    "role_requirements": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/roleRequirement" }
+    },
+    "features": { "type": "object", "additionalProperties": { "type": "boolean" } },
+    "vibe_vocabulary": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "uniqueItems": true
+      }
+    },
+    "scheduling": { "type": "object", "additionalProperties": { "type": ["string", "integer"] } },
+    "hardware_profile": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "safeFileName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\]+$",
+      "not": { "enum": [".", ".."] }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "executableModel": {
+      "type": "object",
+      "required": ["file", "size_mb"],
+      "properties": {
+        "catalog_key": { "type": ["string", "null"] },
+        "description": { "type": "string" },
+        "file": { "$ref": "#/$defs/safeFileName" },
+        "download_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_mb": { "type": "integer", "minimum": 1 },
+        "context_length": { "type": "integer", "minimum": 1 },
+        "max_tokens": { "type": "integer", "minimum": 1 },
+        "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+        "gpu_layers": { "type": "integer", "minimum": 0 },
+        "threads": { "type": "integer", "minimum": 1 },
+        "language": { "type": ["string", "null"] },
+        "translate": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "operationalRole": {
+      "type": "object",
+      "required": ["catalog_key", "runtime_kind", "enabled"],
+      "properties": {
+        "catalog_key": { "type": "string" },
+        "runtime_kind": { "enum": ["text", "audio", "embedding", "multimodal", "function"] },
+        "enabled": { "type": "boolean" },
+        "experimental": { "type": "boolean" },
+        "memory_envelope_mb": { "type": "integer", "minimum": 0 },
+        "max_context_length": { "type": "integer", "minimum": 0 },
+        "max_output_tokens": { "type": "integer", "minimum": 0 },
+        "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+        "max_concurrency": { "const": 1 }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "supported_backends": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "minimum_runtime_version": { "type": ["string", "null"] },
+        "requires_mmproj": { "type": "boolean" },
+        "requires_audio_encoder": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "readiness": {
+      "type": "object",
+      "properties": {
+        "configuration_ready": { "type": "boolean" },
+        "runtime_ready": { "type": "boolean" },
+        "validated": { "type": "boolean" },
+        "blocking_reasons": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number", "integer", "boolean", "null"] }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "properties": {
+        "display_name": { "type": "string" },
+        "family": { "type": "string" },
+        "provider": { "type": "string" },
+        "license": { "type": "string" },
+        "runtime": { "type": "string" },
+        "status": { "type": "string" },
+        "selection_tier": { "type": "string" },
+        "intended_roles": { "type": "array", "items": { "type": "string" } },
+        "file": {
+          "anyOf": [
+            { "const": "" },
+            { "$ref": "#/$defs/safeFileName" }
+          ]
+        },
+        "download_url": {
+          "anyOf": [
+            { "const": "" },
+            { "type": "string", "format": "uri", "pattern": "^https://" }
+          ]
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "source_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "size_mb": { "type": "integer", "minimum": 0 },
+        "parameters_b": { "type": "number", "minimum": 0 },
+        "effective_parameters_b": { "type": ["number", "null"], "minimum": 0 },
+        "quantization": { "type": "string" },
+        "context_length": { "type": "integer", "minimum": 0 },
+        "memory_envelope_mb": { "type": "integer", "minimum": 0 },
+        "max_context_length": { "type": "integer", "minimum": 0 },
+        "experimental": { "type": "boolean" },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "readiness": { "$ref": "#/$defs/readiness" },
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "validation": { "$ref": "#/$defs/validation" },
+        "selection_rationale": { "type": "string" },
+        "integration_notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "roleRequirement": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "selection_policy": { "type": "string" },
+        "required_capabilities": { "type": "array", "items": { "type": "string" } },
+        "preferred_catalog_keys": { "type": "array", "items": { "type": "string" } },
+        "fallback_catalog_keys": { "type": "array", "items": { "type": "string" } },
+        "max_default_size_mb": { "type": "integer", "minimum": 0 },
+        "target_warm_latency_ms": { "type": "integer", "minimum": 0 },
+        "max_background_latency_ms": { "type": "integer", "minimum": 0 },
+        "min_json_validity_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "min_task_pass_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "benchmark_suite": { "type": "string" },
+        "memory_envelope_mb": { "type": "integer", "minimum": 0 },
+        "max_context_length": { "type": "integer", "minimum": 0 },
+        "experimental_allowed": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

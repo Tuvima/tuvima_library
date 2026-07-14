@@ -168,6 +168,34 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>(readOnly);
     }
 
+    public Task<IReadOnlyList<CanonicalArrayEntry>> FindValuesByKeyAsync(
+        string key,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        if (!MetadataFieldConstants.IsMultiValued(key))
+            throw new ArgumentException($"Canonical key '{key}' is scalar and cannot be queried as an array.", nameof(key));
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<CanonicalArrayKeyedRow>(
+            """
+            SELECT ordinal AS Ordinal,
+                   value AS Value,
+                   value_qid AS ValueQid
+            FROM canonical_value_arrays
+            WHERE key = @key
+            ORDER BY entity_id, ordinal;
+            """,
+            new { key }).AsList();
+        return Task.FromResult<IReadOnlyList<CanonicalArrayEntry>>(rows.Select(row => new CanonicalArrayEntry
+        {
+            Ordinal = row.Ordinal,
+            Value = row.Value,
+            ValueQid = row.ValueQid,
+        }).ToList());
+    }
+
     /// <inheritdoc/>
     public async Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
     {

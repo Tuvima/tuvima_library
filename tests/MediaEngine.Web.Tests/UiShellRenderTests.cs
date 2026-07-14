@@ -319,7 +319,8 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("CancelAiModelDownloadAsync", source);
         Assert.Contains("LoadAiModelAsync", source);
         Assert.Contains("UnloadAiModelAsync", source);
-        Assert.Contains("State was not changed locally", source);
+        Assert.Contains("result.Problem?.ToUserMessage()", source);
+        Assert.Contains("RunAiModelBenchmarkAsync", source);
         Assert.DoesNotContain("SimulateDownload", source);
         Assert.DoesNotContain("Task.Delay", source);
         Assert.DoesNotContain("ChangeStatus", source);

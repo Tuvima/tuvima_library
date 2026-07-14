@@ -53,10 +53,10 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
 
                 const string sql = """
                     INSERT INTO metadata_claims
-                        (id, entity_id, provider_id, claim_key, claim_value,
+                        (id, entity_id, provider_id, decision_source_provider_id, claim_key, claim_value,
                          confidence, claimed_at, is_user_locked)
                     VALUES
-                        (@Id, @EntityId, @ProviderId, @ClaimKey, @ClaimValue,
+                        (@Id, @EntityId, @ProviderId, @DecisionSourceProviderId, @ClaimKey, @ClaimValue,
                          @Confidence, @ClaimedAt, @IsUserLocked);
                     """;
 
@@ -66,6 +66,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                     c.Id,
                     c.EntityId,
                     c.ProviderId,
+                    c.DecisionSourceProviderId,
                     c.ClaimKey,
                     c.ClaimValue,
                     c.Confidence,
@@ -116,6 +117,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
             SELECT id             AS Id,
                    entity_id      AS EntityId,
                    provider_id    AS ProviderId,
+                   decision_source_provider_id AS DecisionSourceProviderId,
                    claim_key      AS ClaimKey,
                    claim_value    AS ClaimValue,
                    confidence     AS Confidence,

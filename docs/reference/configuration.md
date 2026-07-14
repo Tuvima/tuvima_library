@@ -59,7 +59,7 @@ AI/ML subsystem configuration. Controls model selection, feature toggles, vibe v
 | `models.{role}.download_url` | string | Source URL used by the local downloader. |
 | `models.{role}.context_length` | int | Model context window size. |
 | `models.text_fast` | object | Defaults to Qwen3 0.6B Q8 for on-demand, low-latency inference. |
-| `models.text_quality` | object | Defaults to Qwen3 1.7B Q8 for batch ingestion tasks. |
+| `models.text_quality` | object | Defaults to checksum-pinned Qwen3 1.7B Q5_K_M for batch ingestion tasks. |
 | `models.text_scholar` | object | Defaults to Qwen3 4B Q4_K_M for hard enrichment when smaller roles fail validation. |
 | `models.text_cjk` | object | Defaults to Qwen3 4B Q4_K_M for CJK and multilingual analysis. |
 | `models.audio` | object | Defaults to Whisper Medium for timestamped speech-to-text, language detection, and sync. |

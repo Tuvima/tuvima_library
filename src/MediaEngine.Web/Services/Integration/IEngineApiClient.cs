@@ -983,16 +983,24 @@ public interface IEngineApiClient
     Task<IReadOnlyList<AiModelStatusDto>> GetAiModelStatusesAsync(CancellationToken ct = default);
 
     /// <summary>POST /ai/models/{role}/download — starts model download.</summary>
-    Task<bool> StartAiModelDownloadAsync(string role, CancellationToken ct = default);
+    Task<AiOperationResultDto> StartAiModelDownloadAsync(string role, CancellationToken ct = default);
 
     /// <summary>DELETE /ai/models/{role}/download — cancels model download.</summary>
-    Task<bool> CancelAiModelDownloadAsync(string role, CancellationToken ct = default);
+    Task<AiOperationResultDto> CancelAiModelDownloadAsync(string role, CancellationToken ct = default);
 
     /// <summary>POST /ai/models/{role}/load — loads model into memory.</summary>
-    Task<bool> LoadAiModelAsync(string role, CancellationToken ct = default);
+    Task<AiOperationResultDto> LoadAiModelAsync(string role, CancellationToken ct = default);
 
     /// <summary>POST /ai/models/{role}/unload — unloads model from memory.</summary>
-    Task<bool> UnloadAiModelAsync(string role, CancellationToken ct = default);
+    Task<AiOperationResultDto> UnloadAiModelAsync(string role, CancellationToken ct = default);
+
+    /// <summary>POST /ai/benchmark/suites/{suiteKey}/run - explicitly runs a local model validation suite.</summary>
+    Task<AiOperationResultDto<AiBenchmarkReportDto>> RunAiModelBenchmarkAsync(
+        string suiteKey,
+        string catalogKey,
+        bool allowHardwareBenchmark,
+        bool allowModelExecution,
+        CancellationToken ct = default);
 
     /// <summary>GET /ai/config — returns persisted AI configuration.</summary>
     Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default);
@@ -1006,7 +1014,7 @@ public interface IEngineApiClient
     Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default);
 
     /// <summary>POST /ai/benchmark — re-runs the hardware benchmark and returns the updated profile.</summary>
-    Task<HardwareProfileDto?> RunBenchmarkAsync(CancellationToken ct = default);
+    Task<AiOperationResultDto<HardwareProfileDto>> RunBenchmarkAsync(CancellationToken ct = default);
 
     /// <summary>GET /ai/enrichment/progress — pending and completed AI enrichment counts.</summary>
     Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default);

@@ -47,6 +47,10 @@
                             <MudText Typo="Typo.body2">Speed: @_profile.TokensPerSecond.ToString("F1") tok/s. RAM: @FormatMb(_profile.AvailableRamMb).</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Benchmarked: @(_profile.BenchmarkedAt?.ToLocalTime().ToString("g") ?? "Never")</MudText>
                         }
+                        @if (!string.IsNullOrWhiteSpace(_benchmarkProblem))
+                        {
+                            <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-3">@_benchmarkProblem</AppAlert>
+                        }
                     </AppPanel>
                 </MudItem>
 
@@ -138,6 +142,7 @@
     private AiConfigDto? _config;
     private bool _benchmarking;
     private bool _savingConfig;
+    private string? _benchmarkProblem;
 
     private string? LoadedModel => _status?.Models.FirstOrDefault(m => m.Loaded || m.Active)?.Role;
     private double ProgressPercent => _progress is { Total: > 0 } ? (double)_progress.CompletedCount / _progress.Total * 100 : 0;
@@ -159,7 +164,12 @@
     private async Task RunBenchmark()
     {
         _benchmarking = true;
-        _profile = await Orchestrator.RunBenchmarkAsync();
+        _benchmarkProblem = null;
+        var result = await Orchestrator.RunBenchmarkAsync();
+        if (result.Succeeded)
+            _profile = result.Value;
+        else
+            _benchmarkProblem = result.Problem?.ToUserMessage() ?? "Hardware benchmark failed.";
         _benchmarking = false;
     }
 

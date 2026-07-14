@@ -44,15 +44,20 @@ internal static class AiEndpoints
         group.MapGet("/models", (
             IModelDownloadManager downloadManager,
             IModelLifecycleManager lifecycle,
-            IConfigurationLoader configLoader) =>
+            AiSettings settings,
+            ModelInventory inventory) =>
         {
-            var settings = configLoader.LoadAi<AiSettings>() ?? new AiSettings();
             var statuses = downloadManager.GetAllStatuses()
                 .Select(status =>
                 {
-                    return ToModelStatusResponse(status, settings, lifecycle.CurrentlyLoadedRole);
+                    return ToModelStatusResponse(status, settings, lifecycle.CurrentlyLoadedRole, inventory);
                 })
                 .ToList();
+            var lifecycleRoles = statuses.Select(status => status.Role).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            statuses.AddRange(settings.OperationalRoles.Keys
+                .Where(role => !lifecycleRoles.Contains(role))
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .Select(role => ToOperationalStatusResponse(role, settings)));
             return Results.Ok(statuses);
         })
         .WithName("GetAiModelStatuses")
@@ -64,10 +69,11 @@ internal static class AiEndpoints
         group.MapPost("/models/{role}/download", async (
             string role,
             IModelDownloadManager downloadManager,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
-                return Results.BadRequest(UnknownRoleMessage(role));
+                return UnknownRoleProblem(role);
 
             try
             {
@@ -76,7 +82,8 @@ internal static class AiEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Problem($"Could not start model download for {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+                loggerFactory.CreateLogger("AiModelCommands").LogError(ex, "Could not start model download for {Role}", modelRole);
+                return ModelCommandProblem("download_start_failed", "The model download could not be started.");
             }
         })
         .WithName("StartAiModelDownload")
@@ -89,10 +96,11 @@ internal static class AiEndpoints
         group.MapDelete("/models/{role}/download", async (
             string role,
             IModelDownloadManager downloadManager,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
-                return Results.BadRequest(UnknownRoleMessage(role));
+                return UnknownRoleProblem(role);
 
             try
             {
@@ -101,7 +109,8 @@ internal static class AiEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Problem($"Could not cancel model download for {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+                loggerFactory.CreateLogger("AiModelCommands").LogError(ex, "Could not cancel model download for {Role}", modelRole);
+                return ModelCommandProblem("download_cancel_failed", "The model download could not be cancelled.");
             }
         })
         .WithName("CancelAiModelDownload")
@@ -114,10 +123,11 @@ internal static class AiEndpoints
         group.MapPost("/models/{role}/load", async (
             string role,
             IModelLifecycleManager lifecycle,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
-                return Results.BadRequest(UnknownRoleMessage(role));
+                return UnknownRoleProblem(role);
 
             try
             {
@@ -126,7 +136,8 @@ internal static class AiEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Problem($"Could not load model {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+                loggerFactory.CreateLogger("AiModelCommands").LogError(ex, "Could not load model {Role}", modelRole);
+                return ModelCommandProblem("model_load_failed", "The model could not be loaded.");
             }
         })
         .WithName("LoadAiModel")
@@ -139,10 +150,11 @@ internal static class AiEndpoints
         group.MapPost("/models/{role}/unload", async (
             string role,
             IModelLifecycleManager lifecycle,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
-                return Results.BadRequest(UnknownRoleMessage(role));
+                return UnknownRoleProblem(role);
 
             try
             {
@@ -154,7 +166,8 @@ internal static class AiEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Problem($"Could not unload model {ToRoleKey(modelRole)}: {ex.Message}", statusCode: StatusCodes.Status500InternalServerError);
+                loggerFactory.CreateLogger("AiModelCommands").LogError(ex, "Could not unload model {Role}", modelRole);
+                return ModelCommandProblem("model_unload_failed", "The model could not be unloaded.");
             }
         })
         .WithName("UnloadAiModel")
@@ -165,9 +178,8 @@ internal static class AiEndpoints
 
         // ── GET /ai/config ───────────────────────────────────────────────────
         group.MapGet("/config", (
-            IConfigurationLoader configLoader) =>
+            AiSettings settings) =>
         {
-            var settings = configLoader.LoadAi<AiSettings>() ?? new AiSettings();
             return Results.Ok(settings);
         })
         .WithName("GetAiConfig")
@@ -238,7 +250,7 @@ internal static class AiEndpoints
             return Results.Ok(harness.GetBuiltInSuites().Select(suite => new
             {
                 key = suite.Key,
-                role = ToRoleKey(suite.Role),
+                role = suite.OperationalRole ?? ToRoleKey(suite.Role),
                 gates = suite.Gates,
                 cases = suite.Cases,
             }));
@@ -246,6 +258,55 @@ internal static class AiEndpoints
         .WithName("GetAiBenchmarkSuites")
         .WithSummary("Returns built-in model validation suites and promotion gates.")
         .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        group.MapPost("/benchmark/suites/{suiteKey}/run", async (
+            string suiteKey,
+            AiBenchmarkRunRequest request,
+            AiBenchmarkHarness harness,
+            IAiBenchmarkModelRunner runner,
+            ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var report = await harness.RunAsync(suiteKey, request.CatalogKey, runner,
+                    new(request.AllowHardwareBenchmark, request.AllowModelExecution), ct);
+                return Results.Ok(report);
+            }
+            catch (AiBenchmarkExecutionBlockedException ex)
+            {
+                return Results.Problem(
+                    detail: string.Join(" ", ex.BlockingReasons),
+                    type: $"https://tuvima.local/problems/ai/{ex.Code}",
+                    title: "AI evaluation is blocked",
+                    statusCode: StatusCodes.Status409Conflict,
+                    extensions: new Dictionary<string, object?> { ["blockingReasons"] = ex.BlockingReasons });
+            }
+            catch (AiBenchmarkRuntimeUnavailableException ex)
+            {
+                return Results.Problem(
+                    detail: "The configured local runtime cannot execute this evaluation role.",
+                    type: $"https://tuvima.local/problems/ai/{ex.Code}",
+                    title: "AI evaluation runtime is unavailable",
+                    statusCode: StatusCodes.Status422UnprocessableEntity,
+                    extensions: new Dictionary<string, object?> { ["role"] = ex.Role });
+            }
+            catch (Exception ex)
+            {
+                loggerFactory.CreateLogger("AiBenchmarkExecution").LogError(ex, "AI evaluation {Suite} failed", suiteKey);
+                return Results.Problem(
+                    detail: "The AI evaluation failed. Review Engine logs for diagnostic details.",
+                    type: "https://tuvima.local/problems/ai/evaluation-failed",
+                    title: "AI evaluation failed",
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("RunAiBenchmarkSuite")
+        .WithSummary("Runs a versioned local text evaluation suite after explicit hardware and model-execution opt-in.")
+        .Produces<AiBenchmarkReport>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status409Conflict)
+        .Produces(StatusCodes.Status422UnprocessableEntity)
         .RequireAdmin();
 
         // ── GET /ai/resources ────────────────────────────────────────────────
@@ -301,6 +362,18 @@ internal static class AiEndpoints
     private static string UnknownRoleMessage(string role) =>
         $"Unknown model role: '{role}'. Valid values: {string.Join(", ", Enum.GetValues<AiModelRole>().Select(ToRoleKey))}.";
 
+    private static IResult UnknownRoleProblem(string role) => Results.Problem(
+        detail: UnknownRoleMessage(role),
+        type: "https://tuvima.local/problems/ai/unknown-model-role",
+        title: "Unknown AI model role",
+        statusCode: StatusCodes.Status400BadRequest);
+
+    private static IResult ModelCommandProblem(string code, string detail) => Results.Problem(
+        detail: detail,
+        type: $"https://tuvima.local/problems/ai/{code}",
+        title: "AI model operation failed",
+        statusCode: StatusCodes.Status500InternalServerError);
+
     private static string ToRoleKey(AiModelRole role) => AiModelDefinitions.ToRoleKey(role);
 
     private static string GetRequiredHardwareTier(AiModelRole role) => role switch
@@ -349,9 +422,21 @@ internal static class AiEndpoints
             RoleRequirement: "",
             BenchmarkSuite: "",
             ValidationWarnings: [],
-            Capabilities: []);
+            Capabilities: [],
+            DiskStatus: "unknown",
+            DiskSizeMB: 0,
+            MemoryEnvelopeMB: 0,
+            Quantization: "",
+            SourceUrl: "",
+            ChecksumStatus: "unknown",
+            ConfigurationReady: false,
+            RuntimeReady: false,
+            Validated: false,
+            CanOperate: false,
+            Experimental: false,
+            BlockingReasons: []);
 
-    private static AiModelStatusResponse ToModelStatusResponse(AiModelStatus status, AiSettings settings, AiModelRole? currentRole)
+    private static AiModelStatusResponse ToModelStatusResponse(AiModelStatus status, AiSettings settings, AiModelRole? currentRole, ModelInventory inventory)
     {
         var definition = settings.Models.GetByRole(status.Role);
         var advisor = new AiModelSelectionAdvisor(settings);
@@ -388,7 +473,61 @@ internal static class AiEndpoints
             RoleRequirement: decision.Requirement,
             BenchmarkSuite: decision.BenchmarkSuite,
             ValidationWarnings: decision.Warnings,
-            Capabilities: FormatCapabilities(catalog?.Capabilities));
+            Capabilities: FormatCapabilities(catalog?.Capabilities),
+            DiskStatus: GetDiskStatus(inventory.GetModelPath(status.Role)),
+            DiskSizeMB: GetDiskSizeMB(inventory.GetModelPath(status.Role)),
+            MemoryEnvelopeMB: decision.MemoryEnvelopeMB,
+            Quantization: decision.Quantization,
+            SourceUrl: decision.SourceUrl,
+            ChecksumStatus: decision.ChecksumConfigured ? "configured" : "missing",
+            ConfigurationReady: decision.ConfigurationReady,
+            RuntimeReady: decision.RuntimeReady,
+            Validated: decision.Validated,
+            CanOperate: decision.CanEnable,
+            Experimental: decision.Experimental,
+            BlockingReasons: decision.BlockingReasons);
+    }
+
+    private static AiModelStatusResponse ToOperationalStatusResponse(string role, AiSettings settings)
+    {
+        var advisor = new AiModelSelectionAdvisor(settings);
+        var decision = advisor.GetDecision(role);
+        settings.ModelCatalog.TryGetValue(decision.CatalogKey ?? "", out var catalog);
+        settings.OperationalRoles.TryGetValue(role, out var definition);
+        var file = catalog?.File ?? "";
+        var path = GetCatalogModelPath(settings, file, definition?.RuntimeKind);
+        var state = path is null ? "Unavailable" : GetDiskStatus(path) == "present" ? "Ready" : "NotDownloaded";
+        return new(
+            role, role.Replace('_', ' '), false, definition?.RuntimeKind ?? "unknown", state,
+            decision.Requirement, file, decision.SizeMB, TryGetUriHost(catalog?.DownloadUrl), 0, 0, 0,
+            false, false, 0, "not integrated", null, decision.CatalogKey, decision.DisplayName,
+            decision.Family, decision.Provider, decision.License, decision.Runtime, decision.SelectionTier,
+            decision.Status, decision.Rationale, decision.Requirement, decision.BenchmarkSuite, decision.Warnings,
+            FormatCapabilities(catalog?.Capabilities), path is null ? "not_configured" : GetDiskStatus(path),
+            path is null ? 0 : GetDiskSizeMB(path), decision.MemoryEnvelopeMB, decision.Quantization,
+            decision.SourceUrl, decision.ChecksumConfigured ? "configured" : "missing",
+            decision.ConfigurationReady, decision.RuntimeReady, decision.Validated, decision.CanEnable,
+            decision.Experimental, decision.BlockingReasons);
+    }
+
+    private static string? GetCatalogModelPath(AiSettings settings, string file, string? runtimeKind)
+    {
+        if (string.IsNullOrWhiteSpace(file)) return null;
+        var subdirectory = runtimeKind?.ToLowerInvariant() switch
+        {
+            "audio" => "whisper",
+            "text" => "llama",
+            _ => null,
+        };
+        return subdirectory is null ? null : Path.Combine(settings.ModelsDirectory, subdirectory, file);
+    }
+
+    private static string GetDiskStatus(string path) => File.Exists(path) ? "present" : "missing";
+
+    private static long GetDiskSizeMB(string path)
+    {
+        var info = new FileInfo(path);
+        return info.Exists ? (long)Math.Ceiling(info.Length / 1024d / 1024d) : 0;
     }
 
     private static IReadOnlyList<string> FormatCapabilities(AiModelCapabilities? capabilities)
@@ -409,6 +548,9 @@ internal static class AiEndpoints
         if (capabilities.Multilingual) values.Add("multilingual");
         if (capabilities.Cjk) values.Add("CJK");
         if (capabilities.ExperimentalMultimodal) values.Add("experimental multimodal");
+        if (capabilities.EmbeddingOutput) values.Add("embeddings");
+        if (capabilities.FunctionCalling) values.Add("function calling");
+        if (capabilities.ToolCalling) values.Add("tool calling");
         return values;
     }
 
@@ -416,6 +558,9 @@ internal static class AiEndpoints
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
         void Add(string key, string message) => errors[key] = [message];
+
+        foreach (var error in AiSettingsValidator.Validate(settings))
+            Add(error.Path, error.Message);
 
         if (string.IsNullOrWhiteSpace(settings.ModelsDirectory))
             Add("models_directory", "Models directory is required.");
@@ -488,6 +633,21 @@ internal static class AiEndpoints
             }
         }
 
+        var advisor = new AiModelSelectionAdvisor(settings);
+        foreach (var (key, role) in settings.OperationalRoles.Where(pair => pair.Value.Enabled))
+        {
+            var decision = advisor.GetDecision(key);
+            if (!decision.CanEnable)
+                Add($"operational_roles.{key}.enabled", $"Cannot enable this role: {string.Join(" ", decision.Warnings)}");
+            if (role.Experimental)
+            {
+                if (!settings.RoleRequirements.TryGetValue(key, out var experimentalRequirement))
+                    Add($"operational_roles.{key}", "Experimental roles require an explicit role requirement.");
+                else if (!experimentalRequirement.ExperimentalAllowed)
+                    Add($"operational_roles.{key}.experimental", "This role does not permit experimental models.");
+            }
+        }
+
         if (settings.Scheduling.WhisperBakeWindowHours <= 0)
             Add("scheduling.whisper_bake_window_hours", "Whisper bake window must be positive.");
 
@@ -524,5 +684,22 @@ internal static class AiEndpoints
         string RoleRequirement,
         string BenchmarkSuite,
         IReadOnlyList<string> ValidationWarnings,
-        IReadOnlyList<string> Capabilities);
+        IReadOnlyList<string> Capabilities,
+        string DiskStatus,
+        long DiskSizeMB,
+        int MemoryEnvelopeMB,
+        string Quantization,
+        string SourceUrl,
+        string ChecksumStatus,
+        bool ConfigurationReady,
+        bool RuntimeReady,
+        bool Validated,
+        bool CanOperate,
+        bool Experimental,
+        IReadOnlyList<string> BlockingReasons);
+
+    private sealed record AiBenchmarkRunRequest(
+        string CatalogKey,
+        bool AllowHardwareBenchmark,
+        bool AllowModelExecution);
 }
