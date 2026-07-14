@@ -136,6 +136,8 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("GetSystemCollectionKey", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionArtworkItemsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("preferred_cover.id AS CoverAssetId", source, StringComparison.Ordinal);
+        Assert.Contains("/stream/artwork/{coverAssetId:D}", source, StringComparison.Ordinal);
         Assert.Contains("cover_asset", source, StringComparison.Ordinal);
         Assert.Contains("artwork_primary_hex", source, StringComparison.Ordinal);
         Assert.Contains("artwork_secondary_hex", source, StringComparison.Ordinal);

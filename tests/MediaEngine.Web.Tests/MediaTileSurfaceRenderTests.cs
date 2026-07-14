@@ -241,7 +241,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     };
 
     [Fact]
-    public void MediaTile_LandscapeSeriesKeepsOrderedArtworkWithoutRestingCopy()
+    public void MediaTile_PortraitSeriesUsesFourCellCollageWithTwoItemsDiagonal()
     {
         var item = new MediaTileViewModel
         {
@@ -249,9 +249,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             CollectionId = Guid.NewGuid(),
             Title = "Foundation Series",
             MediaKind = "Book",
-            Shape = MediaTileShape.Landscape,
+            Shape = MediaTileShape.Portrait,
             Presentation = MediaTilePresentation.BookSeries,
-            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
             HoverLayout = MediaTileHoverLayout.BannerPopover,
             HoverMode = MediaTileHoverMode.Expanded,
             TileImageUrl = "/art/foundation-bg.jpg",
@@ -269,13 +269,40 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
-        Assert.NotEmpty(cut.FindAll(".media-tile.is-landscape.is-ordered-series-card"));
-        Assert.Equal(4, cut.Find(".media-tile-media").QuerySelectorAll(".media-tile-collage__cell").Length);
+        Assert.NotEmpty(cut.FindAll(".media-tile.is-portrait.is-ordered-series-card"));
+        var restingCells = cut.Find(".media-tile-media").QuerySelectorAll(".media-tile-collage__cell");
+        Assert.Equal(4, restingCells.Length);
+        Assert.Single(restingCells[0].QuerySelectorAll("img"));
+        Assert.Empty(restingCells[1].QuerySelectorAll("img"));
+        Assert.Empty(restingCells[2].QuerySelectorAll("img"));
+        Assert.Single(restingCells[3].QuerySelectorAll("img"));
         Assert.Equal(4, cut.Find(".media-tile-hover-art").QuerySelectorAll(".media-tile-collage__cell").Length);
         Assert.Empty(cut.FindAll(".media-tile-collection-copy"));
         Assert.Empty(cut.FindAll(".media-tile-caption"));
         Assert.Contains("Book Series", cut.Find(".media-tile-group-kind").TextContent);
         Assert.Empty(cut.FindAll(".media-tile-hover-series-stack"));
+    }
+
+    [Fact]
+    public void MediaTileCollage_WithThreeItemsLeavesOnlyLastCellBlank()
+    {
+        var items = new List<ArtworkStackItem>
+        {
+            new() { Id = "1", Title = "One", ImageUrl = "/covers/1.jpg" },
+            new() { Id = "2", Title = "Two", ImageUrl = "/covers/2.jpg" },
+            new() { Id = "3", Title = "Three", ImageUrl = "/covers/3.jpg" },
+        };
+
+        var cut = RenderComponent<MediaTileCollage>(parameters => parameters
+            .Add(component => component.Items, items)
+            .Add(component => component.PreserveOrder, true));
+
+        var cells = cut.FindAll(".media-tile-collage__cell");
+        Assert.Equal(4, cells.Count);
+        Assert.Single(cells[0].QuerySelectorAll("img"));
+        Assert.Single(cells[1].QuerySelectorAll("img"));
+        Assert.Single(cells[2].QuerySelectorAll("img"));
+        Assert.Empty(cells[3].QuerySelectorAll("img"));
     }
 
     [Fact]

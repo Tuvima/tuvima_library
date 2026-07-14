@@ -40,8 +40,9 @@ public sealed class CollectionsHubTests
         Assert.Contains("browse-shell collections-browse", source, StringComparison.Ordinal);
         Assert.Contains("<MediaBrowseHero", source, StringComparison.Ordinal);
         Assert.Contains("<MediaTileGrid", source, StringComparison.Ordinal);
-        Assert.Contains("Shape = MediaTileShape.Landscape", source, StringComparison.Ordinal);
-        Assert.Contains("SurfaceKind = MediaTileSurfaceKind.BannerLandscape", source, StringComparison.Ordinal);
+        Assert.Contains("Shape = MediaTileShape.Portrait", source, StringComparison.Ordinal);
+        Assert.Contains("SurfaceKind = MediaTileSurfaceKind.CoverPortrait", source, StringComparison.Ordinal);
+        Assert.Contains("PreviewTotalCount = collection.ItemCount", source, StringComparison.Ordinal);
         Assert.Contains("TileTextMode = MediaTileTextMode.CoverOnly", source, StringComparison.Ordinal);
         Assert.Contains("Take(5)", source, StringComparison.Ordinal);
         Assert.Contains("browse-shell__search", source, StringComparison.Ordinal);

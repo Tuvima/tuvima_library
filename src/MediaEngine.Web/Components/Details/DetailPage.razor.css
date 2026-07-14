@@ -5914,20 +5914,18 @@
 /* Series selectors use one control scale and preserve normal reading alignment. */
 ::deep .tl-series-control-row {
     width: min(100%, 46rem);
-    grid-template-columns: minmax(16rem, 1fr) 10.75rem;
-    align-items: stretch;
-    gap: 0.85rem;
+    grid-template-columns: minmax(16rem, 1fr) max-content;
+    align-items: center;
+    gap: 0.65rem;
 }
 
-::deep .tl-series-control-row > .tl-series-control,
-::deep .tl-series-control-row > .tl-series-default-action {
+::deep .tl-series-control-row > .tl-series-control {
     height: 4.25rem;
     min-height: 4.25rem;
 }
 
 ::deep .tl-series-control .mud-input-control,
-::deep .tl-series-control .mud-input,
-::deep .tl-series-default-action {
+::deep .tl-series-control .mud-input {
     min-height: 4.25rem;
 }
 
@@ -5961,7 +5959,15 @@
 
 ::deep .tl-series-default-action {
     align-self: center;
-    border-radius: 0.8rem;
+    width: auto;
+    min-width: 0;
+    min-height: 2rem;
+    height: auto;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.55rem;
+    font-size: 0.7rem;
+    line-height: 1.1;
+    white-space: nowrap;
 }
 
 ::deep .tl-series-show-link {
@@ -6128,7 +6134,8 @@
 
     ::deep .tl-series-default-action {
         width: auto;
-        min-width: 11.75rem;
+        min-width: 0;
+        justify-self: start;
     }
 
     ::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-panel--landscape .tl-series-strip,

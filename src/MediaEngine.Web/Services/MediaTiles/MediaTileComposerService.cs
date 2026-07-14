@@ -167,14 +167,6 @@ public sealed class MediaTileComposerService
                                or MediaTilePresentation.Album;
         // A TV show is represented by its show-level cover at rest. Episode stills and
         // enriched widescreen art belong in the detail/expanded experience, not the tile.
-        var useLandscapeGroup = card.Flags.IsCollection
-                                && (presentation is MediaTilePresentation.Default
-                                    or MediaTilePresentation.MovieSeries
-                                    or MediaTilePresentation.BookSeries
-                                    or MediaTilePresentation.ComicSeries
-                                    or MediaTilePresentation.AudiobookSeries
-                                    || string.Equals(card.GroupingType, "collection", StringComparison.OrdinalIgnoreCase));
-
         var surface = MediaTileArtworkResolver.Resolve(
             bucket,
             presentation,
@@ -184,23 +176,16 @@ public sealed class MediaTileComposerService
                 new MediaTileArtworkVariant(ArtworkRole.Square, card.Artwork.SquareSmallUrl, card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
                 new MediaTileArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverSmallUrl, card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
             ],
-            preferLandscapeTile: useLandscapeGroup);
+            preferLandscapeTile: false);
         var artworkStackItems = BuildArtworkStackItems(card);
         var useOrderedSeriesStack = UsesOrderedSeriesStack(presentation, artworkStackItems);
-        var seriesBackdropUrl = useOrderedSeriesStack
-            ? FirstNonBlank(card.Artwork.BackgroundSmallUrl, card.Artwork.BannerSmallUrl, card.Artwork.BackgroundMediumUrl, card.Artwork.BannerMediumUrl, card.Artwork.BackgroundUrl, card.Artwork.BannerUrl)
-            : null;
         var useSquareIndividual = !card.Flags.IsCollection
                                   && (bucket == MediaTileBucket.Audiobook
                                       || (bucket == MediaTileBucket.Music && surface.Shape == MediaTileShape.Square));
-        var tileShape = useLandscapeGroup || useOrderedSeriesStack
-            ? MediaTileShape.Landscape
-            : useSquareIndividual
+        var tileShape = useSquareIndividual
                 ? MediaTileShape.Square
                 : MediaTileShape.Portrait;
-        var surfaceKind = useLandscapeGroup || useOrderedSeriesStack
-            ? MediaTileSurfaceKind.BannerLandscape
-            : useSquareIndividual
+        var surfaceKind = useSquareIndividual
                 ? MediaTileSurfaceKind.CoverSquare
                 : MediaTileSurfaceKind.CoverPortrait;
         var hoverLayout = surface.HoverLayout;
@@ -238,8 +223,8 @@ public sealed class MediaTileComposerService
             PreviewPlacement = string.Equals(card.PreviewPlacement, "bottom", StringComparison.OrdinalIgnoreCase)
                 ? MediaTilePreviewPlacement.Bottom
                 : MediaTilePreviewPlacement.Smart,
-            TileImageUrl = seriesBackdropUrl ?? surface.TileImageUrl,
-            TileImageSrcSet = useOrderedSeriesStack ? null : surface.TileImageSrcSet,
+            TileImageUrl = surface.TileImageUrl,
+            TileImageSrcSet = surface.TileImageSrcSet,
             HoverImageUrl = surface.HoverImageUrl,
             HoverImageSrcSet = surface.HoverImageSrcSet,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,

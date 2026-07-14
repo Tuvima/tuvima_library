@@ -732,6 +732,7 @@ public sealed class CollectionCatalogReadService(
             SELECT w.id AS WorkId,
                    COALESCE(NULLIF(title_work.value, ''), NULLIF(episode_title.value, ''), NULLIF(show_name.value, ''), NULLIF(series_item.item_label, ''), 'Untitled') AS Title,
                    w.media_type AS MediaType,
+                   preferred_cover.id AS CoverAssetId,
                    COALESCE(NULLIF(cover_asset.value, ''), NULLIF(cover_work.value, ''), CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END) AS CoverUrl,
                    COALESCE(NULLIF(primary_work.value, ''), NULLIF(cover_primary_work.value, ''), NULLIF(preferred_cover.primary_hex, '')) AS PrimaryColor,
                    COALESCE(NULLIF(secondary_work.value, ''), NULLIF(cover_secondary_work.value, ''), NULLIF(preferred_cover.secondary_hex, '')) AS SecondaryColor,
@@ -781,7 +782,9 @@ public sealed class CollectionCatalogReadService(
                     WorkId = id,
                     Title = string.IsNullOrWhiteSpace(row.Title) ? "Untitled" : row.Title,
                     MediaType = row.MediaType ?? "Unknown",
-                    CoverUrl = row.CoverUrl,
+                    CoverUrl = row.CoverAssetId is { } coverAssetId
+                        ? $"/stream/artwork/{coverAssetId:D}"
+                        : row.CoverUrl,
                     PrimaryColor = row.PrimaryColor,
                     SecondaryColor = row.SecondaryColor,
                     AccentColor = row.AccentColor,
@@ -846,6 +849,7 @@ public sealed class CollectionCatalogReadService(
         public Guid WorkId { get; init; }
         public string? Title { get; init; }
         public string? MediaType { get; init; }
+        public Guid? CoverAssetId { get; init; }
         public string? CoverUrl { get; init; }
         public string? PrimaryColor { get; init; }
         public string? SecondaryColor { get; init; }

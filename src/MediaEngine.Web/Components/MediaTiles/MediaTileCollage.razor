@@ -60,13 +60,17 @@
             }
 
             var slots = Enumerable.Range(0, slotCount)
-                .Select(index => new List<ArtworkStackItem>
-                {
-                    CollageItems[index % CollageItems.Count],
-                })
+                .Select(_ => new List<ArtworkStackItem>())
                 .ToList();
 
-            for (var index = slotCount; index < CollageItems.Count; index++)
+            if (CollageItems.Count == 2)
+            {
+                slots[0].Add(CollageItems[0]);
+                slots[3].Add(CollageItems[1]);
+                return slots.Select(slot => (IReadOnlyList<ArtworkStackItem>)slot).ToList();
+            }
+
+            for (var index = 0; index < CollageItems.Count; index++)
             {
                 slots[index % slotCount].Add(CollageItems[index]);
             }

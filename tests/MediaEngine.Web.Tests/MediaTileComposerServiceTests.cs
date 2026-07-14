@@ -199,9 +199,9 @@ public sealed class MediaTileComposerServiceTests
         var mapped = MediaTileComposerService.FromDisplayCard(card);
 
         Assert.True(mapped.IsCollection);
-        Assert.Equal(MediaTileShape.Landscape, mapped.Shape);
-        Assert.Equal(MediaTileSurfaceKind.BannerLandscape, mapped.SurfaceKind);
-        Assert.Equal("/background-s.jpg", mapped.TileImageUrl);
+        Assert.Equal(MediaTileShape.Portrait, mapped.Shape);
+        Assert.Equal(MediaTileSurfaceKind.CoverPortrait, mapped.SurfaceKind);
+        Assert.Equal("/cover-s.jpg", mapped.TileImageUrl);
         Assert.Contains("/cover-s.jpg", mapped.PreviewImages);
         Assert.Contains("/background-s.jpg", mapped.PreviewImages);
     }
@@ -288,7 +288,7 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
-    public void FromDisplayCard_MapsOrderedSeriesPreviewItemsToLandscapeStack()
+    public void FromDisplayCard_MapsOrderedSeriesPreviewItemsToPortraitCollage()
     {
         var collectionId = Guid.Parse("66666666-3333-3333-3333-666666666666");
         var workId = Guid.Parse("77777777-3333-3333-3333-777777777777");
@@ -352,11 +352,10 @@ public sealed class MediaTileComposerServiceTests
         var mapped = MediaTileComposerService.FromDisplayCard(card);
 
         Assert.True(mapped.IsCollection);
-        Assert.Equal(MediaTileShape.Landscape, mapped.Shape);
-        Assert.Equal(MediaTileSurfaceKind.BannerLandscape, mapped.SurfaceKind);
+        Assert.Equal(MediaTileShape.Portrait, mapped.Shape);
+        Assert.Equal(MediaTileSurfaceKind.CoverPortrait, mapped.SurfaceKind);
         Assert.Equal(MediaTileHoverLayout.BannerPopover, mapped.HoverLayout);
-        Assert.Equal("/art/foundation-bg-s.jpg", mapped.TileImageUrl);
-        Assert.Null(mapped.TileImageSrcSet);
+        Assert.Null(mapped.TileImageUrl);
         Assert.Equal(6, mapped.PreviewTotalCount);
         Assert.Equal(["1", "2", "3", "4"], mapped.ArtworkStackItems.Select(item => item.Position));
         Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg"], mapped.ArtworkStackItems.Select(item => item.ImageUrl));
