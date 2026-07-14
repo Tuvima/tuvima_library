@@ -3952,9 +3952,16 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     box-shadow: none !important;
 }
 
+.app-select__popover .mud-paper {
+    max-height: min(28rem, calc(100vh - 2rem)) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scroll-padding-block: var(--tl-space-1);
+}
+
 .app-select__popover .mud-list,
 .app-overflow-menu__popover .mud-list {
-    padding: var(--tl-space-1) !important;
+    padding: 0.2rem 0.25rem 0.5rem !important;
 }
 
 .app-select__popover .mud-list-item,

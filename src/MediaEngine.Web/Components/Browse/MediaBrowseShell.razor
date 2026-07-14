@@ -606,7 +606,13 @@
             Progress: null,
             Actions: [new DisplayActionDto("openCollection", "Explore", null, null, group.CollectionId, navigationUrl)],
             Flags: new DisplayCardFlagsDto(IsPlayableMedia(group.PrimaryMediaType), IsReadMedia(group.PrimaryMediaType), false, true, false),
-            SortTimestamp: group.CreatedAt);
+            SortTimestamp: group.CreatedAt)
+        {
+            PreviewItems = group.PreviewItems
+                .Select(item => new DisplayCardPreviewItemDto(item.WorkId, null, item.Title, item.ImageUrl, item.Shape, item.Position))
+                .ToList(),
+            PreviewTotalCount = group.WorkCount,
+        };
 
         return WithCardOverrides(
             MediaTileComposerService.FromDisplayCard(card),
@@ -1020,6 +1026,7 @@
         LogoUrl = card.LogoUrl,
         PreviewImages = previewImages ?? card.PreviewImages,
         ArtworkStackItems = card.ArtworkStackItems,
+        PreviewTotalCount = card.PreviewTotalCount,
         StatusText = card.StatusText,
         MetaText = card.MetaText,
         MediaCounts = card.MediaCounts,

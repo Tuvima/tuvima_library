@@ -405,7 +405,8 @@ public sealed class MediaTileComposerService
         artworkStackItems.Count > 0
         && presentation is MediaTilePresentation.BookSeries
             or MediaTilePresentation.ComicSeries
-            or MediaTilePresentation.MovieSeries;
+            or MediaTilePresentation.MovieSeries
+            or MediaTilePresentation.AudiobookSeries;
 
     private static IReadOnlyList<string> BuildPreviewImages(DisplayCardDto card, IReadOnlyList<ArtworkStackItem> artworkStackItems)
     {

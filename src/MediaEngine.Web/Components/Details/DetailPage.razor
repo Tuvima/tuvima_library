@@ -47,7 +47,15 @@
                 }
                 else if (CurrentActiveTab is "episodes")
                 {
-                    <EpisodesTab Groups="Model.MediaGroups" />
+                    @if (Model.SequencePlacement is not null)
+                    {
+                        <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                                OnContainerSelected="HandleContainerSelectedAsync" />
+                    }
+                    else
+                    {
+                        <ChildrenListTab Groups="Model.MediaGroups" />
+                    }
                 }
                 else if (CurrentActiveTab is "series")
                 {
@@ -63,7 +71,12 @@
                 }
                 else if (CurrentActiveTab is "tracks" or "items" or "issues" or "media" or "works" or "albums")
                 {
-                    @if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
+                    @if (Model.SequencePlacement is not null && CurrentActiveTab is "issues" or "media" or "works")
+                    {
+                        <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                                OnContainerSelected="HandleContainerSelectedAsync" />
+                    }
+                    else if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
                     {
                         <MusicTrackList Groups="Model.MediaGroups"
                                         AlbumTitle="@Model.Title"

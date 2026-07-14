@@ -31,6 +31,9 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("distinct_title_count")]
     public int? DistinctTitleCount { get; set; }
 
+    [JsonPropertyName("preview_items")]
+    public List<ContentGroupPreviewItemViewModel> PreviewItems { get; set; } = [];
+
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 
@@ -272,6 +275,15 @@ public sealed class ManagedCollectionViewModel
         "Empty"    => "Empty",
         _          => Status,
     };
+}
+
+public sealed class ContentGroupPreviewItemViewModel
+{
+    [JsonPropertyName("work_id")] public Guid WorkId { get; set; }
+    [JsonPropertyName("title")] public string Title { get; set; } = string.Empty;
+    [JsonPropertyName("image_url")] public string ImageUrl { get; set; } = string.Empty;
+    [JsonPropertyName("shape")] public string Shape { get; set; } = "portrait";
+    [JsonPropertyName("position")] public string? Position { get; set; }
 }
 
 /// <summary>

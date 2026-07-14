@@ -324,6 +324,15 @@ public sealed class EngineApiClientLibraryWorksTests
                 "primary_media_type": "TV",
                 "work_count": 6,
                 "distinct_title_count": 4,
+                "preview_items": [
+                  {
+                    "work_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                    "title": "Episode One",
+                    "image_url": "/stream/preview",
+                    "shape": "portrait",
+                    "position": "1"
+                  }
+                ],
                 "cover_url": "/stream/cover",
                 "background_url": "/stream/background",
                 "banner_url": "/stream/banner",
@@ -376,6 +385,7 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("2026", group.Year);
         Assert.Equal(2, group.SeasonCount);
         Assert.Equal(4, group.DistinctTitleCount);
+        Assert.Equal("http://localhost:61495/stream/preview", Assert.Single(group.PreviewItems).ImageUrl);
     }
 
     [Fact]

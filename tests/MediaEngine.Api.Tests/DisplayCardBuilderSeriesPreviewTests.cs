@@ -26,9 +26,9 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("5 owned titles", card.Subtitle);
         Assert.Equal(["5 owned titles"], card.Facts);
         Assert.Equal(5, card.PreviewTotalCount);
-        Assert.Equal(["Book One", "Book Two", "Book Three", "Book Four"], card.PreviewItems.Select(item => item.Title));
-        Assert.Equal(["1", "2", "3", "4"], card.PreviewItems.Select(item => item.Position));
-        Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
+        Assert.Equal(["Book One", "Book Two", "Book Three", "Book Four", "Book Five"], card.PreviewItems.Select(item => item.Title));
+        Assert.Equal(["1", "2", "3", "4", "5"], card.PreviewItems.Select(item => item.Position));
+        Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg", "/covers/5-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("Foundation", card.Title);
         Assert.Equal("/shows/foundation-bg-s.jpg", card.Artwork.BackgroundSmallUrl);
         Assert.Empty(card.PreviewItems);
-        Assert.Null(card.PreviewTotalCount);
+        Assert.Equal(2, card.PreviewTotalCount);
     }
 
     private static DisplayWorkRow CreateWork(

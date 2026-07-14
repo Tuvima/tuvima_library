@@ -135,10 +135,37 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.NotEmpty(cut.FindAll(".media-tile.is-landscape.is-ordered-series-card"));
-        Assert.NotEmpty(cut.FindAll(".artwork-stack--seriesstrip"));
+        Assert.Equal(4, cut.FindAll(".media-tile-collage__cell").Count);
         Assert.Empty(cut.FindAll(".media-tile-collection-copy"));
         Assert.Empty(cut.FindAll(".media-tile-caption"));
-        Assert.NotEmpty(cut.FindAll(".media-tile-hover-series-stack"));
+        Assert.Contains("Book Series", cut.Find(".media-tile-group-kind").TextContent);
+        Assert.Empty(cut.FindAll(".media-tile-hover-series-stack"));
+    }
+
+    [Fact]
+    public void MediaTile_TvShowDisplaysOwnedEpisodeCountWithoutEpisodeCollage()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Foundation",
+            MediaKind = "TV",
+            Shape = MediaTileShape.Portrait,
+            Presentation = MediaTilePresentation.TvSeries,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            TileImageUrl = "/shows/foundation.jpg",
+            HoverImageUrl = "/shows/foundation.jpg",
+            NavigationUrl = "/watch/tv/show/1",
+            IsCollection = true,
+            PreviewTotalCount = 12,
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.Contains("TV Show", cut.Find(".media-tile-group-kind").TextContent);
+        Assert.Equal("12 episodes owned", cut.Find(".media-tile-group-count").GetAttribute("aria-label"));
+        Assert.Empty(cut.FindAll(".media-tile-collage"));
     }
 
     [Fact]
@@ -251,9 +278,17 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("cardEl.closest('.media-tile-shelf-scroll, .media-tile-grid')", appJs);
         Assert.Contains("previousCard && previousCard !== cardEl", appJs);
         Assert.Contains("}, 110);", appJs);
-        Assert.DoesNotContain("window.mountMediaTileHover(cardEl);", appJs);
+        Assert.Contains("window.mountMediaTileHover(cardEl);", appJs);
+        Assert.Contains("cardEl.closest('.media-tile-grid')", appJs);
+        Assert.Contains("panel.classList.add('is-grid-overlay')", appJs);
+        Assert.Contains("window.restoreMediaTileHover(cardEl);", appJs);
+        Assert.Contains("window.registerMediaTileCollages", appJs);
+        Assert.Contains("prefers-reduced-motion: reduce", appJs);
+        Assert.Contains(".media-tile.is-square", css);
+        Assert.Contains("--media-tile-media-height: clamp(400px, 25vw, 500px)", css);
         Assert.DoesNotContain("window.lockMediaTileHoverRowScroll(cardEl);", appJs);
-        Assert.DoesNotContain("position: fixed !important", css);
+        Assert.Contains(".media-tile-hover-panel.is-grid-overlay.is-inline-expanded", css);
+        Assert.Contains("position: fixed !important", css);
         Assert.DoesNotContain("media-tile-hover-host", layout);
     }
 

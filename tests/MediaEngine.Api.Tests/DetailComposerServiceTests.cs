@@ -245,6 +245,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ApplyMediaGroupCompletion", source);
         Assert.Contains("var expectedTotal = AuthoritativeManifestTotal(manifest)", source);
         Assert.Contains("BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal)", source);
+        Assert.Contains("BuildCollectionSequencePlacement", source);
+        Assert.Contains("SequencePlacement = sequencePlacement", source);
+        Assert.Contains("entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("MediaGroups = entityType == DetailEntityType.TvShow", source);
         Assert.Contains("var total = Math.Max(group.Items.Count, group.TotalCount)", source);
         Assert.Contains("DetailEntityType.MovieSeries => \"Films\"", source);
         Assert.Contains("DetailEntityType.BookSeries => \"Books\"", source);
@@ -699,6 +703,20 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("w.collection_id = current.CollectionId", source);
         Assert.Contains("SourceContainerId = FirstText(qid, providerKey)", source);
         Assert.Contains("EquivalentContainerIds = BuildSequenceContainerAliases", source);
+        Assert.Contains("smi.collection_id AS CollectionId", source);
+        Assert.Contains("smi.membership_scope IN ('MainSequence', 'Supplementary', 'Unpositioned')", source);
+        Assert.Contains("var wikidataLinkedContainers", source);
+        Assert.Contains("IsProviderBackedSequenceContainer(option)", source);
+        Assert.Contains("wikidataLinkedContainers.Any(wikidata => ShouldMergeSequenceContainerOptions(option, wikidata))", source);
+        Assert.Contains("BuildManifestMemberFingerprint(manifestItems)", source);
+        Assert.Contains("!linkedContainers.Any(linked => ShouldMergeSequenceContainerOptions(linked, option))", source);
+        Assert.Contains("hasTrustedSequenceContainer && IsTitleOnlySequenceContainerOption(option)", source);
+        Assert.Contains("availableContainers.Any(IsLocalOrProviderBackedSequenceContainer)", source);
+        Assert.Contains("IsComicSequenceEntity(entityType)", source);
+        Assert.Contains("IsWikidataOnlySequenceContainer(option)", source);
+        Assert.Contains("if (!IsComicSequenceEntity(entityType))", source);
+        Assert.Contains("availableContainers.RemoveAll(IsTitleOnlySequenceContainerOption)", source);
+        Assert.Contains("equivalentContainerIds: collectionAliases", source);
         Assert.Contains("ShouldMergeSequenceContainerOptions", source);
         Assert.Contains("DeduplicateSequenceContainerOptions", source);
         Assert.Contains("CanChooseContainer = distinctContainers.Count > 1", source);
@@ -737,6 +755,28 @@ public sealed class DetailComposerServiceTests
         };
 
         Assert.False(InvokePrivate<bool>("ShouldMergeSequenceContainerOptions", localCollection, manifestSeries));
+    }
+
+    [Fact]
+    public void DetailComposer_DropsTitleOnlyFallbackWhenTrustedSeriesIdentityExists()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("hasTrustedSequenceContainer", source);
+        Assert.Contains("availableContainers.RemoveAll(IsTitleOnlySequenceContainerOption)", source);
+        Assert.Contains("availableContainers.Any(IsLocalOrProviderBackedSequenceContainer)", source);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesComicProviderOrderAndKeepsWikidataAsIdentityOnly()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("IsComicSequenceEntity(entityType) && IsWikidataOnlySequenceContainer(option)", source);
+        Assert.Contains("!availableContainers.Any(existing => ShouldMergeSequenceContainerOptions(existing, option))", source);
+        Assert.Contains("if (!IsComicSequenceEntity(entityType))", source);
+        Assert.Contains("MergeSequenceManifestPlaceholdersAsync", source);
+        Assert.Contains("ApplyExactManifestPositionsAsync", source);
     }
 
     [Fact]
@@ -799,6 +839,139 @@ public sealed class DetailComposerServiceTests
         Assert.Equal(2, distinct.Count);
         Assert.Contains(distinct, option => option.ContainerId == localCollectionId);
         Assert.Contains(distinct, option => option.ContainerId == "Q12345");
+    }
+
+    [Fact]
+    public void DetailComposer_MergesProviderAndLocalRepresentationsWithTheSameCollectionIdentity()
+    {
+        var collectionId = Guid.NewGuid().ToString("D");
+        var options = new List<SequenceContainerOptionViewModel>
+        {
+            new()
+            {
+                ContainerId = collectionId,
+                ContainerTitle = "Local Working Label",
+                MediaScope = "Watch",
+                EquivalentContainerIds = [collectionId],
+            },
+            new()
+            {
+                ContainerId = "catalog:collection:42",
+                SourceContainerId = "catalog:collection:42",
+                ContainerTitle = "Canonical Set Name",
+                MediaScope = "Watch",
+                EquivalentContainerIds = ["catalog:collection:42", collectionId],
+            },
+        };
+
+        var distinct = InvokePrivate<List<SequenceContainerOptionViewModel>>(
+            "DeduplicateSequenceContainerOptions",
+            options);
+
+        var merged = Assert.Single(distinct);
+        Assert.Equal(collectionId, merged.ContainerId);
+        Assert.Equal("catalog:collection:42", merged.SourceContainerId);
+        Assert.Equal("Canonical Set Name", merged.ContainerTitle);
+        Assert.Contains(collectionId, merged.EquivalentContainerIds);
+        Assert.Contains("catalog:collection:42", merged.EquivalentContainerIds);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesOrderedMembersToIdentifyEquivalentCrossProviderContainers()
+    {
+        var firstManifest = new List<SeriesManifestItemRecord>
+        {
+            new() { ItemQid = "a1", ItemLabel = "First Film", MembershipScope = "MainSequence", ParsedOrdinal = 1, OrdinalScopeQid = "source-a", SeriesQid = "source-a", OrderSource = "SeriesOrdinal" },
+            new() { ItemQid = "a2", ItemLabel = "Second Film", MembershipScope = "MainSequence", ParsedOrdinal = 2, OrdinalScopeQid = "source-a", SeriesQid = "source-a", OrderSource = "SeriesOrdinal" },
+        };
+        var equivalentManifest = new List<SeriesManifestItemRecord>
+        {
+            new() { ItemQid = "b1", ItemLabel = "First Film", MembershipScope = "MainSequence", RawOrdinal = "1", OrdinalScopeQid = "source-b", SeriesQid = "source-b", OrderSource = "SeriesOrdinal" },
+            new() { ItemQid = "b2", ItemLabel = "Second Film", MembershipScope = "MainSequence", RawOrdinal = "2", OrdinalScopeQid = "source-b", SeriesQid = "source-b", OrderSource = "SeriesOrdinal" },
+        };
+        var differentManifest = new List<SeriesManifestItemRecord>
+        {
+            new() { ItemQid = "c1", ItemLabel = "First Film", MembershipScope = "MainSequence", ParsedOrdinal = 1, OrdinalScopeQid = "source-c", SeriesQid = "source-c", OrderSource = "SeriesOrdinal" },
+            new() { ItemQid = "c2", ItemLabel = "Different Sequel", MembershipScope = "MainSequence", ParsedOrdinal = 2, OrdinalScopeQid = "source-c", SeriesQid = "source-c", OrderSource = "SeriesOrdinal" },
+        };
+
+        var first = InvokePrivate<string?>("BuildManifestMemberFingerprint", firstManifest);
+        var equivalent = InvokePrivate<string?>("BuildManifestMemberFingerprint", equivalentManifest);
+        var different = InvokePrivate<string?>("BuildManifestMemberFingerprint", differentManifest);
+
+        Assert.NotNull(first);
+        Assert.Equal(first, equivalent);
+        Assert.NotEqual(first, different);
+    }
+
+    [Fact]
+    public void DetailComposer_PrefersSemanticWikidataTitleForEquivalentProviderManifest()
+    {
+        var provider = new SequenceContainerOptionViewModel
+        {
+            ContainerId = "catalog:collection:42",
+            SourceContainerId = "catalog:collection:42",
+            ContainerTitle = "Example",
+            MediaScope = "Watch",
+            EquivalentContainerIds = ["catalog:collection:42", "sequence-fingerprint:shared"],
+        };
+        var wikidata = new SequenceContainerOptionViewModel
+        {
+            ContainerId = "Q12345",
+            SourceContainerId = "Q12345",
+            ContainerTitle = "Example Trilogy",
+            MediaScope = "Watch",
+            EquivalentContainerIds = ["Q12345", "sequence-fingerprint:shared"],
+        };
+
+        var distinct = InvokePrivate<List<SequenceContainerOptionViewModel>>(
+            "DeduplicateSequenceContainerOptions",
+            new List<SequenceContainerOptionViewModel> { provider, wikidata });
+
+        var merged = Assert.Single(distinct);
+        Assert.Equal("Example Trilogy", merged.ContainerTitle);
+        Assert.Contains("catalog:collection:42", merged.EquivalentContainerIds);
+        Assert.Contains("Q12345", merged.EquivalentContainerIds);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesProviderSeriesOnlyAsFallbackWhenWikidataManifestsExist()
+    {
+        var providerOnly = new SequenceContainerOptionViewModel
+        {
+            ContainerId = "catalog:collection:fallback",
+            SourceContainerId = "catalog:collection:fallback",
+            ContainerTitle = "Fallback Sequence",
+            EquivalentContainerIds = ["catalog:collection:fallback"],
+        };
+        var wikidata = new SequenceContainerOptionViewModel
+        {
+            ContainerId = "Q12345",
+            SourceContainerId = "Q12345",
+            ContainerTitle = "Canonical Sequence",
+            EquivalentContainerIds = ["Q12345", "sequence-fingerprint:shared"],
+        };
+        var equivalentProvider = new SequenceContainerOptionViewModel
+        {
+            ContainerId = "catalog:collection:equivalent",
+            SourceContainerId = "catalog:collection:equivalent",
+            ContainerTitle = "Provider Label",
+            EquivalentContainerIds = ["catalog:collection:equivalent", "sequence-fingerprint:shared"],
+        };
+
+        var fallbackResult = InvokePrivate<List<SequenceContainerOptionViewModel>>(
+            "PreferWikidataLinkedSequenceContainers",
+            new List<SequenceContainerOptionViewModel> { providerOnly });
+        var wikidataResult = InvokePrivate<List<SequenceContainerOptionViewModel>>(
+            "PreferWikidataLinkedSequenceContainers",
+            new List<SequenceContainerOptionViewModel> { providerOnly, wikidata, equivalentProvider });
+
+        Assert.Single(fallbackResult);
+        Assert.Contains(providerOnly, fallbackResult);
+        Assert.Equal(2, wikidataResult.Count);
+        Assert.Contains(wikidata, wikidataResult);
+        Assert.Contains(equivalentProvider, wikidataResult);
+        Assert.DoesNotContain(providerOnly, wikidataResult);
     }
 
     [Fact]

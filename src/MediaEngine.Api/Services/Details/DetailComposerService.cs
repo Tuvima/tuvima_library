@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Dapper;
@@ -389,6 +390,15 @@ public sealed class DetailComposerService
             null,
             collectionLogo);
         var relationships = BuildCollectionRelationships(row, entityType);
+        var collectionTitle = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values);
+        var sequencePlacement = BuildCollectionSequencePlacement(
+            collectionId,
+            entityType,
+            collectionTitle,
+            row.WikidataQid,
+            longDescription,
+            displayWorks,
+            expectedTotal);
 
         return new DetailPageViewModel
         {
@@ -396,7 +406,7 @@ public sealed class DetailComposerService
             EntityType = entityType,
             PresentationContext = context,
             EditorTarget = BuildCollectionEditorTarget(collectionId, entityType, rootWorkId),
-            Title = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values),
+            Title = collectionTitle,
             Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
             Tagline = heroSummary,
             Description = longDescription,
@@ -413,13 +423,16 @@ public sealed class DetailComposerService
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress),
             SecondaryActions = BuildSecondaryActions(rootWorkId ?? collectionId, entityType, rootWorkId.HasValue && favoriteWorkIds.Contains(rootWorkId.Value)),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
+            SequencePlacement = sequencePlacement,
             ContributorGroups = contributorGroups,
             PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
             CharacterGroups = characterGroups,
             PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),
             RelationshipStrip = relationships,
             Tabs = BuildTabs(entityType, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
-            MediaGroups = BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal),
+            MediaGroups = entityType == DetailEntityType.TvShow
+                ? []
+                : BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -1230,19 +1243,80 @@ public sealed class DetailComposerService
         var localContainer = await ResolveLocalSequenceContainerOptionAsync(workId, entityType, detail.MediaType, ct);
         if (localContainer is not null)
         {
-            AddSequenceContainerOption(availableContainers, localContainer.ContainerId, localContainer.ContainerTitle, localContainer.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType));
+            AddSequenceContainerOption(
+                availableContainers,
+                localContainer.ContainerId,
+                localContainer.ContainerTitle,
+                localContainer.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType),
+                localContainer.SourceContainerId,
+                localContainer.EquivalentContainerIds);
         }
 
-        var linkedContainers = await ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct);
+        var allLinkedContainers = await ResolveLinkedManifestSequenceContainerOptionsAsync(workId, entityType, detail.MediaType, ct);
+        var wikidataLinkedContainers = allLinkedContainers
+            .Where(option => IsWikidataQid(option.SourceContainerId) || IsWikidataQid(option.ContainerId))
+            .ToList();
+        var linkedContainers = PreferWikidataLinkedSequenceContainers(allLinkedContainers);
+
+        if (wikidataLinkedContainers.Count > 0)
+        {
+            availableContainers.RemoveAll(option =>
+                IsProviderBackedSequenceContainer(option)
+                && !wikidataLinkedContainers.Any(wikidata => ShouldMergeSequenceContainerOptions(option, wikidata)));
+        }
+
         foreach (var option in linkedContainers)
         {
-            AddSequenceContainerOption(availableContainers, option.ContainerId, option.ContainerTitle, option.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType));
+            if (IsComicSequenceEntity(entityType)
+                && !availableContainers.Any(existing => ShouldMergeSequenceContainerOptions(existing, option)))
+            {
+                continue;
+            }
+
+            AddSequenceContainerOption(
+                availableContainers,
+                option.ContainerId,
+                option.ContainerTitle,
+                option.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType),
+                option.SourceContainerId,
+                option.EquivalentContainerIds);
         }
 
         var canonicalContainers = ResolveSequenceContainerOptions(detail, entityType);
+        var hasTrustedSequenceContainer = availableContainers.Any(IsLocalOrProviderBackedSequenceContainer)
+            || canonicalContainers.Any(option =>
+                IsManifestBackedSequenceContainerId(option.ContainerId)
+                || IsManifestBackedSequenceContainerId(option.SourceContainerId));
+        if (hasTrustedSequenceContainer)
+        {
+            availableContainers.RemoveAll(IsTitleOnlySequenceContainerOption);
+        }
+
         foreach (var option in canonicalContainers)
         {
-            AddSequenceContainerOption(availableContainers, option.ContainerId, option.ContainerTitle, option.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType));
+            if (IsComicSequenceEntity(entityType) && IsWikidataOnlySequenceContainer(option))
+            {
+                continue;
+            }
+
+            if (linkedContainers.Count > 0
+                && !linkedContainers.Any(linked => ShouldMergeSequenceContainerOptions(linked, option)))
+            {
+                continue;
+            }
+
+            if (hasTrustedSequenceContainer && IsTitleOnlySequenceContainerOption(option))
+            {
+                continue;
+            }
+
+            AddSequenceContainerOption(
+                availableContainers,
+                option.ContainerId,
+                option.ContainerTitle,
+                option.MediaScope ?? SeriesMediaFilter(entityType, detail.MediaType),
+                option.SourceContainerId,
+                option.EquivalentContainerIds);
         }
 
         if (availableContainers.Count == 0)
@@ -1370,8 +1444,11 @@ public sealed class DetailComposerService
                 ProgressState = LibraryProgressState.Unknown,
             };
         }).ToList();
-        items = await MergeSequenceManifestPlaceholdersAsync(items, manifestContainerId, detail.WikidataQid, workId, entityType, ct);
-        items = await ApplyExactManifestPositionsAsync(items, manifestContainerId, entityType, ct);
+        if (!IsComicSequenceEntity(entityType))
+        {
+            items = await MergeSequenceManifestPlaceholdersAsync(items, manifestContainerId, detail.WikidataQid, workId, entityType, ct);
+            items = await ApplyExactManifestPositionsAsync(items, manifestContainerId, entityType, ct);
+        }
 
         if (!items.Any(item => item.IsCurrent))
         {
@@ -2444,6 +2521,7 @@ public sealed class DetailComposerService
         var rows = await conn.QueryAsync(new CommandDefinition(
             """
             SELECT smi.series_qid AS ContainerId,
+                   smi.collection_id AS CollectionId,
                    CAST(COALESCE(NULLIF(h.series_label, ''), NULLIF(c.display_name, ''), NULLIF(smi.parent_collection_label, ''), smi.series_qid) AS TEXT) AS ContainerTitle,
                    COALESCE(
                        MAX(COALESCE(
@@ -2456,6 +2534,7 @@ public sealed class DetailComposerService
             LEFT JOIN collections c ON c.id = smi.collection_id
             WHERE smi.linked_work_id = @workId
               AND NULLIF(smi.series_qid, '') IS NOT NULL
+              AND smi.membership_scope IN ('MainSequence', 'Supplementary', 'Unpositioned')
               AND COALESCE(CAST(json_extract(h.api_metadata_json, '$.containerKind') AS TEXT), 'OrderedSeries') NOT IN ('Franchise', 'Universe', 'WikimediaList', 'PublisherOrProductionList')
             GROUP BY smi.series_qid
             ORDER BY HasOrderingRank, ItemCount DESC, ContainerTitle;
@@ -2467,15 +2546,50 @@ public sealed class DetailComposerService
         var options = new List<SequenceContainerOptionViewModel>();
         foreach (var row in rows)
         {
+            var collectionId = StringValue(row.CollectionId);
+            var containerId = StringValue(row.ContainerId);
+            IReadOnlyList<SeriesManifestItemRecord> manifestItems = string.IsNullOrWhiteSpace(containerId)
+                ? Array.Empty<SeriesManifestItemRecord>()
+                : await _seriesManifests.GetItemsBySeriesQidAsync(containerId, ct);
+            var memberFingerprint = BuildManifestMemberFingerprint(manifestItems);
+            IReadOnlyList<string> collectionAliases = new[] { collectionId, memberFingerprint }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Cast<string>()
+                .ToList();
             AddSequenceContainerOption(
                 options,
-                StringValue(row.ContainerId),
+                containerId,
                 FormatSequenceContainerTitle(StringValue(row.ContainerTitle)),
                 mediaScope,
-                sourceContainerId: StringValue(row.ContainerId));
+                sourceContainerId: StringValue(row.ContainerId),
+                equivalentContainerIds: collectionAliases);
         }
 
         return options;
+    }
+
+    private static string? BuildManifestMemberFingerprint(IReadOnlyList<SeriesManifestItemRecord> items)
+    {
+        var positionedMainMembers = items
+            .Where(item => string.Equals(item.MembershipScope, SeriesMembershipScopeNames.MainSequence, StringComparison.OrdinalIgnoreCase))
+            .Select(item => new
+            {
+                Title = NormalizeSeriesTitle(item.ItemLabel),
+                Position = ManifestSourcePosition(item),
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Title) && item.Position.HasValue)
+            .OrderBy(item => item.Position)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (positionedMainMembers.Count < 2)
+        {
+            return null;
+        }
+
+        var identity = string.Join('|', positionedMainMembers.Select(item =>
+            $"{item.Position!.Value.ToString("0.####", CultureInfo.InvariantCulture)}:{item.Title}"));
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
+        return $"sequence-fingerprint:{hash}";
     }
 
     private static IReadOnlyList<SequenceContainerOptionViewModel> ResolveSequenceContainerOptions(LibraryItemDetail detail, DetailEntityType entityType)
@@ -2624,7 +2738,7 @@ public sealed class DetailComposerService
         {
             ContainerId = PreferRoutableContainerId(existing.ContainerId, candidate.ContainerId),
             SourceContainerId = PreferSourceContainerId(existing, candidate),
-            ContainerTitle = PreferSequenceContainerTitle(existing.ContainerTitle, candidate.ContainerTitle),
+            ContainerTitle = PreferSequenceContainerTitle(existing, candidate),
             MediaScope = FirstText(existing.MediaScope, candidate.MediaScope),
             IsSelected = existing.IsSelected || candidate.IsSelected,
             IsDefault = existing.IsDefault || candidate.IsDefault,
@@ -2656,14 +2770,30 @@ public sealed class DetailComposerService
             ?? ids.FirstOrDefault(id => !Guid.TryParse(id, out _));
     }
 
-    private static string PreferSequenceContainerTitle(string existingTitle, string candidateTitle)
+    private static string PreferSequenceContainerTitle(
+        SequenceContainerOptionViewModel existing,
+        SequenceContainerOptionViewModel candidate)
     {
-        if (string.IsNullOrWhiteSpace(existingTitle) || IsSequenceContainerIdLike(existingTitle))
+        if (IsWikidataQid(candidate.ContainerId)
+            && IsProviderSequenceContainerId(existing.ContainerId)
+            && !string.IsNullOrWhiteSpace(candidate.ContainerTitle))
         {
-            return candidateTitle;
+            return candidate.ContainerTitle;
         }
 
-        return existingTitle;
+        if (Guid.TryParse(existing.ContainerId, out _)
+            && IsManifestBackedSequenceContainerId(candidate.ContainerId)
+            && !string.IsNullOrWhiteSpace(candidate.ContainerTitle))
+        {
+            return candidate.ContainerTitle;
+        }
+
+        if (string.IsNullOrWhiteSpace(existing.ContainerTitle) || IsSequenceContainerIdLike(existing.ContainerTitle))
+        {
+            return candidate.ContainerTitle;
+        }
+
+        return existing.ContainerTitle;
     }
 
     private static bool SequenceContainerOptionMatches(SequenceContainerOptionViewModel? option, string? containerId)
@@ -2684,6 +2814,48 @@ public sealed class DetailComposerService
            || IsProviderSequenceContainerId(option.ContainerId)
            || IsProviderSequenceContainerId(option.SourceContainerId)
            || option.EquivalentContainerIds.Any(alias => Guid.TryParse(alias, out _) || IsProviderSequenceContainerId(alias));
+
+    private static bool IsProviderBackedSequenceContainer(SequenceContainerOptionViewModel option)
+        => IsProviderSequenceContainerId(option.ContainerId)
+           || IsProviderSequenceContainerId(option.SourceContainerId)
+           || option.EquivalentContainerIds.Any(IsProviderSequenceContainerId);
+
+    private static bool IsComicSequenceEntity(DetailEntityType entityType)
+        => entityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
+
+    private static bool IsWikidataOnlySequenceContainer(SequenceContainerOptionViewModel option)
+    {
+        var identities = new[] { option.ContainerId, option.SourceContainerId }
+            .Concat(option.EquivalentContainerIds)
+            .Where(identity => !string.IsNullOrWhiteSpace(identity))
+            .ToList();
+        return identities.Any(IsWikidataQid)
+            && !identities.Any(identity => Guid.TryParse(identity, out _) || IsProviderSequenceContainerId(identity));
+    }
+
+    private static List<SequenceContainerOptionViewModel> PreferWikidataLinkedSequenceContainers(
+        IReadOnlyList<SequenceContainerOptionViewModel> options)
+    {
+        var wikidataOptions = options
+            .Where(option => IsWikidataQid(option.SourceContainerId) || IsWikidataQid(option.ContainerId))
+            .ToList();
+        if (wikidataOptions.Count == 0)
+        {
+            return options.ToList();
+        }
+
+        return options
+            .Where(option =>
+                IsWikidataQid(option.SourceContainerId)
+                || IsWikidataQid(option.ContainerId)
+                || wikidataOptions.Any(wikidata => ShouldMergeSequenceContainerOptions(option, wikidata)))
+            .ToList();
+    }
+
+    private static bool IsTitleOnlySequenceContainerOption(SequenceContainerOptionViewModel option)
+        => string.IsNullOrWhiteSpace(option.SourceContainerId)
+           && !Guid.TryParse(option.ContainerId, out _)
+           && !IsManifestBackedSequenceContainerId(option.ContainerId);
 
     private static bool IsManifestBackedSequenceContainerId(string? containerId)
         => IsWikidataQid(containerId) || IsProviderSequenceContainerId(containerId);
@@ -5575,27 +5747,153 @@ public sealed class DetailComposerService
         return year.Length >= 4 && year.Take(4).All(char.IsDigit) ? year[..4] : year;
     }
 
+    private static SequencePlacementViewModel? BuildCollectionSequencePlacement(
+        Guid collectionId,
+        DetailEntityType entityType,
+        string containerTitle,
+        string? sourceContainerId,
+        string? containerDescription,
+        IReadOnlyList<CollectionWorkSummary> works,
+        int? expectedTotal)
+    {
+        if (entityType is not (DetailEntityType.TvShow
+            or DetailEntityType.MovieSeries
+            or DetailEntityType.BookSeries
+            or DetailEntityType.ComicSeries))
+        {
+            return null;
+        }
+
+        var orderedWorks = entityType == DetailEntityType.TvShow
+            ? DeduplicateTvEpisodeSummaries(works)
+                .Where(work => work.IsOwned || !string.IsNullOrWhiteSpace(work.Season))
+                .ToList()
+            : works
+                .OrderBy(work => work.Ordinal ?? int.MaxValue)
+                .ThenBy(work => work.Year, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        if (orderedWorks.Count == 0)
+        {
+            return null;
+        }
+
+        var labels = ResolveSequenceLabels(entityType);
+        var items = orderedWorks.Select((work, index) =>
+        {
+            var itemType = InferMediaItemEntityType(work);
+            var positionLabel = entityType == DetailEntityType.TvShow
+                ? FirstNonBlank(work.Episode, work.Ordinal?.ToString(CultureInfo.InvariantCulture))
+                : work.Ordinal?.ToString(CultureInfo.InvariantCulture);
+            var positionNumber = TryParseInt(positionLabel);
+            var season = entityType == DetailEntityType.TvShow
+                ? FirstNonBlank(NormalizeEpisodeKey(work.Season), "1")
+                : null;
+            var groupKey = season is null ? null : $"season-{season}";
+            var groupTitle = season is null ? null : SeasonDisplayTitle(season);
+
+            return new SequenceItemViewModel
+            {
+                Id = work.Id,
+                EntityType = itemType,
+                Title = work.Title,
+                Description = work.Description,
+                Duration = FormatTrackDuration(work.Duration),
+                ArtworkUrl = FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl),
+                Route = work.IsOwned ? BuildWorkRoute(work) : null,
+                PublicationDate = work.Year,
+                PositionNumber = positionNumber,
+                PositionSort = positionNumber ?? work.Ordinal ?? index + 1,
+                PositionLabel = positionLabel,
+                PositionText = entityType == DetailEntityType.TvShow && !string.IsNullOrWhiteSpace(positionLabel)
+                    ? $"E{NormalizeSequenceOrdinal(positionLabel)}"
+                    : positionLabel,
+                GroupKey = groupKey,
+                GroupTitle = groupTitle,
+                MembershipScope = SeriesMembershipScopeNames.MainSequence,
+                IsOwned = work.IsOwned,
+                ProgressState = work.IsOwned ? LibraryProgressState.Unstarted : LibraryProgressState.Missing,
+            };
+        }).ToList();
+
+        var groups = entityType == DetailEntityType.TvShow
+            ? items
+                .GroupBy(item => item.GroupKey ?? "season-1")
+                .OrderBy(group => SeasonSortOrder(group.Key))
+                .Select(group => new SequenceGroupViewModel
+                {
+                    Key = group.Key,
+                    Title = group.First().GroupTitle ?? "Season 1",
+                    TotalKnownItems = group.Count(),
+                    Items = group.OrderBy(item => item.PositionSort ?? double.MaxValue).ToList(),
+                })
+                .ToList()
+            : [];
+        var initialGroup = groups.FirstOrDefault(group => !string.Equals(group.Key, "season-0", StringComparison.OrdinalIgnoreCase))
+            ?? groups.FirstOrDefault();
+        var representative = initialGroup?.Items.FirstOrDefault(item => item.IsOwned)
+            ?? initialGroup?.Items.FirstOrDefault()
+            ?? items.FirstOrDefault(item => item.IsOwned)
+            ?? items[0];
+        var normalizedSourceId = NormalizeSequenceContainerId(sourceContainerId);
+        var containerId = collectionId.ToString("D");
+        var totalKnownItems = Math.Max(items.Count, expectedTotal ?? 0);
+
+        return new SequencePlacementViewModel
+        {
+            ContainerId = containerId,
+            SourceContainerId = normalizedSourceId,
+            ContainerTitle = containerTitle,
+            ContainerDescription = containerDescription,
+            SelectedContainerId = containerId,
+            AvailableContainers =
+            [
+                new SequenceContainerOptionViewModel
+                {
+                    ContainerId = containerId,
+                    SourceContainerId = normalizedSourceId,
+                    ContainerTitle = containerTitle,
+                    IsSelected = true,
+                    IsDefault = true,
+                    MediaScope = SeriesMediaFilter(entityType, entityType == DetailEntityType.TvShow ? "TV" : entityType.ToString()),
+                    EquivalentContainerIds = string.IsNullOrWhiteSpace(normalizedSourceId) ? [] : [normalizedSourceId],
+                }
+            ],
+            ContainerLabel = labels.ContainerLabel,
+            ItemLabel = labels.ItemLabel,
+            ItemPluralLabel = labels.ItemPluralLabel,
+            GroupLabel = labels.GroupLabel,
+            CurrentGroupKey = initialGroup?.Key,
+            TotalKnownItems = totalKnownItems,
+            HasAuthoritativeTotal = expectedTotal is > 0,
+            OrderingType = entityType switch
+            {
+                DetailEntityType.TvShow => SequenceOrderingType.EpisodeNumber,
+                DetailEntityType.ComicSeries => SequenceOrderingType.IssueNumber,
+                DetailEntityType.MovieSeries => SequenceOrderingType.ReleaseOrder,
+                _ => SequenceOrderingType.PublicationOrder,
+            },
+            CurrentItem = representative,
+            OrderedItems = items,
+            Groups = groups,
+        };
+    }
+
+    private static string SeasonDisplayTitle(string season)
+        => string.Equals(season, "0", StringComparison.OrdinalIgnoreCase) ? "Specials" : $"Season {season}";
+
+    private static int SeasonSortOrder(string groupKey)
+    {
+        var season = TryParseInt(groupKey.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase));
+        return season == 0 ? int.MaxValue : season ?? int.MaxValue - 1;
+    }
+
     private static IReadOnlyList<MediaGroupingViewModel> BuildCollectionMediaGroups(
         DetailEntityType entityType,
         IReadOnlyList<CollectionWorkSummary> works,
         IReadOnlySet<Guid> favoriteWorkIds,
         int? expectedTotal)
     {
-        if (entityType == DetailEntityType.TvShow)
-        {
-            var episodeWorks = DeduplicateTvEpisodeSummaries(works);
-            return episodeWorks.GroupBy(w => string.IsNullOrWhiteSpace(w.Season) ? "Season 1" : $"Season {w.Season}")
-                .OrderBy(g => TryParseInt(g.Key.Replace("Season ", "")) ?? int.MaxValue)
-                .Select(g => new MediaGroupingViewModel
-                {
-                    Key = g.Key.ToLowerInvariant().Replace(" ", "-"),
-                    Title = g.Key,
-                    Items = g.Select(work => ToMediaItem(work, favoriteWorkIds)).ToList(),
-                })
-                .Select(ApplyMediaGroupCompletion)
-                .ToList();
-        }
-
         return
         [
             ApplyMediaGroupCompletion(new MediaGroupingViewModel

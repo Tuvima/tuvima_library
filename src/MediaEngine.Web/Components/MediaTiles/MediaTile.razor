@@ -20,7 +20,14 @@
      @onkeydown="HandleKeyDown">
     <div class="media-tile-frame">
         <div class="media-tile-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenDetails">
-            @if (ShowCollectionBanner)
+            @if (ShowGroupCollage)
+            {
+                <MediaTileCollage Items="@GroupCollageItems"
+                                  Seed="@CollectionStackSeed"
+                                  PreserveOrder="@UsesOrderedSeriesStack"
+                                  IsDecorative="true" />
+            }
+            else if (ShowCollectionBanner)
             {
                 @if (!string.IsNullOrWhiteSpace(CardImageUrl))
                 {
@@ -75,6 +82,23 @@
                     <span>@Item.Title</span>
                 </div>
             }
+
+            @if (Item.IsCollection)
+            {
+                <div class="media-tile-group-indicators">
+                    <span class="media-tile-group-kind">
+                        <MudIcon Icon="@GroupKindIcon" />
+                        <span>@GroupKindLabel</span>
+                    </span>
+                    @if (Item.PreviewTotalCount is > 0)
+                    {
+                        <span class="media-tile-group-count" aria-label="@GroupCountAriaLabel" title="@GroupCountAriaLabel">
+                            <MudIcon Icon="@GroupCountIcon" />
+                            <span>@Item.PreviewTotalCount</span>
+                        </span>
+                    }
+                </div>
+            }
         </div>
     </div>
 
@@ -83,10 +107,19 @@
         <div class="@HoverPanelClass"
                  @onclick="OpenDetails"
                  @onclick:stopPropagation="true">
-                <div class="media-tile-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
+                <div class="media-tile-hover-art @(!ShowGroupCollage && string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
                      @onclick="OpenDetails"
                      @onclick:stopPropagation="true">
-                    @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
+                    @if (ShowGroupCollage)
+                    {
+                        <MediaTileCollage Items="@GroupCollageItems"
+                                          Seed="@CollectionStackSeed"
+                                          PreserveOrder="@UsesOrderedSeriesStack"
+                                          IsDecorative="false"
+                                          AriaLabel="@($"{Item.Title} item preview")"
+                                          Class="media-tile-hover-collage" />
+                    }
+                    else if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
                     {
                         <div class="@HoverCoverStageClass">
                             @if (UseBookPageTreatment)
@@ -248,6 +281,7 @@
 
     private bool _expanded;
     private bool _hoverRegistered;
+    private bool _collageRegistered;
     private bool _lastExpandedState;
     private bool _dismissedFromContinue;
     private int _hoverImageIndex;
@@ -363,13 +397,72 @@
         Item.ArtworkStackItems.Count > 0
         && Item.Presentation is MediaTilePresentation.BookSeries
             or MediaTilePresentation.ComicSeries
-            or MediaTilePresentation.MovieSeries;
+            or MediaTilePresentation.MovieSeries
+            or MediaTilePresentation.AudiobookSeries;
 
     private bool ShowCollectionArtworkStack => ShowCollectionBanner
         && Item.Presentation is not MediaTilePresentation.TvSeries
         && CollectionArtworkStackItems.Count > 0;
 
-    private bool ShowHoverSeriesStack => UsesOrderedSeriesStack && CollectionArtworkStackItems.Count > 0;
+    private bool ShowHoverSeriesStack => !ShowGroupCollage && UsesOrderedSeriesStack && CollectionArtworkStackItems.Count > 0;
+
+    private IReadOnlyList<ArtworkStackItem> GroupCollageItems => CollectionArtworkStackItems
+        .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+        .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase)
+        .Take(12)
+        .ToList();
+
+    private bool ShowGroupCollage =>
+        Item.IsCollection
+        && Item.Presentation != MediaTilePresentation.TvSeries
+        && GroupCollageItems.Count >= 2;
+
+    private string GroupKindLabel => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries => "TV Show",
+        MediaTilePresentation.MovieSeries => "Movie Series",
+        MediaTilePresentation.BookSeries => "Book Series",
+        MediaTilePresentation.ComicSeries => "Comic Series",
+        MediaTilePresentation.AudiobookSeries => "Audiobook Series",
+        MediaTilePresentation.Album => "Album",
+        _ => "Collection",
+    };
+
+    private string GroupKindIcon => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries => Icons.Material.Outlined.LiveTv,
+        MediaTilePresentation.Album => Icons.Material.Outlined.Album,
+        MediaTilePresentation.BookSeries or MediaTilePresentation.ComicSeries => Icons.Material.Outlined.AutoStories,
+        MediaTilePresentation.MovieSeries => Icons.Material.Outlined.VideoLibrary,
+        MediaTilePresentation.AudiobookSeries => Icons.Material.Outlined.Headphones,
+        _ => Icons.Material.Outlined.CollectionsBookmark,
+    };
+
+    private string GroupCountIcon => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries => Icons.Material.Outlined.VideoLibrary,
+        MediaTilePresentation.Album => Icons.Material.Outlined.MusicNote,
+        MediaTilePresentation.ComicSeries => Icons.Material.Outlined.AutoStories,
+        MediaTilePresentation.AudiobookSeries => Icons.Material.Outlined.Headphones,
+        _ => Icons.Material.Outlined.Inventory2,
+    };
+
+    private string GroupCountAriaLabel
+    {
+        get
+        {
+            var count = Item.PreviewTotalCount ?? 0;
+            var noun = Item.Presentation switch
+            {
+                MediaTilePresentation.TvSeries => count == 1 ? "episode" : "episodes",
+                MediaTilePresentation.ComicSeries => count == 1 ? "issue" : "issues",
+                MediaTilePresentation.Album => count == 1 ? "track" : "tracks",
+                _ => count == 1 ? "item" : "items",
+            };
+
+            return $"{count} {noun} owned";
+        }
+    }
 
     private string ArtworkStackClass => UsesOrderedSeriesStack
         ? "media-tile-artwork-stack media-tile-artwork-stack--collection-tile media-tile-artwork-stack--series-tile"
@@ -835,6 +928,19 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!_collageRegistered && ShowGroupCollage)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("registerMediaTileCollages", CardElement);
+                _collageRegistered = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not register media tile collage behavior.");
+            }
+        }
+
         if (!IsHoverEnabled)
         {
             return;
@@ -1065,18 +1171,28 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (!_hoverRegistered)
+        if (_collageRegistered)
         {
-            return;
+            try
+            {
+                await JS.InvokeVoidAsync("unregisterMediaTileCollages", CardElement);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not unregister media tile collage behavior.");
+            }
         }
 
-        try
+        if (_hoverRegistered)
         {
-            await JS.InvokeVoidAsync("unregisterMediaTileHover", CardElement);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Could not unregister media tile hover behavior.");
+            try
+            {
+                await JS.InvokeVoidAsync("unregisterMediaTileHover", CardElement);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not unregister media tile hover behavior.");
+            }
         }
     }
 }

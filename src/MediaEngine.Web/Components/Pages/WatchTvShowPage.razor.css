@@ -1,0 +1,17 @@
+.tl-tv-episode-detail-back {
+    position: relative;
+    z-index: 3;
+    display: inline-flex;
+    margin: 1.25rem clamp(1.25rem, 4vw, 4rem) 0;
+    color: #9bb8ff;
+    font-size: 0.88rem;
+    font-weight: 760;
+    letter-spacing: 0.04em;
+    text-decoration: underline;
+    text-underline-offset: 0.25rem;
+}
+
+.tl-tv-episode-detail-back:hover,
+.tl-tv-episode-detail-back:focus-visible {
+    color: #d2ddff;
+}

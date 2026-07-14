@@ -264,6 +264,9 @@ public sealed class ContentGroupDto
     [JsonPropertyName("distinct_title_count")]
     public int? DistinctTitleCount { get; init; }
 
+    [JsonPropertyName("preview_items")]
+    public IReadOnlyList<ContentGroupPreviewItemDto> PreviewItems { get; init; } = [];
+
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
@@ -363,3 +366,10 @@ public sealed class ContentGroupDto
     [JsonPropertyName("album_count")]
     public int? AlbumCount { get; init; }
 }
+
+public sealed record ContentGroupPreviewItemDto(
+    [property: JsonPropertyName("work_id")] Guid WorkId,
+    [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("image_url")] string ImageUrl,
+    [property: JsonPropertyName("shape")] string Shape,
+    [property: JsonPropertyName("position")] string? Position);

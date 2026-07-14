@@ -263,28 +263,30 @@ public sealed class UnifiedDetailComponentTests
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
 
-        Assert.Contains("EpisodesTab", source);
+        Assert.DoesNotContain("EpisodesTab", source);
+        Assert.Contains("CurrentActiveTab is \"episodes\"", source);
+        Assert.Contains("<SequencePlacementPanel Placement=\"Model.SequencePlacement\"", source);
         Assert.Contains("FormatsTab", source);
         Assert.Contains("SyncTab", source);
         Assert.Contains("RegistryTab", source);
     }
 
     [Fact]
-    public void EpisodesTab_UsesSeasonSelectorWhenMultipleSeasonsExist()
+    public void SequencePlacement_UsesSeasonSelectorForTvEpisodes()
     {
-        var source = ReadSource("src/MediaEngine.Web/Components/Details/EpisodesTab.razor");
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
 
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.Contains("VisibleGroups.Count > 0", source);
-        Assert.Contains("Disabled=\"@(VisibleGroups.Count == 1)\"", source);
-        Assert.Contains("<AppNativeSelect Value=\"@SelectedKey\" OnChange=\"SelectSeason\"", source);
-        Assert.Contains("<option value=\"@group.Key\">@group.Title</option>", source);
-        Assert.Contains("VisibleGroups[0].Key", source);
-        Assert.Contains("episode.IsOwned && episode.Actions.Any", source);
-        Assert.Contains("tl-episode-grid", source);
-        Assert.Contains("tl-episode-card__play", source);
-        Assert.Contains("grid-template-columns: repeat(4, minmax(0, 1fr))", styles);
+        Assert.Contains("IsSeasonContainer", source);
+        Assert.Contains("HeadingLabel => IsSeasonContainer ? \"Season\" : \"Series\"", source);
+        Assert.Contains("ActiveGroup?.Title", source);
+        Assert.Contains("Choose season", source);
+        Assert.Contains("item.Route", source);
+        Assert.Contains("CurrentActiveTab is \"episodes\"", detailPage);
+        Assert.Contains("SequencePlacementPanel", detailPage);
+        Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/EpisodesTab.razor")));
         Assert.Contains("var(--tl-accent-primary, #8b5cf6)", styles);
     }
 
@@ -432,10 +434,12 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.Contains("<span>Series Set</span>", source);
-        Assert.Contains("<strong>@ContainerTitleDisplay</strong>", source);
-        Assert.Contains("Label=\"Series Set\"", source);
-        Assert.Contains("Label=\"Series\"", source);
+        Assert.Contains("tl-series-heading", source);
+        Assert.Contains("<span>@HeadingLabel:</span>", source);
+        Assert.Contains("<strong>@HeadingValue</strong>", source);
+        Assert.Contains("aria-label=\"Choose series\"", source);
+        Assert.Contains("aria-label=\"@GroupSelectorAriaLabel\"", source);
+        Assert.DoesNotContain("Label=\"Series Set\"", source);
         Assert.Contains("[Parameter] public bool Compact { get; set; }", source);
         Assert.Contains("Placement.ContainerDescription", source);
         Assert.Contains("tl-series-placement--compact", source);
@@ -457,11 +461,21 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("ValueChanged=\"SelectContainerValueAsync\"", source);
         Assert.Contains("ShowJumpSelector => ActiveItems.Count > 5", source);
         Assert.Contains("ValueChanged=\"SelectJump\"", source);
+        Assert.Contains("tl-series-content", source);
+        Assert.Contains("ResetWindowToCurrentItem()", source);
+        Assert.Contains("ShowJumpSelector && currentIndex >= 0", source);
+        Assert.Contains("new AppSelectOption(option.ContainerId, option.ContainerTitle)", source);
+        Assert.DoesNotContain("new AppSelectOption(option.ContainerId, option.ContainerTitle, Icons.Material.Outlined.Layers)", source);
         Assert.Contains("is-stacked", source);
         Assert.Contains("DistinctAvailableContainers", source);
+        Assert.Contains("options.Any(IsTrustedContainerOption)", source);
+        Assert.Contains("!IsTitleOnlyContainerOption(option)", source);
         Assert.Contains("CanChooseDistinctContainer", source);
-        Assert.Contains("ContainerOptionLabel(option)", source);
-        Assert.Contains("ContainerSourceLabel", source);
+        Assert.Contains("!string.Equals(group.Key, \"all\"", source);
+        Assert.DoesNotContain("ContainerOptionLabel", source);
+        Assert.DoesNotContain("ContainerSourceLabel", source);
+        Assert.DoesNotContain("else if (ActiveGroup is not null)", source);
+        Assert.DoesNotContain("tl-series-static-control--group", source);
         Assert.DoesNotContain("NormalizeContainerOptionTitle", source);
         Assert.DoesNotContain("IsGenericContainerWord", source);
         Assert.Contains("item.IsOwned", source);
@@ -486,7 +500,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("item.EntityType == DetailEntityType.TvEpisode", source);
         Assert.Contains("tl-series-placement--long", source);
         Assert.Contains("LongSequenceThreshold = 6", source);
-        Assert.Contains("WindowSize = 6", source);
+        Assert.Contains("WindowSize = 12", source);
         Assert.Contains("SequenceItemTitleClass", source);
         Assert.Contains("is-very-long", source);
         Assert.Contains("SeriesDateRange", source);
@@ -502,6 +516,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("content: none", styles);
         Assert.Contains("min-width: clamp(5.8rem, 7.2vw, 7.3rem)", styles);
         Assert.Contains("tl-series-layout", styles);
+        Assert.Contains("tl-series-content", styles);
+        Assert.Contains("width: min(36rem, 100%)", styles);
         Assert.Contains("grid-template-columns: minmax(15rem, 0.24fr) minmax(0, 0.76fr)", styles);
         Assert.Contains("tl-series-description", styles);
         Assert.Contains("tl-series-date-range", styles);
@@ -511,8 +527,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("justify-content: start", styles);
         Assert.Contains("tl-series-source-link", source);
         Assert.Contains("https://www.wikidata.org/wiki/{qid}", source);
-        Assert.Contains("Series: Wikidata (@SeriesWikidataQid)", source);
-        Assert.Contains("Series: Wikipedia", source);
+        Assert.Contains("@SourceKindLabel: Wikidata (@SeriesWikidataQid)", source);
+        Assert.Contains("@SourceKindLabel: Comic Vine", source);
+        Assert.Contains("https://comicvine.gamespot.com/volume/4050-{parsedVolumeId}/", source);
+        Assert.Contains("@SourceKindLabel: Wikipedia", source);
         Assert.Contains("Placement.ContainerWikipediaUrl", source);
         Assert.DoesNotContain("tl-series-owned-chip\"", source);
         Assert.Contains("tl-series-item.is-current .tl-series-item__art", styles);
@@ -524,21 +542,46 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("-webkit-line-clamp: 4", styles);
         Assert.Contains("a.tl-series-item", styles);
         Assert.Contains("padding-bottom: 1.4rem", styles);
+        Assert.Contains("tl-series-episode-play", source);
+        Assert.Contains("tl-series-episode-info", source);
+        Assert.Contains("EpisodeDetailRoute", source);
+        Assert.Contains("tl-series-item__description", source);
+        Assert.DoesNotContain("tl-series-episode-detail", source);
+        Assert.DoesNotContain("tl-series-position-summary__label", source);
+        Assert.Contains("tl-series-show-link", source);
+        Assert.DoesNotContain("ShortContainerDescription", source);
+        Assert.Contains("!IsSeasonContainer && SequenceItemDate(item)", source);
+        Assert.Contains("grid-template-columns: repeat(var(--series-count, 12), clamp(24rem, 28vw, 32rem))", styles);
+        Assert.Contains("grid-template-columns: minmax(31rem, 34rem) minmax(0, 1fr)", styles);
+        Assert.Contains("tl-series-item__art:hover .tl-series-episode-play", styles);
+        Assert.DoesNotContain("tl-series-item:hover .tl-series-episode-play", styles);
+        Assert.Contains(".tl-detail-tab-panel,", styles);
+        Assert.Contains("background: transparent", styles);
     }
 
     [Fact]
-    public void TvShowEpisodes_UseSeasonCoverageAndPlaybackWithoutEpisodeDetailNavigation()
+    public void TvShowEpisodes_UseSeasonCoveragePlaybackAndShowScopedDetailNavigation()
     {
-        var episodes = ReadSource("src/MediaEngine.Web/Components/Details/EpisodesTab.razor");
+        var sequence = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
         var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
         var navigation = ReadSource("src/MediaEngine.Web/Services/Navigation/MediaNavigation.cs");
+        var showPage = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvShowPage.razor");
 
-        Assert.Contains("tl-episode-coverage", episodes);
-        Assert.Contains("known {EpisodeWord(ActiveTotalCount)} owned", episodes);
+        Assert.Contains("ShowCoverageDonut", sequence);
+        Assert.Contains("OwnedSummary", sequence);
+        Assert.Contains("IsSeasonContainer", sequence);
+        Assert.Contains("BuildCollectionSequencePlacement", composer);
+        Assert.Contains("GroupLabel = labels.GroupLabel", composer);
         Assert.Contains("/watch/player/resolve?workId={work.Id}", composer);
         Assert.DoesNotContain("/details/tvepisode/", composer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("/episode/{workId}", navigation, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("/details/TvEpisode/", navigation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ShowDetailRoute", sequence);
+        Assert.Contains("EpisodeDetailRoute", sequence);
+        Assert.Contains("?episode={episodeId:D}", sequence);
+        Assert.Contains("SupplyParameterFromQuery(Name = \"episode\")", showPage);
+        Assert.Contains("GetDetailPageAsync(DetailEntityType.TvEpisode", showPage);
+        Assert.Contains("@ContainerTitleDisplay", sequence);
     }
 
     [Fact]

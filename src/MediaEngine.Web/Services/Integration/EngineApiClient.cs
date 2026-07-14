@@ -5373,6 +5373,9 @@ public sealed class EngineApiClient : IEngineApiClient
                 EntityType = item.EntityType,
                 Title = item.Title,
                 ArtworkUrl = NormalizeOptionalUrl(item.ArtworkUrl),
+                Route = item.Route,
+                Description = item.Description,
+                Duration = item.Duration,
                 PublicationDate = item.PublicationDate,
                 PositionNumber = item.PositionNumber,
                 PositionSort = item.PositionSort,
@@ -6370,6 +6373,8 @@ public sealed class EngineApiClient : IEngineApiClient
 
                 if (group.ArtistPhotoUrl is not null)
                     group.ArtistPhotoUrl = AbsoluteUrl(group.ArtistPhotoUrl);
+                foreach (var preview in group.PreviewItems)
+                    preview.ImageUrl = AbsoluteUrl(preview.ImageUrl);
             }
 
             return groups;
@@ -6408,6 +6413,8 @@ public sealed class EngineApiClient : IEngineApiClient
                     g.LogoUrl = AbsoluteUrl(g.LogoUrl);
                 if (g.ArtistPhotoUrl is not null)
                     g.ArtistPhotoUrl = AbsoluteUrl(g.ArtistPhotoUrl);
+                foreach (var preview in g.PreviewItems)
+                    preview.ImageUrl = AbsoluteUrl(preview.ImageUrl);
             }
             return groups;
         }

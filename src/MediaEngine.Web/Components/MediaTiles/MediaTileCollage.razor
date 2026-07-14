@@ -1,0 +1,90 @@
+@namespace MediaEngine.Web.Components.MediaTiles
+@using MediaEngine.Web.Models.ViewDTOs
+
+<div class="media-tile-collage @Class"
+     data-media-tile-collage
+     data-count="@CollageItems.Count"
+     data-seed="@StableSeed"
+     aria-hidden="@(IsDecorative ? "true" : null)"
+     aria-label="@(!IsDecorative ? AriaLabel : null)"
+     role="@(!IsDecorative ? "img" : null)">
+    @foreach (var slot in Slots.Select((items, index) => new { Items = items, Index = index }))
+    {
+        <div class="media-tile-collage__cell" data-collage-cell="@slot.Index">
+            @foreach (var artwork in slot.Items.Select((item, index) => new { Item = item, Index = index }))
+            {
+                <img src="@artwork.Item.ImageUrl"
+                     alt="@(IsDecorative ? string.Empty : artwork.Item.Title)"
+                     class="media-tile-collage__image @(artwork.Index == 0 ? "is-active" : null)"
+                     data-collage-image
+                     loading="lazy"
+                     decoding="async" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ArtworkStackItem> Items { get; set; } = [];
+    [Parameter] public string Seed { get; set; } = string.Empty;
+    [Parameter] public bool PreserveOrder { get; set; }
+    [Parameter] public bool IsDecorative { get; set; } = true;
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private IReadOnlyList<ArtworkStackItem> CollageItems
+    {
+        get
+        {
+            var artwork = Items
+                .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+                .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase);
+
+            if (!PreserveOrder)
+            {
+                artwork = artwork.OrderBy(item => StableHash($"{Seed}|{item.Id}|{item.ImageUrl}"));
+            }
+
+            return artwork.Take(12).ToList();
+        }
+    }
+
+    private IReadOnlyList<IReadOnlyList<ArtworkStackItem>> Slots
+    {
+        get
+        {
+            var slotCount = Math.Min(4, CollageItems.Count);
+            if (slotCount == 0)
+            {
+                return [];
+            }
+
+            var slots = Enumerable.Range(0, slotCount)
+                .Select(_ => new List<ArtworkStackItem>())
+                .ToList();
+
+            for (var index = 0; index < CollageItems.Count; index++)
+            {
+                slots[index % slotCount].Add(CollageItems[index]);
+            }
+
+            return slots.Select(slot => (IReadOnlyList<ArtworkStackItem>)slot).ToList();
+        }
+    }
+
+    private int StableSeed => StableHash(Seed);
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var character in value)
+            {
+                hash = (hash * 31) + character;
+            }
+
+            return hash & int.MaxValue;
+        }
+    }
+}

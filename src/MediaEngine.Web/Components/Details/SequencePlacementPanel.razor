@@ -11,23 +11,37 @@
         @if (Compact)
         {
             <div class="tl-series-eyebrow">
-                <span>Series</span>
-                <small>@ContainerTitleDisplay</small>
+                <span>@HeadingLabel</span>
+                <small>@HeadingValue</small>
             </div>
         }
         else
         {
         <div class="tl-series-controls">
+            <div class="tl-series-heading">
+                @if (IsSeasonContainer)
+                {
+                    <a class="tl-series-show-link" href="@ShowDetailRoute">@ContainerTitleDisplay</a>
+                    <span aria-hidden="true">:</span>
+                    <strong>@HeadingValue</strong>
+                }
+                else
+                {
+                    <span>@HeadingLabel:</span>
+                    <strong>@HeadingValue</strong>
+                }
+            </div>
             @if (CanChooseDistinctContainer)
             {
                 <div class="tl-series-control-row">
-                    <AppSelect Label="Series Set"
-                               Value="@SelectedContainerValue"
+                    <AppSelect Value="@SelectedContainerValue"
                                ValueChanged="SelectContainerValueAsync"
                                Options="@ContainerSelectOptions"
                                LeadingIcon="@Icons.Material.Outlined.Layers"
+                               Size="AppControlSize.Large"
                                Class="tl-series-control tl-series-control--set"
-                               PopoverClass="app-select__popover tl-series-select-popover" />
+                               PopoverClass="app-select__popover tl-series-select-popover"
+                               aria-label="Choose series" />
                     @if (ShowSetDefault)
                     {
                         <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
@@ -36,28 +50,15 @@
                     }
                 </div>
             }
-            else
-            {
-                <div class="tl-series-static-control">
-                    <span>Series Set</span>
-                    <strong>@ContainerTitleDisplay</strong>
-                </div>
-            }
             @if (ShowGroupSelector)
             {
-                <AppSelect Label="Series"
-                           Value="@SelectedGroupKey"
+                <AppSelect Value="@SelectedGroupKey"
                            ValueChanged="SelectGroup"
                            Options="@GroupSelectOptions"
+                           Size="AppControlSize.Large"
                            Class="tl-series-control tl-series-control--group"
-                           PopoverClass="app-select__popover tl-series-select-popover" />
-            }
-            else if (ActiveGroup is not null)
-            {
-                <div class="tl-series-static-control tl-series-static-control--group">
-                    <span>Series</span>
-                    <strong>@ActiveGroup.Title</strong>
-                </div>
+                           PopoverClass="app-select__popover tl-series-select-popover"
+                           aria-label="@GroupSelectorAriaLabel" />
             }
         </div>
         }
@@ -87,10 +88,9 @@
                     }
                 </div>
             </div>
-            <div class="tl-series-position-summary__label">@PositionSummaryLabel</div>
         </div>
 
-        @if (SeriesDateRange is not null)
+        @if (!IsSeasonContainer && SeriesDateRange is not null)
         {
             <div class="tl-series-date-range">
                 <MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small" />
@@ -98,7 +98,7 @@
             </div>
         }
 
-        @if (!Compact && !string.IsNullOrWhiteSpace(Placement.ContainerDescription))
+        @if (!Compact && !IsSeasonContainer && !string.IsNullOrWhiteSpace(Placement.ContainerDescription))
         {
             <p class="tl-series-description">@Placement.ContainerDescription</p>
         }
@@ -119,7 +119,18 @@
                    rel="noopener noreferrer"
                     aria-label="Open @SeriesWikidataQid on Wikidata in a new tab">
                     <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
-                    <span>Series: Wikidata (@SeriesWikidataQid)</span>
+                    <span>@SourceKindLabel: Wikidata (@SeriesWikidataQid)</span>
+                </a>
+            }
+            @if (ComicVineSeriesUrl is not null)
+            {
+                <a class="tl-series-source-link"
+                   href="@ComicVineSeriesUrl"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   aria-label="Open this comic series on Comic Vine in a new tab">
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
+                    <span>@SourceKindLabel: Comic Vine</span>
                 </a>
             }
             @if (!string.IsNullOrWhiteSpace(Placement.ContainerWikipediaUrl))
@@ -130,25 +141,26 @@
                    rel="noopener noreferrer"
                    aria-label="Open the series article on Wikipedia in a new tab">
                     <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
-                    <span>Series: Wikipedia</span>
+                    <span>@SourceKindLabel: Wikipedia</span>
                 </a>
             }
         </div>
     </aside>
 
-    @if (!Compact && ShowJumpSelector)
-    {
-        <div class="tl-series-jump">
-            <AppSelect Label="Jump to"
-                       Value="@JumpSelectionValue"
-                       ValueChanged="SelectJump"
-                       Options="@JumpSelectOptions"
-                       Class="tl-series-control tl-series-control--jump"
-                       PopoverClass="app-select__popover tl-series-select-popover" />
-        </div>
-    }
+    <div class="tl-series-content">
+        @if (!Compact && ShowJumpSelector)
+        {
+            <div class="tl-series-jump">
+                <AppSelect Label="Jump to"
+                           Value="@JumpSelectionValue"
+                           ValueChanged="SelectJump"
+                           Options="@JumpSelectOptions"
+                           Class="tl-series-control tl-series-control--jump"
+                           PopoverClass="app-select__popover tl-series-select-popover" />
+            </div>
+        }
 
-    <div class="tl-series-carousel">
+        <div class="tl-series-carousel">
         <AppIconButton Class="@LeftArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronLeft"
                        Size="Size.Large"
@@ -159,7 +171,13 @@
             @foreach (var item in VisibleItems)
             {
                 var route = SequenceItemRoute(item);
-                if (route is not null)
+                if (IsSeasonContainer)
+                {
+                    <article class="@SequenceItemClass(item)">
+                        @SequenceItemContent(item)
+                    </article>
+                }
+                else if (route is not null)
                 {
                     <a class="@SequenceItemClass(item)" href="@route" aria-label="Open @SequenceItemTitle(item)">
                         @SequenceItemContent(item)
@@ -179,6 +197,7 @@
                        aria-label="@($"More {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />
+        </div>
     </div>
     </div>
 </section>
@@ -189,7 +208,7 @@
     [Parameter] public bool Compact { get; set; }
 
     private const int LongSequenceThreshold = 6;
-    private const int WindowSize = 6;
+    private const int WindowSize = 12;
     private string? _placementKey;
     private string? _selectedGroupKey;
     private string? _jumpSelectionValue;
@@ -205,12 +224,49 @@
         _ => "tl-series-panel--portrait",
     };
 
-    private IReadOnlyList<SequenceGroupViewModel> VisibleGroups =>
-        Placement.Groups.Count > 0
-            ? Placement.Groups.Where(group => group.Items.Count > 0).ToList()
-            : [new SequenceGroupViewModel { Key = "all", Title = Placement.ItemPluralLabel, Items = Placement.OrderedItems }];
+    private IReadOnlyList<SequenceGroupViewModel> VisibleGroups
+    {
+        get
+        {
+            if (Placement.Groups.Count == 0)
+            {
+                return [new SequenceGroupViewModel { Key = "all", Title = Placement.ItemPluralLabel, Items = Placement.OrderedItems }];
+            }
+
+            var nonEmptyGroups = Placement.Groups.Where(group => group.Items.Count > 0).ToList();
+            var scopedGroups = nonEmptyGroups
+                .Where(group => !string.Equals(group.Key, "all", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            return scopedGroups.Count > 0 ? scopedGroups : nonEmptyGroups;
+        }
+    }
 
     private bool ShowGroupSelector => VisibleGroups.Count > 1 && !string.IsNullOrWhiteSpace(Placement.GroupLabel);
+    private bool IsSeasonContainer => string.Equals(Placement.GroupLabel, "Season", StringComparison.OrdinalIgnoreCase)
+        && Placement.CurrentItem.EntityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+    private string HeadingLabel => IsSeasonContainer ? "Season" : "Series";
+    private string HeadingValue => IsSeasonContainer
+        ? SeasonHeading
+        : ContainerTitleDisplay;
+    private string SeasonHeading
+    {
+        get
+        {
+            var title = ActiveGroup?.Title ?? Placement.GroupLabel ?? "Season";
+            var year = ActiveItems
+                .Select(item => SequenceYear(item.PublicationDate))
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .OrderBy(value => value)
+                .FirstOrDefault();
+            return year > 0 ? $"{title} ({year})" : title;
+        }
+    }
+    private string ShowDetailRoute => Guid.TryParse(Placement.ContainerId, out var showId)
+        ? $"/watch/tv/show/{showId:D}"
+        : "#";
+    private string GroupSelectorAriaLabel => IsSeasonContainer ? "Choose season" : "Choose series section";
+    private string SourceKindLabel => IsSeasonContainer ? "Show" : "Series";
     private IReadOnlyList<AppSelectOption> GroupSelectOptions => VisibleGroups
         .Select(group => new AppSelectOption(group.Key, group.Title))
         .ToList();
@@ -243,7 +299,6 @@
         => ShowGroupSelector
             ? ActiveGroup?.Items ?? []
             : Placement.OrderedItems;
-
     private bool IsLongSequence => TotalItems >= LongSequenceThreshold;
     private bool ShowJumpSelector => ActiveItems.Count > 5;
     private string? JumpSelectionValue => _jumpSelectionValue;
@@ -284,7 +339,6 @@
         ContainerTitleDisplay)!;
     private string ContainerTitleDisplay => TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel);
     private string LowerContainerLabel => FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
-    private string PositionSummaryLabel => ShowGroupSelector && ActiveGroup is not null ? $"In {ActiveGroup.Title}" : $"In {LowerContainerLabel}";
     private string SequenceGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
     private int VisibleCount => ActiveItems.Count <= WindowSize ? ActiveItems.Count : WindowSize;
     private int WindowStart => Math.Clamp(_windowCenterIndex - (VisibleCount / 2), 0, Math.Max(0, ActiveItems.Count - VisibleCount));
@@ -298,7 +352,7 @@
     private string? SelectedContainerValue => DistinctAvailableContainers.FirstOrDefault(option => option.IsSelected)?.ContainerId
         ?? Placement.SelectedContainerId;
     private IReadOnlyList<AppSelectOption> ContainerSelectOptions => DistinctAvailableContainers
-        .Select(option => new AppSelectOption(option.ContainerId, ContainerOptionLabel(option), Icons.Material.Outlined.Layers))
+        .Select(option => new AppSelectOption(option.ContainerId, option.ContainerTitle))
         .ToList();
     private bool ShowSetDefault => _canCurateSequence && CanChooseDistinctContainer && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
     private string CoverageVisualClass => $"tl-series-position-summary__donut{(ShowCoverageDonut ? string.Empty : " is-count-only")}";
@@ -354,6 +408,23 @@
     private string? SeriesWikidataUrl => SeriesWikidataQid is { } qid
         ? $"https://www.wikidata.org/wiki/{qid}"
         : null;
+    private string? ComicVineSeriesUrl
+    {
+        get
+        {
+            if (!IsComicSequence)
+                return null;
+
+            var providerIdentity = DistinctAvailableContainers
+                .Where(option => option.IsSelected || ContainerOptionMatches(option, Placement.SelectedContainerId))
+                .SelectMany(option => new[] { option.ContainerId, option.SourceContainerId }.Concat(option.EquivalentContainerIds))
+                .FirstOrDefault(identity => identity?.StartsWith("comicvine:volume:", StringComparison.OrdinalIgnoreCase) == true);
+            var volumeId = providerIdentity?.Split(':', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+            return long.TryParse(volumeId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedVolumeId)
+                ? $"https://comicvine.gamespot.com/volume/4050-{parsedVolumeId}/"
+                : null;
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -362,8 +433,7 @@
         {
             _placementKey = key;
             _selectedGroupKey = Placement.CurrentGroupKey;
-            _jumpSelectionValue = null;
-            _windowCenterIndex = Math.Max(0, ActiveItems.ToList().FindIndex(item => item.IsCurrent));
+            ResetWindowToCurrentItem();
         }
 
         var profile = await Orchestrator.GetActiveProfileAsync();
@@ -376,8 +446,16 @@
             return;
 
         _selectedGroupKey = value;
-        _jumpSelectionValue = null;
-        _windowCenterIndex = Math.Max(0, ActiveItems.ToList().FindIndex(item => item.IsCurrent));
+        ResetWindowToCurrentItem();
+    }
+
+    private void ResetWindowToCurrentItem()
+    {
+        var currentIndex = ActiveItems.ToList().FindIndex(item => item.IsCurrent);
+        _windowCenterIndex = Math.Max(0, currentIndex);
+        _jumpSelectionValue = ShowJumpSelector && currentIndex >= 0
+            ? currentIndex.ToString(CultureInfo.InvariantCulture)
+            : null;
     }
 
     private void SelectJump(string? value)
@@ -433,10 +511,13 @@
 
     private string? SequenceItemRoute(SequenceItemViewModel item)
     {
-        if (!item.IsOwned
-            || item.IsCurrent
-            || item.EntityType == DetailEntityType.TvEpisode
-            || !Guid.TryParse(item.Id, out var id))
+        if (!item.IsOwned || item.IsCurrent)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(item.Route))
+            return item.Route;
+
+        if (item.EntityType == DetailEntityType.TvEpisode || !Guid.TryParse(item.Id, out var id))
             return null;
 
         return $"/details/{ToRouteEntityType(item.EntityType)}/{id:D}?context={ContextKey(item.EntityType)}";
@@ -473,13 +554,46 @@
             {
                 <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
             }
+            @if (IsSeasonContainer && item.IsOwned)
+            {
+                @if (SequenceItemRoute(item) is { } playRoute)
+                {
+                    <a class="tl-series-episode-play"
+                       href="@playRoute"
+                       aria-label="Play @SequenceItemTitle(item)">
+                        <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Large" />
+                    </a>
+                }
+                @if (EpisodeDetailRoute(item) is { } detailRoute)
+                {
+                    <a class="tl-series-episode-info"
+                       href="@detailRoute"
+                       aria-label="Open details for @SequenceItemTitle(item)"
+                       title="Episode details">
+                        <span aria-hidden="true">i</span>
+                    </a>
+                }
+            }
         </div>
         <div class="@SequenceItemTitleClass(item)">@SequenceItemTitle(item)</div>
-        @if (SequenceItemDate(item) is { } itemDate)
+        @if (IsSeasonContainer && !string.IsNullOrWhiteSpace(item.Description))
+        {
+            <p class="tl-series-item__description">@item.Description</p>
+        }
+        @if (!IsSeasonContainer && SequenceItemDate(item) is { } itemDate)
         {
             <div class="tl-series-item__date">@itemDate</div>
         }
+        @if (IsSeasonContainer && !string.IsNullOrWhiteSpace(item.Duration))
+        {
+            <div class="tl-series-item__duration">@item.Duration</div>
+        }
     </text>;
+
+    private string? EpisodeDetailRoute(SequenceItemViewModel item)
+        => IsSeasonContainer && item.IsOwned && Guid.TryParse(item.Id, out var episodeId) && ShowDetailRoute != "#"
+            ? $"{ShowDetailRoute}?episode={episodeId:D}"
+            : null;
 
     private static string ToRouteEntityType(DetailEntityType entityType)
         => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
@@ -542,11 +656,15 @@
 
     private static IReadOnlyList<SequenceContainerOptionViewModel> BuildDistinctContainerOptions(IReadOnlyList<SequenceContainerOptionViewModel> options)
     {
-        if (options.Count <= 1)
-            return options;
+        var candidates = options.Any(IsTrustedContainerOption)
+            ? options.Where(option => !IsTitleOnlyContainerOption(option)).ToList()
+            : options.ToList();
+
+        if (candidates.Count <= 1)
+            return candidates;
 
         var distinct = new List<SequenceContainerOptionViewModel>();
-        foreach (var option in options)
+        foreach (var option in candidates)
         {
             var existingIndex = distinct.FindIndex(existing => ShouldMergeContainerOptions(existing, option));
             if (existingIndex >= 0)
@@ -561,30 +679,17 @@
         return distinct;
     }
 
-    private string ContainerOptionLabel(SequenceContainerOptionViewModel option)
-    {
-        var title = FirstNonBlank(option.ContainerTitle, option.ContainerId)!;
-        var hasDuplicateTitle = DistinctAvailableContainers.Count(candidate =>
-            string.Equals(candidate.ContainerTitle?.Trim(), option.ContainerTitle?.Trim(), StringComparison.OrdinalIgnoreCase)) > 1;
-        return hasDuplicateTitle ? $"{title} · {ContainerSourceLabel(option)}" : title;
-    }
+    private static bool IsTrustedContainerOption(SequenceContainerOptionViewModel option)
+        => Guid.TryParse(option.ContainerId, out _)
+           || Guid.TryParse(option.SourceContainerId, out _)
+           || LooksLikeContainerId(option.ContainerId)
+           || LooksLikeContainerId(option.SourceContainerId)
+           || option.EquivalentContainerIds.Any(alias => Guid.TryParse(alias, out _) || LooksLikeContainerId(alias));
 
-    private static string ContainerSourceLabel(SequenceContainerOptionViewModel option)
-    {
-        var ids = new[] { option.SourceContainerId, option.ContainerId }
-            .Concat(option.EquivalentContainerIds)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Cast<string>()
-            .ToList();
-        if (ids.Any(IsWikidataQid))
-            return "Wikidata";
-
-        var providerId = ids.FirstOrDefault(value => value.Contains(':', StringComparison.Ordinal));
-        if (providerId is not null)
-            return providerId.Split(':', 2)[0].ToUpperInvariant();
-
-        return "Library";
-    }
+    private static bool IsTitleOnlyContainerOption(SequenceContainerOptionViewModel option)
+        => string.IsNullOrWhiteSpace(option.SourceContainerId)
+           && !Guid.TryParse(option.ContainerId, out _)
+           && !LooksLikeContainerId(option.ContainerId);
 
     private static bool ShouldMergeContainerOptions(SequenceContainerOptionViewModel existing, SequenceContainerOptionViewModel candidate)
     {

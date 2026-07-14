@@ -370,6 +370,9 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceItemViewMode
   EntityType: MediaEngine.Contracts.Details.DetailEntityType | nullability=not-null | accessors=get,init
   Title: System.String | nullability=not-null | accessors=get,init
   ArtworkUrl: System.String | nullability=nullable | accessors=get,init
+  Route: System.String | nullability=nullable | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  Duration: System.String | nullability=nullable | accessors=get,init
   PublicationDate: System.String | nullability=nullable | accessors=get,init
   PositionNumber: System.Int32? | nullability=nullable | accessors=get,init
   PositionSort: System.Double? | nullability=nullable | accessors=get,init

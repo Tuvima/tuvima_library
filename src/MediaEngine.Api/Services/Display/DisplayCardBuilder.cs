@@ -143,7 +143,11 @@ public sealed class DisplayCardBuilder
             Progress: null,
             Actions: [action],
             Flags: new DisplayCardFlagsDto(false, false, false, true, false),
-            SortTimestamp: row.CreatedAt);
+            SortTimestamp: row.CreatedAt)
+        {
+            PreviewItems = row.PreviewItems,
+            PreviewTotalCount = row.ItemCount,
+        };
     }
 
     private DisplayCardDto? ToCollectionCard(Guid collectionId, IReadOnlyList<DisplayWorkRow> works, string lane, int minimumSeriesItems)
@@ -252,6 +256,7 @@ public sealed class DisplayCardBuilder
         {
             Description = representative.Description,
             Badges = BuildBadges("TV", representative.Quality, FirstNonBlank(representative.Network, representative.Source)),
+            PreviewTotalCount = works.Select(work => work.WorkId).Distinct().Count(),
         };
     }
 
@@ -563,7 +568,7 @@ public sealed class DisplayCardBuilder
 
     private static IReadOnlyList<DisplayCardPreviewItemDto> BuildSeriesPreviewItems(string mediaKind, IReadOnlyList<DisplayWorkRow> works)
     {
-        if (mediaKind is not ("Book" or "Comic" or "Movie"))
+        if (mediaKind is not ("Book" or "Comic" or "Movie" or "Audiobook" or "Music"))
         {
             return [];
         }
@@ -583,7 +588,7 @@ public sealed class DisplayCardBuilder
             .ThenBy(item => item.SortPosition ?? double.MaxValue)
             .ThenBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Work.CreatedAt)
-            .Take(4)
+            .Take(12)
             .Select(item => new DisplayCardPreviewItemDto(
                 item.Work.WorkId,
                 item.Work.AssetId,

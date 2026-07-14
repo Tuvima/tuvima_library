@@ -77,7 +77,7 @@ public sealed class CollectionCatalogReadService(
                 continue;
             }
 
-            var artworkItems = await GetCollectionArtworkItemsAsync(workIds, 4, ct).ConfigureAwait(false);
+            var artworkItems = await GetCollectionArtworkItemsAsync(workIds, 12, ct).ConfigureAwait(false);
             var artworkPalette = await artworkPaletteService.GeneratePaletteAsync(
                 artworkItems
                     .Select(item => new ArtworkPaletteSource

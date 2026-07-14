@@ -1,4 +1,5 @@
 using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -76,6 +77,16 @@ public sealed class DisplayHomeCollectionProjectionReader
             WatchCount = collection.WatchCount,
             ReadCount = collection.ReadCount,
             ListenCount = collection.ListenCount,
+            PreviewItems = collection.ArtworkItems
+                .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
+                .Select(item => new DisplayCardPreviewItemDto(
+                    item.WorkId,
+                    null,
+                    item.Title,
+                    item.CoverUrl!,
+                    item.ArtworkShape,
+                    null))
+                .ToList(),
             CreatedAt = collection.ModifiedAt ?? collection.CreatedAt,
             BackgroundUrl = primaryArtwork,
             BackgroundSmallUrl = primaryArtwork,

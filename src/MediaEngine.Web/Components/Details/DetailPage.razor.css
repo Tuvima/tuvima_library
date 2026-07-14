@@ -3161,6 +3161,17 @@
     align-items: center;
 }
 
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+::deep .tl-series-placement--compact .tl-series-content {
+    display: contents;
+}
+
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip,
 ::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-placement--long .tl-series-strip {
     grid-template-columns: repeat(var(--series-count, 6), clamp(10.25rem, 11vw, 13rem));
@@ -3696,20 +3707,20 @@
 }
 
 ::deep .tl-series-controls {
-    width: min(100%, 58rem);
+    width: min(100%, 50rem);
     display: grid;
-    gap: 1.35rem;
+    gap: 1rem;
+    justify-items: start;
 }
 
 ::deep .tl-series-control-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 1rem;
+    grid-template-columns: minmax(18rem, 1fr) 10.75rem;
+    align-items: stretch;
+    gap: 0.75rem;
 }
 
-::deep .tl-series-control .app-field__label,
-::deep .tl-series-static-control > span {
+::deep .tl-series-control .app-field__label {
     color: rgba(218, 225, 240, 0.72);
     font-size: 0.86rem;
     font-weight: 760;
@@ -3717,7 +3728,7 @@
 }
 
 ::deep .tl-series-control .mud-input-control {
-    min-height: 4.2rem;
+    min-height: 3.65rem;
 }
 
 ::deep .tl-series-control .mud-input-outlined-border {
@@ -3728,23 +3739,39 @@
 ::deep .tl-series-control .mud-input-slot {
     color: rgba(248, 250, 255, 0.96);
     font-size: 1.05rem;
+    text-align: left;
+    justify-content: flex-start;
 }
 
-::deep .tl-series-static-control {
-    min-height: 4.2rem;
-    display: grid;
-    align-content: center;
-    gap: 0.25rem;
-    padding: 0.7rem 1.1rem;
-    border: 1px solid rgba(127, 145, 182, 0.48);
-    border-radius: 0.8rem;
-    background: rgba(5, 11, 21, 0.34);
+::deep .tl-series-control .mud-select-input {
+    text-align: left;
 }
 
-::deep .tl-series-static-control strong {
+::deep .tl-series-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    padding: 0.35rem 0;
+}
+
+::deep .tl-series-heading span,
+::deep .tl-series-heading strong {
+    color: #87a9ff;
+    font-size: 0.78rem;
+    font-weight: 820;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+}
+
+::deep .tl-series-heading strong {
     color: rgba(248, 250, 255, 0.96);
-    font-size: 1.1rem;
-    font-weight: 540;
+    letter-spacing: 0.18em;
+}
+
+::deep .tl-series-control--set,
+::deep .tl-series-control--group {
+    width: 100%;
 }
 
 ::deep .tl-series-header h2 {
@@ -4151,8 +4178,9 @@
 }
 
 ::deep .tl-series-default-action {
-    min-height: 4.2rem;
-    padding: 0 1.5rem;
+    width: 100%;
+    min-height: 3.65rem;
+    padding: 0 1rem;
     border-color: rgba(91, 151, 255, 0.9);
     border-radius: 0.8rem;
     background: rgba(18, 44, 85, 0.3);
@@ -4160,9 +4188,21 @@
     font-size: 0.92rem;
 }
 
+@media (max-width: 760px) {
+    ::deep .tl-series-control-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    ::deep .tl-series-default-action {
+        width: auto;
+        justify-self: start;
+        min-height: 3.2rem;
+    }
+}
+
 ::deep .tl-series-jump {
-    width: min(18rem, 100%);
-    margin: 1.25rem 0 0 clamp(3.45rem, 5vw, 4rem);
+    width: min(36rem, 100%);
+    margin: 0 0 0 clamp(3.45rem, 5vw, 4rem);
 }
 
 ::deep .tl-series-panel--portrait .tl-series-item__art img,
@@ -5816,6 +5856,283 @@
     ::deep .tl-audiobook-chapters__action {
         grid-column: 2;
         grid-row: 1;
+    }
+}
+
+/* Unified below-hero canvas. Detail tabs share the page background and horizontal
+   rhythm; individual sections no longer create a second, width-limiting shell. */
+::deep .tl-detail-tab-panel,
+::deep .tl-series-placement:not(.tl-series-placement--compact) {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+::deep .tl-detail-tab-panel {
+    padding: clamp(1.5rem, 2.4vw, 2.6rem) clamp(1.25rem, 4vw, 5rem);
+}
+
+::deep .tl-detail-tab-panel > .tl-detail-panel,
+::deep .tl-detail-tab-panel > .tl-credit-section,
+::deep .tl-detail-tab-panel > .tl-characters-section,
+::deep .tl-detail-tab-panel > .tl-details-panel,
+::deep .tl-detail-tab-panel > .tl-registry-panel,
+::deep .tl-detail-tab-panel > .tl-owned-formats,
+::deep .tl-detail-tab-panel > .tl-sync-panel {
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) {
+    padding: clamp(1.5rem, 2.4vw, 2.6rem) clamp(1.25rem, 4vw, 5rem);
+    overflow: visible;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-layout {
+    grid-template-columns: minmax(31rem, 34rem) minmax(0, 1fr);
+    gap: clamp(1.5rem, 2.5vw, 3rem);
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-header {
+    padding-right: clamp(1.5rem, 2vw, 2.5rem);
+}
+
+/* Series selectors use one control scale and preserve normal reading alignment. */
+::deep .tl-series-control-row {
+    width: min(100%, 46rem);
+    grid-template-columns: minmax(16rem, 1fr) 10.75rem;
+    align-items: stretch;
+    gap: 0.85rem;
+}
+
+::deep .tl-series-control-row > .tl-series-control,
+::deep .tl-series-control-row > .tl-series-default-action {
+    height: 4.25rem;
+    min-height: 4.25rem;
+}
+
+::deep .tl-series-control .mud-input-control,
+::deep .tl-series-control .mud-input,
+::deep .tl-series-default-action {
+    min-height: 4.25rem;
+}
+
+::deep .tl-series-control-row > .tl-series-control .mud-input-control,
+::deep .tl-series-control-row > .tl-series-control .mud-input {
+    height: 100%;
+}
+
+::deep .tl-series-control .mud-input-slot,
+::deep .tl-series-control .mud-select-input,
+::deep .tl-series-control input {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+::deep .tl-series-control .mud-select-input {
+    width: 100%;
+    font-size: 1.08rem;
+}
+
+::deep .tl-series-control--set .mud-input-adornment-start {
+    margin-right: 0.25rem !important;
+}
+
+::deep .tl-series-control--set .mud-select-input {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    margin-right: auto !important;
+    padding-left: 0.3rem !important;
+}
+
+::deep .tl-series-default-action {
+    align-self: center;
+    border-radius: 0.8rem;
+}
+
+::deep .tl-series-show-link {
+    color: #87a9ff;
+    font-size: 0.78rem;
+    font-weight: 820;
+    letter-spacing: 0.18em;
+    text-decoration: underline;
+    text-decoration-color: rgba(135, 169, 255, 0.72);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.28rem;
+    text-transform: uppercase;
+}
+
+::deep .tl-series-show-link:hover,
+::deep .tl-series-show-link:focus-visible {
+    color: #b7caff;
+    text-decoration-color: currentColor;
+}
+
+/* The sequence rail owns clipping, while the item grid remains as wide as its
+   contents. This matches the Read/Watch/Listen shelves and avoids artificial rows. */
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-content,
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-carousel {
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-carousel {
+    display: block;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip,
+::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-placement--long .tl-series-strip {
+    width: max-content;
+    max-width: none;
+    grid-template-columns: repeat(var(--series-count, 12), clamp(10.5rem, 11vw, 13.25rem));
+    justify-content: start;
+    overflow: visible;
+    padding-inline: 3.6rem;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-panel--landscape .tl-series-strip,
+::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-placement--long.tl-series-panel--landscape .tl-series-strip {
+    grid-template-columns: repeat(var(--series-count, 12), clamp(24rem, 28vw, 32rem));
+    gap: clamp(1.25rem, 1.8vw, 2rem);
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-panel--landscape .tl-series-item {
+    min-width: 24rem;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-carousel__arrow {
+    position: absolute;
+    z-index: 8;
+    top: 50%;
+    translate: 0 -50%;
+    box-shadow: 0 0.8rem 2rem rgba(0,0,0,0.55);
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-carousel__arrow--left {
+    left: 0.2rem;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-carousel__arrow--right {
+    right: 0.2rem;
+}
+
+::deep .tl-series-episode-play,
+::deep .tl-series-episode-info {
+    position: absolute;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,0.88);
+    border-radius: 50%;
+    color: #fff;
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity 150ms ease, transform 160ms ease, background 150ms ease;
+}
+
+::deep .tl-series-episode-play {
+    left: 50%;
+    top: 50%;
+    width: 4.4rem;
+    height: 4.4rem;
+    background: linear-gradient(145deg, #9f7aea, var(--tl-accent-primary, #8b5cf6));
+    box-shadow: 0 0 2rem rgba(139,92,246,0.58);
+    transform: translate(-50%, -50%) scale(0.86);
+}
+
+::deep .tl-series-episode-info {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    background: rgba(6, 10, 18, 0.82);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-style: italic;
+    transform: scale(0.9);
+}
+
+::deep .tl-series-panel--landscape .tl-series-item__art:hover img,
+::deep .tl-series-panel--landscape .tl-series-item__art:focus-within img {
+    filter: brightness(0.58);
+    transform: scale(1.02);
+}
+
+::deep .tl-series-panel--landscape .tl-series-item__art:hover .tl-series-episode-play,
+::deep .tl-series-panel--landscape .tl-series-item__art:hover .tl-series-episode-info,
+::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-play,
+::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-info {
+    opacity: 1;
+}
+
+::deep .tl-series-panel--landscape .tl-series-item__art:hover .tl-series-episode-play,
+::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-play {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+::deep .tl-series-panel--landscape .tl-series-item__art:hover .tl-series-episode-info,
+::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-info {
+    transform: scale(1);
+}
+
+::deep .tl-series-item__duration {
+    margin-top: 0.3rem;
+    color: rgba(214, 222, 237, 0.56);
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+::deep .tl-series-item__description {
+    display: -webkit-box;
+    margin: 0.55rem 0 0;
+    overflow: hidden;
+    color: rgba(224, 231, 244, 0.7);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    text-align: left;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+@media (max-width: 900px) {
+    ::deep .tl-detail-tab-panel,
+    ::deep .tl-series-placement:not(.tl-series-placement--compact) {
+        padding-inline: 1.25rem;
+    }
+
+    ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-layout {
+        grid-template-columns: 1fr;
+    }
+
+    ::deep .tl-series-control-row {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    ::deep .tl-series-default-action {
+        width: auto;
+        min-width: 11.75rem;
+    }
+
+    ::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-panel--landscape .tl-series-strip,
+    ::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-placement--long.tl-series-panel--landscape .tl-series-strip {
+        grid-template-columns: repeat(var(--series-count, 12), clamp(20rem, 82vw, 26rem));
+    }
+
+    ::deep .tl-series-placement:not(.tl-series-placement--compact).tl-series-panel--landscape .tl-series-item {
+        min-width: 20rem;
     }
 }
 

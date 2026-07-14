@@ -29,6 +29,10 @@ else if (_detail is null)
 }
 else
 {
+    @if (EpisodeId.HasValue)
+    {
+        <a class="tl-tv-episode-detail-back" href="@ShowRoute">Back to show details</a>
+    }
     <DetailPage Model="_detail" ActiveTab="@_activeTab" ActiveTabChanged="HandleTabChangedAsync" OnActionSelected="HandleActionAsync" />
 }
 
@@ -38,6 +42,9 @@ else
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrl { get; set; }
 
+    [SupplyParameterFromQuery(Name = "episode")]
+    public Guid? EpisodeId { get; set; }
+
     private DetailPageViewModel? _detail;
     private bool _loading = true;
     private string? _activeTab;
@@ -46,7 +53,9 @@ else
     {
         _loading = true;
         var profile = await Orchestrator.GetActiveProfileAsync();
-        _detail = await ApiClient.GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch, profileId: profile?.Id);
+        _detail = EpisodeId.HasValue
+            ? await ApiClient.GetDetailPageAsync(DetailEntityType.TvEpisode, EpisodeId.Value, DetailPresentationContext.Watch, profileId: profile?.Id)
+            : await ApiClient.GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch, profileId: profile?.Id);
         ApplyDetailTabRoute();
         _loading = false;
     }
@@ -73,4 +82,6 @@ else
         var resolution = DetailTabNavigation.Resolve(_detail, _activeTab);
         _activeTab = resolution.ActiveTab;
     }
+
+    private string ShowRoute => $"/watch/tv/show/{CollectionId:D}";
 }

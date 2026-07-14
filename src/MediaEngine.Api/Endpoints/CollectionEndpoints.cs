@@ -1547,6 +1547,33 @@ public static class CollectionEndpoints
                     GetCanonical(firstDto, "release_date")
                     ?? GetCanonical(firstDto, "date")
                     ?? GetCanonical(firstDto, "year"));
+                var previewItems = h.Works
+                    .Select(work =>
+                    {
+                        var dto = WorkDto.FromDomain(work);
+                        var imageUrl = BuildCoverStreamUrl(work, primaryAssetIds.GetValueOrDefault(work.Id));
+                        return new
+                        {
+                            Work = work,
+                            ImageUrl = imageUrl,
+                            Title = GetCanonical(dto, "title") ?? h.DisplayName ?? "Untitled",
+                            Position = GetCanonical(dto, "series_position")
+                                ?? GetCanonical(dto, "episode_number")
+                                ?? work.Ordinal?.ToString(CultureInfo.InvariantCulture),
+                        };
+                    })
+                    .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+                    .OrderBy(item => item.Work.Ordinal is null)
+                    .ThenBy(item => item.Work.Ordinal)
+                    .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                    .Take(12)
+                    .Select(item => new ContentGroupPreviewItemDto(
+                        item.Work.Id,
+                        item.Title,
+                        item.ImageUrl!,
+                        "portrait",
+                        item.Position))
+                    .ToList();
 
                 return new ContentGroupDto
                 {
@@ -1556,6 +1583,7 @@ public static class CollectionEndpoints
                     PrimaryMediaType = primaryMediaType,
                     WorkCount = h.Works.Count,
                     DistinctTitleCount = CountDistinctWorkTitles(h.Works),
+                    PreviewItems = previewItems,
                     CoverUrl = cover,
                     BackgroundUrl = background,
                     BannerUrl = banner,

@@ -275,6 +275,26 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public void HomeCollections_ExposeMemberArtworkAndOwnedCount()
+    {
+        var workId = Guid.NewGuid();
+        var card = DisplayCardBuilder.FromHomeCollection(new DisplayHomeCollectionRow
+        {
+            CollectionId = Guid.NewGuid(),
+            Title = "Weekend Watchlist",
+            ItemCount = 7,
+            PreviewItems =
+            [
+                new MediaEngine.Contracts.Display.DisplayCardPreviewItemDto(workId, null, "Arrival", "/art/arrival.jpg", "portrait", null),
+            ],
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        Assert.Equal(7, card.PreviewTotalCount);
+        Assert.Equal(workId, Assert.Single(card.PreviewItems).WorkId);
+    }
+
+    [Fact]
     public async Task WatchSeriesShelf_UsesTvRootInsteadOfSharedBookCollection()
     {
         var sharedCollectionId = Guid.Parse("77777777-9999-fafa-9999-777777777777");

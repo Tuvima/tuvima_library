@@ -1,3 +1,5 @@
+using MediaEngine.Contracts.Display;
+
 namespace MediaEngine.Api.Services.Display;
 
 public interface IDisplayArtworkRow
@@ -209,6 +211,7 @@ public sealed class DisplayHomeCollectionRow : IDisplayArtworkRow
     public int WatchCount { get; set; }
     public int ReadCount { get; set; }
     public int ListenCount { get; set; }
+    public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
     public string? CoverUrl { get; set; }
     public string? CoverSmallUrl { get; set; }
