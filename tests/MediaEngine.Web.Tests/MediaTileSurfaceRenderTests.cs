@@ -270,7 +270,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.NotEmpty(cut.FindAll(".media-tile.is-landscape.is-ordered-series-card"));
-        Assert.Equal(4, cut.FindAll(".media-tile-collage__cell").Count);
+        Assert.Equal(4, cut.Find(".media-tile-media").QuerySelectorAll(".media-tile-collage__cell").Length);
+        Assert.Equal(4, cut.Find(".media-tile-hover-art").QuerySelectorAll(".media-tile-collage__cell").Length);
         Assert.Empty(cut.FindAll(".media-tile-collection-copy"));
         Assert.Empty(cut.FindAll(".media-tile-caption"));
         Assert.Contains("Book Series", cut.Find(".media-tile-group-kind").TextContent);

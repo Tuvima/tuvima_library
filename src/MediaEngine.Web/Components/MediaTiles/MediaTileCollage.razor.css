@@ -11,20 +11,6 @@
     isolation: isolate;
 }
 
-.media-tile-collage[data-count="1"] {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
-}
-
-.media-tile-collage[data-count="2"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: 1fr;
-}
-
-.media-tile-collage[data-count="3"] .media-tile-collage__cell:first-child {
-    grid-row: 1 / -1;
-}
-
 .media-tile-collage__cell {
     position: relative;
     min-width: 0;

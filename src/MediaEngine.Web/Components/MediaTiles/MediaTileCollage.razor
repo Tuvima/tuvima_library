@@ -53,17 +53,20 @@
     {
         get
         {
-            var slotCount = Math.Min(4, CollageItems.Count);
-            if (slotCount == 0)
+            const int slotCount = 4;
+            if (CollageItems.Count == 0)
             {
                 return [];
             }
 
             var slots = Enumerable.Range(0, slotCount)
-                .Select(_ => new List<ArtworkStackItem>())
+                .Select(index => new List<ArtworkStackItem>
+                {
+                    CollageItems[index % CollageItems.Count],
+                })
                 .ToList();
 
-            for (var index = 0; index < CollageItems.Count; index++)
+            for (var index = slotCount; index < CollageItems.Count; index++)
             {
                 slots[index % slotCount].Add(CollageItems[index]);
             }

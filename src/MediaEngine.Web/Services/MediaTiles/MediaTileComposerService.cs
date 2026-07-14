@@ -168,7 +168,8 @@ public sealed class MediaTileComposerService
         // A TV show is represented by its show-level cover at rest. Episode stills and
         // enriched widescreen art belong in the detail/expanded experience, not the tile.
         var useLandscapeGroup = card.Flags.IsCollection
-                                && (presentation is MediaTilePresentation.MovieSeries
+                                && (presentation is MediaTilePresentation.Default
+                                    or MediaTilePresentation.MovieSeries
                                     or MediaTilePresentation.BookSeries
                                     or MediaTilePresentation.ComicSeries
                                     or MediaTilePresentation.AudiobookSeries
