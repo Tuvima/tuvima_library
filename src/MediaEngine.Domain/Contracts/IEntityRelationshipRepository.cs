@@ -26,6 +26,12 @@ public interface IEntityRelationshipRepository
         string objectQid, CancellationToken ct = default);
 
     /// <summary>
+    /// Return all incoming edges pointing to any supplied object QID in bounded batches.
+    /// </summary>
+    Task<IReadOnlyList<EntityRelationship>> GetByObjectsAsync(
+        IEnumerable<string> objectQids, CancellationToken ct = default);
+
+    /// <summary>
     /// Return all edges (both directions) involving a given QID.
     /// </summary>
     Task<IReadOnlyList<EntityRelationship>> GetByEntityAsync(

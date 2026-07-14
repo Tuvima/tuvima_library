@@ -1,7 +1,6 @@
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
-using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -226,19 +225,13 @@ public static class CharacterEndpoints
         // POST /library/enrichment/universe/trigger
         // Manually trigger Stage 3 universe enrichment on the next cycle.
         group.MapPost("/enrichment/universe/trigger", async (
-            IServiceProvider sp,
+            IMetadataHarvestingService harvesting,
             CancellationToken ct) =>
         {
             // Enqueue a single representative work for immediate processing by setting
             // a short-circuit flag via the harvest queue.  Since UniverseEnrichmentService
             // runs as a BackgroundService we can't call it directly; instead we use
             // IMetadataHarvestingService to enqueue a "universe_sweep" hint.
-            var harvesting = sp.GetService<MediaEngine.Domain.Contracts.IMetadataHarvestingService>();
-            if (harvesting is null)
-            {
-                return Results.Ok(new { triggered = false, message = "Harvesting service unavailable." });
-            }
-
             await harvesting.EnqueueAsync(new MediaEngine.Domain.Models.HarvestRequest
             {
                 EntityId = Guid.Empty,

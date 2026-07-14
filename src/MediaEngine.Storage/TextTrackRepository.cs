@@ -48,13 +48,13 @@ public sealed class TextTrackRepository : ITextTrackRepository
                 FROM text_tracks
                 WHERE asset_id = @assetId AND kind = @kind
                 ORDER BY is_preferred DESC, confidence DESC, language, provider;
-                """, new { assetId = assetId.ToString(), kind = kind.Value.ToString() })
+                """, new { assetId, kind = kind.Value.ToString() })
             : conn.Query<TextTrack>($"""
                 SELECT {SelectColumns}
                 FROM text_tracks
                 WHERE asset_id = @assetId
                 ORDER BY kind, is_preferred DESC, confidence DESC, language, provider;
-                """, new { assetId = assetId.ToString() });
+                """, new { assetId });
 
         return Task.FromResult<IReadOnlyList<TextTrack>>(rows.ToList());
     }
@@ -68,7 +68,7 @@ public sealed class TextTrackRepository : ITextTrackRepository
             FROM text_tracks
             WHERE id = @id
             LIMIT 1;
-            """, new { id = id.ToString() });
+            """, new { id });
         return Task.FromResult(row);
     }
 
@@ -86,7 +86,7 @@ public sealed class TextTrackRepository : ITextTrackRepository
             LIMIT 1;
             """, new
         {
-            assetId = assetId.ToString(),
+            assetId,
             kind = kind.ToString(),
             language = string.IsNullOrWhiteSpace(language) ? null : language,
         });
@@ -126,8 +126,8 @@ public sealed class TextTrackRepository : ITextTrackRepository
                 updated_at = datetime('now');
             """, new
         {
-            Id = track.Id.ToString(),
-            AssetId = track.AssetId.ToString(),
+            track.Id,
+            track.AssetId,
             Kind = track.Kind.ToString(),
             track.Language,
             track.Provider,
@@ -155,11 +155,11 @@ public sealed class TextTrackRepository : ITextTrackRepository
         using var conn = _db.CreateConnection();
         using var tx = conn.BeginTransaction();
 
-        var target = conn.QuerySingleOrDefault<(string AssetId, string Kind, string Language)>("""
+        var target = conn.QuerySingleOrDefault<(Guid AssetId, string Kind, string Language)>("""
             SELECT asset_id AS AssetId, kind AS Kind, language AS Language
             FROM text_tracks
             WHERE id = @id;
-            """, new { id = id.ToString() }, tx);
+            """, new { id }, tx);
 
         if (target == default)
         {
@@ -171,13 +171,13 @@ public sealed class TextTrackRepository : ITextTrackRepository
             UPDATE text_tracks
             SET is_preferred = 0, updated_at = datetime('now')
             WHERE asset_id = @AssetId AND kind = @Kind AND language = @Language;
-            """, target, tx);
+            """, new { target.AssetId, target.Kind, target.Language }, tx);
 
         conn.Execute("""
             UPDATE text_tracks
             SET is_preferred = 1, updated_at = datetime('now')
             WHERE id = @id;
-            """, new { id = id.ToString() }, tx);
+            """, new { id }, tx);
 
         tx.Commit();
         return Task.CompletedTask;

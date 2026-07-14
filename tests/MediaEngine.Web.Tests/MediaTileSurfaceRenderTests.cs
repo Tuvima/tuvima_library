@@ -1,6 +1,9 @@
 using Bunit;
 using MediaEngine.Web.Components.MediaTiles;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.Playback;
+using MediaEngine.Web.Tests.Support;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,10 +13,44 @@ namespace MediaEngine.Web.Tests;
 
 public sealed class MediaTileSurfaceRenderTests : TestContext
 {
+    private int _profileRequestCount;
+    private int _managedCollectionRequestCount;
+    private int _createCollectionRequestCount;
+
     public MediaTileSurfaceRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddMudServices();
+        var api = EngineApiClientStub.Create(stub =>
+        {
+            stub.SetHandler(nameof(IEngineApiClient.GetProfilesAsync), _ =>
+            {
+                Interlocked.Increment(ref _profileRequestCount);
+                return Task.FromResult(new List<ProfileViewModel>
+                {
+                    new(
+                        Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                        "Test User",
+                        "#C9922E",
+                        "Administrator",
+                        DateTimeOffset.UtcNow),
+                });
+            });
+            stub.SetHandler(nameof(IEngineApiClient.GetManagedCollectionsAsync), _ =>
+            {
+                Interlocked.Increment(ref _managedCollectionRequestCount);
+                return Task.FromResult(new List<ManagedCollectionViewModel>());
+            });
+            stub.SetHandler(nameof(IEngineApiClient.CreateCollectionAsync), _ =>
+            {
+                Interlocked.Increment(ref _createCollectionRequestCount);
+                return Task.FromResult(true);
+            });
+        });
+        Services.AddSingleton(api);
+        Services.AddScoped<ActiveProfileSessionService>();
+        Services.AddScoped<MediaReactionService>();
+        Services.AddScoped<FavoriteService>();
     }
 
     [Fact]
@@ -75,6 +112,96 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTile_DetailsSurfaceIsSemanticLinkWithVisibleKeyboardFocus()
+    {
+        const string details = "/book/semantic-card";
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Semantic Card",
+            MediaKind = "Book",
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            TileImageUrl = "/art/semantic-card.jpg",
+            NavigationUrl = details,
+            DetailsNavigationUrl = details,
+        };
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        var card = cut.Find("article.media-tile");
+        var detailsLink = cut.Find("a.media-tile-media");
+
+        Assert.Null(card.GetAttribute("tabindex"));
+        Assert.Equal(details, detailsLink.GetAttribute("href"));
+        Assert.Equal("View details for Semantic Card", detailsLink.GetAttribute("aria-label"));
+
+        detailsLink.Click();
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        Assert.EndsWith(details, nav.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MediaTileShelf_PreservesCardInstancesWhenItemsReorder()
+    {
+        var first = CreateShelfItem("First");
+        var second = CreateShelfItem("Second");
+        var cut = RenderComponent<MediaTileShelf>(parameters => parameters.Add(
+            component => component.Shelf,
+            new MediaTileShelfViewModel
+            {
+                Key = "reorder-test",
+                Title = "Reorder test",
+                Items = [first, second],
+            }));
+        var initialInstances = cut.FindComponents<MediaTile>()
+            .ToDictionary(component => component.Instance.Item.Id, component => component.Instance);
+
+        cut.SetParametersAndRender(parameters => parameters.Add(
+            component => component.Shelf,
+            new MediaTileShelfViewModel
+            {
+                Key = "reorder-test",
+                Title = "Reorder test",
+                Items = [second, first],
+            }));
+        var reorderedInstances = cut.FindComponents<MediaTile>()
+            .ToDictionary(component => component.Instance.Item.Id, component => component.Instance);
+
+        Assert.Same(initialInstances[first.Id], reorderedInstances[first.Id]);
+        Assert.Same(initialInstances[second.Id], reorderedInstances[second.Id]);
+    }
+
+    [Fact]
+    public void MediaTileShelf_ManyCardsShareProfileAndReadStateWithoutCreatingCollections()
+    {
+        var items = Enumerable.Range(1, 24)
+            .Select(index => new MediaTileViewModel
+            {
+                Id = Guid.NewGuid(),
+                WorkId = Guid.NewGuid(),
+                Title = $"Card {index}",
+                NavigationUrl = $"/details/{index}",
+                HoverMode = MediaTileHoverMode.Expanded,
+            })
+            .ToList();
+
+        RenderComponent<MediaTileShelf>(parameters => parameters.Add(
+            component => component.Shelf,
+            new MediaTileShelfViewModel
+            {
+                Key = "request-count-test",
+                Title = "Request count test",
+                Items = items,
+            }));
+
+        Assert.Equal(1, _profileRequestCount);
+        Assert.Equal(2, _managedCollectionRequestCount);
+        Assert.Equal(0, _createCollectionRequestCount);
+    }
+
+    [Fact]
     public void MediaTile_EnrichedLogoReplacesHoverTitleButNotRestingArtwork()
     {
         var item = new MediaTileViewModel
@@ -104,6 +231,14 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("PG-13", cut.Markup);
         Assert.Contains("1h 56m", cut.Markup);
     }
+
+    private static MediaTileViewModel CreateShelfItem(string title) => new()
+    {
+        Id = Guid.NewGuid(),
+        Title = title,
+        NavigationUrl = $"/details/{title.ToLowerInvariant()}",
+        HoverMode = MediaTileHoverMode.None,
+    };
 
     [Fact]
     public void MediaTile_LandscapeSeriesKeepsOrderedArtworkWithoutRestingCopy()

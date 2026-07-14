@@ -35,6 +35,7 @@ public sealed class MediaHubShelfViewModel
 
     public MediaTileShelfViewModel ToMediaTileShelf() => new()
     {
+        Key = Key,
         Title = Title,
         Subtitle = Subtitle,
         Items = Items,
@@ -42,17 +43,15 @@ public sealed class MediaHubShelfViewModel
     };
 
     public static MediaHubShelfViewModel FromShelf(
-        string key,
         MediaTileShelfViewModel shelf,
-        bool isContinueShelf = false,
         MediaTileShape? shapeOverride = null) => new()
         {
-            Key = key,
+            Key = shelf.Key,
             Title = shelf.Title,
             Subtitle = shelf.Subtitle,
             Items = shelf.Items,
             SeeAllRoute = shelf.SeeAllRoute,
-            IsContinueShelf = isContinueShelf,
+            IsContinueShelf = shelf.Kind == MediaTileShelfKind.Continue,
             ShapeOverride = shapeOverride,
         };
 }

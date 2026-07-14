@@ -2,7 +2,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IngestionLiveDashboardState Dashboard
-@implements IDisposable
+@implements IAsyncDisposable
 
 <div class="tl-page ingestion-operations">
     <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
@@ -45,9 +45,9 @@
         InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         Dashboard.OnChanged -= OnDashboardChanged;
-        Dashboard.Stop();
+        await Dashboard.StopAsync();
     }
 }

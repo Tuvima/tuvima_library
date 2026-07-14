@@ -12,7 +12,7 @@ public enum MediaReaction
     Love,
 }
 
-public sealed class MediaReactionService
+public sealed class MediaReactionService : IDisposable
 {
     private const string LikedCollectionName = "Liked Media";
     private const string DislikedCollectionName = "Disliked Media";
@@ -21,6 +21,7 @@ public sealed class MediaReactionService
 
     private readonly IEngineApiClient _apiClient;
     private readonly Dictionary<Guid, ProfileReactionState> _cache = [];
+    private readonly SemaphoreSlim _stateGate = new(1, 1);
 
     public MediaReactionService(IEngineApiClient apiClient)
     {
@@ -175,7 +176,21 @@ public sealed class MediaReactionService
             }
         }
 
-        return await ReloadStateAsync(profileId.Value, ct, createCollections);
+        await _stateGate.WaitAsync(ct);
+        try
+        {
+            if (_cache.TryGetValue(profileId.Value, out cached)
+                && (!createCollections || (cached.FavoritesCollectionId.HasValue && cached.DislikedCollectionId.HasValue && cached.LovedCollectionId.HasValue)))
+            {
+                return cached;
+            }
+
+            return await ReloadStateAsync(profileId.Value, ct, createCollections);
+        }
+        finally
+        {
+            _stateGate.Release();
+        }
     }
 
     private async Task<ProfileReactionState> ReloadStateAsync(Guid profileId, CancellationToken ct, bool createCollections = false)
@@ -313,4 +328,6 @@ public sealed class MediaReactionService
         public Dictionary<Guid, Guid> DislikedItemsByWorkId { get; set; } = [];
         public Dictionary<Guid, Guid> LovedItemsByWorkId { get; set; } = [];
     }
+
+    public void Dispose() => _stateGate.Dispose();
 }

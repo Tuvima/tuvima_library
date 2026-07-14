@@ -28,7 +28,7 @@
         background: #111;
         transition: border-color 0.15s;
     }
-    .path-trail:hover, .path-trail-selected {
+    .path-trail:hover, .path-trail:focus-visible, .path-trail-selected {
         border-color: var(--tl-accent-primary);
     }
     .hop-chain {

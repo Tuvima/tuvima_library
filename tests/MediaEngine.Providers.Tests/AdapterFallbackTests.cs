@@ -58,6 +58,54 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task AppleBooks_Returns_Empty_On_TransportTimeout()
+    {
+        var config = LoadExampleConfig("apple_api");
+        var adapter = new ConfigDrivenAdapter(
+            config,
+            BuildTimeoutFactory(config.Name),
+            NullLogger<ConfigDrivenAdapter>.Instance,
+            NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Books,
+            Title = "Dune",
+            Author = "Frank Herbert",
+            BaseUrl = "https://itunes.apple.com",
+        });
+
+        Assert.Empty(claims);
+    }
+
+    [Fact]
+    public async Task AppleBooks_PropagatesCallerCancellation()
+    {
+        var config = LoadExampleConfig("apple_api");
+        var adapter = new ConfigDrivenAdapter(
+            config,
+            BuildTimeoutFactory(config.Name),
+            NullLogger<ConfigDrivenAdapter>.Instance,
+            NullProviderHealthMonitor.Instance);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => adapter.FetchAsync(
+            new ProviderLookupRequest
+            {
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.MediaAsset,
+                MediaType = MediaType.Books,
+                Title = "Dune",
+                Author = "Frank Herbert",
+                BaseUrl = "https://itunes.apple.com",
+            },
+            cancellation.Token));
+    }
+
+    [Fact]
     public async Task AppleBooks_FetchAsync_RejectedIsbnLookup_FallsBackToTitleAuthorSearch()
     {
         var config = LoadExampleConfig("apple_api");

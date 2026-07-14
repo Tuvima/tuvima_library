@@ -3429,6 +3429,9 @@ public sealed class WorkerPipelineTests
         public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default)
             => Task.FromResult(0);
 
+        public Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
+
         public Task<int> GetPendingCountAsync(CancellationToken ct = default)
             => Task.FromResult(0);
 
@@ -3648,6 +3651,7 @@ public sealed class WorkerPipelineTests
         public Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default) => Task.FromResult(new Dictionary<string, int>());
         public Task<IReadOnlyList<CollectionItem>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionItem>>([]);
         public Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult(0);
+        public Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default) => Task.FromResult(new Dictionary<Guid, int>());
         public Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default) => Task.CompletedTask;
@@ -3813,7 +3817,13 @@ public sealed class WorkerPipelineTests
         public Task<Guid?> FindParentByKeyAsync(MediaType mediaType, string parentKey, CancellationToken ct = default)
             => Task.FromResult<Guid?>(null);
 
+        public Task<Guid> GetOrCreateParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
         public Task<Guid?> FindChildByOrdinalAsync(Guid parentWorkId, int ordinal, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(null);
+
+        public Task<Guid?> FindChildByOrdinalSortAsync(Guid parentWorkId, double ordinalSort, CancellationToken ct = default)
             => Task.FromResult<Guid?>(null);
 
         public Task<Guid?> FindChildByTitleAsync(Guid parentWorkId, string title, CancellationToken ct = default)
@@ -3827,6 +3837,12 @@ public sealed class WorkerPipelineTests
 
         public Task<Guid> InsertChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, CancellationToken ct = default)
             => Task.FromResult(Guid.NewGuid());
+
+        public Task<Guid> GetOrCreateChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
+        public Task UpdateOrdinalSortAsync(Guid workId, double? ordinalSort, CancellationToken ct = default)
+            => Task.CompletedTask;
 
         public Task<Guid> InsertStandaloneAsync(MediaType mediaType, CancellationToken ct = default)
             => Task.FromResult(Guid.NewGuid());
@@ -3842,5 +3858,8 @@ public sealed class WorkerPipelineTests
 
         public Task<WorkLineage?> GetLineageByAssetAsync(Guid assetId, CancellationToken ct = default)
             => Task.FromResult(Lineage);
+
+        public Task<ConfirmedSiblingWorkQid?> FindConfirmedSiblingQidAsync(MediaType sourceMediaType, IReadOnlyList<MediaType> candidateMediaTypes, string title, string? creator, Guid? excludeWorkId = null, CancellationToken ct = default)
+            => Task.FromResult<ConfirmedSiblingWorkQid?>(null);
     }
 }

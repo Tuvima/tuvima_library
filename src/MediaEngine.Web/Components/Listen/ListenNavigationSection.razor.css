@@ -1,0 +1,43 @@
+.listen-rail__section + .listen-rail__section {
+    margin-top: 20px;
+}
+
+.listen-rail__label {
+    margin: 0 0 10px 12px;
+    color: rgba(255, 255, 255, 0.42);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.listen-rail__item {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: var(--app-radius-md);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.74);
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.listen-rail__item:hover,
+.listen-rail__item.is-active {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.96);
+}
+
+.listen-rail__item:focus-visible {
+    outline: 2px solid var(--tl-accent-primary);
+    outline-offset: 2px;
+}
+
+.listen-rail__meta {
+    color: rgba(255, 255, 255, 0.58);
+}

@@ -59,11 +59,8 @@ else
     ];
 
     private IReadOnlyList<MediaHubShelfViewModel> ReadHubShelves => _landingPage?.Shelves
-        .Where(shelf => !IsReadSeriesShelf(shelf))
-        .Select((shelf, index) => MediaHubShelfViewModel.FromShelf(
-            HubShelfKey(shelf, index),
-            shelf,
-            IsContinueShelf(shelf)))
+        .Where(shelf => shelf.Kind != MediaTileShelfKind.ReadSeries)
+        .Select(shelf => MediaHubShelfViewModel.FromShelf(shelf))
         .ToList() ?? [];
 
     protected override async Task OnParametersSetAsync()
@@ -95,19 +92,6 @@ else
             _loading = false;
         }
     }
-
-    private static bool IsReadSeriesShelf(MediaTileShelfViewModel shelf) =>
-        string.Equals(shelf.Title, "Series & Reading Lists", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(shelf.Subtitle, "Book series, comic runs, and grouped reading", StringComparison.OrdinalIgnoreCase)
-        || shelf.SeeAllRoute?.Contains("grouping=series", StringComparison.OrdinalIgnoreCase) == true;
-
-    private static bool IsContinueShelf(MediaTileShelfViewModel shelf) =>
-        shelf.Title.Contains("Continue", StringComparison.OrdinalIgnoreCase);
-
-    private static string HubShelfKey(MediaTileShelfViewModel shelf, int index) =>
-        string.IsNullOrWhiteSpace(shelf.Title)
-            ? $"read-shelf-{index}"
-            : $"read-{shelf.Title.ToLowerInvariant().Replace(' ', '-')}";
 
     private static readonly LibraryBrowsePreset Preset = new()
     {

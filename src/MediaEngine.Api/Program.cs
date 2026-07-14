@@ -154,14 +154,10 @@ string dbPath;
         string? earlyLibraryRoot = null;
         if (File.Exists(coreJsonPath))
         {
-            try
-            {
-                using var fs = File.OpenRead(coreJsonPath);
-                using var doc = System.Text.Json.JsonDocument.Parse(fs);
-                if (doc.RootElement.TryGetProperty("library_root", out var lr))
-                    earlyLibraryRoot = lr.GetString();
-            }
-            catch { /* non-fatal — fall back to default */ }
+            using var fs = File.OpenRead(coreJsonPath);
+            using var doc = System.Text.Json.JsonDocument.Parse(fs);
+            if (doc.RootElement.TryGetProperty("library_root", out var lr))
+                earlyLibraryRoot = lr.GetString();
         }
         // Also check environment variable override.
         var envLibRoot = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
@@ -306,6 +302,9 @@ builder.Services.AddSingleton<AssetStoreCleanupService>();
 
 builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
 builder.Services.AddApiReadServices();
+builder.Services.AddSingleton<ILibraryItemCurationStore, LibraryItemCurationStore>();
+builder.Services.AddSingleton<IMetadataEndpointDataService, MetadataEndpointDataService>();
+builder.Services.AddSingleton<IItemCanonicalDataService, ItemCanonicalDataService>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.IDisplayProjectionRepository, MediaEngine.Api.Services.Display.DisplayProjectionRepository>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayWorkProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayJourneyProjectionReader>();
@@ -315,11 +314,13 @@ builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayLaneGroupPoli
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayCardBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayShelfBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayComposerService>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Details.DetailRecommendationService>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Details.DetailComposerService>();
 
 // -- Intelligence --------------------------------------------------------------
-builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
 builder.Services.AddSingleton<ExactMatchStrategy>();
+builder.Services.AddSingleton<IScoringStrategy>(sp =>
+    sp.GetRequiredService<ExactMatchStrategy>());
 builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 
 // ScoringConfiguration is loaded from config/scoring.json and exposed as a
@@ -329,9 +330,7 @@ builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 builder.Services.AddSingleton<MediaEngine.Intelligence.Models.ScoringConfiguration>(sp =>
 {
     var loader = sp.GetRequiredService<IConfigurationLoader>();
-    MediaEngine.Storage.Models.ScoringSettings s;
-    try   { s = loader.LoadScoring(); }
-    catch { s = new MediaEngine.Storage.Models.ScoringSettings(); }
+    var s = loader.LoadScoring();
     return new MediaEngine.Intelligence.Models.ScoringConfiguration
     {
         AutoLinkThreshold       = s.AutoLinkThreshold,
@@ -423,7 +422,8 @@ builder.Services.AddHttpClient("plugin_catalog", c =>
 // All providers are registered regardless of Enabled state — the pipeline services
 // check Enabled before using them, but the Settings UI needs adapter access for
 // testing and configuring disabled providers.
-foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders())
+var providerConfigurations = configLoader.LoadAllProviders();
+foreach (ProviderConfiguration providerConfig in providerConfigurations)
 {
     if (!string.Equals(providerConfig.AdapterType, "config_driven", StringComparison.OrdinalIgnoreCase))
     { continue; }
@@ -453,7 +453,7 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
 }
 
 
-foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders())
+foreach (ProviderConfiguration providerConfig in providerConfigurations)
 {
     if (!string.Equals(providerConfig.AdapterType, "text_track", StringComparison.OrdinalIgnoreCase))
     { continue; }
@@ -649,7 +649,14 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     }
 }
 
-builder.Services.AddSingleton<IMetadataHarvestingService, MetadataHarvestingService>();
+builder.Services.AddSingleton<MetadataHarvestQueue>();
+builder.Services.AddSingleton<IMetadataHarvestQueueAdmission>(sp =>
+    sp.GetRequiredService<MetadataHarvestQueue>());
+builder.Services.AddSingleton<MetadataHarvestingService>();
+builder.Services.AddSingleton<IMetadataHarvestingService>(sp =>
+    sp.GetRequiredService<MetadataHarvestingService>());
+builder.Services.AddHostedService(sp =>
+    sp.GetRequiredService<MetadataHarvestingService>());
 builder.Services.AddSingleton<IRecursiveIdentityService,  RecursiveIdentityService>();
 builder.Services.AddSingleton<IPersonReconciliationService, PersonReconciliationService>();
 builder.Services.AddSingleton<ICanonDiscrepancyService,   CanonDiscrepancyService>();
@@ -674,7 +681,11 @@ builder.Services.AddSingleton<IImageEnrichmentService,           MediaEngine.Pro
 // -- Hydration pipeline (three-stage orchestrator) + review queue -------------
 builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentRepository>();
 builder.Services.AddSingleton<IHydrationPipelineService,     SynchronousIdentityPipelineService>();
-builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
+builder.Services.AddSingleton<DeferredEnrichmentService>();
+builder.Services.AddSingleton<IDeferredEnrichmentService>(sp =>
+    sp.GetRequiredService<DeferredEnrichmentService>());
+builder.Services.AddHostedService(sp =>
+    sp.GetRequiredService<DeferredEnrichmentService>());
 builder.Services.AddSingleton<IBridgeIdRepository,           BridgeIdRepository>();
 builder.Services.AddSingleton<IEntityTimelineRepository,     EntityTimelineRepository>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
@@ -744,7 +755,6 @@ builder.Services.AddSingleton<IProviderHealthMonitor>(sp => sp.GetRequiredServic
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderHealthMonitorService>());
 
 // -- Great Inhale scanner ------------------------------------------------------
-builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
 // -- EPUB reader content service (chapter serving, TOC, search) ---------------
 builder.Services.AddSingleton<IEpubContentService, EpubContentService>();
@@ -770,7 +780,9 @@ builder.Services.AddHostedService<RejectedFileCleanupService>();
 builder.Services.AddHostedService<RetagSweepWorker>();
 builder.Services.AddHostedService<MissingUniverseSweepService>();
 builder.Services.AddHostedService<HydrationStartupSweepService>();
-builder.Services.AddHostedService<EditionRecheckService>();
+builder.Services.AddSingleton<InitialSweepCommandService>();
+builder.Services.AddSingleton<IInitialSweepCommandService>(sp => sp.GetRequiredService<InitialSweepCommandService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<InitialSweepCommandService>());
 
 // -- Library Reconciliation: periodic scan for missing files ------------------
 builder.Services.AddSingleton<CollectionBackfillService>();

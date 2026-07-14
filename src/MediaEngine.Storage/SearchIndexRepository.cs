@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage;
 
@@ -42,16 +43,16 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                OR ma.id = @entityId
             LIMIT 1
             """;
-        lookup.Parameters.AddWithValue("@entityId", entityId.ToString());
+        lookup.Parameters.Add("@entityId", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
 
-        string? workId = null, assetId = null, rootParentId = null;
+        Guid? workId = null, assetId = null, rootParentId = null;
         using (var rdr = await lookup.ExecuteReaderAsync(ct).ConfigureAwait(false))
         {
             if (await rdr.ReadAsync(ct).ConfigureAwait(false))
             {
-                workId       = rdr.IsDBNull(0) ? null : rdr.GetString(0);
-                assetId      = rdr.IsDBNull(1) ? null : rdr.GetString(1);
-                rootParentId = rdr.IsDBNull(2) ? null : rdr.GetString(2);
+                workId       = rdr.IsDBNull(0) ? null : GuidSql.FromDb(rdr.GetValue(0));
+                assetId      = rdr.IsDBNull(1) ? null : GuidSql.FromDb(rdr.GetValue(1));
+                rootParentId = rdr.IsDBNull(2) ? null : GuidSql.FromDb(rdr.GetValue(2));
             }
         }
         if (workId is null) return;
@@ -66,7 +67,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                 WHERE entity_id = @assetId
                   AND key IN ('title', 'original_title')
                 """;
-            selfCmd.Parameters.AddWithValue("@assetId", assetId);
+            selfCmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
             using var sr = await selfCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
             while (await sr.ReadAsync(ct).ConfigureAwait(false))
             {
@@ -87,7 +88,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                 WHERE entity_id = @parentId
                   AND key IN ('author', 'description')
                 """;
-            parentCmd.Parameters.AddWithValue("@parentId", rootParentId);
+            parentCmd.Parameters.Add("@parentId", SqliteType.Blob).Value = GuidSql.ToBlob(rootParentId.Value);
             using var pr = await parentCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
             while (await pr.ReadAsync(ct).ConfigureAwait(false))
             {
@@ -109,7 +110,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                 FROM canonical_value_arrays
                 WHERE entity_id = @assetId AND key = 'alternate_title'
                 """;
-            altCmd.Parameters.AddWithValue("@assetId", assetId);
+            altCmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
             var altObj = await altCmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
             alternateTitles = altObj as string;
         }
@@ -123,7 +124,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         // FTS5 does not support UPSERT — delete then insert.
         using var del = conn.CreateCommand();
         del.CommandText = "DELETE FROM search_index WHERE entity_id = @workId;";
-        del.Parameters.AddWithValue("@workId", workId);
+        del.Parameters.Add("@workId", SqliteType.Blob).Value = GuidSql.ToBlob(workId.Value);
         await del.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
 
         using var ins = conn.CreateCommand();
@@ -131,7 +132,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
             INSERT INTO search_index (entity_id, title, original_title, alternate_titles, author, description)
             VALUES (@workId, @title, @originalTitle, @alternateTitles, @author, @description);
             """;
-        ins.Parameters.AddWithValue("@workId",          workId);
+        ins.Parameters.Add("@workId", SqliteType.Blob).Value = GuidSql.ToBlob(workId.Value);
         ins.Parameters.AddWithValue("@title",           (object?)title           ?? DBNull.Value);
         ins.Parameters.AddWithValue("@originalTitle",   (object?)originalTitle   ?? DBNull.Value);
         ins.Parameters.AddWithValue("@alternateTitles", (object?)alternateTitles ?? DBNull.Value);
@@ -182,8 +183,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
             using var likeReader = await likeCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
             while (await likeReader.ReadAsync(ct).ConfigureAwait(false))
             {
-                if (Guid.TryParse(likeReader.GetString(0), out var likeId))
-                    likeResults.Add(likeId);
+                likeResults.Add(GuidSql.FromDb(likeReader.GetValue(0)));
             }
             return likeResults;
         }
@@ -205,8 +205,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
-            if (Guid.TryParse(reader.GetString(0), out var id))
-                results.Add(id);
+            results.Add(GuidSql.FromDb(reader.GetValue(0)));
         }
         return results;
     }

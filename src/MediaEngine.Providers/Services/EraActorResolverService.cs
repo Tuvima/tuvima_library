@@ -7,14 +7,8 @@ using MediaEngine.Domain.Models;
 namespace MediaEngine.Providers.Services;
 
 /// <summary>
-/// Resolves the correct actor for a character by examining performer relationship
-/// edges with temporal qualifiers (P580 start time, P582 end time).
-///
-/// <para>
-/// When a <c>timelineYear</c> is specified, the service finds the performer whose
-/// temporal range contains that year. When no year is given or no temporal match
-/// is found, it returns the most recently discovered performer.
-/// </para>
+/// Resolves performers for fictional characters using temporal qualifiers on
+/// relationship edges. Multi-character requests use bounded batch reads.
 /// </summary>
 public sealed class EraActorResolverService : IEraActorResolverService
 {
@@ -41,68 +35,104 @@ public sealed class EraActorResolverService : IEraActorResolverService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(characterQid);
 
-        // Find performer edges where this character is the object.
-        var edges = await _relRepo.GetByObjectAsync(characterQid, ct).ConfigureAwait(false);
-        var performerEdges = edges
-            .Where(e => e.RelationshipTypeValue == RelationshipType.Performer)
+        var resolutions = await ResolveActorsForEraAsync([characterQid], timelineYear, ct)
+            .ConfigureAwait(false);
+        return resolutions.GetValueOrDefault(characterQid);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<string, ActorResolution>> ResolveActorsForEraAsync(
+        IEnumerable<string> characterQids,
+        int? timelineYear = null,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(characterQids);
+        ct.ThrowIfCancellationRequested();
+
+        var qids = characterQids
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Select(qid => qid.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        if (qids.Count == 0)
+            return new Dictionary<string, ActorResolution>(StringComparer.OrdinalIgnoreCase);
 
+        var performerEdges = (await _relRepo.GetByObjectsAsync(qids, ct).ConfigureAwait(false))
+            .Where(edge => edge.RelationshipTypeValue == RelationshipType.Performer)
+            .ToList();
         if (performerEdges.Count == 0)
-            return null;
+            return new Dictionary<string, ActorResolution>(StringComparer.OrdinalIgnoreCase);
 
-        EntityRelationship? matchedEdge = null;
-
-        // If timeline year specified, find the performer active in that year.
-        if (timelineYear.HasValue)
+        var matchedEdges = new Dictionary<string, EntityRelationship>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in performerEdges.GroupBy(edge => edge.ObjectQid, StringComparer.OrdinalIgnoreCase))
         {
-            matchedEdge = performerEdges.FirstOrDefault(e =>
-            {
-                var startYear = ParseYear(e.StartTime);
-                var endYear = ParseYear(e.EndTime);
-
-                // If both bounds exist, check range.
-                if (startYear.HasValue && endYear.HasValue)
-                    return timelineYear.Value >= startYear.Value && timelineYear.Value <= endYear.Value;
-
-                // If only start, performer is active from that year onward.
-                if (startYear.HasValue)
-                    return timelineYear.Value >= startYear.Value;
-
-                // If only end, performer was active until that year.
-                if (endYear.HasValue)
-                    return timelineYear.Value <= endYear.Value;
-
-                // No temporal data — not a match for era-specific query.
-                return false;
-            });
+            var matchedEdge = SelectPerformerForEra(group, timelineYear);
+            if (matchedEdge is not null)
+                matchedEdges[group.Key] = matchedEdge;
         }
 
-        // Fallback: most recently discovered performer.
-        matchedEdge ??= performerEdges
-            .OrderByDescending(e => e.DiscoveredAt)
-            .First();
-
-        // Resolve the person record for the performer via their Wikidata QID.
-        var actorQid = matchedEdge.SubjectQid;
-        Person? person = null;
+        var peopleByQid = new Dictionary<string, Person>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            person = await _personRepo.FindByQidAsync(actorQid, ct).ConfigureAwait(false);
+            var people = await _personRepo.FindByQidsAsync(
+                matchedEdges.Values.Select(edge => edge.SubjectQid), ct).ConfigureAwait(false);
+            peopleByQid = people
+                .Where(person => !string.IsNullOrWhiteSpace(person.WikidataQid))
+                .GroupBy(person => person.WikidataQid!, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "Failed to look up person record for actor QID {ActorQid}; proceeding without person detail.",
-                actorQid);
+                "Failed to look up person records for {ActorCount} era performer QIDs; proceeding without person detail.",
+                matchedEdges.Count);
         }
 
-        return new ActorResolution(
-            ActorPersonQid: actorQid,
-            ActorLabel: person?.Name,
-            HeadshotUrl: person?.HeadshotUrl,
-            StartTime: matchedEdge.StartTime,
-            EndTime: matchedEdge.EndTime,
-            ContextWorkQid: matchedEdge.ContextWorkQid);
+        var results = new Dictionary<string, ActorResolution>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (characterQid, edge) in matchedEdges)
+        {
+            peopleByQid.TryGetValue(edge.SubjectQid, out var person);
+            results[characterQid] = new ActorResolution(
+                ActorPersonQid: edge.SubjectQid,
+                ActorPersonId: person?.Id,
+                ActorLabel: person?.Name,
+                HeadshotUrl: person?.HeadshotUrl,
+                LocalHeadshotPath: person?.LocalHeadshotPath,
+                StartTime: edge.StartTime,
+                EndTime: edge.EndTime,
+                ContextWorkQid: edge.ContextWorkQid);
+        }
+
+        return results;
+    }
+
+    private static EntityRelationship? SelectPerformerForEra(
+        IEnumerable<EntityRelationship> performerEdges,
+        int? timelineYear)
+    {
+        var edges = performerEdges.ToList();
+        if (edges.Count == 0)
+            return null;
+
+        EntityRelationship? matchedEdge = null;
+        if (timelineYear.HasValue)
+        {
+            matchedEdge = edges.FirstOrDefault(edge =>
+            {
+                var startYear = ParseYear(edge.StartTime);
+                var endYear = ParseYear(edge.EndTime);
+
+                if (startYear.HasValue && endYear.HasValue)
+                    return timelineYear.Value >= startYear.Value && timelineYear.Value <= endYear.Value;
+                if (startYear.HasValue)
+                    return timelineYear.Value >= startYear.Value;
+                if (endYear.HasValue)
+                    return timelineYear.Value <= endYear.Value;
+                return false;
+            });
+        }
+
+        return matchedEdge ?? edges.OrderByDescending(edge => edge.DiscoveredAt).First();
     }
 
     private static int? ParseYear(string? isoDate)
@@ -110,15 +140,10 @@ public sealed class EraActorResolverService : IEraActorResolverService
         if (string.IsNullOrWhiteSpace(isoDate))
             return null;
 
-        // Try parsing as a 4-digit year directly.
         if (isoDate.Length == 4 && int.TryParse(isoDate, out var year4))
             return year4;
-
-        // Try extracting year from ISO 8601 date (e.g. "1984-06-01").
         if (isoDate.Length >= 4 && int.TryParse(isoDate[..4], out var yearPrefix))
             return yearPrefix;
-
-        // Try full DateTimeOffset parse as final fallback.
         if (DateTimeOffset.TryParse(isoDate, out var dto))
             return dto.Year;
 

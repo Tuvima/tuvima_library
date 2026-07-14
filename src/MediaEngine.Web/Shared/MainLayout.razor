@@ -154,14 +154,6 @@
                                    Variant="Variant.Text"
                                    Color="Color.Inherit"
                                    Class="layout-shell__profile-menu-item"
-                                   OnClick="OpenReviewQueueAsync">
-                            <MudIcon Icon="@Icons.Material.Outlined.RateReview" Size="Size.Small" />
-                            <span>@(_reviewCount > 0 ? L["Nav_ReviewPending", _reviewCount] : L["Nav_ReviewQueue"])</span>
-                        </MudButton>
-                        <MudButton role="menuitem"
-                                   Variant="Variant.Text"
-                                   Color="Color.Inherit"
-                                   Class="layout-shell__profile-menu-item"
                                    OnClick="OpenSettingsAsync">
                             <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Small" />
                             <span>@L["Nav_Settings"]</span>
@@ -302,12 +294,6 @@
     {
         _isProfileMenuOpen = false;
         Nav.NavigateTo("/settings/review");
-    }
-
-    private Task OpenReviewQueueAsync()
-    {
-        OpenReviewQueue();
-        return Task.CompletedTask;
     }
 
     private Task OpenSettingsAsync()

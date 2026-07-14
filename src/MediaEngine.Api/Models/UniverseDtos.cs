@@ -32,6 +32,14 @@ public sealed class UniverseBatchAcceptRequest
     [JsonPropertyName("work_ids")] public List<Guid> WorkIds { get; init; } = [];
 }
 
+public sealed class UniverseBatchAcceptResult
+{
+    [JsonPropertyName("accepted_count")] public int AcceptedCount { get; init; }
+    [JsonPropertyName("missing_candidate_ids")] public List<Guid> MissingCandidateIds { get; init; } = [];
+    [JsonPropertyName("failed_ids")] public List<Guid> FailedIds { get; init; } = [];
+    [JsonPropertyName("errors")] public List<string> Errors { get; init; } = [];
+}
+
 public sealed class UniverseManualAssignRequest
 {
     [JsonPropertyName("work_id")] public Guid WorkId { get; init; }

@@ -32,9 +32,9 @@
     else if (_metadata is not null)
     {
         @* -- Tap zones --------------------------------------------------- *@
-        <div class="reader-tap-zone left" @onclick="@(() => HandleTapZone("left"))"></div>
-        <div class="reader-tap-zone center" @onclick="@(() => HandleTapZone("center"))"></div>
-        <div class="reader-tap-zone right" @onclick="@(() => HandleTapZone("right"))"></div>
+        <AppNativeButton Type="button" Class="reader-tap-zone left" AriaLabel="Previous page" OnClick="@(() => HandleTapZone("left"))" />
+        <AppNativeButton Type="button" Class="reader-tap-zone center" AriaLabel="Toggle reading controls" OnClick="@(() => HandleTapZone("center"))" />
+        <AppNativeButton Type="button" Class="reader-tap-zone right" AriaLabel="Next page" OnClick="@(() => HandleTapZone("right"))" />
 
         @* -- Content viewport -------------------------------------------- *@
         <div class="reader-content-viewport">
@@ -82,7 +82,7 @@
         </div>
 
         @* -- TOC drawer (left) ------------------------------------------- *@
-        <div class="reader-drawer-overlay @(_tocOpen ? "open" : "")" @onclick="CloseToc"></div>
+        <div class="reader-drawer-overlay @(_tocOpen ? "open" : "")" role="presentation" aria-hidden="true" @onclick="CloseToc"></div>
         <div class="reader-drawer left @(_tocOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Contents</h3>
@@ -95,18 +95,20 @@
                 {
                     @foreach (var entry in FlattenToc(_toc))
                     {
-                        <div class="reader-toc-item @(entry.ChapterIndex == _currentChapterIndex ? "active" : "") @($"indent-{entry.Depth}")"
-                             @key="@($"{entry.ChapterIndex}-{entry.Depth}-{entry.Title}")"
-                             @onclick="@(() => NavigateToChapter(entry.ChapterIndex))">
+                        <AppNativeButton Type="button"
+                                         Class='@($"reader-toc-item {(entry.ChapterIndex == _currentChapterIndex ? "active" : "")} indent-{entry.Depth}")'
+                                         @key="@($"{entry.ChapterIndex}-{entry.Depth}-{entry.Title}")"
+                                         aria-current="@(entry.ChapterIndex == _currentChapterIndex ? "location" : null)"
+                                         OnClick="@(() => NavigateToChapter(entry.ChapterIndex))">
                             @entry.Title
-                        </div>
+                        </AppNativeButton>
                     }
                 }
             </div>
         </div>
 
         @* -- Search drawer (right) --------------------------------------- *@
-        <div class="reader-drawer-overlay @(_searchOpen ? "open" : "")" @onclick="CloseSearch"></div>
+        <div class="reader-drawer-overlay @(_searchOpen ? "open" : "")" role="presentation" aria-hidden="true" @onclick="CloseSearch"></div>
         <div class="reader-drawer right @(_searchOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Search</h3>
@@ -122,10 +124,10 @@
                 {
                     @foreach (var hit in _searchResults)
                     {
-                        <div class="reader-search-result" @key="@($"{hit.ChapterIndex}-{hit.ContextSnippet}")" @onclick="@(() => NavigateToChapter(hit.ChapterIndex))">
+                        <AppNativeButton Type="button" Class="reader-search-result" @key="@($"{hit.ChapterIndex}-{hit.ContextSnippet}")" OnClick="@(() => NavigateToChapter(hit.ChapterIndex))">
                             <div class="reader-search-chapter">Chapter @(hit.ChapterIndex + 1)  -  @hit.ChapterTitle</div>
                             <div class="reader-search-snippet">@((MarkupString)HighlightSnippet(hit.ContextSnippet, _searchQuery))</div>
-                        </div>
+                        </AppNativeButton>
                     }
                 }
                 else if (!string.IsNullOrEmpty(_searchQuery) && _searchQuery.Length >= 2)
@@ -139,7 +141,7 @@
         </div>
 
         @* -- Bookmarks drawer (right) ------------------------------------ *@
-        <div class="reader-drawer-overlay @(_bookmarksOpen ? "open" : "")" @onclick="CloseBookmarks"></div>
+        <div class="reader-drawer-overlay @(_bookmarksOpen ? "open" : "")" role="presentation" aria-hidden="true" @onclick="CloseBookmarks"></div>
         <div class="reader-drawer right @(_bookmarksOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Bookmarks</h3>
@@ -152,15 +154,16 @@
                 {
                     @foreach (var bm in _bookmarks)
                     {
-                        <div class="reader-list-item" @key="bm.Id" @onclick="@(() => NavigateToChapter(bm.ChapterIndex))">
-                            <MudIcon Icon="@Icons.Material.Filled.BookmarkBorder"
-                                     Size="Size.Small" class="reader-list-icon tl-u-color-reader-accent"
-                                      />
-                            <div class="reader-list-content">
-                                <div class="reader-list-title">@(bm.Label ?? $"Chapter {bm.ChapterIndex + 1}")</div>
-                                <div class="reader-list-detail">@bm.CreatedAt.ToString("MMM d, yyyy")</div>
-                            </div>
-                            <AppNativeButton Class="reader-list-delete" StopPropagation="true" OnClick="@(() => DeleteBookmark(bm.Id))">
+                        <div class="reader-list-item" @key="bm.Id">
+                            <AppNativeButton Type="button" Class="reader-list-open" OnClick="@(() => NavigateToChapter(bm.ChapterIndex))">
+                                <MudIcon Icon="@Icons.Material.Filled.BookmarkBorder"
+                                         Size="Size.Small" class="reader-list-icon tl-u-color-reader-accent" />
+                                <span class="reader-list-content">
+                                    <span class="reader-list-title">@(bm.Label ?? $"Chapter {bm.ChapterIndex + 1}")</span>
+                                    <span class="reader-list-detail">@bm.CreatedAt.ToString("MMM d, yyyy")</span>
+                                </span>
+                            </AppNativeButton>
+                            <AppNativeButton Type="button" Class="reader-list-delete" AriaLabel="Delete bookmark" OnClick="@(() => DeleteBookmark(bm.Id))">
                                 <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
                             </AppNativeButton>
                         </div>
@@ -185,7 +188,7 @@
         </div>
 
         @* -- Settings drawer (right) ------------------------------------- *@
-        <div class="reader-drawer-overlay @(_settingsOpen ? "open" : "")" @onclick="CloseSettings"></div>
+        <div class="reader-drawer-overlay @(_settingsOpen ? "open" : "")" role="presentation" aria-hidden="true" @onclick="CloseSettings"></div>
         <div class="reader-drawer right @(_settingsOpen ? "open" : "")">
             <div class="reader-drawer-header">
                 <h3>Reading Settings</h3>

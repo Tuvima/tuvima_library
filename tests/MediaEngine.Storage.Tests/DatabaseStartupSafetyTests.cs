@@ -1,6 +1,7 @@
 using System.Data;
 using System.Threading.Tasks;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage;
 using Microsoft.Data.Sqlite;
@@ -142,12 +143,102 @@ public sealed class DatabaseStartupSafetyTests
             ("entity_field_changes", "id"),
             ("entity_field_changes", "event_id"),
             ("entity_field_changes", "entity_id"),
+            ("alignment_jobs", "id"),
+            ("alignment_jobs", "ebook_asset_id"),
+            ("alignment_jobs", "audiobook_asset_id"),
+            ("api_keys", "id"),
+            ("audio_fingerprints", "asset_id"),
+            ("collection_items", "id"),
+            ("collection_items", "collection_id"),
+            ("collection_items", "work_id"),
+            ("collection_placements", "id"),
+            ("collection_placements", "collection_id"),
+            ("collection_relationships", "id"),
+            ("collection_relationships", "collection_id"),
+            ("collections", "universe_id"),
+            ("collections", "parent_collection_id"),
+            ("collections", "profile_id"),
+            ("deferred_enrichment_queue", "id"),
+            ("deferred_enrichment_queue", "entity_id"),
+            ("editions", "work_id"),
+            ("encode_jobs", "id"),
+            ("encode_jobs", "asset_id"),
+            ("entity_relationships", "id"),
+            ("fictional_entities", "id"),
+            ("fictional_entity_work_links", "entity_id"),
+            ("plugin_lore_sources", "id"),
+            ("plugin_lore_entities", "id"),
+            ("plugin_lore_entities", "source_id"),
+            ("plugin_lore_relationships", "id"),
+            ("plugin_lore_relationships", "source_id"),
+            ("media_assets", "edition_id"),
+            ("offline_variants", "id"),
+            ("offline_variants", "asset_id"),
+            ("playback_inspection_cache", "asset_id"),
+            ("player_sessions", "profile_id"),
+            ("player_sessions", "session_id"),
+            ("player_sessions", "current_queue_item_id"),
+            ("player_queue_items", "id"),
+            ("player_queue_items", "profile_id"),
+            ("player_queue_items", "work_id"),
+            ("player_queue_items", "asset_id"),
+            ("player_queue_items", "collection_id"),
+            ("audiobook_listen_active_segments", "profile_id"),
+            ("audiobook_listen_active_segments", "work_id"),
+            ("audiobook_listen_active_segments", "asset_id"),
+            ("audiobook_listen_active_segments", "queue_item_id"),
+            ("audiobook_listen_history", "id"),
+            ("audiobook_listen_history", "profile_id"),
+            ("audiobook_listen_history", "work_id"),
+            ("audiobook_listen_history", "asset_id"),
+            ("audiobook_bookmarks", "id"),
+            ("audiobook_bookmarks", "profile_id"),
+            ("audiobook_bookmarks", "work_id"),
+            ("audiobook_bookmarks", "asset_id"),
+            ("audiobook_chapter_title_overrides", "work_id"),
+            ("audiobook_chapter_title_overrides", "asset_id"),
+            ("playback_segments", "id"),
+            ("playback_segments", "asset_id"),
+            ("profile_external_logins", "id"),
+            ("profile_external_logins", "profile_id"),
+            ("reader_bookmarks", "id"),
+            ("reader_bookmarks", "asset_id"),
+            ("reader_highlights", "id"),
+            ("reader_highlights", "asset_id"),
+            ("reader_statistics", "id"),
+            ("reader_statistics", "asset_id"),
+            ("retail_match_candidates", "provider_id"),
+            ("search_results_cache", "entity_id"),
+            ("series_manifest_hydrations", "collection_id"),
+            ("series_manifest_items", "id"),
+            ("series_manifest_items", "collection_id"),
+            ("series_manifest_items", "linked_work_id"),
+            ("text_tracks", "id"),
+            ("text_tracks", "asset_id"),
+            ("transaction_log", "entity_id"),
+            ("user_playback_settings", "profile_id"),
+            ("user_states", "user_id"),
+            ("user_states", "asset_id"),
+            ("user_taste_profiles", "user_id"),
+            ("works", "collection_id"),
+            ("works", "parent_work_id"),
         ];
 
         foreach (var (table, column) in internalGuidColumns)
         {
             Assert.Equal("BLOB", ColumnType(conn, table, column));
         }
+
+        var expectedGuidColumns = internalGuidColumns
+            .Select(column => $"{column.Table}.{column.Column}")
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+        var actualGuidColumns = DeclaredBlobColumns(conn)
+            .Where(value => value != "audio_fingerprints.fingerprint")
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expectedGuidColumns, actualGuidColumns);
 
         Assert.Equal("TEXT", ColumnType(conn, "works", "wikidata_qid"));
         Assert.Equal("TEXT", ColumnType(conn, "media_assets", "content_hash"));
@@ -185,6 +276,50 @@ public sealed class DatabaseStartupSafetyTests
         Assert.Equal(1, Convert.ToInt32(Scalar(conn, "SELECT COUNT(*) FROM canonical_values;")));
         Assert.Equal("Dune", Scalar(conn, "SELECT value FROM canonical_values WHERE key = 'title';"));
         Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM canonical_values WHERE key = 'author';"));
+    }
+
+    [Fact]
+    public async Task CanonicalValueArrayRepository_RejectsScalarAndMalformedEntriesBeforeWriting()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        var repo = new CanonicalValueArrayRepository(fixture.Database);
+        var entityId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => repo.SetValuesAsync(
+            entityId,
+            MetadataFieldConstants.Title,
+            [new CanonicalArrayEntry { Ordinal = 0, Value = "Dune" }]));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => repo.SetValuesAsync(
+            entityId,
+            MetadataFieldConstants.Genre,
+            [new CanonicalArrayEntry { Ordinal = -1, Value = "Science fiction" }]));
+        await Assert.ThrowsAsync<ArgumentException>(() => repo.SetValuesAsync(
+            entityId,
+            MetadataFieldConstants.Genre,
+            [
+                new CanonicalArrayEntry { Ordinal = 0, Value = "Science fiction" },
+                new CanonicalArrayEntry { Ordinal = 0, Value = "Space opera" },
+            ]));
+        await Assert.ThrowsAsync<ArgumentException>(() => repo.SetValuesAsync(
+            entityId,
+            MetadataFieldConstants.Genre,
+            [new CanonicalArrayEntry { Ordinal = 0, Value = " " }]));
+
+        using var conn = fixture.Database.CreateConnection();
+        Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM canonical_value_arrays;"));
+    }
+
+    [Fact]
+    public void MetadataFieldConstants_ExposeAnImmutableMultiValueCatalog()
+    {
+        var property = typeof(MetadataFieldConstants).GetProperty(nameof(MetadataFieldConstants.MultiValuedKeys));
+
+        Assert.NotNull(property);
+        Assert.Equal(typeof(IReadOnlySet<string>), property.PropertyType);
+        Assert.True(MetadataFieldConstants.MultiValuedKeys.Contains("GENRE"));
     }
 
     [Fact]
@@ -389,6 +524,40 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         throw new InvalidOperationException($"Column {table}.{column} was not found.");
+    }
+
+    private static IReadOnlyList<string> DeclaredBlobColumns(SqliteConnection conn)
+    {
+        var tables = new List<string>();
+        using (var tableCmd = conn.CreateCommand())
+        {
+            tableCmd.CommandText = """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table'
+                  AND name NOT LIKE 'sqlite_%'
+                  AND name NOT LIKE 'search_index_%'
+                ORDER BY name;
+                """;
+            using var tableReader = tableCmd.ExecuteReader();
+            while (tableReader.Read())
+                tables.Add(tableReader.GetString(0));
+        }
+
+        var result = new List<string>();
+        foreach (var table in tables)
+        {
+            using var columnCmd = conn.CreateCommand();
+            columnCmd.CommandText = $"PRAGMA table_info([{table}]);";
+            using var columnReader = columnCmd.ExecuteReader();
+            while (columnReader.Read())
+            {
+                if (string.Equals(columnReader.GetString(2), "BLOB", StringComparison.OrdinalIgnoreCase))
+                    result.Add($"{table}.{columnReader.GetString(1)}");
+            }
+        }
+
+        return result;
     }
 
     private static string FindRepoRoot()

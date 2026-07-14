@@ -39,11 +39,9 @@ public sealed class Wave6HardeningGuardrailTests
     [Fact]
     public void LargeInlineStyleBlocks_AreMovedFromSelectedComponents()
     {
-        var drawer = Read("src/MediaEngine.Web/Components/Library/LibraryDetailDrawer.razor");
         var popup = Read("src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor");
         var popupCss = Path.Combine(RepoRoot, "src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor.css");
 
-        Assert.DoesNotContain("<style>", drawer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<style>", popup, StringComparison.OrdinalIgnoreCase);
         Assert.True(File.Exists(popupCss));
     }

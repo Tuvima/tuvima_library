@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using MediaEngine.Contracts.Display;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
@@ -313,11 +311,8 @@ public partial class ListenPage
         get
         {
             var shelves = _listenHubPage.Shelves
-                .Where(shelf => !IsListenCollectionsShelf(shelf))
-                .Select((shelf, index) => MediaHubShelfViewModel.FromShelf(
-                    HubShelfKey("listen", shelf, index),
-                    shelf,
-                    IsContinueShelf(shelf)))
+                .Where(shelf => shelf.Kind != MediaTileShelfKind.Collections)
+                .Select(shelf => MediaHubShelfViewModel.FromShelf(shelf))
                 .ToList();
 
             if (HomePlaylistTiles.Count > 0)
@@ -335,18 +330,6 @@ public partial class ListenPage
             return shelves;
         }
     }
-
-    private static bool IsListenCollectionsShelf(MediaTileShelfViewModel shelf) =>
-        shelf.SeeAllRoute?.Equals("/collections", StringComparison.OrdinalIgnoreCase) == true
-        || shelf.Title.Contains("Collections", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsContinueShelf(MediaTileShelfViewModel shelf) =>
-        shelf.Title.Contains("Continue", StringComparison.OrdinalIgnoreCase);
-
-    private static string HubShelfKey(string prefix, MediaTileShelfViewModel shelf, int index) =>
-        string.IsNullOrWhiteSpace(shelf.Title)
-            ? $"{prefix}-shelf-{index}"
-            : $"{prefix}-{shelf.Title.ToLowerInvariant().Replace(' ', '-')}";
 
     private ManagedCollectionViewModel? ActivePlaylistCollection => CollectionId.HasValue
         ? PlaylistCollections.FirstOrDefault(collection => collection.Id == CollectionId.Value)
@@ -384,60 +367,30 @@ public partial class ListenPage
             ? null
             : $"{ActivePlaylistCollection.ItemCount} items";
 
-    private IReadOnlyList<ListenNavItem> QuickAccessItems =>
-    [
-        new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Favorite Songs", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder, _favoriteWorkIds.Count.ToString(CultureInfo.InvariantCulture)),
-    ];
-
-    private IReadOnlyList<ListenNavItem> ListenLibraryItems =>
+    private IReadOnlyList<ListenNavigationItem> ListenLibraryItems =>
     [
         new("Home", "/listen", Icons.Material.Outlined.Home, null),
         new("Explore", "/listen/music", Icons.Material.Outlined.Explore, null),
     ];
 
-    private IReadOnlyList<ListenNavItem> ListenFormatItems =>
+    private IReadOnlyList<ListenNavigationItem> ListenFormatItems =>
     [
-        new("All Audio", "/listen", Icons.Material.Outlined.LibraryMusic, (_musicWorks.Count + _audiobookWorks.Count).ToString(CultureInfo.InvariantCulture)),
         new("Audiobooks", AudiobooksRoute, Icons.Material.Outlined.Headphones, _audiobookWorks.Count.ToString(CultureInfo.InvariantCulture)),
         new("Music", MusicHomeRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
     ];
 
-    private IReadOnlyList<ListenNavItem> ListenYourLibraryItems =>
+    private IReadOnlyList<ListenNavigationItem> ListenYourLibraryItems =>
     [
         new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
         new("Albums", AlbumsRoute, Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
         new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
         new("Songs", SongsRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Genres", SongsRoute, Icons.Material.Outlined.Category, SongGenres.Count.ToString(CultureInfo.InvariantCulture)),
     ];
 
-    private IReadOnlyList<ListenNavItem> ListenPinnedPlaylistItems =>
+    private IReadOnlyList<ListenNavigationItem> ListenPinnedPlaylistItems =>
     [
         new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
-        new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule),
         new("All Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic),
-    ];
-
-    private IReadOnlyList<ListenNavItem> MusicLibraryItems
-    {
-        get
-        {
-            var items = new List<ListenNavItem>
-            {
-                new("Home", MusicHomeRoute, Icons.Material.Outlined.Home, null),
-                new("Albums", AlbumsRoute, Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
-                new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
-                new("Songs", SongsRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
-            };
-
-            return items;
-        }
-    }
-
-    private IReadOnlyList<ListenNavItem> AudiobookLibraryItems =>
-    [
-        new("All Audiobooks", AudiobooksRoute, Icons.Material.Outlined.Headphones, _audiobookWorks.Count.ToString(CultureInfo.InvariantCulture)),
     ];
 
     protected override async Task OnParametersSetAsync()
@@ -460,27 +413,6 @@ public partial class ListenPage
         if (_uiStateLoaded && !_loading && !_redirecting && !IsDefaultEntry)
         {
             await PersistUiStateAsync();
-        }
-    }
-
-    private IReadOnlyList<ListenNavItem> PlaylistNavItems
-    {
-        get
-        {
-            var items = new List<ListenNavItem>
-            {
-                new("All Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic),
-            };
-
-            items.AddRange(PlaylistCollections.Select(collection =>
-                new ListenNavItem(
-                    collection.Name,
-                    $"/listen/music/playlists/{collection.Id}",
-                    PlaylistIconFor(collection),
-                    collection.ItemCount.ToString(CultureInfo.InvariantCulture),
-                    true)));
-
-            return items;
         }
     }
 
@@ -515,7 +447,7 @@ public partial class ListenPage
             _activeProfile = profile;
             _activeProfileId = profile?.Id;
             _playlistNavigationConfig = profile?.NavigationConfig;
-            _playlistOrder = ReadPlaylistOrder(profile?.NavigationConfig);
+            _playlistOrder = ListenPlaylistOrderState.Read(profile?.NavigationConfig);
 
             var shouldLoadListenHub = IsListenHub;
             var shouldLoadMusicBrowseData = IsMusicMode && !shouldLoadListenHub;
@@ -766,17 +698,10 @@ public partial class ListenPage
     private async Task MovePlaylistAsync(Guid playlistId, int direction)
     {
         var orderedIds = PlaylistCollections.Select(playlist => playlist.Id).ToList();
-        var index = orderedIds.IndexOf(playlistId);
-        if (index < 0)
+        if (!ListenPlaylistOrderState.TryMoveByOffset(orderedIds, playlistId, direction, out var updatedOrder))
             return;
 
-        var targetIndex = Math.Clamp(index + direction, 0, orderedIds.Count - 1);
-        if (targetIndex == index)
-            return;
-
-        orderedIds.RemoveAt(index);
-        orderedIds.Insert(targetIndex, playlistId);
-        _playlistOrder = orderedIds;
+        _playlistOrder = updatedOrder;
         await SavePlaylistOrderAsync();
     }
 
@@ -796,18 +721,14 @@ public partial class ListenPage
             return;
 
         var orderedIds = PlaylistCollections.Select(playlist => playlist.Id).ToList();
-        var sourceIndex = orderedIds.IndexOf(_draggingPlaylistId.Value);
-        var targetIndex = orderedIds.IndexOf(targetPlaylistId);
-        if (sourceIndex < 0 || targetIndex < 0)
+        if (!ListenPlaylistOrderState.TryMoveBefore(
+                orderedIds,
+                _draggingPlaylistId.Value,
+                targetPlaylistId,
+                out var updatedOrder))
             return;
 
-        var movedId = orderedIds[sourceIndex];
-        orderedIds.RemoveAt(sourceIndex);
-        if (sourceIndex < targetIndex)
-            targetIndex--;
-
-        orderedIds.Insert(targetIndex, movedId);
-        _playlistOrder = orderedIds;
+        _playlistOrder = updatedOrder;
         _draggingPlaylistId = null;
         await SavePlaylistOrderAsync();
     }
@@ -846,9 +767,7 @@ public partial class ListenPage
         if (_activeProfile is null)
             return;
 
-        var root = ParseNavigationConfig(_playlistNavigationConfig);
-        root["listenPlaylistOrder"] = new JsonArray(_playlistOrder.Select(id => JsonValue.Create(id.ToString("D"))).ToArray<JsonNode?>());
-        var updatedConfig = root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+        var updatedConfig = ListenPlaylistOrderState.Write(_playlistNavigationConfig, _playlistOrder);
         var saved = await Orchestrator.UpdateProfileAsync(
             _activeProfile.Id,
             _activeProfile.DisplayName,
@@ -864,36 +783,6 @@ public partial class ListenPage
         else
         {
             Snackbar.Add("Playlist order could not be saved.", Severity.Warning);
-        }
-    }
-
-    private static List<Guid> ReadPlaylistOrder(string? navigationConfig)
-    {
-        try
-        {
-            var root = JsonNode.Parse(navigationConfig ?? "{}") as JsonObject;
-            var order = root?["listenPlaylistOrder"] as JsonArray;
-            return order?
-                .Select(node => Guid.TryParse(node?.GetValue<string>(), out var id) ? id : Guid.Empty)
-                .Where(id => id != Guid.Empty)
-                .Distinct()
-                .ToList() ?? [];
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    private static JsonObject ParseNavigationConfig(string? navigationConfig)
-    {
-        try
-        {
-            return JsonNode.Parse(navigationConfig ?? "{}") as JsonObject ?? [];
-        }
-        catch
-        {
-            return [];
         }
     }
 
@@ -3230,7 +3119,6 @@ public partial class ListenPage
         return new Guid(bytes);
     }
 
-    private sealed record ListenNavItem(string Label, string Route, string Icon, string? Meta = null, bool IsChild = false);
     private sealed record ListenPlaylistTrackRow(CollectionItemViewModel? Item, WorkViewModel Work, int Index);
     private sealed record PlaylistColumnDefinition(string Key, string Label);
     private sealed record AudiobookDisplayItem(DisplayCardDto? Card, WorkViewModel? Work);

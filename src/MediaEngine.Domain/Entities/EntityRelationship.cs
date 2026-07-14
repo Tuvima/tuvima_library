@@ -14,7 +14,7 @@ namespace MediaEngine.Domain.Entities;
 /// </summary>
 public sealed class EntityRelationship
 {
-    /// <summary>Stable row identifier (UUID → TEXT in SQLite).</summary>
+    /// <summary>Stable row identifier (UUID stored as a 16-byte BLOB in SQLite).</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>

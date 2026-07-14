@@ -264,10 +264,7 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("if (IsWatchEntity(entityType))", source);
-        Assert.Contains("Key = \"watch-party\"", source);
-        Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", source);
-        Assert.Contains("IsStub = true", source);
+        Assert.DoesNotContain("Key = \"watch-party\"", source);
         Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", source);
         Assert.Contains("Key = \"my-list\"", source);
         Assert.Contains("Label = \"Add to Collection\"", source);
@@ -277,7 +274,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Key = \"reaction-like\"", source);
         Assert.Contains("Key = \"reaction-love\"", source);
         Assert.Contains("return actions;", source);
-        Assert.DoesNotContain("&& SupportsWatchParty(entityType)", source);
+        Assert.DoesNotContain("SupportsWatchParty", source);
     }
 
     [Fact]
@@ -328,7 +325,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("public long? Ordinal { get; init; }", source);
         Assert.Contains("public long IsCatalogOnly { get; init; }", source);
         Assert.Contains("private sealed class NavigatorValueRow", source);
-        Assert.Contains("CAST(MIN(ma.id) AS TEXT) AS AssetId", source);
+        Assert.Contains("MIN(ma.id) AS AssetId", source);
+        Assert.DoesNotContain("CAST(MIN(ma.id) AS TEXT) AS AssetId", source);
     }
 
     [Fact]

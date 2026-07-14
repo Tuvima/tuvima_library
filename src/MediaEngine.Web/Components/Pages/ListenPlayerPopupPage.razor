@@ -134,7 +134,7 @@
 
         @if (IsAudiobookMode && _activeSheet is not null)
         {
-            <div class="listen-popup-sheet__backdrop" @onclick="CloseSheet"></div>
+            <div class="listen-popup-sheet__backdrop" role="presentation" aria-hidden="true" @onclick="CloseSheet"></div>
             <PlaybackToolSheet Title="@SheetTitle"
                                Subtitle="@SheetSubtitle"
                                Surface="popup"
@@ -248,8 +248,8 @@
 
         @if (_showOverflowMenu)
         {
-            <div class="listen-popup-menu__backdrop" @onclick="CloseOverflowMenu"></div>
-            <section class="listen-popup-menu" aria-label="More options" aria-modal="true">
+            <div class="listen-popup-menu__backdrop" role="presentation" aria-hidden="true" @onclick="CloseOverflowMenu"></div>
+            <section class="listen-popup-menu" role="dialog" aria-label="More options" aria-modal="true">
                 <div class="listen-popup-menu__grabber"></div>
                 <AppNativeButton Type="button" Class="listen-popup-menu__row" OnClick="CloseOverflowMenu" AriaLabel="Title details" title="Title details">
                     <MudIcon Icon="@Icons.Material.Outlined.Article" Class="tl-u-font-size-26px" />

@@ -16,9 +16,10 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void IngestionTab_UsesCentralLiveDashboardStateAndComponents()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor"));
-        var dashboardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor"));
+        var dashboardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor"))
+                              + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor.cs"));
         var activitySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionActivityList.razor"));
-        var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
+        var stateSource = ReadIngestionDashboardStateSource();
         var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
@@ -855,7 +856,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         var workerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\QuickHydrationWorker.cs"));
         var progressSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\BatchProgressService.cs"));
         var normalizedProgressSource = progressSource.Replace("\r\n", "\n", StringComparison.Ordinal);
-        var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
+        var stateSource = ReadIngestionDashboardStateSource();
         var operationsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\IngestionOperationsStatusService.cs"));
 
         Assert.Contains("EmitBatchProgressAsync(job.IngestionRunId", workerSource, StringComparison.Ordinal);
@@ -1474,6 +1475,10 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(40, scanning.RingPercent);
     }
 
+    private static string ReadIngestionDashboardStateSource() =>
+        File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"))
+        + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.Projection.cs"));
+
     private static string GetRepoFilePath(string relativePath, [CallerFilePath] string sourceFile = "")
     {
         var repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", ".."));
@@ -1811,7 +1816,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
     public void ActivityList_DoesNotLimitCurrentWorkToThreeRandomRows()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionActivityList.razor"));
-        var stateSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"));
+        var stateSource = ReadIngestionDashboardStateSource();
 
         Assert.DoesNotContain("CurrentRows.Take(3)", source, StringComparison.Ordinal);
         Assert.DoesNotContain(".Where(activity => !string.IsNullOrWhiteSpace(activity.Message))\r\n            .Take(3)", stateSource, StringComparison.Ordinal);
@@ -2715,6 +2720,10 @@ public sealed class IngestionDashboardRenderTests : TestContext
             chip.TextContent.Contains(count, StringComparison.Ordinal)
             && chip.TextContent.Contains(label, StringComparison.OrdinalIgnoreCase));
     }
+
+    private static string ReadIngestionDashboardStateSource() =>
+        File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.cs"))
+        + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IngestionLiveDashboardState.Projection.cs"));
 
     private static string GetRepoFilePath(string relativePath, [CallerFilePath] string sourceFile = "")
     {

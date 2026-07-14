@@ -215,7 +215,7 @@ public sealed class PlaybackCapabilitiesService
             WHERE ma.id = @assetId
             LIMIT 1;
             """,
-            new { assetId = asset.Id.ToString() });
+            new { assetId = asset.Id });
 
         if (!string.IsNullOrWhiteSpace(mediaType))
         {

@@ -75,6 +75,7 @@ else
                         <div class="settings-plugin-list-item @(selected ? "settings-plugin-list-item--selected" : null)"
                              role="button"
                              tabindex="0"
+                             @onkeydown="@(args => HandlePluginKeyDown(args, plugin.Id))"
                              @onclick="@(() => SelectPlugin(plugin.Id))">
                             <span class="settings-plugin-list-item__icon">
                                 <MudIcon Icon="@PluginIcon(plugin)" Size="Size.Small" />
@@ -449,6 +450,12 @@ else
     {
         _selectedPluginId = pluginId;
         _deletePluginId = null;
+    }
+
+    private void HandlePluginKeyDown(KeyboardEventArgs args, string pluginId)
+    {
+        if (args.Key is "Enter" or " ")
+            SelectPlugin(pluginId);
     }
 
     private async Task SetEnabledAsync(PluginViewModel plugin, bool enabled)

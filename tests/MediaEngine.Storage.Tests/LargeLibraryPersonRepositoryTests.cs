@@ -44,7 +44,10 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
         var assetIds = SeedWorksAssetsAndPeople(40);
         var repo = new PersonRepository(_db);
 
-        var people = await repo.GetByMediaAssetsAsync(assetIds);
+        var requestedIds = assetIds
+            .Concat(Enumerable.Range(0, 1_100).Select(_ => Guid.NewGuid()))
+            .ToList();
+        var people = await repo.GetByMediaAssetsAsync(requestedIds);
 
         Assert.Equal(40, people.Count);
         Assert.Contains(people, person => person.Name == "Contributor 000");
@@ -84,6 +87,71 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
 
         Assert.Equal(0, personCount);
         Assert.Equal(0, roleCount);
+    }
+
+    [Fact]
+    public async Task GetCharacterPerformersAsync_UsesTypedBlobIdsAndReturnsAllCreditsInOneRead()
+    {
+        var firstCharacterId = Guid.NewGuid();
+        var secondCharacterId = Guid.NewGuid();
+        var performerId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                INSERT INTO fictional_entities
+                    (id, wikidata_qid, label, entity_sub_type, created_at)
+                VALUES
+                    ($firstCharacterId, 'QCHAR1', 'First Character', 'Character', $now),
+                    ($secondCharacterId, 'QCHAR2', 'Second Character', 'Character', $now);
+                INSERT INTO persons
+                    (id, name, headshot_url, local_headshot_path, created_at)
+                VALUES
+                    ($performerId, 'Sample Performer', 'https://example.test/headshot.jpg', 'people/sample.jpg', $now);
+                INSERT INTO character_performer_links
+                    (person_id, fictional_entity_id, work_qid)
+                VALUES
+                    ($performerId, $firstCharacterId, 'QWORK1'),
+                    ($performerId, $secondCharacterId, 'QWORK2');
+                """;
+            AddGuid(cmd, "$firstCharacterId", firstCharacterId);
+            AddGuid(cmd, "$secondCharacterId", secondCharacterId);
+            AddGuid(cmd, "$performerId", performerId);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var repo = new PersonRepository(_db);
+        var requestedIds = Enumerable.Range(0, 1_100)
+            .Select(_ => Guid.NewGuid())
+            .Append(firstCharacterId)
+            .Append(secondCharacterId)
+            .Append(firstCharacterId)
+            .Append(Guid.Empty)
+            .ToList();
+        var credits = await repo.GetCharacterPerformersAsync(requestedIds);
+
+        Assert.Equal(2, credits.Count);
+        Assert.All(credits, credit => Assert.Equal(performerId, credit.PersonId));
+        Assert.Contains(credits, credit => credit.FictionalEntityId == firstCharacterId && credit.WorkQid == "QWORK1");
+        Assert.Contains(credits, credit => credit.FictionalEntityId == secondCharacterId && credit.WorkQid == "QWORK2");
+        Assert.All(credits, credit => Assert.Equal("Sample Performer", credit.PerformerName));
+        Assert.All(credits, credit => Assert.Equal("people/sample.jpg", credit.LocalHeadshotPath));
+    }
+
+    [Fact]
+    public async Task GetPresenceBatchAsync_ChunksLargeIdSets()
+    {
+        var repo = new PersonRepository(_db);
+        var personIds = Enumerable.Range(0, 1_100)
+            .Select(_ => Guid.NewGuid())
+            .ToList();
+
+        var presence = await repo.GetPresenceBatchAsync(personIds);
+
+        Assert.Empty(presence);
     }
 
     private void SeedPeople(int count)
@@ -140,4 +208,7 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
 
         return assetIds;
     }
+
+    private static void AddGuid(SqliteCommand command, string name, Guid value) =>
+        command.Parameters.Add(name, SqliteType.Blob).Value = GuidSql.ToBlob(value);
 }

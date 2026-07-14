@@ -16,11 +16,6 @@ public sealed class ThemeService
     /// </summary>
     public MudTheme Theme { get; } = BuildTheme();
 
-    /// <summary>
-    /// Legacy API retained so existing callers compile. No-op: accent is fixed.
-    /// </summary>
-    public void SetCollectionAccent(string hexColor) { }
-
     private static MudTheme BuildTheme()
     {
         const string primaryHex = "#8B5CF6";

@@ -1,7 +1,9 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Services;
 
@@ -129,7 +131,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
         // is older than retentionDays.
         var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays).ToString("o");
 
-        var expiredAssets = new List<(string AssetId, string FilePath, string? WorkId, string? CollectionId, string? WorkTitle)>();
+        var expiredAssets = new List<(Guid AssetId, string FilePath, Guid? WorkId, Guid? CollectionId, string? WorkTitle)>();
 
         using (var conn = _db.CreateConnection())
         using (var cmd = conn.CreateCommand())
@@ -154,10 +156,10 @@ public sealed class RejectedFileCleanupService : BackgroundService
             while (reader.Read())
             {
                 expiredAssets.Add((
-                    AssetId:   reader.GetString(0),
+                    AssetId:   GuidSql.FromDb(reader.GetValue(0)),
                     FilePath:  reader.GetString(1),
-                    WorkId:    reader.IsDBNull(2) ? null : reader.GetString(2),
-                    CollectionId:     reader.IsDBNull(3) ? null : reader.GetString(3),
+                    WorkId:    reader.IsDBNull(2) ? null : GuidSql.FromDb(reader.GetValue(2)),
+                    CollectionId: reader.IsDBNull(3) ? null : GuidSql.FromDb(reader.GetValue(3)),
                     WorkTitle: reader.IsDBNull(4) ? null : reader.GetString(4)));
             }
         }
@@ -199,7 +201,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = "DELETE FROM review_queue WHERE entity_id = @assetId";
-                    cmd.Parameters.AddWithValue("@assetId", assetId);
+                    cmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -208,7 +210,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = "DELETE FROM media_assets WHERE id = @assetId";
-                    cmd.Parameters.AddWithValue("@assetId", assetId);
+                    cmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -222,7 +224,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                         WHERE work_id = @workId
                           AND NOT EXISTS (SELECT 1 FROM media_assets ma WHERE ma.edition_id = editions.id)
                         """;
-                    cmd.Parameters.AddWithValue("@workId", workId);
+                    cmd.Parameters.Add("@workId", SqliteType.Blob).Value = GuidSql.ToBlob(workId.Value);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -232,7 +234,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                     using var conn = _db.CreateConnection();
                     using var cmd = conn.CreateCommand();
                     cmd.CommandText = "UPDATE works SET curator_state = NULL, rejected_at = NULL WHERE id = @workId";
-                    cmd.Parameters.AddWithValue("@workId", workId);
+                    cmd.Parameters.Add("@workId", SqliteType.Blob).Value = GuidSql.ToBlob(workId.Value);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -245,7 +247,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                         DELETE FROM works WHERE id = @workId
                           AND NOT EXISTS (SELECT 1 FROM editions WHERE work_id = @workId)
                         """;
-                    cmd.Parameters.AddWithValue("@workId", workId);
+                    cmd.Parameters.Add("@workId", SqliteType.Blob).Value = GuidSql.ToBlob(workId.Value);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -258,7 +260,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                         DELETE FROM collections WHERE id = @collectionId
                           AND NOT EXISTS (SELECT 1 FROM works WHERE collection_id = @collectionId)
                         """;
-                    cmd.Parameters.AddWithValue("@collectionId", collectionId);
+                    cmd.Parameters.Add("@collectionId", SqliteType.Blob).Value = GuidSql.ToBlob(collectionId.Value);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -268,7 +270,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                     OccurredAt  = DateTimeOffset.UtcNow,
                     ActionType  = SystemActionType.AutoPurge,
                     CollectionName     = workTitle,
-                    EntityId    = Guid.TryParse(workId, out var wid) ? wid : Guid.Empty,
+                    EntityId    = workId ?? Guid.Empty,
                     EntityType  = "Work",
                     Detail      = $"Rejected file '{workTitle ?? Path.GetFileName(filePath)}' expired after {retentionDays} days and was permanently deleted.",
                     ChangesJson = $"{{\"asset_id\":\"{assetId}\",\"retention_days\":{retentionDays}}}",

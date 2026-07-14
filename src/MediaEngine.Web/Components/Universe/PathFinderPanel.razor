@@ -11,8 +11,7 @@
 
     @* Slot pair *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
-        <div class="slot @(_startQid is null ? "slot-empty" : "slot-filled")"
-             @onclick="ClearStart">
+        <div class="slot @(_startQid is null ? "slot-empty" : "slot-filled")">
             @if (_startQid is null)
             {
                 <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Class="tl-u-color-hex-555" />
@@ -31,8 +30,7 @@
 
         <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="tl-u-color-hex-555" />
 
-        <div class="slot @(_endQid is null ? "slot-empty" : "slot-filled")"
-             @onclick="ClearEnd">
+        <div class="slot @(_endQid is null ? "slot-empty" : "slot-filled")">
             @if (_endQid is null)
             {
                 <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Class="tl-u-color-hex-555" />
@@ -86,6 +84,10 @@
             var path = _paths[pi];
             var pathIndex = pi;
             <div class="path-trail @(pathIndex == _selectedPath ? "path-trail-selected" : "")"
+                 role="button"
+                 tabindex="0"
+                 aria-pressed="@(pathIndex == _selectedPath ? "true" : "false")"
+                 @onkeydown="@(args => HandlePathKeyDownAsync(args, pathIndex))"
                  @onclick="@(() => SelectPath(pathIndex))">
                 <MudText Typo="Typo.caption"  Class="mb-1 tl-u-color-hex-888">
                     Path @(pathIndex + 1) - @(path.Count - 1) hop(s)
@@ -204,6 +206,11 @@
         _selectedPath = index;
         await AnimatePath(index);
     }
+
+    private Task HandlePathKeyDownAsync(KeyboardEventArgs args, int index) =>
+        args.Key is "Enter" or " "
+            ? SelectPath(index)
+            : Task.CompletedTask;
 
     private async Task AnimatePath(int index)
     {

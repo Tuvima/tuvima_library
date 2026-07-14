@@ -24,7 +24,8 @@ public interface IProfileRepository
 
     /// <summary>
     /// Updates an existing profile's display name, avatar colour, role, and PIN hash.
-    /// Returns <see langword="true"/> if a row was affected.
+    /// Returns <see langword="true"/> if a row was affected. Implementations must
+    /// reject demotion of the seed Owner and demotion of the last Administrator.
     /// </summary>
     Task<bool> UpdateAsync(Profile profile, CancellationToken ct = default);
 

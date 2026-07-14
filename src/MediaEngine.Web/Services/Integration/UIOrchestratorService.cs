@@ -184,28 +184,23 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     /// <summary>Lists all user profiles.</summary>
     public Task<List<ProfileViewModel>> GetProfilesAsync(CancellationToken ct = default)
-        => _api.GetProfilesAsync(ct);
+        => _activeProfileSession.GetProfilesAsync(ct);
 
     /// <summary>
     /// Returns the browser/session-selected active profile, falling back to the seed Owner.
     /// </summary>
-    public async Task<ProfileViewModel?> GetActiveProfileAsync(CancellationToken ct = default)
-    {
-        var profiles = await GetProfilesAsync(ct);
-        return await _activeProfileSession.ResolveAsync(profiles, ct);
-    }
+    public Task<ProfileViewModel?> GetActiveProfileAsync(CancellationToken ct = default) =>
+        _activeProfileSession.GetActiveProfileAsync(ct);
 
     /// <summary>Persists the active browser/session profile and notifies layout consumers.</summary>
     public async Task<ProfileViewModel?> SetActiveProfileAsync(Guid profileId, CancellationToken ct = default)
     {
-        var profiles = await GetProfilesAsync(ct);
-        var profile = profiles.FirstOrDefault(p => p.Id == profileId);
+        var profile = await _activeProfileSession.SetActiveProfileAsync(profileId, ct);
         if (profile is null)
         {
             return null;
         }
 
-        await _activeProfileSession.SetActiveProfileAsync(profileId, ct);
         OnProfileChanged?.Invoke();
         return profile;
     }
@@ -216,6 +211,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         CancellationToken ct = default)
     {
         var result = await _api.CreateProfileAsync(displayName, avatarColor, role, navigationConfig, ct);
+        if (result is not null)
+        {
+            _activeProfileSession.UpsertProfile(result);
+            OnProfileChanged?.Invoke();
+        }
+
         return result is not null;
     }
 
@@ -227,7 +228,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var ok = await _api.UpdateProfileAsync(id, displayName, avatarColor, role, navigationConfig, ct);
         if (ok)
+        {
+            await _activeProfileSession.RefreshProfilesAsync(ct);
             OnProfileChanged?.Invoke();
+        }
         return ok;
     }
 
@@ -240,7 +244,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var profile = await _api.UploadProfileAvatarAsync(id, fileStream, fileName, zoom, ct);
         if (profile is not null)
+        {
+            _activeProfileSession.UpsertProfile(profile);
             OnProfileChanged?.Invoke();
+        }
         return profile;
     }
 
@@ -248,7 +255,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var profile = await _api.RemoveProfileAvatarAsync(id, ct);
         if (profile is not null)
+        {
+            _activeProfileSession.UpsertProfile(profile);
             OnProfileChanged?.Invoke();
+        }
         return profile;
     }
     public async Task<UserPlaybackSettingsDto?> GetPlaybackSettingsAsync(CancellationToken ct = default)
@@ -299,8 +309,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<IReadOnlyList<PluginJobViewModel>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default) =>
         _api.RunPluginSegmentDetectionJobsAsync(ct);
     /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
-    public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
-        => _api.DeleteProfileAsync(id, ct);
+    public async Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
+    {
+        var deleted = await _api.DeleteProfileAsync(id, ct);
+        if (deleted)
+        {
+            await _activeProfileSession.RefreshProfilesAsync(ct);
+            OnProfileChanged?.Invoke();
+        }
+
+        return deleted;
+    }
 
     /// <summary>Lists external SSO/OAuth accounts linked to a profile.</summary>
     public Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(

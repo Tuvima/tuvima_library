@@ -74,13 +74,6 @@
                            Healthy="@(_systemStatus?.IsHealthy == true)">
             <Actions>
                 <SettingsStatusBadge Status="@GetCurrentStatus()" />
-                <AppButton Variant="Variant.Outlined"
-                           Color="Color.Default"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Outlined.RateReview"
-                           Href="/settings/review">
-                    Review @_reviewCount
-                </AppButton>
             </Actions>
         </SidebarPageHeader>
     </Header>

@@ -33,6 +33,7 @@ public sealed class MediaTileComposerService
         var shelves = page.Shelves
             .Select(shelf => new MediaTileShelfViewModel
             {
+                Key = shelf.Key,
                 Title = shelf.Title,
                 Subtitle = shelf.Subtitle,
                 Items = shelf.Items.Select(FromDisplayCard).ToList(),

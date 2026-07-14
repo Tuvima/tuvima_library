@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using MediaEngine.Domain.Aggregates;
 
 namespace MediaEngine.Domain.Entities;
@@ -15,6 +16,14 @@ namespace MediaEngine.Domain.Entities;
 /// </summary>
 public sealed class Universe
 {
+    private readonly List<Collection> _collections = [];
+    private readonly ReadOnlyCollection<Collection> _collectionsView;
+
+    public Universe()
+    {
+        _collectionsView = _collections.AsReadOnly();
+    }
+
     /// <summary>Stable identifier. Stored as <c>collections.universe_id</c> on member Collections.</summary>
     public Guid Id { get; set; }
 
@@ -25,5 +34,23 @@ public sealed class Universe
     /// All Collections that declare this Universe as their parent.
     /// Populated by the application layer; not persisted directly.
     /// </summary>
-    public List<Collection> Collections { get; set; } = [];
+    public IReadOnlyList<Collection> Collections => _collectionsView;
+
+    public void AddCollection(Collection collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+
+        if (collection.Id != Guid.Empty && _collections.Any(existing => existing.Id == collection.Id))
+            return;
+
+        _collections.Add(collection);
+    }
+
+    public void AddCollections(IEnumerable<Collection> collections)
+    {
+        ArgumentNullException.ThrowIfNull(collections);
+
+        foreach (var collection in collections)
+            AddCollection(collection);
+    }
 }

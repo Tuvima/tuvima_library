@@ -717,7 +717,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                        files_failed AS FilesFailed
                 FROM ingestion_batches
                 WHERE id = @batchId;
-                """, new { batchId = batchId.Value.ToString() });
+                """, new { batchId = batchId.Value });
 
             var batchTriggers = conn.Query<(string Trigger, int Count)>("""
                 SELECT rq.trigger AS Trigger, COUNT(*) AS Count
@@ -728,7 +728,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                   AND il.ingestion_run_id = @batchId
                 GROUP BY rq.trigger
                 ORDER BY Count DESC;
-                """, new { batchId = batchId.Value.ToString() })
+                """, new { batchId = batchId.Value })
                 .ToDictionary(r => r.Trigger, r => r.Count);
 
             return Task.FromResult(new LibraryItemLifecycleCounts(

@@ -41,10 +41,14 @@
             {
                 @foreach (var dir in _directories)
                 {
-                    <div class="folder-browser-row" @onclick="@(() => NavigateIntoAsync(dir))">
+                    <AppNativeButton @key="dir"
+                                     Type="button"
+                                     Class="folder-browser-row"
+                                     AriaLabel="@($"Open folder {dir}")"
+                                     OnClick="@(() => NavigateIntoAsync(dir))">
                         <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" />
                         <span>@dir</span>
-                    </div>
+                    </AppNativeButton>
                 }
             }
         </div>

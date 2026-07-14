@@ -253,8 +253,10 @@ internal sealed class TestProcessorLibraryItem : IProcessorRouter
 
 internal sealed class StubConfigurationLoader : IConfigurationLoader
 {
+    public string ConfigDirectoryPath { get; set; } = string.Empty;
     public CoreConfiguration Core { get; set; } = new();
     public LibrariesConfiguration Libraries { get; set; } = new();
+    public WritebackFieldsConfiguration? WritebackFields { get; set; }
 
     public CoreConfiguration LoadCore() => Core;
     public void SaveCore(CoreConfiguration config) { }
@@ -278,7 +280,10 @@ internal sealed class StubConfigurationLoader : IConfigurationLoader
     public ProviderConfiguration? LoadProvider(string name) => null;
     public void SaveProvider(ProviderConfiguration config) { }
     public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
-    public T? LoadConfig<T>(string subdirectory, string name) where T : class => null;
+    public T? LoadConfig<T>(string subdirectory, string name) where T : class =>
+        name.Equals("writeback-fields", StringComparison.OrdinalIgnoreCase)
+            ? WritebackFields as T
+            : null;
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
     public T? LoadAi<T>() where T : class => default;
     public void SaveAi<T>(T settings) where T : class { }

@@ -918,29 +918,13 @@
                                 </div>
                             </section>
 
-                            @if (IsArtworkZoomOpen && ZoomArtworkSlot is not null && ZoomArtworkVariant is not null)
-                            {
-                                <div class="sme-art-lightbox" @onclick="CloseArtworkZoom">
-                                    <div class="sme-art-lightbox-panel" @onclick:stopPropagation="true">
-                                        <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                                                       Size="Size.Small"
-                                                       Class="sme-art-lightbox-close"
-                                                       Color="Color.Inherit"
-                                                       aria-label="Close artwork preview"
-                                                       OnClick="CloseArtworkZoom" />
-                                        <div class="sme-art-lightbox-copy">
-                                            <div class="sme-art-lightbox-title">@ZoomArtworkSlot.Label</div>
-                                            <div class="sme-art-lightbox-text">@BuildArtworkVariantSummary(ZoomArtworkSlot, ZoomArtworkVariant)</div>
-                                        </div>
-                                        <div class="sme-art-lightbox-frame sme-art-lightbox-frame--@ZoomArtworkSlot.PreviewClass">
-                                            @if (!string.IsNullOrWhiteSpace(ZoomArtworkVariant.ImageUrl))
-                                            {
-                                                <img src="@ZoomArtworkVariant.ImageUrl" alt="@ZoomArtworkSlot.Label" class="sme-art-lightbox-image sme-art-lightbox-image--@ZoomArtworkSlot.ImageClass" />
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                            }
+                            <MediaEditorArtworkLightbox IsOpen="@IsArtworkZoomOpen"
+                                                        ImageUrl="@ZoomArtworkVariant?.ImageUrl"
+                                                        Label="@ZoomArtworkSlot?.Label"
+                                                        Summary="@(ZoomArtworkSlot is not null && ZoomArtworkVariant is not null ? BuildArtworkVariantSummary(ZoomArtworkSlot, ZoomArtworkVariant) : null)"
+                                                        PreviewClass="@ZoomArtworkSlot?.PreviewClass"
+                                                        ImageClass="@ZoomArtworkSlot?.ImageClass"
+                                                        OnClose="CloseArtworkZoom" />
                         }
                         else
                         {

@@ -1,0 +1,39 @@
+@if (IsOpen)
+{
+    <div class="sme-art-lightbox"
+         role="dialog"
+         aria-modal="true"
+         aria-label="Artwork preview"
+         @onclick="CloseAsync">
+        <div class="sme-art-lightbox-panel" @onclick:stopPropagation="true">
+            <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                           Size="Size.Small"
+                           Class="sme-art-lightbox-close"
+                           Color="Color.Inherit"
+                           aria-label="Close artwork preview"
+                           OnClick="CloseAsync" />
+            <div class="sme-art-lightbox-copy">
+                <div class="sme-art-lightbox-title">@Label</div>
+                <div class="sme-art-lightbox-text">@Summary</div>
+            </div>
+            <div class="sme-art-lightbox-frame sme-art-lightbox-frame--@PreviewClass">
+                @if (!string.IsNullOrWhiteSpace(ImageUrl))
+                {
+                    <img src="@ImageUrl" alt="@Label" class="sme-art-lightbox-image sme-art-lightbox-image--@ImageClass" />
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Summary { get; set; }
+    [Parameter] public string? PreviewClass { get; set; }
+    [Parameter] public string? ImageClass { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+}

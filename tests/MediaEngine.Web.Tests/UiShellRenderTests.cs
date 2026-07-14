@@ -1,7 +1,9 @@
 ﻿using Bunit;
 using MediaEngine.Web.Components.Collections;
 using MediaEngine.Web.Components.Library;
+using MediaEngine.Web.Components.Listen;
 using MediaEngine.Web.Components.Pages;
+using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
@@ -85,7 +87,6 @@ public sealed class UiShellRenderTests : TestContext
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor"));
 
         Assert.Contains("await Orchestrator.StartSignalRAsync();", source);
-        Assert.Contains("OnClick=\"OpenReviewQueueAsync\"", source);
         Assert.Contains("OnClick=\"OpenSettingsAsync\"", source);
         Assert.Contains("ToggleProfileMenu", source);
         Assert.Contains("layout-shell__profile-menu-item", source);
@@ -192,6 +193,21 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Unmatched Album", cut.Markup);
             Assert.Contains("Review Metadata", cut.Markup);
         });
+    }
+
+    [Fact]
+    public void PrivacyHistoryTab_DisablesUnavailableControlsAndExplainsThatNoDataChanges()
+    {
+        var cut = RenderComponent<PrivacyHistoryTab>();
+
+        Assert.Contains("do not change, delete, export, or save any data", cut.Markup);
+        Assert.NotEmpty(cut.FindAll("button"));
+        Assert.All(cut.FindAll("button"), button => Assert.True(button.HasAttribute("disabled")));
+        Assert.All(cut.FindAll("input"), input => Assert.True(input.HasAttribute("disabled")));
+
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PrivacyHistoryTab.razor"));
+        Assert.DoesNotContain("OnClick=", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("TODO", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -324,7 +340,8 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void ProviderPriority_DoesNotFallBackToHardcodedDefaultsAsConfiguredState()
     {
-        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPriorityTab.razor"));
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPriorityTab.razor"))
+                     + File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPriorityTab.razor.cs"));
 
         Assert.Contains("sample data is not presented as live configuration", source);
         Assert.Contains("_loadError", source);
@@ -419,6 +436,7 @@ public sealed class UiShellRenderTests : TestContext
             .Add(component => component.Columns, LibraryColumnDefinitions.GetColumnsByTab("books"))
             .Add(component => component.Items, [CreateSampleLibraryItem()])
             .Add(component => component.Loading, false)
+            .Add(component => component.GroupBy, "type")
             .Add(component => component.SelectedItems, new HashSet<Guid>()));
 
         cut.WaitForAssertion(() =>
@@ -426,7 +444,28 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".mud-simple-table"));
             Assert.Contains("The Hobbit", cut.Markup);
             Assert.NotEmpty(cut.FindAll(".mud-button-root"));
+            var groupToggle = cut.Find("button.vmt-group-toggle");
+            Assert.Equal("true", groupToggle.GetAttribute("aria-expanded"));
         });
+    }
+
+    [Fact]
+    public void ListenNavigationSection_RendersCurrentRouteAsSemanticLink()
+    {
+        var cut = RenderComponent<ListenNavigationSection>(parameters => parameters
+            .Add(component => component.Label, "Library")
+            .Add(component => component.Items,
+            [
+                new ListenNavigationItem("Home", "/listen", Icons.Material.Outlined.Home),
+                new ListenNavigationItem("Music", "/listen/music", Icons.Material.Outlined.MusicNote),
+            ])
+            .Add(component => component.IsRouteActive, route => route == "/listen/music"));
+
+        var links = cut.FindAll("a.listen-rail__item");
+        Assert.Collection(
+            links,
+            link => Assert.Null(link.GetAttribute("aria-current")),
+            link => Assert.Equal("page", link.GetAttribute("aria-current")));
     }
 
     [Fact]
@@ -528,10 +567,12 @@ public sealed class UiShellRenderTests : TestContext
             Assert.True(formats > library, "Formats should render below Library.");
             Assert.True(yourLibrary > formats, "Your Library should render below Formats.");
             Assert.True(playlists > yourLibrary, "Playlists should render below Your Library.");
-            Assert.Contains(">All Audio<", markup);
+            Assert.DoesNotContain(">All Audio<", markup);
             Assert.Contains(">Audiobooks<", markup);
             Assert.Contains(">Music<", markup);
             Assert.Contains(">Songs<", markup);
+            Assert.Single(Regex.Matches(markup, ">Recently Added<"));
+            Assert.DoesNotContain(">Genres<", markup);
             Assert.Single(cut.FindAll(".listen-rail__section-toggle"));
             Assert.Contains("Summer Movies", markup);
             Assert.Contains("Add playlist", markup);

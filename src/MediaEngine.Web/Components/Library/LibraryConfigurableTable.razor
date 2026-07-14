@@ -19,10 +19,8 @@ else
         {
             @foreach (var group in GetGroups())
             {
-                <div class="vmt-group">
-                    <div class="vmt-group-header" @onclick="() => ToggleGroup(group.Key)">
-                        <MudIcon Icon="@(IsGroupExpanded(group.Key) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                                 Class="tl-u-font-size-14px tl-u-opacity-0-4" />
+                <div class="vmt-group" @key="group.Key">
+                    <div class="vmt-group-header">
                         @{
                             var groupAllSelected = group.Items.Count > 0 && group.Items.All(i => SelectedItems.Contains(i.EntityId));
                         }
@@ -34,9 +32,16 @@ else
                                          Dense="true"
                                          Class="vct-checkbox" />
                         </span>
-                        <span class="vmt-group-label">@group.Label</span>
-                        <div class="vmt-group-line"></div>
-                        <span class="vmt-group-count">@group.Items.Count items</span>
+                        <AppNativeButton Type="button"
+                                         Class="vmt-group-toggle"
+                                         aria-expanded="@(IsGroupExpanded(group.Key) ? "true" : "false")"
+                                         OnClick="@(() => ToggleGroup(group.Key))">
+                            <MudIcon Icon="@(IsGroupExpanded(group.Key) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                     Class="tl-u-font-size-14px tl-u-opacity-0-4" />
+                            <span class="vmt-group-label">@group.Label</span>
+                            <span class="vmt-group-line"></span>
+                            <span class="vmt-group-count">@group.Items.Count items</span>
+                        </AppNativeButton>
                     </div>
                     @if (IsGroupExpanded(group.Key))
                     {

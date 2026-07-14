@@ -32,7 +32,7 @@ public sealed class ReaderStatisticsRepository : IReaderStatisticsRepository
             FROM   reader_statistics
             WHERE  user_id = @userId AND asset_id = @assetId
             LIMIT  1;
-            """, new { userId, assetId = assetId.ToString() });
+            """, new { userId, assetId });
 
         return Task.FromResult(row is null ? null : MapRow(row));
     }
@@ -57,9 +57,9 @@ public sealed class ReaderStatisticsRepository : IReaderStatisticsRepository
                 last_session_at         = @lastSessionAt;
             """, new
         {
-            id                   = stats.Id.ToString(),
+            id                   = stats.Id,
             userId               = stats.UserId,
-            assetId              = stats.AssetId.ToString(),
+            assetId              = stats.AssetId,
             chaptersRead         = stats.ChaptersRead,
             totalReadingTimeSecs = stats.TotalReadingTimeSecs,
             wordsRead            = stats.WordsRead,
@@ -74,14 +74,14 @@ public sealed class ReaderStatisticsRepository : IReaderStatisticsRepository
     }
 
     // ── Private DTO + mapper ─────────────────────────────────────────────────
-    // SQLite stores Guid and DateTime as TEXT strings; Dapper cannot auto-convert
-    // them to Guid/DateTime, so we read into a flat string DTO and convert in code.
+    // SQLite stores GUIDs as BLOBs and timestamps as TEXT. Dapper's registered
+    // handlers map GUID columns directly; timestamps remain strings here.
 
     private sealed class StatsRow
     {
-        public string  Id                   { get; set; } = string.Empty;
+        public Guid    Id                   { get; set; }
         public string  UserId               { get; set; } = string.Empty;
-        public string  AssetId              { get; set; } = string.Empty;
+        public Guid    AssetId              { get; set; }
         public int     ChaptersRead         { get; set; }
         public long    TotalReadingTimeSecs { get; set; }
         public long    WordsRead            { get; set; }
@@ -92,9 +92,9 @@ public sealed class ReaderStatisticsRepository : IReaderStatisticsRepository
 
     private static ReaderStatistics MapRow(StatsRow r) => new()
     {
-        Id                   = Guid.Parse(r.Id),
+        Id                   = r.Id,
         UserId               = r.UserId,
-        AssetId              = Guid.Parse(r.AssetId),
+        AssetId              = r.AssetId,
         ChaptersRead         = r.ChaptersRead,
         TotalReadingTimeSecs = r.TotalReadingTimeSecs,
         WordsRead            = r.WordsRead,

@@ -1,0 +1,35 @@
+@namespace MediaEngine.Web.Components.Listen
+
+<section class="listen-rail__section" aria-labelledby="@SectionLabelId">
+    <div id="@SectionLabelId" class="listen-rail__label">@Label</div>
+    @foreach (var item in Items)
+    {
+        var isActive = IsRouteActive?.Invoke(item.Route) == true;
+        <a @key="item.Route"
+           href="@item.Route"
+           target="_top"
+           data-enhance-nav="false"
+           class='@($"listen-rail__item {(isActive ? "is-active" : null)}")'
+           aria-current="@(isActive ? "page" : null)"
+           @onclick="@(() => NavigateAsync(item.Route))"
+           @onclick:preventDefault="true">
+            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
+            <span>@item.Label</span>
+            @if (!string.IsNullOrWhiteSpace(item.Meta))
+            {
+                <span class="listen-rail__meta">@item.Meta</span>
+            }
+        </a>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public IReadOnlyList<ListenNavigationItem> Items { get; set; } = [];
+    [Parameter] public Func<string, bool>? IsRouteActive { get; set; }
+    [Parameter] public EventCallback<string> OnNavigate { get; set; }
+
+    private string SectionLabelId => $"listen-rail-{Label.ToLowerInvariant().Replace(' ', '-')}";
+
+    private Task NavigateAsync(string route) => OnNavigate.InvokeAsync(route);
+}

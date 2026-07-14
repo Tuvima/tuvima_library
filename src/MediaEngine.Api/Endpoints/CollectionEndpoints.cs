@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
@@ -282,7 +281,7 @@ public static class CollectionEndpoints
             IPersonRepository personRepo,
             IPersonCreditReadService personCreditReadService,
             AppleRetailClient appleRetailClient,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
             var collection = await collectionRepo.GetCollectionWithWorksAsync(collectionId, ct);
@@ -308,23 +307,7 @@ public static class CollectionEndpoints
             IReadOnlyList<CanonicalValue> parentCvs = [];
             if (collection.Works.Count > 0)
             {
-                using var conn = db.CreateConnection();
-                using var rootCmd = conn.CreateCommand();
-                rootCmd.CommandText = """
-                    SELECT COALESCE(gp.id, p.id, w.id)
-                    FROM works w
-                    LEFT JOIN works p  ON p.id  = w.parent_work_id
-                    LEFT JOIN works gp ON gp.id = p.parent_work_id
-                    WHERE w.id = @id
-                    LIMIT 1
-                    """;
-                var idParam = rootCmd.CreateParameter();
-                idParam.ParameterName = "@id";
-                idParam.Value = GuidSql.ToBlob(collection.Works[0].Id);
-                rootCmd.Parameters.Add(idParam);
-
-                var rootIdObj = await rootCmd.ExecuteScalarAsync(ct);
-                var rid = GuidSql.FromDbNullable(rootIdObj);
+                var rid = await browseReadService.GetRootWorkIdAsync(collection.Works[0].Id, ct);
                 if (rid.HasValue)
                 {
                     rootParentWorkId = rid.Value;
@@ -336,7 +319,7 @@ public static class CollectionEndpoints
                 parentCvs.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
             var rootWorkQid = collection.WikidataQid ?? ParentCv(BridgeIdKeys.WikidataQid);
-            var primaryAssetIds = await LoadPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), db, ct);
+            var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), ct);
 
             // Build per-work DTOs.
             var workDtos = collection.Works
@@ -444,7 +427,10 @@ public static class CollectionEndpoints
                 ParentCv("release_date")
                 ?? ParentCv("date")
                 ?? ParentCv("year"));
-            var collectionPalette = ResolvePalette(rootParentWorkId, parentCvs, db);
+            var paletteRow = rootParentWorkId.HasValue
+                ? await browseReadService.GetAssetPaletteAsync(rootParentWorkId.Value, ct)
+                : null;
+            var collectionPalette = ResolvePalette(parentCvs, paletteRow);
 
             // Resolve cover URL as a /stream/ endpoint. Cover art is downloaded
             // to disk by CoverArtWorker and served via StreamEndpoints. We need
@@ -454,20 +440,7 @@ public static class CollectionEndpoints
             string? collectionBanner = null;
             if (rootParentWorkId.HasValue)
             {
-                using var coverConn = db.CreateConnection();
-                using var coverCmd = coverConn.CreateCommand();
-                coverCmd.CommandText = """
-                    SELECT MIN(ma.id)
-                    FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE e.work_id = @wid
-                    """;
-                var widParam = coverCmd.CreateParameter();
-                widParam.ParameterName = "@wid";
-                widParam.Value = GuidSql.ToBlob(rootParentWorkId.Value);
-                coverCmd.Parameters.Add(widParam);
-                var rootAssetObj = await coverCmd.ExecuteScalarAsync(ct);
-                if (GuidSql.FromDbNullable(rootAssetObj) is { } rootAssetId)
+                if (await browseReadService.GetRepresentativeAssetIdAsync(rootParentWorkId.Value, ct) is { } rootAssetId)
                 {
                     var rootAssetStr = rootAssetId.ToString("D");
                     collectionCover = $"/stream/{rootAssetStr}/cover";
@@ -589,7 +562,7 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "collection_ids")] string collectionIdsParam,
             ICollectionRepository collectionRepo,
             IPersonRepository personRepo,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(collectionIdsParam))
@@ -625,7 +598,7 @@ public static class CollectionEndpoints
                 }
 
                 // Build owned track DTOs from collection.Works.
-                var primaryAssetIds = await LoadPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), db, ct);
+                var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), ct);
                 var ownedTracks = collection.Works
                     .OrderBy(w => w.Ordinal ?? int.MaxValue)
                     .ThenBy(w => w.Id)
@@ -768,7 +741,7 @@ public static class CollectionEndpoints
         // Queries works directly from canonical_values, grouped by album, returning the same CollectionGroupDetailDto shape.
         group.MapGet("/artist-detail-by-name", async (
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
             IPersonRepository personRepo,
             CancellationToken ct) =>
         {
@@ -777,53 +750,7 @@ public static class CollectionEndpoints
                 return Results.BadRequest("artistName parameter is required");
             }
 
-            using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-
-            // Find all works whose artist canonical value matches, grouped by album
-            cmd.CommandText = """
-                WITH artist_works AS (
-                    SELECT DISTINCT e.work_id
-                    FROM canonical_values cv
-                    INNER JOIN media_assets ma ON ma.id = cv.entity_id
-                    INNER JOIN editions e ON e.id = ma.edition_id
-                    WHERE cv.key = 'artist' AND cv.value = @ArtistName COLLATE NOCASE
-                ),
-                work_data AS (
-                    SELECT
-                        aw.work_id,
-                        MIN(ma.id) AS asset_id,
-                        MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
-                        MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
-                        MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
-                        MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
-                        MAX(CASE WHEN cv.key = 'disc_number' THEN cv.value END) AS disc_number,
-                        MAX(CASE WHEN cv.key = 'apple_music_id' THEN cv.value END) AS apple_music_id,
-                        MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS release_year,
-                        MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
-                        MAX(CASE WHEN cv.key IN ('duration_seconds', 'duration_sec') THEN cv.value END) AS duration_seconds_value,
-                        MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
-                        MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
-                        '/stream/' || MIN(ma.id) || '/cover' AS cover,
-                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
-                        MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json,
-                        MAX(CASE WHEN cv.key = 'series_qid' THEN cv.value END) AS series_qid,
-                        MAX(CASE WHEN cv.key = 'album_qid' THEN cv.value END) AS album_qid
-                    FROM artist_works aw
-                    INNER JOIN editions e ON e.work_id = aw.work_id
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    INNER JOIN canonical_values cv ON cv.entity_id = ma.id
-                    GROUP BY aw.work_id
-                )
-                SELECT * FROM work_data ORDER BY album, CAST(track_number AS INTEGER), title
-                """;
-
-            var ap = cmd.CreateParameter();
-            ap.ParameterName = "@ArtistName";
-            ap.Value = artistName;
-            cmd.Parameters.Add(ap);
-
-            using var reader = cmd.ExecuteReader();
+            var rows = await browseReadService.GetArtistWorksAsync(artistName, ct);
             var albumMap = new Dictionary<string, List<CollectionGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
             var albumCovers = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             var albumYears = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -832,40 +759,22 @@ public static class CollectionEndpoints
             string? combinedGenre = null;
             var allYears = new List<string>();
 
-            while (reader.Read())
+            foreach (var row in rows)
             {
-                var workId = GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("work_id")));
-                var assetId = reader.IsDBNull(reader.GetOrdinal("asset_id"))
-                    ? (Guid?)null
-                    : GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("asset_id")));
-                var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
-                var album = reader.IsDBNull(reader.GetOrdinal("album")) ? null : reader.GetString(reader.GetOrdinal("album"));
-                var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
-                var discNum = reader.IsDBNull(reader.GetOrdinal("disc_number")) ? null : reader.GetString(reader.GetOrdinal("disc_number"));
-                var appleMusicId = reader.IsDBNull(reader.GetOrdinal("apple_music_id")) ? null : reader.GetString(reader.GetOrdinal("apple_music_id"));
-                var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
-                var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
-                var durationSecondsValue = reader.IsDBNull(reader.GetOrdinal("duration_seconds_value")) ? null : reader.GetString(reader.GetOrdinal("duration_seconds_value"));
-                var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
-                var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
-                var rawDuration = durationSecondsValue ?? duration ?? runtime;
+                var rawDuration = row.DurationSecondsValue ?? row.Duration ?? row.Runtime;
                 var durationSeconds = NormalizeAudioDurationSeconds(rawDuration);
                 var displayDuration = FormatAudioDuration(durationSeconds, rawDuration);
-                var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
-                var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
-                var artistVal = reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
-                var childJson = reader.IsDBNull(reader.GetOrdinal("child_entities_json")) ? null : reader.GetString(reader.GetOrdinal("child_entities_json"));
 
-                combinedCreator ??= artistVal;
-                combinedGenre ??= genre;
+                combinedCreator ??= row.Artist;
+                combinedGenre ??= row.Genre;
 
-                var year = releaseYear ?? yearVal;
+                var year = row.ReleaseYear ?? row.YearValue;
                 if (!string.IsNullOrWhiteSpace(year))
                 {
                     allYears.Add(year);
                 }
 
-                var albumKey = album ?? "Unknown Album";
+                var albumKey = row.Album ?? "Unknown Album";
                 if (!albumMap.TryGetValue(albumKey, out var tracks))
                 {
                     tracks = [];
@@ -873,7 +782,7 @@ public static class CollectionEndpoints
                 }
                 if (!albumCovers.ContainsKey(albumKey))
                 {
-                    albumCovers[albumKey] = cover;
+                    albumCovers[albumKey] = row.Cover;
                 }
 
                 if (!albumYears.ContainsKey(albumKey) || string.IsNullOrWhiteSpace(albumYears[albumKey]))
@@ -883,21 +792,21 @@ public static class CollectionEndpoints
 
                 if (!albumChildJson.ContainsKey(albumKey) || string.IsNullOrWhiteSpace(albumChildJson[albumKey]))
                 {
-                    albumChildJson[albumKey] = childJson;
+                    albumChildJson[albumKey] = row.ChildEntitiesJson;
                 }
 
                 tracks.Add(new CollectionGroupWorkDto
                 {
-                    WorkId = workId,
-                    AssetId = assetId,
-                    Title = title ?? $"Track {workId.ToString("N")[..8]}",
+                    WorkId = row.WorkId,
+                    AssetId = row.AssetId,
+                    Title = row.Title ?? $"Track {row.WorkId.ToString("N")[..8]}",
                     Year = year,
                     Duration = displayDuration,
                     DurationSeconds = durationSeconds,
-                    CoverUrl = cover,
-                    TrackNumber = trackNum,
-                    DiscNumber = ParseNullableInt(discNum),
-                    AppleMusicId = appleMusicId,
+                    CoverUrl = row.Cover,
+                    TrackNumber = row.TrackNumber,
+                    DiscNumber = ParseNullableInt(row.DiscNumber),
+                    AppleMusicId = row.AppleMusicId,
                     Status = "Provisional",
                     IsOwned = true,
                 });
@@ -985,7 +894,7 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
             ICanonicalValueRepository canonicalRepo,
             AppleRetailClient appleRetailClient,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(groupField) || string.IsNullOrWhiteSpace(groupValue))
@@ -1011,236 +920,12 @@ public static class CollectionEndpoints
                 _ => null,
             };
 
-            using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-
-            // Build the query: find all works matching groupField=groupValue, optionally filtered by media_type.
-            // Music album drill-down is intentionally track-derived: albums exist here only because
-            // owned tracks point at an album root. Match the root album/title first, with asset album
-            // as a fallback for tracks that have not received parent-scoped provider metadata yet.
-            var mediaTypeFilter = !string.IsNullOrWhiteSpace(mediaType)
-                ? "INNER JOIN works w ON w.id = e.work_id AND w.media_type = @MediaType"
-                : "INNER JOIN works w ON w.id = e.work_id";
-
-            cmd.CommandText = $"""
-                WITH matched_works AS (
-                    SELECT DISTINCT e.work_id
-                    FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    {mediaTypeFilter}
-                    LEFT JOIN works p ON p.id = w.parent_work_id
-                    LEFT JOIN works gp ON gp.id = p.parent_work_id
-                    WHERE (
-                        (
-                            @IsMusicAlbumGroup = 1
-                            AND COALESCE(
-                                (
-                                    SELECT cv_parent_album.value
-                                    FROM canonical_values cv_parent_album
-                                    WHERE cv_parent_album.entity_id = COALESCE(gp.id, p.id, w.id)
-                                      AND cv_parent_album.key = 'album'
-                                    LIMIT 1
-                                ),
-                                (
-                                    SELECT cv_parent_title.value
-                                    FROM canonical_values cv_parent_title
-                                    WHERE cv_parent_title.entity_id = COALESCE(gp.id, p.id, w.id)
-                                      AND cv_parent_title.key = 'title'
-                                    LIMIT 1
-                                ),
-                                (
-                                    SELECT cv_asset_album.value
-                                    FROM canonical_values cv_asset_album
-                                    WHERE cv_asset_album.entity_id = ma.id
-                                      AND cv_asset_album.key = 'album'
-                                    LIMIT 1
-                                )
-                            ) = @GroupValue COLLATE NOCASE
-                        )
-                        OR (
-                            @IsMusicAlbumGroup = 0
-                            AND EXISTS (
-                                SELECT 1
-                                FROM canonical_values cv
-                                WHERE cv.key = @GroupField
-                                  AND cv.value = @GroupValue COLLATE NOCASE
-                                  AND (
-                                      cv.entity_id = ma.id
-                                      OR cv.entity_id = w.id
-                                      OR cv.entity_id = p.id
-                                      OR cv.entity_id = gp.id
-                                  )
-                            )
-                        )
-                    )
-                      AND (
-                          @ArtistName IS NULL
-                          OR EXISTS (
-                              SELECT 1
-                              FROM canonical_values cv_artist
-                              WHERE cv_artist.key IN ('artist', 'author')
-                                AND cv_artist.value = @ArtistName COLLATE NOCASE
-                                AND (
-                                    cv_artist.entity_id = ma.id
-                                    OR cv_artist.entity_id = w.id
-                                    OR cv_artist.entity_id = p.id
-                                    OR cv_artist.entity_id = gp.id
-                                )
-                          )
-                      )
-                ),
-                work_data AS (
-                    SELECT
-                        mw.work_id,
-                        MIN(ma.id) AS asset_id,
-                        COALESCE(gp.id, p.id, w.id) AS root_work_id,
-                        MAX(CASE WHEN cv.key = 'title'               THEN cv.value END) AS title,
-                        MAX(CASE WHEN cv.key = 'episode_title'       THEN cv.value END) AS episode_title,
-                        MAX(CASE WHEN cv.key = 'show_name'           THEN cv.value END) AS show_name,
-                        MAX(CASE WHEN cv.key = 'season_number'       THEN cv.value END) AS season_number,
-                        MAX(CASE WHEN cv.key = 'episode_number'      THEN cv.value END) AS episode_number,
-                        MAX(CASE WHEN cv.key = 'series'              THEN cv.value END) AS series,
-                        MAX(CASE WHEN cv.key = 'series_index'        THEN cv.value END) AS series_index,
-                        MAX(CASE WHEN cv.key = 'album'               THEN cv.value END) AS album,
-                        MAX(CASE WHEN cv.key = 'artist'              THEN cv.value END) AS artist,
-                        MAX(CASE WHEN cv.key = 'author'              THEN cv.value END) AS author,
-                        MAX(CASE WHEN cv.key = 'director'            THEN cv.value END) AS director,
-                        MAX(CASE WHEN cv.key = 'track_number'        THEN cv.value END) AS track_number,
-                        MAX(CASE WHEN cv.key = 'disc_number'         THEN cv.value END) AS disc_number,
-                        MAX(CASE WHEN cv.key = 'apple_music_id'      THEN cv.value END) AS apple_music_id,
-                        MAX(CASE WHEN cv.key = 'release_year'        THEN cv.value END) AS release_year,
-                        MAX(CASE WHEN cv.key = 'year'                THEN cv.value END) AS year_val,
-                        MAX(CASE WHEN cv.key IN ('duration_seconds', 'duration_sec') THEN cv.value END) AS duration_seconds_value,
-                        MAX(CASE WHEN cv.key = 'duration'            THEN cv.value END) AS duration,
-                        MAX(CASE WHEN cv.key = 'runtime'             THEN cv.value END) AS runtime,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_cover.value, '')
-                                FROM canonical_values cv_group_cover
-                                WHERE cv_group_cover.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_cover.key IN ('cover_url', 'cover', 'poster_url', 'poster')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('cover_url', 'cover', 'poster_url', 'poster') THEN NULLIF(cv.value, '') END),
-                            '/stream/' || MIN(ma.id) || '/cover'
-                        ) AS cover,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_background.value, '')
-                                FROM canonical_values cv_group_background
-                                WHERE cv_group_background.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_background.key IN ('background_url', 'background')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('background_url', 'background') THEN NULLIF(cv.value, '') END)
-                        ) AS background,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_banner.value, '')
-                                FROM canonical_values cv_group_banner
-                                WHERE cv_group_banner.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_banner.key IN ('banner_url', 'banner')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('banner_url', 'banner') THEN NULLIF(cv.value, '') END)
-                        ) AS banner,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_hero.value, '')
-                                FROM canonical_values cv_group_hero
-                                WHERE cv_group_hero.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_hero.key IN ('hero_url', 'hero')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('hero_url', 'hero') THEN NULLIF(cv.value, '') END)
-                        ) AS hero,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_logo.value, '')
-                                FROM canonical_values cv_group_logo
-                                WHERE cv_group_logo.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_logo.key IN ('clear_logo_url', 'clear_logo', 'logo_url', 'logo')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('clear_logo_url', 'clear_logo', 'logo_url', 'logo') THEN NULLIF(cv.value, '') END)
-                        ) AS logo,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_primary.value, '')
-                                FROM canonical_values cv_group_primary
-                                WHERE cv_group_primary.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_primary.key IN ('artwork_primary_hex', 'cover_primary_hex', 'primary_color')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('artwork_primary_hex', 'cover_primary_hex', 'primary_color') THEN NULLIF(cv.value, '') END)
-                        ) AS primary_color,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_secondary.value, '')
-                                FROM canonical_values cv_group_secondary
-                                WHERE cv_group_secondary.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_secondary.key IN ('artwork_secondary_hex', 'cover_secondary_hex', 'secondary_color')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('artwork_secondary_hex', 'cover_secondary_hex', 'secondary_color') THEN NULLIF(cv.value, '') END)
-                        ) AS secondary_color,
-                        COALESCE(
-                            (
-                                SELECT NULLIF(cv_group_accent.value, '')
-                                FROM canonical_values cv_group_accent
-                                WHERE cv_group_accent.entity_id = COALESCE(gp.id, p.id, w.id)
-                                  AND cv_group_accent.key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color')
-                                LIMIT 1
-                            ),
-                            MAX(CASE WHEN cv.key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color') THEN NULLIF(cv.value, '') END)
-                        ) AS accent_color,
-                        MAX(CASE WHEN cv.key = 'genre'               THEN cv.value END) AS genre,
-                        MAX(CASE WHEN cv.key = 'network'             THEN cv.value END) AS network,
-                        MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json
-                    FROM matched_works mw
-                    INNER JOIN works w ON w.id = mw.work_id
-                    LEFT JOIN works p ON p.id = w.parent_work_id
-                    LEFT JOIN works gp ON gp.id = p.parent_work_id
-                    INNER JOIN editions e ON e.work_id = mw.work_id
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    INNER JOIN canonical_values cv ON cv.entity_id = ma.id
-                    GROUP BY mw.work_id
-                )
-                SELECT * FROM work_data ORDER BY {sortFields}
-                """;
-
-            var pField = cmd.CreateParameter();
-            pField.ParameterName = "@GroupField";
-            pField.Value = groupField;
-            cmd.Parameters.Add(pField);
-
-            var pValue = cmd.CreateParameter();
-            pValue.ParameterName = "@GroupValue";
-            pValue.Value = groupValue;
-            cmd.Parameters.Add(pValue);
-
-            var pArtist = cmd.CreateParameter();
-            pArtist.ParameterName = "@ArtistName";
-            pArtist.Value = string.IsNullOrWhiteSpace(artistName) ? DBNull.Value : artistName;
-            cmd.Parameters.Add(pArtist);
-
-            var pIsMusicAlbumGroup = cmd.CreateParameter();
-            pIsMusicAlbumGroup.ParameterName = "@IsMusicAlbumGroup";
-            pIsMusicAlbumGroup.Value = string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase)
-                ? 1
-                : 0;
-            cmd.Parameters.Add(pIsMusicAlbumGroup);
-
-            if (!string.IsNullOrWhiteSpace(mediaType))
-            {
-                var pMedia = cmd.CreateParameter();
-                pMedia.ParameterName = "@MediaType";
-                pMedia.Value = mediaType;
-                cmd.Parameters.Add(pMedia);
-            }
-
-            using var reader = cmd.ExecuteReader();
+            var rows = await browseReadService.GetSystemViewDetailWorksAsync(
+                groupField,
+                groupValue,
+                mediaType,
+                artistName,
+                ct);
             // sectionKey → owned CollectionGroupWorkDtos. Unowned items are merged after
             // the reader loop using child_entities_json from the parent.
             var sectionMap = new Dictionary<string, List<CollectionGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
@@ -1263,50 +948,46 @@ public static class CollectionEndpoints
             var isMusicAlbumGroup = string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
                 && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
 
-            while (reader.Read())
+            foreach (var row in rows)
             {
-                var workId = GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("work_id")));
-                var assetId = reader.IsDBNull(reader.GetOrdinal("asset_id"))
-                    ? (Guid?)null
-                    : GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("asset_id")));
-                var rootWorkId = reader.IsDBNull(reader.GetOrdinal("root_work_id"))
-                    ? (Guid?)null
-                    : GuidSql.FromDb(reader.GetValue(reader.GetOrdinal("root_work_id")));
-                var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
-                var episodeTitle = reader.IsDBNull(reader.GetOrdinal("episode_title")) ? null : reader.GetString(reader.GetOrdinal("episode_title"));
-                var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
-                var background = reader.IsDBNull(reader.GetOrdinal("background")) ? null : reader.GetString(reader.GetOrdinal("background"));
-                var banner = reader.IsDBNull(reader.GetOrdinal("banner")) ? null : reader.GetString(reader.GetOrdinal("banner"));
-                var hero = reader.IsDBNull(reader.GetOrdinal("hero")) ? null : reader.GetString(reader.GetOrdinal("hero"));
-                var logo = reader.IsDBNull(reader.GetOrdinal("logo")) ? null : reader.GetString(reader.GetOrdinal("logo"));
-                var primaryColor = reader.IsDBNull(reader.GetOrdinal("primary_color")) ? null : reader.GetString(reader.GetOrdinal("primary_color"));
-                var secondaryColor = reader.IsDBNull(reader.GetOrdinal("secondary_color")) ? null : reader.GetString(reader.GetOrdinal("secondary_color"));
-                var accentColor = reader.IsDBNull(reader.GetOrdinal("accent_color")) ? null : reader.GetString(reader.GetOrdinal("accent_color"));
-                var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
-                var durationSecondsValue = reader.IsDBNull(reader.GetOrdinal("duration_seconds_value")) ? null : reader.GetString(reader.GetOrdinal("duration_seconds_value"));
-                var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
-                var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
+                var workId = row.WorkId;
+                var assetId = row.AssetId;
+                var rootWorkId = row.RootWorkId;
+                var title = row.Title;
+                var episodeTitle = row.EpisodeTitle;
+                var cover = row.Cover;
+                var background = row.Background;
+                var banner = row.Banner;
+                var hero = row.Hero;
+                var logo = row.Logo;
+                var primaryColor = row.PrimaryColor;
+                var secondaryColor = row.SecondaryColor;
+                var accentColor = row.AccentColor;
+                var genre = row.Genre;
+                var durationSecondsValue = row.DurationSecondsValue;
+                var duration = row.Duration;
+                var runtime = row.Runtime;
                 var rawDuration = durationSecondsValue ?? duration ?? runtime;
                 var durationSeconds = isMusicAlbumGroup ? NormalizeAudioDurationSeconds(rawDuration) : null;
                 var displayDuration = isMusicAlbumGroup ? FormatAudioDuration(durationSeconds, rawDuration) : rawDuration;
-                var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
-                var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
-                var episodeNum = reader.IsDBNull(reader.GetOrdinal("episode_number")) ? null : reader.GetString(reader.GetOrdinal("episode_number"));
-                var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
-                var discNum = reader.IsDBNull(reader.GetOrdinal("disc_number")) ? null : reader.GetString(reader.GetOrdinal("disc_number"));
-                var appleMusicId = reader.IsDBNull(reader.GetOrdinal("apple_music_id")) ? null : reader.GetString(reader.GetOrdinal("apple_music_id"));
-                var seqIndex = reader.IsDBNull(reader.GetOrdinal("series_index")) ? null : reader.GetString(reader.GetOrdinal("series_index"));
-                var childJson = reader.IsDBNull(reader.GetOrdinal("child_entities_json")) ? null : reader.GetString(reader.GetOrdinal("child_entities_json"));
+                var releaseYear = row.ReleaseYear;
+                var yearVal = row.YearValue;
+                var episodeNum = row.EpisodeNumber;
+                var trackNum = row.TrackNumber;
+                var discNum = row.DiscNumber;
+                var appleMusicId = row.AppleMusicId;
+                var seqIndex = row.SeriesIndex;
+                var childJson = row.ChildEntitiesJson;
 
                 // Accumulate the first non-null child_entities_json we encounter —
                 // it may appear on any owned sibling in the same group.
                 collectedChildJson ??= string.IsNullOrWhiteSpace(childJson) ? null : childJson;
 
                 // Determine creator (author, director, artist, or network for TV)
-                var creator = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString(reader.GetOrdinal("author"));
-                var directorVal = reader.IsDBNull(reader.GetOrdinal("director")) ? null : reader.GetString(reader.GetOrdinal("director"));
-                var artistVal = reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
-                var networkVal = reader.IsDBNull(reader.GetOrdinal("network")) ? null : reader.GetString(reader.GetOrdinal("network"));
+                var creator = row.Author;
+                var directorVal = row.Director;
+                var artistVal = row.Artist;
+                var networkVal = row.Network;
                 // For TV, prefer network over director as the header creator
                 if (mediaType == "TV")
                 {
@@ -1341,7 +1022,12 @@ public static class CollectionEndpoints
                 string sectionKey;
                 if (secondaryGroup is not null)
                 {
-                    var secVal = reader.IsDBNull(reader.GetOrdinal(secondaryGroup)) ? null : reader.GetString(reader.GetOrdinal(secondaryGroup));
+                    var secVal = secondaryGroup switch
+                    {
+                        "season_number" => row.SeasonNumber,
+                        "album" => row.Album,
+                        _ => null,
+                    };
                     sectionKey = secVal ?? "Unknown";
                 }
                 else
@@ -1409,7 +1095,10 @@ public static class CollectionEndpoints
                     combinedCover);
             }
 
-            var palette = ResolvePalette(combinedRootWorkId, rootCanonicals, db);
+            var paletteRow = combinedRootWorkId.HasValue
+                ? await browseReadService.GetAssetPaletteAsync(combinedRootWorkId.Value, ct)
+                : null;
+            var palette = ResolvePalette(rootCanonicals, paletteRow);
             combinedPrimaryColor ??= palette.PrimaryColor;
             combinedSecondaryColor ??= palette.SecondaryColor;
             combinedAccentColor ??= palette.AccentColor;
@@ -1504,13 +1193,12 @@ public static class CollectionEndpoints
         // GET /collections/content-groups — Universe collections that have child works (albums, TV series, book series, movie series).
         group.MapGet("/content-groups", async (
             ICollectionRepository collectionRepo,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
             var collections = await collectionRepo.GetContentGroupsAsync(ct);
-            var primaryAssetIds = await LoadPrimaryAssetIdsAsync(
+            var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(
                 collections.SelectMany(collection => collection.Works).Select(work => work.Id),
-                db,
                 ct);
 
             var dtos = collections.Select(h =>
@@ -1638,568 +1326,14 @@ public static class CollectionEndpoints
         group.MapGet("/system-views", async (
             string? mediaType,
             string? groupField,
-            IDatabaseConnection db,
-            IPersonRepository personRepo,
-            ILoggerFactory loggerFactory,
+            ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
-            var log = loggerFactory.CreateLogger("CollectionEndpoints.SystemViews");
-
-            log.LogInformation("[ByAlbum] system-views called — mediaType={MediaType} groupField={GroupField}",
-                mediaType ?? "(none)", groupField ?? "(none)");
-
-            var viewCollections = BuiltInBrowseCollectionCatalog
-                .GetSystemViewDefinitions(mediaType, groupField)
-                .Select(view => view.ToCollection())
-                .ToList();
-
-            log.LogInformation("[ByAlbum] After filter: {Count} matching view collections", viewCollections.Count);
-
-            if (viewCollections.Count == 0)
-            {
-                log.LogWarning("[ByAlbum] No matching dynamic browse view definitions were found.");
-                return Results.Ok(new List<ContentGroupDto>());
-            }
-
-            var evaluator = new CollectionRuleEvaluator(db);
-            var result = new List<ContentGroupDto>();
-
-            using var conn = db.CreateConnection();
-
-            foreach (var collection in viewCollections)
-            {
-                var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-                if (predicates.Count == 0)
-                {
-                    continue;
-                }
-
-                // Evaluate collection rules to get entity_ids
-                var entityIds = evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection);
-
-                log.LogInformation("[ByAlbum] Collection '{CollectionName}' (groupByField={GroupByField}) matched {WorkCount} works from CollectionRuleEvaluator",
-                    collection.DisplayName, collection.GroupByField, entityIds.Count);
-
-                if (entityIds.Count == 0)
-                {
-                    continue;
-                }
-
-                var groupByField = collection.GroupByField!;
-
-                // Determine primary media type from the collection's media_type predicate
-                var primaryMediaType = predicates
-                    .FirstOrDefault(p => p.Field.Equals("media_type", StringComparison.OrdinalIgnoreCase))
-                    ?.Value ?? "Unknown";
-
-                // Build IN clause for entity IDs
-                var idList = BuildGuidBlobLiteralList(entityIds);
-
-                // Group entity_ids by the group_by_field from canonical_values.
-                // Many grouping fields (album, artist, show_name, series) are
-                // Parent-scoped — after the retail/Wikidata workers run they are
-                // stored on the topmost Work row (album, show, series), NOT on
-                // the media_asset row.  The work_assets CTE therefore also
-                // computes root_work_id (COALESCE up two parent_work_id hops),
-                // and both asset_id and root_work_id are checked when joining
-                // canonical_values so the grouping works regardless of whether
-                // the field is Self-scoped (on the asset) or Parent-scoped (on
-                // the topmost Work).
-                using var cmd = conn.CreateCommand();
-                var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-                cmd.CommandText = $"""
-                    WITH work_assets AS (
-                        SELECT
-                            e.work_id,
-                            ma.id AS asset_id,
-                            COALESCE(gp.id, p.id, w.id) AS root_work_id
-                        FROM editions e
-                        INNER JOIN media_assets ma ON ma.edition_id = e.id
-                        INNER JOIN works w  ON w.id  = e.work_id
-                        LEFT  JOIN works p  ON p.id  = w.parent_work_id
-                        LEFT  JOIN works gp ON gp.id = p.parent_work_id
-                        WHERE e.work_id IN ({idList})
-                          AND {visibleAssetPredicate}
-                    ),
-                    resolved_group_values AS (
-                        SELECT
-                            wa.work_id,
-                            wa.asset_id,
-                            wa.root_work_id,
-                            CASE
-                                WHEN @IsMusicAlbumGroup = 1 THEN COALESCE(
-                                    (
-                                        SELECT cv_parent_album.value
-                                        FROM canonical_values cv_parent_album
-                                        WHERE cv_parent_album.entity_id = wa.root_work_id
-                                          AND cv_parent_album.key = 'album'
-                                        LIMIT 1
-                                    ),
-                                    (
-                                        SELECT cv_parent_title.value
-                                        FROM canonical_values cv_parent_title
-                                        WHERE cv_parent_title.entity_id = wa.root_work_id
-                                          AND cv_parent_title.key = 'title'
-                                        LIMIT 1
-                                    ),
-                                    (
-                                        SELECT cv_asset_album.value
-                                        FROM canonical_values cv_asset_album
-                                        WHERE cv_asset_album.entity_id = wa.asset_id
-                                          AND cv_asset_album.key = 'album'
-                                        LIMIT 1
-                                    )
-                                )
-                                ELSE cv_group.value
-                            END AS group_name
-                        FROM work_assets wa
-                        LEFT JOIN canonical_values cv_group
-                          ON @IsMusicAlbumGroup = 0
-                         AND cv_group.key = @GroupField
-                         AND (cv_group.entity_id = wa.asset_id
-                              OR cv_group.entity_id = wa.root_work_id)
-                    ),
-                    grouped AS (
-                        SELECT
-                            rgv.group_name                          AS group_name,
-                            COUNT(DISTINCT rgv.work_id)             AS work_count,
-                            MIN(rgv.asset_id)                       AS first_asset_id,
-                            MIN(rgv.root_work_id)                   AS first_root_work_id,
-                            -- Count distinct albums for artist grouping (track_count = work_count)
-                            COUNT(DISTINCT rgv.root_work_id)        AS album_count
-                        FROM resolved_group_values rgv
-                        WHERE rgv.group_name IS NOT NULL
-                          AND TRIM(rgv.group_name) != ''
-                        GROUP BY rgv.group_name
-                    )
-                    SELECT
-                        g.group_name,
-                        g.work_count,
-                        CASE WHEN EXISTS (
-                            SELECT 1 FROM canonical_values cv_cover_present
-                            WHERE cv_cover_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
-                              AND cv_cover_present.key IN ('cover','cover_url','cover_width_px','cover_aspect_class')
-                        ) THEN '/stream/' || g.first_asset_id || '/cover' END AS cover_url,
-                        CASE WHEN EXISTS (
-                            SELECT 1 FROM canonical_values cv_background_present
-                            WHERE cv_background_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
-                              AND cv_background_present.key IN ('background','background_url','background_width_px','background_aspect_class')
-                        ) THEN '/stream/' || g.first_asset_id || '/background' END AS background_url,
-                        CASE WHEN EXISTS (
-                            SELECT 1 FROM canonical_values cv_banner_present
-                            WHERE cv_banner_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
-                              AND cv_banner_present.key IN ('banner','banner_url','banner_width_px','banner_aspect_class')
-                        ) THEN '/stream/' || g.first_asset_id || '/banner' END AS banner_url,
-                        NULL AS hero_url,
-                        CASE WHEN EXISTS (
-                            SELECT 1 FROM canonical_values cv_logo_present
-                            WHERE cv_logo_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
-                              AND cv_logo_present.key IN ('logo','logo_url')
-                        ) THEN '/stream/' || g.first_asset_id || '/logo' END AS logo_url,
-                        COALESCE(
-                            (
-                                SELECT cv_creator.value
-                                FROM canonical_values cv_creator
-                                WHERE cv_creator.entity_id = g.first_root_work_id
-                                  AND cv_creator.key IN ('artist','author')
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_creator2.value
-                                FROM canonical_values cv_creator2
-                                WHERE cv_creator2.entity_id = g.first_asset_id
-                                  AND cv_creator2.key IN ('artist','author')
-                                LIMIT 1
-                            )
-                        )                                           AS creator,
-                        (
-                            SELECT cv_net.value
-                            FROM canonical_values cv_net
-                            WHERE cv_net.entity_id = g.first_root_work_id
-                              AND cv_net.key = 'network'
-                            LIMIT 1
-                        )                                           AS network,
-                        COALESCE(
-                            (
-                                SELECT cv_year.value
-                                FROM canonical_values cv_year
-                                WHERE cv_year.entity_id = g.first_root_work_id
-                                  AND cv_year.key = 'year'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_year2.value
-                                FROM canonical_values cv_year2
-                                WHERE cv_year2.entity_id = g.first_asset_id
-                                  AND cv_year2.key = 'year'
-                                LIMIT 1
-                            )
-                        )                                           AS year,
-                        COALESCE(
-                            (
-                                SELECT cv_desc.value
-                                FROM canonical_values cv_desc
-                                WHERE cv_desc.entity_id = g.first_root_work_id
-                                  AND cv_desc.key = 'description'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_desc2.value
-                                FROM canonical_values cv_desc2
-                                WHERE cv_desc2.entity_id = g.first_asset_id
-                                  AND cv_desc2.key = 'description'
-                                LIMIT 1
-                            )
-                        )                                           AS description,
-                        (
-                            SELECT cv_tagline.value
-                            FROM canonical_values cv_tagline
-                            WHERE cv_tagline.entity_id = g.first_root_work_id
-                              AND cv_tagline.key = 'tagline'
-                            LIMIT 1
-                        )                                           AS tagline,
-                        COALESCE(
-                            (
-                                SELECT cv_cover_aspect.value
-                                FROM canonical_values cv_cover_aspect
-                                WHERE cv_cover_aspect.entity_id = g.first_root_work_id
-                                  AND cv_cover_aspect.key = 'cover_aspect_class'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_cover_aspect2.value
-                                FROM canonical_values cv_cover_aspect2
-                                WHERE cv_cover_aspect2.entity_id = g.first_asset_id
-                                  AND cv_cover_aspect2.key = 'cover_aspect_class'
-                                LIMIT 1
-                            )
-                        )                                           AS cover_aspect_class,
-                        COALESCE(
-                            (
-                                SELECT cv_square_aspect.value
-                                FROM canonical_values cv_square_aspect
-                                WHERE cv_square_aspect.entity_id = g.first_root_work_id
-                                  AND cv_square_aspect.key = 'square_aspect_class'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_square_aspect2.value
-                                FROM canonical_values cv_square_aspect2
-                                WHERE cv_square_aspect2.entity_id = g.first_asset_id
-                                  AND cv_square_aspect2.key = 'square_aspect_class'
-                                LIMIT 1
-                            )
-                        )                                           AS square_aspect_class,
-                        COALESCE(
-                            (
-                                SELECT cv_background_aspect.value
-                                FROM canonical_values cv_background_aspect
-                                WHERE cv_background_aspect.entity_id = g.first_root_work_id
-                                  AND cv_background_aspect.key = 'background_aspect_class'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_background_aspect2.value
-                                FROM canonical_values cv_background_aspect2
-                                WHERE cv_background_aspect2.entity_id = g.first_asset_id
-                                  AND cv_background_aspect2.key = 'background_aspect_class'
-                                LIMIT 1
-                            )
-                        )                                           AS background_aspect_class,
-                        COALESCE(
-                            (
-                                SELECT cv_banner_aspect.value
-                                FROM canonical_values cv_banner_aspect
-                                WHERE cv_banner_aspect.entity_id = g.first_root_work_id
-                                  AND cv_banner_aspect.key = 'banner_aspect_class'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_banner_aspect2.value
-                                FROM canonical_values cv_banner_aspect2
-                                WHERE cv_banner_aspect2.entity_id = g.first_asset_id
-                                  AND cv_banner_aspect2.key = 'banner_aspect_class'
-                                LIMIT 1
-                            )
-                        )                                           AS banner_aspect_class,
-                        COALESCE(
-                            (
-                                SELECT cv_cover_width.value
-                                FROM canonical_values cv_cover_width
-                                WHERE cv_cover_width.entity_id = g.first_root_work_id
-                                  AND cv_cover_width.key = 'cover_width_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_cover_width2.value
-                                FROM canonical_values cv_cover_width2
-                                WHERE cv_cover_width2.entity_id = g.first_asset_id
-                                  AND cv_cover_width2.key = 'cover_width_px'
-                                LIMIT 1
-                            )
-                        )                                           AS cover_width_px,
-                        COALESCE(
-                            (
-                                SELECT cv_cover_height.value
-                                FROM canonical_values cv_cover_height
-                                WHERE cv_cover_height.entity_id = g.first_root_work_id
-                                  AND cv_cover_height.key = 'cover_height_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_cover_height2.value
-                                FROM canonical_values cv_cover_height2
-                                WHERE cv_cover_height2.entity_id = g.first_asset_id
-                                  AND cv_cover_height2.key = 'cover_height_px'
-                                LIMIT 1
-                            )
-                        )                                           AS cover_height_px,
-                        COALESCE(
-                            (
-                                SELECT cv_square_width.value
-                                FROM canonical_values cv_square_width
-                                WHERE cv_square_width.entity_id = g.first_root_work_id
-                                  AND cv_square_width.key = 'square_width_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_square_width2.value
-                                FROM canonical_values cv_square_width2
-                                WHERE cv_square_width2.entity_id = g.first_asset_id
-                                  AND cv_square_width2.key = 'square_width_px'
-                                LIMIT 1
-                            )
-                        )                                           AS square_width_px,
-                        COALESCE(
-                            (
-                                SELECT cv_square_height.value
-                                FROM canonical_values cv_square_height
-                                WHERE cv_square_height.entity_id = g.first_root_work_id
-                                  AND cv_square_height.key = 'square_height_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_square_height2.value
-                                FROM canonical_values cv_square_height2
-                                WHERE cv_square_height2.entity_id = g.first_asset_id
-                                  AND cv_square_height2.key = 'square_height_px'
-                                LIMIT 1
-                            )
-                        )                                           AS square_height_px,
-                        COALESCE(
-                            (
-                                SELECT cv_background_width.value
-                                FROM canonical_values cv_background_width
-                                WHERE cv_background_width.entity_id = g.first_root_work_id
-                                  AND cv_background_width.key = 'background_width_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_background_width2.value
-                                FROM canonical_values cv_background_width2
-                                WHERE cv_background_width2.entity_id = g.first_asset_id
-                                  AND cv_background_width2.key = 'background_width_px'
-                                LIMIT 1
-                            )
-                        )                                           AS background_width_px,
-                        COALESCE(
-                            (
-                                SELECT cv_background_height.value
-                                FROM canonical_values cv_background_height
-                                WHERE cv_background_height.entity_id = g.first_root_work_id
-                                  AND cv_background_height.key = 'background_height_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_background_height2.value
-                                FROM canonical_values cv_background_height2
-                                WHERE cv_background_height2.entity_id = g.first_asset_id
-                                  AND cv_background_height2.key = 'background_height_px'
-                                LIMIT 1
-                            )
-                        )                                           AS background_height_px,
-                        COALESCE(
-                            (
-                                SELECT cv_banner_width.value
-                                FROM canonical_values cv_banner_width
-                                WHERE cv_banner_width.entity_id = g.first_root_work_id
-                                  AND cv_banner_width.key = 'banner_width_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_banner_width2.value
-                                FROM canonical_values cv_banner_width2
-                                WHERE cv_banner_width2.entity_id = g.first_asset_id
-                                  AND cv_banner_width2.key = 'banner_width_px'
-                                LIMIT 1
-                            )
-                        )                                           AS banner_width_px,
-                        COALESCE(
-                            (
-                                SELECT cv_banner_height.value
-                                FROM canonical_values cv_banner_height
-                                WHERE cv_banner_height.entity_id = g.first_root_work_id
-                                  AND cv_banner_height.key = 'banner_height_px'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_banner_height2.value
-                                FROM canonical_values cv_banner_height2
-                                WHERE cv_banner_height2.entity_id = g.first_asset_id
-                                  AND cv_banner_height2.key = 'banner_height_px'
-                                LIMIT 1
-                            )
-                        )                                           AS banner_height_px,
-                        (
-                            SELECT COUNT(DISTINCT cv_sn.value)
-                            FROM work_assets wa_sn
-                            INNER JOIN canonical_values cv_sn
-                              ON cv_sn.entity_id = wa_sn.asset_id
-                            WHERE wa_sn.root_work_id = g.first_root_work_id
-                              AND cv_sn.key = 'season_number'
-                        )                                           AS season_count,
-                        g.album_count,
-                        g.first_root_work_id                         AS root_work_id
-                    FROM grouped g
-                    ORDER BY g.group_name
-                    """;
-
-                var gp = cmd.CreateParameter();
-                gp.ParameterName = "@GroupField";
-                gp.Value = groupByField;
-                cmd.Parameters.Add(gp);
-
-                var isMusicAlbumGroup = cmd.CreateParameter();
-                isMusicAlbumGroup.ParameterName = "@IsMusicAlbumGroup";
-                isMusicAlbumGroup.Value = primaryMediaType.Equals("Music", StringComparison.OrdinalIgnoreCase)
-                    && groupByField.Equals("album", StringComparison.OrdinalIgnoreCase)
-                    ? 1
-                    : 0;
-                cmd.Parameters.Add(isMusicAlbumGroup);
-
-                // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, string? CoverAspectClass, string? SquareAspectClass, string? BackgroundAspectClass, string? BannerAspectClass, int? CoverWidthPx, int? CoverHeightPx, int? SquareWidthPx, int? SquareHeightPx, int? BackgroundWidthPx, int? BackgroundHeightPx, int? BannerWidthPx, int? BannerHeightPx, int? SeasonCount, int AlbumCount, Guid? RootWorkId)>();
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var groupName = reader.IsDBNull(0) ? null : reader.GetString(0);
-                        if (string.IsNullOrWhiteSpace(groupName))
-                        {
-                            continue;
-                        }
-
-                        rows.Add((
-                            groupName,
-                            reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
-                            reader.IsDBNull(2) ? null : reader.GetString(2),
-                            reader.IsDBNull(3) ? null : reader.GetString(3),
-                            reader.IsDBNull(4) ? null : reader.GetString(4),
-                            reader.IsDBNull(5) ? null : reader.GetString(5),
-                            reader.IsDBNull(6) ? null : reader.GetString(6),
-                            reader.IsDBNull(7) ? null : reader.GetString(7),
-                            reader.IsDBNull(8) ? null : reader.GetString(8),
-                            reader.IsDBNull(9) ? null : reader.GetString(9),
-                            reader.IsDBNull(10) ? null : reader.GetString(10),
-                            reader.IsDBNull(11) ? null : reader.GetString(11),
-                            reader.IsDBNull(12) ? null : reader.GetString(12),
-                            reader.IsDBNull(13) ? null : reader.GetString(13),
-                            reader.IsDBNull(14) ? null : reader.GetString(14),
-                            reader.IsDBNull(15) ? null : reader.GetString(15),
-                            ReadNullableInt(reader, 16),
-                            ReadNullableInt(reader, 17),
-                            ReadNullableInt(reader, 18),
-                            ReadNullableInt(reader, 19),
-                            ReadNullableInt(reader, 20),
-                            ReadNullableInt(reader, 21),
-                            ReadNullableInt(reader, 22),
-                            ReadNullableInt(reader, 23),
-                            reader.IsDBNull(24) ? null : (int?)reader.GetInt32(24),
-                            reader.IsDBNull(25) ? 0 : reader.GetInt32(25),
-                            reader.IsDBNull(26) ? null : GuidSql.FromDb(reader.GetValue(26))
-                        ));
-                    }
-                }
-
-                log.LogInformation("[ByAlbum] SQL grouping query for collection '{CollectionName}' (groupByField={GroupByField}) returned {RowCount} distinct group(s)",
-                    collection.DisplayName, groupByField, rows.Count);
-
-                var isArtistGroup = groupByField.Equals("artist", StringComparison.OrdinalIgnoreCase);
-
-                foreach (var row in rows)
-                {
-                    string? artistPhotoUrl = null;
-                    Guid? artistPersonId = null;
-
-                    if (isArtistGroup && !string.IsNullOrWhiteSpace(row.GroupName))
-                    {
-                        try
-                        {
-                            var person = await personRepo.FindByNameAsync(row.GroupName, ct);
-                            if (person is not null)
-                            {
-                                artistPersonId = person.Id;
-                                if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
-                                {
-                                    artistPhotoUrl = $"/persons/{person.Id}/headshot";
-                                }
-                            }
-                        }
-                        catch { /* best-effort — missing photo is fine */ }
-                    }
-
-                    result.Add(new ContentGroupDto
-                    {
-                        CollectionId = collection.Id,
-                        RootWorkId = row.RootWorkId,
-                        DisplayName = row.GroupName,
-                        WikidataQid = null,
-                        PrimaryMediaType = primaryMediaType,
-                        WorkCount = row.WorkCount,
-                        DistinctTitleCount = row.WorkCount,
-                        CoverUrl = row.CoverUrl,
-                        BackgroundUrl = row.BackgroundUrl,
-                        BannerUrl = row.BannerUrl,
-                        HeroUrl = row.HeroUrl,
-                        LogoUrl = row.LogoUrl,
-                        CoverAspectClass = row.CoverAspectClass,
-                        SquareAspectClass = row.SquareAspectClass,
-                        BackgroundAspectClass = row.BackgroundAspectClass,
-                        BannerAspectClass = row.BannerAspectClass,
-                        CoverWidthPx = row.CoverWidthPx,
-                        CoverHeightPx = row.CoverHeightPx,
-                        SquareWidthPx = row.SquareWidthPx,
-                        SquareHeightPx = row.SquareHeightPx,
-                        BackgroundWidthPx = row.BackgroundWidthPx,
-                        BackgroundHeightPx = row.BackgroundHeightPx,
-                        BannerWidthPx = row.BannerWidthPx,
-                        BannerHeightPx = row.BannerHeightPx,
-                        Description = row.Description,
-                        Tagline = row.Tagline,
-                        Creator = row.Creator,
-                        UniverseStatus = "Complete",
-                        CreatedAt = collection.CreatedAt,
-                        ArtistPhotoUrl = artistPhotoUrl,
-                        ArtistPersonId = artistPersonId,
-                        Network = row.Network,
-                        Year = row.Year,
-                        SeasonCount = row.SeasonCount,
-                        AlbumCount = row.AlbumCount > 0 ? row.AlbumCount : null,
-                    });
-                }
-            }
-
-            if (result.Count == 0 && IsMusicSystemView(mediaType, groupField))
-            {
-                var fallbackGroups = await BuildMusicSystemViewFallbackGroupsAsync(conn, personRepo, groupField!, log, ct);
-                result.AddRange(fallbackGroups);
-            }
-
-            log.LogInformation("[ByAlbum] Returning {Total} content groups for mediaType={MediaType} groupField={GroupField}",
-                result.Count, mediaType ?? "(none)", groupField ?? "(none)");
-
+            var result = await browseReadService.GetSystemViewGroupsAsync(mediaType, groupField, ct);
             var normalizedGroups = NormalizeSystemViewGroups(result, mediaType, groupField);
-            return Results.Ok(normalizedGroups.OrderBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase).ToList());
+            return Results.Ok(normalizedGroups
+                .OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList());
         })
         .WithName("GetSystemViewGroups")
         .WithSummary("Resolves built-in browse views (By Show, By Artist, By Album) as dynamic content groups for the library container views.")
@@ -2211,47 +1345,30 @@ public static class CollectionEndpoints
         // GET /collections/managed — all non-Universe collections for the managed collections surface.
         group.MapGet("/managed", async (
             Guid? profileId,
-            ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
-            IDatabaseConnection db,
+            CollectionCatalogReadService catalogReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var collections = await collectionRepo.GetManagedCollectionsAsync(ct);
-            var accessibleCollections = collections
-                .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
-                .ToList();
-            var curatedCountByCollection = await collectionRepo.GetCollectionItemCountsAsync(
-                accessibleCollections
-                    .Where(collection => !string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase))
-                    .Select(collection => collection.Id),
-                ct);
-            var dtos = new List<ManagedCollectionDto>();
-            foreach (var collection in accessibleCollections)
-            {
-                var count = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, curatedCountByCollection, ct);
-                dtos.Add(ManagedCollectionDto.FromDomain(collection, count, activeProfile));
-            }
-
-            return Results.Ok(dtos);
+            return Results.Ok(await catalogReadService.GetManagedAsync(activeProfile, ct));
         })
         .WithName("GetManagedCollections")
         .WithSummary("List authored collections accessible to the active profile.")
         .Produces<List<ManagedCollectionDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // GET /collections/management-catalog — classified collection catalog for the Collections hub.
-        group.MapGet("/management-catalog", async (
+        // GET /collections/catalog — classified collection catalog for the Collections hub.
+        group.MapGet("/catalog", async (
             Guid? profileId,
             IProfileRepository profileRepo,
             CollectionCatalogReadService catalogReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var catalog = await catalogReadService.GetManagementCatalogAsync(activeProfile, ct);
+            var catalog = await catalogReadService.GetCatalogAsync(activeProfile, ct);
             return Results.Ok(catalog);
         })
-        .WithName("GetCollectionManagementCatalog")
+        .WithName("GetCollectionCatalog")
         .WithSummary("Returns all collections visible to the active profile with server-side family and lane classification for the Collections hub.")
         .Produces<List<CollectionManagementCatalogDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
@@ -2299,7 +1416,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             ICollectionMediaLookupReadService mediaLookupReadService,
-            IDatabaseConnection db,
+            CollectionCatalogReadService catalogReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
@@ -2318,10 +1435,8 @@ public static class CollectionEndpoints
                 }
 
                 var existingItems = await collectionRepo.GetCollectionItemsAsync(collectionId.Value, 1000, ct);
-                existingWorkIds = (await GetCollectionCatalogDisplayWorkIdsAsync(
-                        existingItems.Select(item => item.WorkId),
-                        db,
-                        ct))
+                existingWorkIds = (await catalogReadService.GetDisplayWorkIdsAsync(
+                        existingItems.Select(item => item.WorkId), ct))
                     .ToHashSet();
             }
 
@@ -2384,7 +1499,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             Guid? profileId,
-            IDatabaseConnection db,
+            CollectionCatalogReadService catalogReadService,
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
@@ -2409,9 +1524,9 @@ public static class CollectionEndpoints
                 return Results.BadRequest("work_id is required.");
             }
 
-            var collectionWorkId = await ResolveCollectionMembershipWorkIdAsync(body.WorkId, db, ct);
+            var collectionWorkId = await catalogReadService.ResolveMembershipWorkIdAsync(body.WorkId, ct);
             var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
-            var existingDisplayWorkIds = await GetCollectionCatalogDisplayWorkIdsAsync(existingItems.Select(item => item.WorkId), db, ct);
+            var existingDisplayWorkIds = await catalogReadService.GetDisplayWorkIdsAsync(existingItems.Select(item => item.WorkId), ct);
             if (existingDisplayWorkIds.Contains(collectionWorkId))
             {
                 return Results.Ok();
@@ -2732,7 +1847,8 @@ public static class CollectionEndpoints
             Guid id,
             int? limit,
             ICollectionRepository collectionRepo,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
+            ICollectionMediaLookupReadService mediaLookupReadService,
             CancellationToken ct) =>
         {
             var collection = await collectionRepo.GetByIdAsync(id, ct);
@@ -2752,7 +1868,7 @@ public static class CollectionEndpoints
 
                 var take = limit ?? 0;
                 var works = take > 0 ? collectionWithWorks.Works.Take(take).ToList() : collectionWithWorks.Works;
-                var primaryAssetIds = await LoadPrimaryAssetIdsAsync(works.Select(w => w.Id), db, ct);
+                var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(works.Select(w => w.Id), ct);
                 var items = works.Select(w =>
                 {
                     var dto = WorkDto.FromDomain(w);
@@ -2777,10 +1893,10 @@ public static class CollectionEndpoints
                 return Results.Ok(new List<CollectionResolvedItemDto>());
             }
 
-            var evaluator = new CollectionRuleEvaluator(db);
-            var entityIds = evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection, limit ?? 0);
+            var entityIds = browseReadService.EvaluateRules(
+                predicates, collection.MatchMode, collection.SortField, collection.SortDirection, limit ?? 0);
 
-            var resolved = ResolveEntityMetadata(db, entityIds);
+            var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(resolved);
         })
         .WithName("ResolveCollection")
@@ -2800,7 +1916,8 @@ public static class CollectionEndpoints
         group.MapGet("/resolve/by-name", async (
             string? name,
             int? limit,
-            IDatabaseConnection db,
+            ICollectionBrowseReadService browseReadService,
+            ICollectionMediaLookupReadService mediaLookupReadService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -2822,11 +1939,10 @@ public static class CollectionEndpoints
                 return Results.Ok(new List<CollectionResolvedItemDto>());
             }
 
-            var evaluator = new CollectionRuleEvaluator(db);
-            var entityIds = evaluator.Evaluate(
+            var entityIds = browseReadService.EvaluateRules(
                 predicates, collection.MatchMode, collection.SortField, collection.SortDirection, limit ?? 200);
 
-            var resolved = ResolveEntityMetadataWithLineage(db, entityIds);
+            var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(resolved);
         })
         .WithName("ResolveCollectionByName")
@@ -2874,19 +1990,21 @@ public static class CollectionEndpoints
         .RequireAnyRole();
 
         // POST /collections/preview — evaluate rules without saving
-        group.MapPost("/preview", (
+        group.MapPost("/preview", async (
             CollectionPreviewRequest body,
-            IDatabaseConnection db) =>
+            ICollectionBrowseReadService browseReadService,
+            ICollectionMediaLookupReadService mediaLookupReadService,
+            CancellationToken ct) =>
         {
             if (body.Rules.Count == 0)
             {
                 return Results.Ok(new { count = 0, items = new List<CollectionResolvedItemDto>() });
             }
 
-            var evaluator = new CollectionRuleEvaluator(db);
-            var entityIds = evaluator.Evaluate(body.Rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
+            var entityIds = browseReadService.EvaluateRules(
+                body.Rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
 
-            var resolved = ResolveEntityMetadata(db, entityIds);
+            var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(new { count = entityIds.Count, items = resolved });
         })
         .WithName("PreviewCollection")
@@ -3134,45 +2252,13 @@ public static class CollectionEndpoints
         .RequireAnyRole();
 
         // GET /collections/field-values/{field} — distinct values for autocomplete
-        group.MapGet("/field-values/{field}", (
+        group.MapGet("/field-values/{field}", async (
             string field,
             int? limit,
-            IDatabaseConnection db) =>
+            ICollectionBrowseReadService browseReadService,
+            CancellationToken ct) =>
         {
-            int take = limit ?? 50;
-            using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-
-            if (field == "media_type")
-            {
-                cmd.CommandText = "SELECT DISTINCT media_type FROM works WHERE status NOT IN ('InReview','Rejected') ORDER BY media_type LIMIT @Limit";
-            }
-            else
-            {
-                cmd.CommandText = """
-                    SELECT DISTINCT value FROM canonical_values
-                    WHERE key = @Field AND value IS NOT NULL AND value != ''
-                    ORDER BY value
-                    LIMIT @Limit
-                    """;
-                var fp = cmd.CreateParameter();
-                fp.ParameterName = "@Field";
-                fp.Value = field;
-                cmd.Parameters.Add(fp);
-            }
-
-            var lp = cmd.CreateParameter();
-            lp.ParameterName = "@Limit";
-            lp.Value = take;
-            cmd.Parameters.Add(lp);
-
-            var values = new List<string>();
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                values.Add(reader.GetString(0));
-            }
-
+            var values = await browseReadService.GetFieldValuesAsync(field, limit ?? 50, ct);
             return Results.Ok(values);
         })
         .WithName("GetFieldValues")
@@ -3251,192 +2337,6 @@ public static class CollectionEndpoints
         return await profileRepo.GetByIdAsync(profileId.Value, ct);
     }
 
-    private static async Task<int> GetManagedCollectionItemCountAsync(
-        Collection collection,
-        ICollectionRepository collectionRepo,
-        IDatabaseConnection db,
-        IReadOnlyDictionary<Guid, int>? curatedCountByCollection,
-        CancellationToken ct)
-    {
-        if (string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(collection.RuleJson))
-        {
-            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-            if (predicates.Count == 0)
-            {
-                return 0;
-            }
-
-            var evaluator = new CollectionRuleEvaluator(db);
-            return evaluator.Evaluate(
-                predicates,
-                collection.MatchMode,
-                collection.SortField,
-                collection.SortDirection).Count;
-        }
-
-        if (curatedCountByCollection is not null && curatedCountByCollection.TryGetValue(collection.Id, out var count))
-        {
-            return count;
-        }
-
-        return await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
-    }
-
-    private static int GetManagedCollectionItemCount(
-        Collection collection,
-        IReadOnlyDictionary<Guid, int> curatedCountByCollection,
-        IReadOnlyList<Guid> workIds)
-    {
-        if (!string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase)
-            && curatedCountByCollection.TryGetValue(collection.Id, out var count))
-        {
-            return Math.Max(count, workIds.Count);
-        }
-
-        return workIds.Count;
-    }
-
-    private static CollectionCatalogClassification ClassifyCollectionForCatalog(Collection collection)
-    {
-        var systemKey = GetSystemCollectionKey(collection);
-        if (systemKey is not null)
-        {
-            return new CollectionCatalogClassification("System", "System", systemKey, true, SystemLaneForKey(systemKey));
-        }
-
-        var family = string.Equals(collection.Scope, "library", StringComparison.OrdinalIgnoreCase)
-            ? "Global"
-            : "User";
-        return new CollectionCatalogClassification(family, collection.CollectionType, null, false);
-    }
-
-    private static string? GetSystemCollectionKey(Collection collection)
-    {
-        var normalizedName = (collection.DisplayName ?? string.Empty).Trim();
-        if (normalizedName.Length == 0)
-        {
-            return null;
-        }
-
-        if (string.Equals(collection.CollectionType, "System", StringComparison.OrdinalIgnoreCase))
-        {
-            return normalizedName.ToLowerInvariant().Replace(' ', '-');
-        }
-
-        return normalizedName switch
-        {
-            "Watchlist" => "watchlist",
-            "Favorites" => "favorites",
-            "Reading List" => "reading-list",
-            "Listening Queue" => "listening-queue",
-            "Currently Watching" => "currently-watching",
-            _ => null,
-        };
-    }
-
-    private static string? SystemLaneForKey(string systemKey) => systemKey switch
-    {
-        "favorites" => "Listen",
-        "listening-queue" => "Listen",
-        "watchlist" => "Watch",
-        "currently-watching" => "Watch",
-        "reading-list" => "Read",
-        _ => null,
-    };
-
-    private static bool ShouldIncludeInManagementCatalog(
-        Collection collection,
-        CollectionCatalogClassification classification,
-        CollectionMediaCounts mediaCounts,
-        bool hasKnownSeriesManifest)
-    {
-        if (IsPlaylistCatalogCollection(collection))
-        {
-            return false;
-        }
-
-        if (classification.IsSystem || string.Equals(classification.Family, "User", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
-        {
-            return true;
-        }
-
-        if (IsGeneratedSeriesCollection(collection) && GetCollectionCatalogAggregation(collection) is null)
-        {
-            return false;
-        }
-
-        if (mediaCounts.TotalCount < 2 && !hasKnownSeriesManifest)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool IsPlaylistCatalogCollection(Collection collection)
-        => string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase);
-
-    private static CollectionManagementCatalogCandidate SelectCatalogRepresentative(
-        IReadOnlyList<CollectionManagementCatalogCandidate> entries)
-    {
-        return entries
-            .OrderByDescending(entry => entry.MediaCounts.TotalCount)
-            .ThenByDescending(entry => entry.ItemCount)
-            .ThenBy(entry => entry.Collection.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .First();
-    }
-
-    private static CollectionCatalogAggregation? GetCollectionCatalogAggregation(Collection collection)
-    {
-        if (!IsGeneratedSeriesCollection(collection))
-        {
-            return null;
-        }
-
-        if (TryGetRelationshipAggregation(collection, "fictional_universe", out var aggregation))
-        {
-            return aggregation;
-        }
-
-        if (TryGetRelationshipAggregation(collection, "franchise", out aggregation))
-        {
-            return aggregation;
-        }
-
-        if (TryGetRelationshipAggregation(collection, "series", out aggregation))
-        {
-            return aggregation;
-        }
-
-        return null;
-    }
-
-    private static bool ShouldIncludeCatalogGroup(IReadOnlyList<CollectionManagementCatalogCandidate> entries)
-    {
-        var generatedEntries = entries
-            .Where(entry => IsGeneratedSeriesCollection(entry.Collection))
-            .ToList();
-
-        if (generatedEntries.Count == 0)
-        {
-            return true;
-        }
-
-        return generatedEntries
-            .Where(entry => entry.Collection.Works.Count > 0)
-            .Select(entry => entry.Collection.Id)
-            .Distinct()
-            .Count() >= 2;
-    }
-
     private static bool TryGetRelationshipAggregation(
         Collection collection,
         string relationshipType,
@@ -3471,577 +2371,14 @@ public static class CollectionEndpoints
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-    private static string? ToNullableText(object? value) =>
-        value switch
-        {
-            null => null,
-            string text when string.IsNullOrWhiteSpace(text) => null,
-            string text => text,
-            byte[] bytes => System.Text.Encoding.UTF8.GetString(bytes),
-            _ => Convert.ToString(value, CultureInfo.InvariantCulture),
-        };
-
-    private static async Task<bool> HasKnownSeriesManifestAsync(
-        Collection collection,
-        ISeriesManifestRepository manifestRepo,
-        CancellationToken ct)
-    {
-        if (!IsGeneratedSeriesCollection(collection))
-        {
-            return false;
-        }
-
-        var manifest = await manifestRepo.GetViewByCollectionIdAsync(collection.Id, ct);
-        return manifest?.TotalCount > 1;
-    }
-
     private static bool IsGeneratedSeriesCollection(Collection collection)
         => string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
             || string.Equals(collection.CollectionType, "Series", StringComparison.OrdinalIgnoreCase)
             || string.Equals(collection.CollectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsGeneratedTvShowContainer(Collection collection, CollectionMediaCounts mediaCounts)
-    {
-        if (!IsGeneratedSeriesCollection(collection))
-        {
-            return false;
-        }
-
-        return mediaCounts.TvCount > 0
-            && mediaCounts.WatchCount == mediaCounts.TvCount
-            && mediaCounts.ListenCount == 0
-            && mediaCounts.ReadCount == 0
-            && mediaCounts.OtherCount == 0;
-    }
-
-    private static async Task<CollectionMediaCounts> GetCollectionMediaCountsAsync(
-        Collection collection,
-        ICollectionRepository collectionRepo,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        var workIds = await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct);
-        return await GetCollectionMediaCountsAsync(workIds, db, ct);
-    }
-
-    private static async Task<CollectionMediaCounts> GetCollectionMediaCountsAsync(
-        IReadOnlyList<Guid> workIds,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        if (workIds.Count == 0)
-        {
-            return new CollectionMediaCounts(0, 0, 0, 0);
-        }
-
-        using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string MediaType, int Count)>(new CommandDefinition(
-                """
-                SELECT media_type AS MediaType, COUNT(*) AS Count
-                FROM works
-                WHERE id IN @WorkIds
-                GROUP BY media_type
-                """,
-                new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
-                cancellationToken: ct));
-
-        var watch = 0;
-        var listen = 0;
-        var read = 0;
-        var other = 0;
-        var tv = 0;
-        foreach (var row in rows)
-        {
-            if (string.Equals(row.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
-            {
-                tv += row.Count;
-            }
-
-            if (IsWatchMediaType(row.MediaType))
-            {
-                watch += row.Count;
-            }
-            else if (IsListenMediaType(row.MediaType))
-            {
-                listen += row.Count;
-            }
-            else if (IsReadMediaType(row.MediaType))
-            {
-                read += row.Count;
-            }
-            else
-            {
-                other += row.Count;
-            }
-        }
-
-        return new CollectionMediaCounts(watch, listen, read, other, tv);
-    }
-
-    private static async Task<IReadOnlyList<Guid>> GetCollectionWorkIdsAsync(
-        Collection collection,
-        ICollectionRepository collectionRepo,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        if (string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(collection.RuleJson))
-        {
-            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-            if (predicates.Count == 0)
-            {
-                return [];
-            }
-
-            var evaluator = new CollectionRuleEvaluator(db);
-            return evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection, 0);
-        }
-
-        var items = await collectionRepo.GetCollectionItemsAsync(collection.Id, 5000, ct);
-        if (items.Count > 0)
-        {
-            return items.Select(item => item.WorkId).Distinct().ToList();
-        }
-
-        var collectionWithWorks = await collectionRepo.GetCollectionWithWorksAsync(collection.Id, ct);
-        return collectionWithWorks?.Works.Select(work => work.Id).Distinct().ToList() ?? [];
-    }
-
-    private static async Task<IReadOnlyList<Guid>> GetAggregatedCollectionWorkIdsAsync(
-        Guid collectionId,
-        Profile? activeProfile,
-        ICollectionRepository collectionRepo,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        var accessibleCollections = (await collectionRepo.GetAllAsync(ct))
-            .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
-            .ToList();
-        var target = accessibleCollections.FirstOrDefault(collection => collection.Id == collectionId);
-        if (target is null)
-        {
-            return [];
-        }
-
-        var targetGrouping = GetCollectionCatalogAggregation(target);
-        var siblingCollections = targetGrouping is null
-            ? new List<Collection> { target }
-            : accessibleCollections
-                .Where(collection => IsGeneratedSeriesCollection(collection)
-                    && string.Equals(GetCollectionCatalogAggregation(collection)?.Key, targetGrouping.Key, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-        var workIds = new List<Guid>();
-        foreach (var collection in ExpandWithChildCollections(siblingCollections, accessibleCollections))
-        {
-            workIds.AddRange(await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct));
-        }
-
-        return await GetCollectionCatalogDisplayWorkIdsAsync(workIds, db, ct);
-    }
-
-    private static async Task<IReadOnlyList<Guid>> GetCollectionCatalogSourceWorkIdsAsync(
-        Collection collection,
-        IReadOnlyList<Collection> accessibleCollections,
-        ICollectionRepository collectionRepo,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        var workIds = new List<Guid>();
-        foreach (var sourceCollection in ExpandWithChildCollections([collection], accessibleCollections))
-        {
-            workIds.AddRange(await GetCollectionWorkIdsAsync(sourceCollection, collectionRepo, db, ct));
-        }
-
-        return workIds.Distinct().ToList();
-    }
-
-    private static string BuildGuidBlobLiteralList(IEnumerable<Guid> ids)
-        => string.Join(",", ids.Select(id => $"X'{Convert.ToHexString(GuidSql.ToBlob(id))}'"));
-
-    private static IReadOnlyList<Collection> ExpandWithChildCollections(
-        IReadOnlyList<Collection> collections,
-        IReadOnlyList<Collection> accessibleCollections)
-    {
-        var result = new List<Collection>();
-        var queue = new Queue<Collection>(collections);
-        var seen = new HashSet<Guid>();
-        while (queue.Count > 0)
-        {
-            var collection = queue.Dequeue();
-            if (!seen.Add(collection.Id))
-            {
-                continue;
-            }
-
-            result.Add(collection);
-            foreach (var child in accessibleCollections.Where(candidate => candidate.ParentCollectionId == collection.Id))
-            {
-                queue.Enqueue(child);
-            }
-        }
-
-        return result;
-    }
-
-    private static async Task<IReadOnlyList<Guid>> GetCollectionCatalogDisplayWorkIdsAsync(
-        IEnumerable<Guid> sourceWorkIds,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        var workIds = sourceWorkIds.Distinct().ToList();
-        if (workIds.Count == 0)
-        {
-            return [];
-        }
-
-        using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<CollectionDisplayWorkRow>(new CommandDefinition(
-            """
-            SELECT DISTINCT
-                   CASE
-                       WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)
-                       WHEN w.work_kind = 'parent' AND p.id IS NOT NULL THEN COALESCE(gp.id, p.id, w.id)
-                       ELSE w.id
-                   END AS WorkId
-            FROM works w
-            LEFT JOIN works p ON p.id = w.parent_work_id
-            LEFT JOIN works gp ON gp.id = p.parent_work_id
-            WHERE w.id IN @WorkIds;
-            """,
-            new { WorkIds = workIds.Select(id => id.ToString("D")).ToArray() },
-            cancellationToken: ct));
-
-        return rows
-            .Select(row => Guid.TryParse(row.WorkId, out var id) ? id : Guid.Empty)
-            .Where(id => id != Guid.Empty)
-            .Distinct()
-            .ToList();
-    }
-
-    private static async Task<Guid> ResolveCollectionMembershipWorkIdAsync(
-        Guid sourceWorkId,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        var displayIds = await GetCollectionCatalogDisplayWorkIdsAsync([sourceWorkId], db, ct);
-        return displayIds.Count == 0 ? sourceWorkId : displayIds[0];
-    }
-
-    private static async Task<List<CollectionItemDto>> ResolveCollectionWorkIdsToItemsAsync(
-        Guid collectionId,
-        IReadOnlyList<Guid> workIds,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        var displayWorkIds = await GetCollectionCatalogDisplayWorkIdsAsync(workIds, db, ct);
-        if (displayWorkIds.Count == 0)
-        {
-            return [];
-        }
-
-        using var conn = db.CreateConnection();
-        var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
-        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-        var rows = (await conn.QueryAsync<GeneratedCollectionItemRow>(new CommandDefinition(
-            $"""
-            WITH RECURSIVE work_tree(RootWorkId, WorkId) AS (
-                SELECT w.id AS RootWorkId,
-                       w.id AS WorkId
-                FROM works w
-                WHERE w.id IN @WorkIds
-                UNION ALL
-                SELECT work_tree.RootWorkId,
-                       child.id AS WorkId
-                FROM works child
-                INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
-            ),
-            representative_assets AS (
-                SELECT work_tree.RootWorkId AS WorkId,
-                       MIN(ma.id) AS AssetId
-                FROM work_tree
-                INNER JOIN editions e ON e.work_id = work_tree.WorkId
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE {visibleAssetPredicate}
-                GROUP BY work_tree.RootWorkId
-            )
-            SELECT w.id AS WorkId,
-                   COALESCE(
-                       NULLIF(title_work.value, ''),
-                       NULLIF(episode_title.value, ''),
-                       NULLIF(show_name.value, ''),
-                       NULLIF(series_item.item_label, ''),
-                       (
-                           SELECT NULLIF(CAST(descendant_title.value AS TEXT), '')
-                           FROM work_tree title_tree
-                           INNER JOIN canonical_values descendant_title ON descendant_title.entity_id = title_tree.WorkId
-                           WHERE title_tree.RootWorkId = w.id
-                             AND descendant_title.key IN ('show_name', 'title')
-                           ORDER BY CASE descendant_title.key WHEN 'show_name' THEN 0 ELSE 1 END
-                           LIMIT 1
-                       ),
-                       'Untitled'
-                   ) AS Title,
-                   COALESCE(
-                       NULLIF(CAST(author_work.value AS TEXT), ''),
-                       NULLIF(CAST(artist_work.value AS TEXT), ''),
-                       NULLIF(CAST(director_work.value AS TEXT), '')
-                   ) AS Creator,
-                   w.media_type AS MediaType,
-                   COALESCE(
-                       NULLIF(cover_asset.value, ''),
-                       NULLIF(cover_work.value, ''),
-                       CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
-                   ) AS CoverUrl,
-                   COALESCE(w.ordinal, series_item.sort_order, 999999) AS SortOrder
-            FROM works w
-            LEFT JOIN representative_assets ra ON ra.WorkId = w.id
-            LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
-            LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
-            LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
-            LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
-            LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
-            LEFT JOIN canonical_values director_work ON director_work.entity_id = w.id AND director_work.key = 'director'
-            LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-            LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-            LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id AND series_item.collection_id = @CollectionId
-            WHERE w.id IN @WorkIds
-              AND ({visibleWorkPredicate} OR ra.AssetId IS NOT NULL)
-            ORDER BY SortOrder, Title COLLATE NOCASE, w.id;
-            """,
-            new
-            {
-                CollectionId = collectionId.ToString("D"),
-                WorkIds = displayWorkIds.Select(id => id.ToString("D")).ToArray(),
-            },
-            cancellationToken: ct))).ToList();
-
-        return rows
-            .GroupBy(row => row.WorkId)
-            .Select(group => group.OrderBy(row => row.SortOrder).ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase).First())
-            .Select(row => new CollectionItemDto
-            {
-                Id = DeterministicCollectionItemId(collectionId, row.WorkId),
-                WorkId = row.WorkId,
-                Title = row.Title,
-                Creator = ToNullableText(row.Creator),
-                MediaType = row.MediaType,
-                CoverUrl = row.CoverUrl,
-                SortOrder = row.SortOrder,
-            }).ToList();
-    }
-
-    private static Guid DeterministicCollectionItemId(Guid collectionId, Guid workId)
-    {
-        var bytes = collectionId.ToByteArray().Concat(workId.ToByteArray()).ToArray();
-        return new Guid(System.Security.Cryptography.MD5.HashData(bytes));
-    }
-
-    private static async Task<IReadOnlyList<CollectionArtworkItemDto>> GetCollectionArtworkItemsAsync(
-        Collection collection,
-        ICollectionRepository collectionRepo,
-        IDatabaseConnection db,
-        int limit,
-        CancellationToken ct)
-    {
-        var workIds = (await GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct))
-            .Distinct()
-            .ToList();
-        return await GetCollectionArtworkItemsAsync(workIds, db, limit, ct);
-    }
-
-    private static async Task<IReadOnlyList<CollectionArtworkItemDto>> GetCollectionArtworkItemsAsync(
-        IReadOnlyList<Guid> sourceWorkIds,
-        IDatabaseConnection db,
-        int limit,
-        CancellationToken ct)
-    {
-        var workIds = (await GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, db, ct))
-            .Take(Math.Clamp(limit, 1, 8))
-            .ToList();
-        if (workIds.Count == 0)
-        {
-            return [];
-        }
-
-        using var conn = db.CreateConnection();
-        var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
-        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-        var rows = (await conn.QueryAsync<CollectionArtworkItemRow>(new CommandDefinition(
-            $"""
-            WITH RECURSIVE work_tree(RootWorkId, WorkId) AS (
-                SELECT w.id AS RootWorkId,
-                       w.id AS WorkId
-                FROM works w
-                WHERE w.id IN @WorkIds
-                UNION ALL
-                SELECT work_tree.RootWorkId,
-                       child.id AS WorkId
-                FROM works child
-                INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
-            ),
-            representative_assets AS (
-                SELECT work_tree.RootWorkId AS WorkId,
-                       MIN(ma.id) AS AssetId
-                FROM work_tree
-                INNER JOIN editions e ON e.work_id = work_tree.WorkId
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE {visibleAssetPredicate}
-                GROUP BY work_tree.RootWorkId
-            )
-            SELECT w.id AS WorkId,
-                   COALESCE(
-                       NULLIF(title_work.value, ''),
-                       NULLIF(episode_title.value, ''),
-                       NULLIF(show_name.value, ''),
-                       NULLIF(series_item.item_label, ''),
-                       'Untitled'
-                   ) AS Title,
-                   w.media_type AS MediaType,
-                   COALESCE(
-                       NULLIF(cover_asset.value, ''),
-                       NULLIF(cover_work.value, ''),
-                       CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
-                   ) AS CoverUrl,
-                   COALESCE(
-                       NULLIF(primary_work.value, ''),
-                       NULLIF(cover_primary_work.value, ''),
-                       NULLIF(preferred_cover.primary_hex, '')
-                   ) AS PrimaryColor,
-                   COALESCE(
-                       NULLIF(secondary_work.value, ''),
-                       NULLIF(cover_secondary_work.value, ''),
-                       NULLIF(preferred_cover.secondary_hex, '')
-                   ) AS SecondaryColor,
-                   COALESCE(
-                       NULLIF(accent_work.value, ''),
-                       NULLIF(dominant_work.value, ''),
-                       NULLIF(cover_accent_work.value, ''),
-                       NULLIF(preferred_cover.accent_hex, '')
-                   ) AS AccentColor,
-                   COALESCE(
-                       NULLIF(preferred_cover.local_image_path_s, ''),
-                       NULLIF(preferred_cover.local_image_path_m, ''),
-                       NULLIF(preferred_cover.local_image_path, '')
-                   ) AS LocalImagePath
-            FROM works w
-            LEFT JOIN representative_assets ra ON ra.WorkId = w.id
-            LEFT JOIN entity_assets preferred_cover ON preferred_cover.id = (
-                SELECT ea.id
-                FROM entity_assets ea
-                WHERE ea.entity_id = w.id
-                  AND ea.entity_type = 'Work'
-                  AND ea.asset_type IN ('CoverArt', 'SquareArt', 'Background', 'Banner')
-                ORDER BY ea.is_preferred DESC, ea.created_at DESC, ea.id
-                LIMIT 1
-            )
-            LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
-            LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
-            LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
-            LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-            LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-            LEFT JOIN canonical_values primary_work ON primary_work.entity_id = w.id AND primary_work.key = 'artwork_primary_hex'
-            LEFT JOIN canonical_values secondary_work ON secondary_work.entity_id = w.id AND secondary_work.key = 'artwork_secondary_hex'
-            LEFT JOIN canonical_values accent_work ON accent_work.entity_id = w.id AND accent_work.key = 'artwork_accent_hex'
-            LEFT JOIN canonical_values dominant_work ON dominant_work.entity_id = w.id AND dominant_work.key = 'dominant_color'
-            LEFT JOIN canonical_values cover_primary_work ON cover_primary_work.entity_id = w.id AND cover_primary_work.key = 'cover_primary_hex'
-            LEFT JOIN canonical_values cover_secondary_work ON cover_secondary_work.entity_id = w.id AND cover_secondary_work.key = 'cover_secondary_hex'
-            LEFT JOIN canonical_values cover_accent_work ON cover_accent_work.entity_id = w.id AND cover_accent_work.key = 'cover_accent_hex'
-            LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id
-            WHERE w.id IN @WorkIds
-              AND ({visibleWorkPredicate} OR ra.AssetId IS NOT NULL)
-            """,
-            new { WorkIds = workIds.Select(id => id.ToString()).ToArray() },
-            cancellationToken: ct))).ToList();
-
-        var rowById = rows
-            .Where(row => Guid.TryParse(row.WorkId, out _))
-            .GroupBy(row => Guid.Parse(row.WorkId))
-            .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
-
-        return workIds
-            .Where(rowById.ContainsKey)
-            .Select(id =>
-            {
-                var row = rowById[id];
-                return new CollectionArtworkItemDto
-                {
-                    WorkId = id,
-                    Title = string.IsNullOrWhiteSpace(row.Title) ? "Untitled" : row.Title,
-                    MediaType = row.MediaType ?? "Unknown",
-                    CoverUrl = row.CoverUrl,
-                    PrimaryColor = row.PrimaryColor,
-                    SecondaryColor = row.SecondaryColor,
-                    AccentColor = row.AccentColor,
-                    ArtworkShape = ArtworkShapeForMediaType(row.MediaType),
-                    LocalImagePath = row.LocalImagePath,
-                };
-            })
-            .ToList();
-    }
-
-    private static bool IsWatchMediaType(string? mediaType) =>
-        string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Movie", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "TV", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Video", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsListenMediaType(string? mediaType) =>
-        string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Audio", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Audiobook", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsReadMediaType(string? mediaType) =>
-        string.Equals(mediaType, "Books", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Book", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Comics", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mediaType, "Comic", StringComparison.OrdinalIgnoreCase);
-
-    private static string ArtworkShapeForMediaType(string? mediaType)
-    {
-        if (IsReadMediaType(mediaType))
-        {
-            return "portrait";
-        }
-
-        if (IsWatchMediaType(mediaType))
-        {
-            return "portrait";
-        }
-
-        if (IsListenMediaType(mediaType))
-        {
-            return "square";
-        }
-
-        return "square";
-    }
-
-    private static MediaType? TryParseMediaType(string? mediaType) =>
-        Enum.TryParse<MediaType>(mediaType, ignoreCase: true, out var parsed)
-            ? parsed
-            : mediaType switch
-            {
-                "Movie" => MediaType.Movies,
-                "Book" => MediaType.Books,
-                "Audiobook" => MediaType.Audiobooks,
-                "Comic" => MediaType.Comics,
-                "Shows" or "Show" => MediaType.TV,
-                _ => null,
-            };
-
-    private static ArtworkShape? TryParseArtworkShape(string? shape) => shape?.Trim().ToLowerInvariant() switch
-    {
-        "square" => ArtworkShape.Square,
-        "portrait" => ArtworkShape.Portrait,
-        "wide" or "landscape" => ArtworkShape.Wide,
-        _ => null,
-    };
-
     private sealed class CollectionArtworkItemRow
     {
-        public string WorkId { get; init; } = string.Empty;
+        public Guid WorkId { get; init; }
         public string? Title { get; init; }
         public string? MediaType { get; init; }
         public string? CoverUrl { get; init; }
@@ -4073,10 +2410,6 @@ public static class CollectionEndpoints
             ? "image/png"
             : "image/jpeg";
 
-    private static bool WorkMatchesQuery(WorkDto w, string query) =>
-        w.CanonicalValues.Any(cv =>
-            cv.Value.Contains(query, StringComparison.OrdinalIgnoreCase));
-
     private sealed class CollectionSearchRow
     {
         public Guid WorkId { get; init; }
@@ -4096,53 +2429,6 @@ public static class CollectionEndpoints
         return raw;
     }
 
-    private static async Task<Dictionary<Guid, Guid?>> LoadPrimaryAssetIdsAsync(
-        IEnumerable<Guid> workIds,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        var ids = workIds.Distinct().ToList();
-        if (ids.Count == 0)
-        {
-            return [];
-        }
-
-        using var conn = db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        var parameterNames = new List<string>(ids.Count);
-        for (var i = 0; i < ids.Count; i++)
-        {
-            var parameter = cmd.CreateParameter();
-            parameter.ParameterName = $"@workId{i}";
-            parameter.Value = GuidSql.ToBlob(ids[i]);
-            cmd.Parameters.Add(parameter);
-            parameterNames.Add(parameter.ParameterName);
-        }
-
-        cmd.CommandText = $"""
-            SELECT e.work_id AS WorkId,
-                   MIN(ma.id) AS AssetId
-            FROM editions e
-            INNER JOIN media_assets ma ON ma.edition_id = e.id
-            WHERE e.work_id IN ({string.Join(", ", parameterNames)})
-            GROUP BY e.work_id;
-            """;
-
-        var results = new Dictionary<Guid, Guid?>();
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-        {
-            var workId = GuidSql.FromDb(reader.GetValue(0));
-            var assetId = GuidSql.FromDbNullable(reader.GetValue(1));
-            results[workId] = assetId;
-        }
-
-        return results;
-    }
-
-    /// <summary>
-    /// Builds the preferred cover URL from a Work's canonical values.
-    /// </summary>
     private static string? BuildCoverStreamUrl(Work? w, Guid? assetId = null)
     {
         return BuildArtworkStreamUrl(
@@ -4237,9 +2523,6 @@ public static class CollectionEndpoints
             : value;
     }
 
-    private static string? BuildHeroStreamUrl(Work? w)
-        => null;
-
     private static PlaybackTechnicalSummary? BuildPlaybackSummaryFromWork(WorkDto work)
     {
         string? Canonical(string key) => GetCanonical(work, key);
@@ -4291,23 +2574,6 @@ public static class CollectionEndpoints
 
     private static int? ParseNullableInt(string? value) =>
         int.TryParse(value, out var parsed) ? parsed : null;
-
-    private static int? ReadNullableInt(System.Data.IDataRecord reader, int ordinal)
-    {
-        if (reader.IsDBNull(ordinal))
-        {
-            return null;
-        }
-
-        var raw = reader.GetValue(ordinal);
-        return raw switch
-        {
-            int value when value > 0 => value,
-            long value when value > 0 => (int)value,
-            string value when int.TryParse(value, out var parsed) && parsed > 0 => parsed,
-            _ => null,
-        };
-    }
 
     private static List<string> SplitValues(string? value) =>
         string.IsNullOrWhiteSpace(value)
@@ -4858,9 +3124,8 @@ public static class CollectionEndpoints
             ?.Value;
 
     private static CollectionPalette ResolvePalette(
-        Guid? entityId,
         IReadOnlyList<CanonicalValue> canonicalValues,
-        IDatabaseConnection db)
+        CollectionPaletteReadModel? storedPalette)
     {
         var primary = FirstCanonicalValue(canonicalValues,
             MetadataFieldConstants.ArtworkPrimaryHex,
@@ -4881,27 +3146,17 @@ public static class CollectionEndpoints
         AddColor(colors, secondary);
         AddColor(colors, accent);
 
-        if (entityId.HasValue && (string.IsNullOrWhiteSpace(primary) || string.IsNullOrWhiteSpace(secondary) || string.IsNullOrWhiteSpace(accent)))
+        if (storedPalette is not null
+            && (string.IsNullOrWhiteSpace(primary)
+                || string.IsNullOrWhiteSpace(secondary)
+                || string.IsNullOrWhiteSpace(accent)))
         {
-            using var conn = db.CreateConnection();
-            var row = conn.QueryFirstOrDefault<AssetPaletteRow>("""
-                SELECT primary_hex AS PrimaryHex,
-                       secondary_hex AS SecondaryHex,
-                       accent_hex AS AccentHex
-                FROM entity_assets
-                WHERE entity_id = @EntityId
-                  AND entity_type = 'Work'
-                  AND asset_type IN ('CoverArt', 'SquareArt', 'Background', 'Banner')
-                ORDER BY is_preferred DESC, created_at DESC, id
-                LIMIT 1;
-                """, new { EntityId = entityId.Value });
-
-            primary ??= row?.PrimaryHex;
-            secondary ??= row?.SecondaryHex;
-            accent ??= row?.AccentHex;
-            AddColor(colors, row?.PrimaryHex);
-            AddColor(colors, row?.SecondaryHex);
-            AddColor(colors, row?.AccentHex);
+            primary ??= storedPalette.PrimaryHex;
+            secondary ??= storedPalette.SecondaryHex;
+            accent ??= storedPalette.AccentHex;
+            AddColor(colors, storedPalette.PrimaryHex);
+            AddColor(colors, storedPalette.SecondaryHex);
+            AddColor(colors, storedPalette.AccentHex);
         }
 
         return new CollectionPalette(primary, secondary, accent, colors);
@@ -5234,76 +3489,6 @@ public static class CollectionEndpoints
         public string Source { get; init; } = "provider";
     }
 
-    private static List<CollectionResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)
-    {
-        if (entityIds.Count == 0)
-        {
-            return [];
-        }
-
-        using var conn = db.CreateConnection();
-        var result = new List<CollectionResolvedItemDto>();
-
-        foreach (var entityId in entityIds)
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                SELECT cv.key, cv.value
-                FROM editions e
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                INNER JOIN canonical_values cv ON cv.entity_id = ma.id
-                WHERE e.work_id = @EntityId
-                  AND cv.key IN ('title', 'author', 'director', 'artist', 'year')
-                UNION ALL
-                SELECT 'media_type', w.media_type
-                FROM works w WHERE w.id = @EntityId
-                UNION ALL
-                SELECT '_asset_id', MIN(ma2.id)
-                FROM editions e2
-                INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
-                WHERE e2.work_id = @EntityId
-                """;
-            var p = cmd.CreateParameter();
-            p.ParameterName = "@EntityId";
-            p.Value = entityId.ToString();
-            cmd.Parameters.Add(p);
-
-            string? title = null, creator = null, mediaType = null, cover = null, year = null;
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                var key = reader.GetString(0);
-                var val = reader.IsDBNull(1) ? null : reader.GetString(1);
-                if (string.IsNullOrEmpty(val))
-                {
-                    continue;
-                }
-
-                switch (key)
-                {
-                    case "title": title = val; break;
-                    case "author" when creator is null: creator = val; break;
-                    case "artist" when creator is null: creator = val; break;
-                    case "_asset_id": cover = $"/stream/{val}/cover"; break;
-                    case "year": year = val; break;
-                    case "media_type": mediaType = val; break;
-                }
-            }
-
-            result.Add(new CollectionResolvedItemDto
-            {
-                EntityId = entityId,
-                Title = title ?? "Unknown",
-                Creator = creator,
-                MediaType = mediaType ?? "Unknown",
-                CoverUrl = cover,
-                Year = year,
-            });
-        }
-
-        return result;
-    }
-
     private static IReadOnlyList<ContentGroupDto> NormalizeSystemViewGroups(
         IReadOnlyList<ContentGroupDto> groups,
         string? mediaType,
@@ -5396,187 +3581,6 @@ public static class CollectionEndpoints
         => string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
            && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsMusicSystemView(string? mediaType, string? groupField)
-        => string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
-           && (string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(groupField, "artist", StringComparison.OrdinalIgnoreCase));
-
-    private static async Task<IReadOnlyList<ContentGroupDto>> BuildMusicSystemViewFallbackGroupsAsync(
-        System.Data.IDbConnection conn,
-        IPersonRepository personRepo,
-        string groupField,
-        ILogger log,
-        CancellationToken ct)
-    {
-        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-        var rows = (await conn.QueryAsync<MusicSystemViewGroupRow>(new CommandDefinition($"""
-            WITH work_assets AS (
-                SELECT
-                    w.id AS WorkId,
-                    ma.id AS AssetId,
-                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
-                    ma.file_path_root AS FilePathRoot
-                FROM works w
-                INNER JOIN editions e ON e.work_id = w.id
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                LEFT JOIN works p ON p.id = w.parent_work_id
-                LEFT JOIN works gp ON gp.id = p.parent_work_id
-                WHERE w.media_type = 'Music'
-                  AND COALESCE(w.is_catalog_only, 0) = 0
-                  AND {visibleAssetPredicate}
-            ),
-            resolved_values AS (
-                SELECT
-                    wa.WorkId,
-                    wa.AssetId,
-                    COALESCE(
-                        NULLIF(TRIM(root_album.value), ''),
-                        NULLIF(TRIM(work_album.value), ''),
-                        NULLIF(TRIM(asset_album.value), '')
-                    ) AS Album,
-                    COALESCE(
-                        NULLIF(TRIM(root_artist.value), ''),
-                        NULLIF(TRIM(work_artist.value), ''),
-                        NULLIF(TRIM(asset_artist.value), '')
-                    ) AS Artist,
-                    COALESCE(
-                        NULLIF(TRIM(asset_title.value), ''),
-                        NULLIF(TRIM(work_title.value), '')
-                    ) AS Title,
-                    COALESCE(
-                        NULLIF(TRIM(root_year.value), ''),
-                        NULLIF(TRIM(work_year.value), ''),
-                        NULLIF(TRIM(asset_year.value), '')
-                    ) AS Year,
-                    COALESCE(
-                        NULLIF(TRIM(root_description.value), ''),
-                        NULLIF(TRIM(work_description.value), ''),
-                        NULLIF(TRIM(asset_description.value), '')
-                    ) AS Description,
-                    COALESCE(
-                        NULLIF(TRIM(root_cover_aspect.value), ''),
-                        NULLIF(TRIM(work_cover_aspect.value), ''),
-                        NULLIF(TRIM(asset_cover_aspect.value), '')
-                    ) AS CoverAspectClass
-                FROM work_assets wa
-                LEFT JOIN canonical_values root_album ON root_album.entity_id = wa.RootWorkId AND root_album.key = 'album'
-                LEFT JOIN canonical_values work_album ON work_album.entity_id = wa.WorkId AND work_album.key = 'album'
-                LEFT JOIN canonical_values asset_album ON asset_album.entity_id = wa.AssetId AND asset_album.key = 'album'
-                LEFT JOIN canonical_values root_artist ON root_artist.entity_id = wa.RootWorkId AND root_artist.key = 'artist'
-                LEFT JOIN canonical_values work_artist ON work_artist.entity_id = wa.WorkId AND work_artist.key = 'artist'
-                LEFT JOIN canonical_values asset_artist ON asset_artist.entity_id = wa.AssetId AND asset_artist.key = 'artist'
-                LEFT JOIN canonical_values work_title ON work_title.entity_id = wa.WorkId AND work_title.key = 'title'
-                LEFT JOIN canonical_values asset_title ON asset_title.entity_id = wa.AssetId AND asset_title.key = 'title'
-                LEFT JOIN canonical_values root_year ON root_year.entity_id = wa.RootWorkId AND root_year.key = 'year'
-                LEFT JOIN canonical_values work_year ON work_year.entity_id = wa.WorkId AND work_year.key = 'year'
-                LEFT JOIN canonical_values asset_year ON asset_year.entity_id = wa.AssetId AND asset_year.key = 'year'
-                LEFT JOIN canonical_values root_description ON root_description.entity_id = wa.RootWorkId AND root_description.key = 'description'
-                LEFT JOIN canonical_values work_description ON work_description.entity_id = wa.WorkId AND work_description.key = 'description'
-                LEFT JOIN canonical_values asset_description ON asset_description.entity_id = wa.AssetId AND asset_description.key = 'description'
-                LEFT JOIN canonical_values root_cover_aspect ON root_cover_aspect.entity_id = wa.RootWorkId AND root_cover_aspect.key = 'cover_aspect_class'
-                LEFT JOIN canonical_values work_cover_aspect ON work_cover_aspect.entity_id = wa.WorkId AND work_cover_aspect.key = 'cover_aspect_class'
-                LEFT JOIN canonical_values asset_cover_aspect ON asset_cover_aspect.entity_id = wa.AssetId AND asset_cover_aspect.key = 'cover_aspect_class'
-            ),
-            grouped AS (
-                SELECT
-                    CASE
-                        WHEN @GroupField = 'artist' THEN Artist
-                        ELSE Album
-                    END AS GroupName,
-                    CASE
-                        WHEN @GroupField = 'album' THEN Artist
-                    END AS Creator,
-                    COUNT(DISTINCT WorkId) AS WorkCount,
-                    COUNT(DISTINCT COALESCE(NULLIF(Title, ''), hex(WorkId))) AS DistinctTitleCount,
-                    COUNT(DISTINCT COALESCE(NULLIF(Album, ''), hex(WorkId))) AS AlbumCount,
-                    MIN(AssetId) AS FirstAssetId,
-                    MIN(Year) AS Year,
-                    MIN(Description) AS Description,
-                    MIN(CoverAspectClass) AS CoverAspectClass
-                FROM resolved_values
-                WHERE CASE
-                        WHEN @GroupField = 'artist' THEN Artist
-                        ELSE Album
-                    END IS NOT NULL
-                GROUP BY
-                    CASE
-                        WHEN @GroupField = 'artist' THEN lower(Artist)
-                        ELSE lower(Album)
-                    END,
-                    CASE
-                        WHEN @GroupField = 'album' THEN lower(COALESCE(Artist, ''))
-                    END
-            )
-            SELECT
-                GroupName,
-                Creator,
-                WorkCount,
-                DistinctTitleCount,
-                AlbumCount,
-                FirstAssetId,
-                Year,
-                Description,
-                CoverAspectClass
-            FROM grouped
-            ORDER BY GroupName
-            """,
-            new { GroupField = groupField.ToLowerInvariant() },
-            cancellationToken: ct))).AsList();
-
-        log.LogInformation("[ByAlbum] Music canonical fallback for groupField={GroupField} returned {RowCount} distinct group(s)",
-            groupField, rows.Count);
-
-        var isArtistGroup = string.Equals(groupField, "artist", StringComparison.OrdinalIgnoreCase);
-        var result = new List<ContentGroupDto>(rows.Count);
-        foreach (var row in rows)
-        {
-            string? artistPhotoUrl = null;
-            Guid? artistPersonId = null;
-
-            if (isArtistGroup && !string.IsNullOrWhiteSpace(row.GroupName))
-            {
-                try
-                {
-                    var person = await personRepo.FindByNameAsync(row.GroupName, ct);
-                    if (person is not null)
-                    {
-                        artistPersonId = person.Id;
-                        if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
-                        {
-                            artistPhotoUrl = $"/persons/{person.Id}/headshot";
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    log.LogDebug(ex, "Artist lookup failed while building Music system-view fallback group {Artist}", row.GroupName);
-                }
-            }
-
-            result.Add(new ContentGroupDto
-            {
-                CollectionId = CreateDeterministicSystemViewGroupId($"Music|{groupField}|{row.GroupName}|{row.Creator}"),
-                DisplayName = row.GroupName,
-                WikidataQid = null,
-                PrimaryMediaType = "Music",
-                WorkCount = row.WorkCount,
-                DistinctTitleCount = row.DistinctTitleCount,
-                CoverUrl = row.FirstAssetId.HasValue ? $"/stream/{row.FirstAssetId.Value}/cover" : null,
-                CoverAspectClass = row.CoverAspectClass,
-                Description = row.Description,
-                Creator = row.Creator,
-                UniverseStatus = "Complete",
-                CreatedAt = DateTimeOffset.UtcNow,
-                ArtistPhotoUrl = artistPhotoUrl,
-                ArtistPersonId = artistPersonId,
-                Year = row.Year,
-                AlbumCount = isArtistGroup && row.AlbumCount > 0 ? row.AlbumCount : null,
-            });
-        }
-
-        return result;
-    }
-
     private sealed class MusicSystemViewGroupRow
     {
         public string GroupName { get; init; } = string.Empty;
@@ -5624,6 +3628,11 @@ public static class CollectionEndpoints
             NormalizeSystemViewIdentity(group.Year));
     }
 
+    private static string NormalizeSystemViewIdentity(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? "(blank)"
+            : value.Trim().ToLowerInvariant();
+
     private static int ScoreSystemViewGroup(ContentGroupDto group)
     {
         var score = 0;
@@ -5631,14 +3640,8 @@ public static class CollectionEndpoints
         score += string.IsNullOrWhiteSpace(group.ArtistPhotoUrl) ? 0 : 8;
         score += string.IsNullOrWhiteSpace(group.Description) ? 0 : 4;
         score += string.IsNullOrWhiteSpace(group.Creator) ? 0 : 2;
-        score += group.WorkCount;
-        return score;
+        return score + group.WorkCount;
     }
-
-    private static string NormalizeSystemViewIdentity(string? value)
-        => string.IsNullOrWhiteSpace(value)
-            ? "(blank)"
-            : value.Trim().ToLowerInvariant();
 
     private static Guid CreateDeterministicSystemViewGroupId(string value)
     {
@@ -5656,232 +3659,6 @@ public static class CollectionEndpoints
     /// pattern so that music items have correct artist/album/cover values even
     /// after the lineage-aware write splits them onto the album Work's entity_id.
     /// </summary>
-    private static List<CollectionResolvedItemDto> ResolveEntityMetadataWithLineage(
-        IDatabaseConnection db,
-        IReadOnlyList<Guid> entityIds)
-    {
-        if (entityIds.Count == 0)
-        {
-            return [];
-        }
-
-        using var conn = db.CreateConnection();
-        var result = new List<CollectionResolvedItemDto>(entityIds.Count);
-
-        foreach (var entityId in entityIds)
-        {
-            using var cmd = conn.CreateCommand();
-            // Union 1: Self-scoped canonical values stored on the media_asset row.
-            // Union 2: Parent-scoped canonical values stored on the topmost Work row
-            //          (COALESCE walks parent_work_id up two levels — covers TV
-            //           episode → show and music track → album).
-            // Union 3: media_type read directly from the works table (not canonical_values).
-            // Union 4: asset_id for cover art URL construction.
-            cmd.CommandText = """
-                -- Self-scoped: canonical_values keyed on media_asset.id
-                SELECT cv.key, cv.value, 0 AS priority
-                FROM editions e
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                INNER JOIN canonical_values cv ON cv.entity_id = ma.id
-                WHERE e.work_id = @EntityId
-                  AND cv.key IN ('title', 'author', 'director', 'artist', 'year', 'album')
-                UNION ALL
-                -- Parent-scoped: canonical_values keyed on root parent Work id
-                SELECT cv.key, cv.value, 1 AS priority
-                FROM works w
-                LEFT  JOIN works p  ON p.id  = w.parent_work_id
-                LEFT  JOIN works gp ON gp.id = p.parent_work_id
-                INNER JOIN canonical_values cv
-                  ON cv.entity_id = COALESCE(gp.id, p.id, w.id)
-                WHERE w.id = @EntityId
-                  AND cv.key IN ('title', 'author', 'director', 'artist', 'year', 'album')
-                UNION ALL
-                -- media_type from works table
-                SELECT 'media_type', w2.media_type, 0
-                FROM works w2 WHERE w2.id = @EntityId
-                UNION ALL
-                -- asset_id for cover art URL construction
-                SELECT '_asset_id', MIN(ma2.id), 0
-                FROM editions e2
-                INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
-                WHERE e2.work_id = @EntityId
-                """;
-            var p = cmd.CreateParameter();
-            p.ParameterName = "@EntityId";
-            p.Value = entityId.ToString();
-            cmd.Parameters.Add(p);
-
-            // Collect all rows; for each key keep the first (priority 0 = asset-level
-            // for Self-scope, priority 1 = parent-level for Parent-scope).
-            // Self-scope rows win for title/episode fields; Parent-scope rows win for
-            // artist/album/cover because they are emitted first from Union 1 only when
-            // the value actually lives on the asset (pre-lineage ingestion).
-            var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                var key = reader.GetString(0);
-                var val = reader.IsDBNull(1) ? "" : reader.GetString(1);
-                if (string.IsNullOrEmpty(val))
-                {
-                    continue;
-                }
-                // First occurrence of each key wins (Union order = Self then Parent).
-                if (!seen.ContainsKey(key))
-                {
-                    seen[key] = val;
-                }
-            }
-
-            seen.TryGetValue("title", out var title);
-            seen.TryGetValue("author", out var author);
-            seen.TryGetValue("director", out var director);
-            seen.TryGetValue("artist", out var artist);
-            seen.TryGetValue("year", out var year);
-            seen.TryGetValue("media_type", out var mediaType);
-
-            string? cover = null;
-            if (seen.TryGetValue("_asset_id", out var assetId))
-            {
-                cover = $"/stream/{assetId}/cover";
-            }
-
-            var creator = artist ?? author ?? director;
-
-            result.Add(new CollectionResolvedItemDto
-            {
-                EntityId = entityId,
-                Title = !string.IsNullOrEmpty(title) ? title : "Unknown",
-                Creator = creator,
-                MediaType = !string.IsNullOrEmpty(mediaType) ? mediaType : "Unknown",
-                CoverUrl = cover,
-                Year = year,
-            });
-        }
-
-        return result;
-    }
-
-    private static string? BuildLookupSubtitle(CollectionMediaLookupRow row)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(row.Creator))
-        {
-            parts.Add(row.Creator);
-        }
-
-        if (!string.IsNullOrWhiteSpace(row.Year))
-        {
-            parts.Add(row.Year);
-        }
-
-        if (!string.IsNullOrWhiteSpace(row.MediaType))
-        {
-            parts.Add(row.MediaType);
-        }
-
-        return parts.Count == 0 ? null : string.Join(" | ", parts);
-    }
-
-    private static string? BuildLookupParentContext(CollectionMediaLookupRow row)
-    {
-        if (string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase))
-        {
-            return row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase) ? "Album"
-                : row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase) ? "Series"
-                : row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase) ? "Series"
-                : row.MediaType.Contains("book", StringComparison.OrdinalIgnoreCase) ? "Series"
-                : "Container";
-        }
-
-        if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
-        {
-            var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(row.ShowName))
-            {
-                parts.Add(row.ShowName);
-            }
-
-            if (!string.IsNullOrWhiteSpace(row.SeasonNumber))
-            {
-                parts.Add($"Season {row.SeasonNumber}");
-            }
-
-            return parts.Count == 0 ? null : string.Join(" / ", parts);
-        }
-
-        if (row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase))
-        {
-            var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(row.Artist))
-            {
-                parts.Add(row.Artist);
-            }
-
-            if (!string.IsNullOrWhiteSpace(row.Album))
-            {
-                parts.Add(row.Album);
-            }
-
-            return parts.Count == 0 ? null : string.Join(" / ", parts);
-        }
-
-        return null;
-    }
-
-    private static string BuildLookupRoute(CollectionMediaLookupRow row)
-    {
-        if (string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase))
-        {
-            if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
-            {
-                return $"/watch/tv/show/{row.WorkId:D}";
-            }
-
-            if (row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase))
-            {
-                return $"/details/musicalbum/{row.WorkId:D}?context=listen";
-            }
-
-            if (row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
-            {
-                return $"/details/comicseries/{row.WorkId:D}?context=comics";
-            }
-
-            if (row.MediaType.Contains("book", StringComparison.OrdinalIgnoreCase))
-            {
-                return $"/details/bookseries/{row.WorkId:D}?context=read";
-            }
-        }
-
-        if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/watch/tv/show/{row.WorkId:D}";
-        }
-
-        if (row.MediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/watch/movie/{row.WorkId:D}";
-        }
-
-        if (row.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/details/musictrack/{row.WorkId:D}?context=listen";
-        }
-
-        if (row.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/listen/audiobook/{row.WorkId:D}";
-        }
-
-        if (row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/details/comicissue/{row.WorkId:D}?context=comics";
-        }
-
-        return $"/book/{row.WorkId:D}";
-    }
-
     private sealed record CollectionMediaLookupRow(
         Guid WorkId,
         string MediaType,
@@ -5907,7 +3684,7 @@ public static class CollectionEndpoints
         public int SortOrder { get; init; }
     }
 
-    private sealed record CollectionDisplayWorkRow(string WorkId);
+    private sealed record CollectionDisplayWorkRow(Guid WorkId);
 
     private sealed record CollectionCatalogAggregation(string Key, string? Label);
 

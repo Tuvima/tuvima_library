@@ -428,6 +428,8 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal("watch", mapped.Key);
         Assert.Equal("Arrival", mapped.Hero?.Title);
         Assert.Single(mapped.Shelves);
+        Assert.Equal("movies", mapped.Shelves[0].Key);
+        Assert.Equal(MediaTileShelfKind.Standard, mapped.Shelves[0].Kind);
         Assert.Single(mapped.Catalog);
         Assert.Equal(["2016", "Science Fiction"], mapped.Hero?.MetaPills);
         Assert.Equal(["Arrival"], mapped.Spotlights.Select(slide => slide.Title));

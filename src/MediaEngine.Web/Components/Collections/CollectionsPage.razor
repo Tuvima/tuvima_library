@@ -15,7 +15,7 @@
 <div class="browse-shell collections-browse">
     @if (CurrentHero is not null)
     {
-        var heroCollection = RecentCollections[_heroIndex % RecentCollections.Count];
+        var heroCollection = CurrentHeroCollection!;
         <MediaBrowseHero Hero="@CurrentHero">
             <FooterContent>
                 @if (RecentCollections.Count > 1)
@@ -28,7 +28,7 @@
                         <div class="browse-hero__carousel-rail">
                             @foreach (var collection in RecentCollections.Take(8))
                             {
-                                <AppNativeButton Type="button" Class="@GetHeroChipClass(collection, heroCollection)" OnClick="() => SelectHero(collection)">
+                                <AppNativeButton @key="collection.Id" Type="button" Class="@GetHeroChipClass(collection, heroCollection)" OnClick="() => SelectHero(collection)">
                                     @if (!string.IsNullOrWhiteSpace(PrimaryArtwork(collection)))
                                     {
                                         <img src="@PrimaryArtwork(collection)" alt="" />
@@ -100,7 +100,7 @@
             <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
         </div>
     }
-    else if (CollectionCards.Count == 0)
+    else if (FilteredCollections.Count == 0)
     {
         <div class="browse-shell__empty">
             <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" Class="tl-u-font-size-52px tl-u-opacity-0-16" />
@@ -108,7 +108,7 @@
             <p>Collections appear when the Engine finds Wikidata-backed universes or when you create one.</p>
         </div>
     }
-    else
+    else if (CollectionCards.Count > 0)
     {
         <MediaTileGrid Items="@CollectionCards"
                        HoverMode="@MediaTileHoverMode.Expanded"
@@ -135,14 +135,19 @@
             .Take(8)
             .ToList();
 
+    private CollectionManagementCatalogViewModel? CurrentHeroCollection =>
+        RecentCollections.Count == 0
+            ? null
+            : RecentCollections[_heroIndex % RecentCollections.Count];
+
     private BrowseHeroViewModel? CurrentHero
     {
         get
         {
-            if (RecentCollections.Count == 0)
+            var collection = CurrentHeroCollection;
+            if (collection is null)
                 return null;
 
-            var collection = RecentCollections[_heroIndex % RecentCollections.Count];
             return new BrowseHeroViewModel
             {
                 Variant = BrowseHeroVariant.Read,
@@ -159,7 +164,10 @@
     }
 
     private IReadOnlyList<MediaTileViewModel> CollectionCards =>
-        FilteredCollections.Select(ToMediaTile).ToList();
+        FilteredCollections
+            .Where(collection => collection.Id != CurrentHeroCollection?.Id)
+            .Select(ToMediaTile)
+            .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -173,7 +181,7 @@
         try
         {
             _collections.Clear();
-            _collections.AddRange(await ApiClient.GetCollectionManagementCatalogAsync(_activeProfile?.Id));
+            _collections.AddRange(await ApiClient.GetCollectionCatalogAsync(_activeProfile?.Id));
             _heroIndex = Math.Clamp(_heroIndex, 0, Math.Max(0, _collections.Count - 1));
         }
         finally
@@ -293,7 +301,6 @@
         var heroArtwork = HeroBackground(collection);
         var heroSmall = MediaTileArtworkUrl.Sized(heroArtwork, "s");
         var heroMedium = MediaTileArtworkUrl.Sized(heroArtwork, "m");
-        var presentation = ResolvePresentation(collection);
         var paletteArtwork = PaletteArtwork(collection);
         var accentColor = FirstNonBlank(paletteArtwork?.PrimaryColor, paletteArtwork?.AccentColor, "var(--tl-accent-primary)")!;
         var secondaryAccentColor = FirstNonBlank(paletteArtwork?.SecondaryColor, paletteArtwork?.AccentColor, paletteArtwork?.PrimaryColor, "#111827")!;
@@ -319,7 +326,7 @@
             SecondaryAccentColor = secondaryAccentColor,
             ArtworkPalette = collection.ArtworkPalette,
             Shape = MediaTileShape.Landscape,
-            Presentation = presentation,
+            Presentation = MediaTilePresentation.Default,
             SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
             HoverLayout = MediaTileHoverLayout.BannerPopover,
             TileTextMode = MediaTileTextMode.CoverOnly,
@@ -448,20 +455,6 @@
         "Comics" => 7,
         _ => 8,
     };
-
-    private static MediaTilePresentation ResolvePresentation(CollectionManagementCatalogViewModel collection)
-    {
-        if (collection.WatchCount > 0 && collection.ReadCount == 0 && collection.ListenCount == 0)
-            return MediaTilePresentation.MovieSeries;
-
-        if (collection.ListenCount > 0 && collection.ReadCount == 0 && collection.WatchCount == 0)
-            return MediaTilePresentation.AudiobookSeries;
-
-        if (collection.ReadCount > 0 && collection.WatchCount == 0 && collection.ListenCount == 0)
-            return MediaTilePresentation.BookSeries;
-
-        return MediaTilePresentation.Default;
-    }
 
     private static string CollectionSubtitle(CollectionManagementCatalogViewModel collection) =>
         string.Join(" / ", BuildMediaCountLabels(collection));

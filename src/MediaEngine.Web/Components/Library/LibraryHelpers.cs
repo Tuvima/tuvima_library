@@ -71,22 +71,6 @@ public static class LibraryHelpers
         };
     }
 
-    /// <summary>Returns the confidence bar fill color based on score.</summary>
-    /// <remarks>
-    /// Thresholds: >=0.85 = green (matches AutoLinkThreshold), >=0.60 = amber (matches ConflictThreshold).
-    /// TODO: drive thresholds from ScoringConfiguration once LibraryHelpers is no longer static.
-    /// </remarks>
-    public static string GetConfidenceColor(double confidence)
-    {
-        var p = PaletteProvider.Current.Confidence;
-        return confidence switch
-        {
-            >= 0.85 => p.High,
-            >= 0.60 => p.Medium,
-            _       => p.Low,
-        };
-    }
-
     /// <summary>Delegates to LibraryItemHelpers for media type icon.</summary>
     public static string GetMediaTypeIcon(string? mediaType) =>
         LibraryItemHelpers.GetMediaTypeIcon(mediaType);

@@ -246,7 +246,6 @@ Scheduled maintenance task configuration.
 | `sync_interval_hours` | int | `24` | How often metadata writeback sync runs for pending changes. |
 | `reconciliation_interval_hours` | int | `24` | How often the Wikidata reconciliation refresh cycle runs. |
 | `rejected_retention_days` | int | `30` | How long explicitly rejected files remain in `.data/staging/rejected/` before deletion. |
-| `edition_recheck_interval_days` | int | `7` | How often editions in the library are re-checked against provider data for updates. |
 | `storage_maintenance.enabled` | bool | `true` | Enables the nightly storage maintenance hosted service. |
 | `storage_maintenance.search_cache_max_age_days` | int | `30` | Age threshold for provider, resolver, and search cache purges. |
 | `storage_maintenance.image_cache_retention_days` | int | `30` | Age threshold for unused image cache rows/files. User-preserved images are not removed. |

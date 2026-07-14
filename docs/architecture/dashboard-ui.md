@@ -51,7 +51,7 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 - `/settings/review` is the Review Queue.
 - `/settings` and `/settings/{Section}` are Settings/Admin.
 
-`LibraryBrowsePage` and `LaneLandingView` render cinematic spotlight-and-shelf discovery surfaces. `MediaBrowseShell` provides shared detailed browse behavior for current media lane tab routes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
+`LibraryBrowsePage` and `MediaHubPage` render cinematic spotlight-and-shelf discovery surfaces. `MediaBrowseShell` provides shared detailed browse behavior for current media lane tab routes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
 
 Desktop `MediaTile` previews expand the tile's flex item inside its existing shelf row. The resting cover is replaced at the same vertical position, neighboring cards shift horizontally, and leaving the preview restores the row. Media previews must not be portaled into a fixed overlay host or drawn over cards in another shelf.
 
@@ -106,6 +106,41 @@ media surface -> MediaEditorLauncherService -> SharedMediaEditorShell
 Normal mode is launched from detail pages, browse rows/cards, book details, listen tables, albums, tracks, movies, shows, and search/detail contexts. Review mode is launched from Review Queue. Batch mode is used only where a real selection exists.
 
 After an edit is applied, the current surface refreshes and the user remains in the same context.
+
+Editor tab transitions are owned by `MediaEditorTabState`, including the return
+from file inspection to the last content tab. Focused overlays such as artwork
+preview belong in child components instead of adding more state and markup to
+`SharedMediaEditorShell`.
+
+Listen profile navigation JSON is decoded, reordered, and encoded through
+`ListenPlaylistOrderState`. `ListenPage` should coordinate user intent and API
+work rather than own the persistence format.
+
+Dashboard Engine calls continue to be exposed through `IEngineApiClient`.
+Feature-focused typed clients or `EngineApiClient.*.cs` partials own cohesive
+endpoint families so the facade remains source-compatible while its
+implementation is decomposed. AI endpoint methods are a separate feature area
+and must not be moved as a side effect of non-AI client work.
+
+The live ingestion dashboard separates three responsibilities. The primary
+`IngestionLiveDashboardState` partial owns polling, subscriptions, cancellation,
+and awaited shutdown; its `Projection` partial owns snapshot-to-view-model
+calculation; and `IngestionDashboardSelectionState` preserves the selected batch
+and stage when a live snapshot replaces the current rows. The Razor component
+keeps markup separate from its code-behind. Its scoped styles live with
+`IngestionTasksTab` because the parent owns the dashboard surface and reaches the
+child through `::deep`; retired selectors should be deleted when markup is
+removed.
+
+Provider-priority presentation follows the same boundary: the tab coordinates
+provider data in code-behind while `ProviderStageSelector` owns the accessible
+stage choice control. The selector must continue to expose its active state with
+`aria-pressed` rather than relying on color alone.
+
+Retired Dashboard components are removed as complete closures: Razor, scoped
+CSS, DI registrations, source-only test fixtures, and stale documentation. Do
+not leave empty client or component marker types for hypothetical extraction;
+introduce a focused type only when it has active behavior and consumers.
 
 ## Review Queue
 

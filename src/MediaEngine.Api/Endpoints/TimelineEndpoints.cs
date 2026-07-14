@@ -72,29 +72,21 @@ public static class TimelineEndpoints
             // Verify the event exists and is a sync_writeback
             var evt = await repo.GetEventByIdAsync(eventId, ct);
             if (evt is null) return Results.NotFound("Event not found");
+            if (evt.EntityId != entityId) return Results.NotFound("Event not found for this entity");
             if (evt.EventType != "sync_writeback") return Results.BadRequest("Can only revert sync_writeback events");
 
             // Require that file originals were recorded for this event
             var originals = await repo.GetFileOriginalsForEventAsync(eventId, ct);
             if (originals.Count == 0) return Results.BadRequest("No file originals recorded for this event");
 
-            // TODO: Phase 6 will implement actual file revert via IMetadataTagger.
-            // For now, record the revert event so the timeline reflects the user's intent.
-            var revertEvent = new EntityEvent
-            {
-                EntityId   = entityId,
-                EntityType = evt.EntityType,
-                EventType  = "sync_reverted",
-                Trigger    = "user_manual",
-                Detail     = $"Reverted sync writeback from {evt.OccurredAt:yyyy-MM-dd HH:mm}",
-            };
-            await repo.InsertEventAsync(revertEvent, ct);
-
-            return Results.Ok(new { reverted = originals.Count, eventId = revertEvent.Id });
+            return Results.Problem(
+                statusCode: StatusCodes.Status501NotImplemented,
+                title: "Writeback revert is not implemented",
+                detail: "The original values are available, but no supported metadata restore operation exists yet. No files or timeline events were changed.");
         })
         .WithName("RevertSyncWriteback")
-        .WithSummary("Reverts a sync writeback by restoring original file metadata.")
-        .Produces(StatusCodes.Status200OK)
+        .WithSummary("Validates whether a sync writeback can be reverted. Metadata restore is not yet supported.")
+        .ProducesProblem(StatusCodes.Status501NotImplemented)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);
 

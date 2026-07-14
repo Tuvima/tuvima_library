@@ -27,7 +27,8 @@
                 <MediaShelf Shelf="@shelf"
                             SectionType="@SectionType"
                             OnPrimaryClicked="@OnPrimaryClicked"
-                            HideSourceBadges="@(SectionType == MediaHubSectionType.Watch)" />
+                            HideSourceBadges="@(SectionType == MediaHubSectionType.Watch)"
+                            @key="shelf.Key" />
             }
         }
     </div>

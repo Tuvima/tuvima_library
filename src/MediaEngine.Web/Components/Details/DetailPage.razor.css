@@ -3161,6 +3161,11 @@
     align-items: center;
 }
 
+::deep .tl-owned-format-card[role="button"]:focus-visible {
+    outline: 2px solid var(--tl-accent-primary);
+    outline-offset: 2px;
+}
+
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-content {
     min-width: 0;
     display: flex;

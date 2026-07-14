@@ -37,10 +37,6 @@ public sealed class MaintenanceSettings
     [JsonPropertyName("rejected_retention_days")]
     public int RejectedRetentionDays { get; set; } = 30;
 
-    /// <summary>Interval in days between edition re-checks.</summary>
-    [JsonPropertyName("edition_recheck_interval_days")]
-    public int EditionRecheckIntervalDays { get; set; } = 7;
-
     /// <summary>Auto re-tag sweep parameters.</summary>
     [JsonPropertyName("retag_sweep")]
     public RetagSweepSettings RetagSweep { get; set; } = new();

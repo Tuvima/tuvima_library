@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -25,14 +26,12 @@ namespace MediaEngine.Providers.Services;
 ///     <c>pass2_stale_threshold_hours</c>) on a configurable schedule.</item>
 /// </list>
 ///
-/// Follows the same pattern as <see cref="HydrationPipelineService"/>: the
-/// background loop is started with <c>Task.Run</c> and stopped via a shared
-/// <see cref="CancellationTokenSource"/> — no <c>Microsoft.Extensions.Hosting</c>
-/// dependency required.
+/// The Engine owns the worker through the hosted-service lifecycle, and the
+/// command interface resolves the same singleton instance.
 ///
 /// Spec: §3.24 — Two-Pass Enrichment Architecture.
 /// </summary>
-public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsyncDisposable
+public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnrichmentService
 {
     private readonly IDeferredEnrichmentRepository _repo;
     private readonly IHydrationPipelineService _pipeline;
@@ -40,9 +39,6 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
     private readonly IConfigurationLoader _config;
     private readonly IEntityTimelineRepository _timelineRepo;
     private readonly ILogger<DeferredEnrichmentService> _logger;
-
-    private readonly CancellationTokenSource _cts = new();
-    private readonly Task _backgroundLoop;
 
     /// <summary>Signalled when the user clicks "Run Pass 2 Now".</summary>
     private readonly ManualResetEventSlim _manualTrigger = new(false);
@@ -64,8 +60,6 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
         _config       = config       ?? throw new ArgumentNullException(nameof(config));
         _timelineRepo = timelineRepo ?? throw new ArgumentNullException(nameof(timelineRepo));
         _logger       = logger       ?? throw new ArgumentNullException(nameof(logger));
-
-        _backgroundLoop = Task.Run(ExecuteAsync);
     }
 
     /// <inheritdoc/>
@@ -96,12 +90,12 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
 
     // ── Background loop ────────────────────────────────────────────────────────
 
-    private async Task ExecuteAsync()
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Short startup delay to let the rest of the app initialise.
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(5), _cts.Token).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -110,7 +104,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
 
         _logger.LogInformation("DeferredEnrichmentService started");
 
-        while (!_cts.Token.IsCancellationRequested)
+        while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
@@ -118,7 +112,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
 
                 if (!settings.TwoPassEnabled)
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(1), _cts.Token).ConfigureAwait(false);
+                    await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken).ConfigureAwait(false);
                     continue;
                 }
 
@@ -127,7 +121,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
                 {
                     _manualTrigger.Reset();
                     _logger.LogInformation("Processing Pass 2 queue (manual trigger)");
-                    await ProcessBatchAsync(settings, _cts.Token).ConfigureAwait(false);
+                    await ProcessBatchAsync(settings, stoppingToken).ConfigureAwait(false);
                     continue;
                 }
 
@@ -136,27 +130,27 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
                 {
                     _logger.LogInformation("Nightly sweep triggered for stale Pass 2 items");
                     _lastNightlyRun = DateTime.Now;
-                    await ProcessStaleAsync(settings, _cts.Token).ConfigureAwait(false);
+                    await ProcessStaleAsync(settings, stoppingToken).ConfigureAwait(false);
                     continue;
                 }
 
                 // ── Idle check ────────────────────────────────────────────
-                if (await _jobRepo.CountActiveAsync(_cts.Token).ConfigureAwait(false) == 0)
+                if (await _jobRepo.CountActiveAsync(stoppingToken).ConfigureAwait(false) == 0)
                 {
-                    var pending = await _repo.CountPendingAsync(_cts.Token).ConfigureAwait(false);
+                    var pending = await _repo.CountPendingAsync(stoppingToken).ConfigureAwait(false);
                     if (pending > 0)
                     {
                         _logger.LogDebug("Pipeline idle, processing Pass 2 queue ({Count} pending)", pending);
-                        await ProcessBatchAsync(settings, _cts.Token).ConfigureAwait(false);
+                        await ProcessBatchAsync(settings, stoppingToken).ConfigureAwait(false);
                         continue;
                     }
                 }
 
                 // Nothing to do — wait before next check.
                 var delay = Math.Max(settings.Pass2IdleDelaySeconds, 1);
-                await Task.Delay(TimeSpan.FromSeconds(delay), _cts.Token).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(delay), stoppingToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (_cts.Token.IsCancellationRequested)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
@@ -165,7 +159,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
                 _logger.LogError(ex, "DeferredEnrichmentService loop error");
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(30), _cts.Token).ConfigureAwait(false);
+                    await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -395,22 +389,9 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
         }
     }
 
-    // ── IAsyncDisposable ───────────────────────────────────────────────────────
-
-    public async ValueTask DisposeAsync()
+    public override void Dispose()
     {
-        _cts.Cancel();
         _manualTrigger.Dispose();
-
-        try
-        {
-            await _backgroundLoop.ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected on shutdown.
-        }
-
-        _cts.Dispose();
+        base.Dispose();
     }
 }

@@ -146,6 +146,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly Dictionary<string, PollFingerprint> _pollFingerprints = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _fswBufferLock = new();
     private readonly SemaphoreSlim _watcherRecoveryLock = new(1, 1);
+    private readonly object _ownedTasksLock = new();
+    private readonly Dictionary<Task, string> _ownedTasks = [];
+    private readonly CancellationTokenSource _shutdownCts = new();
+    private CancellationTokenSource? _executeCts;
     private Timer? _fswFlushTimer;
     private readonly record struct PollFingerprint(long Length, DateTime LastWriteUtc);
     private sealed record HashLookupResult(HashResult Hash, bool CacheHit);
@@ -240,16 +244,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _executeCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, _shutdownCts.Token);
+        var lifetimeToken = _executeCts.Token;
+
         // Always wire the event handler so hot-swap from PUT /settings/folders
         // works even if no directory was configured at startup.
-        _watcher.FileDetected += (_, evt) =>
-        {
-            BufferFswEvent(evt);
-        };
-        _watcher.WatcherError += (_, evt) =>
-        {
-            HandleWatcherError(evt);
-        };
+        _watcher.FileDetected += OnFileDetected;
+        _watcher.WatcherError += OnWatcherError;
 
         // -- Step 1: Log server start (no paths — just the fact) ----------
         _logger.LogInformation("IngestionEngine started");
@@ -325,7 +326,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // periodically sweeps the Watch Folder and synthesises Created events for
         // files that the debounce queue hasn't seen yet.
         if (_options.PollIntervalSeconds > 0)
-            _ = PollWatchDirectoryAsync(stoppingToken);
+            TrackBackgroundTask(PollWatchDirectoryAsync(lifetimeToken), "watch-folder polling");
 
         // Consume candidates until the service is stopped.
         // If no watcher is active yet, this loop simply waits — new events will
@@ -343,6 +344,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        _shutdownCts.Cancel();
+        _watcher.FileDetected -= OnFileDetected;
+        _watcher.WatcherError -= OnWatcherError;
         _watcher.Stop();
         await FlushFswBufferAsync(cancellationToken).ConfigureAwait(false);
         _debounce.Complete();
@@ -356,6 +360,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }, cancellationToken).ConfigureAwait(false);
 
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
+        await DrainOwnedTasksAsync(cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("IngestionEngine stopped.");
     }
 
@@ -377,12 +382,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             .Where(Directory.Exists)
             .Select(path => new IngestionScanTarget(path, _options.IncludeSubdirectories))
             .ToList();
-        _ = ScanExistingFilesAsync(startupScanTargets, CancellationToken.None)
-            .ContinueWith(
-                task => _logger.LogError(task.Exception, "Initial scan failed after IIngestionEngine.Start"),
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted,
-                TaskScheduler.Default);
+        TrackBackgroundTask(
+            ScanExistingFilesAsync(startupScanTargets, LifetimeToken),
+            "explicit-start initial scan");
     }
 
     /// <inheritdoc/>
@@ -524,7 +526,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     reason);
 
                 await MarkRetryableOperationAsync(durableOperation, reason, nextRetryAt, ct).ConfigureAwait(false);
-                ScheduleLockProbeRetry(candidate, nextRetryAt, ct);
+                ScheduleLockProbeRetry(candidate, nextRetryAt);
                 return;
             }
 
@@ -2911,9 +2913,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
     }
 
-    private void HandleWatcherError(FileWatcherErrorEvent evt)
+    private CancellationToken LifetimeToken => _shutdownCts.Token;
+
+    private void OnFileDetected(object? sender, FileEvent evt)
     {
-        _ = Task.Run(() => RecoverWatcherAfterErrorAsync(evt, CancellationToken.None));
+        if (!LifetimeToken.IsCancellationRequested)
+            BufferFswEvent(evt);
+    }
+
+    private void OnWatcherError(object? sender, FileWatcherErrorEvent evt)
+    {
+        if (!LifetimeToken.IsCancellationRequested)
+        {
+            TrackBackgroundTask(
+                RecoverWatcherAfterErrorAsync(evt, LifetimeToken),
+                $"watcher recovery ({evt.Kind})");
+        }
     }
 
     private async Task RecoverWatcherAfterErrorAsync(FileWatcherErrorEvent evt, CancellationToken ct)
@@ -2994,7 +3009,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Events from ScanExistingFiles already have a batch - pass through.
         if (normalizedEvent.BatchId is not null)
         {
-            _ = EnsureIngestionOperationAsync(normalizedEvent, MediaOperationStage.Discovered, CancellationToken.None);
+            TrackBackgroundTask(
+                EnsureIngestionOperationAsync(normalizedEvent, MediaOperationStage.Discovered, LifetimeToken),
+                "durable ingestion-operation discovery");
             _debounce.Enqueue(normalizedEvent);
             return true;
         }
@@ -3006,7 +3023,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Reset (or start) the quiet-period timer.
             _fswFlushTimer?.Dispose();
             _fswFlushTimer = new Timer(
-                static state => _ = ((IngestionEngine)state!).FlushFswBufferAsync(),
+                static state => ((IngestionEngine)state!).QueueFswBufferFlush(),
                 this,
                 _options.FswQuietPeriod,
                 Timeout.InfiniteTimeSpan);
@@ -3094,6 +3111,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// exact file count, stamps every buffered event with the batch ID,
     /// and flushes them all into the debounce queue for processing.
     /// </summary>
+    private void QueueFswBufferFlush()
+    {
+        if (!LifetimeToken.IsCancellationRequested)
+        {
+            TrackBackgroundTask(
+                FlushFswBufferAsync(LifetimeToken),
+                "file-watcher buffer flush");
+        }
+    }
+
     private async Task FlushFswBufferAsync(CancellationToken ct = default)
     {
         try
@@ -3203,7 +3230,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         foreach (var evt in newEvents.Concat(resumedEvents))
         {
-            _ = EnsureIngestionOperationAsync(evt, MediaOperationStage.Discovered, CancellationToken.None);
+            TrackBackgroundTask(
+                EnsureIngestionOperationAsync(evt, MediaOperationStage.Discovered, LifetimeToken),
+                "durable ingestion-operation discovery");
             _debounce.Enqueue(evt);
         }
     }
@@ -3455,48 +3484,128 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         return TimeSpan.FromSeconds(seconds);
     }
 
-    private void ScheduleLockProbeRetry(IngestionCandidate candidate, DateTimeOffset nextRetryAt, CancellationToken ct)
+    private void ScheduleLockProbeRetry(IngestionCandidate candidate, DateTimeOffset nextRetryAt)
     {
         var delay = nextRetryAt - DateTimeOffset.UtcNow;
         if (delay < TimeSpan.Zero)
             delay = TimeSpan.Zero;
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(delay, ct).ConfigureAwait(false);
-                if (!File.Exists(candidate.Path))
-                    return;
+        TrackBackgroundTask(RunLockProbeRetryAsync(candidate, delay, LifetimeToken), "delayed lock-probe retry");
+    }
 
-                _debounce.Enqueue(new FileEvent
-                {
-                    Path = candidate.Path,
-                    OldPath = candidate.OldPath,
-                    EventType = candidate.EventType == FileEventType.Deleted
-                        ? FileEventType.Created
-                        : candidate.EventType,
-                    OccurredAt = DateTimeOffset.UtcNow,
-                    BatchId = candidate.BatchId,
-                });
-            }
-            catch (ObjectDisposedException)
+    private async Task RunLockProbeRetryAsync(
+        IngestionCandidate candidate,
+        TimeSpan delay,
+        CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(delay, ct).ConfigureAwait(false);
+            if (!File.Exists(candidate.Path))
+                return;
+
+            _debounce.Enqueue(new FileEvent
             {
-                // The engine is stopping.
-            }
-            catch (InvalidOperationException)
+                Path = candidate.Path,
+                OldPath = candidate.OldPath,
+                EventType = candidate.EventType == FileEventType.Deleted
+                    ? FileEventType.Created
+                    : candidate.EventType,
+                OccurredAt = DateTimeOffset.UtcNow,
+                BatchId = candidate.BatchId,
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // The engine is stopping.
+        }
+        catch (InvalidOperationException)
+        {
+            // The debounce queue is stopping.
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // The engine is stopping.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Delayed lock-probe retry failed for {Path}", candidate.Path);
+        }
+    }
+
+    private void TrackBackgroundTask(Task task, string operation)
+    {
+        lock (_ownedTasksLock)
+            _ownedTasks[task] = operation;
+
+        task.GetAwaiter().OnCompleted(() => CompleteBackgroundTask(task));
+    }
+
+    private void CompleteBackgroundTask(Task task)
+    {
+        string operation;
+        lock (_ownedTasksLock)
+        {
+            operation = _ownedTasks.Remove(task, out var trackedOperation)
+                ? trackedOperation
+                : "background operation";
+        }
+
+        if (task.IsFaulted)
+        {
+            _logger.LogError(
+                task.Exception?.GetBaseException(),
+                "IngestionEngine owned {Operation} failed.",
+                operation);
+        }
+    }
+
+    private async Task DrainOwnedTasksAsync(CancellationToken ct)
+    {
+        Task[] tasks;
+        lock (_ownedTasksLock)
+            tasks = _ownedTasks.Keys.ToArray();
+
+        if (tasks.Length == 0)
+            return;
+
+        try
+        {
+            await Task.WhenAll(tasks).WaitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (LifetimeToken.IsCancellationRequested)
+        {
+            // Expected: stopping cancels polling, recovery, and delayed retries.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "One or more owned ingestion background operations failed during shutdown.");
+        }
+        finally
+        {
+            lock (_ownedTasksLock)
             {
-                // The debounce queue is stopping.
+                foreach (var completed in tasks.Where(task => task.IsCompleted))
+                    _ownedTasks.Remove(completed);
             }
-            catch (OperationCanceledException)
-            {
-                // The engine is stopping.
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Delayed lock-probe retry failed for {Path}", candidate.Path);
-            }
-        });
+        }
+    }
+
+    public override void Dispose()
+    {
+        _shutdownCts.Cancel();
+        _watcher.FileDetected -= OnFileDetected;
+        _watcher.WatcherError -= OnWatcherError;
+        lock (_fswBufferLock)
+        {
+            _fswFlushTimer?.Dispose();
+            _fswFlushTimer = null;
+        }
+
+        base.Dispose();
+        _executeCts?.Dispose();
+        _executeCts = null;
+        _shutdownCts.Dispose();
     }
 
     private static string BuildIngestionOperationKey(string path)

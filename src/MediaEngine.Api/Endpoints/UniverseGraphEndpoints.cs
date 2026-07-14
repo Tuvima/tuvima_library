@@ -1,5 +1,5 @@
-using Dapper;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -156,7 +156,6 @@ public static class UniverseGraphEndpoints
             IFictionalEntityRepository entityRepo,
             IEntityRelationshipRepository relRepo,
             IPluginLoreRepository pluginLoreRepo,
-            IPersonRepository personRepo,
             IEraActorResolverService eraActorResolver,
             CancellationToken ct) =>
         {
@@ -176,52 +175,35 @@ public static class UniverseGraphEndpoints
                 allEntities = allEntities.Where(e => typeSet.Contains(e.EntitySubType)).ToList();
             }
 
+            var workLinks = await entityRepo.GetWorkLinksAsync(
+                allEntities.Select(entity => entity.Id), ct);
+            var workLinksByEntity = workLinks.ToLookup(link => link.FictionalEntityId);
+
             // Apply work filter if specified (e.g. ?work=Q190192).
             if (!string.IsNullOrWhiteSpace(work))
             {
-                var entityIdsInWork = new HashSet<Guid>();
-                foreach (var entity in allEntities)
-                {
-                    var workLinks = await entityRepo.GetWorkLinksAsync(entity.Id, ct);
-                    if (workLinks.Any(wl => wl.WorkQid.Equals(work, StringComparison.OrdinalIgnoreCase)))
-                        entityIdsInWork.Add(entity.Id);
-                }
-                allEntities = allEntities.Where(e => entityIdsInWork.Contains(e.Id)).ToList();
+                allEntities = allEntities
+                    .Where(entity => workLinksByEntity[entity.Id]
+                        .Any(link => link.WorkQid.Equals(work, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
             }
 
             var entityQids = allEntities.Select(e => e.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var relationships = (await relRepo.GetByUniverseAsync(entityQids, ct)).ToList();
 
             // Apply ego-network filter (e.g. ?center=Q937618&depth=1).
             if (!string.IsNullOrWhiteSpace(center) && entityQids.Contains(center))
             {
                 var maxDepth = depth ?? 1;
-                var egoNetwork = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { center };
-                var frontier = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { center };
-
-                for (var d = 0; d < maxDepth; d++)
-                {
-                    var nextFrontier = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var nodeQid in frontier)
-                    {
-                        var nodeEdges = await relRepo.GetByEntityAsync(nodeQid, ct);
-                        foreach (var edge in nodeEdges)
-                        {
-                            if (entityQids.Contains(edge.SubjectQid) && egoNetwork.Add(edge.SubjectQid))
-                                nextFrontier.Add(edge.SubjectQid);
-                            if (entityQids.Contains(edge.ObjectQid) && egoNetwork.Add(edge.ObjectQid))
-                                nextFrontier.Add(edge.ObjectQid);
-                        }
-                    }
-                    frontier = nextFrontier;
-                    if (frontier.Count == 0) break;
-                }
+                var egoNetwork = BuildEgoNetwork(center, maxDepth, entityQids, relationships);
 
                 allEntities = allEntities.Where(e => egoNetwork.Contains(e.WikidataQid)).ToList();
                 entityQids = allEntities.Select(e => e.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                relationships = relationships
+                    .Where(edge => entityQids.Contains(edge.SubjectQid)
+                        && entityQids.Contains(edge.ObjectQid))
+                    .ToList();
             }
-
-            // Load relationships between filtered entities.
-            var relationships = (await relRepo.GetByUniverseAsync(entityQids, ct)).ToList();
 
             // Apply timeline year filter — exclude edges that started after the given year.
             if (timeline_year.HasValue)
@@ -239,21 +221,33 @@ public static class UniverseGraphEndpoints
             }
 
             // Build nodes with work links.
+            IReadOnlyDictionary<string, ActorResolution> actorResolutions =
+                new Dictionary<string, ActorResolution>(StringComparer.OrdinalIgnoreCase);
+            if (timeline_year.HasValue)
+            {
+                actorResolutions = await eraActorResolver.ResolveActorsForEraAsync(
+                    allEntities
+                        .Where(entity => string.Equals(
+                            entity.EntitySubType, "Character", StringComparison.OrdinalIgnoreCase))
+                        .Select(entity => entity.WikidataQid),
+                    timeline_year.Value,
+                    ct);
+            }
+
             var nodes = new List<object>(allEntities.Count);
             foreach (var entity in allEntities)
             {
-                var workLinks = await entityRepo.GetWorkLinksAsync(entity.Id, ct);
-
                 // Resolve era-specific actor image for character nodes.
                 string? image = null;
                 if (timeline_year.HasValue
                     && string.Equals(entity.EntitySubType, "Character", StringComparison.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(entity.WikidataQid))
+                    && actorResolutions.TryGetValue(entity.WikidataQid, out var resolution)
+                    && resolution.ActorPersonId.HasValue)
                 {
-                    var resolution = await eraActorResolver.ResolveActorForEraAsync(
-                        entity.WikidataQid, timeline_year.Value, ct);
-                    if (resolution is not null)
-                        image = resolution.HeadshotUrl;
+                    image = ApiImageUrls.BuildPersonHeadshotUrl(
+                        resolution.ActorPersonId.Value,
+                        resolution.LocalHeadshotPath,
+                        resolution.HeadshotUrl);
                 }
 
                 nodes.Add(new
@@ -263,7 +257,8 @@ public static class UniverseGraphEndpoints
                     type       = entity.EntitySubType,
                     description = entity.Description,
                     image,
-                    works      = workLinks.Select(wl => new { qid = wl.WorkQid, label = wl.WorkLabel }),
+                    works      = workLinksByEntity[entity.Id]
+                        .Select(link => new { qid = link.WorkQid, label = link.WorkLabel }),
                     supplemental = false,
                     provenance = "wikidata",
                     source_plugin = (string?)null,
@@ -458,7 +453,7 @@ public static class UniverseGraphEndpoints
         group.MapGet("/universe/{qid}/cast", async (
             string qid,
             IFictionalEntityRepository entityRepo,
-            MediaEngine.Storage.Contracts.IDatabaseConnection db,
+            IPersonRepository personRepo,
             CancellationToken ct) =>
         {
             // Load all Character-type entities in this universe.
@@ -469,36 +464,18 @@ public static class UniverseGraphEndpoints
             if (characters.Count == 0)
                 return Results.Ok(new { universe_qid = qid, characters = Array.Empty<object>() });
 
-            // Bulk-query all performer links for these character entities in one round-trip.
-            // character_performer_links uses fictional_entity_id (UUID) as the FK to fictional_entities.
-            var entityIds = characters.Select(c => c.Id.ToString()).ToList();
-
-            const string castSql = @"
-                SELECT cpl.person_id            AS PersonId,
-                       cpl.fictional_entity_id  AS FictionalEntityId,
-                       cpl.work_qid             AS WorkQid,
-                       p.name                   AS PerformerName,
-                       p.headshot_url           AS PerformerHeadshot,
-                       p.local_headshot_path    AS PerformerLocalHeadshotPath
-                FROM   character_performer_links cpl
-                LEFT   JOIN persons p ON p.id = cpl.person_id
-                WHERE  cpl.fictional_entity_id IN @ids";
-
-            IEnumerable<PerformerRow> allPerformerRows;
-            using (var conn = db.CreateConnection())
-            {
-                allPerformerRows = await Dapper.SqlMapper.QueryAsync<PerformerRow>(
-                    conn, castSql, new { ids = entityIds });
-            }
+            var allPerformerRows = await personRepo.GetCharacterPerformersAsync(
+                characters.Select(character => character.Id),
+                ct);
 
             // Group performers by entity UUID for O(1) lookup.
             var performersByEntity = allPerformerRows
-                .GroupBy(p => p.FictionalEntityId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+                .GroupBy(performer => performer.FictionalEntityId)
+                .ToDictionary(grouping => grouping.Key, grouping => grouping.ToList());
 
             var castList = characters.Select(character =>
             {
-                performersByEntity.TryGetValue(character.Id.ToString(), out var performers);
+                performersByEntity.TryGetValue(character.Id, out var performers);
                 return (object)new
                 {
                     qid         = character.WikidataQid,
@@ -508,10 +485,11 @@ public static class UniverseGraphEndpoints
                     performers  = (performers ?? []).Select(p => new
                     {
                         person_id    = p.PersonId,
-                        name         = p.PerformerName ?? string.Empty,
-                        headshot_url = Guid.TryParse(p.PersonId, out var performerId)
-                            ? ApiImageUrls.BuildPersonHeadshotUrl(performerId, p.PerformerLocalHeadshotPath, p.PerformerHeadshot)
-                            : p.PerformerHeadshot,
+                        name         = p.PerformerName,
+                        headshot_url = ApiImageUrls.BuildPersonHeadshotUrl(
+                            p.PersonId,
+                            p.LocalHeadshotPath,
+                            p.HeadshotUrl),
                         work_qid     = p.WorkQid,
                         year         = (int?)null,
                     }),
@@ -621,17 +599,6 @@ public static class UniverseGraphEndpoints
         return app;
     }
 
-    /// <summary>Raw Dapper row from character_performer_links JOIN persons.</summary>
-    private sealed class PerformerRow
-    {
-        public string  PersonId          { get; init; } = string.Empty;
-        public string  FictionalEntityId { get; init; } = string.Empty;
-        public string? WorkQid           { get; init; }
-        public string? PerformerName     { get; init; }
-        public string? PerformerHeadshot { get; init; }
-        public string? PerformerLocalHeadshotPath { get; init; }
-    }
-
     private static async Task AppendSupplementalLoreAsync(
         string universeQid,
         string? types,
@@ -711,6 +678,37 @@ public static class UniverseGraphEndpoints
                 source_url = relationship.SourceUrl,
             });
         }
+    }
+
+    internal static HashSet<string> BuildEgoNetwork(
+        string center,
+        int maxDepth,
+        IReadOnlySet<string> entityQids,
+        IReadOnlyList<MediaEngine.Domain.Entities.EntityRelationship> relationships)
+    {
+        var egoNetwork = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { center };
+        var frontier = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { center };
+
+        for (var currentDepth = 0; currentDepth < maxDepth; currentDepth++)
+        {
+            var nextFrontier = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var edge in relationships)
+            {
+                if (!frontier.Contains(edge.SubjectQid) && !frontier.Contains(edge.ObjectQid))
+                    continue;
+
+                if (entityQids.Contains(edge.SubjectQid) && egoNetwork.Add(edge.SubjectQid))
+                    nextFrontier.Add(edge.SubjectQid);
+                if (entityQids.Contains(edge.ObjectQid) && egoNetwork.Add(edge.ObjectQid))
+                    nextFrontier.Add(edge.ObjectQid);
+            }
+
+            frontier = nextFrontier;
+            if (frontier.Count == 0)
+                break;
+        }
+
+        return egoNetwork;
     }
 
     private static string BuildSupplementalNodeId(Guid sourceId, string externalKey) =>

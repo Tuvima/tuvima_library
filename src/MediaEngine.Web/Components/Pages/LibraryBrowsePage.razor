@@ -110,7 +110,7 @@ else
             <div class="home-discovery-shelves">
                 @foreach (var shelf in _page.Shelves)
                 {
-                    <MediaTileShelf Shelf="@shelf" />
+                    <MediaTileShelf Shelf="@shelf" @key="shelf.Key" />
                 }
             </div>
         </div>

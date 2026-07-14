@@ -43,6 +43,20 @@ public class AggregateTests
         Assert.Equal(universeId, collection.UniverseId);
     }
 
+    [Fact]
+    public void Universe_Collections_AreMutatedThroughInvariantPreservingMethods()
+    {
+        var collection = new Collection { Id = Guid.NewGuid(), DisplayName = "Dune" };
+        var universe = new Universe();
+
+        universe.AddCollection(collection);
+        universe.AddCollection(collection);
+
+        Assert.Single(universe.Collections);
+        Assert.Same(collection, universe.Collections[0]);
+        Assert.False(universe.Collections is List<Collection>);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  Work
     // ════════════════════════════════════════════════════════════════════════

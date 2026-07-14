@@ -13,7 +13,6 @@ public sealed record ProfileViewModel(
     [property: JsonPropertyName("role")]               string Role,
     [property: JsonPropertyName("created_at")]         DateTimeOffset CreatedAt,
     [property: JsonPropertyName("navigation_config")]  string? NavigationConfig = null,
-    // TODO: Persist avatar images once the Engine profile schema supports upload/storage.
     [property: JsonPropertyName("avatar_image_url")]   string? AvatarImageUrl = null)
 {
     /// <summary>

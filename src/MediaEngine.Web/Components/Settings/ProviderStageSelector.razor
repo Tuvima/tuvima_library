@@ -1,0 +1,24 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<section class="provider-stage-strip" aria-label="Metadata provider stages">
+    @foreach (var stage in Stages)
+    {
+        var isActive = string.Equals(stage.Id, ActiveStageId, StringComparison.OrdinalIgnoreCase);
+        <AppNativeButton Type="button"
+                         Class='@($"provider-stage-card {(isActive ? "is-active" : null)}")'
+                         aria-pressed="@(isActive ? "true" : "false")"
+                         OnClick="@(() => ActiveStageIdChanged.InvokeAsync(stage.Id))">
+            <div class="provider-stage-card__number">@stage.Number</div>
+            <div class="provider-stage-card__body">
+                <div class="provider-stage-card__title">@stage.Title</div>
+                <div class="provider-stage-card__copy">@stage.Description</div>
+            </div>
+        </AppNativeButton>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ProviderStageDef> Stages { get; set; } = [];
+    [Parameter] public string ActiveStageId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ActiveStageIdChanged { get; set; }
+}

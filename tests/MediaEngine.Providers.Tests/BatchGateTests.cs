@@ -662,6 +662,7 @@ public sealed class BatchGateTests
         public Task<IReadOnlyList<ReviewQueueEntry>> GetPendingByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task UpdateStatusAsync(Guid id, string status, string? resolvedBy = null, CancellationToken ct = default) => Task.CompletedTask;
         public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
+        public Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task<int> GetPendingCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default) => Task.FromResult(0);
@@ -708,15 +709,20 @@ public sealed class BatchGateTests
     private sealed class StubWorkRepository : IWorkRepository
     {
         public Task<Guid?> FindParentByKeyAsync(MediaType mediaType, string parentKey, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid> GetOrCreateParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task<Guid?> FindChildByOrdinalAsync(Guid parentWorkId, int ordinal, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid?> FindChildByOrdinalSortAsync(Guid parentWorkId, double ordinalSort, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Guid?> FindChildByTitleAsync(Guid parentWorkId, string title, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Guid?> FindByExternalIdentifierAsync(string scheme, string value, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Guid> InsertParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task<Guid> InsertChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task<Guid> GetOrCreateChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task UpdateOrdinalSortAsync(Guid workId, double? ordinalSort, CancellationToken ct = default) => Task.CompletedTask;
         public Task<Guid> InsertStandaloneAsync(MediaType mediaType, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task<Guid> InsertCatalogChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, IReadOnlyDictionary<string, string>? externalIdentifiers, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task PromoteCatalogToOwnedAsync(Guid workId, CancellationToken ct = default) => Task.CompletedTask;
         public Task WriteExternalIdentifiersAsync(Guid workId, IReadOnlyDictionary<string, string> identifiers, CancellationToken ct = default) => Task.CompletedTask;
         public Task<WorkLineage?> GetLineageByAssetAsync(Guid assetId, CancellationToken ct = default) => Task.FromResult<WorkLineage?>(null);
+        public Task<ConfirmedSiblingWorkQid?> FindConfirmedSiblingQidAsync(MediaType sourceMediaType, IReadOnlyList<MediaType> candidateMediaTypes, string title, string? creator, Guid? excludeWorkId = null, CancellationToken ct = default) => Task.FromResult<ConfirmedSiblingWorkQid?>(null);
     }
 }

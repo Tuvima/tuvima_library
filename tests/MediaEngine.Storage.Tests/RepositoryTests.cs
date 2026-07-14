@@ -324,7 +324,12 @@ public sealed class RepositoryTests : IDisposable
             },
         ]);
 
-        var values = await repo.GetByEntitiesAsync([first, second]);
+        var requestedIds = Enumerable.Range(0, 1_100)
+            .Select(_ => Guid.NewGuid())
+            .Append(first)
+            .Append(second)
+            .ToList();
+        var values = await repo.GetByEntitiesAsync(requestedIds);
 
         using var conn = _db.CreateConnection();
         var storageTypes = conn.Query<string>("""
@@ -1389,8 +1394,8 @@ public sealed class RepositoryTests : IDisposable
     public void TransactionJournal_LogAndPrune()
     {
         var journal = new TransactionJournal(_db);
-        journal.Log("HUB_CREATED", "Collection", Guid.NewGuid().ToString());
-        journal.Log("WORK_AUTO_LINKED", "Work", Guid.NewGuid().ToString());
+        journal.Log("HUB_CREATED", "Collection", Guid.NewGuid());
+        journal.Log("WORK_AUTO_LINKED", "Work", Guid.NewGuid());
         journal.Prune(1);
         Assert.True(true); // no exception = pass
     }

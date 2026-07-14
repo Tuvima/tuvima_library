@@ -22,12 +22,10 @@ public sealed class TransactionJournal : ITransactionJournal
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public void Log(string eventType, string entityType, string entityId)
+    public void Log(string eventType, string entityType, Guid entityId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentException.ThrowIfNullOrWhiteSpace(entityType);
-        ArgumentException.ThrowIfNullOrWhiteSpace(entityId);
-
         using var conn = _db.CreateConnection();
         conn.Execute("""
             INSERT INTO transaction_log (event_type, entity_type, entity_id)

@@ -29,7 +29,7 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
             FROM   reader_bookmarks
             WHERE  user_id = @userId AND asset_id = @assetId
             ORDER BY created_at DESC;
-            """, new { userId, assetId = assetId.ToString() }).AsList();
+            """, new { userId, assetId }).AsList();
 
         return Task.FromResult<IReadOnlyList<ReaderBookmark>>(rows.ConvertAll(MapRow));
     }
@@ -49,7 +49,7 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
             FROM   reader_bookmarks
             WHERE  id = @id
             LIMIT  1;
-            """, new { id = id.ToString() });
+            """, new { id });
 
         return Task.FromResult(row is null ? null : MapRow(row));
     }
@@ -63,9 +63,9 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
             VALUES (@id, @userId, @assetId, @chapterIndex, @cfiPosition, @label, @createdAt);
             """, new
         {
-            id           = bookmark.Id.ToString(),
+            id           = bookmark.Id,
             userId       = bookmark.UserId,
-            assetId      = bookmark.AssetId.ToString(),
+            assetId      = bookmark.AssetId,
             chapterIndex = bookmark.ChapterIndex,
             cfiPosition  = bookmark.CfiPosition,
             label        = bookmark.Label,
@@ -81,20 +81,20 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
         using var conn = _db.CreateConnection();
         conn.Execute(
             "DELETE FROM reader_bookmarks WHERE id = @id;",
-            new { id = id.ToString() });
+            new { id });
 
         return Task.CompletedTask;
     }
 
     // ── Private DTO + mapper ─────────────────────────────────────────────────
-    // SQLite stores Guid and DateTime as TEXT strings; Dapper cannot auto-convert
-    // them to Guid/DateTime, so we read into a flat string DTO and convert in code.
+    // SQLite stores GUIDs as BLOBs and timestamps as TEXT. Dapper's registered
+    // handlers map GUID columns directly; the timestamp remains a string here.
 
     private sealed class BookmarkRow
     {
-        public string  Id           { get; set; } = string.Empty;
+        public Guid    Id           { get; set; }
         public string  UserId       { get; set; } = string.Empty;
-        public string  AssetId      { get; set; } = string.Empty;
+        public Guid    AssetId      { get; set; }
         public int     ChapterIndex { get; set; }
         public string? CfiPosition  { get; set; }
         public string? Label        { get; set; }
@@ -103,9 +103,9 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
 
     private static ReaderBookmark MapRow(BookmarkRow r) => new()
     {
-        Id           = Guid.Parse(r.Id),
+        Id           = r.Id,
         UserId       = r.UserId,
-        AssetId      = Guid.Parse(r.AssetId),
+        AssetId      = r.AssetId,
         ChapterIndex = r.ChapterIndex,
         CfiPosition  = r.CfiPosition,
         Label        = r.Label,

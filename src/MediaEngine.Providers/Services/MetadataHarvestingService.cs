@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using System.Threading.Channels;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
@@ -23,10 +23,9 @@ namespace MediaEngine.Providers.Services;
 /// without blocking the ingestion thread.
 ///
 /// Architecture:
-/// - A bounded <c>Channel&lt;HarvestRequest&gt;</c> (capacity 500, DropOldest policy)
-///   decouples producers (ingestion) from consumers (adapters).
-/// - A single reader task processes requests sequentially within the channel.
-/// - A <c>SemaphoreSlim(3)</c> limits simultaneous in-flight adapter calls.
+/// - A bounded channel with wait-based backpressure decouples producers
+///   (ingestion) from consumers (adapters) without silently dropping requests.
+/// - Three owned consumer loops limit simultaneous in-flight adapter calls.
 /// - First provider to return claims wins; remaining providers for that request
 ///   are skipped.
 /// - After persisting new claims, the entity is re-scored and canonical values
@@ -37,18 +36,14 @@ namespace MediaEngine.Providers.Services;
 ///
 /// Spec: Phase 9 – Non-Blocking Harvesting.
 /// </summary>
-public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsyncDisposable
+public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarvestingService
 {
     // ── Channel ───────────────────────────────────────────────────────────────
 
-    private readonly Channel<HarvestRequest> _channel;
-    private readonly Task _processingLoop;
-    private readonly CancellationTokenSource _cts = new();
+    private readonly MetadataHarvestQueue _queue;
+    private Task? _processingTask;
 
     // ── Concurrency ───────────────────────────────────────────────────────────
-
-    /// <summary>Maximum parallel adapter calls in flight at once.</summary>
-    private readonly SemaphoreSlim _concurrency = new(3, 3);
 
     /// <summary>
     /// Per-QID lock preventing concurrent merge attempts for the same Wikidata
@@ -85,6 +80,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IPersonRepository personRepo,
         IFictionalEntityRepository fictionalEntityRepo,
         IRelationshipPopulationService relPopService,
+        MetadataHarvestQueue queue,
         IScoringEngine scoringEngine,
         IEventPublisher eventPublisher,
         IConfigurationLoader configLoader,
@@ -102,6 +98,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(relPopService);
+        ArgumentNullException.ThrowIfNull(queue);
         ArgumentNullException.ThrowIfNull(scoringEngine);
         ArgumentNullException.ThrowIfNull(eventPublisher);
         ArgumentNullException.ThrowIfNull(configLoader);
@@ -118,6 +115,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _personRepo           = personRepo;
         _fictionalEntityRepo  = fictionalEntityRepo;
         _relPopService        = relPopService;
+        _queue                = queue;
         _scoringEngine        = scoringEngine;
         _eventPublisher       = eventPublisher;
         _configLoader         = configLoader;
@@ -129,15 +127,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _timelineRepo         = timelineRepo;
         _logger               = logger;
 
-        _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
-        {
-            FullMode     = BoundedChannelFullMode.DropOldest,
-            SingleReader = true,
-            SingleWriter = false,
-        });
-
-        // Start the background processing loop immediately.
-        _processingLoop = Task.Run(ProcessLoopAsync);
     }
 
     // ── IMetadataHarvestingService ────────────────────────────────────────────
@@ -146,13 +135,11 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     public ValueTask EnqueueAsync(HarvestRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // TryWrite is non-blocking; DropOldest handles back-pressure silently.
-        _channel.Writer.TryWrite(request);
-        return ValueTask.CompletedTask;
+        return _queue.EnqueueAsync(request, ct);
     }
 
     /// <inheritdoc/>
-    public int PendingCount => _channel.Reader.CanCount ? _channel.Reader.Count : -1;
+    public int PendingCount => _queue.PendingCount;
 
     /// <inheritdoc/>
     public Task ProcessSynchronousAsync(HarvestRequest request, CancellationToken ct = default)
@@ -163,32 +150,29 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
     // ── Background loop ───────────────────────────────────────────────────────
 
-    private async Task ProcessLoopAsync()
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var ct = _cts.Token;
-        try
+        _processingTask = _queue.ExecuteAsync(
+            consumerCount: 3,
+            ProcessOneAsync,
+            (request, ex) => _logger.LogWarning(
+                ex,
+                "Unhandled error processing harvest request for entity {Id}",
+                request.EntityId),
+            stoppingToken);
+        return _processingTask;
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _queue.TryComplete();
+
+        if (_processingTask is not null)
         {
-            await foreach (var request in _channel.Reader.ReadAllAsync(ct))
-            {
-                await _concurrency.WaitAsync(ct).ConfigureAwait(false);
-                _ = Task.Run(async () =>
-                {
-                    try { await ProcessOneAsync(request, ct).ConfigureAwait(false); }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        _logger.LogWarning(ex,
-                            "Unhandled error processing harvest request for entity {Id}",
-                            request.EntityId);
-                    }
-                    finally { _concurrency.Release(); }
-                }, ct);
-            }
+            await _processingTask.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { /* Graceful shutdown */ }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "MetadataHarvestingService processing loop terminated unexpectedly");
-        }
+
+        await base.StopAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ProcessOneAsync(HarvestRequest request, CancellationToken ct)
@@ -1159,13 +1143,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
     // ── IAsyncDisposable ──────────────────────────────────────────────────────
 
-    public async ValueTask DisposeAsync()
+    public override void Dispose()
     {
-        _cts.Cancel();
-        _channel.Writer.TryComplete();
-        try { await _processingLoop.ConfigureAwait(false); }
-        catch (OperationCanceledException) { }
-        _cts.Dispose();
-        _concurrency.Dispose();
+        _queue.TryComplete();
+        base.Dispose();
     }
 }

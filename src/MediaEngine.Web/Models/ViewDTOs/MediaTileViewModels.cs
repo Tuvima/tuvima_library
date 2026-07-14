@@ -128,8 +128,53 @@ public sealed class MediaTileViewModel
 
 public sealed class MediaTileShelfViewModel
 {
+    public string Key { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
     public IReadOnlyList<MediaTileViewModel> Items { get; init; } = [];
     public string? SeeAllRoute { get; init; }
+
+    public MediaTileShelfKind Kind => MediaTileShelfKeys.Classify(Key);
+}
+
+public enum MediaTileShelfKind
+{
+    Standard,
+    Continue,
+    Collections,
+    ReadSeries,
+}
+
+public static class MediaTileShelfKeys
+{
+    public const string Continue = "continue";
+    public const string ContinueReading = "continue-reading";
+    public const string ContinueWatching = "continue-watching";
+    public const string ContinueListening = "continue-listening";
+    public const string ReadSeries = "series-and-reading-lists";
+    public const string Collections = "collections";
+    public const string HomeCollections = "home-collections";
+    public const string ListenCollections = "listen-collections";
+
+    public static MediaTileShelfKind Classify(string? key)
+    {
+        if (string.Equals(key, Continue, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, ContinueReading, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, ContinueWatching, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, ContinueListening, StringComparison.OrdinalIgnoreCase))
+        {
+            return MediaTileShelfKind.Continue;
+        }
+
+        if (string.Equals(key, Collections, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, HomeCollections, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, ListenCollections, StringComparison.OrdinalIgnoreCase))
+        {
+            return MediaTileShelfKind.Collections;
+        }
+
+        return string.Equals(key, ReadSeries, StringComparison.OrdinalIgnoreCase)
+            ? MediaTileShelfKind.ReadSeries
+            : MediaTileShelfKind.Standard;
+    }
 }

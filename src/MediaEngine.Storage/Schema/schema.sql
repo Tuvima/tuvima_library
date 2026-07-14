@@ -13,9 +13,9 @@ PRAGMA foreign_keys = ON;
 PRAGMA temp_store = MEMORY;
 
 CREATE TABLE IF NOT EXISTS alignment_jobs (
-    id                  TEXT NOT NULL PRIMARY KEY,
-    ebook_asset_id      TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
-    audiobook_asset_id  TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    id                  BLOB NOT NULL PRIMARY KEY,
+    ebook_asset_id      BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    audiobook_asset_id  BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     status              TEXT NOT NULL DEFAULT 'Pending'
                             CHECK (status IN ('Pending', 'Processing', 'Completed', 'Failed')),
     alignment_data      TEXT,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 
 CREATE TABLE IF NOT EXISTS audio_fingerprints (
-    asset_id      TEXT NOT NULL PRIMARY KEY,
+    asset_id      BLOB NOT NULL PRIMARY KEY,
     fingerprint   BLOB NOT NULL,
     duration_sec  REAL NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL DEFAULT (datetime('now')),
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS entity_field_changes (
 );
 
 CREATE TABLE IF NOT EXISTS entity_relationships (
-    id                      TEXT NOT NULL PRIMARY KEY,
+    id                      BLOB NOT NULL PRIMARY KEY,
     subject_qid             TEXT NOT NULL,
     relationship_type       TEXT NOT NULL,
     object_qid              TEXT NOT NULL,
@@ -849,9 +849,9 @@ CREATE TABLE IF NOT EXISTS qid_labels (
 );
 
 CREATE TABLE IF NOT EXISTS reader_bookmarks (
-    id             TEXT NOT NULL PRIMARY KEY,
+    id             BLOB NOT NULL PRIMARY KEY,
     user_id        TEXT NOT NULL,
-    asset_id       TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    asset_id       BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     chapter_index  INTEGER NOT NULL,
     cfi_position   TEXT,
     label          TEXT,
@@ -859,9 +859,9 @@ CREATE TABLE IF NOT EXISTS reader_bookmarks (
 );
 
 CREATE TABLE IF NOT EXISTS reader_highlights (
-    id             TEXT NOT NULL PRIMARY KEY,
+    id             BLOB NOT NULL PRIMARY KEY,
     user_id        TEXT NOT NULL,
-    asset_id       TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    asset_id       BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     chapter_index  INTEGER NOT NULL,
     start_offset   INTEGER NOT NULL,
     end_offset     INTEGER NOT NULL,
@@ -872,9 +872,9 @@ CREATE TABLE IF NOT EXISTS reader_highlights (
 );
 
 CREATE TABLE IF NOT EXISTS reader_statistics (
-    id                      TEXT NOT NULL PRIMARY KEY,
+    id                      BLOB NOT NULL PRIMARY KEY,
     user_id                 TEXT NOT NULL,
-    asset_id                TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    asset_id                BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     chapters_read           INTEGER NOT NULL DEFAULT 0,
     total_reading_time_secs INTEGER NOT NULL DEFAULT 0,
     words_read              INTEGER NOT NULL DEFAULT 0,
@@ -1028,8 +1028,8 @@ CREATE TABLE IF NOT EXISTS system_activity (
 );
 
 CREATE TABLE IF NOT EXISTS text_tracks (
-    id                  TEXT PRIMARY KEY,
-    asset_id            TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    id                  BLOB PRIMARY KEY,
+    asset_id            BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     kind                TEXT NOT NULL CHECK(kind IN ('Lyrics','Subtitles')),
     language            TEXT NOT NULL DEFAULT 'und',
     provider            TEXT NOT NULL,
@@ -1080,7 +1080,7 @@ CREATE TABLE IF NOT EXISTS user_states (
 );
 
 CREATE TABLE IF NOT EXISTS user_taste_profiles (
-    user_id       TEXT NOT NULL PRIMARY KEY,
+    user_id       BLOB NOT NULL PRIMARY KEY,
     profile_json  TEXT NOT NULL DEFAULT '{}',
     summary       TEXT,
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))

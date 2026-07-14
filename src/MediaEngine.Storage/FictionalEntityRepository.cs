@@ -242,22 +242,50 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
     public Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>
         GetWorkLinksAsync(Guid entityId, CancellationToken ct = default)
     {
+        return GetSingleEntityWorkLinksAsync(entityId, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<FictionalEntityWorkLink>> GetWorkLinksAsync(
+        IEnumerable<Guid> entityIds,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(entityIds);
         ct.ThrowIfCancellationRequested();
 
+        var ids = entityIds
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0)
+            return Task.FromResult<IReadOnlyList<FictionalEntityWorkLink>>([]);
+
         using var conn = _db.CreateConnection();
-        var rows = conn.Query<WorkLinkRow>("""
-            SELECT work_qid   AS WorkQid,
-                   work_label AS WorkLabel,
-                   link_type  AS LinkType
-            FROM   fictional_entity_work_links
-            WHERE  entity_id = @entityId
-            ORDER BY work_qid;
-            """, new { entityId }).AsList();
+        var rows = new List<WorkLinkRow>();
+        foreach (var batch in ids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var parameters = new DynamicParameters();
+            var idClause = AddGuidBlobList(parameters, "entityId", batch);
+            rows.AddRange(conn.Query<WorkLinkRow>($"""
+                SELECT entity_id  AS EntityId,
+                       work_qid   AS WorkQid,
+                       work_label AS WorkLabel,
+                       link_type  AS LinkType
+                FROM   fictional_entity_work_links
+                WHERE  entity_id IN ({idClause})
+                ORDER BY entity_id, work_qid;
+                """, parameters));
+        }
 
-        var result = rows
-            .ConvertAll(r => (r.WorkQid, r.WorkLabel, r.LinkType));
-
-        return Task.FromResult<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>(result);
+        IReadOnlyList<FictionalEntityWorkLink> result = rows
+            .Select(row => new FictionalEntityWorkLink(
+                row.EntityId,
+                row.WorkQid,
+                row.WorkLabel,
+                row.LinkType))
+            .ToList();
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>
@@ -319,9 +347,35 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
 
     // ── Private row types ────────────────────────────────────────────────────
 
-    /// <summary>Intermediate row type for <see cref="GetWorkLinksAsync"/>.</summary>
+    private async Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>
+        GetSingleEntityWorkLinksAsync(Guid entityId, CancellationToken ct)
+    {
+        var links = await GetWorkLinksAsync([entityId], ct).ConfigureAwait(false);
+        return links
+            .Select(link => (link.WorkQid, link.WorkLabel, link.LinkType))
+            .ToList();
+    }
+
+    private static string AddGuidBlobList(
+        DynamicParameters parameters,
+        string prefix,
+        IReadOnlyList<Guid> ids)
+    {
+        var names = new string[ids.Count];
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var name = $"{prefix}{i}";
+            names[i] = $"@{name}";
+            parameters.Add(name, GuidSql.ToBlob(ids[i]));
+        }
+
+        return string.Join(", ", names);
+    }
+
+    /// <summary>Intermediate row type for the work-link queries.</summary>
     private sealed class WorkLinkRow
     {
+        public Guid    EntityId  { get; set; }
         public string  WorkQid   { get; set; } = string.Empty;
         public string? WorkLabel { get; set; }
         public string  LinkType  { get; set; } = string.Empty;

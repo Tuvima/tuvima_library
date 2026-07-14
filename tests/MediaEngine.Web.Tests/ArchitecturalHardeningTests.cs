@@ -229,13 +229,9 @@ public sealed class ArchitecturalHardeningTests
     [Fact]
     public void PerformanceSourceGuardrails_RemainInPlace()
     {
-        var drawer = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Components/Library/LibraryDetailDrawer.razor"));
         var appJs = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/wwwroot/app.js"));
         var universeTab = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Components/Details/UniverseTab.razor"));
 
-        Assert.DoesNotContain("<style>", drawer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("LibraryDetailDrawerHeader", drawer);
-        Assert.Contains("LibraryDetailDrawerStatusBanners", drawer);
         Assert.Contains("__mediaTileHoverFrame", appJs);
         Assert.Contains("cancelAnimationFrame", appJs);
         Assert.Contains("ShouldRender", universeTab);

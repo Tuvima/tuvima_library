@@ -23,7 +23,43 @@ public sealed class CollectionCatalogReadService(
     ICollectionMediaLookupReadService mediaLookupReadService,
     IDatabaseConnection db)
 {
-    public async Task<List<CollectionManagementCatalogDto>> GetManagementCatalogAsync(
+    public async Task<List<ManagedCollectionDto>> GetManagedAsync(
+        Profile? activeProfile,
+        CancellationToken ct = default)
+    {
+        var collections = (await collectionRepo.GetManagedCollectionsAsync(ct).ConfigureAwait(false))
+            .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
+            .ToList();
+        var materializedCounts = await collectionRepo.GetCollectionItemCountsAsync(
+            collections
+                .Where(collection => !string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase))
+                .Select(collection => collection.Id),
+            ct).ConfigureAwait(false);
+
+        var results = new List<ManagedCollectionDto>(collections.Count);
+        foreach (var collection in collections)
+        {
+            var count = string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase)
+                ? (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false)).Count
+                : GetManagedCollectionItemCount(collection, materializedCounts, []);
+            results.Add(ManagedCollectionDto.FromDomain(collection, count, activeProfile));
+        }
+
+        return results;
+    }
+
+    public Task<IReadOnlyList<Guid>> GetDisplayWorkIdsAsync(
+        IEnumerable<Guid> sourceWorkIds,
+        CancellationToken ct = default) =>
+        GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct);
+
+    public async Task<Guid> ResolveMembershipWorkIdAsync(Guid sourceWorkId, CancellationToken ct = default)
+    {
+        var displayIds = await GetCollectionCatalogDisplayWorkIdsAsync([sourceWorkId], ct).ConfigureAwait(false);
+        return displayIds.Count == 0 ? sourceWorkId : displayIds[0];
+    }
+
+    public async Task<List<CollectionManagementCatalogDto>> GetCatalogAsync(
         Profile? activeProfile,
         CancellationToken ct = default)
     {
@@ -119,7 +155,7 @@ public sealed class CollectionCatalogReadService(
         Profile? activeProfile,
         CancellationToken ct = default)
     {
-        var catalog = await GetManagementCatalogAsync(activeProfile, ct).ConfigureAwait(false);
+        var catalog = await GetCatalogAsync(activeProfile, ct).ConfigureAwait(false);
         return catalog.FirstOrDefault(collection => collection.Id == collectionId);
     }
 
@@ -394,7 +430,7 @@ public sealed class CollectionCatalogReadService(
             WHERE id IN @WorkIds
             GROUP BY media_type
             """,
-            new { WorkIds = workIds.Select(id => id.ToString()).ToArray() },
+            new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
             cancellationToken: ct)).ConfigureAwait(false);
 
         var watch = 0;
@@ -547,12 +583,11 @@ public sealed class CollectionCatalogReadService(
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id IN @WorkIds;
             """,
-            new { WorkIds = workIds.Select(id => id.ToString("D")).ToArray() },
+            new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
             cancellationToken: ct)).ConfigureAwait(false);
 
         return rows
-            .Select(row => Guid.TryParse(row.WorkId, out var id) ? id : Guid.Empty)
-            .Where(id => id != Guid.Empty)
+            .Select(row => row.WorkId)
             .Distinct()
             .ToList();
     }
@@ -630,8 +665,8 @@ public sealed class CollectionCatalogReadService(
             """,
             new
             {
-                CollectionId = collectionId.ToString("D"),
-                WorkIds = displayWorkIds.Select(id => id.ToString("D")).ToArray(),
+                CollectionId = collectionId,
+                WorkIds = displayWorkIds.Select(GuidSql.ToBlob).ToArray(),
             },
             cancellationToken: ct))).ToList();
 
@@ -729,12 +764,11 @@ public sealed class CollectionCatalogReadService(
             WHERE w.id IN @WorkIds
               AND ({visibleWorkPredicate} OR ra.AssetId IS NOT NULL)
             """,
-            new { WorkIds = workIds.Select(id => id.ToString()).ToArray() },
+            new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
             cancellationToken: ct))).ToList();
 
         var rowById = rows
-            .Where(row => Guid.TryParse(row.WorkId, out _))
-            .GroupBy(row => Guid.Parse(row.WorkId))
+            .GroupBy(row => row.WorkId)
             .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
 
         return workIds
@@ -809,7 +843,7 @@ public sealed class CollectionCatalogReadService(
 
     private sealed class CollectionArtworkItemRow
     {
-        public string WorkId { get; init; } = string.Empty;
+        public Guid WorkId { get; init; }
         public string? Title { get; init; }
         public string? MediaType { get; init; }
         public string? CoverUrl { get; init; }
@@ -829,7 +863,7 @@ public sealed class CollectionCatalogReadService(
         public int SortOrder { get; init; }
     }
 
-    private sealed record CollectionDisplayWorkRow(string WorkId);
+    private sealed record CollectionDisplayWorkRow(Guid WorkId);
 
     private sealed record CollectionCatalogAggregation(string Key, string? Label);
 

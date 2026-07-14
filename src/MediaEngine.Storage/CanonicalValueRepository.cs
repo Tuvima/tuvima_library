@@ -57,14 +57,19 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
             {
                 ct.ThrowIfCancellationRequested();
 
-                // INSERT OR REPLACE honours the (entity_id, key) PRIMARY KEY:
-                // if a row already exists it is deleted then re-inserted with the
-                // new value and timestamp.
+                // Update in place so the winner changes atomically without the
+                // delete/reinsert side effects of INSERT OR REPLACE.
                 conn.Execute("""
-                    INSERT OR REPLACE INTO canonical_values
+                    INSERT INTO canonical_values
                         (entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review)
                     VALUES
-                        (@EntityId, @Key, @Value, @LastScoredAt, @IsConflicted, @WinningProviderId, @NeedsReview);
+                        (@EntityId, @Key, @Value, @LastScoredAt, @IsConflicted, @WinningProviderId, @NeedsReview)
+                    ON CONFLICT(entity_id, key) DO UPDATE SET
+                        value = excluded.value,
+                        last_scored_at = excluded.last_scored_at,
+                        is_conflicted = excluded.is_conflicted,
+                        winning_provider_id = excluded.winning_provider_id,
+                        needs_review = excluded.needs_review;
                     """,
                     scalarValues.Select(cv => new
                     {
@@ -131,29 +136,38 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
         }
 
         using var conn = _db.CreateConnection();
-        var parameters = new DynamicParameters();
-        var placeholders = new string[entityIds.Count];
-        for (var i = 0; i < entityIds.Count; i++)
+        var rows = new List<CanonicalValueRow>();
+        foreach (var batch in entityIds
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .Chunk(SqliteBatching.MaxParametersPerQuery))
         {
-            var name = $"entityId{i}";
-            placeholders[i] = "@" + name;
-            parameters.Add(name, entityIds[i]);
-        }
+            ct.ThrowIfCancellationRequested();
 
-        var rows = conn.Query<CanonicalValueRow>("""
-            SELECT entity_id           AS EntityId,
-                   key                 AS Key,
-                   value               AS Value,
-                   last_scored_at      AS LastScoredAt,
-                   is_conflicted       AS IsConflicted,
-                   winning_provider_id AS WinningProviderId,
-                   needs_review        AS NeedsReview
-            FROM   canonical_values
-            WHERE  entity_id IN (
-            """ + string.Join(", ", placeholders) + """
-            )
-            ORDER  BY entity_id, key ASC;
-            """, parameters).AsList();
+            var parameters = new DynamicParameters();
+            var placeholders = new string[batch.Length];
+            for (var i = 0; i < batch.Length; i++)
+            {
+                var name = $"entityId{i}";
+                placeholders[i] = "@" + name;
+                parameters.Add(name, GuidSql.ToBlob(batch[i]));
+            }
+
+            rows.AddRange(conn.Query<CanonicalValueRow>("""
+                SELECT entity_id           AS EntityId,
+                       key                 AS Key,
+                       value               AS Value,
+                       last_scored_at      AS LastScoredAt,
+                       is_conflicted       AS IsConflicted,
+                       winning_provider_id AS WinningProviderId,
+                       needs_review        AS NeedsReview
+                FROM   canonical_values
+                WHERE  entity_id IN (
+                """ + string.Join(", ", placeholders) + """
+                )
+                ORDER  BY entity_id, key ASC;
+                """, parameters));
+        }
 
         var grouped = rows
             .GroupBy(r => r.EntityId)

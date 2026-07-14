@@ -3,6 +3,15 @@ using MediaEngine.Domain.Entities;
 namespace MediaEngine.Domain.Contracts;
 
 /// <summary>
+/// A stored link between a fictional entity and a work in which it participates.
+/// </summary>
+public sealed record FictionalEntityWorkLink(
+    Guid FictionalEntityId,
+    string WorkQid,
+    string? WorkLabel,
+    string LinkType);
+
+/// <summary>
 /// CRUD operations for <see cref="FictionalEntity"/> records and their
 /// work-link junction table.
 /// </summary>
@@ -69,6 +78,13 @@ public interface IFictionalEntityRepository
     /// </summary>
     Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>
         GetWorkLinksAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Return all work links for the supplied fictional entities in bounded batches.
+    /// </summary>
+    Task<IReadOnlyList<FictionalEntityWorkLink>> GetWorkLinksAsync(
+        IEnumerable<Guid> entityIds,
+        CancellationToken ct = default);
 
     /// <summary>Return total entity count (for stats).</summary>
     Task<int> CountAsync(CancellationToken ct = default);

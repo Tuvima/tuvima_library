@@ -12,6 +12,8 @@ namespace MediaEngine.Identity;
 /// Enforces business rules:
 /// <list type="bullet">
 ///   <item>Display names must be 1–50 characters.</item>
+///   <item>The seed "Owner" profile must remain an Administrator.</item>
+///   <item>The last Administrator profile cannot be demoted.</item>
 ///   <item>The seed "Owner" profile cannot be deleted.</item>
 ///   <item>The last Administrator profile cannot be deleted.</item>
 /// </list>
@@ -62,14 +64,31 @@ public sealed class ProfileService : IProfileService
     }
 
     /// <inheritdoc/>
-    public Task<bool> UpdateProfileAsync(Profile profile, CancellationToken ct = default)
+    public async Task<bool> UpdateProfileAsync(Profile profile, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentException.ThrowIfNullOrWhiteSpace(profile.DisplayName);
         if (profile.DisplayName.Length > 50)
             throw new ArgumentException("Display name must be 50 characters or fewer.");
 
-        return _repo.UpdateAsync(profile, ct);
+        var current = await _repo.GetByIdAsync(profile.Id, ct);
+        if (current is null)
+            return false;
+
+        if (profile.Id == Profile.SeedProfileId && profile.Role != ProfileRole.Administrator)
+            return false;
+
+        if (current.Role == ProfileRole.Administrator && profile.Role != ProfileRole.Administrator)
+        {
+            var profiles = await _repo.GetAllAsync(ct);
+            if (profiles.Count(candidate => candidate.Role == ProfileRole.Administrator) <= 1)
+                return false;
+        }
+
+        // ProfileRepository repeats the role invariants in one conditional UPDATE.
+        // These checks provide an early rejection; the storage predicate closes the
+        // race between these reads and the eventual write.
+        return await _repo.UpdateAsync(profile, ct);
     }
 
     /// <inheritdoc/>

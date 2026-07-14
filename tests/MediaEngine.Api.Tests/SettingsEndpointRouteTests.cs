@@ -57,6 +57,8 @@ public sealed class SettingsEndpointRouteTests
         Assert.Contains("grp.MapGet(\"/providers\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapGet(\"/providers/health\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPost(\"/providers/{name}/test\"", source, StringComparison.Ordinal);
+        Assert.Contains("Restart the Engine after changing provider configuration", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ConfigDrivenAdapter", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/providers/{name}/config\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapGet(\"/pipelines\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/pipelines\"", source, StringComparison.Ordinal);

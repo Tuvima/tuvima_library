@@ -108,6 +108,18 @@ public sealed class PersonAndWorkEndpointRouteTests
         Assert.Contains("ApiImageUrls.BuildPersonHeadshotUrl", graphSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void UniverseCastEndpoint_UsesTypedBatchedPersonRepositoryRead()
+    {
+        var graphSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\UniverseGraphEndpoints.cs"));
+
+        Assert.Contains("IPersonRepository personRepo", graphSource, StringComparison.Ordinal);
+        Assert.Contains("personRepo.GetCharacterPerformersAsync(", graphSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("character.Id.ToString()", graphSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("character_performer_links", graphSource, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("IDatabaseConnection", graphSource, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

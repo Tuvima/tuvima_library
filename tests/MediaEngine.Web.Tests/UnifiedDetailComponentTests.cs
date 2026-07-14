@@ -210,10 +210,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("read-listen", composer);
         Assert.DoesNotContain("Key = \"preview\",", composer);
         Assert.Contains("IsReadableEntity", composer);
-        Assert.Contains("SupportsWatchParty", composer);
-        Assert.Contains("watch-party", composer);
-        Assert.Contains("Tooltip = \"Watch Party setup is coming soon\"", composer);
-        Assert.Contains("IsStub = true", composer);
+        Assert.DoesNotContain("watch-party", composer);
         Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", composer);
         Assert.Contains("Key = \"my-list\"", composer);
         Assert.Contains("Label = \"Add to Collection\"", composer);
@@ -241,7 +238,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("height: min(47rem, 78vh)", styles);
         Assert.Contains("height: 100%", styles);
         Assert.Contains("max-height: min(47rem, 78vh)", styles);
-        Assert.DoesNotContain("&& SupportsWatchParty(entityType)", composer);
+        Assert.DoesNotContain("SupportsWatchParty", composer);
     }
 
     [Fact]
@@ -1006,6 +1003,8 @@ public sealed class UnifiedDetailComponentTests
         var libraryTable = ReadSource("src/MediaEngine.Web/Components/Library/LibraryConfigurableTable.razor");
 
         Assert.Contains("else if (IsPrimaryHeroActionRow)", actions);
+        Assert.Contains("DistinctBy(action => action.Key, StringComparer.OrdinalIgnoreCase)", actions);
+        Assert.DoesNotContain("watch-party", actions, StringComparison.Ordinal);
         Assert.Contains("tl-detail-watch-secondary--icon", actions);
         Assert.Contains("border-radius: 999px", styles);
         Assert.Contains("Icons.Material.Filled.Favorite", songTable);

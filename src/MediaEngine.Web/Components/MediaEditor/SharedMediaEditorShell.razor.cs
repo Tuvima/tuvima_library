@@ -25,16 +25,6 @@ public partial class SharedMediaEditorShell
         "history",
     ];
 
-    private static readonly string[] ReclassifyMediaTypes =
-    [
-        "Books",
-        "Audiobooks",
-        "Movies",
-        "TV",
-        "Music",
-        "Comics",
-    ];
-
     private static readonly ArtworkSlotDefinition PosterCoverArtworkSlot =
         new("CoverArt", "Poster / Cover", "Primary art used on cards and detail pages.", Icons.Material.Outlined.Photo, "portrait", "fit", true, "Best for posters and front-cover artwork.", "Primary");
 
@@ -104,7 +94,8 @@ public partial class SharedMediaEditorShell
     private readonly Dictionary<string, bool> _contentGroupExpandedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _artworkApplyingKeys = new(StringComparer.OrdinalIgnoreCase);
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
-    private string _activeTab = "details";
+    private readonly MediaEditorTabState _tabState = new();
+    private string _activeTab => _tabState.ActiveTab;
     private string _activeScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
@@ -131,7 +122,7 @@ public partial class SharedMediaEditorShell
     private string _reviewSummary = "Review the item identity.";
     private string _primaryActionLabel = "Review Metadata";
     private MediaEditorIdentityIntent _identityIntent = MediaEditorIdentityIntent.None;
-    private string _lastNonFileTab = "details";
+    private string _lastNonFileTab => _tabState.LastNonFileTab;
     private bool _showArtworkUrlInput;
     private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
     private string? _fieldToFocus;
@@ -163,11 +154,6 @@ public partial class SharedMediaEditorShell
         || IsDirty
         || Request.Mode == SharedMediaEditorMode.Review;
     protected bool IsArtworkBusy => _artworkUrlSubmitting || _providerArtworkRefreshing || _artworkApplyingKeys.Count > 0;
-    protected string ArtworkTabExplanation => GetArtworkTabExplanation();
-    protected bool HasSeriesNavigator => false;
-    protected bool ShowLegacyScopeSwitcher => false;
-    protected string ScopePickerLabel => ActiveScope?.Label ?? "Scope";
-    protected string? ScopePickerTitle => GetScopePickerTitle(ActiveScope);
     protected ArtworkSlotDefinition? SelectedArtworkSlot =>
         ArtworkSlots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
         ?? ArtworkSlots.FirstOrDefault();
@@ -182,9 +168,7 @@ public partial class SharedMediaEditorShell
     protected MediaEditorNavigatorNodeDto? SelectedNavigatorNode =>
         _navigator?.Nodes.FirstOrDefault(node => node.EntityId == EditorContextEntityId)
         ?? NavigatorRootNode;
-    protected bool SupportsDeleteAction => GetQuarantineTargetEntityIds().Count > 0;
     protected bool IsContainerEditor => string.Equals(_editorContext?.EditorMode, "container", StringComparison.OrdinalIgnoreCase);
-    protected bool IsSingularEditor => !IsBatchMode && !IsContainerEditor;
     protected MediaEditorScopeDto? ContainerRootScope =>
         IsContainerEditor
             ? _editorContext?.Scopes
@@ -217,9 +201,7 @@ public partial class SharedMediaEditorShell
         EditorContentGroups.FirstOrDefault(group => group.MissingCount > 0) is { } group
             ? $"{group.Title} incomplete"
             : null;
-    protected string CurrentTargetLabel => _editorContext?.CurrentTargetSummary?.Label ?? ActiveScope?.Label ?? "Item";
     protected string CurrentTargetTitle => _editorContext?.CurrentTargetSummary?.Title ?? ActiveScope?.DisplayTitle ?? HeaderTitle;
-    protected string? CurrentTargetSubtitle => _editorContext?.CurrentTargetSummary?.Subtitle ?? ActiveScope?.DisplaySubtitle;
 
     protected MediaEditorScopeDto? ActiveScope =>
         _editorContext?.Scopes
@@ -292,8 +274,7 @@ public partial class SharedMediaEditorShell
 
     protected override async Task OnInitializedAsync()
     {
-        _activeTab = NormalizeTabId(string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab);
-        _lastNonFileTab = _activeTab == "file" ? "details" : _activeTab;
+        _tabState.Initialize(string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab);
         _schema = MediaEditorSchemaCatalog.Resolve(Request.MediaType);
 
         if (IsSingleItem)
@@ -368,7 +349,7 @@ public partial class SharedMediaEditorShell
             if (Request.Mode == SharedMediaEditorMode.Review)
             {
                 var target = ReviewTargetResolver.Resolve(_detail?.MediaType ?? Request.MediaType, Request.ReviewTrigger ?? _detail?.ReviewTrigger);
-                _activeTab = NormalizeTabId(string.IsNullOrWhiteSpace(Request.InitialTab) ? target.InitialTab : Request.InitialTab!);
+                _tabState.Activate(string.IsNullOrWhiteSpace(Request.InitialTab) ? target.InitialTab : Request.InitialTab!);
                 _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup)
                     ? (ActiveScope?.CanonicalTargetGroup ?? target.CanonicalTargetGroup)
                     : Request.InitialCanonicalTargetGroup!;
@@ -388,7 +369,7 @@ public partial class SharedMediaEditorShell
             }
 
             if (IsFileScope)
-                _activeTab = "file";
+                _tabState.ActivateFile();
 
             EnsureActiveTabVisible();
                 _canonicalSearchQuery = BuildSuggestedSearchQuery();
@@ -471,8 +452,7 @@ public partial class SharedMediaEditorShell
             return;
 
         var wasFileScope = IsFileScope;
-        if (!string.IsNullOrWhiteSpace(_activeTab) && !string.Equals(_activeTab, "file", StringComparison.OrdinalIgnoreCase))
-            _lastNonFileTab = _activeTab;
+        _tabState.RememberCurrentNonFile();
 
         _activeScopeId = scopeId;
         _artworkAddMenuAssetType = null;
@@ -481,11 +461,11 @@ public partial class SharedMediaEditorShell
 
         if (string.Equals(scopeId, "file", StringComparison.OrdinalIgnoreCase))
         {
-            _activeTab = "file";
+            _tabState.ActivateFile();
         }
         else if (wasFileScope && string.Equals(_activeTab, "file", StringComparison.OrdinalIgnoreCase))
         {
-            _activeTab = _lastNonFileTab;
+            _tabState.Activate(_lastNonFileTab);
         }
 
         _loading = true;
@@ -546,7 +526,7 @@ public partial class SharedMediaEditorShell
 
         var state = _containerReturnState;
         await LoadSingleItemAsync(state.EntityId, resetEditorState: false);
-        _activeTab = string.IsNullOrWhiteSpace(state.TabId) ? ContentTabId : state.TabId;
+        _tabState.Activate(string.IsNullOrWhiteSpace(state.TabId) ? ContentTabId : state.TabId);
         _containerReturnState = null;
         EnsureActiveTabVisible();
     }
@@ -556,7 +536,7 @@ public partial class SharedMediaEditorShell
         if (string.IsNullOrWhiteSpace(scopeId))
             return;
 
-        _activeTab = "artwork";
+        _tabState.Activate("artwork");
 
         if (string.Equals(_activeScopeId, scopeId, StringComparison.OrdinalIgnoreCase))
         {
@@ -1095,51 +1075,6 @@ public partial class SharedMediaEditorShell
     protected bool HasArtworkUploadError(string assetType) =>
         !string.IsNullOrWhiteSpace(GetArtworkUploadError(assetType));
 
-    protected string? GetArtworkPreviewUrl(string assetType)
-    {
-        if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType), out var pendingPreview))
-            return pendingPreview;
-
-        return GetPreferredArtworkVariant(assetType)?.ImageUrl;
-    }
-
-    protected int GetArtworkAssetCount(string assetType) => GetArtworkVariants(assetType).Count;
-
-    protected string GetArtworkSourceLabel(string assetType)
-    {
-        if (HasPendingArtwork(assetType))
-            return $"Pending upload: {GetPendingArtworkFileName(assetType)}";
-
-        var variant = GetPreferredArtworkVariant(assetType);
-        if (variant is null)
-            return GetArtworkEmptyStateLabel(assetType);
-
-        return variant.Origin switch
-        {
-            "Uploaded" => "Preferred uploaded artwork.",
-            "Provider" when !string.IsNullOrWhiteSpace(variant.ProviderName) => $"Preferred provider artwork from {variant.ProviderName}.",
-            "Provider" => "Preferred provider artwork.",
-            _ => "Preferred stored artwork.",
-        };
-    }
-
-    protected ArtworkStateBadge GetArtworkStateBadge(string assetType)
-    {
-        if (HasPendingArtwork(assetType))
-            return new("Pending", "pending");
-
-        var variant = GetPreferredArtworkVariant(assetType);
-        if (variant is null)
-            return new("Missing", "missing");
-
-        return variant.Origin switch
-        {
-            "Uploaded" => new("Uploaded", "uploaded"),
-            "Provider" => new(string.IsNullOrWhiteSpace(variant.ProviderName) ? "Provider" : variant.ProviderName, "provider"),
-            _ => new("Stored", "stored"),
-        };
-    }
-
     protected string GetArtworkGalleryTitle(ArtworkSlotDefinition slot) =>
         slot.AssetType switch
         {
@@ -1167,8 +1102,6 @@ public partial class SharedMediaEditorShell
             "logo" => "1200 x 450",
             _ => "High resolution",
         };
-
-    protected string GetArtworkActionLabel(string assetType) => "Add";
 
     protected string GetArtworkAcceptedTypes(string assetType) =>
         string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase)
@@ -1282,35 +1215,6 @@ public partial class SharedMediaEditorShell
         return Task.CompletedTask;
     }
 
-    protected bool IsArtworkAddMenuOpen(string assetType) =>
-        string.Equals(_artworkAddMenuAssetType, assetType, StringComparison.OrdinalIgnoreCase);
-
-    protected void ToggleArtworkAddMenu(string assetType)
-    {
-        var isOpen = IsArtworkAddMenuOpen(assetType);
-        ApplyArtworkSlotSelection(assetType, clearTransientUi: false);
-
-        if (isOpen)
-        {
-            _artworkAddMenuAssetType = null;
-            _showArtworkUrlInput = false;
-            _artworkUrlInput = string.Empty;
-            return;
-        }
-
-        _artworkAddMenuAssetType = assetType;
-        _showArtworkUrlInput = false;
-        _artworkUrlInput = string.Empty;
-    }
-
-    protected void OpenArtworkUrlInput(string assetType)
-    {
-        ApplyArtworkSlotSelection(assetType, clearTransientUi: false);
-        _artworkAddMenuAssetType = assetType;
-        _artworkUrlInput = string.Empty;
-        _showArtworkUrlInput = true;
-    }
-
     private void ApplyArtworkSlotSelection(string assetType, bool clearTransientUi = true)
     {
         _selectedArtworkAssetType = assetType;
@@ -1332,47 +1236,8 @@ public partial class SharedMediaEditorShell
     protected bool IsFocusedArtworkVariant(string variantKey) =>
         string.Equals(_focusedArtworkVariantKey, variantKey, StringComparison.Ordinal);
 
-    protected string GetActiveArtworkStatus(string assetType)
-    {
-        var preferred = GetArtworkRowItems(assetType).FirstOrDefault(item => item.IsPreferred);
-        return preferred is null ? "No active artwork" : "Active artwork selected";
-    }
-
-    protected bool CanSetFocusedArtworkActive(string assetType)
-    {
-        var target = GetArtworkActionTarget(assetType);
-        return target is { IsPending: false, VariantId: var id, IsPreferred: false } && id != Guid.Empty;
-    }
-
-    protected async Task SetFocusedArtworkActiveAsync(string assetType)
-    {
-        var target = GetArtworkActionTarget(assetType);
-        if (target is null || target.IsPending || target.IsPreferred || target.VariantId == Guid.Empty)
-            return;
-
-        FocusArtworkVariant(target.Key);
-        await SetPreferredArtworkVariantAsync(target.VariantId);
-    }
-
-    protected void PreviewFocusedArtwork(string assetType)
-    {
-        var slot = ArtworkSlots.FirstOrDefault(candidate => string.Equals(candidate.AssetType, assetType, StringComparison.OrdinalIgnoreCase));
-        var target = GetArtworkActionTarget(assetType);
-        if (slot is null || target is null)
-            return;
-
-        FocusArtworkVariant(target.Key);
-        OpenArtworkZoom(slot, target);
-    }
-
     protected bool IsArtworkDeleteConfirming(ArtworkVariantDisplayItem item) =>
         string.Equals(_deleteConfirmArtworkVariantKey, item.Key, StringComparison.Ordinal);
-
-    protected bool IsFocusedArtworkDeleteConfirming(string assetType)
-    {
-        var target = GetArtworkActionTarget(assetType);
-        return target is not null && IsArtworkDeleteConfirming(target);
-    }
 
     protected async Task DeleteArtworkVariantWithConfirmationAsync(ArtworkVariantDisplayItem item)
     {
@@ -1552,9 +1417,6 @@ public partial class SharedMediaEditorShell
             _ => reason.Replace('_', ' '),
         };
 
-    protected void HandleArtworkUrlInput(ChangeEventArgs args) =>
-        _artworkUrlInput = args.Value?.ToString() ?? string.Empty;
-
     protected void ToggleArtworkUrlInput()
     {
         _showArtworkUrlInput = !_showArtworkUrlInput;
@@ -1675,18 +1537,6 @@ public partial class SharedMediaEditorShell
             parts.Add(createdAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture));
 
         return string.Join(" | ", parts);
-    }
-
-    protected void HandleCanonicalQueryInput(ChangeEventArgs args) =>
-        _canonicalSearchQuery = args.Value?.ToString() ?? string.Empty;
-
-    protected void SetCanonicalTargetGroup(string targetGroup)
-    {
-        _canonicalTargetGroup = targetGroup;
-        _canonicalSearchQuery = BuildSuggestedSearchQuery();
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
-        _selectedSuggestedFieldKeys.Clear();
     }
 
     protected async Task SearchCanonicalAsync()
@@ -2508,16 +2358,7 @@ public partial class SharedMediaEditorShell
 
     private void EnsureActiveTabVisible()
     {
-        if (IsTabVisible(_activeTab))
-            return;
-
-        if (!string.IsNullOrWhiteSpace(_lastNonFileTab) && IsTabVisible(_lastNonFileTab))
-        {
-            _activeTab = _lastNonFileTab;
-            return;
-        }
-
-        _activeTab = Tabs.FirstOrDefault().Id ?? "details";
+        _tabState.EnsureVisible(IsTabVisible, Tabs.Select(tab => tab.Id));
     }
 
     private IReadOnlyList<string> GetAvailableTabIds() =>
@@ -2564,28 +2405,6 @@ public partial class SharedMediaEditorShell
             "Save Local Changes" => "Resolve Review",
             var label => label,
         };
-
-    protected string GetDetailsPanelTitle(MediaEditorFieldGroup group)
-    {
-        if (group.Fields.Any(field => field.IdentityField))
-            return "Canonical Identity";
-
-        return group.Label;
-    }
-
-    protected string? GetDetailsPanelDescription(MediaEditorFieldGroup group)
-    {
-        if (group.Fields.Any(field => field.IdentityField))
-            return "Controlled by canonical identity. Change via Retail Match or Wikidata Match.";
-
-        if (string.Equals(group.Id, "display", StringComparison.OrdinalIgnoreCase)
-            || group.Fields.Any(field => IsDisplayOverrideKey(field.Key)))
-        {
-            return "Local overrides and presentation preferences. These do not affect identity.";
-        }
-
-        return null;
-    }
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetDetailsMetadataFields() =>
         GetGroupsForTab("details")
@@ -2830,42 +2649,6 @@ public partial class SharedMediaEditorShell
         return note;
     }
 
-    protected string GetReviewBannerActionLabel() =>
-        _identityIntent switch
-        {
-            MediaEditorIdentityIntent.FixRetailMatch => "Find",
-            MediaEditorIdentityIntent.ConfirmRetailMatch => "Confirm",
-            MediaEditorIdentityIntent.FixWikidataMatch => "Fix QID",
-            MediaEditorIdentityIntent.ConfirmWikidataMatch => "Choose QID",
-            MediaEditorIdentityIntent.MarkWikidataMissing => "Provider-Only",
-            MediaEditorIdentityIntent.ReclassifyMediaType => "Change Type",
-            MediaEditorIdentityIntent.ConfirmArtwork => "Review Art",
-            MediaEditorIdentityIntent.ResolveWriteback => "Retry",
-            _ => _primaryActionLabel,
-        };
-
-    protected static string GetMediaTypeButtonLabel(string? mediaType) =>
-        ReviewTargetResolver.NormalizeMediaType(mediaType) switch
-        {
-            "Audiobooks" => "Audio",
-            "Movies" => "Movie",
-            "Comics" => "Comics",
-            "Music" => "Music",
-            "TV" => "TV",
-            _ => "Books",
-        };
-
-    protected static string GetMediaTypeMenuLabel(string? mediaType) =>
-        ReviewTargetResolver.NormalizeMediaType(mediaType) switch
-        {
-            "Audiobooks" => "Audiobooks",
-            "Movies" => "Movies",
-            "Comics" => "Comics",
-            "Music" => "Music",
-            "TV" => "TV",
-            _ => "Books",
-        };
-
     private static string ResolveFooterPrimaryActionLabel(MediaEditorIdentityIntent intent) =>
         intent switch
         {
@@ -2984,9 +2767,6 @@ public partial class SharedMediaEditorShell
 
         return string.IsNullOrWhiteSpace(scope.DisplaySubtitle) ? null : scope.DisplaySubtitle;
     }
-
-    protected bool IsActiveScopeId(string scopeId) =>
-        string.Equals(ActiveScope?.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase);
 
     private IReadOnlyList<ArtworkSlotDefinition> ResolveArtworkSlots(MediaEditorScopeDto? scope) =>
         (_selectedMediaType, scope?.ScopeId, scope?.CanEditArtwork) switch
@@ -3645,33 +3425,6 @@ public partial class SharedMediaEditorShell
             _ => "No content is available for this selection.",
         };
 
-    protected string GetMembershipSuggestionMeta(MediaEditorMembershipSuggestionDto suggestion)
-    {
-        var parts = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(suggestion.Source))
-            parts.Add(string.Equals(suggestion.Source, "retail", StringComparison.OrdinalIgnoreCase) ? "Retail" : "Local");
-
-        if (!string.IsNullOrWhiteSpace(suggestion.ProviderName))
-            parts.Add(FormatProviderName(suggestion.ProviderName));
-
-        if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
-            parts.Add(suggestion.Subtitle!);
-
-        return string.Join(" | ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
-    }
-
-    protected string GetDeleteConfirmationText()
-    {
-        var count = GetQuarantineTargetEntityIds().Count;
-        if (count <= 0)
-            return "Quarantine this item?";
-
-        return count == 1
-            ? "Quarantine this item?"
-            : $"Quarantine {count} linked items?";
-    }
-
     protected string GetDisplayOverrideLabel(string key) =>
         key switch
         {
@@ -3683,24 +3436,7 @@ public partial class SharedMediaEditorShell
             _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' ')),
         };
 
-    protected string GetDisplayOverrideHint(string key) =>
-        key switch
-        {
-            "display_title" => "Shown in the library instead of the locked canonical title.",
-            "display_subtitle" => "Optional local subtitle or tagline.",
-            _ => "Local alias used for presentation only.",
-        };
-
-    private string NormalizeTabId(string? tabId) =>
-        (tabId ?? string.Empty).Trim().ToLowerInvariant() switch
-        {
-            "identity" => "links",
-            "universe" => "links",
-            "id" => "links",
-            "inspector" => "file",
-            "" => "details",
-            var normalized => normalized,
-        };
+    private static string NormalizeTabId(string? tabId) => MediaEditorTabState.Normalize(tabId);
 
     private async Task SelectTabInternalAsync(string tabId)
     {
@@ -3712,17 +3448,15 @@ public partial class SharedMediaEditorShell
         {
             if (!string.Equals(ActiveScope?.ScopeId, "file", StringComparison.OrdinalIgnoreCase) && ActiveScopeExists("file"))
             {
-                _lastNonFileTab = string.IsNullOrWhiteSpace(_lastNonFileTab) ? "details" : _lastNonFileTab;
                 await SelectScopeAsync("file");
                 return;
             }
 
-            _activeTab = "file";
+            _tabState.ActivateFile();
             return;
         }
 
-        _activeTab = normalized;
-        _lastNonFileTab = normalized;
+        _tabState.Activate(normalized);
 
         if (IsFileScope)
         {
@@ -3958,13 +3692,6 @@ public partial class SharedMediaEditorShell
         string? ProviderName,
         DateTimeOffset? CreatedAt);
 
-    protected string? GetUniverseExploreUrl() =>
-        !string.IsNullOrWhiteSpace(_detail?.UniverseSummary?.UniverseQid)
-            ? $"/universe/{_detail.UniverseSummary.UniverseQid}/explore"
-            : null;
-
-    protected string GetArtworkSlotMeta(ArtworkSlotDefinition slot) => slot.MetaLabel;
-
     protected string GetArtworkSlotCount(ArtworkSlotDefinition slot) =>
         FormatCountBadge(GetArtworkGalleryItems(slot.AssetType).Count) ?? "0";
 
@@ -3996,11 +3723,6 @@ public partial class SharedMediaEditorShell
             _ => normalized,
         };
     }
-
-    protected string FormatUniverseStatus(string? status) =>
-        string.IsNullOrWhiteSpace(status)
-            ? "Pending"
-            : status.Replace("_", " ");
 
     private static int GetSelectedIndex(IEnumerable<string?> keys, string? activeKey)
     {

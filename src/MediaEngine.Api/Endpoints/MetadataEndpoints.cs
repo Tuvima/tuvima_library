@@ -2,9 +2,9 @@ using System.Text.Json.Nodes;
 using System.Text.Json;
 using System.Globalization;
 using System.Text.Json.Serialization;
-using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
@@ -16,6 +16,8 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
+using ArtworkResolutionContext = MediaEngine.Api.Services.MetadataArtworkResolutionContext;
+using EditorLaunchContext = MediaEngine.Api.Services.MetadataEditorLaunchContext;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -73,7 +75,7 @@ public static partial class MetadataEndpoints
         group.MapMethods("/lock-claim", ["PATCH"], async (
             LockClaimRequest request,
             IMetadataClaimRepository claimRepo,
-            IDatabaseConnection db,
+            ICanonicalValueRepository canonicalRepo,
             ITransactionJournal journal,
             IEventPublisher publisher,
             CancellationToken ct) =>
@@ -107,24 +109,19 @@ public static partial class MetadataEndpoints
 
             // 2. Upsert the canonical value so the Dashboard sees the change immediately.
             //    User-locked claims resolve any conflict, so is_conflicted is set to 0.
-            using var conn = db.CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = """
-                INSERT INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted)
-                VALUES (@entity_id, @key, @value, @last_scored_at, 0)
-                ON CONFLICT(entity_id, key) DO UPDATE SET
-                    value          = excluded.value,
-                    last_scored_at = excluded.last_scored_at,
-                    is_conflicted  = 0;
-                """;
-            cmd.Parameters.AddWithValue("@entity_id",      request.EntityId.ToString());
-            cmd.Parameters.AddWithValue("@key",            request.ClaimKey);
-            cmd.Parameters.AddWithValue("@value",          request.ChosenValue);
-            cmd.Parameters.AddWithValue("@last_scored_at", lockedAt.ToString("O"));
-            cmd.ExecuteNonQuery();
+            await canonicalRepo.UpsertBatchAsync(
+                [new CanonicalValue
+                {
+                    EntityId = request.EntityId,
+                    Key = request.ClaimKey,
+                    Value = request.ChosenValue,
+                    LastScoredAt = lockedAt,
+                    IsConflicted = false,
+                }],
+                ct);
 
             // 3. Audit trail.
-            journal.Log("CLAIM_USER_LOCKED", "MetadataClaim", request.EntityId.ToString());
+            journal.Log("CLAIM_USER_LOCKED", "MetadataClaim", request.EntityId);
 
             // 4. Broadcast so the Dashboard refreshes.
             await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
@@ -401,7 +398,7 @@ public static partial class MetadataEndpoints
             IHydrationPipelineService pipeline,
             IEventPublisher publisher,
             ISystemActivityRepository activityRepo,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.MediaType))
@@ -416,47 +413,9 @@ public static partial class MetadataEndpoints
 
             var now = DateTimeOffset.UtcNow;
             var requestedEntityId = entityId;
-            var targetAssetId = entityId;
-            Guid? targetWorkId = null;
-
-            using (var conn = db.CreateConnection())
-            {
-                var assetRow = conn.QueryFirstOrDefault<EditorMediaTypeAssetRow>(
-                    """
-                    SELECT ma.id AS AssetId, e.work_id AS WorkId
-                    FROM media_assets ma
-                    JOIN editions e ON e.id = ma.edition_id
-                    WHERE ma.id = @EntityId
-                    LIMIT 1;
-                    """,
-                    new { EntityId = entityId });
-
-                if (assetRow is not null)
-                {
-                    targetAssetId = assetRow.AssetId;
-                    targetWorkId = assetRow.WorkId;
-                }
-                else
-                {
-                    var workAssetRow = conn.QueryFirstOrDefault<EditorMediaTypeWorkAssetRow>(
-                        """
-                        SELECT ma.id AS AssetId, w.id AS WorkId
-                        FROM works w
-                        LEFT JOIN editions e ON e.work_id = w.id
-                        LEFT JOIN media_assets ma ON ma.edition_id = e.id
-                        WHERE w.id = @EntityId
-                        ORDER BY ma.id IS NULL, ma.id
-                        LIMIT 1;
-                        """,
-                        new { EntityId = entityId });
-
-                    if (workAssetRow is not null)
-                    {
-                        targetWorkId = workAssetRow.WorkId;
-                        targetAssetId = workAssetRow.AssetId ?? targetAssetId;
-                    }
-                }
-            }
+            var reclassifyTarget = await metadataData.ResolveReclassifyTargetAsync(entityId, ct);
+            var targetAssetId = reclassifyTarget.TargetAssetId;
+            var targetWorkId = reclassifyTarget.WorkId;
 
             // 1. Create user-locked media_type claims at confidence 1.0.
             var claimEntityIds = new[] { (Guid?)targetAssetId, targetWorkId, requestedEntityId }
@@ -490,10 +449,7 @@ public static partial class MetadataEndpoints
 
             if (targetWorkId is { } workId)
             {
-                using var conn = db.CreateConnection();
-                await conn.ExecuteAsync(
-                    "UPDATE works SET media_type = @MediaType WHERE id = @WorkId;",
-                    new { MediaType = newMediaType.ToString(), WorkId = workId });
+                await metadataData.UpdateWorkMediaTypeAsync(workId, newMediaType.ToString(), ct);
             }
 
             // 3. Resolve any pending AmbiguousMediaType review items for this entity.
@@ -567,10 +523,10 @@ public static partial class MetadataEndpoints
             Guid entityId,
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             CancellationToken ct) =>
         {
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -622,10 +578,10 @@ public static partial class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
             IEntityAssetRepository entityAssetRepo,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             CancellationToken ct) =>
         {
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -651,10 +607,10 @@ public static partial class MetadataEndpoints
             ILibraryItemRepository libraryItemRepo,
             IWorkRepository workRepo,
             IImageEnrichmentService imageEnrichment,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             CancellationToken ct) =>
         {
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -672,7 +628,7 @@ public static partial class MetadataEndpoints
                     mediaType: scope.MediaType));
             }
 
-            var target = await ResolveProviderArtworkRefreshTargetAsync(scope, canonicalRepo, workRepo, db, ct);
+            var target = await ResolveProviderArtworkRefreshTargetAsync(scope, canonicalRepo, workRepo, metadataData, ct);
             if (target.Skipped is not null)
                 return Results.Ok(target.Skipped);
 
@@ -697,10 +653,10 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             CancellationToken ct) =>
         {
-            var context = await ResolveArtworkContextAsync(entityId, db, ct);
+            var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
             var detail = context.WorkId is Guid workId
                 ? await libraryItemRepo.GetDetailAsync(workId, ct)
                 : null;
@@ -780,7 +736,7 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             ISystemActivityRepository activityRepo,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             AssetPathService assetPathService,
             HttpRequest httpRequest,
             ILoggerFactory loggerFactory,
@@ -800,7 +756,7 @@ public static partial class MetadataEndpoints
             if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
                 return Results.BadRequest("Only JPEG and PNG images are accepted.");
 
-            var context = await ResolveArtworkContextAsync(entityId, db, ct);
+            var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
             var targetEntityId = context.RootWorkId ?? context.WorkId;
             if (targetEntityId is null || targetEntityId == Guid.Empty)
                 return Results.NotFound($"Asset {entityId} not found.");
@@ -880,7 +836,7 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             ILibraryItemRepository libraryItemRepo,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             AssetPathService assetPathService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
@@ -892,7 +848,7 @@ public static partial class MetadataEndpoints
             if (!httpRequest.HasFormContentType)
                 return Results.BadRequest("Expected multipart form data.");
 
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -982,7 +938,7 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             ILibraryItemRepository libraryItemRepo,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             AssetPathService assetPathService,
             IHttpClientFactory httpFactory,
             CancellationToken ct) =>
@@ -994,7 +950,7 @@ public static partial class MetadataEndpoints
             if (string.IsNullOrWhiteSpace(request.ImageUrl))
                 return Results.BadRequest("image_url is required.");
 
-            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, db, ct);
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
                 return Results.NotFound($"Editor context for {entityId} not found.");
 
@@ -1081,7 +1037,7 @@ public static partial class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
-            IDatabaseConnection db,
+            IMetadataEndpointDataService metadataData,
             AssetPathService assetPathService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
@@ -1103,7 +1059,7 @@ public static partial class MetadataEndpoints
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
 
-            var context = await ResolveArtworkContextAsync(entityId, db, ct);
+            var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
             var targetEntityId = context.RootWorkId ?? context.WorkId;
             if (targetEntityId is null || targetEntityId == Guid.Empty)
                 return Results.NotFound($"Asset {entityId} not found.");
@@ -1802,22 +1758,16 @@ public static partial class MetadataEndpoints
         Guid entityId,
         ICanonicalValueRepository canonicalRepo,
         ILibraryItemRepository libraryItemRepo,
-        IDatabaseConnection db,
+        IMetadataEndpointDataService metadataData,
         CancellationToken ct)
     {
-        var launch = await ResolveEditorLaunchContextAsync(entityId, db, ct);
+        var launch = await metadataData.ResolveEditorLaunchAsync(entityId, ct);
         if (launch is null)
             return null;
 
         var launchDetail = await libraryItemRepo.GetDetailAsync(launch.WorkId, ct);
         var launchCanonicals = await canonicalRepo.GetByEntityAsync(launch.WorkId, ct);
-        var canonicalMap = launchCanonicals
-            .Where(field => !string.IsNullOrWhiteSpace(field.Key))
-            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderByDescending(item => item.LastScoredAt).First().Value,
-                StringComparer.OrdinalIgnoreCase);
+        var canonicalMap = BuildLatestCanonicalMap(launchCanonicals);
 
         var rootDetail = launch.RootWorkId != Guid.Empty && launch.RootWorkId != launch.WorkId
             ? await libraryItemRepo.GetDetailAsync(launch.RootWorkId, ct)
@@ -1827,19 +1777,13 @@ public static partial class MetadataEndpoints
             ? await canonicalRepo.GetByEntityAsync(launch.RootWorkId, ct)
             : launchCanonicals;
 
-        var rootCanonicalMap = rootCanonicals
-            .Where(field => !string.IsNullOrWhiteSpace(field.Key))
-            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderByDescending(item => item.LastScoredAt).First().Value,
-                StringComparer.OrdinalIgnoreCase);
+        var rootCanonicalMap = BuildLatestCanonicalMap(rootCanonicals);
 
         var artistOwnerId = string.Equals(launch.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
-            ? ResolveArtistArtworkOwnerId(
-                db,
+            ? await metadataData.ResolveArtistArtworkOwnerAsync(
                 launch.RepresentativeAssetId,
-                FirstNonBlank(GetCanonicalValue(rootCanonicalMap, "artist"), GetCanonicalValue(canonicalMap, "artist")))
+                FirstNonBlank(GetCanonicalValue(rootCanonicalMap, "artist"), GetCanonicalValue(canonicalMap, "artist")),
+                ct)
             : null;
 
         var scopes = BuildEditorScopes(launch, launchDetail, canonicalMap, rootDetail, rootCanonicalMap, artistOwnerId);
@@ -1850,7 +1794,7 @@ public static partial class MetadataEndpoints
         var initialScopeResolution = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, initialScope, StringComparison.OrdinalIgnoreCase))
             ?? scopes[0];
         var editorMode = IsContainerEditorLaunch(launch) ? "container" : "singular";
-        var displayOverrides = LoadDisplayOverrides(db, initialScopeResolution.FieldEntityId);
+        var displayOverrides = await metadataData.GetDisplayOverridesAsync(initialScopeResolution.FieldEntityId, ct);
 
         return new EditorScopeContext(
             launch.LaunchEntityId,
@@ -1869,116 +1813,6 @@ public static partial class MetadataEndpoints
             displayOverrides,
             initialScope,
             scopes);
-    }
-
-    private static async Task<EditorLaunchContext?> ResolveEditorLaunchContextAsync(
-        Guid entityId,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-
-        using var conn = db.CreateConnection();
-
-        var workRow = conn.QueryFirstOrDefault<EditorLaunchWorkRow>("""
-            SELECT w.id                 AS WorkId,
-                   w.media_type         AS MediaType,
-                   w.work_kind          AS WorkKind,
-                   w.parent_work_id     AS ParentWorkId,
-                   COALESCE(gp.id, p.id, w.id) AS RootWorkId
-            FROM works w
-            LEFT JOIN works p ON p.id = w.parent_work_id
-            LEFT JOIN works gp ON gp.id = p.parent_work_id
-            WHERE w.id = @entityId
-            LIMIT 1;
-            """, new { entityId });
-
-        if (workRow is not null)
-        {
-            var workId = workRow.WorkId;
-            var representativeAsset = GetRepresentativeAssetForWorkTree(conn, workId);
-            return new EditorLaunchContext(
-                entityId,
-                "Work",
-                workId,
-                workRow.ParentWorkId,
-                workRow.RootWorkId ?? workId,
-                string.IsNullOrWhiteSpace(workRow.MediaType) ? "Books" : workRow.MediaType,
-                string.IsNullOrWhiteSpace(workRow.WorkKind) ? "standalone" : workRow.WorkKind,
-                representativeAsset?.AssetId,
-                representativeAsset?.FilePath,
-                representativeAsset?.WritebackStatus);
-        }
-
-        var collectionRow = conn.QueryFirstOrDefault<EditorLaunchCollectionRow>("""
-            SELECT target.id             AS WorkId,
-                   target.media_type     AS MediaType,
-                   target.work_kind      AS WorkKind,
-                   target.parent_work_id AS ParentWorkId,
-                   target.id             AS RootWorkId
-            FROM collections c
-            INNER JOIN works w ON w.collection_id = c.id
-            LEFT JOIN works p ON p.id = w.parent_work_id
-            LEFT JOIN works gp ON gp.id = p.parent_work_id
-            INNER JOIN works target ON target.id = COALESCE(gp.id, p.id, w.id)
-            WHERE c.id = @entityId
-            ORDER BY
-                CASE WHEN target.id = w.id THEN 0 ELSE 1 END,
-                COALESCE(w.ordinal, 999999),
-                w.id
-            LIMIT 1;
-            """, new { entityId });
-
-        if (collectionRow is not null)
-        {
-            var collectionWorkId = collectionRow.WorkId;
-            var representativeAsset = GetRepresentativeAssetForWorkTree(conn, collectionWorkId);
-            return new EditorLaunchContext(
-                entityId,
-                "Collection",
-                collectionWorkId,
-                collectionRow.ParentWorkId,
-                collectionRow.RootWorkId ?? collectionWorkId,
-                string.IsNullOrWhiteSpace(collectionRow.MediaType) ? "Books" : collectionRow.MediaType,
-                string.IsNullOrWhiteSpace(collectionRow.WorkKind) ? "standalone" : collectionRow.WorkKind,
-                representativeAsset?.AssetId,
-                representativeAsset?.FilePath,
-                representativeAsset?.WritebackStatus);
-        }
-
-        var assetRow = conn.QueryFirstOrDefault<EditorLaunchAssetRow>("""
-            SELECT a.id             AS AssetId,
-                   a.file_path_root AS FilePath,
-                   a.writeback_status AS WritebackStatus,
-                   w.id             AS WorkId,
-                   w.media_type     AS MediaType,
-                   w.work_kind      AS WorkKind,
-                   w.parent_work_id AS ParentWorkId,
-                   COALESCE(gp.id, p.id, w.id) AS RootWorkId
-            FROM media_assets a
-            INNER JOIN editions e ON e.id = a.edition_id
-            INNER JOIN works w ON w.id = e.work_id
-            LEFT JOIN works p ON p.id = w.parent_work_id
-            LEFT JOIN works gp ON gp.id = p.parent_work_id
-            WHERE a.id = @entityId
-            LIMIT 1;
-            """, new { entityId });
-
-        if (assetRow is null)
-            return null;
-
-        var assetWorkId = assetRow.WorkId;
-        return new EditorLaunchContext(
-            entityId,
-            "MediaAsset",
-            assetWorkId,
-            assetRow.ParentWorkId,
-            assetRow.RootWorkId ?? assetWorkId,
-            string.IsNullOrWhiteSpace(assetRow.MediaType) ? "Books" : assetRow.MediaType,
-            string.IsNullOrWhiteSpace(assetRow.WorkKind) ? "standalone" : assetRow.WorkKind,
-            assetRow.AssetId,
-            assetRow.FilePath,
-            assetRow.WritebackStatus);
     }
 
     private static bool IsContainerEditorMediaType(string? mediaType) =>
@@ -2086,101 +1920,6 @@ public static partial class MetadataEndpoints
             "Comics" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
             _ => ["display_title", "display_subtitle", "sort_title"],
         };
-
-    private static Dictionary<string, string> LoadDisplayOverrides(IDatabaseConnection db, Guid workId)
-    {
-        using var conn = db.CreateConnection();
-        var json = conn.QueryFirstOrDefault<string?>(
-            "SELECT display_overrides_json FROM works WHERE id = @workId LIMIT 1;",
-            new { workId });
-
-        if (string.IsNullOrWhiteSpace(json))
-            return new(StringComparer.OrdinalIgnoreCase);
-
-        try
-        {
-            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-            return parsed is null
-                ? new(StringComparer.OrdinalIgnoreCase)
-                : new Dictionary<string, string>(parsed, StringComparer.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return new(StringComparer.OrdinalIgnoreCase);
-        }
-    }
-
-    private static EditorAssetSample? GetRepresentativeAssetForWorkTree(
-        System.Data.IDbConnection conn,
-        Guid workId) =>
-        conn.QueryFirstOrDefault<EditorAssetSample>("""
-            WITH RECURSIVE work_tree(id, depth) AS (
-                SELECT @workId, 0
-                UNION ALL
-                SELECT child.id, work_tree.depth + 1
-                FROM works child
-                INNER JOIN work_tree ON child.parent_work_id = work_tree.id
-            )
-            SELECT ma.id AS AssetIdValue,
-                   ma.file_path_root AS FilePath,
-                   ma.writeback_status AS WritebackStatus
-            FROM work_tree
-            INNER JOIN editions e ON e.work_id = work_tree.id
-            INNER JOIN media_assets ma ON ma.edition_id = e.id
-            ORDER BY work_tree.depth,
-                     ma.id
-            LIMIT 1;
-            """, new { workId });
-
-    private static Guid? ResolveArtistArtworkOwnerId(
-        IDatabaseConnection db,
-        Guid? representativeAssetId,
-        string? artistName)
-    {
-        using var conn = db.CreateConnection();
-
-        if (representativeAssetId.HasValue)
-        {
-            var linkedId = conn.QueryFirstOrDefault<string>("""
-                SELECT p.id
-                FROM person_media_links pml
-                INNER JOIN persons p ON p.id = pml.person_id
-                WHERE pml.media_asset_id = @assetId
-                  AND (
-                        pml.role IN ('Artist', 'Performer')
-                        OR EXISTS (
-                            SELECT 1
-                            FROM person_roles pr
-                            WHERE pr.person_id = p.id
-                              AND pr.role IN ('Artist', 'Performer')
-                        )
-                  )
-                ORDER BY CASE
-                    WHEN pml.role = 'Artist' THEN 0
-                    WHEN pml.role = 'Performer' THEN 1
-                    ELSE 2
-                END,
-                p.name
-                LIMIT 1;
-                """, new { assetId = representativeAssetId.Value.ToString() });
-
-            if (Guid.TryParse(linkedId, out var linkedGuid))
-                return linkedGuid;
-        }
-
-        if (string.IsNullOrWhiteSpace(artistName))
-            return null;
-
-        var matchedId = conn.QueryFirstOrDefault<string>("""
-            SELECT p.id
-            FROM persons p
-            WHERE p.name = @artistName COLLATE NOCASE
-            ORDER BY p.name
-            LIMIT 1;
-            """, new { artistName = artistName.Trim() });
-
-        return Guid.TryParse(matchedId, out var parsedMatchedId) ? parsedMatchedId : null;
-    }
 
     private static List<EditorScopeResolution> BuildEditorScopes(
         EditorLaunchContext launch,
@@ -2559,10 +2298,12 @@ public static partial class MetadataEndpoints
         EditorScopeResolution scope,
         ICanonicalValueRepository canonicalRepo,
         IWorkRepository workRepo,
-        IDatabaseConnection db,
+        IMetadataEndpointDataService metadataData,
         CancellationToken ct)
     {
-        var representativeAssetId = ResolveRepresentativeAssetIdForArtworkRefresh(scope, db);
+        var representativeAssetId = await metadataData.ResolveRepresentativeAssetAsync(
+            [scope.FieldEntityId, scope.ArtworkOwnerEntityId ?? Guid.Empty],
+            ct);
         if (representativeAssetId is null)
         {
             return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
@@ -2623,24 +2364,6 @@ public static partial class MetadataEndpoints
         }
 
         return new ProviderArtworkRefreshTarget(representativeAssetId, qid, null);
-    }
-
-    private static Guid? ResolveRepresentativeAssetIdForArtworkRefresh(
-        EditorScopeResolution scope,
-        IDatabaseConnection db)
-    {
-        using var conn = db.CreateConnection();
-        foreach (var candidateWorkId in new[] { scope.FieldEntityId, scope.ArtworkOwnerEntityId ?? Guid.Empty }.Distinct())
-        {
-            if (candidateWorkId == Guid.Empty)
-                continue;
-
-            var sample = GetRepresentativeAssetForWorkTree(conn, candidateWorkId);
-            if (sample?.AssetId is Guid assetId)
-                return assetId;
-        }
-
-        return null;
     }
 
     private static (string Key, string Value)? ResolveProviderArtworkBridge(
@@ -2797,6 +2520,16 @@ public static partial class MetadataEndpoints
             : Path.GetDirectoryName(albumFolder);
     }
 
+    private static IReadOnlyDictionary<string, string> BuildLatestCanonicalMap(
+        IEnumerable<CanonicalValue> canonicals) =>
+        canonicals
+            .Where(field => !string.IsNullOrWhiteSpace(field.Key))
+            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(item => item.LastScoredAt).First().Value,
+                StringComparer.OrdinalIgnoreCase);
+
     private static string? GetCanonicalValue(IReadOnlyDictionary<string, string> values, string key) =>
         values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
             ? value
@@ -2840,162 +2573,6 @@ public static partial class MetadataEndpoints
         return contentType is not null && (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
             || string.Equals(contentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
             || string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static async Task<ArtworkResolutionContext> ResolveArtworkContextAsync(
-        Guid entityId,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-
-        using var conn = db.CreateConnection();
-
-        var workRow = conn.QueryFirstOrDefault<ArtworkWorkResolutionRow>("""
-            SELECT w.id                              AS WorkId,
-                   COALESCE(gp.id, p.id, w.id)      AS RootWorkId,
-                   (
-                       SELECT ma_current.id
-                       FROM editions e_current
-                       INNER JOIN media_assets ma_current ON ma_current.edition_id = e_current.id
-                       WHERE e_current.work_id = w.id
-                       ORDER BY ma_current.id
-                       LIMIT 1
-                   )                                 AS PrimaryAssetId,
-                   (
-                       SELECT ma_root.id
-                       FROM editions e_root
-                       INNER JOIN media_assets ma_root ON ma_root.edition_id = e_root.id
-                       WHERE e_root.work_id = COALESCE(gp.id, p.id, w.id)
-                       ORDER BY ma_root.id
-                       LIMIT 1
-                   )                                 AS RootPrimaryAssetId
-            FROM works w
-            LEFT JOIN works p ON p.id = w.parent_work_id
-            LEFT JOIN works gp ON gp.id = p.parent_work_id
-            WHERE w.id = @entityId
-            LIMIT 1;
-            """, new { entityId });
-
-        if (workRow is not null)
-        {
-            return BuildArtworkResolutionContext(
-                entityId,
-                workRow.WorkId,
-                workRow.RootWorkId,
-                workRow.PrimaryAssetId,
-                workRow.RootPrimaryAssetId,
-                GetArtworkEntityIds(conn, workRow.WorkId, workRow.RootWorkId));
-        }
-
-        var assetRow = conn.QueryFirstOrDefault<ArtworkAssetResolutionRow>("""
-            SELECT a.id                         AS AssetId,
-                   w.id                         AS WorkId,
-                   COALESCE(gp.id, p.id, w.id) AS RootWorkId,
-                   (
-                       SELECT ma_root.id
-                       FROM editions e_root
-                       INNER JOIN media_assets ma_root ON ma_root.edition_id = e_root.id
-                       WHERE e_root.work_id = COALESCE(gp.id, p.id, w.id)
-                       ORDER BY ma_root.id
-                       LIMIT 1
-                   )                            AS RootPrimaryAssetId
-            FROM media_assets a
-            INNER JOIN editions e ON e.id = a.edition_id
-            INNER JOIN works w ON w.id = e.work_id
-            LEFT JOIN works p ON p.id = w.parent_work_id
-            LEFT JOIN works gp ON gp.id = p.parent_work_id
-            WHERE a.id = @entityId
-            LIMIT 1;
-            """, new { entityId });
-
-        if (assetRow is not null)
-        {
-            var artworkEntityIds = GetArtworkEntityIds(conn, assetRow.WorkId, assetRow.RootWorkId);
-            if (!artworkEntityIds.Contains(entityId))
-                artworkEntityIds.Insert(0, entityId);
-
-            return BuildArtworkResolutionContext(
-                entityId,
-                assetRow.WorkId,
-                assetRow.RootWorkId,
-                assetRow.AssetId,
-                assetRow.RootPrimaryAssetId,
-                artworkEntityIds);
-        }
-
-        return new ArtworkResolutionContext(
-            RequestedEntityId: entityId,
-            WorkId: null,
-            RootWorkId: null,
-            PrimaryAssetId: null,
-            RootPrimaryAssetId: null,
-            ArtworkEntityIds: [entityId],
-            PreferredArtworkEntityId: null);
-    }
-
-    private static ArtworkResolutionContext BuildArtworkResolutionContext(
-        Guid requestedEntityId,
-        Guid? workId,
-        Guid? rootWorkId,
-        Guid? primaryAssetId,
-        Guid? rootPrimaryAssetId,
-        List<Guid> artworkEntityIds)
-    {
-        var resolvedRootWorkId = rootWorkId ?? workId;
-
-        var dedupedArtworkIds = artworkEntityIds
-            .Where(static id => id != Guid.Empty)
-            .Distinct()
-            .ToList();
-
-        if (workId is Guid resolvedWorkId && !dedupedArtworkIds.Contains(resolvedWorkId))
-            dedupedArtworkIds.Insert(0, resolvedWorkId);
-
-        if (resolvedRootWorkId is Guid rootId && !dedupedArtworkIds.Contains(rootId))
-            dedupedArtworkIds.Add(rootId);
-
-        return new ArtworkResolutionContext(
-            RequestedEntityId: requestedEntityId,
-            WorkId: workId,
-            RootWorkId: resolvedRootWorkId,
-            PrimaryAssetId: primaryAssetId,
-            RootPrimaryAssetId: rootPrimaryAssetId,
-            ArtworkEntityIds: dedupedArtworkIds,
-            PreferredArtworkEntityId: primaryAssetId ?? rootPrimaryAssetId);
-    }
-
-    private static List<Guid> GetArtworkEntityIds(
-        System.Data.IDbConnection conn,
-        Guid? workId,
-        Guid? rootWorkId)
-    {
-        var ids = new List<Guid>();
-
-        AddCanonicalSource(ids, workId);
-        AddCanonicalSource(ids, rootWorkId);
-
-        if (workId is null && rootWorkId is null)
-            return ids;
-
-        var assetRows = conn.Query<Guid>("""
-            SELECT DISTINCT ma.id
-            FROM editions e
-            INNER JOIN media_assets ma ON ma.edition_id = e.id
-            WHERE e.work_id IN @workIds;
-            """, new
-        {
-            workIds = new[]
-            {
-                workId,
-                rootWorkId,
-            }.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToArray(),
-        });
-
-        foreach (var assetId in assetRows)
-            AddCanonicalSource(ids, assetId);
-
-        return ids;
     }
 
     private static void AddCanonicalSource(List<Guid> sources, Guid? sourceId)
@@ -3292,44 +2869,6 @@ public static partial class MetadataEndpoints
         public static ProviderArtworkRefreshTarget Skip(ProviderArtworkRefreshEnvelope envelope) =>
             new(null, null, envelope);
     }
-    private sealed record ArtworkResolutionContext(
-        Guid RequestedEntityId,
-        Guid? WorkId,
-        Guid? RootWorkId,
-        Guid? PrimaryAssetId,
-        Guid? RootPrimaryAssetId,
-        IReadOnlyList<Guid> ArtworkEntityIds,
-        Guid? PreferredArtworkEntityId);
-    private sealed record ArtworkWorkResolutionRow(
-        Guid WorkId,
-        Guid RootWorkId,
-        Guid? PrimaryAssetId,
-        Guid? RootPrimaryAssetId);
-    private sealed record ArtworkAssetResolutionRow(
-        Guid AssetId,
-        Guid WorkId,
-        Guid RootWorkId,
-        Guid? RootPrimaryAssetId);
-    private sealed record EditorMediaTypeAssetRow(Guid AssetId, Guid WorkId);
-    private sealed record EditorMediaTypeWorkAssetRow(Guid WorkId, Guid? AssetId);
-    private sealed record EditorAssetSample(Guid AssetIdValue, string? FilePath, string? WritebackStatus)
-    {
-        public Guid? AssetId => AssetIdValue;
-    }
-    private sealed record EditorLaunchWorkRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
-    private sealed record EditorLaunchCollectionRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
-    private sealed record EditorLaunchAssetRow(Guid AssetId, string? FilePath, string? WritebackStatus, Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, Guid? RootWorkId);
-    private sealed record EditorLaunchContext(
-        Guid LaunchEntityId,
-        string LaunchEntityKind,
-        Guid WorkId,
-        Guid? ParentWorkId,
-        Guid RootWorkId,
-        string MediaType,
-        string WorkKind,
-        Guid? RepresentativeAssetId,
-        string? RepresentativeMediaFilePath,
-        string? RepresentativeWritebackStatus);
     private sealed record EditorScopeContext(
         Guid LaunchEntityId,
         string LaunchEntityKind,

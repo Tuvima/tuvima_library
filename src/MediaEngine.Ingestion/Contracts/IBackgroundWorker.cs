@@ -21,7 +21,7 @@ public interface IBackgroundWorker
         Func<T, CancellationToken, Task> handler,
         CancellationToken ct = default);
 
-    /// <summary>Number of items currently waiting in the queue.</summary>
+    /// <summary>Number of items queued or currently executing.</summary>
     int PendingCount { get; }
 
     /// <summary>Signals that no further work will be enqueued and drains the queue.</summary>

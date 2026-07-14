@@ -17,9 +17,14 @@ public sealed class DisplayComposerService
 
     public async Task<DisplayPageDto> BuildHomeAsync(bool includeCatalog = true, Guid? profileId = null, CancellationToken ct = default, int shelfLimit = 18)
     {
-        var works = await _repository.LoadWorksAsync(ct);
-        var journey = await _repository.LoadJourneyAsync(null, ct);
-        var homeCollections = await _repository.LoadHomeCollectionsAsync(profileId, ct);
+        var worksTask = _repository.LoadWorksAsync(ct);
+        var journeyTask = _repository.LoadJourneyAsync(null, ct);
+        var homeCollectionsTask = _repository.LoadHomeCollectionsAsync(profileId, ct);
+        await Task.WhenAll(worksTask, journeyTask, homeCollectionsTask);
+
+        var works = await worksTask;
+        var journey = await journeyTask;
+        var homeCollections = await homeCollectionsTask;
         var progressByWork = LatestProgressByWork(journey);
         var tvShowCards = _cards.BuildTvShowCards(works);
 
@@ -29,12 +34,11 @@ public sealed class DisplayComposerService
             .Select(item => _cards.FromJourney(item, "home", tvShowCards))
             .ToList();
 
-        var freshCards = works
+        var freshCandidates = works
             .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) != "TV")
             .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
             .Concat(tvShowCards.Select(card => card with { TileTextMode = "coverOnly" }))
             .OrderByDescending(card => card.SortTimestamp)
-            .Take(Math.Max(1, shelfLimit))
             .ToList();
 
         var readCards = works
@@ -63,6 +67,20 @@ public sealed class DisplayComposerService
             .Take(Math.Max(1, shelfLimit))
             .Select(DisplayCardBuilder.FromHomeCollection)
             .ToList();
+
+        // Fresh is the lowest-priority Home placement. Keep lane and journey shelves
+        // complete, then fill Fresh with identities that have not already appeared.
+        // Group cards use a separate identity namespace from owned works.
+        var occupiedHomeIdentities = DisplayCardPlacementPolicy.CollectIdentities(
+            continueCards,
+            watchCards,
+            readCards,
+            listenCards,
+            collectionCards);
+        var freshCards = DisplayCardPlacementPolicy.TakeUnplaced(
+            freshCandidates,
+            occupiedHomeIdentities,
+            Math.Max(1, shelfLimit));
 
         var shelves = new List<DisplayShelfDto>();
         DisplayShelfBuilder.AddShelf(shelves, "continue", "Jump Back In", "Pick up where you left off", continueCards, null);
@@ -118,8 +136,12 @@ public sealed class DisplayComposerService
             return await BuildMusicHomeAsync(includeCatalog, profileId, ct);
         }
 
-        var works = await _repository.LoadWorksAsync(ct);
-        var journey = await _repository.LoadJourneyAsync(null, ct);
+        var worksTask = _repository.LoadWorksAsync(ct);
+        var journeyTask = _repository.LoadJourneyAsync(null, ct);
+        await Task.WhenAll(worksTask, journeyTask);
+
+        var works = await worksTask;
+        var journey = await journeyTask;
         var progressByWork = LatestProgressByWork(journey);
 
         var filtered = works.AsEnumerable();
@@ -322,8 +344,12 @@ public sealed class DisplayComposerService
 
     private async Task<DisplayPageDto> BuildLaneAsync(string lane, bool includeCatalog, CancellationToken ct, int shelfLimit = 18)
     {
-        var works = await _repository.LoadWorksAsync(ct);
-        var journey = await _repository.LoadJourneyAsync(lane, ct);
+        var worksTask = _repository.LoadWorksAsync(ct);
+        var journeyTask = _repository.LoadJourneyAsync(lane, ct);
+        await Task.WhenAll(worksTask, journeyTask);
+
+        var works = await worksTask;
+        var journey = await journeyTask;
         var progressByWork = LatestProgressByWork(journey);
 
         var laneSource = works
@@ -376,7 +402,12 @@ public sealed class DisplayComposerService
 
     private async Task<DisplayPageDto> BuildMusicHomeAsync(bool includeCatalog, Guid? profileId, CancellationToken ct, int shelfLimit = 18)
     {
-        var works = (await _repository.LoadWorksAsync(ct))
+        var worksTask = _repository.LoadWorksAsync(ct);
+        var journeyTask = _repository.LoadJourneyAsync("listen", ct);
+        var favoriteWorkIdsTask = _repository.LoadFavoriteWorkIdsAsync(profileId, ct);
+        await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask);
+
+        var works = (await worksTask)
             .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
             .OrderByDescending(work => work.CreatedAt)
             .ThenBy(work => work.Artist, StringComparer.OrdinalIgnoreCase)
@@ -384,11 +415,11 @@ public sealed class DisplayComposerService
             .ThenBy(work => DisplayMediaRules.ParseDouble(work.TrackNumber) ?? double.MaxValue)
             .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var journey = (await _repository.LoadJourneyAsync("listen", ct))
+        var journey = (await journeyTask)
             .Where(item => DisplayMediaRules.NormalizeDisplayKind(item.MediaType) == "Music")
             .OrderByDescending(item => item.LastAccessed)
             .ToList();
-        var favoriteWorkIds = await _repository.LoadFavoriteWorkIdsAsync(profileId, ct);
+        var favoriteWorkIds = await favoriteWorkIdsTask;
         var progressByWork = LatestProgressByWork(journey);
         var catalog = works
             .Select(work => MarkFavorite(_cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId)), favoriteWorkIds))

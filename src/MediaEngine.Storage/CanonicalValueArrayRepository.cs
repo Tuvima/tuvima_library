@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -31,6 +32,19 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
     {
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(entries);
+
+        if (!MetadataFieldConstants.IsMultiValued(key))
+            throw new ArgumentException($"Canonical key '{key}' is scalar and cannot be stored as an array.", nameof(key));
+
+        if (entries.Any(entry => entry.Ordinal < 0))
+            throw new ArgumentOutOfRangeException(nameof(entries), "Canonical array ordinals must be non-negative.");
+
+        if (entries.Any(entry => string.IsNullOrWhiteSpace(entry.Value)))
+            throw new ArgumentException("Canonical array values cannot be empty or whitespace.", nameof(entries));
+
+        if (entries.Select(entry => entry.Ordinal).Distinct().Count() != entries.Count)
+            throw new ArgumentException("Canonical array ordinals must be unique within an entity and key.", nameof(entries));
 
         await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try

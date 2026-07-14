@@ -501,7 +501,7 @@ internal class EngineApiClientStub : DispatchProxy
                 },
             });
 
-        _handlers[nameof(IEngineApiClient.GetCollectionManagementCatalogAsync)] =
+        _handlers[nameof(IEngineApiClient.GetCollectionCatalogAsync)] =
             _ => Task.FromResult(new List<CollectionManagementCatalogViewModel>
             {
                 new()

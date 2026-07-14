@@ -119,32 +119,28 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
 {
     private readonly IEntityRelationshipRepository _relRepo;
     private readonly IFictionalEntityRepository _entityRepo;
+    private readonly IMetadataHarvestQueueAdmission _harvestQueue;
+    private readonly IUniverseGraphQueryService _graphQuery;
     private readonly ILogger<RelationshipPopulationService> _logger;
-
-    // Resolved lazily to avoid a circular DI dependency:
-    // MetadataHarvestingService → IRelationshipPopulationService → IMetadataHarvestingService.
-    private IMetadataHarvestingService? _harvesting;
-    private readonly IServiceProvider _serviceProvider;
 
     public RelationshipPopulationService(
         IEntityRelationshipRepository relRepo,
         IFictionalEntityRepository entityRepo,
-        IServiceProvider serviceProvider,
+        IMetadataHarvestQueueAdmission harvestQueue,
+        IUniverseGraphQueryService graphQuery,
         ILogger<RelationshipPopulationService> logger)
     {
         ArgumentNullException.ThrowIfNull(relRepo);
         ArgumentNullException.ThrowIfNull(entityRepo);
-        ArgumentNullException.ThrowIfNull(serviceProvider);
+        ArgumentNullException.ThrowIfNull(harvestQueue);
+        ArgumentNullException.ThrowIfNull(graphQuery);
         ArgumentNullException.ThrowIfNull(logger);
         _relRepo         = relRepo;
         _entityRepo      = entityRepo;
-        _serviceProvider = serviceProvider;
+        _harvestQueue    = harvestQueue;
+        _graphQuery      = graphQuery;
         _logger          = logger;
     }
-
-    private IMetadataHarvestingService Harvesting =>
-        _harvesting ??= _serviceProvider.GetService(typeof(IMetadataHarvestingService)) as IMetadataHarvestingService
-            ?? throw new InvalidOperationException("IMetadataHarvestingService is not registered.");
 
     /// <inheritdoc/>
     public async Task PopulateAsync(
@@ -229,9 +225,7 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
             {
                 try
                 {
-                    var graphQuery = _serviceProvider.GetService(typeof(IUniverseGraphQueryService))
-                        as IUniverseGraphQueryService;
-                    graphQuery?.InvalidateCache(universeQid);
+                    _graphQuery.InvalidateCache(universeQid);
                 }
                 catch (Exception ex)
                 {
@@ -284,7 +278,7 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                 _                                => EntityType.Character,
             };
 
-            await Harvesting.EnqueueAsync(new HarvestRequest
+            await _harvestQueue.EnqueueAsync(new HarvestRequest
             {
                 EntityId   = entity.Id,
                 EntityType = entityType,

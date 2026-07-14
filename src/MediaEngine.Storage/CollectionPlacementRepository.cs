@@ -18,7 +18,7 @@ public sealed class CollectionPlacementRepository : ICollectionPlacementReposito
             "SELECT id AS Id, collection_id AS CollectionId, location AS Location, position AS Position, " +
             "display_limit AS DisplayLimit, display_mode AS DisplayMode, is_visible AS IsVisible, " +
             "created_at AS CreatedAt FROM collection_placements WHERE collection_id = @CollectionId ORDER BY position",
-            new { CollectionId = collectionId.ToString() });
+            new { CollectionId = collectionId });
         return results.ToList();
     }
 
@@ -50,8 +50,8 @@ public sealed class CollectionPlacementRepository : ICollectionPlacementReposito
             """,
             new
             {
-                Id = placement.Id.ToString(),
-                CollectionId = placement.CollectionId.ToString(),
+                placement.Id,
+                placement.CollectionId,
                 placement.Location,
                 placement.Position,
                 placement.DisplayLimit,
@@ -66,7 +66,7 @@ public sealed class CollectionPlacementRepository : ICollectionPlacementReposito
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync("DELETE FROM collection_placements WHERE id = @Id",
-            new { Id = placementId.ToString() });
+            new { Id = placementId });
     }
 
     public async Task DeleteByCollectionIdAsync(Guid collectionId, CancellationToken ct = default)
@@ -74,6 +74,6 @@ public sealed class CollectionPlacementRepository : ICollectionPlacementReposito
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync("DELETE FROM collection_placements WHERE collection_id = @CollectionId",
-            new { CollectionId = collectionId.ToString() });
+            new { CollectionId = collectionId });
     }
 }

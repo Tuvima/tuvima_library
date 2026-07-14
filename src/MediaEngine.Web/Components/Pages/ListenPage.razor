@@ -67,50 +67,20 @@ else
     <div class="@ListenPageClass">
         <aside class="listen-rail-shell">
             <div class="listen-rail">
-                <section class="listen-rail__section">
-                    <div class="listen-rail__label">Library</div>
-                    @foreach (var item in ListenLibraryItems)
-                    {
-                        <a href="@item.Route" target="_top" data-enhance-nav="false" class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' aria-current="@(IsRouteActive(item.Route) ? "page" : null)" @onclick="@(() => NavigateRailLink(item.Route))" @onclick:preventDefault="true">
-                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
-                            <span>@item.Label</span>
-                            @if (!string.IsNullOrWhiteSpace(item.Meta))
-                            {
-                                <span class="listen-rail__meta">@item.Meta</span>
-                            }
-                        </a>
-                    }
-                </section>
+                <ListenNavigationSection Label="Library"
+                                         Items="@ListenLibraryItems"
+                                         IsRouteActive="IsRouteActive"
+                                         OnNavigate="NavigateRailLink" />
 
-                <section class="listen-rail__section">
-                    <div class="listen-rail__label">Formats</div>
-                    @foreach (var item in ListenFormatItems)
-                    {
-                        <a href="@item.Route" target="_top" data-enhance-nav="false" class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' aria-current="@(IsRouteActive(item.Route) ? "page" : null)" @onclick="@(() => NavigateRailLink(item.Route))" @onclick:preventDefault="true">
-                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
-                            <span>@item.Label</span>
-                            @if (!string.IsNullOrWhiteSpace(item.Meta))
-                            {
-                                <span class="listen-rail__meta">@item.Meta</span>
-                            }
-                        </a>
-                    }
-                </section>
+                <ListenNavigationSection Label="Formats"
+                                         Items="@ListenFormatItems"
+                                         IsRouteActive="IsRouteActive"
+                                         OnNavigate="NavigateRailLink" />
 
-                <section class="listen-rail__section">
-                    <div class="listen-rail__label">Your Library</div>
-                    @foreach (var item in ListenYourLibraryItems)
-                    {
-                        <a href="@item.Route" target="_top" data-enhance-nav="false" class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' aria-current="@(IsRouteActive(item.Route) ? "page" : null)" @onclick="@(() => NavigateRailLink(item.Route))" @onclick:preventDefault="true">
-                            <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
-                            <span>@item.Label</span>
-                            @if (!string.IsNullOrWhiteSpace(item.Meta))
-                            {
-                                <span class="listen-rail__meta">@item.Meta</span>
-                            }
-                        </a>
-                    }
-                </section>
+                <ListenNavigationSection Label="Your Library"
+                                         Items="@ListenYourLibraryItems"
+                                         IsRouteActive="IsRouteActive"
+                                         OnNavigate="NavigateRailLink" />
 
                 <section class="listen-rail__section">
                     <div class="listen-rail__section-heading">
@@ -134,7 +104,7 @@ else
                     {
                         @foreach (var item in ListenPinnedPlaylistItems)
                         {
-                            <a href="@item.Route" target="_top" data-enhance-nav="false" class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' aria-current="@(IsRouteActive(item.Route) ? "page" : null)" @onclick="@(() => NavigateRailLink(item.Route))" @onclick:preventDefault="true">
+                            <a @key="item.Route" href="@item.Route" target="_top" data-enhance-nav="false" class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' aria-current="@(IsRouteActive(item.Route) ? "page" : null)" @onclick="@(() => NavigateRailLink(item.Route))" @onclick:preventDefault="true">
                                 <MudIcon Icon="@item.Icon" Class="tl-u-font-size-18px" />
                                 <span>@item.Label</span>
                             </a>
@@ -143,10 +113,10 @@ else
                         @foreach (var playlist in PlaylistCollections)
                         {
                             var playlistRoute = $"/listen/music/playlists/{playlist.Id}";
-                            <div class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
+                            <div @key="playlist.Id" class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
                                  @ondragover:preventDefault="true"
                                  @ondrop="@(() => DropPlaylistReorderAsync(playlist.Id))">
-                                <AppNativeButton Type="button" Class="listen-rail__drag" draggable="true" AriaLabel="@($" Drag to reorder {playlist.Name}")" @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))" @ondragend="EndPlaylistReorder">
+                                <AppNativeButton Type="button" Class="listen-rail__drag" draggable="true" AriaLabel="@($"Drag to reorder {playlist.Name}")" @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))" @ondragend="EndPlaylistReorder">
                                     <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="tl-u-font-size-18px" />
                                 </AppNativeButton>
                                 <a href="@playlistRoute" target="_top" data-enhance-nav="false" class='@($"listen-rail__item is-child {(IsRouteActive(playlistRoute) ? "is-active" : null)}")' aria-current="@(IsRouteActive(playlistRoute) ? "page" : null)" @onclick="@(() => NavigateRailLink(playlistRoute))" @onclick:preventDefault="true" @ondragover:preventDefault="true" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
@@ -160,7 +130,7 @@ else
                                     }
                                     <span>@playlist.Name</span>
                                 </a>
-                                <AppNativeButton Type="button" Class="listen-rail__more" Title="Playlist options" AriaLabel="@($" {playlist.Name} options")" StopPropagation="true" OnClick="@(() => TogglePlaylistActionsMenu(playlist.Id))">
+                                <AppNativeButton Type="button" Class="listen-rail__more" Title="Playlist options" AriaLabel="@($"{playlist.Name} options")" StopPropagation="true" OnClick="@(() => TogglePlaylistActionsMenu(playlist.Id))">
                                     <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-18px" />
                                 </AppNativeButton>
                                 @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == playlist.Id)
@@ -213,7 +183,9 @@ else
                     <div class="listen-home__content">
                         @foreach (var shelf in _musicHomePage.Shelves)
                         {
-                            <MediaTileShelf Shelf="@shelf" OnPrimaryClicked="HandleListenTilePrimaryAsync" />
+                            <MediaTileShelf Shelf="@shelf"
+                                            OnPrimaryClicked="HandleListenTilePrimaryAsync"
+                                            @key="shelf.Key" />
                         }
 
                         @if (HomePlaylistTiles.Count > 0)

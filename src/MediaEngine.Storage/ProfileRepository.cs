@@ -109,7 +109,18 @@ public sealed class ProfileRepository : IProfileRepository
                    role              = @role,
                    pin_hash          = @pin,
                    navigation_config = @nav
-            WHERE  id = @id;
+            WHERE  id = @id
+              AND (@id <> @seedId OR @role = 'Administrator')
+              AND (
+                    @role = 'Administrator'
+                    OR role <> 'Administrator'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM profiles AS other
+                        WHERE other.id <> profiles.id
+                          AND other.role = 'Administrator'
+                    )
+                  );
             """, new
         {
             name  = profile.DisplayName,
@@ -119,6 +130,7 @@ public sealed class ProfileRepository : IProfileRepository
             pin   = profile.PinHash,
             nav   = profile.NavigationConfig,
             id    = profile.Id,
+            seedId = Profile.SeedProfileId,
         });
 
         return Task.FromResult(rows > 0);

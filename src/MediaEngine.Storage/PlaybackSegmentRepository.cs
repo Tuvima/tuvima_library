@@ -2,6 +2,7 @@ using System.Globalization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage;
 
@@ -26,7 +27,7 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
               AND review_status <> 'hidden'
             ORDER BY start_seconds, kind;
             """;
-        cmd.Parameters.AddWithValue("@assetId", assetId.ToString());
+        cmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
 
         var results = new List<PlaybackSegment>();
         using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
@@ -47,7 +48,7 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
             WHERE id = @id
             LIMIT 1;
             """;
-        cmd.Parameters.AddWithValue("@id", segmentId.ToString());
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(segmentId);
 
         using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         return await reader.ReadAsync(ct).ConfigureAwait(false) ? ReadSegment(reader) : null;
@@ -111,7 +112,7 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
                 updated_at = @updatedAt
             WHERE id = @id;
             """;
-        cmd.Parameters.AddWithValue("@id", segment.Id.ToString());
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(segment.Id);
         cmd.Parameters.AddWithValue("@kind", segment.Kind);
         cmd.Parameters.AddWithValue("@start", segment.StartSeconds);
         cmd.Parameters.AddWithValue("@end", (object?)segment.EndSeconds ?? DBNull.Value);
@@ -129,20 +130,20 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM playback_segments WHERE id = @id;";
-        cmd.Parameters.AddWithValue("@id", segmentId.ToString());
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(segmentId);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     private static void AddSegmentParameters(
-        Microsoft.Data.Sqlite.SqliteCommand cmd,
+        SqliteCommand cmd,
         Guid id,
         Guid assetId,
         PlaybackSegment segment,
         DateTimeOffset createdAt,
         DateTimeOffset updatedAt)
     {
-        cmd.Parameters.AddWithValue("@id", id.ToString());
-        cmd.Parameters.AddWithValue("@assetId", assetId.ToString());
+        cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(id);
+        cmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
         cmd.Parameters.AddWithValue("@kind", segment.Kind);
         cmd.Parameters.AddWithValue("@start", segment.StartSeconds);
         cmd.Parameters.AddWithValue("@end", (object?)segment.EndSeconds ?? DBNull.Value);
@@ -179,8 +180,8 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
 
     private static PlaybackSegment ReadSegment(System.Data.IDataRecord reader) => new()
     {
-        Id = Guid.Parse(reader.GetString(0)),
-        AssetId = Guid.Parse(reader.GetString(1)),
+        Id = GuidSql.FromDb(reader.GetValue(0)),
+        AssetId = GuidSql.FromDb(reader.GetValue(1)),
         Kind = reader.GetString(2),
         StartSeconds = reader.GetDouble(3),
         EndSeconds = reader.IsDBNull(4) ? null : reader.GetDouble(4),

@@ -2,7 +2,9 @@ using System.Data;
 using System.Text.Json;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Services.ReadServices;
 
@@ -28,10 +30,10 @@ public sealed class JourneyReadService : IJourneyReadService
             ? BaseSelect + "\nORDER BY us.last_accessed DESC\nLIMIT @limit;"
             : BaseSelect + "\n  AND w.collection_id = @collectionId\nORDER BY us.last_accessed DESC\nLIMIT @limit;";
 
-        cmd.Parameters.AddWithValue("@userId", userId.ToString());
+        cmd.Parameters.Add("@userId", SqliteType.Blob).Value = GuidSql.ToBlob(userId);
         cmd.Parameters.AddWithValue("@limit", limit);
         if (collectionId is not null)
-            cmd.Parameters.AddWithValue("@collectionId", collectionId.Value.ToString());
+            cmd.Parameters.Add("@collectionId", SqliteType.Blob).Value = GuidSql.ToBlob(collectionId.Value);
 
         using var reader = cmd.ExecuteReader();
         var results = new List<JourneyItemResponse>();
@@ -50,9 +52,9 @@ public sealed class JourneyReadService : IJourneyReadService
               ?? new Dictionary<string, string>();
 
         return new JourneyItemResponse(
-            AssetId: Guid.Parse(reader.GetString(0)),
-            WorkId: Guid.Parse(reader.GetString(1)),
-            CollectionId: reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
+            AssetId: GuidSql.FromDb(reader.GetValue(0)),
+            WorkId: GuidSql.FromDb(reader.GetValue(1)),
+            CollectionId: reader.IsDBNull(2) ? null : GuidSql.FromDb(reader.GetValue(2)),
             MediaType: reader.GetString(3),
             ProgressPct: reader.GetDouble(4),
             LastAccessed: DateTimeOffset.Parse(reader.GetString(5)),

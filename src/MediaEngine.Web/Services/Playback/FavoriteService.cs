@@ -6,13 +6,14 @@ namespace MediaEngine.Web.Services.Playback;
 
 public sealed record FavoriteMembership(Guid CollectionId, Guid? ItemId, bool IsFavorite);
 
-public sealed class FavoriteService
+public sealed class FavoriteService : IDisposable
 {
     private const string FavoritesCollectionName = "Favorites";
     private const int CollectionItemFetchLimit = 4000;
 
     private readonly IEngineApiClient _apiClient;
     private readonly Dictionary<Guid, FavoriteState> _cache = [];
+    private readonly SemaphoreSlim _stateGate = new(1, 1);
 
     public FavoriteService(IEngineApiClient apiClient)
     {
@@ -27,7 +28,7 @@ public sealed class FavoriteService
 
     public async Task<FavoriteMembership?> GetMembershipAsync(Guid workId, Guid? profileId, CancellationToken ct = default)
     {
-        var state = await GetStateAsync(profileId, createCollection: true, ct);
+        var state = await GetStateAsync(profileId, createCollection: false, ct);
         if (state?.CollectionId is not Guid collectionId)
             return null;
 
@@ -37,9 +38,17 @@ public sealed class FavoriteService
 
     public async Task<FavoriteMembership?> ToggleAsync(Guid workId, Guid? profileId, CancellationToken ct = default)
     {
-        var membership = await GetMembershipAsync(workId, profileId, ct);
-        if (membership is null)
+        var state = await GetStateAsync(profileId, createCollection: false, ct);
+        if (state?.CollectionId is null)
+        {
+            state = await GetStateAsync(profileId, createCollection: true, ct);
+        }
+
+        if (state?.CollectionId is not Guid collectionId)
             return null;
+
+        var isFavorite = state.ItemIdsByWorkId.TryGetValue(workId, out var itemId);
+        var membership = new FavoriteMembership(collectionId, isFavorite ? itemId : null, isFavorite);
 
         if (membership.IsFavorite && membership.ItemId.HasValue)
         {
@@ -75,7 +84,18 @@ public sealed class FavoriteService
         if (_cache.TryGetValue(profileId.Value, out var cached) && (!createCollection || cached.CollectionId.HasValue))
             return cached;
 
-        return await ReloadStateAsync(profileId.Value, ct, createCollection);
+        await _stateGate.WaitAsync(ct);
+        try
+        {
+            if (_cache.TryGetValue(profileId.Value, out cached) && (!createCollection || cached.CollectionId.HasValue))
+                return cached;
+
+            return await ReloadStateAsync(profileId.Value, ct, createCollection);
+        }
+        finally
+        {
+            _stateGate.Release();
+        }
     }
 
     private async Task<FavoriteState> ReloadStateAsync(Guid profileId, CancellationToken ct, bool createCollection = false)
@@ -132,4 +152,6 @@ public sealed class FavoriteService
         public HashSet<Guid> WorkIds { get; init; } = [];
         public Dictionary<Guid, Guid> ItemIdsByWorkId { get; init; } = [];
     }
+
+    public void Dispose() => _stateGate.Dispose();
 }

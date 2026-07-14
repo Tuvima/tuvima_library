@@ -121,7 +121,7 @@ public sealed class CollectionArbiter : ICollectionArbiter
         _journal.Log(
             eventType:  eventType,
             entityType: "Work",
-            entityId:   work.Id.ToString());
+            entityId:   work.Id);
 
         return decision;
     }

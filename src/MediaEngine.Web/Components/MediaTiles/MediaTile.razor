@@ -3,23 +3,27 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Playback
-@using Microsoft.Extensions.DependencyInjection
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 @inject ILogger<MediaTile> Logger
-@inject IServiceProvider Services
+@inject ActiveProfileSessionService ActiveProfileSession
+@inject MediaReactionService Reactions
+@inject FavoriteService Favorites
 @implements IAsyncDisposable
 
 <AppCssElement Tag="div"
                Css="@PaletteScopeStyle">
-<div class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")} {(_dismissedFromContinue ? "is-dismissed" : "")}")'
-     @ref="_cardRef"
-     tabindex="0"
-     aria-label="@Item.Title"
-     @onkeydown="HandleKeyDown">
+<article class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")} {(_dismissedFromContinue ? "is-dismissed" : "")}")'
+         @ref="_cardRef"
+         aria-label="@Item.Title"
+         @onkeydown="HandleCardKeyDown">
     <div class="media-tile-frame">
-        <div class="media-tile-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenDetails">
+        <a class="media-tile-media @(HasArtworkSurface ? "has-artwork-surface" : null)"
+           href="@DetailsNavigationUrl"
+           aria-label="@DetailsActionAriaLabel"
+           @onclick="OpenDetails"
+           @onclick:preventDefault="true">
             @if (ShowGroupCollage)
             {
                 <MediaTileCollage Items="@GroupCollageItems"
@@ -99,7 +103,7 @@
                     }
                 </div>
             }
-        </div>
+        </a>
     </div>
 
     @if (IsHoverEnabled)
@@ -268,7 +272,7 @@
                 }
         </div>
     }
-</div>
+</article>
 </AppCssElement>
 
 @code {
@@ -980,17 +984,15 @@
 
     private async Task LoadReactionAsync()
     {
-        var reactions = Services.GetService<MediaReactionService>();
-        var orchestrator = Services.GetService<UIOrchestratorService>();
-        if (reactions is null || orchestrator is null || !Item.WorkId.HasValue)
+        if (!Item.WorkId.HasValue)
         {
             return;
         }
 
         try
         {
-            var profile = await orchestrator.GetActiveProfileAsync();
-            _reaction = await reactions.GetReactionAsync(Item.WorkId.Value, profile?.Id);
+            var profile = await ActiveProfileSession.GetActiveProfileAsync();
+            _reaction = await Reactions.GetReactionAsync(Item.WorkId.Value, profile?.Id);
             await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
@@ -1001,18 +1003,16 @@
 
     private async Task SetReactionAsync(MediaReaction reaction)
     {
-        var reactions = Services.GetService<MediaReactionService>();
-        var orchestrator = Services.GetService<UIOrchestratorService>();
-        if (reactions is null || orchestrator is null || !Item.WorkId.HasValue)
+        if (!Item.WorkId.HasValue)
         {
             return;
         }
 
         try
         {
-            var profile = await orchestrator.GetActiveProfileAsync();
+            var profile = await ActiveProfileSession.GetActiveProfileAsync();
             var next = _reaction == reaction ? MediaReaction.Neutral : reaction;
-            await reactions.SetReactionAsync(Item.WorkId.Value, next, profile?.Id);
+            await Reactions.SetReactionAsync(Item.WorkId.Value, next, profile?.Id);
             _reaction = next;
             await InvokeAsync(StateHasChanged);
         }
@@ -1037,19 +1037,21 @@
 
     private string MyListActionLabel => _isInMyList ? "Remove from My List" : "Add to My List";
 
+    private string DetailsNavigationUrl => Item.DetailsNavigationUrl ?? Item.NavigationUrl;
+
+    private string DetailsActionAriaLabel => $"View details for {Item.Title}";
+
     private async Task LoadMyListAsync()
     {
-        var favorites = Services.GetService<FavoriteService>();
-        var orchestrator = Services.GetService<UIOrchestratorService>();
-        if (favorites is null || orchestrator is null || !Item.WorkId.HasValue)
+        if (!Item.WorkId.HasValue)
         {
             return;
         }
 
         try
         {
-            var profile = await orchestrator.GetActiveProfileAsync();
-            var membership = await favorites.GetMembershipAsync(Item.WorkId.Value, profile?.Id);
+            var profile = await ActiveProfileSession.GetActiveProfileAsync();
+            var membership = await Favorites.GetMembershipAsync(Item.WorkId.Value, profile?.Id);
             _isInMyList = membership?.IsFavorite == true;
             await InvokeAsync(StateHasChanged);
         }
@@ -1061,17 +1063,15 @@
 
     private async Task ToggleMyListAsync()
     {
-        var favorites = Services.GetService<FavoriteService>();
-        var orchestrator = Services.GetService<UIOrchestratorService>();
-        if (favorites is null || orchestrator is null || !Item.WorkId.HasValue)
+        if (!Item.WorkId.HasValue)
         {
             return;
         }
 
         try
         {
-            var profile = await orchestrator.GetActiveProfileAsync();
-            var membership = await favorites.ToggleAsync(Item.WorkId.Value, profile?.Id);
+            var profile = await ActiveProfileSession.GetActiveProfileAsync();
+            var membership = await Favorites.ToggleAsync(Item.WorkId.Value, profile?.Id);
             _isInMyList = membership?.IsFavorite == true;
             await InvokeAsync(StateHasChanged);
         }
@@ -1140,15 +1140,11 @@
         await OnEditClicked.InvokeAsync(Item);
     }
 
-    private void HandleKeyDown(KeyboardEventArgs args)
+    private void HandleCardKeyDown(KeyboardEventArgs args)
     {
         if (args.Key == "ArrowDown" && IsHoverEnabled)
         {
             _expanded = true;
-        }
-        else if (args.Key is "Enter" or " ")
-        {
-            OpenDetails();
         }
         else if (args.Key == "Escape")
         {

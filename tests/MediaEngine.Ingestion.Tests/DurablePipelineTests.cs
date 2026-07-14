@@ -294,6 +294,55 @@ public sealed class DurablePipelineTests : IDisposable
     }
 
     [Fact]
+    public async Task IngestionEngine_StopCancelsAndDrainsOwnedDelayedWork()
+    {
+        var path = CreateWatchFile("Delayed Retry.epub");
+        using var debounce = new DebounceQueue(new DebounceOptions
+        {
+            SettleDelay = TimeSpan.FromMilliseconds(1),
+            ProbeInterval = TimeSpan.FromMilliseconds(1),
+            MaxProbeAttempts = 1,
+            MaxProbeDelay = TimeSpan.FromMilliseconds(10),
+        });
+        using var engine = CreateEngine(debounce, new IngestionOptions
+        {
+            WatchDirectories = [],
+            LibraryRoot = _libraryDir,
+            AutoOrganize = false,
+            PollIntervalSeconds = 0,
+        });
+        await engine.StartAsync(CancellationToken.None);
+
+        var schedule = typeof(IngestionEngine).GetMethod(
+            "ScheduleLockProbeRetry",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(schedule);
+        schedule.Invoke(engine,
+        [
+            new IngestionCandidate
+            {
+                Path = path,
+                EventType = FileEventType.Created,
+                DetectedAt = DateTimeOffset.UtcNow,
+                ReadyAt = DateTimeOffset.UtcNow,
+            },
+            DateTimeOffset.UtcNow.AddMinutes(10),
+        ]);
+        Assert.True(GetOwnedTaskCount(engine) > 0);
+
+        using var stopCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        await engine.StopAsync(stopCts.Token);
+
+        Assert.True(SpinWait.SpinUntil(() => GetOwnedTaskCount(engine) == 0, TimeSpan.FromSeconds(1)));
+        _watcher.RaiseErrorForTest(new FileWatcherErrorEvent(
+            "buffer_overflow",
+            "after stop",
+            DateTimeOffset.UtcNow,
+            IsBufferOverflow: true));
+        Assert.Equal(0, GetOwnedTaskCount(engine));
+    }
+
+    [Fact]
     public async Task IngestionEngine_DuplicateDifferentPath_RecordsDuplicateOutcome()
     {
         var firstPath = CreateWatchFile("Dune.epub", "same bytes");
@@ -846,6 +895,18 @@ public sealed class DurablePipelineTests : IDisposable
         return path;
     }
 
+    private static int GetOwnedTaskCount(IngestionEngine engine)
+    {
+        var field = typeof(IngestionEngine).GetField(
+            "_ownedTasks",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        var tasks = field.GetValue(engine);
+        Assert.NotNull(tasks);
+        var count = tasks.GetType().GetProperty("Count")?.GetValue(tasks);
+        return Assert.IsType<int>(count);
+    }
+
     private string? FindFileAnywhere(string filename)
         => Directory.Exists(_tempRoot)
             ? Directory.EnumerateFiles(_tempRoot, filename, SearchOption.AllDirectories).FirstOrDefault()
@@ -1200,6 +1261,26 @@ public sealed class DurablePipelineTests : IDisposable
             return Task.FromResult(count);
         }
 
+        public Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(
+            Guid entityId,
+            CancellationToken ct = default)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var promoted = _entries
+                .Where(e => e.EntityId == entityId
+                    && e.Status == ReviewStatus.Pending
+                    && e.ReviewReadyAt is null)
+                .ToList();
+
+            foreach (var entry in promoted)
+            {
+                entry.ReviewReadyAt = now;
+                entry.AutomationCompletedAt ??= now;
+            }
+
+            return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(promoted);
+        }
+
         public Task<int> PurgeOrphanedAsync(CancellationToken ct = default)
             => Task.FromResult(0);
     }
@@ -1436,16 +1517,21 @@ public sealed class DurablePipelineTests : IDisposable
     private sealed class NoOpWorkRepository : IWorkRepository
     {
         public Task<Guid?> FindParentByKeyAsync(MediaType mediaType, string parentKey, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid> GetOrCreateParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task<Guid?> FindChildByOrdinalAsync(Guid parentWorkId, int ordinal, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid?> FindChildByOrdinalSortAsync(Guid parentWorkId, double ordinalSort, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Guid?> FindChildByTitleAsync(Guid parentWorkId, string title, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Guid?> FindByExternalIdentifierAsync(string scheme, string value, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Guid> InsertParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task<Guid> InsertChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task<Guid> GetOrCreateChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task UpdateOrdinalSortAsync(Guid workId, double? ordinalSort, CancellationToken ct = default) => Task.CompletedTask;
         public Task<Guid> InsertStandaloneAsync(MediaType mediaType, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task<Guid> InsertCatalogChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, IReadOnlyDictionary<string, string>? externalIdentifiers, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
         public Task PromoteCatalogToOwnedAsync(Guid workId, CancellationToken ct = default) => Task.CompletedTask;
         public Task WriteExternalIdentifiersAsync(Guid workId, IReadOnlyDictionary<string, string> identifiers, CancellationToken ct = default) => Task.CompletedTask;
         public Task<WorkLineage?> GetLineageByAssetAsync(Guid assetId, CancellationToken ct = default) => Task.FromResult<WorkLineage?>(null);
+        public Task<ConfirmedSiblingWorkQid?> FindConfirmedSiblingQidAsync(MediaType sourceMediaType, IReadOnlyList<MediaType> candidateMediaTypes, string title, string? creator, Guid? excludeWorkId = null, CancellationToken ct = default) => Task.FromResult<ConfirmedSiblingWorkQid?>(null);
     }
 
     private sealed class NoOpReviewQueueRepository : IReviewQueueRepository
@@ -1457,6 +1543,7 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<IReadOnlyList<ReviewQueueEntry>> GetPendingByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task UpdateStatusAsync(Guid id, string status, string? resolvedBy = null, CancellationToken ct = default) => Task.CompletedTask;
         public Task<int> MarkPendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
+        public Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
         public Task<int> GetPendingCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> DismissAllByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> ResolveAllByEntityAsync(Guid entityId, string resolvedBy = "system:auto-organize", CancellationToken ct = default) => Task.FromResult(0);
@@ -1563,6 +1650,7 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default) => Task.FromResult(new Dictionary<string, int>());
         public Task<IReadOnlyList<CollectionItem>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionItem>>([]);
         public Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult(0);
+        public Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default) => Task.FromResult(new Dictionary<Guid, int>());
         public Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default) => Task.CompletedTask;

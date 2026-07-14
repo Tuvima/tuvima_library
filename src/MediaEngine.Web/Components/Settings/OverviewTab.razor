@@ -22,13 +22,6 @@
                        OnClick="LoadAsync">
                 Refresh
             </AppButton>
-            <AppButton Href="/settings/review"
-                       Variant="Variant.Outlined"
-                       Size="Size.Small"
-                       Color="Color.Warning"
-                       StartIcon="@Icons.Material.Outlined.RateReview">
-                Review @_pendingReviewCount
-            </AppButton>
             <AppButton Variant="Variant.Filled"
                        Size="Size.Small"
                        Color="Color.Primary"
@@ -157,7 +150,6 @@
 
             <div class="admin-card-actions">
                 <AppButton Href="/settings/ingestion" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">View run</AppButton>
-                <AppButton Href="/settings/ingestion" Variant="Variant.Text" Size="Size.Small" Color="Color.Default">Open tasks</AppButton>
             </div>
         </AppPanel>
 
@@ -319,7 +311,6 @@
             <div class="admin-snapshot-grid">
                 @Metric("Added today", FormatCount(_overview?.Added24h ?? 0), Icons.Material.Outlined.AddCircle)
                 @Metric("Processed today", FormatCount(_processedToday), Icons.Material.Outlined.TaskAlt)
-                @Metric("Needs review", FormatCount(_pendingReviewCount), Icons.Material.Outlined.RateReview)
                 @Metric("Active transcodes", FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
                 @Metric("Recent imports", FormatCount(_recentImportsToday), Icons.Material.Outlined.MoveToInbox)
             </div>

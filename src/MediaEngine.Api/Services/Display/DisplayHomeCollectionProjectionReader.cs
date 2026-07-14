@@ -34,7 +34,7 @@ public sealed class DisplayHomeCollectionProjectionReader
         }
 
         var activeProfile = await ResolveActiveProfileAsync(profileId, ct);
-        var catalog = await _catalog.GetManagementCatalogAsync(activeProfile, ct);
+        var catalog = await _catalog.GetCatalogAsync(activeProfile, ct);
         var catalogById = catalog.ToDictionary(item => item.Id);
 
         var rows = new List<DisplayHomeCollectionRow>();

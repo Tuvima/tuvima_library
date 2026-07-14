@@ -78,23 +78,9 @@ public interface IReviewQueueRepository
     /// Marks hidden pending review rows for an entity as ready and returns the
     /// rows that should now be announced to users.
     /// </summary>
-    async Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(
+    Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(
         Guid entityId,
-        CancellationToken ct = default)
-    {
-        var promoted = await MarkPendingReadyByEntityAsync(entityId, ct).ConfigureAwait(false);
-        if (promoted <= 0)
-        {
-            return [];
-        }
-
-        var rows = await GetByEntityAsync(entityId, ct).ConfigureAwait(false);
-        return rows
-            .Where(row => row.Status == Enums.ReviewStatus.Pending
-                          && row.ReviewReadyAt is not null)
-            .Take(promoted)
-            .ToList();
-    }
+        CancellationToken ct = default);
 
     /// <summary>
     /// Returns the number of pending review items.

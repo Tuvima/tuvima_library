@@ -27,7 +27,11 @@ public sealed class CollectionsHubTests
         var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
         var browseShellStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\BrowseShellStyles.razor.css"));
 
-        Assert.Contains("GetCollectionManagementCatalogAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Where(collection => collection.Id != CurrentHeroCollection?.Id)", source, StringComparison.Ordinal);
+        Assert.Contains("Presentation = MediaTilePresentation.Default", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResolvePresentation", source, StringComparison.Ordinal);
+        Assert.Contains("@key=\"collection.Id\"", source, StringComparison.Ordinal);
         Assert.Contains("<BrowseShellStyles", source, StringComparison.Ordinal);
         Assert.Contains("<BrowseShellStyles", browseShellSource, StringComparison.Ordinal);
         Assert.Contains(".browse-shell__grid", browseShellStylesSource, StringComparison.Ordinal);
@@ -128,7 +132,7 @@ public sealed class CollectionsHubTests
 
         Assert.Contains("@page \"/collection/{Id:guid}\"", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionSummaryAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetCollectionManagementCatalogAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("LookupCollectionMediaAsync", source, StringComparison.Ordinal);
         Assert.Contains("AddCollectionItemAsync", source, StringComparison.Ordinal);
@@ -148,7 +152,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("CUSTOM COLLECTION", source, StringComparison.Ordinal);
         Assert.Contains("MediaCountKey", source, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.Tv", source, StringComparison.Ordinal);
-        var clientSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\EngineApiClient.cs"));
+        var clientSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\EngineApiClient.ManagedCollections.cs"));
         Assert.Contains("foreach (var artworkItem in collection.ArtworkItems)", clientSource, StringComparison.Ordinal);
         Assert.Contains("artworkItem.CoverUrl = AbsoluteUrl(artworkItem.CoverUrl)", clientSource, StringComparison.Ordinal);
         Assert.DoesNotContain("GLOBAL COLLECTION", source, StringComparison.Ordinal);

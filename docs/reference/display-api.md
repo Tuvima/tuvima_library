@@ -26,7 +26,7 @@ The Engine owns consumer display composition for Home, Watch, Read, Listen, musi
 - Shelf pagination returns `DisplayShelfPageDto` with `nextCursor` and `hasMore`.
 - Browse/search endpoints return cards in `catalog` by default to avoid duplicating the same cards in a `results` shelf.
 - Clients that need a shelf-shaped browse response can pass `includeCatalog=false`.
-- Home composition is shelf-driven: Jump Back In, Watch, Read, Listen, Collections & Lists, then New in your library when each shelf has real data.
+- Home composition is shelf-driven: Jump Back In, Watch, Read, Listen, Collections & Lists, then New in your library when each shelf has real data. The final New shelf is filled only with structural work/group identities not already placed in the preceding Home shelves and is omitted when it would be entirely repetitive.
 - Home collections come from accessible collection placements at `location=home`; clients should not synthesize top-level series/franchise cards.
 - Detail/edit/playback APIs remain separate; display cards carry compact facts and semantic action targets, not full detail payloads.
 

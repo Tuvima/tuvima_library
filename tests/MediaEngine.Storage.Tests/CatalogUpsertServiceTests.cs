@@ -42,7 +42,13 @@ public sealed class CatalogUpsertServiceTests
         public Task<Guid?> FindParentByKeyAsync(MediaType mediaType, string parentKey, CancellationToken ct = default)
             => Task.FromResult<Guid?>(null);
 
+        public Task<Guid> GetOrCreateParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
         public Task<Guid?> FindChildByOrdinalAsync(Guid parentWorkId, int ordinal, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(null);
+
+        public Task<Guid?> FindChildByOrdinalSortAsync(Guid parentWorkId, double ordinalSort, CancellationToken ct = default)
             => Task.FromResult<Guid?>(null);
 
         public Task<Guid?> FindChildByTitleAsync(Guid parentWorkId, string title, CancellationToken ct = default)
@@ -56,6 +62,12 @@ public sealed class CatalogUpsertServiceTests
 
         public Task<Guid> InsertChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, CancellationToken ct = default)
             => Task.FromResult(Guid.NewGuid());
+
+        public Task<Guid> GetOrCreateChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, double? ordinalSort = null, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
+        public Task UpdateOrdinalSortAsync(Guid workId, double? ordinalSort, CancellationToken ct = default)
+            => Task.CompletedTask;
 
         public Task<Guid> InsertStandaloneAsync(MediaType mediaType, CancellationToken ct = default)
             => Task.FromResult(Guid.NewGuid());
@@ -79,6 +91,9 @@ public sealed class CatalogUpsertServiceTests
 
         public Task<WorkLineage?> GetLineageByAssetAsync(Guid assetId, CancellationToken ct = default)
             => Task.FromResult<WorkLineage?>(null);
+
+        public Task<ConfirmedSiblingWorkQid?> FindConfirmedSiblingQidAsync(MediaType sourceMediaType, IReadOnlyList<MediaType> candidateMediaTypes, string title, string? creator, Guid? excludeWorkId = null, CancellationToken ct = default)
+            => Task.FromResult<ConfirmedSiblingWorkQid?>(null);
     }
 
     private sealed class CountingMetadataClaimRepository : IMetadataClaimRepository

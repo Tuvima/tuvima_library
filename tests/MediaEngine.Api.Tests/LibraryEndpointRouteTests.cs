@@ -31,28 +31,47 @@ public sealed class LibraryEndpointRouteTests
     public void LibraryEndpoints_HomeFeedUsesSharedVisibilityPredicateAndRichArtworkFields()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryEndpoints.cs"));
+        var serviceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\LibraryWorkFeedReadService.cs"));
 
-        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", source, StringComparison.Ordinal);
-        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ad.file_path_root\")", source, StringComparison.Ordinal);
-        Assert.Contains("w.collection_id AS collection_id", source, StringComparison.Ordinal);
-        Assert.Contains("w.work_kind AS work_kind", source, StringComparison.Ordinal);
-        Assert.Contains("root_work_id AS RootWorkId", source, StringComparison.Ordinal);
-        Assert.Contains("CoverUrl = coverUrl", source, StringComparison.Ordinal);
-        Assert.Contains("BackgroundUrl = backgroundUrl", source, StringComparison.Ordinal);
-        Assert.Contains("BannerUrl = bannerUrl", source, StringComparison.Ordinal);
-        Assert.Contains("HeroUrl = null", source, StringComparison.Ordinal);
-        Assert.Contains("LogoUrl = logoUrl", source, StringComparison.Ordinal);
+        Assert.Contains("ILibraryWorkFeedReadService workFeedReadService", source, StringComparison.Ordinal);
+        Assert.Contains("workFeedReadService.GetWorksAsync(page, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ad.file_path_root\")", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("w.collection_id AS collection_id", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("w.work_kind AS work_kind", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("root_work_id AS RootWorkId", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("CoverUrl = ResolveArtworkUrl", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("BackgroundUrl = ResolveArtworkUrl", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("BannerUrl = ResolveArtworkUrl", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("HeroUrl = null", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("LogoUrl = ResolveArtworkUrl", serviceSource, StringComparison.Ordinal);
     }
 
     [Fact]
     public void LibraryEndpoints_BatchEditRoutesFieldsByLineageScope()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryEndpoints.cs"));
+        var serviceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\LibraryCurationReadService.cs"));
 
-        Assert.Contains("ResolveBatchEditTargets(db, request.EntityIds, request.FieldChanges)", source, StringComparison.Ordinal);
-        Assert.Contains("ClaimScopeCatalog.IsParentScoped(key, mediaType)", source, StringComparison.Ordinal);
+        Assert.Contains("curationReadService.ResolveBatchEditTargetsAsync(", source, StringComparison.Ordinal);
+        Assert.Contains("ClaimScopeCatalog.IsParentScoped(key, mediaType)", serviceSource, StringComparison.Ordinal);
         Assert.Contains("claimsByTargetAndKey", source, StringComparison.Ordinal);
         Assert.Contains("album fields are written once", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LibraryEndpoints_DelegateDatabaseAccessToTypedServices()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryEndpoints.cs"));
+
+        Assert.DoesNotContain("IDatabaseConnection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateConnection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueryAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SELECT ", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("GetUniverseCandidatesAsync(ct)", source, StringComparison.Ordinal);
+        Assert.Contains("GetUniverseUnlinkedAsync(ct)", source, StringComparison.Ordinal);
+        Assert.Contains("GetBestUniverseCandidateQidsAsync(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch {", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

@@ -20,10 +20,76 @@ public interface ICollectionMediaLookupReadService
         Guid collectionId,
         IReadOnlyList<CollectionItem> items,
         CancellationToken ct);
+
+    Task<List<CollectionResolvedItemDto>> ResolveMetadataAsync(
+        IReadOnlyList<Guid> workIds,
+        CancellationToken ct);
 }
 
 public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : ICollectionMediaLookupReadService
 {
+    public async Task<List<CollectionResolvedItemDto>> ResolveMetadataAsync(
+        IReadOnlyList<Guid> workIds,
+        CancellationToken ct)
+    {
+        if (workIds.Count == 0)
+        {
+            return [];
+        }
+
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<ResolvedMetadataRow>(new CommandDefinition(
+            """
+            WITH representative_assets AS (
+                SELECT e.work_id AS WorkId, MIN(ma.id) AS AssetId
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE e.work_id IN @WorkIds
+                GROUP BY e.work_id
+            )
+            SELECT w.id AS WorkId,
+                   w.media_type AS MediaType,
+                   ra.AssetId,
+                   CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'title' LIMIT 1),
+                       'Unknown') AS TEXT) AS Title,
+                   CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'artist' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'artist' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'author' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'author' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'director' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'director' LIMIT 1)) AS TEXT) AS Creator,
+                   CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key IN ('release_year', 'year') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key IN ('release_year', 'year') LIMIT 1)) AS TEXT) AS Year
+            FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            LEFT JOIN representative_assets ra ON ra.WorkId = w.id
+            WHERE w.id IN @WorkIds
+            """,
+            new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
+            cancellationToken: ct)).ConfigureAwait(false);
+
+        var byId = rows.ToDictionary(row => row.WorkId);
+        return workIds.Where(byId.ContainsKey).Select(workId =>
+        {
+            var row = byId[workId];
+            return new CollectionResolvedItemDto
+            {
+            EntityId = row.WorkId,
+            Title = row.Title,
+            Creator = row.Creator,
+            MediaType = row.MediaType,
+            CoverUrl = row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
+                Year = row.Year,
+            };
+        }).ToList();
+    }
+
     public async Task<List<CollectionMediaLookupDto>> LookupAsync(
         string? query,
         string? mediaTypes,
@@ -401,4 +467,14 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         string MediaType,
         string? CoverUrl,
         int SortOrder);
+
+    private sealed class ResolvedMetadataRow
+    {
+        public Guid WorkId { get; init; }
+        public string MediaType { get; init; } = string.Empty;
+        public Guid? AssetId { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public string? Creator { get; init; }
+        public string? Year { get; init; }
+    }
 }

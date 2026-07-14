@@ -356,7 +356,7 @@ public sealed class MediaEditorNavigationReadService(
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() });
+            """, new { entityId });
 
         if (entityRow is null)
         {
@@ -404,7 +404,7 @@ public sealed class MediaEditorNavigationReadService(
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
                 WHERE w.id = @entityId
                 LIMIT 1;
-                """, new { entityId = entityId.ToString() }, tx);
+                """, new { entityId }, tx);
 
             if (entityRow is null)
             {
@@ -454,13 +454,13 @@ public sealed class MediaEditorNavigationReadService(
                      COALESCE(w.parent_work_id, ''),
                      COALESCE(w.ordinal, 2147483647),
                      w.id;
-            """, new { rootId = rootWorkId.ToString() }).ToList();
+            """, new { rootId = rootWorkId }).ToList();
 
     private static Dictionary<Guid, NavigatorValueRow> QueryNavigatorValues(
         SqliteConnection conn,
         IReadOnlyList<NavigatorTreeRow> rows)
     {
-        var workIds = rows.Select(row => row.WorkId.ToString()).Distinct().ToArray();
+        var workIds = rows.Select(row => row.WorkId).Distinct().ToArray();
         if (workIds.Length == 0)
         {
             return [];
@@ -469,7 +469,7 @@ public sealed class MediaEditorNavigationReadService(
         var result = conn.Query<NavigatorValueRow>("""
             WITH representative_asset_ids AS (
                 SELECT e.work_id AS WorkId,
-                       CAST(MIN(ma.id) AS TEXT) AS AssetId
+                       MIN(ma.id) AS AssetId
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 WHERE e.work_id IN @workIds
@@ -485,7 +485,7 @@ public sealed class MediaEditorNavigationReadService(
                 INNER JOIN media_assets ma ON ma.id = rai.AssetId
                 INNER JOIN editions e ON e.id = ma.edition_id
             )
-            SELECT CAST(w.id AS TEXT) AS WorkId,
+            SELECT w.id AS WorkId,
                    ra.AssetId,
                    CAST(ra.FilePath AS TEXT) AS AssetFilePath,
                    CAST(ra.ContentHash AS TEXT) AS AssetContentHash,
@@ -1017,7 +1017,7 @@ public sealed class MediaEditorNavigationReadService(
             WHERE w.parent_work_id = @showId
               AND w.work_kind = 'parent'
             ORDER BY COALESCE(w.ordinal, 2147483647), w.id;
-            """, new { showId = showEntityId.ToString() }).ToList();
+            """, new { showId = showEntityId }).ToList();
 
         return rows
             .Select(row =>
@@ -1199,7 +1199,7 @@ public sealed class MediaEditorNavigationReadService(
     {
         var currentJson = conn.QueryFirstOrDefault<string?>(
             "SELECT external_identifiers FROM works WHERE id = @workId LIMIT 1;",
-            new { workId = workId.ToString() },
+            new { workId },
             tx);
 
         Dictionary<string, string> current;
@@ -1218,7 +1218,7 @@ public sealed class MediaEditorNavigationReadService(
 
         conn.Execute(
             "UPDATE works SET external_identifiers = @json WHERE id = @workId;",
-            new { json = JsonSerializer.Serialize(current), workId = workId.ToString() },
+            new { json = JsonSerializer.Serialize(current), workId },
             tx);
     }
 
@@ -1468,7 +1468,7 @@ public sealed class MediaEditorNavigationReadService(
 
         if (string.Equals(plan.Action, "rename_container", StringComparison.OrdinalIgnoreCase))
         {
-            var currentKey = conn.QueryFirstOrDefault<string>("SELECT parent_key FROM works WHERE id = @workId LIMIT 1;", new { workId = plan.CurrentEntityId.ToString() }, tx);
+            var currentKey = conn.QueryFirstOrDefault<string>("SELECT parent_key FROM works WHERE id = @workId LIMIT 1;", new { workId = plan.CurrentEntityId }, tx);
             if (string.IsNullOrWhiteSpace(plan.RequestedParentKey) || string.Equals(currentKey, plan.RequestedParentKey, StringComparison.OrdinalIgnoreCase))
             {
                 return new MembershipPreviewEnvelope("none", currentPath, currentPath, false, false, false, plan.CurrentEntityId, plan.CurrentRootEntityId, plan.CurrentParentEntityId, "No container identity change was detected.", null);
@@ -1476,7 +1476,7 @@ public sealed class MediaEditorNavigationReadService(
 
             if (applyChanges)
             {
-                conn.Execute("UPDATE works SET parent_key = @parentKey WHERE id = @workId;", new { parentKey = plan.RequestedParentKey, workId = plan.CurrentEntityId.ToString() }, tx);
+                conn.Execute("UPDATE works SET parent_key = @parentKey WHERE id = @workId;", new { parentKey = plan.RequestedParentKey, workId = plan.CurrentEntityId }, tx);
                 await UpsertContainerIdentityAsync(conn, tx!, plan);
             }
 
@@ -1504,7 +1504,7 @@ public sealed class MediaEditorNavigationReadService(
                     {
                         ordinal = plan.RequestedOrdinal.Value,
                         parentKey = BuildHierarchyParentKey(plan.RequestedParentLabel, $"S{plan.RequestedOrdinal.Value:D2}"),
-                        workId = plan.CurrentEntityId.ToString(),
+                        workId = plan.CurrentEntityId,
                     },
                     tx);
             }
@@ -1522,7 +1522,7 @@ public sealed class MediaEditorNavigationReadService(
         {
             conn.Execute(
                 "UPDATE works SET parent_work_id = @parentId, ordinal = @ordinal WHERE id = @workId;",
-                new { parentId = resolvedTarget.TargetParentEntityId.Value.ToString(), ordinal = (object?)plan.RequestedOrdinal ?? DBNull.Value, workId = plan.CurrentEntityId.ToString() },
+                new { parentId = resolvedTarget.TargetParentEntityId.Value, ordinal = (object?)plan.RequestedOrdinal ?? DBNull.Value, workId = plan.CurrentEntityId },
                 tx);
         }
 
@@ -1669,7 +1669,7 @@ public sealed class MediaEditorNavigationReadService(
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() }, tx);
+            """, new { entityId }, tx);
 
         if (launch is null)
         {
@@ -1705,9 +1705,9 @@ public sealed class MediaEditorNavigationReadService(
                 LEFT JOIN canonical_values cv ON cv.entity_id = w.id
                 WHERE w.id = @workId
                 GROUP BY w.id, w.parent_key;
-                """, new { workId = currentId.ToString() }, tx);
+                """, new { workId = currentId }, tx);
 
-            var treeRow = conn.QueryFirstOrDefault<NavigatorTreeRow>("SELECT id AS WorkId, parent_work_id AS ParentWorkId, 0 AS Depth, work_kind AS WorkKind, ordinal AS Ordinal, is_catalog_only AS IsCatalogOnly, parent_key AS ParentKey FROM works WHERE id = @workId LIMIT 1;", new { workId = currentId.ToString() }, tx);
+            var treeRow = conn.QueryFirstOrDefault<NavigatorTreeRow>("SELECT id AS WorkId, parent_work_id AS ParentWorkId, 0 AS Depth, work_kind AS WorkKind, ordinal AS Ordinal, is_catalog_only AS IsCatalogOnly, parent_key AS ParentKey FROM works WHERE id = @workId LIMIT 1;", new { workId = currentId }, tx);
             if (treeRow is null)
             {
                 break;
@@ -1728,16 +1728,16 @@ public sealed class MediaEditorNavigationReadService(
     private static async Task<Guid> ResolveRootWorkIdAsync(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var rootId = conn.QueryFirstOrDefault<string>("""
+        var rootId = conn.QueryFirstOrDefault<Guid?>("""
             SELECT COALESCE(gp.id, p.id, w.id) AS RootWorkId
             FROM works w
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId = entityId.ToString() }, tx);
+            """, new { entityId }, tx);
 
-        return TryParseGuid(rootId) ?? entityId;
+        return rootId ?? entityId;
     }
 
     private static Guid? FindParentByKey(SqliteConnection conn, string mediaType, string? parentKey, SqliteTransaction? tx)
@@ -1747,14 +1747,12 @@ public sealed class MediaEditorNavigationReadService(
             return null;
         }
 
-        var id = conn.QueryFirstOrDefault<string>("SELECT id FROM works WHERE media_type = @mediaType AND work_kind = 'parent' AND parent_key = @parentKey LIMIT 1;", new { mediaType, parentKey }, tx);
-        return TryParseGuid(id);
+        return conn.QueryFirstOrDefault<Guid?>("SELECT id FROM works WHERE media_type = @mediaType AND work_kind = 'parent' AND parent_key = @parentKey LIMIT 1;", new { mediaType, parentKey }, tx);
     }
 
     private static Guid? FindChildByOrdinal(SqliteConnection conn, Guid parentWorkId, int ordinal, SqliteTransaction? tx)
     {
-        var id = conn.QueryFirstOrDefault<string>("SELECT id FROM works WHERE parent_work_id = @parentWorkId AND ordinal = @ordinal LIMIT 1;", new { parentWorkId = parentWorkId.ToString(), ordinal }, tx);
-        return TryParseGuid(id);
+        return conn.QueryFirstOrDefault<Guid?>("SELECT id FROM works WHERE parent_work_id = @parentWorkId AND ordinal = @ordinal LIMIT 1;", new { parentWorkId, ordinal }, tx);
     }
 
     private static Guid InsertParentWork(SqliteConnection conn, SqliteTransaction tx, string mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal)
@@ -1767,7 +1765,7 @@ public sealed class MediaEditorNavigationReadService(
             VALUES
                 (@id, NULL, @mediaType, 'parent', @parentWorkId, @ordinal, 0, @parentKey, 'pending');
             """,
-            new { id = workId.ToString(), mediaType, parentWorkId = grandparentWorkId?.ToString(), ordinal, parentKey },
+            new { id = workId, mediaType, parentWorkId = grandparentWorkId, ordinal, parentKey },
             tx);
         return workId;
     }
@@ -1804,7 +1802,7 @@ public sealed class MediaEditorNavigationReadService(
                     last_scored_at = excluded.last_scored_at,
                     is_conflicted = 0;
                 """,
-                new { entityId = entityId.ToString(), key, value, lastScoredAt = now },
+                new { entityId, key, value, lastScoredAt = now },
                 tx);
         }
 

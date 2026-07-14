@@ -59,7 +59,15 @@ public sealed class SequenceContainerMetadataTests : IDisposable
 
     private async Task<object?> InvokeLoadSequenceContainerMetadataAsync(string containerId)
     {
-        var composer = new DetailComposerService(_db, null!, null!, null!, null!, null!, null!);
+        var composer = new DetailComposerService(
+            _db,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            new DetailRecommendationService(_db));
         var method = typeof(DetailComposerService).GetMethod(
             "LoadSequenceContainerMetadataAsync",
             BindingFlags.Instance | BindingFlags.NonPublic)

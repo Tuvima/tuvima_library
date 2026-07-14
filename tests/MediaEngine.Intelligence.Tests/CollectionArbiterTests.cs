@@ -170,9 +170,9 @@ public sealed class CollectionArbiterTests
 
 file sealed class StubJournal : ITransactionJournal
 {
-    public List<(string EventType, string EntityType, string EntityId)> Entries { get; } = [];
+    public List<(string EventType, string EntityType, Guid EntityId)> Entries { get; } = [];
 
-    public void Log(string eventType, string entityType, string entityId) =>
+    public void Log(string eventType, string entityType, Guid entityId) =>
         Entries.Add((eventType, entityType, entityId));
 
     public void Prune(int maxEntries = 100_000) { }

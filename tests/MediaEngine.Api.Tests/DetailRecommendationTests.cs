@@ -129,7 +129,15 @@ public sealed class DetailRecommendationTests : IDisposable
 
     private async Task<IReadOnlyList<MediaGroupingViewModel>> InvokeBuildWorkMediaGroupsAsync(Guid workId, DetailEntityType entityType)
     {
-        var composer = new DetailComposerService(_db, null!, null!, null!, null!, null!, null!);
+        var composer = new DetailComposerService(
+            _db,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            null!,
+            new DetailRecommendationService(_db));
         var method = typeof(DetailComposerService).GetMethod("BuildWorkMediaGroupsAsync", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new MissingMethodException(nameof(DetailComposerService), "BuildWorkMediaGroupsAsync");
 
@@ -169,5 +177,13 @@ public sealed class DetailRecommendationTests : IDisposable
     }
 
     private static void Add(Microsoft.Data.Sqlite.SqliteCommand cmd, string name, object value)
-        => cmd.Parameters.AddWithValue(name, value is Guid guid ? guid.ToString("D") : value);
+    {
+        if (value is Guid guid)
+        {
+            cmd.Parameters.Add(name, Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(guid);
+            return;
+        }
+
+        cmd.Parameters.AddWithValue(name, value);
+    }
 }

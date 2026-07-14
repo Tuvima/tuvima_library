@@ -55,7 +55,7 @@ else
                     <span class="book-detail-bc-sep">/</span>
                     @if (_authorPerson is not null)
                     {
-                        <AppNativeButton Class="book-detail-bc-link book-detail-bc-author" OnClick="@(() => Nav.NavigateTo($" /details/person/{_authorPerson.Id}"))">
+                        <AppNativeButton Type="button" Class="book-detail-bc-link book-detail-bc-author" OnClick="@(() => Nav.NavigateTo($"/details/person/{_authorPerson.Id}"))">
                             @_work.Author
                         </AppNativeButton>
                     }
@@ -77,8 +77,10 @@ else
                         {
                             @if (_authorPerson is not null)
                             {
-                                <div class="book-detail-sidebar-author-wrap"
-                                     @onclick="@(() => Nav.NavigateTo($"/details/person/{_authorPerson.Id}"))">
+                                <AppNativeButton Type="button"
+                                                 Class="book-detail-sidebar-author-wrap"
+                                                 AriaLabel="@($"Open author {_authorPerson.Name}")"
+                                                 OnClick="@(() => Nav.NavigateTo($"/details/person/{_authorPerson.Id}"))">
                                     @if (!string.IsNullOrEmpty(_authorPerson.LocalHeadshotUrl))
                                     {
                                         <img src="@_authorPerson.LocalHeadshotUrl" alt="@_authorPerson.Name"
@@ -91,7 +93,7 @@ else
                                         </div>
                                     }
                                     <span class="book-detail-sidebar-author">@_work.Author</span>
-                                </div>
+                                </AppNativeButton>
                             }
                             else
                             {
@@ -112,8 +114,10 @@ else
                             <span class="book-detail-sidebar-label">Narrator</span>
                             @if (_narratorPerson is not null)
                             {
-                                <div class="book-detail-sidebar-author-wrap"
-                                     @onclick="@(() => Nav.NavigateTo($"/details/person/{_narratorPerson.Id}"))">
+                                <AppNativeButton Type="button"
+                                                 Class="book-detail-sidebar-author-wrap"
+                                                 AriaLabel="@($"Open narrator {_narratorPerson.Name}")"
+                                                 OnClick="@(() => Nav.NavigateTo($"/details/person/{_narratorPerson.Id}"))">
                                     @if (!string.IsNullOrEmpty(_narratorPerson.LocalHeadshotUrl))
                                     {
                                         <img src="@_narratorPerson.LocalHeadshotUrl" alt="@_narratorPerson.Name"
@@ -126,7 +130,7 @@ else
                                         </div>
                                     }
                                     <span class="book-detail-sidebar-author">@_narratorPerson.Name</span>
-                                </div>
+                                </AppNativeButton>
                             }
                             else if (!string.IsNullOrEmpty(ActiveWork?.Narrator))
                             {
@@ -408,19 +412,24 @@ else
                     }
 
                     @* Cover art *@
-                    <div class="book-detail-cover-wrap" @onclick="@(() => _lightboxOpen = !string.IsNullOrEmpty(activeCoverUrl))">
-                        @if (!string.IsNullOrEmpty(activeCoverUrl))
-                        {
+                    @if (!string.IsNullOrEmpty(activeCoverUrl))
+                    {
+                        <AppNativeButton Type="button"
+                                         Class="book-detail-cover-wrap"
+                                         AriaLabel="@($"View {_work.Title} cover")"
+                                         OnClick="@(() => _lightboxOpen = true)">
                             <img src="@activeCoverUrl" alt="@_work.Title"
                                  class="book-detail-cover @(coverIsAudio ? "book-detail-cover-audio" : "")" />
-                        }
-                        else
-                        {
+                        </AppNativeButton>
+                    }
+                    else
+                    {
+                        <div class="book-detail-cover-wrap">
                             <div class="book-detail-cover @(coverIsAudio ? "book-detail-cover-audio" : "") book-detail-cover-placeholder">
                                 <MudIcon Icon="@GetBookIcon()" Class="tl-u-font-size-64px tl-u-color-rgba-255-255-255-0-18" />
                             </div>
-                        }
-                    </div>
+                        </div>
+                    }
 <AppNativeButton Class="collection-primary-cta book-mobile-only" OnClick="@OnPrimaryAction">
                         <div class="collection-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
@@ -517,14 +526,18 @@ else
 }
 @if (_lightboxOpen && _work is not null)
 {
-    <div class="book-cover-lightbox" @onclick="@(() => _lightboxOpen = false)">
+    <div class="book-cover-lightbox"
+         role="dialog"
+         aria-modal="true"
+         aria-label="@($"{_work.Title} cover")"
+         @onclick="@(() => _lightboxOpen = false)">
         @if (!string.IsNullOrEmpty(_lbCoverUrl))
         {
             <img src="@_lbCoverUrl" alt="@_work.Title"
                  class="book-cover-lightbox-img"
                  @onclick:stopPropagation="true" />
         }
-        <AppNativeButton Class="book-cover-lightbox-close" OnClick="@(() => _lightboxOpen = false)">
+        <AppNativeButton Type="button" Class="book-cover-lightbox-close" AriaLabel="Close cover" OnClick="@(() => _lightboxOpen = false)">
             <MudIcon Icon="@Icons.Material.Filled.Close" />
         </AppNativeButton>
     </div>

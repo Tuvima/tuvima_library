@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -219,7 +220,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         await _claimRepo.InsertBatchAsync([claim], ct);
 
         // Update the work's wikidata_status to 'confirmed'.
-        await _collectionRepo.UpdateWorkWikidataStatusAsync(workId, "confirmed", ct);
+        await _collectionRepo.UpdateWorkWikidataStatusAsync(workId, WorkWikidataStatus.Confirmed, ct);
 
         // Trigger Universe-pass hydration so Wikidata SPARQL deep-enrichment runs.
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

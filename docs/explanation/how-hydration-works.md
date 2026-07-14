@@ -118,7 +118,7 @@ Typical bridge IDs include:
 
 When a bridge ID resolves successfully, the Engine fetches canonical properties such as title, creator, year, genre, series, and relationship data.
 
-For the exact bridge IDs and hints sent to Wikidata for each media type, see [How to Configure Metadata Providers](../guides/configuring-providers.md#wikidata-lookup-inputs-by-media-type).
+For the exact bridge IDs and hints sent to Wikidata for each media type, see [How to Configure Metadata Providers](../guides/configuring-providers.md#wikidata-inputs-by-media-type).
 
 ### What if no QID is found?
 

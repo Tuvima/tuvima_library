@@ -64,8 +64,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     private const string FieldPrioritiesFileName  = "field_priorities.json";
     private const string PipelinesFileName        = "pipelines.json";
 
-    // ── Endpoint distribution map for legacy migration ────────────────────────
-
     // ── Constructor ───────────────────────────────────────────────────────────
 
     /// <param name="configDirectoryPath">
@@ -611,7 +609,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         });
         SaveMediaTypes(new MediaTypeConfiguration());
 
-        // Default providers — same set as the legacy CreateDefaultManifest()
+        // Default providers for a newly initialized configuration directory.
         SaveProvider(new ProviderConfiguration
         {
             Name    = "local_filesystem",

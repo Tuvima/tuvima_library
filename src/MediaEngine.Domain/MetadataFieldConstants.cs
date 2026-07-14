@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace MediaEngine.Domain;
 
 /// <summary>
@@ -108,7 +110,7 @@ public static class MetadataFieldConstants
     /// or other providers. These keys are decomposed into individual
     /// <c>CanonicalArrayEntry</c> rows in the array repository.
     /// </summary>
-    public static readonly HashSet<string> MultiValuedKeys = new(StringComparer.OrdinalIgnoreCase)
+    public static IReadOnlySet<string> MultiValuedKeys { get; } = new[]
     {
         // Core multi-valued fields
         "genre",
@@ -161,7 +163,7 @@ public static class MetadataFieldConstants
         "illustrator_qid",
         "based_on_qid",
         "fictional_universe_qid",
-    };
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Returns <c>true</c> if the given claim key is multi-valued.

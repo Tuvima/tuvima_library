@@ -21,16 +21,17 @@ public static class GuidSql
 
     public static Guid FromDb(object value)
     {
-        if (value is byte[] bytes)
+        if (value is byte[] { Length: 16 } bytes)
             return new Guid(bytes, bigEndian: true);
 
-        if (value is string text)
-            return Guid.Parse(text);
+        if (value is byte[] invalidBytes)
+        {
+            throw new InvalidCastException(
+                $"Cannot convert SQLite BLOB with length {invalidBytes.Length} to Guid; expected exactly 16 bytes.");
+        }
 
-        if (value is Guid guid)
-            return guid;
-
-        throw new InvalidCastException($"Cannot convert SQLite value of type {value.GetType().Name} to Guid.");
+        throw new InvalidCastException(
+            $"Cannot convert SQLite value of type {value.GetType().Name} to Guid; guid-blob-v1 requires a 16-byte BLOB.");
     }
 
     public static Guid? FromDbNullable(object? value)

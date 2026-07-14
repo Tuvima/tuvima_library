@@ -149,9 +149,7 @@ builder.Services.AddHttpClient<ProviderClient>(client =>
     if (!string.IsNullOrWhiteSpace(apiKey))
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
 });
-builder.Services.AddScoped<LibraryClient>();
 builder.Services.AddScoped<DisplayClient>();
-builder.Services.AddScoped<CollectionClient>();
 builder.Services.AddScoped<IngestionClient>();
 builder.Services.AddScoped<MetadataClient>();
 builder.Services.AddScoped<IdentityClient>();

@@ -20,7 +20,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IHubContext<MediaEngine.Api.Realtime.Intercom> _hubContext;
     private readonly ILogger<ProviderHealthMonitorService> _logger;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     // In-memory cache for fast IsDown() checks — refreshed from DB on changes.
     private readonly ConcurrentDictionary<string, ProviderHealthStatus> _statusCache = new(StringComparer.OrdinalIgnoreCase);
@@ -33,13 +33,13 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
         IHttpClientFactory httpClientFactory,
         IHubContext<MediaEngine.Api.Realtime.Intercom> hubContext,
         ILogger<ProviderHealthMonitorService> logger,
-        IServiceProvider serviceProvider)
+        IServiceScopeFactory scopeFactory)
     {
         _repo = repo;
         _httpClientFactory = httpClientFactory;
         _hubContext = hubContext;
         _logger = logger;
-        _serviceProvider = serviceProvider;
+        _scopeFactory = scopeFactory;
     }
 
     // ── IProviderHealthMonitor implementation ────────────────────
@@ -184,7 +184,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
             try
             {
                 // Find all deferred items waiting for this provider.
-                using var scope = _serviceProvider.CreateScope();
+                using var scope = _scopeFactory.CreateScope();
                 var deferredRepo = scope.ServiceProvider.GetRequiredService<IDeferredEnrichmentRepository>();
                 var pipeline = scope.ServiceProvider.GetRequiredService<IHydrationPipelineService>();
 

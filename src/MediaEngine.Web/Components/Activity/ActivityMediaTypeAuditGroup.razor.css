@@ -98,8 +98,14 @@
 }
 
 .activity-media-group__item:hover,
+.activity-media-group__item:focus-visible,
 .activity-media-group__item.is-expanded {
     background: rgba(139, 92, 246, 0.08);
+}
+
+.activity-media-group__item:focus-visible {
+    outline: 2px solid var(--tl-accent-primary);
+    outline-offset: -2px;
 }
 
 .activity-media-group__title-cell {

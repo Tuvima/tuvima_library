@@ -17,4 +17,13 @@ public interface IEraActorResolverService
     /// <param name="ct">Cancellation token.</param>
     Task<ActorResolution?> ResolveActorForEraAsync(
         string characterQid, int? timelineYear = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Resolve performers for all supplied characters with batched relationship and
+    /// person reads. Characters without a performer are omitted from the result.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, ActorResolution>> ResolveActorsForEraAsync(
+        IEnumerable<string> characterQids,
+        int? timelineYear = null,
+        CancellationToken ct = default);
 }

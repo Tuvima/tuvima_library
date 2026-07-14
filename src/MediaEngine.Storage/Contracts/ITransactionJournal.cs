@@ -12,7 +12,7 @@ public interface ITransactionJournal
     /// <param name="eventType">High-level event name, e.g. "HUB_CREATED".</param>
     /// <param name="entityType">Entity kind, e.g. "Collection", "Work", "MediaAsset".</param>
     /// <param name="entityId">UUID of the affected entity.</param>
-    void Log(string eventType, string entityType, string entityId);
+    void Log(string eventType, string entityType, Guid entityId);
 
     /// <summary>
     /// Removes the oldest entries so that at most <paramref name="maxEntries"/> rows remain.

@@ -137,7 +137,7 @@ public sealed class LineageReaderTests : IDisposable
         await index.UpsertByEntityIdAsync(episodeWorkId);
 
         var (workId, title, author, _) = ReadSearchRowByAssetId(assetId);
-        Assert.Equal(episodeWorkId.ToString(), workId);
+        Assert.Equal(episodeWorkId, workId);
         Assert.Equal("Hide and Seek", title);
         Assert.Equal("Dan Erickson", author);
     }
@@ -223,32 +223,7 @@ public sealed class LineageReaderTests : IDisposable
     /// </summary>
     private async Task<(Guid ShowId, Guid SeasonId, Guid EpisodeId, Guid AssetId)>
         BuildTvHierarchyAsync()
-    {
-        using var conn = _db.CreateConnection();
-        var collectionId    = Guid.NewGuid();
-        var showId   = Guid.NewGuid();
-        var seasonId = Guid.NewGuid();
-        var epId     = Guid.NewGuid();
-        var edId     = Guid.NewGuid();
-        var assetId  = Guid.NewGuid();
-        var hash     = $"hash_{epId:N}";
-
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"""
-            INSERT INTO collections (id, created_at) VALUES ('{collectionId}', datetime('now'));
-            INSERT INTO works (id, collection_id, media_type)
-                VALUES ('{showId}', '{collectionId}', 'TV');
-            INSERT INTO works (id, collection_id, media_type, parent_work_id)
-                VALUES ('{seasonId}', '{collectionId}', 'TV', '{showId}');
-            INSERT INTO works (id, collection_id, media_type, parent_work_id)
-                VALUES ('{epId}', '{collectionId}', 'TV', '{seasonId}');
-            INSERT INTO editions (id, work_id) VALUES ('{edId}', '{epId}');
-            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
-                VALUES ('{assetId}', '{edId}', '{hash}', '/lib/test.mkv', 'Normal');
-            """;
-        await cmd.ExecuteNonQueryAsync();
-        return (showId, seasonId, epId, assetId);
-    }
+        => await BuildTvHierarchyBlobAsync();
 
     private async Task<(Guid ShowId, Guid SeasonId, Guid EpisodeId, Guid AssetId)>
         BuildTvHierarchyBlobAsync()
@@ -297,17 +272,21 @@ public sealed class LineageReaderTests : IDisposable
         var workId  = Guid.NewGuid();
         var edId    = Guid.NewGuid();
         var assetId = Guid.NewGuid();
-        var hash    = $"hash_{workId:N}";
-
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"""
-            INSERT INTO collections (id, created_at) VALUES ('{collectionId}', datetime('now'));
+        cmd.CommandText = """
+            INSERT INTO collections (id, created_at) VALUES (@collectionId, datetime('now'));
             INSERT INTO works (id, collection_id, media_type)
-                VALUES ('{workId}', '{collectionId}', '{mediaType}');
-            INSERT INTO editions (id, work_id) VALUES ('{edId}', '{workId}');
+                VALUES (@workId, @collectionId, @mediaType);
+            INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
             INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
-                VALUES ('{assetId}', '{edId}', '{hash}', '/lib/standalone.bin', 'Normal');
+                VALUES (@assetId, @editionId, @hash, '/lib/standalone.bin', 'Normal');
             """;
+        AddGuid(cmd, "@collectionId", collectionId);
+        AddGuid(cmd, "@workId", workId);
+        AddGuid(cmd, "@editionId", edId);
+        AddGuid(cmd, "@assetId", assetId);
+        cmd.Parameters.AddWithValue("@mediaType", mediaType);
+        cmd.Parameters.AddWithValue("@hash", $"hash_{workId:N}");
         await cmd.ExecuteNonQueryAsync();
         return (workId, edId, assetId);
     }
@@ -320,25 +299,14 @@ public sealed class LineageReaderTests : IDisposable
             INSERT OR REPLACE INTO canonical_values (entity_id, key, value, last_scored_at)
             VALUES (@entityId, @key, @value, datetime('now'));
             """;
-        cmd.Parameters.AddWithValue("@entityId", entityId.ToString());
+        AddGuid(cmd, "@entityId", entityId);
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", value);
         await cmd.ExecuteNonQueryAsync();
     }
 
     private async Task InsertCanonicalBlobAsync(Guid entityId, string key, string value)
-    {
-        using var conn = _db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            INSERT OR REPLACE INTO canonical_values (entity_id, key, value, last_scored_at)
-            VALUES (@entityId, @key, @value, datetime('now'));
-            """;
-        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
-        cmd.Parameters.AddWithValue("@key", key);
-        cmd.Parameters.AddWithValue("@value", value);
-        await cmd.ExecuteNonQueryAsync();
-    }
+        => await InsertCanonicalAsync(entityId, key, value);
 
     private static void AddGuid(Microsoft.Data.Sqlite.SqliteCommand command, string name, Guid value) =>
         command.Parameters.Add(name, Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(value);
@@ -347,7 +315,7 @@ public sealed class LineageReaderTests : IDisposable
     /// Reads the FTS5 search_index row for the leaf work belonging to the
     /// given asset. Returns (workId, title, author, description).
     /// </summary>
-    private (string? WorkId, string? Title, string? Author, string? Description)
+    private (Guid? WorkId, string? Title, string? Author, string? Description)
         ReadSearchRowByAssetId(Guid assetId)
     {
         using var conn = _db.CreateConnection();
@@ -361,11 +329,11 @@ public sealed class LineageReaderTests : IDisposable
               AND si.entity_id = e.work_id
             LIMIT 1
             """;
-        cmd.Parameters.AddWithValue("@assetId", assetId.ToString());
+        AddGuid(cmd, "@assetId", assetId);
         using var rdr = cmd.ExecuteReader();
         if (!rdr.Read()) return (null, null, null, null);
         return (
-            rdr.IsDBNull(0) ? null : rdr.GetString(0),
+            rdr.IsDBNull(0) ? null : GuidSql.FromDb(rdr.GetValue(0)),
             rdr.IsDBNull(1) ? null : rdr.GetString(1),
             rdr.IsDBNull(2) ? null : rdr.GetString(2),
             rdr.IsDBNull(3) ? null : rdr.GetString(3));

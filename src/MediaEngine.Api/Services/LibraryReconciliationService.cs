@@ -494,30 +494,39 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
     // ── Shared Helpers ──────────────────────────────────────────────────────
 
-    private static void SafeDeleteFile(string path)
+    private void SafeDeleteFile(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); }
-        catch (IOException) { }
+        catch (IOException ex)
+        {
+            _logger.LogDebug(ex, "Best-effort reconciliation cleanup could not delete file {Path}", path);
+        }
     }
 
-    private static void TryDeleteEmptyDirectory(string path)
+    private void TryDeleteEmptyDirectory(string path)
     {
         try
         {
             if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
                 Directory.Delete(path);
         }
-        catch (IOException) { }
+        catch (IOException ex)
+        {
+            _logger.LogDebug(ex, "Best-effort reconciliation cleanup could not delete empty directory {Path}", path);
+        }
     }
 
-    private static void SafeDeleteDirectory(string path)
+    private void SafeDeleteDirectory(string path)
     {
         try
         {
             if (Directory.Exists(path))
                 Directory.Delete(path, recursive: true);
         }
-        catch (IOException) { }
+        catch (IOException ex)
+        {
+            _logger.LogDebug(ex, "Best-effort reconciliation cleanup could not delete directory {Path}", path);
+        }
     }
 
 }

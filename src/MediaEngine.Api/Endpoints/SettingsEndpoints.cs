@@ -9,7 +9,6 @@ using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Providers;
-using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
@@ -608,8 +607,6 @@ public static class SettingsEndpoints
             string                                          name,
             IConfigurationLoader                            configLoader,
             IEnumerable<IExternalMetadataProvider>           providers,
-            IHttpClientFactory                               httpFactory,
-            ILoggerFactory                                   loggerFactory,
             CancellationToken                                ct) =>
         {
             var providerConfig = configLoader.LoadProvider(name);
@@ -627,30 +624,12 @@ public static class SettingsEndpoints
                 });
             }
 
-            // Find the registered adapter by name; fall back to constructing one
-            // directly from config when DI lookup fails (e.g. Engine not restarted).
+            // Provider instances are composed once at Engine startup.
             var adapter = providers.FirstOrDefault(p =>
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
-            if (adapter is null
-                && !string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase))
-            {
-                // Unconditionally attempt ConfigDrivenAdapter construction for any
-                // non-Wikidata provider whose DI lookup failed. Catches constructor
-                // errors gracefully — if the config isn't suitable the 404 below fires.
-                try
-                {
-                    adapter = new ConfigDrivenAdapter(
-                        providerConfig,
-                        httpFactory,
-                        loggerFactory.CreateLogger<ConfigDrivenAdapter>(),
-                        NullProviderHealthMonitor.Instance);
-                }
-                catch { /* Config not suitable for ConfigDrivenAdapter — fall through */ }
-            }
-
             if (adapter is null)
-                return Results.NotFound(new { error = $"No adapter registered for '{name}'. AdapterType='{providerConfig.AdapterType}', DI providers={string.Join(", ", providers.Select(p => p.Name))}." });
+                return Results.NotFound(new { error = $"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration." });
 
             // Build a test request with domain-appropriate test data.
             var baseUrl = GetBaseUrlForProvider(providerConfig);
@@ -738,8 +717,6 @@ public static class SettingsEndpoints
             ProviderSampleRequest                           request,
             IConfigurationLoader                            configLoader,
             IEnumerable<IExternalMetadataProvider>           providers,
-            IHttpClientFactory                               httpFactory,
-            ILoggerFactory                                   loggerFactory,
             CancellationToken                                ct) =>
         {
             var providerConfig = configLoader.LoadProvider(name);
@@ -756,27 +733,12 @@ public static class SettingsEndpoints
                 });
             }
 
-            // Find the registered adapter; fall back to constructing one directly
-            // from config when DI lookup fails.
+            // Provider instances are composed once at Engine startup.
             var adapter = providers.FirstOrDefault(p =>
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
-            if (adapter is null
-                && !string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    adapter = new ConfigDrivenAdapter(
-                        providerConfig,
-                        httpFactory,
-                        loggerFactory.CreateLogger<ConfigDrivenAdapter>(),
-                        NullProviderHealthMonitor.Instance);
-                }
-                catch { /* Config not suitable for ConfigDrivenAdapter — fall through */ }
-            }
-
             if (adapter is null)
-                return Results.NotFound(new { error = $"No adapter registered for '{name}'. AdapterType='{providerConfig.AdapterType}', DI providers={string.Join(", ", providers.Select(p => p.Name))}." });
+                return Results.NotFound(new { error = $"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration." });
 
             var baseUrl = GetBaseUrlForProvider(providerConfig);
             var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;

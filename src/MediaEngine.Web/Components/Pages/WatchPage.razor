@@ -59,10 +59,7 @@ else
     ];
 
     private IReadOnlyList<MediaHubShelfViewModel> WatchHubShelves => _landingPage?.Shelves
-        .Select((shelf, index) => MediaHubShelfViewModel.FromShelf(
-            HubShelfKey(shelf, index),
-            shelf,
-            IsContinueShelf(shelf)))
+        .Select(shelf => MediaHubShelfViewModel.FromShelf(shelf))
         .ToList() ?? [];
 
     protected override async Task OnParametersSetAsync()
@@ -94,14 +91,6 @@ else
             _loading = false;
         }
     }
-
-    private static bool IsContinueShelf(MediaTileShelfViewModel shelf) =>
-        shelf.Title.Contains("Continue", StringComparison.OrdinalIgnoreCase);
-
-    private static string HubShelfKey(MediaTileShelfViewModel shelf, int index) =>
-        string.IsNullOrWhiteSpace(shelf.Title)
-            ? $"watch-shelf-{index}"
-            : $"watch-{shelf.Title.ToLowerInvariant().Replace(' ', '-')}";
 
     private static readonly LibraryBrowsePreset Preset = new()
     {

@@ -1324,6 +1324,7 @@ body {
 }
 
 .settings-admin-panel .settings-plugin-list-item:hover,
+.settings-admin-panel .settings-plugin-list-item:focus-visible,
 .settings-admin-panel .settings-plugin-list-item--selected {
     border-color: rgba(124, 77, 255, 0.75);
     background: rgba(124, 77, 255, 0.14);

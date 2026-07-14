@@ -28,7 +28,9 @@ public sealed class WritebackConfigState : IDisposable
     private readonly ILogger<WritebackConfigState>   _logger;
     private readonly object                          _gate = new();
     private FileSystemWatcher?                       _watcher;
+    private Timer?                                   _reloadTimer;
     private DateTime                                 _lastChangeUtc = DateTime.MinValue;
+    private bool                                     _disposed;
 
     /// <summary>
     /// Per-media-type SHA-256 of (sorted-field-list-JSON + tagger version).
@@ -233,17 +235,37 @@ public sealed class WritebackConfigState : IDisposable
     {
         // FileSystemWatcher fires multiple events per save (LastWrite, Size).
         // Coalesce by ignoring repeats within 500 ms.
-        var now = DateTime.UtcNow;
-        if ((now - _lastChangeUtc).TotalMilliseconds < 500) return;
-        _lastChangeUtc = now;
+        lock (_gate)
+        {
+            if (_disposed)
+                return;
+
+            var now = DateTime.UtcNow;
+            if ((now - _lastChangeUtc).TotalMilliseconds < 500)
+                return;
+            _lastChangeUtc = now;
+
+            _reloadTimer ??= new Timer(
+                static state => ((WritebackConfigState)state!).OnReloadTimer(),
+                this,
+                Timeout.InfiniteTimeSpan,
+                Timeout.InfiniteTimeSpan);
+            _reloadTimer.Change(TimeSpan.FromMilliseconds(150), Timeout.InfiniteTimeSpan);
+        }
 
         // Editors typically rewrite the file in two flushes — give the second one
         // a moment to settle before reading.
-        Task.Run(async () =>
+    }
+
+    private void OnReloadTimer()
+    {
+        lock (_gate)
         {
-            await Task.Delay(150);
-            RecomputePending();
-        });
+            if (_disposed)
+                return;
+        }
+
+        RecomputePending();
     }
 
     private void RecomputePending()
@@ -254,6 +276,9 @@ public sealed class WritebackConfigState : IDisposable
 
             lock (_gate)
             {
+                if (_disposed)
+                    return;
+
                 // Diff against CURRENT (not against the old pending) so the user
                 // always sees the full delta from approved baseline.
                 var diff = new List<WritebackFieldDiff>();
@@ -322,8 +347,29 @@ public sealed class WritebackConfigState : IDisposable
 
     public void Dispose()
     {
-        _watcher?.Dispose();
-        _watcher = null;
+        FileSystemWatcher? watcher;
+        Timer? reloadTimer;
+        lock (_gate)
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            watcher = _watcher;
+            _watcher = null;
+            reloadTimer = _reloadTimer;
+            _reloadTimer = null;
+        }
+
+        if (watcher is not null)
+        {
+            watcher.EnableRaisingEvents = false;
+            watcher.Changed -= OnFileChanged;
+            watcher.Created -= OnFileChanged;
+            watcher.Dispose();
+        }
+
+        reloadTimer?.Dispose();
     }
 }
 

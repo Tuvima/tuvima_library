@@ -32,7 +32,8 @@ public interface IProfileService
 
     /// <summary>
     /// Updates an existing profile's display name, avatar colour, and role.
-    /// Returns <see langword="true"/> if the update was applied.
+    /// Returns <see langword="false"/> when the profile does not exist, the seed
+    /// Owner would be demoted, or the update would demote the last Administrator.
     /// </summary>
     Task<bool> UpdateProfileAsync(Profile profile, CancellationToken ct = default);
 

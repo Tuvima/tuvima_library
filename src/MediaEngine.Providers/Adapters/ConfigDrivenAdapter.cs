@@ -167,11 +167,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 // Provider responded but had no match — still healthy.
                 await _healthMonitor.ReportSuccessAsync(Name, ct);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
             {
                 _logger.LogWarning(ex,
                     "{Provider}/{Strategy}: failed, trying next strategy",
@@ -213,8 +213,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     // Provider responded — still healthy even with no match.
                     await _healthMonitor.ReportSuccessAsync(Name, ct);
                 }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
                 {
                     _logger.LogWarning(ex,
                         "{Provider}/{Strategy}: English fallback failed",
@@ -300,11 +300,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 if (results.Count > 0)
                     return results;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
-            catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or InvalidOperationException)
             {
                 _logger.LogWarning(ex,
                     "{Provider}/{Strategy}: search failed, trying next strategy",
@@ -339,8 +339,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     if (results.Count > 0)
                         return results;
                 }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or InvalidOperationException)
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or InvalidOperationException)
                 {
                     _logger.LogWarning(ex,
                         "{Provider}/{Strategy}: English fallback search failed",

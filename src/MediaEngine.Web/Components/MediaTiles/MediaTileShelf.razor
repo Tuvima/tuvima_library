@@ -46,7 +46,8 @@
                                                              HoverMode="@HoverMode"
                                                              OnPrimaryClicked="@OnPrimaryClicked"
                                                              HideMediaKindBadge="@HideMediaKindBadges"
-                                                             HideSourceBadge="@HideSourceBadges" />
+                                                             HideSourceBadge="@HideSourceBadges"
+                                                             @key="item.Id" />
                         }
                         else
                         {
@@ -54,7 +55,8 @@
                                        HoverMode="@HoverMode"
                                        OnPrimaryClicked="@OnPrimaryClicked"
                                        HideMediaKindBadge="@HideMediaKindBadges"
-                                       HideSourceBadge="@HideSourceBadges" />
+                                       HideSourceBadge="@HideSourceBadges"
+                                       @key="item.Id" />
                         }
                     }
                 </div>

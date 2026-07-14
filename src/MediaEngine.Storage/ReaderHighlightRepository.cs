@@ -32,7 +32,7 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
             FROM   reader_highlights
             WHERE  user_id = @userId AND asset_id = @assetId
             ORDER BY chapter_index, start_offset;
-            """, new { userId, assetId = assetId.ToString() }).AsList();
+            """, new { userId, assetId }).AsList();
 
         return Task.FromResult<IReadOnlyList<ReaderHighlight>>(rows.ConvertAll(MapRow));
     }
@@ -55,7 +55,7 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
             FROM   reader_highlights
             WHERE  id = @id
             LIMIT  1;
-            """, new { id = id.ToString() });
+            """, new { id });
 
         return Task.FromResult(row is null ? null : MapRow(row));
     }
@@ -73,9 +73,9 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
                  @selectedText, @color, @noteText, @createdAt);
             """, new
         {
-            id           = highlight.Id.ToString(),
+            id           = highlight.Id,
             userId       = highlight.UserId,
-            assetId      = highlight.AssetId.ToString(),
+            assetId      = highlight.AssetId,
             chapterIndex = highlight.ChapterIndex,
             startOffset  = highlight.StartOffset,
             endOffset    = highlight.EndOffset,
@@ -97,7 +97,7 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
             SET    color     = COALESCE(@color, color),
                    note_text = @noteText
             WHERE  id = @id;
-            """, new { id = id.ToString(), color, noteText });
+            """, new { id, color, noteText });
 
         return Task.CompletedTask;
     }
@@ -108,20 +108,20 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
         using var conn = _db.CreateConnection();
         conn.Execute(
             "DELETE FROM reader_highlights WHERE id = @id;",
-            new { id = id.ToString() });
+            new { id });
 
         return Task.CompletedTask;
     }
 
     // ── Private DTO + mapper ─────────────────────────────────────────────────
-    // SQLite stores Guid and DateTime as TEXT strings; Dapper cannot auto-convert
-    // them to Guid/DateTime, so we read into a flat string DTO and convert in code.
+    // SQLite stores GUIDs as BLOBs and timestamps as TEXT. Dapper's registered
+    // handlers map GUID columns directly; the timestamp remains a string here.
 
     private sealed class HighlightRow
     {
-        public string  Id           { get; set; } = string.Empty;
+        public Guid    Id           { get; set; }
         public string  UserId       { get; set; } = string.Empty;
-        public string  AssetId      { get; set; } = string.Empty;
+        public Guid    AssetId      { get; set; }
         public int     ChapterIndex { get; set; }
         public int     StartOffset  { get; set; }
         public int     EndOffset    { get; set; }
@@ -133,9 +133,9 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
 
     private static ReaderHighlight MapRow(HighlightRow r) => new()
     {
-        Id           = Guid.Parse(r.Id),
+        Id           = r.Id,
         UserId       = r.UserId,
-        AssetId      = Guid.Parse(r.AssetId),
+        AssetId      = r.AssetId,
         ChapterIndex = r.ChapterIndex,
         StartOffset  = r.StartOffset,
         EndOffset    = r.EndOffset,

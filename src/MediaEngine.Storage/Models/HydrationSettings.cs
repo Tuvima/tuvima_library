@@ -304,14 +304,6 @@ public sealed class HydrationSettings
     };
 
     /// <summary>
-    /// HTML tags to preserve when sanitizing retail provider descriptions.
-    /// All other tags are stripped. Used by the <c>sanitize_html</c> transform.
-    /// </summary>
-    [JsonPropertyName("preserve_html_tags")]
-    public List<string> PreserveHtmlTags { get; set; } =
-        ["b", "i", "em", "strong", "p", "br"];
-
-    /// <summary>
     /// Maximum entities per Wikidata batch API call during Stage 2
     /// (Wikidata Bridge Resolution). The Data Extension API supports up to 50.
     /// </summary>
@@ -434,14 +426,4 @@ public sealed class HydrationSettings
     [JsonPropertyName("timeline_retention_days")]
     public int TimelineRetentionDays { get; set; } = 365;
 
-    // ── Backward compatibility ──────────────────────────────────────────
-
-    /// <summary>
-    /// Legacy alias for <see cref="Stage3WaterfallConfidenceThreshold"/>.
-    /// Existing <c>hydration.json</c> files may use the old key name.
-    /// </summary>
-    /// <summary>
-    /// Legacy alias for <see cref="SkipWikipediaWithoutQid"/>.
-    /// Existing <c>hydration.json</c> files may use the old key name.
-    /// </summary>
 }

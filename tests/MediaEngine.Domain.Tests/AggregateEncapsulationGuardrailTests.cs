@@ -1,5 +1,6 @@
 using System.Reflection;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Domain.Tests;
 
@@ -10,6 +11,7 @@ public sealed class AggregateEncapsulationGuardrailTests
         typeof(Collection),
         typeof(Work),
         typeof(Edition),
+        typeof(Universe),
     ];
 
     [Fact]

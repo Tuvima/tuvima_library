@@ -174,13 +174,9 @@ public interface ICollectionRepository
     Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default);
 
     /// <summary>Returns curated item counts for multiple collections in one read.</summary>
-    async Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default)
-    {
-        var result = new Dictionary<Guid, int>();
-        foreach (var collectionId in collectionIds.Distinct())
-            result[collectionId] = await GetCollectionItemCountAsync(collectionId, ct);
-        return result;
-    }
+    Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(
+        IEnumerable<Guid> collectionIds,
+        CancellationToken ct = default);
 
     /// <summary>Toggles the is_enabled flag on a collection.</summary>
     Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default);

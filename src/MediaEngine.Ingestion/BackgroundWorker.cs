@@ -13,12 +13,10 @@ namespace MediaEngine.Ingestion;
 /// ──────────────────────────────────────────────────────────────────
 ///  • A <see cref="Channel{T}"/> holds queued work items with back-pressure
 ///    (<c>FullMode=Wait</c>) so the debounce queue cannot flood the pipeline.
-///  • A <see cref="SemaphoreSlim"/> caps the number of items that run
-///    concurrently.  The default is <c>Environment.ProcessorCount</c>.
-///  • Each dequeued item acquires the semaphore, runs its handler in a
-///    fire-and-forget <c>Task.Run</c>, then releases the semaphore.
-///  • <see cref="DrainAsync"/> completes the channel writer, waits for the
-///    consumer loop to exit, then waits for the in-flight counter to reach 0.
+///  • A fixed set of owned consumer loops caps concurrent execution. The
+///    default consumer count is <c>Environment.ProcessorCount</c>.
+///  • <see cref="DrainAsync"/> completes the channel writer and waits for every
+///    accepted item to finish.
 ///
 /// Spec: Phase 7 – Interfaces § IBackgroundWorker; Scalability § Resource Semaphores.
 /// </summary>
@@ -28,17 +26,12 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
     private sealed record WorkItem(object Payload, Func<object, CancellationToken, Task> Handler);
 
     private readonly Channel<WorkItem> _channel;
-    private readonly SemaphoreSlim _semaphore;
     private readonly ILogger<BackgroundWorker> _logger;
     private readonly CancellationTokenSource _shutdownCts = new();
-    private readonly Task _consumerLoop;
-    private readonly int _maxConcurrency;
+    private readonly Task[] _consumerLoops;
 
     // Tracks items queued but not yet completed (queued + executing).
     private int _pendingCount;
-    // Tracks items currently executing (semaphore held).
-    private int _inFlight;
-
     /// <param name="logger">Logger for unhandled handler exceptions.</param>
     /// <param name="maxConcurrency">
     /// Maximum simultaneous executions.  Defaults to <see cref="Environment.ProcessorCount"/>.
@@ -51,17 +44,21 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
     {
         _logger = logger;
 
-        _maxConcurrency = maxConcurrency > 0 ? maxConcurrency : Environment.ProcessorCount;
-        _semaphore = new SemaphoreSlim(_maxConcurrency, _maxConcurrency);
+        var consumerCount = maxConcurrency > 0 ? maxConcurrency : Environment.ProcessorCount;
 
         _channel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(queueCapacity)
         {
             FullMode     = BoundedChannelFullMode.Wait,
-            SingleReader = true,
+            SingleReader = consumerCount == 1,
             SingleWriter = false,
+            AllowSynchronousContinuations = false,
         });
 
-        _consumerLoop = Task.Run(ConsumeLoopAsync);
+        _consumerLoops = new Task[consumerCount];
+        for (var index = 0; index < _consumerLoops.Length; index++)
+        {
+            _consumerLoops[index] = ConsumeLoopAsync();
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -103,23 +100,7 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
         // Signal no more items will be enqueued.
         _channel.Writer.TryComplete();
 
-        // Wait for the consumer loop (reads channel until empty + complete).
-        await _consumerLoop.WaitAsync(ct).ConfigureAwait(false);
-
-        // Wait for all execution slots to become available. This reflects the
-        // current in-flight work, instead of relying on a one-shot idle signal
-        // that may have completed before DrainAsync was called.
-        var acquired = 0;
-        try
-        {
-            for (; acquired < _maxConcurrency; acquired++)
-                await _semaphore.WaitAsync(ct).ConfigureAwait(false);
-        }
-        finally
-        {
-            for (var i = 0; i < acquired; i++)
-                _semaphore.Release();
-        }
+        await Task.WhenAll(_consumerLoops).WaitAsync(ct).ConfigureAwait(false);
     }
 
     // -------------------------------------------------------------------------
@@ -128,35 +109,24 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
 
     private async Task ConsumeLoopAsync()
     {
-        var ct = _shutdownCts.Token;
-
-        await foreach (var item in _channel.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+        await foreach (var item in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
         {
-            await _semaphore.WaitAsync(ct).ConfigureAwait(false);
-            Interlocked.Increment(ref _inFlight);
-
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    await item.Handler(item.Payload, ct).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                {
-                    // Normal shutdown — swallow.
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Unhandled exception in background work item.");
-                }
-                finally
-                {
-                    Interlocked.Decrement(ref _pendingCount);
-                    _semaphore.Release();
-
-                    Interlocked.Decrement(ref _inFlight);
-                }
-            }, CancellationToken.None); // don't cancel the fire-and-forget task itself
+                await item.Handler(item.Payload, _shutdownCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_shutdownCts.IsCancellationRequested)
+            {
+                // Forced disposal after the graceful drain path was not used.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception in background work item.");
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _pendingCount);
+            }
         }
     }
 
@@ -166,13 +136,15 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        _shutdownCts.Cancel();
         _channel.Writer.TryComplete();
-
-        try { await _consumerLoop.ConfigureAwait(false); }
-        catch (OperationCanceledException) { }
-
-        _semaphore.Dispose();
-        _shutdownCts.Dispose();
+        _shutdownCts.Cancel();
+        try
+        {
+            await Task.WhenAll(_consumerLoops).ConfigureAwait(false);
+        }
+        finally
+        {
+            _shutdownCts.Dispose();
+        }
     }
 }

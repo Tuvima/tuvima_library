@@ -41,7 +41,7 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
             """,
             new
             {
-                Id             = Guid.NewGuid(),
+                edge.Id,
                 SubjectQid     = edge.SubjectQid,
                 RelType        = edge.RelationshipTypeValue,
                 ObjectQid      = edge.ObjectQid,
@@ -71,6 +71,32 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<EntityRelationship>> GetByObjectsAsync(
+        IEnumerable<string> objectQids,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(objectQids);
+        ct.ThrowIfCancellationRequested();
+
+        var qids = NormalizeQids(objectQids);
+        if (qids.Count == 0)
+            return Task.FromResult<IReadOnlyList<EntityRelationship>>([]);
+
+        using var conn = _db.CreateConnection();
+        var rows = new List<EntityRelationshipRow>();
+        foreach (var batch in qids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            rows.AddRange(conn.Query<EntityRelationshipRow>(EdgeSelect + Environment.NewLine + """
+                WHERE  object_qid COLLATE NOCASE IN @qids
+                ORDER BY object_qid, relationship_type, subject_qid;
+                """, new { qids = batch }));
+        }
+
+        return Task.FromResult<IReadOnlyList<EntityRelationship>>(rows.ConvertAll(MapRow));
+    }
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<EntityRelationship>> GetByEntityAsync(
         string qid, CancellationToken ct = default)
     {
@@ -87,22 +113,23 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
         if (entityQids.Count == 0)
             return Task.FromResult<IReadOnlyList<EntityRelationship>>([]);
 
-        // Dapper expands @qids into a parameterised IN clause automatically.
+        var qids = NormalizeQids(entityQids);
+        if (qids.Count == 0)
+            return Task.FromResult<IReadOnlyList<EntityRelationship>>([]);
+
+        var qidSet = qids.ToHashSet(StringComparer.OrdinalIgnoreCase);
         using var conn = _db.CreateConnection();
-        var rows = conn.Query<EntityRelationshipRow>("""
-            SELECT subject_qid       AS SubjectQid,
-                   relationship_type AS RelationshipTypeValue,
-                   object_qid        AS ObjectQid,
-                   confidence        AS Confidence,
-                   context_work_qid  AS ContextWorkQid,
-                   discovered_at     AS DiscoveredAt,
-                   start_time        AS StartTime,
-                   end_time          AS EndTime
-            FROM   entity_relationships
-            WHERE  subject_qid IN @qids
-              AND  object_qid  IN @qids
-            ORDER BY subject_qid, relationship_type;
-            """, new { qids = entityQids }).AsList();
+        var rows = new List<EntityRelationshipRow>();
+        foreach (var batch in qids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            rows.AddRange(conn.Query<EntityRelationshipRow>(EdgeSelect + Environment.NewLine + """
+                WHERE  subject_qid COLLATE NOCASE IN @qids
+                ORDER BY subject_qid, relationship_type, object_qid;
+                """, new { qids = batch }));
+        }
+
+        rows.RemoveAll(row => !qidSet.Contains(row.ObjectQid));
 
         return Task.FromResult<IReadOnlyList<EntityRelationship>>(rows.ConvertAll(MapRow));
     }
@@ -119,11 +146,31 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    private const string EdgeSelect = """
+        SELECT id                AS Id,
+               subject_qid       AS SubjectQid,
+               relationship_type AS RelationshipTypeValue,
+               object_qid        AS ObjectQid,
+               confidence        AS Confidence,
+               context_work_qid  AS ContextWorkQid,
+               discovered_at     AS DiscoveredAt,
+               start_time        AS StartTime,
+               end_time          AS EndTime
+        FROM   entity_relationships
+        """;
+
+    private static List<string> NormalizeQids(IEnumerable<string> qids) => qids
+        .Where(qid => !string.IsNullOrWhiteSpace(qid))
+        .Select(qid => qid.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
     private IReadOnlyList<EntityRelationship> QueryEdges(string whereClause, string qid)
     {
         using var conn = _db.CreateConnection();
         var rows = conn.Query<EntityRelationshipRow>($"""
-            SELECT subject_qid       AS SubjectQid,
+            SELECT id                AS Id,
+                   subject_qid       AS SubjectQid,
                    relationship_type AS RelationshipTypeValue,
                    object_qid        AS ObjectQid,
                    confidence        AS Confidence,
@@ -147,6 +194,7 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
     /// </summary>
     private sealed class EntityRelationshipRow
     {
+        public Guid           Id                    { get; set; }
         public string         SubjectQid            { get; set; } = string.Empty;
         public string         RelationshipTypeValue { get; set; } = string.Empty;
         public string         ObjectQid             { get; set; } = string.Empty;
@@ -159,6 +207,7 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
 
     private static EntityRelationship MapRow(EntityRelationshipRow r) => new()
     {
+        Id                    = r.Id,
         SubjectQid            = r.SubjectQid,
         RelationshipTypeValue = r.RelationshipTypeValue,
         ObjectQid             = r.ObjectQid,

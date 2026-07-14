@@ -175,73 +175,7 @@ public static class ProfileEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        group.MapPost("/{id:guid}/avatar", async (
-            Guid id,
-            HttpRequest request,
-            IProfileService svc,
-            TuvimaDataPaths dataPaths,
-            CancellationToken ct) =>
-        {
-            var profile = await svc.GetProfileAsync(id, ct);
-            if (profile is null)
-            {
-                return Results.NotFound($"Profile '{id}' not found.");
-            }
-
-            if (!request.HasFormContentType)
-            {
-                return Results.BadRequest("Expected multipart form data.");
-            }
-
-            var form = await request.ReadFormAsync(ct);
-            var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
-            if (file is null || file.Length == 0)
-            {
-                return Results.BadRequest("No file uploaded.");
-            }
-
-            if (file.Length > 5 * 1024 * 1024)
-            {
-                return Results.BadRequest("Avatar image must be 5 MB or smaller.");
-            }
-
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var mimeType = NormalizeAvatarMimeType(file.ContentType, extension);
-            if (mimeType is null)
-            {
-                return Results.BadRequest("Avatar image must be a JPEG, PNG, or WebP image.");
-            }
-
-            var zoom = ParseAvatarZoom(form.TryGetValue("zoom", out var zoomValue) ? zoomValue.ToString() : null);
-
-            dataPaths.EnsureRootExists();
-            var directory = Path.Combine(dataPaths.Root, "profiles", id.ToString("D"));
-            Directory.CreateDirectory(directory);
-            var targetPath = Path.Combine(directory, $"avatar{extension}");
-
-            if (!string.IsNullOrWhiteSpace(profile.AvatarImagePath)
-                && !string.Equals(profile.AvatarImagePath, targetPath, StringComparison.OrdinalIgnoreCase)
-                && File.Exists(profile.AvatarImagePath))
-            {
-                File.Delete(profile.AvatarImagePath);
-            }
-
-            try
-            {
-                await using var upload = file.OpenReadStream();
-                await SaveAvatarImageAsync(upload, targetPath, extension, zoom, ct);
-            }
-            catch (ArgumentException ex)
-            {
-                return Results.BadRequest(ex.Message);
-            }
-
-            profile.AvatarImagePath = targetPath;
-            var updated = await svc.UpdateProfileAsync(profile, ct);
-            return updated
-                ? Results.Ok(ProfileResponseDto.FromDomain(profile))
-                : Results.Problem("Could not update profile avatar.");
-        })
+        group.MapPost("/{id:guid}/avatar", UploadProfileAvatarAsync)
         .WithName("UploadProfileAvatar")
         .WithSummary("Uploads and stores a profile avatar image.")
         .DisableAntiforgery()
@@ -400,7 +334,8 @@ public static class ProfileEndpoints
             var updated = await svc.UpdateProfileAsync(existing, ct);
             return updated
                 ? Results.Ok(ProfileResponseDto.FromDomain(existing))
-                : Results.Problem("Could not update profile.");
+                : Results.BadRequest(
+                    "Cannot demote the seed Owner or the last Administrator profile.");
         })
         .WithName("UpdateProfile")
         .WithSummary("Update an existing profile's display name, avatar color, and role.")
@@ -443,6 +378,91 @@ public static class ProfileEndpoints
         .RequireAdmin();
 
         return app;
+    }
+
+    internal static async Task<IResult> UploadProfileAvatarAsync(
+        Guid id,
+        HttpRequest request,
+        IProfileService svc,
+        TuvimaDataPaths dataPaths,
+        CancellationToken ct)
+    {
+        var profile = await svc.GetProfileAsync(id, ct);
+        if (profile is null)
+        {
+            return Results.NotFound($"Profile '{id}' not found.");
+        }
+
+        if (!request.HasFormContentType)
+        {
+            return Results.BadRequest("Expected multipart form data.");
+        }
+
+        var form = await request.ReadFormAsync(ct);
+        var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+        if (file is null || file.Length == 0)
+        {
+            return Results.BadRequest("No file uploaded.");
+        }
+
+        if (file.Length > 5 * 1024 * 1024)
+        {
+            return Results.BadRequest("Avatar image must be 5 MB or smaller.");
+        }
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var mimeType = NormalizeAvatarMimeType(file.ContentType, extension);
+        if (mimeType is null)
+        {
+            return Results.BadRequest("Avatar image must be a JPEG, PNG, or WebP image.");
+        }
+
+        var zoom = ParseAvatarZoom(form.TryGetValue("zoom", out var zoomValue) ? zoomValue.ToString() : null);
+
+        dataPaths.EnsureRootExists();
+        var directory = Path.Combine(dataPaths.Root, "profiles", id.ToString("D"));
+        Directory.CreateDirectory(directory);
+        var replacementPath = Path.Combine(directory, $"avatar-{Guid.NewGuid():N}{extension}");
+        var existingPath = profile.AvatarImagePath;
+        var committed = false;
+
+        try
+        {
+            await using var upload = file.OpenReadStream();
+            await SaveAvatarImageAsync(upload, replacementPath, extension, zoom, ct);
+
+            profile.AvatarImagePath = replacementPath;
+            if (!await svc.UpdateProfileAsync(profile, ct))
+            {
+                return Results.Problem("Could not update profile avatar.");
+            }
+
+            committed = true;
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(ex.Message);
+        }
+        finally
+        {
+            if (!committed)
+            {
+                profile.AvatarImagePath = existingPath;
+                if (File.Exists(replacementPath))
+                {
+                    File.Delete(replacementPath);
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(existingPath)
+            && !string.Equals(existingPath, replacementPath, StringComparison.OrdinalIgnoreCase)
+            && File.Exists(existingPath))
+        {
+            File.Delete(existingPath);
+        }
+
+        return Results.Ok(ProfileResponseDto.FromDomain(profile));
     }
 
     private static string? NormalizeAvatarMimeType(string? contentType, string extension)

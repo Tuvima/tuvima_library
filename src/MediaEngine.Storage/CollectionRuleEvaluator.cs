@@ -154,54 +154,17 @@ public sealed class CollectionRuleEvaluator
 
         try
         {
-            // Try new format: array of predicates
-            var predicates = JsonSerializer.Deserialize<List<CollectionRulePredicate>>(ruleJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (predicates is { Count: > 0 }) return predicates;
+            return JsonSerializer.Deserialize<List<CollectionRulePredicate>>(ruleJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?? [];
         }
-        catch
+        catch (JsonException ex)
         {
-            // Ignore — try legacy format below
+            throw new FormatException(
+                "Collection rule_json must be a JSON array of rule predicates.",
+                ex);
         }
 
-        // Legacy format: {"genre":"Science Fiction","min":3,"media":"Any"}
-        try
-        {
-            using var doc = JsonDocument.Parse(ruleJson);
-            var result = new List<CollectionRulePredicate>();
-            foreach (var prop in doc.RootElement.EnumerateObject())
-            {
-                if (prop.Name is "min" or "min_items") continue; // Skip — maps to Collection.MinItems
-                if (prop.Name is "media" && prop.Value.GetString() is "Any") continue; // Skip "Any" media filter
-
-                var field = prop.Name switch
-                {
-                    "media" => "media_type",
-                    "recency_days" => "added_within_days",
-                    "min_rating" => "provider_rating",
-                    "unrated" => "user_rating",
-                    "person" => prop.Value.GetString()?.Contains("Director") == true ? "director" : "author",
-                    _ => prop.Name,
-                };
-
-                var op = prop.Name switch
-                {
-                    "min_rating" => "gte",
-                    "unrated" => "eq",
-                    "recency_days" => "lte",
-                    _ => "eq",
-                };
-
-                var value = prop.Name == "unrated" ? "unrated" : prop.Value.ToString();
-
-                result.Add(new CollectionRulePredicate { Field = field, Op = op, Value = value });
-            }
-            return result;
-        }
-        catch
-        {
-            return [];
-        }
     }
 
     private (string? sql, List<(string name, object value)> parameters) TranslatePredicate(

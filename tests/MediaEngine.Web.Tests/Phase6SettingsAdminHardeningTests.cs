@@ -82,7 +82,8 @@ public sealed class Phase6SettingsAdminHardeningTests
     [Fact]
     public void ProvidersTab_DoesNotUseHardcodedFallbackAsLiveConfig()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor");
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs");
 
         Assert.Contains("sample data is not presented as live configuration", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Load sample chain", source, StringComparison.Ordinal);
@@ -100,7 +101,8 @@ public sealed class Phase6SettingsAdminHardeningTests
     [Fact]
     public void ProvidersTab_DefinesStageScopedProviderSetsAndRetailOnlyPipelineSave()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor");
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs");
 
         Assert.Contains("new(ProviderStageRetail, 1, \"Retail Lookup\"", source, StringComparison.Ordinal);
         Assert.Contains("new(ProviderStageCanonical, 2, \"Canonical Identity\"", source, StringComparison.Ordinal);
@@ -121,7 +123,8 @@ public sealed class Phase6SettingsAdminHardeningTests
     [Fact]
     public void ProvidersTab_HasDownloadedIconsForVisibleProviders()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor");
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs");
 
         var expectedIcons = new[]
         {

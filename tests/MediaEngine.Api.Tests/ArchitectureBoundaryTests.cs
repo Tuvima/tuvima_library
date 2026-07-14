@@ -175,15 +175,6 @@ public sealed class ArchitectureBoundaryTests
 
     private static readonly string[] EndpointDatabaseAccessAllowlist =
     [
-        // TODO Wave 7+: legacy endpoint SQL debt. Keep this list shrinking; do not add new files.
-        "src/MediaEngine.Api/Endpoints/CharacterEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/CollectionEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/LibraryEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/LibraryItemEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs",
-        "src/MediaEngine.Api/Endpoints/UniverseGraphEndpoints.cs",
-        "src/MediaEngine.Api/Endpoints/WorkEndpoints.cs",
+        // Endpoint handlers are route-only; database access belongs to typed services and repositories.
     ];
 }

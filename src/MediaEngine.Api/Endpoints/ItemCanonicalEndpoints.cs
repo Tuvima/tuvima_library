@@ -1,7 +1,6 @@
-using Dapper;
-using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -10,7 +9,6 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -31,14 +29,14 @@ public static class ItemCanonicalEndpoints
             IWriteBackService writeBack,
             IEventPublisher publisher,
             IWorkRepository workRepo,
-            IDatabaseConnection db,
+            IItemCanonicalDataService itemCanonicalData,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
                 return Results.BadRequest("At least one preference field is required.");
 
-            var context = TryResolveWorkAssetContext(entityId, db);
+            var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
                 return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
@@ -133,21 +131,17 @@ public static class ItemCanonicalEndpoints
             Guid entityId,
             ItemDisplayOverridesRequest request,
             ISystemActivityRepository activityRepo,
-            IDatabaseConnection db,
+            IItemCanonicalDataService itemCanonicalData,
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
                 return Results.BadRequest("At least one display override is required.");
 
-            using var conn = db.CreateConnection();
-            var exists = conn.ExecuteScalar<long>(
-                "SELECT COUNT(1) FROM works WHERE id = @entityId;",
-                new { entityId }) > 0;
-
-            if (!exists)
+            var displayOverrideState = await itemCanonicalData.LoadDisplayOverridesAsync(entityId, ct);
+            if (!displayOverrideState.WorkExists)
                 return Results.NotFound($"No work found for {entityId}.");
 
-            var current = LoadDisplayOverrides(conn, entityId);
+            var current = displayOverrideState.Values;
             var updatedKeys = new List<string>();
             foreach (var (key, value) in request.Fields)
             {
@@ -170,13 +164,8 @@ public static class ItemCanonicalEndpoints
             if (updatedKeys.Count == 0)
                 return Results.BadRequest("No valid display override fields were provided.");
 
-            conn.Execute(
-                "UPDATE works SET display_overrides_json = @json WHERE id = @entityId;",
-                new
-                {
-                    json = current.Count == 0 ? null : JsonSerializer.Serialize(current),
-                    entityId,
-                });
+            if (!await itemCanonicalData.SaveDisplayOverridesAsync(entityId, current, ct))
+                return Results.NotFound($"No work found for {entityId}.");
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -207,10 +196,10 @@ public static class ItemCanonicalEndpoints
             Guid entityId,
             ItemCanonicalSearchRequest request,
             ISearchService searchService,
-            IDatabaseConnection db,
+            IItemCanonicalDataService itemCanonicalData,
             CancellationToken ct) =>
         {
-            var context = TryResolveWorkAssetContext(entityId, db);
+            var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
                 return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
@@ -326,11 +315,11 @@ public static class ItemCanonicalEndpoints
             IWorkRepository workRepo,
             IHydrationPipelineService pipeline,
             TimelineRecorder timeline,
-            IDatabaseConnection db,
+            IItemCanonicalDataService itemCanonicalData,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
-            var context = TryResolveWorkAssetContext(entityId, db);
+            var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
                 return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
@@ -389,7 +378,7 @@ public static class ItemCanonicalEndpoints
             if (canonicals.Count > 0)
                 await canonicalRepo.UpsertBatchAsync(canonicals, ct);
 
-            var clearedIds = await ClearStaleIdsAsync(context.AssetId, lineage, policy, request, canonicalRepo, db, ct);
+            var clearedIds = await ClearStaleIdsAsync(context.AssetId, lineage, policy, request, itemCanonicalData, ct);
 
             if (request.BridgeIds.Count > 0)
             {
@@ -435,18 +424,9 @@ public static class ItemCanonicalEndpoints
 
             if (request.QidFields.TryGetValue(BridgeIdKeys.WikidataQid, out var globalQid) && !string.IsNullOrWhiteSpace(globalQid))
             {
-                using var conn = db.CreateConnection();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = """
-                    UPDATE works
-                    SET wikidata_qid = @qid, curator_state = 'registered', rejected_at = NULL
-                    WHERE id = @workId
-                    """;
-                cmd.Parameters.AddWithValue("@qid", globalQid);
                 var qidTargetId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
-                cmd.Parameters.Add("@workId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(qidTargetId);
-                cmd.ExecuteNonQuery();
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(qidTargetId, "user_confirmed", "user", true, globalQid, ct: ct);
+                await itemCanonicalData.UpdateWorkIdentityAsync(qidTargetId, globalQid, ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(qidTargetId, WorkWikidataStatus.UserConfirmed, WorkWikidataMatchSource.User, true, globalQid, ct: ct);
 
                 await pipeline.EnqueueAsync(new HarvestRequest
                 {
@@ -463,8 +443,8 @@ public static class ItemCanonicalEndpoints
             {
                 await collectionRepo.UpdateWorkWikidataMatchStateAsync(
                     ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid),
-                    "provider_only",
-                    "retail",
+                    WorkWikidataStatus.ProviderOnly,
+                    WorkWikidataMatchSource.Retail,
                     false,
                     ct: ct);
 
@@ -550,10 +530,10 @@ public static class ItemCanonicalEndpoints
             IReviewQueueRepository reviewRepo,
             IHydrationPipelineService pipeline,
             TimelineRecorder timeline,
-            IDatabaseConnection db,
+            IItemCanonicalDataService itemCanonicalData,
             CancellationToken ct) =>
         {
-            var context = TryResolveWorkAssetContext(entityId, db);
+            var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
                 return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
@@ -638,16 +618,16 @@ public static class ItemCanonicalEndpoints
             }
 
             var workId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
-            var currentState = LoadWorkWikidataState(db, workId);
+            var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(workId, ct);
             if (request.ClearAutoAlignedWikidata
-                && !string.IsNullOrWhiteSpace(currentState.Qid)
+                && !string.IsNullOrWhiteSpace(currentState?.Qid)
                 && IsAutomationOwnedWikidataState(currentState.Status, currentState.Source, currentState.Locked))
             {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "pending", "retail", false, "", ct: ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.Pending, WorkWikidataMatchSource.Retail, false, "", ct: ct);
             }
             else
             {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "provider_only", "retail", false, ct: ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.ProviderOnly, WorkWikidataMatchSource.Retail, false, ct: ct);
             }
 
             if (request.ReviewItemId is { } reviewItemId)
@@ -713,15 +693,15 @@ public static class ItemCanonicalEndpoints
             IEventPublisher publisher,
             ICollectionRepository collectionRepo,
             IReviewQueueRepository reviewRepo,
-            IDatabaseConnection db,
+            IItemCanonicalDataService itemCanonicalData,
             CancellationToken ct) =>
         {
-            var context = TryResolveWorkAssetContext(entityId, db);
+            var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
                 return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
             var action = (request.Action ?? "replace").Trim().ToLowerInvariant();
-            var workId = ResolveWorkIdForAsset(context.AssetId, db) ?? entityId;
+            var workId = await itemCanonicalData.ResolveWorkIdForAssetAsync(context.AssetId, ct) ?? entityId;
             var now = DateTimeOffset.UtcNow;
             var fieldsApplied = 0;
             var message = action switch
@@ -762,7 +742,7 @@ public static class ItemCanonicalEndpoints
                     WinningProviderId = WellKnownProviders.UserManual,
                 }], ct);
 
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "user_replaced", "user", true, qid, ct: ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.UserReplaced, WorkWikidataMatchSource.User, true, qid, ct: ct);
                 fieldsApplied = 1;
 
                 if (request.RehydrateNow)
@@ -783,16 +763,16 @@ public static class ItemCanonicalEndpoints
             }
             else if (action == "clear")
             {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "provider_only", "user", false, "", ct: ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.ProviderOnly, WorkWikidataMatchSource.User, false, "", ct: ct);
             }
             else if (action == "mark_missing")
             {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "missing", "user", false, "", ct: ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.Missing, WorkWikidataMatchSource.User, false, "", ct: ct);
             }
             else if (action == "reject")
             {
-                var rejected = BuildRejectedQidsJson(db, workId, request.RejectedQid ?? request.Qid);
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, "user_rejected", "user", false, "", rejected, ct);
+                var rejected = await itemCanonicalData.AppendRejectedQidAsync(workId, request.RejectedQid ?? request.Qid, ct);
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.UserRejected, WorkWikidataMatchSource.User, false, "", rejected, ct);
             }
             else
             {
@@ -838,15 +818,6 @@ public static class ItemCanonicalEndpoints
         return app;
     }
 
-    private sealed record WorkAssetContext(
-        Guid AssetId,
-        string MediaType,
-        string? WorkTitle,
-        string? PrimaryCreator,
-        string? Year);
-
-    private sealed record WorkWikidataState(string? Qid, string? Status, string? Source, bool Locked, string? RejectedQidsJson);
-
     private sealed record CanonicalTargetPolicy(
         string MediaType,
         string TargetKind,
@@ -860,130 +831,11 @@ public static class ItemCanonicalEndpoints
         bool SearchUniverse,
         bool AllowsTextOnly);
 
-    private static WorkAssetContext? TryResolveWorkAssetContext(Guid entityId, IDatabaseConnection db)
-    {
-        using var conn = db.CreateConnection();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            WITH target AS (
-                SELECT
-                    ma.id AS asset_id,
-                    w.id AS work_id,
-                    COALESCE(NULLIF(w.media_type, ''), '') AS work_media_type
-                FROM media_assets ma
-                JOIN editions e ON e.id = ma.edition_id
-                JOIN works w ON w.id = e.work_id
-                WHERE ma.id = @entityId
-
-                UNION ALL
-
-                SELECT
-                    COALESCE(ma.id, child_ma.id, grandchild_ma.id) AS asset_id,
-                    w.id AS work_id,
-                    COALESCE(NULLIF(w.media_type, ''), '') AS work_media_type
-                FROM works w
-                LEFT JOIN editions e ON e.work_id = w.id
-                LEFT JOIN media_assets ma ON ma.edition_id = e.id
-                LEFT JOIN works child ON child.parent_work_id = w.id
-                LEFT JOIN editions child_e ON child_e.work_id = child.id
-                LEFT JOIN media_assets child_ma ON child_ma.edition_id = child_e.id
-                LEFT JOIN works grandchild ON grandchild.parent_work_id = child.id
-                LEFT JOIN editions grandchild_e ON grandchild_e.work_id = grandchild.id
-                LEFT JOIN media_assets grandchild_ma ON grandchild_ma.edition_id = grandchild_e.id
-                WHERE w.id = @entityId
-            )
-            SELECT
-                t.asset_id,
-                COALESCE(NULLIF(t.work_media_type, ''), MAX(CASE WHEN cv.key = 'media_type' THEN cv.value END), ''),
-                COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), ''),
-                COALESCE(MAX(CASE WHEN cv.key IN ('author', 'artist', 'director') THEN cv.value END), ''),
-                COALESCE(MAX(CASE WHEN cv.key = 'year' THEN cv.value END), '')
-            FROM target t
-            LEFT JOIN canonical_values cv ON cv.entity_id = t.asset_id
-            WHERE t.asset_id IS NOT NULL
-            GROUP BY t.asset_id, t.work_media_type
-            ORDER BY CASE WHEN t.asset_id = @entityId THEN 0 ELSE 1 END, t.asset_id
-            LIMIT 1
-            """;
-        cmd.Parameters.Add("@entityId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
-
-        using var reader = cmd.ExecuteReader();
-        if (!reader.Read())
-            return null;
-
-        var assetId = GuidSql.FromDb(reader.GetValue(0));
-
-        return new WorkAssetContext(
-            AssetId: assetId,
-            MediaType: reader.IsDBNull(1) ? MediaType.Unknown.ToString() : reader.GetString(1),
-            WorkTitle: reader.IsDBNull(2) ? null : reader.GetString(2),
-            PrimaryCreator: reader.IsDBNull(3) ? null : reader.GetString(3),
-            Year: reader.IsDBNull(4) ? null : reader.GetString(4));
-    }
-
-    private static Guid? ResolveWorkIdForAsset(Guid assetId, IDatabaseConnection db)
-    {
-        using var conn = db.CreateConnection();
-        var value = conn.QueryFirstOrDefault<Guid?>(
-            """
-            SELECT e.work_id
-            FROM media_assets ma
-            JOIN editions e ON e.id = ma.edition_id
-            WHERE ma.id = @assetId
-            LIMIT 1;
-            """,
-            new { assetId });
-
-        return value;
-    }
-
-    private static WorkWikidataState LoadWorkWikidataState(IDatabaseConnection db, Guid workId)
-    {
-        using var conn = db.CreateConnection();
-        var row = conn.QueryFirstOrDefault<(string? Qid, string? Status, string? Source, int Locked, string? RejectedQidsJson)>(
-            """
-            SELECT wikidata_qid,
-                   wikidata_status,
-                   wikidata_match_source,
-                   COALESCE(wikidata_match_locked, 0),
-                   wikidata_rejected_qids_json
-            FROM works
-            WHERE id = @workId
-            LIMIT 1;
-            """,
-            new { workId });
-
-        return new WorkWikidataState(row.Qid, row.Status, row.Source, row.Locked == 1, row.RejectedQidsJson);
-    }
-
     private static bool IsAutomationOwnedWikidataState(string? status, string? source, bool locked) =>
         !locked
         && !string.Equals(source, "user", StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(status, "user_confirmed", StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(status, "user_replaced", StringComparison.OrdinalIgnoreCase);
-
-    private static string BuildRejectedQidsJson(IDatabaseConnection db, Guid workId, string? rejectedQid)
-    {
-        var state = LoadWorkWikidataState(db, workId);
-        var rejected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(state.RejectedQidsJson))
-        {
-            try
-            {
-                foreach (var qid in JsonSerializer.Deserialize<List<string>>(state.RejectedQidsJson) ?? [])
-                    rejected.Add(qid);
-            }
-            catch
-            {
-                // Preserve the action even if legacy JSON is malformed.
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(rejectedQid))
-            rejected.Add(rejectedQid.Trim());
-
-        return JsonSerializer.Serialize(rejected.OrderBy(qid => qid, StringComparer.OrdinalIgnoreCase));
-    }
+        && !string.Equals(status, WorkWikidataStatus.UserConfirmed, StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(status, WorkWikidataStatus.UserReplaced, StringComparison.OrdinalIgnoreCase);
 
     private static string ResolveMediaType(string? requestedMediaType, string fallbackMediaType) =>
         !string.IsNullOrWhiteSpace(requestedMediaType)
@@ -1348,8 +1200,7 @@ public static class ItemCanonicalEndpoints
         WorkLineage? lineage,
         CanonicalTargetPolicy policy,
         ItemCanonicalApplyRequest request,
-        ICanonicalValueRepository canonicalRepo,
-        IDatabaseConnection db,
+        IItemCanonicalDataService itemCanonicalData,
         CancellationToken ct)
     {
         var retainedIdKeys = request.BridgeIds.Keys
@@ -1358,20 +1209,14 @@ public static class ItemCanonicalEndpoints
         var groupIdKeys = policy.BridgeIdKeys.Concat(policy.QidFieldKeys).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var toClear = groupIdKeys.Where(key => !retainedIdKeys.Contains(key)).ToList();
 
-        foreach (var key in toClear)
-            await canonicalRepo.DeleteByKeyAsync(ResolveScopedTarget(assetId, lineage, key), key, ct);
-
         if (toClear.Count > 0)
         {
-            using var conn = db.CreateConnection();
-            foreach (var key in toClear)
-            {
-                var targetId = ResolveScopedTarget(assetId, lineage, key);
-                conn.Execute("DELETE FROM metadata_claims WHERE entity_id = @entityId AND claim_key = @key",
-                    new { entityId = targetId, key });
-                conn.Execute("DELETE FROM bridge_ids WHERE entity_id = @entityId AND id_type = @key",
-                    new { entityId = targetId, key });
-            }
+            var artifacts = toClear
+                .Select(key => new ItemCanonicalIdentityArtifact(
+                    ResolveScopedTarget(assetId, lineage, key),
+                    key))
+                .ToList();
+            await itemCanonicalData.DeleteIdentityArtifactsAsync(artifacts, ct);
         }
 
         return toClear;
@@ -1409,25 +1254,4 @@ public static class ItemCanonicalEndpoints
         _ => "Saved without external link",
     };
 
-    private static Dictionary<string, string> LoadDisplayOverrides(System.Data.IDbConnection conn, Guid entityId)
-    {
-        var json = conn.QueryFirstOrDefault<string?>(
-            "SELECT display_overrides_json FROM works WHERE id = @entityId LIMIT 1;",
-            new { entityId });
-
-        if (string.IsNullOrWhiteSpace(json))
-            return new(StringComparer.OrdinalIgnoreCase);
-
-        try
-        {
-            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-            return parsed is null
-                ? new(StringComparer.OrdinalIgnoreCase)
-                : new Dictionary<string, string>(parsed, StringComparer.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return new(StringComparer.OrdinalIgnoreCase);
-        }
-    }
 }

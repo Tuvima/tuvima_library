@@ -8,6 +8,7 @@ public sealed class CollectionEndpointRouteTests
     public void CollectionEndpoints_GroupFeedsUseSharedVisibilityRulesAndRichMetadata()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var browseReadServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionBrowseReadService.cs"));
 
         var readServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionMediaLookupReadService.cs"));
         Assert.Contains("ICollectionBrowseReadService browseReadService", source, StringComparison.Ordinal);
@@ -15,11 +16,11 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ICollectionMediaLookupReadService mediaLookupReadService", source, StringComparison.Ordinal);
         Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ma.file_path_root\")", readServiceSource, StringComparison.Ordinal);
         Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", readServiceSource, StringComparison.Ordinal);
-        Assert.Contains("Description = row.Description", source, StringComparison.Ordinal);
-        Assert.Contains("Tagline = row.Tagline", source, StringComparison.Ordinal);
-        Assert.Contains("Network = row.Network", source, StringComparison.Ordinal);
-        Assert.Contains("SeasonCount = row.SeasonCount", source, StringComparison.Ordinal);
-        Assert.Contains("LogoUrl = row.LogoUrl", source, StringComparison.Ordinal);
+        Assert.Contains("Description = row.Description", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("Tagline = row.Tagline", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("Network = row.Network", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("SeasonCount = row.SeasonCount is > 0", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("LogoUrl = assetRoute is null", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("BackgroundUrl = combinedBackground", source, StringComparison.Ordinal);
         Assert.Contains("BannerUrl = combinedBanner", source, StringComparison.Ordinal);
         Assert.Contains("HeroUrl = combinedHero", source, StringComparison.Ordinal);
@@ -29,9 +30,9 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("MapDelete(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
         Assert.Contains("UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType", source, StringComparison.Ordinal);
         Assert.Contains("UpdateCollectionSquareArtworkAsync(id, null, null", source, StringComparison.Ordinal);
-        Assert.Contains("BuildMusicSystemViewFallbackGroupsAsync", source, StringComparison.Ordinal);
-        Assert.Contains("w.media_type = 'Music'", source, StringComparison.Ordinal);
-        Assert.Contains("AlbumCount = isArtistGroup && row.AlbumCount > 0 ? row.AlbumCount : null", source, StringComparison.Ordinal);
+        Assert.Contains("GetSystemViewGroupsAsync", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("w.media_type = 'Music'", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("AlbumCount = row.AlbumCount > 0 ? row.AlbumCount : null", browseReadServiceSource, StringComparison.Ordinal);
 
         var accessPolicySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionAccessPolicy.cs"));
         Assert.Contains("Smart", accessPolicySource, StringComparison.Ordinal);
@@ -59,28 +60,30 @@ public sealed class CollectionEndpointRouteTests
     }
 
     [Fact]
-    public void SystemViewGroups_UseBlobGuidLiteralsForGuidBlobStorage()
+    public void SystemViewGroups_UseTypedGuidParametersForGuidBlobStorage()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionBrowseReadService.cs"));
 
-        Assert.Contains("BuildGuidBlobLiteralList(entityIds)", source, StringComparison.Ordinal);
-        Assert.Contains("X'{Convert.ToHexString(GuidSql.ToBlob(id))}'", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("entityIds.Select(id => $\"'{id}'\")", source, StringComparison.Ordinal);
+        Assert.Contains("WHERE w.id IN @WorkIds", source, StringComparison.Ordinal);
+        Assert.Contains("WorkIds = workIds.Select(GuidSql.ToBlob).ToArray()", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildGuidBlobLiteralList", source, StringComparison.Ordinal);
     }
 
     [Fact]
     public void TvSystemViewsExposeRootWorkIdsForWatchShowDetails()
     {
         var collectionSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        var browseSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionBrowseReadService.cs"));
+        var lookupSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionMediaLookupReadService.cs"));
         var detailsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\DetailEndpoints.cs"));
         var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Details\DetailComposerService.cs"));
         var watchPageSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\WatchTvShowPage.razor"));
 
         Assert.Contains("group.MapGet(\"/system-views\"", collectionSource, StringComparison.Ordinal);
         Assert.Contains("groupField", collectionSource, StringComparison.Ordinal);
-        Assert.Contains("show_name", collectionSource, StringComparison.Ordinal);
-        Assert.Contains("root_work_id", collectionSource, StringComparison.Ordinal);
-        Assert.Contains("return $\"/watch/tv/show/{row.WorkId:D}\";", collectionSource, StringComparison.Ordinal);
+        Assert.Contains("show_name", browseSource, StringComparison.Ordinal);
+        Assert.Contains("RootWorkId", browseSource, StringComparison.Ordinal);
+        Assert.Contains("return $\"/watch/tv/show/{row.WorkId:D}\";", lookupSource, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/{entityType}/{id:guid}\"", detailsSource, StringComparison.Ordinal);
         Assert.Contains("DetailEntityType.TvShow", composerSource, StringComparison.Ordinal);
         Assert.Contains("GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch", watchPageSource, StringComparison.Ordinal);
@@ -111,7 +114,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>", registrations, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>", registrations, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<CollectionCatalogReadService>", registrations, StringComparison.Ordinal);
-        Assert.Contains("catalogReadService.GetManagementCatalogAsync(activeProfile, ct)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.GetCatalogAsync(activeProfile, ct)", endpointSource, StringComparison.Ordinal);
         Assert.Contains("catalogReadService.GetSummaryAsync(id, activeProfile, ct)", endpointSource, StringComparison.Ordinal);
         Assert.Contains("catalogReadService.GetItemsAsync(id, activeProfile, take, ct)", endpointSource, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/reconcile\"", endpointSource, StringComparison.Ordinal);
@@ -119,15 +122,16 @@ public sealed class CollectionEndpointRouteTests
     }
 
     [Fact]
-    public void ManagementCatalog_ClassifiesCollectionsServerSide()
+    public void CollectionCatalog_ClassifiesCollectionsServerSide()
     {
         var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
         var catalogReadServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs"));
         var source = endpointSource + catalogReadServiceSource;
         var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\ManagedCollectionDto.cs"));
 
-        Assert.Contains("/management-catalog", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("GetManagementCatalogAsync", catalogReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/catalog\"", endpointSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("/management-catalog", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("GetCatalogAsync", catalogReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("ClassifyCollectionForCatalog", source, StringComparison.Ordinal);
         Assert.Contains("GetSystemCollectionKey", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
@@ -148,13 +152,13 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("CanToggleGlobal", dtoSource, StringComparison.Ordinal);
         Assert.Contains("PrimaryLaneOverride", dtoSource, StringComparison.Ordinal);
         Assert.Contains("SystemLaneForKey(systemKey)", source, StringComparison.Ordinal);
-        Assert.Contains("\"favorites\" => \"Listen\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"watchlist\" => \"Watch\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"favorites\" or \"listening-queue\" => \"Listen\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"watchlist\" or \"currently-watching\" => \"Watch\"", source, StringComparison.Ordinal);
         Assert.Contains("\"reading-list\" => \"Read\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldIncludeInManagementCatalog", source, StringComparison.Ordinal);
         Assert.Contains("IsPlaylistCatalogCollection(collection)", source, StringComparison.Ordinal);
-        Assert.Contains("\"PlaylistFolder\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"Smart\"", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionTypeNames.PlaylistFolder", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionTypeNames.Smart", source, StringComparison.Ordinal);
         Assert.Contains("CollectionManagementCatalogCandidate", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogAggregation(collection)", source, StringComparison.Ordinal);
         Assert.Contains("fictional_universe", source, StringComparison.Ordinal);
@@ -178,10 +182,10 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("parent_by_key.parent_key = LOWER(TRIM(CAST(show_name.value AS TEXT)))", source, StringComparison.Ordinal);
         Assert.DoesNotContain("parent_value.key IN ('show_name', 'title')", source, StringComparison.Ordinal);
-        Assert.Contains("ResolveCollectionMembershipWorkIdAsync(body.WorkId, db, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.ResolveMembershipWorkIdAsync(body.WorkId, ct)", source, StringComparison.Ordinal);
         Assert.Contains("existingDisplayWorkIds.Contains(collectionWorkId)", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, db, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionWorkIdsAsync(collection, collectionRepo, db, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionWorkIdsAsync(collection, ct)", source, StringComparison.Ordinal);
         Assert.Contains("IsGeneratedTvShowContainer", source, StringComparison.Ordinal);
         Assert.Contains("mediaCounts.WatchCount == mediaCounts.TvCount", source, StringComparison.Ordinal);
         Assert.Contains("displayNameOverride", dtoSource, StringComparison.Ordinal);

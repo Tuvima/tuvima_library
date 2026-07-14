@@ -16,7 +16,10 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<IOrphanImageReferenceReadService, OrphanImageReferenceReadService>();
         services.AddSingleton<IProfileOverviewReadService, ProfileOverviewReadService>();
         services.AddSingleton<IPersonCreditReadService, PersonCreditReadService>();
+        services.AddSingleton<IWorkDetailReadService, WorkDetailReadService>();
         services.AddSingleton<ILibraryOverviewReadService, LibraryOverviewReadService>();
+        services.AddSingleton<ILibraryWorkFeedReadService, LibraryWorkFeedReadService>();
+        services.AddSingleton<ILibraryCurationReadService, LibraryCurationReadService>();
         services.AddSingleton<IMetadataClaimHistoryReadService, MetadataClaimHistoryReadService>();
         services.AddSingleton<ICollectionBrowseReadService, CollectionBrowseReadService>();
         services.AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>();

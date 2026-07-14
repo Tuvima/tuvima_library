@@ -125,9 +125,20 @@
         gap: 8px;
         cursor: pointer;
         transition: opacity 0.2s;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
     }
 
     .book-detail-sidebar-author-wrap:hover { opacity: 0.80; }
+
+    .book-detail-sidebar-author-wrap:focus-visible,
+    .book-detail-cover-wrap:focus-visible {
+        outline: 2px solid var(--tl-accent-primary);
+        outline-offset: 3px;
+    }
 
     .book-detail-sidebar-avatar {
         width: 48px;
@@ -472,6 +483,9 @@
 
     .book-detail-cover-wrap {
         cursor: zoom-in;
+        padding: 0;
+        border: 0;
+        background: transparent;
     }
 
     .book-detail-cover {

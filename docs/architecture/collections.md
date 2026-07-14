@@ -532,7 +532,7 @@ For performance, Smart collections cache a `rule_hash` - the hash of the seriali
 
 | Action | Method | Purpose |
 |--------|--------|---------|
-| Collections hub catalog | `GET /collections/management-catalog` | Server-classified catalog for `/collections`: system/user/managed collections plus broader multi-shelf rollups |
+| Collections hub catalog | `GET /collections/catalog` | Server-classified catalog for `/collections`: system/user/managed collections plus broader multi-shelf rollups |
 | Collection summary | `GET /collections/{id}/summary` | One catalog summary for a detail page without loading the full catalog |
 | Collection items | `GET /collections/{id}/items` | Detail-page items, including generated rollup aggregation |
 | Repair shelf assignments | `POST /collections/reconcile` | Dry-run or run collection backfill for already-ingested media |

@@ -666,7 +666,7 @@ public sealed class PersonListItemDto
     public bool IsGroup { get; set; }
 }
 
-/// <summary>A group member or parent group for display in PersonBiographyDrawer.</summary>
+/// <summary>A group member or parent group for person-detail projections.</summary>
 public sealed class GroupMemberView
 {
     public Guid Id { get; init; }

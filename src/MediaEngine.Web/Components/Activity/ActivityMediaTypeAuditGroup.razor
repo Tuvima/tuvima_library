@@ -56,6 +56,10 @@
                             var expanded = IsItemExpanded?.Invoke(item) == true;
                             <tr class="activity-media-group__item @(expanded ? "is-expanded" : null)"
                                 @key="@($"{item.BatchId:N}-{item.AssetId?.ToString("N") ?? item.Title}")"
+                                role="button"
+                                tabindex="0"
+                                aria-expanded="@(expanded ? "true" : "false")"
+                                @onkeydown="@(args => HandleItemKeyDownAsync(args, item))"
                                 @onclick="@(() => OnToggleItem.InvokeAsync(item))">
                                 <td>
                                     <div class="activity-media-group__title-cell">
@@ -147,5 +151,10 @@
 
     private static string ThumbnailUrl(string? coverUrl) =>
         MediaTileArtworkUrl.Sized(coverUrl, "s") ?? coverUrl ?? "";
+
+    private Task HandleItemKeyDownAsync(KeyboardEventArgs args, ActivityBatchItemViewModel item) =>
+        args.Key is "Enter" or " "
+            ? OnToggleItem.InvokeAsync(item)
+            : Task.CompletedTask;
 
 }

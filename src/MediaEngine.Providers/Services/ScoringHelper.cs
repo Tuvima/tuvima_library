@@ -23,12 +23,6 @@ namespace MediaEngine.Providers.Services;
 public static class ScoringHelper
 {
     /// <summary>
-    /// Multi-valued field keys — delegates to
-    /// <see cref="MetadataFieldConstants.MultiValuedKeys"/>.
-    /// </summary>
-    public static HashSet<string> MultiValuedKeys => MetadataFieldConstants.MultiValuedKeys;
-
-    /// <summary>
     /// Persists new claims for an entity, loads all claims, runs the scoring
     /// engine, and upserts the resulting canonical values.
     /// </summary>

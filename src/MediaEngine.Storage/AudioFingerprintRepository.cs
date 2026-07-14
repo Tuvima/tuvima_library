@@ -25,7 +25,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
                 duration_sec = @DurationSec,
                 created_at = datetime('now')
             """,
-            new { AssetId = assetId.ToString(), Fingerprint = fingerprint, DurationSec = durationSec });
+            new { AssetId = assetId, Fingerprint = fingerprint, DurationSec = durationSec });
     }
 
     public async Task<(byte[]? Fingerprint, double DurationSec)?> GetAsync(Guid assetId, CancellationToken ct = default)
@@ -33,7 +33,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
         using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<FingerprintRow>(
             "SELECT fingerprint, duration_sec AS DurationSec FROM audio_fingerprints WHERE asset_id = @Id",
-            new { Id = assetId.ToString() });
+            new { Id = assetId });
 
         if (row is null) return null;
         return (row.fingerprint, row.DurationSec);
@@ -46,7 +46,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
             "SELECT asset_id AS AssetId, fingerprint FROM audio_fingerprints");
 
         return rows
-            .Select(r => (Guid.Parse(r.AssetId), r.fingerprint))
+            .Select(r => (r.AssetId, r.fingerprint))
             .ToList();
     }
 
@@ -55,7 +55,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
         using var conn = _db.CreateConnection();
         return await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM audio_fingerprints WHERE asset_id = @Id",
-            new { Id = assetId.ToString() }) > 0;
+            new { Id = assetId }) > 0;
     }
 
     // Private DTOs to avoid dynamic and boxing issues
@@ -67,7 +67,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
 
     private sealed class FingerprintAllRow
     {
-        public string AssetId { get; init; } = "";
+        public Guid AssetId { get; init; }
         public byte[] fingerprint { get; init; } = [];
     }
 }

@@ -138,6 +138,58 @@ public sealed class CollectionRepository : ICollectionRepository
     private static Guid? ReadNullableGuid(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : GuidSql.FromDb(reader.GetValue(ordinal));
 
+    private static Collection ReadJoinedCollection(SqliteDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, 0),
+        UniverseId = ReadNullableGuid(reader, 1),
+        DisplayName = reader.IsDBNull(2) ? null : reader.GetString(2),
+        CreatedAt = DateTimeOffset.Parse(reader.GetString(3)),
+        UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
+        ParentCollectionId = ReadNullableGuid(reader, 5),
+        WikidataQid = reader.IsDBNull(6) ? null : reader.GetString(6),
+        CollectionType = reader.IsDBNull(7) ? "Universe" : reader.GetString(7),
+        Description = reader.IsDBNull(8) ? null : reader.GetString(8),
+        IconName = reader.IsDBNull(9) ? null : reader.GetString(9),
+        Scope = reader.IsDBNull(10) ? "library" : reader.GetString(10),
+        ProfileId = ReadNullableGuid(reader, 11),
+        IsEnabled = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
+        IsFeatured = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
+        MinItems = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
+        RuleJson = reader.IsDBNull(15) ? null : reader.GetString(15),
+        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
+        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
+        ModifiedAt = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
+    };
+
+    private static void AddJoinedWork(
+        SqliteDataReader reader,
+        Collection collection,
+        IDictionary<Guid, Work> works)
+    {
+        const int workIdOrdinal = 19;
+        if (reader.IsDBNull(workIdOrdinal))
+            return;
+
+        var workId = ReadGuid(reader, workIdOrdinal);
+        if (works.ContainsKey(workId))
+            return;
+
+        var work = new Work
+        {
+            Id = workId,
+            CollectionId = collection.Id,
+            MediaType = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
+            Ordinal = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+            UniverseMismatch = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
+            UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
+            WikidataStatus = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
+            WikidataCheckedAt = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
+            WikidataQid = reader.IsDBNull(26) ? null : reader.GetString(26),
+        };
+        works[workId] = work;
+        collection.AddWork(work);
+    }
+
     private static void LoadCanonicalValuesForLoadedWorks(
         SqliteConnection conn,
         Dictionary<Guid, Work> works,
@@ -150,46 +202,50 @@ public sealed class CollectionRepository : ICollectionRepository
             ? $"AND {HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root")}"
             : string.Empty;
 
-        var rows = conn.Query<WorkCanonicalValueRow>($"""
-            WITH work_lineage AS (
-                SELECT w.id AS WorkId,
-                       w.id AS LeafWorkId,
-                       p.id AS ParentWorkId,
-                       COALESCE(gp.id, p.id, w.id) AS RootWorkId
-                FROM works w
-                LEFT JOIN works p ON p.id = w.parent_work_id
-                LEFT JOIN works gp ON gp.id = p.parent_work_id
-                WHERE w.id IN @workIds
-            ),
-            canonical_sources AS (
-                SELECT WorkId, LeafWorkId AS EntityId, 1 AS ScopeRank
-                FROM work_lineage
-                UNION ALL
-                SELECT WorkId, ParentWorkId AS EntityId, 2 AS ScopeRank
-                FROM work_lineage
-                WHERE ParentWorkId IS NOT NULL
-                UNION ALL
-                SELECT WorkId, RootWorkId AS EntityId, 3 AS ScopeRank
-                FROM work_lineage
-                WHERE RootWorkId IS NOT NULL
-                UNION ALL
-                SELECT wl.WorkId, ma.id AS EntityId, 0 AS ScopeRank
-                FROM work_lineage wl
-                JOIN editions e ON e.work_id = wl.WorkId
-                JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE 1 = 1
-                {visibleAssetPredicate}
-            )
-            SELECT cs.WorkId,
-                   cv.entity_id AS EntityId,
-                   cv.key AS Key,
-                   cv.value AS Value,
-                   cv.last_scored_at AS LastScoredAt,
-                   cs.ScopeRank
-            FROM canonical_sources cs
-            JOIN canonical_values cv ON cv.entity_id = cs.EntityId
-            ORDER BY cs.WorkId, cs.ScopeRank, cv.key, cv.last_scored_at DESC;
-            """, new { workIds = works.Keys.Select(GuidSql.ToBlob).ToArray() });
+        var rows = new List<WorkCanonicalValueRow>();
+        foreach (var batch in works.Keys.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            rows.AddRange(conn.Query<WorkCanonicalValueRow>($"""
+                WITH work_lineage AS (
+                    SELECT w.id AS WorkId,
+                           w.id AS LeafWorkId,
+                           p.id AS ParentWorkId,
+                           COALESCE(gp.id, p.id, w.id) AS RootWorkId
+                    FROM works w
+                    LEFT JOIN works p ON p.id = w.parent_work_id
+                    LEFT JOIN works gp ON gp.id = p.parent_work_id
+                    WHERE w.id IN @workIds
+                ),
+                canonical_sources AS (
+                    SELECT WorkId, LeafWorkId AS EntityId, 1 AS ScopeRank
+                    FROM work_lineage
+                    UNION ALL
+                    SELECT WorkId, ParentWorkId AS EntityId, 2 AS ScopeRank
+                    FROM work_lineage
+                    WHERE ParentWorkId IS NOT NULL
+                    UNION ALL
+                    SELECT WorkId, RootWorkId AS EntityId, 3 AS ScopeRank
+                    FROM work_lineage
+                    WHERE RootWorkId IS NOT NULL
+                    UNION ALL
+                    SELECT wl.WorkId, ma.id AS EntityId, 0 AS ScopeRank
+                    FROM work_lineage wl
+                    JOIN editions e ON e.work_id = wl.WorkId
+                    JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE 1 = 1
+                    {visibleAssetPredicate}
+                )
+                SELECT cs.WorkId,
+                       cv.entity_id AS EntityId,
+                       cv.key AS Key,
+                       cv.value AS Value,
+                       cv.last_scored_at AS LastScoredAt,
+                       cs.ScopeRank
+                FROM canonical_sources cs
+                JOIN canonical_values cv ON cv.entity_id = cs.EntityId
+                ORDER BY cs.WorkId, cs.ScopeRank, cv.key, cv.last_scored_at DESC;
+                """, new { workIds = batch.Select(GuidSql.ToBlob).ToArray() }));
+        }
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows)
@@ -247,53 +303,11 @@ public sealed class CollectionRepository : ICollectionRepository
                 var collectionId = ReadGuid(reader, 0);
                 if (!collections.TryGetValue(collectionId, out var collection))
                 {
-                    collection = new Collection
-                    {
-                        Id              = collectionId,
-                        UniverseId      = ReadNullableGuid(reader, 1),
-                        DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
-                        CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
-                        UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
-                        ParentCollectionId     = ReadNullableGuid(reader, 5),
-                        WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
-                        CollectionType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
-                        Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
-                        IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
-                        Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
-                        ProfileId       = ReadNullableGuid(reader, 11),
-                        IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
-                        IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
-                        MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
-                        RuleJson        = reader.IsDBNull(15) ? null : reader.GetString(15),
-                        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
-                        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
-                        ModifiedAt      = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
-                    };
+                    collection = ReadJoinedCollection(reader);
                     collections[collectionId] = collection;
                 }
 
-                // LEFT JOIN: work columns are NULL when the collection has no works.
-                if (!reader.IsDBNull(19))
-                {
-                    var workId = ReadGuid(reader, 19);
-                    if (!works.ContainsKey(workId))
-                    {
-                        var work = new Work
-                        {
-                            Id                 = workId,
-                            CollectionId              = collectionId,
-                            MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
-                            Ordinal            = reader.IsDBNull(21) ? null : reader.GetInt32(21),
-                            UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
-                            UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
-                            WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
-                            WikidataCheckedAt  = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
-                            WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
-                        };
-                        works[workId] = work;
-                        collection.AddWork(work);
-                    }
-                }
+                AddJoinedWork(reader, collection, works);
             }
         }
 
@@ -303,35 +317,38 @@ public sealed class CollectionRepository : ICollectionRepository
         // ── Query C: collection relationships ────────────────────────────────────────
         if (collections.Count > 0)
         {
-            var collectionIds     = collections.Keys.ToList();
-            var paramNames = collectionIds.Select((_, i) => $"@h{i}").ToList();
-
-            using var cmd3 = conn.CreateCommand();
-            cmd3.CommandText = $"""
-                SELECT id, collection_id, rel_type, rel_qid, rel_label, confidence, discovered_at
-                FROM   collection_relationships
-                WHERE  collection_id IN ({string.Join(", ", paramNames)});
-                """;
-
-            for (int i = 0; i < collectionIds.Count; i++)
-                cmd3.Parameters.Add($"@h{i}", SqliteType.Blob).Value = GuidSql.ToBlob(collectionIds[i]);
-
-            using var reader3 = cmd3.ExecuteReader();
-            while (reader3.Read())
+            foreach (var collectionIds in collections.Keys.Chunk(SqliteBatching.MaxParametersPerQuery))
             {
-                var collectionId = ReadGuid(reader3, 1);
-                if (collections.TryGetValue(collectionId, out var collection))
+                ct.ThrowIfCancellationRequested();
+                var paramNames = collectionIds.Select((_, i) => $"@h{i}").ToList();
+
+                using var cmd3 = conn.CreateCommand();
+                cmd3.CommandText = $"""
+                    SELECT id, collection_id, rel_type, rel_qid, rel_label, confidence, discovered_at
+                    FROM   collection_relationships
+                    WHERE  collection_id IN ({string.Join(", ", paramNames)});
+                    """;
+
+                for (var i = 0; i < collectionIds.Length; i++)
+                    cmd3.Parameters.Add($"@h{i}", SqliteType.Blob).Value = GuidSql.ToBlob(collectionIds[i]);
+
+                using var reader3 = cmd3.ExecuteReader();
+                while (reader3.Read())
                 {
-                    collection.AddRelationship(new CollectionRelationship
+                    var collectionId = ReadGuid(reader3, 1);
+                    if (collections.TryGetValue(collectionId, out var collection))
                     {
-                        Id           = ReadGuid(reader3, 0),
-                        CollectionId        = collectionId,
-                        RelType      = reader3.GetString(2),
-                        RelQid       = reader3.GetString(3),
-                        RelLabel     = reader3.IsDBNull(4) ? null : reader3.GetString(4),
-                        Confidence   = reader3.GetDouble(5),
-                        DiscoveredAt = DateTimeOffset.Parse(reader3.GetString(6)),
-                    });
+                        collection.AddRelationship(new CollectionRelationship
+                        {
+                            Id = ReadGuid(reader3, 0),
+                            CollectionId = collectionId,
+                            RelType = reader3.GetString(2),
+                            RelQid = reader3.GetString(3),
+                            RelLabel = reader3.IsDBNull(4) ? null : reader3.GetString(4),
+                            Confidence = reader3.GetDouble(5),
+                            DiscoveredAt = DateTimeOffset.Parse(reader3.GetString(6)),
+                        });
+                    }
                 }
             }
         }
@@ -510,8 +527,8 @@ public sealed class CollectionRepository : ICollectionRepository
         await _db.AcquireWriteLockAsync(ct);
         try
         {
-            var keep  = keepCollectionId.ToString();
-            var merge = mergeCollectionId.ToString();
+            var keep  = keepCollectionId;
+            var merge = mergeCollectionId;
 
             using var conn = _db.CreateConnection();
             using var tx   = conn.BeginTransaction();
@@ -635,7 +652,7 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                id  = workId.ToString(),
+                id  = workId,
                 now = DateTimeOffset.UtcNow.ToString("O"),
             });
 
@@ -656,7 +673,7 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                id     = workId.ToString(),
+                id     = workId,
                 status,
                 now    = DateTimeOffset.UtcNow.ToString("O"),
             });
@@ -689,7 +706,7 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                id = workId.ToString(),
+                id = workId,
                 status,
                 now = DateTimeOffset.UtcNow.ToString("O"),
                 source,
@@ -734,7 +751,7 @@ public sealed class CollectionRepository : ICollectionRepository
         // last track disappears. User-retained parents are preserved.
         while (true)
         {
-            var emptyParentIds = conn.Query<string>("""
+            var emptyParentIds = conn.Query<Guid>("""
                 SELECT p.id
                 FROM works p
                 WHERE p.work_kind = 'parent'
@@ -990,8 +1007,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 """,
                 new
                 {
-                    id          = edition.Id.ToString(),
-                    workId      = edition.WorkId.ToString(),
+                    id          = edition.Id,
+                    workId      = edition.WorkId,
                     formatLabel = edition.FormatLabel,
                     wikidataQid = edition.WikidataQid,
                 });
@@ -1015,7 +1032,7 @@ public sealed class CollectionRepository : ICollectionRepository
             using var conn = _db.CreateConnection();
             conn.Execute(
                 "UPDATE works SET match_level = @matchLevel WHERE id = @workId;",
-                new { matchLevel, workId = workId.ToString() });
+                new { matchLevel, workId });
         }
         finally
         {
@@ -1248,49 +1265,11 @@ public sealed class CollectionRepository : ICollectionRepository
                 var collectionId = ReadGuid(reader, 0);
                 if (!collections.TryGetValue(collectionId, out var collection))
                 {
-                    collection = new Collection
-                    {
-                        Id              = collectionId,
-                        UniverseId      = ReadNullableGuid(reader, 1),
-                        DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
-                        CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
-                        UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
-                        ParentCollectionId     = ReadNullableGuid(reader, 5),
-                        WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
-                        CollectionType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
-                        Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
-                        IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
-                        Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
-                        ProfileId       = ReadNullableGuid(reader, 11),
-                        IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
-                        IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
-                        MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
-                        RuleJson        = reader.IsDBNull(15) ? null : reader.GetString(15),
-                        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
-                        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
-                        ModifiedAt      = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
-                    };
+                    collection = ReadJoinedCollection(reader);
                     collections[collectionId] = collection;
                 }
 
-                var workId = ReadGuid(reader, 19);
-                if (!works.ContainsKey(workId))
-                {
-                    var work = new Work
-                    {
-                        Id                 = workId,
-                        CollectionId              = collectionId,
-                        MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
-                        Ordinal            = reader.IsDBNull(21) ? null : reader.GetInt32(21),
-                        UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
-                        UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
-                        WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
-                        WikidataCheckedAt  = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
-                        WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
-                    };
-                    works[workId] = work;
-                    collection.AddWork(work);
-                }
+                AddJoinedWork(reader, collection, works);
             }
         }
 
@@ -1336,53 +1315,9 @@ public sealed class CollectionRepository : ICollectionRepository
             while (reader.Read())
             {
                 if (collection is null)
-                {
-                    collection = new Collection
-                    {
-                        Id              = ReadGuid(reader, 0),
-                        UniverseId      = ReadNullableGuid(reader, 1),
-                        DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
-                        CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
-                        UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
-                        ParentCollectionId     = ReadNullableGuid(reader, 5),
-                        WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
-                        CollectionType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
-                        Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
-                        IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
-                        Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
-                        ProfileId       = ReadNullableGuid(reader, 11),
-                        IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
-                        IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
-                        MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
-                        RuleJson        = reader.IsDBNull(15) ? null : reader.GetString(15),
-                        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
-                        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
-                        ModifiedAt      = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
-                    };
-                }
+                    collection = ReadJoinedCollection(reader);
 
-                // LEFT JOIN: work columns are NULL when collection has no works.
-                if (!reader.IsDBNull(19))
-                {
-                    var workId = ReadGuid(reader, 19);
-                    if (!works.ContainsKey(workId))
-                    {
-                        var work = new Work
-                        {
-                            Id                 = workId,
-                            CollectionId              = collection.Id,
-                            MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
-                            Ordinal            = reader.IsDBNull(21) ? null : reader.GetInt32(21),
-                            UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
-                            UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
-                            WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
-                            WikidataCheckedAt  = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
-                            WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
-                        };
-                        works[workId] = work;
-                        collection.AddWork(work);
-                    }
-                }
+                AddJoinedWork(reader, collection, works);
             }
         }
 

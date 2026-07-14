@@ -3,6 +3,17 @@ using MediaEngine.Domain.Entities;
 namespace MediaEngine.Domain.Contracts;
 
 /// <summary>
+/// A performer credit attached to a fictional character.
+/// </summary>
+public sealed record CharacterPerformerCredit(
+    Guid PersonId,
+    Guid FictionalEntityId,
+    string? WorkQid,
+    string PerformerName,
+    string? HeadshotUrl,
+    string? LocalHeadshotPath);
+
+/// <summary>
 /// Persistence contract for <see cref="Person"/> records and their links
 /// to media assets.
 ///
@@ -164,6 +175,14 @@ public interface IPersonRepository
     Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default);
 
     /// <summary>
+    /// Finds all people matching the supplied Wikidata QIDs in bounded batches.
+    /// Returned people include their stored roles.
+    /// </summary>
+    Task<IReadOnlyList<Person>> FindByQidsAsync(
+        IEnumerable<string> qids,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Deletes a person record and all associated media links.
     /// Used by the reconciliation service when cleaning orphaned persons.
     /// </summary>
@@ -227,6 +246,14 @@ public interface IPersonRepository
     /// </summary>
     Task<IReadOnlyList<(Guid PersonId, Guid FictionalEntityId)>> GetCharacterLinksByWorkAsync(
         string workQid,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns performer credits for all supplied fictional entities in one database read.
+    /// Internal identifiers remain typed GUIDs throughout the query and result.
+    /// </summary>
+    Task<IReadOnlyList<CharacterPerformerCredit>> GetCharacterPerformersAsync(
+        IEnumerable<Guid> fictionalEntityIds,
         CancellationToken ct = default);
 
     /// <summary>

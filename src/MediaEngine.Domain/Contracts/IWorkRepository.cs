@@ -30,21 +30,13 @@ public interface IWorkRepository
     /// insert-or-select semantics so concurrent ingestion cannot create
     /// duplicate local shelves.
     /// </summary>
-    async Task<Guid> GetOrCreateParentAsync(
+    Task<Guid> GetOrCreateParentAsync(
         MediaType mediaType,
         string parentKey,
         Guid? grandparentWorkId,
         int? ordinal,
         double? ordinalSort = null,
-        CancellationToken ct = default)
-    {
-        if (await FindParentByKeyAsync(mediaType, parentKey, ct).ConfigureAwait(false) is { } existing)
-            return existing;
-
-        var created = await InsertParentAsync(mediaType, parentKey, grandparentWorkId, ordinal, ct).ConfigureAwait(false);
-        await UpdateOrdinalSortAsync(created, ordinalSort, ct).ConfigureAwait(false);
-        return created;
-    }
+        CancellationToken ct = default);
 
     /// <summary>
     /// Finds a child Work of the given parent at the given ordinal
@@ -63,8 +55,7 @@ public interface IWorkRepository
     Task<Guid?> FindChildByOrdinalSortAsync(
         Guid parentWorkId,
         double ordinalSort,
-        CancellationToken ct = default)
-        => Task.FromResult<Guid?>(null);
+        CancellationToken ct = default);
 
     /// <summary>
     /// Finds a child Work of the given parent by case-insensitive title
@@ -112,25 +103,12 @@ public interface IWorkRepository
     /// Atomically finds or creates a child Work by decimal/disc-aware sort
     /// value when present, otherwise by integer ordinal.
     /// </summary>
-    async Task<Guid> GetOrCreateChildAsync(
+    Task<Guid> GetOrCreateChildAsync(
         MediaType mediaType,
         Guid parentWorkId,
         int? ordinal,
         double? ordinalSort = null,
-        CancellationToken ct = default)
-    {
-        if (ordinalSort is { } sort
-            && await FindChildByOrdinalSortAsync(parentWorkId, sort, ct).ConfigureAwait(false) is { } bySort)
-            return bySort;
-
-        if (ordinal is { } value
-            && await FindChildByOrdinalAsync(parentWorkId, value, ct).ConfigureAwait(false) is { } byOrdinal)
-            return byOrdinal;
-
-        var created = await InsertChildAsync(mediaType, parentWorkId, ordinal, ct).ConfigureAwait(false);
-        await UpdateOrdinalSortAsync(created, ordinalSort, ct).ConfigureAwait(false);
-        return created;
-    }
+        CancellationToken ct = default);
 
     /// <summary>
     /// Persists the decimal/disc-aware sequence sort value for a Work.
@@ -138,8 +116,7 @@ public interface IWorkRepository
     Task UpdateOrdinalSortAsync(
         Guid workId,
         double? ordinalSort,
-        CancellationToken ct = default)
-        => Task.CompletedTask;
+        CancellationToken ct = default);
 
     /// <summary>
     /// Inserts a new standalone Work (movies, single-title books, etc.).
@@ -208,8 +185,7 @@ public interface IWorkRepository
         string title,
         string? creator,
         Guid? excludeWorkId = null,
-        CancellationToken ct = default)
-        => Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+        CancellationToken ct = default);
 }
 
 /// <summary>

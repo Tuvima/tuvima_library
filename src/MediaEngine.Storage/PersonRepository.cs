@@ -42,12 +42,21 @@ public sealed class PersonRepository : IPersonRepository
         place_of_birth     AS PlaceOfBirth,
         place_of_death     AS PlaceOfDeath,
         nationality        AS Nationality,
-        is_pseudonym       AS IsPseudonym
+        is_pseudonym       AS IsPseudonym,
+        is_group           AS IsGroup
         """;
 
     /// <summary>Helper record for reading character-performer link rows.</summary>
     private sealed record CharacterLinkRow(Guid FictionalEntityId, string? WorkQid);
     private sealed record CharacterLinkByWorkRow(Guid PersonId, Guid FictionalEntityId);
+    private sealed record CharacterPerformerRow(
+        Guid PersonId,
+        Guid FictionalEntityId,
+        string? WorkQid,
+        string PerformerName,
+        string? HeadshotUrl,
+        string? LocalHeadshotPath);
+    private sealed record PersonRoleRow(Guid PersonId, string Role);
 
     /// <summary>Helper record for the ListAllAsync GROUP_CONCAT query.</summary>
     private sealed record PersonWithRolesCsv
@@ -379,40 +388,49 @@ public sealed class PersonRepository : IPersonRepository
             return Task.FromResult<IReadOnlyList<Person>>([]);
 
         using var conn = _db.CreateConnection();
-        var p = new DynamicParameters();
-        var mediaAssetIdClause = AddGuidBlobList(p, "mediaAssetId", ids);
-        var rows = conn.Query<PersonWithRolesCsv>($"""
-            SELECT p.id                  AS Id,
-                   p.name                AS Name,
-                   p.wikidata_qid        AS WikidataQid,
-                   p.headshot_url        AS HeadshotUrl,
-                   p.biography           AS Biography,
-                   p.created_at          AS CreatedAt,
-                   p.enriched_at         AS EnrichedAt,
-                   p.occupation          AS Occupation,
-                   p.instagram           AS Instagram,
-                   p.twitter             AS Twitter,
-                   p.tiktok              AS TikTok,
-                   p.mastodon            AS Mastodon,
-                   p.website             AS Website,
-                   p.local_headshot_path AS LocalHeadshotPath,
-                   p.date_of_birth       AS DateOfBirth,
-                   p.date_of_death       AS DateOfDeath,
-                   p.place_of_birth      AS PlaceOfBirth,
-                   p.place_of_death      AS PlaceOfDeath,
-                   p.nationality         AS Nationality,
-                   p.is_pseudonym        AS IsPseudonym,
-                   p.is_group            AS IsGroup,
-                   GROUP_CONCAT(pr.role, ',') AS RolesCsv
-            FROM   persons p
-            JOIN   person_media_links l ON l.person_id = p.id
-            LEFT JOIN person_roles pr ON pr.person_id = p.id
-            WHERE  l.media_asset_id IN ({mediaAssetIdClause})
-            GROUP  BY p.id
-            ORDER  BY p.name ASC;
-            """, p).AsList();
+        var rows = new List<PersonWithRolesCsv>();
+        foreach (var batch in ids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var p = new DynamicParameters();
+            var mediaAssetIdClause = AddGuidBlobList(p, "mediaAssetId", batch);
+            rows.AddRange(conn.Query<PersonWithRolesCsv>($"""
+                SELECT p.id                  AS Id,
+                       p.name                AS Name,
+                       p.wikidata_qid        AS WikidataQid,
+                       p.headshot_url        AS HeadshotUrl,
+                       p.biography           AS Biography,
+                       p.created_at          AS CreatedAt,
+                       p.enriched_at         AS EnrichedAt,
+                       p.occupation          AS Occupation,
+                       p.instagram           AS Instagram,
+                       p.twitter             AS Twitter,
+                       p.tiktok              AS TikTok,
+                       p.mastodon            AS Mastodon,
+                       p.website             AS Website,
+                       p.local_headshot_path AS LocalHeadshotPath,
+                       p.date_of_birth       AS DateOfBirth,
+                       p.date_of_death       AS DateOfDeath,
+                       p.place_of_birth      AS PlaceOfBirth,
+                       p.place_of_death      AS PlaceOfDeath,
+                       p.nationality         AS Nationality,
+                       p.is_pseudonym        AS IsPseudonym,
+                       p.is_group            AS IsGroup,
+                       GROUP_CONCAT(pr.role, ',') AS RolesCsv
+                FROM   persons p
+                JOIN   person_media_links l ON l.person_id = p.id
+                LEFT JOIN person_roles pr ON pr.person_id = p.id
+                WHERE  l.media_asset_id IN ({mediaAssetIdClause})
+                GROUP  BY p.id
+                ORDER  BY p.name ASC;
+                """, p));
+        }
 
-        var results = rows.Select(MapFromCsvRow).ToList();
+        var results = rows
+            .GroupBy(row => row.Id)
+            .Select(group => MapFromCsvRow(group.First()))
+            .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         return Task.FromResult<IReadOnlyList<Person>>(results);
     }
 
@@ -682,21 +700,25 @@ public sealed class PersonRepository : IPersonRepository
             return Task.FromResult(new Dictionary<Guid, Dictionary<string, int>>());
 
         using var conn = _db.CreateConnection();
-        var p = new DynamicParameters();
-        var personIdClause = AddGuidBlobList(p, "personId", idList);
-
         // Primary path: persons linked via person_media_links (populated during Wikidata Stage 2).
-        var rows = conn.Query<PresenceRow>($"""
-            SELECT p.id AS PersonId, cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-            FROM persons p
-            JOIN person_media_links pml ON pml.person_id = p.id
-            JOIN media_assets ma ON ma.id = pml.media_asset_id
-            JOIN editions e ON e.id = ma.edition_id
-            JOIN works w ON w.id = e.work_id
-            JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'media_type'
-            WHERE p.id IN ({personIdClause})
-            GROUP BY p.id, cv.value;
-            """, p).AsList();
+        var rows = new List<PresenceRow>();
+        foreach (var batch in idList.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var p = new DynamicParameters();
+            var personIdClause = AddGuidBlobList(p, "personId", batch);
+            rows.AddRange(conn.Query<PresenceRow>($"""
+                SELECT p.id AS PersonId, cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+                FROM persons p
+                JOIN person_media_links pml ON pml.person_id = p.id
+                JOIN media_assets ma ON ma.id = pml.media_asset_id
+                JOIN editions e ON e.id = ma.edition_id
+                JOIN works w ON w.id = e.work_id
+                JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'media_type'
+                WHERE p.id IN ({personIdClause})
+                GROUP BY p.id, cv.value;
+                """, p));
+        }
 
         // For persons with no media links, fall back to matching by name in canonical_values
         // (covers single-valued author/narrator/director fields stored during ingestion).
@@ -705,32 +727,35 @@ public sealed class PersonRepository : IPersonRepository
 
         if (unlinkedIds.Count > 0)
         {
-            var fallbackParams = new DynamicParameters();
-            var unlinkedIdClause = AddGuidBlobList(fallbackParams, "unlinkedId", unlinkedIds);
-            var fallbackRows = conn.Query<PresenceRow>($"""
-                SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-                FROM persons p
-                JOIN canonical_values cva ON cva.value = p.name
-                    AND cva.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-                JOIN media_assets ma ON ma.id = cva.entity_id
-                JOIN editions e ON e.id = ma.edition_id
-                JOIN works w ON w.id = e.work_id
-                JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
-                WHERE p.id IN ({unlinkedIdClause})
-                GROUP BY p.id, cvmt.value
-                UNION ALL
-                SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-                FROM persons p
-                JOIN canonical_value_arrays cvaa ON cvaa.value = p.name
-                    AND cvaa.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-                JOIN media_assets ma ON ma.id = cvaa.entity_id
-                JOIN editions e ON e.id = ma.edition_id
-                JOIN works w ON w.id = e.work_id
-                JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
-                WHERE p.id IN ({unlinkedIdClause})
-                GROUP BY p.id, cvmt.value;
-                """, fallbackParams).AsList();
-            rows.AddRange(fallbackRows);
+            foreach (var batch in unlinkedIds.Chunk(SqliteBatching.MaxParametersPerQuery))
+            {
+                ct.ThrowIfCancellationRequested();
+                var fallbackParams = new DynamicParameters();
+                var unlinkedIdClause = AddGuidBlobList(fallbackParams, "unlinkedId", batch);
+                rows.AddRange(conn.Query<PresenceRow>($"""
+                    SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+                    FROM persons p
+                    JOIN canonical_values cva ON cva.value = p.name
+                        AND cva.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
+                    JOIN media_assets ma ON ma.id = cva.entity_id
+                    JOIN editions e ON e.id = ma.edition_id
+                    JOIN works w ON w.id = e.work_id
+                    JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
+                    WHERE p.id IN ({unlinkedIdClause})
+                    GROUP BY p.id, cvmt.value
+                    UNION ALL
+                    SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+                    FROM persons p
+                    JOIN canonical_value_arrays cvaa ON cvaa.value = p.name
+                        AND cvaa.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
+                    JOIN media_assets ma ON ma.id = cvaa.entity_id
+                    JOIN editions e ON e.id = ma.edition_id
+                    JOIN works w ON w.id = e.work_id
+                    JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
+                    WHERE p.id IN ({unlinkedIdClause})
+                    GROUP BY p.id, cvmt.value;
+                    """, fallbackParams));
+            }
         }
 
         var result = new Dictionary<Guid, Dictionary<string, int>>();
@@ -902,6 +927,87 @@ public sealed class PersonRepository : IPersonRepository
         return Task.FromResult(result);
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Person>> FindByQidsAsync(
+        IEnumerable<string> qids,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(qids);
+        ct.ThrowIfCancellationRequested();
+
+        var normalizedQids = qids
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Select(qid => qid.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (normalizedQids.Count == 0)
+            return Task.FromResult<IReadOnlyList<Person>>([]);
+
+        using var conn = _db.CreateConnection();
+        var people = new List<Person>();
+        foreach (var batch in normalizedQids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            people.AddRange(conn.Query<Person>($"""
+                SELECT {SelectColumns}
+                FROM   persons
+                WHERE  wikidata_qid COLLATE NOCASE IN @qids
+                ORDER  BY name;
+                """, new { qids = batch }));
+        }
+
+        PopulateRoles(conn, people, ct);
+        return Task.FromResult<IReadOnlyList<Person>>(people);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<CharacterPerformerCredit>> GetCharacterPerformersAsync(
+        IEnumerable<Guid> fictionalEntityIds,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(fictionalEntityIds);
+        ct.ThrowIfCancellationRequested();
+
+        var ids = fictionalEntityIds
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0)
+            return Task.FromResult<IReadOnlyList<CharacterPerformerCredit>>([]);
+
+        using var conn = _db.CreateConnection();
+        var rows = new List<CharacterPerformerRow>();
+        foreach (var batch in ids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var parameters = new DynamicParameters();
+            var idClause = AddGuidBlobList(parameters, "fictionalEntityId", batch);
+            rows.AddRange(conn.Query<CharacterPerformerRow>($"""
+                SELECT cpl.person_id           AS PersonId,
+                       cpl.fictional_entity_id AS FictionalEntityId,
+                       cpl.work_qid            AS WorkQid,
+                       p.name                  AS PerformerName,
+                       p.headshot_url          AS HeadshotUrl,
+                       p.local_headshot_path   AS LocalHeadshotPath
+                FROM   character_performer_links cpl
+                JOIN   persons p ON p.id = cpl.person_id
+                WHERE  cpl.fictional_entity_id IN ({idClause})
+                ORDER  BY cpl.fictional_entity_id, p.name, cpl.work_qid;
+                """, parameters));
+        }
+
+        IReadOnlyList<CharacterPerformerCredit> result = rows
+            .Select(row => new CharacterPerformerCredit(
+                row.PersonId,
+                row.FictionalEntityId,
+                row.WorkQid,
+                row.PerformerName,
+                row.HeadshotUrl,
+                row.LocalHeadshotPath))
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     // -------------------------------------------------------------------------
     // QID-based deduplication merge
     // -------------------------------------------------------------------------
@@ -1035,6 +1141,44 @@ public sealed class PersonRepository : IPersonRepository
         person.Roles = conn.Query<string>("""
             SELECT role FROM person_roles WHERE person_id = @id ORDER BY role;
             """, p).AsList();
+    }
+
+    private static void PopulateRoles(
+        Microsoft.Data.Sqlite.SqliteConnection conn,
+        IReadOnlyList<Person> people,
+        CancellationToken ct)
+    {
+        if (people.Count == 0)
+            return;
+
+        var rolesByPerson = new Dictionary<Guid, List<string>>();
+        foreach (var batch in people.Select(person => person.Id)
+                     .Distinct()
+                     .Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var parameters = new DynamicParameters();
+            var idClause = AddGuidBlobList(parameters, "personId", batch);
+            foreach (var row in conn.Query<PersonRoleRow>($"""
+                         SELECT person_id AS PersonId,
+                                role      AS Role
+                         FROM   person_roles
+                         WHERE  person_id IN ({idClause})
+                         ORDER  BY person_id, role;
+                         """, parameters))
+            {
+                if (!rolesByPerson.TryGetValue(row.PersonId, out var roles))
+                {
+                    roles = [];
+                    rolesByPerson[row.PersonId] = roles;
+                }
+
+                roles.Add(row.Role);
+            }
+        }
+
+        foreach (var person in people)
+            person.Roles = rolesByPerson.GetValueOrDefault(person.Id) ?? [];
     }
 
     /// <summary>

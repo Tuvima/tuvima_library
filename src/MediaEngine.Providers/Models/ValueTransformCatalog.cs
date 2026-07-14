@@ -124,10 +124,8 @@ public static partial class ValueTransformCatalog
                     string.Empty).Trim()),
 
             // Sanitize HTML by preserving a safe allow-list of tags and stripping the rest.
-            // Allowed tags: b, i, em, strong, p, br (mirrors HydrationSettings.PreserveHtmlTags defaults).
+            // Allowed tags are a fixed security policy: b, i, em, strong, p, br.
             // HTML entities are decoded after stripping. <br> variants are normalised to <br />.
-            // TODO: Read the allow-list from HydrationSettings.PreserveHtmlTags at runtime once
-            //       ValueTransformCatalog can be made non-static and DI-injected.
             ["sanitize_html"] = raw =>
             {
                 if (string.IsNullOrWhiteSpace(raw)) return raw;

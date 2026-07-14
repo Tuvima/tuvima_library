@@ -14,7 +14,6 @@ public sealed class DashboardReliabilityGuardrailTests
 
     [Theory]
     [InlineData(@"src\MediaEngine.Web\Components\Library\LibraryMediaGrid.razor", "@key=\"item.EntityId\"")]
-    [InlineData(@"src\MediaEngine.Web\Components\LibraryItems\LibraryItemGrid.razor", "@key=\"item.EntityId\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Universe\AlphabeticalGrid.razor", "@key=\"@GetItemKey(item)\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Universe\PosterSwimlane.razor", "@key=\"item.Id\"")]
     [InlineData(@"src\MediaEngine.Web\Components\MediaTiles\MediaTileGrid.razor", "@key=\"item.Id\"")]
@@ -147,7 +146,8 @@ public sealed class DashboardReliabilityGuardrailTests
     [Fact]
     public void IngestionDashboard_ExplainsIconMeaningWithSimpleTooltips()
     {
-        var source = Read(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor");
+        var source = Read(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor")
+                     + Read(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor.cs");
 
         Assert.Contains("MudTooltip Text=\"Reload the latest ingestion status.\"", source, StringComparison.Ordinal);
         Assert.Contains("MudTooltip Text=\"Start a new scan of the watched folders.\"", source, StringComparison.Ordinal);

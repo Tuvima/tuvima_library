@@ -515,6 +515,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task UpdateEnrichmentAsync(Guid entityId, string? description, string? imageUrl, DateTimeOffset enrichedAt, CancellationToken ct = default) => Task.CompletedTask;
         public Task LinkToWorkAsync(Guid entityId, string workQid, string? workLabel, string linkType = "appears_in", CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>> GetWorkLinksAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<(string WorkQid, string? WorkLabel, string LinkType)>>([]);
+        public Task<IReadOnlyList<FictionalEntityWorkLink>> GetWorkLinksAsync(IEnumerable<Guid> entityIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntityWorkLink>>([]);
         public Task<int> CountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task UpdateRevisionAsync(Guid entityId, long revisionId, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<FictionalEntity>> GetStaleEntitiesAsync(int staleAfterDays, int limit, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntity>>([]);
@@ -539,6 +540,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task<IReadOnlyList<Person>> ListPagedAsync(string? role, int offset, int limit, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task<int> CountMediaLinksAsync(Guid personId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<Person?>(null);
+        public Task<IReadOnlyList<Person>> FindByQidsAsync(IEnumerable<string> qids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task DeleteAsync(Guid personId, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateBiographicalFieldsAsync(Guid personId, string? dateOfBirth, string? dateOfDeath, string? placeOfBirth, string? placeOfDeath, string? nationality, bool isPseudonym, bool isGroup = false, CancellationToken ct = default) => Task.CompletedTask;
         public Task LinkAliasAsync(Guid pseudonymPersonId, Guid realPersonId, CancellationToken ct = default) => Task.CompletedTask;
@@ -546,6 +548,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task LinkToCharacterAsync(Guid personId, Guid fictionalEntityId, string? workQid, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<(Guid FictionalEntityId, string? WorkQid)>> GetCharacterLinksAsync(Guid personId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<(Guid FictionalEntityId, string? WorkQid)>>([]);
         public Task<IReadOnlyList<(Guid PersonId, Guid FictionalEntityId)>> GetCharacterLinksByWorkAsync(string workQid, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<(Guid PersonId, Guid FictionalEntityId)>>([]);
+        public Task<IReadOnlyList<CharacterPerformerCredit>> GetCharacterPerformersAsync(IEnumerable<Guid> fictionalEntityIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CharacterPerformerCredit>>([]);
         public Task ReassignAllLinksAsync(Guid fromPersonId, Guid toPersonId, CancellationToken ct = default) => Task.CompletedTask;
         public Task<bool> IsPseudonymOrAliasAsync(Guid personId, CancellationToken ct = default) => Task.FromResult(false);
         public Task LinkGroupMemberAsync(Guid groupId, Guid memberId, CancellationToken ct = default) => Task.CompletedTask;

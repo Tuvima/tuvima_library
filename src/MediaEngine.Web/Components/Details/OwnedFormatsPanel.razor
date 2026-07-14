@@ -44,10 +44,6 @@
                     </div>
                     <strong>@ProgressPercent(SelectedFormat)%</strong>
                 </div>
-                @foreach (var action in SelectedFormat.Actions.Take(1))
-                {
-                    <AppNativeButton Type="button" Class="tl-detail-mini-action">@action.Label</AppNativeButton>
-                }
             </div>
         </article>
 
@@ -80,7 +76,13 @@
     <div class="tl-owned-formats__grid">
         @foreach (var format in Formats)
         {
-            <article class="tl-owned-format-card @(format.Id == SelectedFormat.Id ? "is-selected" : null)" @onclick="@(() => SelectFormat(format.Id))">
+            <article class="tl-owned-format-card @(format.Id == SelectedFormat.Id ? "is-selected" : null)"
+                     role="button"
+                     tabindex="0"
+                     aria-pressed="@(format.Id == SelectedFormat.Id ? "true" : "false")"
+                     aria-label="@($"Select {format.DisplayName}")"
+                     @onclick="@(() => SelectFormat(format.Id))"
+                     @onkeydown="@(args => HandleFormatKeyDown(args, format.Id))">
                 <div class="tl-owned-format-card__art">
                     @if (!string.IsNullOrWhiteSpace(format.CoverUrl))
                     {
@@ -94,10 +96,6 @@
                 <div>
                     <h3>@format.DisplayName</h3>
                     <p>@FormatSummary(format)</p>
-                    @foreach (var action in format.Actions.Take(1))
-                    {
-                        <AppNativeButton Type="button" Class="tl-detail-mini-action">@action.Label</AppNativeButton>
-                    }
                 </div>
             </article>
         }
@@ -124,6 +122,12 @@
     }
 
     private void SelectFormat(string id) => _selectedFormatId = id;
+
+    private void HandleFormatKeyDown(KeyboardEventArgs args, string id)
+    {
+        if (args.Key is "Enter" or " ")
+            SelectFormat(id);
+    }
 
     private string Summary => MultiFormatState switch
     {

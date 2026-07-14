@@ -20,6 +20,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/MediaEngine.Domain.Tests/MediaEngine.Domain.Tests.csproj" />
     <Project Path="tests/MediaEngine.Ingestion.Tests/MediaEngine.Ingestion.Tests.csproj" />
+    <Project Path="tests/MediaEngine.Identity.Tests/MediaEngine.Identity.Tests.csproj" />
     <Project Path="tests/MediaEngine.Intelligence.Tests/MediaEngine.Intelligence.Tests.csproj" />
     <Project Path="tests/MediaEngine.Processors.Tests/MediaEngine.Processors.Tests.csproj" />
     <Project Path="tests/MediaEngine.Storage.Tests/MediaEngine.Storage.Tests.csproj" />

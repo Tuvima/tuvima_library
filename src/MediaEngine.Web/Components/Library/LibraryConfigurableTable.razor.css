@@ -334,11 +334,30 @@
         gap: 16px;
         padding: 10px 12px;
         margin-bottom: 12px;
-        cursor: pointer;
         user-select: none;
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid var(--tl-divider);
+    }
+
+    .vmt-group-toggle {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex: 1;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .vmt-group-toggle:focus-visible {
+        outline: 2px solid var(--tl-accent-primary);
+        outline-offset: 2px;
     }
 
     .vmt-group-label {

@@ -99,14 +99,16 @@ public sealed class ItemEndpointRouteTests
     public void ItemEditorEndpoints_ResolveCurrentMediaAssetOrWorkTargets()
     {
         var canonical = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+        var canonicalData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ItemCanonicalDataService.cs"));
         var libraryItems = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryItemEndpoints.cs"));
+        var libraryItemData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\LibraryItemCurationStore.cs"));
 
-        Assert.Contains("TryResolveWorkAssetContext", canonical, StringComparison.Ordinal);
+        Assert.Contains("ResolveWorkAssetContextAsync", canonical, StringComparison.Ordinal);
         Assert.Contains("No current media asset or work target found", canonical, StringComparison.Ordinal);
-        Assert.Contains("GuidSql.ToBlob(entityId)", canonical, StringComparison.Ordinal);
-        Assert.Contains("TryResolveLibraryItemTarget", libraryItems, StringComparison.Ordinal);
-        Assert.Contains("WHERE ma.id = @entityId", libraryItems, StringComparison.Ordinal);
-        Assert.Contains("OR e.work_id = @entityId", libraryItems, StringComparison.Ordinal);
+        Assert.Contains("GuidSql.ToBlob(entityId)", canonicalData, StringComparison.Ordinal);
+        Assert.Contains("store.ResolveTargetAsync(entityId, ct)", libraryItems, StringComparison.Ordinal);
+        Assert.Contains("WHERE ma.id = @entityId", libraryItemData, StringComparison.Ordinal);
+        Assert.Contains("OR e.work_id = @entityId", libraryItemData, StringComparison.Ordinal);
         Assert.DoesNotContain("No media asset found for work", canonical, StringComparison.Ordinal);
         Assert.DoesNotContain("No media asset found for work", libraryItems, StringComparison.Ordinal);
     }
@@ -115,12 +117,26 @@ public sealed class ItemEndpointRouteTests
     public void ItemCanonicalEndpoints_RouteManualWritesByLineageScope()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+        var canonicalData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ItemCanonicalDataService.cs"));
 
         Assert.Contains("IWorkRepository workRepo", source, StringComparison.Ordinal);
         Assert.Contains("ResolveScopedTarget(context.AssetId, lineage, key)", source, StringComparison.Ordinal);
         Assert.Contains("ResolveScopedTarget(context.AssetId, lineage, kv.Key)", source, StringComparison.Ordinal);
         Assert.Contains("ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)", source, StringComparison.Ordinal);
-        Assert.Contains("COALESCE(ma.id, child_ma.id, grandchild_ma.id)", source, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(ma.id, child_ma.id, grandchild_ma.id)", canonicalData, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ItemCanonicalEndpoints_UseTypedDataServiceInsteadOfDirectDatabaseAccess()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+
+        Assert.Contains("IItemCanonicalDataService itemCanonicalData", source, StringComparison.Ordinal);
+        Assert.Contains("itemCanonicalData.ResolveWorkAssetContextAsync", source, StringComparison.Ordinal);
+        Assert.Contains("itemCanonicalData.DeleteIdentityArtifactsAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("IDatabaseConnection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateConnection", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GuidSql", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -45,7 +45,6 @@
     "year": 0.10,
     "format": 0.10
   },
-  "preserve_html_tags": ["b", "i", "em", "strong", "p", "br"],
   "wikidata_batch_size": 50,
   "identity_retry_max_attempts": 5,
   "identity_retry_base_delay_seconds": 10,

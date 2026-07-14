@@ -52,7 +52,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/collections` | Browse-oriented collection list with works and canonical metadata | Required |
-| GET | `/collections/management-catalog` | Collections hub catalog: system/user/managed collections plus broader rollups where trusted relationships connect multiple shelves | Required |
+| GET | `/collections/catalog` | Collections hub catalog: system/user/managed collections plus broader rollups where trusted relationships connect multiple shelves | Required |
 | GET | `/collections/{id}/summary` | One Collections hub summary for a detail page without loading the full catalog | Required |
 | GET | `/collections/{id}/items` | Items for a collection detail page, including generated rollup aggregation | Required |
 | POST | `/collections/reconcile` | Dry-run or run collection shelf repair for already-ingested media. Body: `dry_run`, `batch_size`, `max_items`. Returns candidate, processed, assigned, skipped, failed, and elapsed counts. | Curator |

@@ -31,7 +31,7 @@
     <div class="@PlayerShellClass" @ref="_playerShellRef" tabindex="0">
         @if (Playback.IsPanelOpen)
         {
-            <div class="listen-player-panel-backdrop" @onclick="Playback.ClosePanel"></div>
+            <div class="listen-player-panel-backdrop" role="presentation" aria-hidden="true" @onclick="Playback.ClosePanel"></div>
             <aside class="listen-player-panel">
                 @if (Playback.IsAudiobookMode)
                 {

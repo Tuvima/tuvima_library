@@ -406,7 +406,7 @@ public sealed class DisplayComposerServiceTests
 
         Assert.Equal(profileId, repository.LastHomeCollectionsProfileId);
         Assert.Equal(
-            ["continue", "watch-next", "read-next", "listen-next", "home-collections", "fresh"],
+            ["continue", "watch-next", "read-next", "listen-next", "home-collections"],
             page.Shelves.Select(shelf => shelf.Key));
         Assert.Equal("Jump Back In", page.Shelves[0].Title);
         Assert.Equal("Watch", page.Shelves[1].Title);
@@ -417,7 +417,6 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("/listen", page.Shelves[3].SeeAllRoute);
         Assert.Equal("Collections & Lists", page.Shelves[4].Title);
         Assert.Equal("/collections", page.Shelves[4].SeeAllRoute);
-        Assert.Equal("New in your library", page.Shelves[5].Title);
         Assert.Equal(page.Shelves[0].Items[0].Facts, page.Hero?.Facts);
     }
 
@@ -450,12 +449,14 @@ public sealed class DisplayComposerServiceTests
 
         var page = await composer.BuildHomeAsync(includeCatalog: true);
 
-        foreach (var key in new[] { "continue", "watch-next", "fresh" })
+        foreach (var key in new[] { "continue", "watch-next" })
         {
             var showCard = Assert.Single(page.Shelves.Single(shelf => shelf.Key == key).Items, card => card.Title == "Severance");
             Assert.Equal("/shows/severance-cover.jpg", showCard.Artwork.CoverUrl);
             Assert.DoesNotContain(page.Shelves.Single(shelf => shelf.Key == key).Items, card => card.Title is "Pilot" or "Half Loop");
         }
+
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "fresh");
 
         var continueCard = Assert.Single(page.Shelves.Single(shelf => shelf.Key == "continue").Items);
         Assert.Equal("Continue · S5 E1", continueCard.Subtitle);
@@ -463,6 +464,28 @@ public sealed class DisplayComposerServiceTests
 
         Assert.Single(page.Catalog, card => card.Title == "Severance");
         Assert.DoesNotContain(page.Catalog, card => card.Title is "Pilot" or "Half Loop");
+    }
+
+    [Fact]
+    public async Task Home_FillsFreshWithStructurallyUnplacedWorks()
+    {
+        var sharedCollectionId = Guid.Parse("bbbbbbbb-9999-9999-9999-bbbbbbbbbbbb");
+        var works = Enumerable.Range(1, 20)
+            .Select(index => Work(
+                Guid.Parse($"aaaaaaaa-9999-9999-9999-{index:D12}"),
+                "Movie",
+                $"Movie {index:D2}",
+                collectionId: sharedCollectionId))
+            .ToList();
+        var composer = CreateComposer(new StubDisplayProjectionRepository(works, []));
+
+        var page = await composer.BuildHomeAsync(includeCatalog: false, shelfLimit: 18);
+
+        var watch = page.Shelves.Single(shelf => shelf.Key == "watch-next");
+        var fresh = page.Shelves.Single(shelf => shelf.Key == "fresh");
+        Assert.Equal(18, watch.Items.Count);
+        Assert.Equal(2, fresh.Items.Count);
+        Assert.Empty(watch.Items.Select(card => card.WorkId).Intersect(fresh.Items.Select(card => card.WorkId)));
     }
 
     [Fact]

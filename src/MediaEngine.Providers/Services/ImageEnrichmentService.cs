@@ -411,7 +411,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         {
             using var client = _httpFactory.CreateClient(
                 string.IsNullOrWhiteSpace(clientName) ? FanartProviderConfigName : clientName);
-            var response = await client.GetAsync(url, ct);
+            using var response = await client.GetAsync(url, ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -889,7 +889,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         {
             using var client = _httpFactory.CreateClient(
                 string.IsNullOrWhiteSpace(clientName) ? FanartProviderConfigName : clientName);
-            var response = await client.GetAsync(url, ct);
+            using var response = await client.GetAsync(url, ct);
             var statusCode = (int)response.StatusCode;
 
             if (!response.IsSuccessStatusCode)
