@@ -79,8 +79,8 @@ has a show-scoped detail page opened from its still. An unstarted show may keep 
 series hero while its facts and action target the first owned episode; after progress,
 the hero switches to that episode's still and separated `Sx Ey` synopsis. Short
 provider show copy appears under the owned summary in Series Description. Detail
-heroes keep written identity and credits left-aligned while centering logos, compact
-facts, and actions. The facts show at most two linked genres as a non-wrapping pair.
+heroes use one left-aligned column for identity, logos, compact facts, actions, and
+description. The facts show at most two linked genres on their own non-wrapping line.
 Movie synopsis blocks use the movie description.
 Continue cards retain the episode target with `Sx Ey` action context. Comic sequence presentation shows issue numbers and owned
 counts without treating the current provider run count as a completion target.

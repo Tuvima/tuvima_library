@@ -55,6 +55,8 @@ public sealed class RetailProviderDecompositionTests
         Assert.Contains("AddTvEpisodeCrewClaims(claims, episode)", source, StringComparison.Ordinal);
         Assert.Contains("AddTvEpisodeGuestStarClaims(claims, episode)", source, StringComparison.Ordinal);
         Assert.Contains("MetadataFieldConstants.GuestStar", source, StringComparison.Ordinal);
+        Assert.Contains("episode[\"runtime\"]", source, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.Runtime", source, StringComparison.Ordinal);
     }
 
     [Fact]

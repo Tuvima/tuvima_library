@@ -3,49 +3,45 @@
 
 @{
     var inlineStatItems = InlineStatItems;
+    var inlinePrimaryItems = inlineStatItems.Where(item => !KindEquals(item, "genre")).ToList();
+    var inlineGenreItems = inlineStatItems.Where(item => KindEquals(item, "genre")).ToList();
     var statItems = StatItems;
 }
 
 <div class="tl-detail-metadata-stack">
     @if (UsePrimaryHeroChrome && inlineStatItems.Count > 0)
     {
-        <div class="tl-detail-watch-metadata-row" aria-label="Media details">
-            @foreach (var entry in inlineStatItems.Select((item, index) => new { item, index }))
+        @if (inlinePrimaryItems.Count > 0)
+        {
+        <div class="tl-detail-watch-metadata-row tl-detail-watch-metadata-row--facts" aria-label="Media details">
+            @foreach (var entry in inlinePrimaryItems.Select((item, index) => new { item, index }))
             {
-                @if (KindEquals(entry.item, "genre"))
+                @if (!string.IsNullOrWhiteSpace(entry.item.Route))
                 {
-                    @if (entry.index == 0 || !KindEquals(inlineStatItems[entry.index - 1], "genre"))
-                    {
-                        var genreItems = inlineStatItems.Where(item => KindEquals(item, "genre")).ToList();
-                        <span class="tl-detail-watch-genre-group">
-                            @foreach (var genreEntry in genreItems.Select((item, index) => new { item, index }))
-                            {
-                                <a class="@WatchStatClass(genreEntry.item)" href="@genreEntry.item.Route" title="@genreEntry.item.Tooltip">@WatchStatContent(genreEntry.item)</a>@if (genreEntry.index < genreItems.Count - 1){<span class="tl-detail-watch-genre-comma" aria-hidden="true">, </span>}
-                            }
-                        </span>
-                        @if (entry.index + genreItems.Count < inlineStatItems.Count)
-                        {
-                            <span class="tl-detail-watch-metadata-separator" aria-hidden="true"> · </span>
-                        }
-                    }
+                    <a class="@WatchStatClass(entry.item)" href="@entry.item.Route" title="@entry.item.Tooltip">@WatchStatContent(entry.item)</a>
                 }
                 else
                 {
-                    @if (!string.IsNullOrWhiteSpace(entry.item.Route))
-                    {
-                        <a class="@WatchStatClass(entry.item)" href="@entry.item.Route" title="@entry.item.Tooltip">@WatchStatContent(entry.item)</a>
-                    }
-                    else
-                    {
-                        <span class="@WatchStatClass(entry.item)" title="@entry.item.Tooltip">@WatchStatContent(entry.item)</span>
-                    }
-                    @if (entry.index < inlineStatItems.Count - 1)
-                    {
-                        <span class="tl-detail-watch-metadata-separator" aria-hidden="true"> · </span>
-                    }
+                    <span class="@WatchStatClass(entry.item)" title="@entry.item.Tooltip">@WatchStatContent(entry.item)</span>
+                }
+                @if (entry.index < inlinePrimaryItems.Count - 1)
+                {
+                    <span class="tl-detail-watch-metadata-separator" aria-hidden="true">&middot;</span>
                 }
             }
         </div>
+        }
+        @if (inlineGenreItems.Count > 0)
+        {
+            <div class="tl-detail-watch-metadata-row tl-detail-watch-metadata-row--genres" aria-label="Genres">
+                <span class="tl-detail-watch-genre-group">
+                    @foreach (var genreEntry in inlineGenreItems.Select((item, index) => new { item, index }))
+                    {
+                        <a class="@WatchStatClass(genreEntry.item)" href="@genreEntry.item.Route" title="@genreEntry.item.Tooltip">@WatchStatContent(genreEntry.item)</a>@if (genreEntry.index < inlineGenreItems.Count - 1){<span class="tl-detail-watch-genre-comma" aria-hidden="true">, </span>}
+                    }
+                </span>
+            </div>
+        }
     }
     else if (statItems.Count > 0 || ShouldRenderHeroBrand)
     {

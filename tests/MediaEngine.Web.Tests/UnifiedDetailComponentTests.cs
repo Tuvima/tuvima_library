@@ -193,6 +193,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("genre:{item.Label}", source);
         Assert.Contains("tl-detail-watch-genre-group", source);
         Assert.Contains("tl-detail-watch-genre-comma", source);
+        Assert.Contains("tl-detail-watch-metadata-row--facts", source);
+        Assert.Contains("tl-detail-watch-metadata-row--genres", source);
+        Assert.Contains("inlinePrimaryItems", source);
+        Assert.Contains("inlineGenreItems", source);
         Assert.Contains(">, </span>", source);
         Assert.DoesNotContain("WatchSeparator", source);
         Assert.Contains("href=\"@entry.item.Route\"", source);
@@ -204,6 +208,21 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("or \"episode_count\" or \"duration\" or \"genre\" or \"quality\" or \"subtitles\" or \"rating\"", source);
         Assert.Contains("\"episode_count\" => 2", source);
         Assert.Contains("\"genre\" => 4", source);
+    }
+
+    [Fact]
+    public void DetailHero_UsesOneLeftAlignedScaleAcrossMediaLanes()
+    {
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+
+        Assert.Contains("justify-self: start", styles);
+        Assert.Contains("max-height: 18rem", styles);
+        Assert.Contains(".tl-detail-watch-metadata-row--genres", styles);
+        Assert.Contains("font-size: clamp(1rem, 1.3vw, 1.18rem)", styles);
+        Assert.Contains("min-height: 4.8rem", styles);
+        Assert.Contains(".tl-detail-primary-actions:has(> :only-child)", styles);
+        Assert.Contains("grid-template-columns: 1fr", styles);
+        Assert.Contains("width: min(34rem, 100%)", styles);
     }
 
     [Fact]

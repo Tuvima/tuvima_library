@@ -6665,13 +6665,15 @@
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy h1 {
     width: min(34rem, 100%);
-    justify-self: center;
+    justify-self: start;
     text-align: left;
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
     width: min(34rem, 100%);
-    justify-self: center;
+    height: auto;
+    max-height: 18rem;
+    justify-self: start;
     margin-bottom: 0.55rem;
     object-position: left center;
 }
@@ -6682,19 +6684,19 @@
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack {
-    justify-self: center;
-    justify-items: center;
+    justify-self: start;
+    justify-items: start;
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions {
-    justify-self: center;
+    justify-self: start;
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero__series-context,
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero-credit-stack,
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero__subtitle {
     width: min(34rem, 100%);
-    justify-self: center;
+    justify-self: start;
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-watch-metadata-row {
@@ -6714,7 +6716,7 @@
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-watch-metadata-row {
@@ -6726,7 +6728,7 @@
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero-credit-stack,
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__subtitle {
     width: min(34rem, 100%);
-    justify-self: center;
+    justify-self: start;
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
@@ -6739,6 +6741,10 @@
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
     justify-content: flex-start;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row--genres {
+    margin-top: 0.08rem;
 }
 
 ::deep .tl-detail-watch-metadata-item[href] {
@@ -6762,6 +6768,36 @@
 
 ::deep .tl-detail-watch-genre-group .tl-detail-watch-metadata-item {
     flex: 0 0 auto;
+}
+
+/* Read, Watch, and Listen share one primary-action scale and facts typography. */
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
+    gap: 0.7rem;
+    font-size: clamp(1rem, 1.3vw, 1.18rem);
+    font-weight: 620;
+    letter-spacing: 0;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-action--primary {
+    min-height: 4.8rem;
+    font-size: clamp(1.2rem, 1.5vw, 1.45rem);
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch {
+    width: min(34rem, 100%);
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-primary-actions:has(> :only-child) {
+    grid-template-columns: 1fr;
+    justify-content: start;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-action--primary .mud-icon-root {
+    font-size: 1.55rem;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-hero__synopsis {
+    width: min(34rem, 100%);
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-watch-metadata-item--classification {
@@ -6798,7 +6834,7 @@
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__synopsis {
     order: 6;
-    width: min(47.5rem, 72vw);
+    width: min(34rem, 100%);
     margin-top: 0.55rem;
     padding-top: 1.35rem;
     border-top: 1px solid rgba(255, 255, 255, 0.16);

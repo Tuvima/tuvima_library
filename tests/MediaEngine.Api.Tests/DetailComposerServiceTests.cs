@@ -209,8 +209,14 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("tvInProgressEpisode?.BackgroundUrl", source);
         Assert.Contains("entityType == DetailEntityType.TvShow ? heroSummary : longDescription", source);
         Assert.Contains("currentWorkId ?? tvPlaybackEpisodeId", source);
-        Assert.Contains("FormatTrackDuration(tvPlaybackEpisode?.Duration)", source);
+        Assert.Contains("FormatTrackDuration(FirstNonBlank(", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);
+        Assert.Contains("LoadWorkAndAssetCanonicalMapAsync(tvPlaybackEpisodeId.Value, ct)", source);
+        Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Runtime)", source);
+        Assert.Contains("GetValue(tvPlaybackValues, \"duration\")", source);
+        Assert.Contains("AddTechnicalClaimFallbacksAsync(conn, assetId, values, ct)", source);
+        Assert.Contains("claim_key IN ('duration_sec', 'duration_seconds')", source);
+        Assert.Contains("FormatSecondsDuration(ParseDurationSeconds(FirstNonBlank(", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Genre)", source);
         Assert.Contains("SplitMetadataValues(playbackGenres).Take(2)", source);
         Assert.Contains("FROM canonical_value_arrays WHERE entity_id = @entityId ORDER BY key, ordinal", source);

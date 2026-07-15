@@ -365,7 +365,7 @@ public sealed class DetailComposerService
             ? parsedEpisodeId
             : (Guid?)null;
         var tvPlaybackValues = tvPlaybackEpisodeId.HasValue
-            ? await LoadCanonicalMapAsync(tvPlaybackEpisodeId.Value, ct)
+            ? await LoadWorkAndAssetCanonicalMapAsync(tvPlaybackEpisodeId.Value, ct)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         var relatedArt = works
@@ -3675,6 +3675,19 @@ public sealed class DetailComposerService
         LibraryItemDetail detail,
         CancellationToken ct)
     {
+        var values = await LoadWorkAndAssetCanonicalMapAsync(workId, ct);
+        foreach (var canonical in detail.CanonicalValues)
+        {
+            values[canonical.Key] = canonical.Value;
+        }
+
+        return values;
+    }
+
+    private async Task<Dictionary<string, string>> LoadWorkAndAssetCanonicalMapAsync(
+        Guid workId,
+        CancellationToken ct)
+    {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         using var conn = _db.CreateConnection();
         var assetIds = await conn.QueryAsync<Guid>(new CommandDefinition(
@@ -3694,19 +3707,40 @@ public sealed class DetailComposerService
             {
                 values.TryAdd(key, value);
             }
+
+            await AddTechnicalClaimFallbacksAsync(conn, assetId, values, ct);
         }
 
         foreach (var (key, value) in await LoadCanonicalMapAsync(workId, ct))
         {
             values[key] = value;
         }
-
-        foreach (var canonical in detail.CanonicalValues)
-        {
-            values[canonical.Key] = canonical.Value;
-        }
+        await AddTechnicalClaimFallbacksAsync(conn, workId, values, ct);
 
         return values;
+    }
+
+    private static async Task AddTechnicalClaimFallbacksAsync(
+        System.Data.IDbConnection conn,
+        Guid entityId,
+        IDictionary<string, string> values,
+        CancellationToken ct)
+    {
+        var rows = await conn.QueryAsync<CanonicalPair>(new CommandDefinition(
+            """
+            SELECT claim_key AS Key, claim_value AS Value
+            FROM metadata_claims
+            WHERE entity_id = @entityId
+              AND claim_key IN ('duration_sec', 'duration_seconds')
+              AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL
+            ORDER BY confidence DESC, claimed_at DESC;
+            """,
+            new { entityId = GuidSql.ToBlob(entityId) },
+            cancellationToken: ct));
+        foreach (var row in rows)
+        {
+            values.TryAdd(row.Key, row.Value);
+        }
     }
 
     private async Task<Guid?> LoadCollectionRootWorkIdAsync(
@@ -5878,7 +5912,14 @@ public sealed class DetailComposerService
             AddPlain(pills, ownedEpisodeCount > 0
                 ? $"{ownedEpisodeCount.ToString(CultureInfo.InvariantCulture)} {(ownedEpisodeCount == 1 ? "episode" : "episodes")} owned"
                 : null, "episode_count");
-            AddPlain(pills, FormatTrackDuration(tvPlaybackEpisode?.Duration), "duration");
+            AddPlain(pills, FirstNonBlank(
+                FormatTrackDuration(FirstNonBlank(
+                    tvPlaybackEpisode?.Duration,
+                    GetValue(tvPlaybackValues, MetadataFieldConstants.Runtime),
+                    GetValue(tvPlaybackValues, "duration"))),
+                FormatSecondsDuration(ParseDurationSeconds(FirstNonBlank(
+                    GetValue(tvPlaybackValues, "duration_sec"),
+                    GetValue(tvPlaybackValues, "duration_seconds"))))), "duration");
             AddPlain(pills, FirstNonBlank(
                 tvPlaybackEpisode?.Quality,
                 GetValue(tvPlaybackValues, "quality"),

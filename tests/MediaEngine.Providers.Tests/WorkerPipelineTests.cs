@@ -2152,6 +2152,7 @@ public sealed class WorkerPipelineTests
                                   "episode_number": 1,
                                   "air_date": "2024-01-01",
                                   "vote_average": 8.1,
+                                  "runtime": 58,
                                   "still_path": "/episode-still.jpg"
                                 }
                               ]

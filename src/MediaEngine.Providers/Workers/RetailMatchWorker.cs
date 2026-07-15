@@ -1452,6 +1452,9 @@ public sealed class RetailMatchWorker
         if (!string.IsNullOrWhiteSpace(rating))
             Add(MetadataFieldConstants.Rating, rating, 0.80);
 
+        Add(MetadataFieldConstants.Runtime,
+            episode["runtime"]?.GetValue<long?>()?.ToString(System.Globalization.CultureInfo.InvariantCulture), 0.90);
+
         AddTvEpisodeCrewClaims(claims, episode);
         AddTvEpisodeGuestStarClaims(claims, episode);
 
