@@ -199,7 +199,21 @@ public sealed class DetailComposerService
         var contributors = await BuildWorkContributorsAsync(workId, detail, entityType, ct);
         var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
         var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
-        var sequencePlacement = await BuildSequencePlacementAsync(workId, detail, entityType, selectedContainerId, ct);
+        SequencePlacementViewModel? sequencePlacement = null;
+        if (entityType == DetailEntityType.TvEpisode
+            && Guid.TryParse(selectedContainerId, out var showId))
+        {
+            sequencePlacement = (await BuildCollectionAsync(
+                showId,
+                DetailEntityType.TvShow,
+                context,
+                isAdminView,
+                favoriteWorkIds,
+                ct,
+                workId))?.SequencePlacement;
+        }
+
+        sequencePlacement ??= await BuildSequencePlacementAsync(workId, detail, entityType, selectedContainerId, ct);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, profileId, ct);
         var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats)
             ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
@@ -274,7 +288,8 @@ public sealed class DetailComposerService
         DetailPresentationContext context,
         bool isAdminView,
         IReadOnlySet<Guid> favoriteWorkIds,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? currentWorkId = null)
     {
         using var conn = _db.CreateConnection();
         var rawRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
@@ -412,7 +427,8 @@ public sealed class DetailComposerService
             row.WikidataQid,
             longDescription,
             displayWorks,
-            expectedTotal);
+            expectedTotal,
+            currentWorkId);
 
         return new DetailPageViewModel
         {
@@ -5422,7 +5438,8 @@ public sealed class DetailComposerService
         string? sourceContainerId,
         string? containerDescription,
         IReadOnlyList<CollectionWorkSummary> works,
-        int? expectedTotal)
+        int? expectedTotal,
+        Guid? currentWorkId = null)
     {
         if (entityType is not (DetailEntityType.TvShow
             or DetailEntityType.MovieSeries
@@ -5434,7 +5451,7 @@ public sealed class DetailComposerService
 
         var orderedWorks = entityType == DetailEntityType.TvShow
             ? DeduplicateTvEpisodeSummaries(works)
-                .Where(work => work.IsOwned || !string.IsNullOrWhiteSpace(work.Season))
+                .Where(work => work.IsOwned)
                 .ToList()
             : works
                 .OrderBy(work => work.Ordinal ?? int.MaxValue)
@@ -5479,6 +5496,8 @@ public sealed class DetailComposerService
                 GroupKey = groupKey,
                 GroupTitle = groupTitle,
                 MembershipScope = SeriesMembershipScopeNames.MainSequence,
+                IsCurrent = currentWorkId.HasValue
+                    && string.Equals(work.Id, currentWorkId.Value.ToString("D"), StringComparison.OrdinalIgnoreCase),
                 IsOwned = work.IsOwned,
                 ProgressState = work.IsOwned ? LibraryProgressState.Unstarted : LibraryProgressState.Missing,
             };
@@ -5499,13 +5518,22 @@ public sealed class DetailComposerService
             : [];
         var initialGroup = groups.FirstOrDefault(group => !string.Equals(group.Key, "season-0", StringComparison.OrdinalIgnoreCase))
             ?? groups.FirstOrDefault();
-        var representative = initialGroup?.Items.FirstOrDefault(item => item.IsOwned)
+        var selectedItem = currentWorkId.HasValue
+            ? items.FirstOrDefault(item => item.IsCurrent)
+            : null;
+        var selectedGroup = selectedItem is null
+            ? initialGroup
+            : groups.FirstOrDefault(group => string.Equals(group.Key, selectedItem.GroupKey, StringComparison.OrdinalIgnoreCase));
+        var representative = selectedItem
+            ?? selectedGroup?.Items.FirstOrDefault(item => item.IsOwned)
             ?? initialGroup?.Items.FirstOrDefault()
             ?? items.FirstOrDefault(item => item.IsOwned)
             ?? items[0];
         var normalizedSourceId = NormalizeSequenceContainerId(sourceContainerId);
         var containerId = collectionId.ToString("D");
-        var totalKnownItems = Math.Max(items.Count, expectedTotal ?? 0);
+        var totalKnownItems = entityType == DetailEntityType.TvShow
+            ? items.Count
+            : Math.Max(items.Count, expectedTotal ?? 0);
 
         return new SequencePlacementViewModel
         {
@@ -5531,9 +5559,9 @@ public sealed class DetailComposerService
             ItemLabel = labels.ItemLabel,
             ItemPluralLabel = labels.ItemPluralLabel,
             GroupLabel = labels.GroupLabel,
-            CurrentGroupKey = initialGroup?.Key,
+            CurrentGroupKey = selectedGroup?.Key ?? initialGroup?.Key,
             TotalKnownItems = totalKnownItems,
-            HasAuthoritativeTotal = expectedTotal is > 0,
+            HasAuthoritativeTotal = entityType != DetailEntityType.TvShow && expectedTotal is > 0,
             OrderingType = entityType switch
             {
                 DetailEntityType.TvShow => SequenceOrderingType.EpisodeNumber,

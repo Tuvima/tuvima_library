@@ -54,7 +54,12 @@ else
         _loading = true;
         var profile = await Orchestrator.GetActiveProfileAsync();
         _detail = EpisodeId.HasValue
-            ? await ApiClient.GetDetailPageAsync(DetailEntityType.TvEpisode, EpisodeId.Value, DetailPresentationContext.Watch, profileId: profile?.Id)
+            ? await ApiClient.GetDetailPageAsync(
+                DetailEntityType.TvEpisode,
+                EpisodeId.Value,
+                DetailPresentationContext.Watch,
+                containerId: CollectionId.ToString("D"),
+                profileId: profile?.Id)
             : await ApiClient.GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch, profileId: profile?.Id);
         ApplyDetailTabRoute();
         _loading = false;

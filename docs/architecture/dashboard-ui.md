@@ -76,8 +76,9 @@ the Engine:
   count without an `of N` completion target. Provider run totals remain internal
   matching and diagnostic facts because an ongoing comic run may keep growing.
 - TV has show detail pages with show-scoped detail pages for each owned episode.
-  Seasons contain episode rows with managed stills and available descriptions plus
-  owned-versus-known coverage; Continue surfaces
+  Both surfaces share the same season selector and owned-only episode projection;
+  provider-catalog rows and totals do not appear as library ownership. Seasons
+  contain managed stills and available descriptions; Continue surfaces
   retain the episode still and playback target, use compact copy such as
   `Continue · S5 E1`, and keep `Resume S5 E1` separate from Details.
 - Scoped series manifests render main-sequence works separately from

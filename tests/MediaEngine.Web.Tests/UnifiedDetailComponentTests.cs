@@ -586,7 +586,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("EpisodeDetailRoute", sequence);
         Assert.Contains("?episode={episodeId:D}", sequence);
         Assert.Contains("SupplyParameterFromQuery(Name = \"episode\")", showPage);
-        Assert.Contains("GetDetailPageAsync(DetailEntityType.TvEpisode", showPage);
+        Assert.Contains("DetailEntityType.TvEpisode,", showPage);
+        Assert.Contains("containerId: CollectionId.ToString(\"D\")", showPage);
         Assert.Contains("HeroSecondaryActions=\"EpisodeHeroActions\"", showPage);
         Assert.Contains("Key = \"show-details\"", showPage);
         Assert.Contains("Icon = \"arrow_back\"", showPage);
