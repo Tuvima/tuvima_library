@@ -434,7 +434,7 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
-    public async Task Home_UsesOneShowLevelCoverCardInsteadOfEpisodeStillCards()
+    public async Task Home_UsesEpisodeStillForContinueAndShowCoverForWatchShelf()
     {
         var showRootId = Guid.Parse("aaaaaaaa-6666-6666-6666-aaaaaaaaaaaa");
         var firstEpisode = Guid.Parse("aaaaaaaa-7777-7777-7777-aaaaaaaaaaaa");
@@ -444,23 +444,27 @@ public sealed class DisplayComposerServiceTests
                 Work(firstEpisode, "TV", "Pilot", showName: "Severance", season: "1", episode: "1", coverUrl: "/episodes/pilot.jpg", rootCoverUrl: "/shows/severance-cover.jpg", rootBackgroundUrl: "/shows/severance-bg.jpg", rootWorkId: showRootId),
                 Work(secondEpisode, "TV", "Half Loop", showName: "Severance", season: "1", episode: "2", coverUrl: "/episodes/half-loop.jpg", rootCoverUrl: "/shows/severance-cover.jpg", rootBackgroundUrl: "/shows/severance-bg.jpg", rootWorkId: showRootId),
             ],
-            [Journey(firstEpisode, "TV", "Pilot", 38, season: "5", episode: "1", showName: "Severance")]);
+            [Journey(firstEpisode, "TV", "Pilot", 38, season: "5", episode: "1", showName: "Severance", rootWorkId: showRootId, backgroundUrl: "/episodes/pilot-still.jpg")]);
         var composer = CreateComposer(repository);
 
         var page = await composer.BuildHomeAsync(includeCatalog: true);
 
-        foreach (var key in new[] { "continue", "watch-next" })
-        {
-            var showCard = Assert.Single(page.Shelves.Single(shelf => shelf.Key == key).Items, card => card.Title == "Severance");
-            Assert.Equal("/shows/severance-cover.jpg", showCard.Artwork.CoverUrl);
-            Assert.DoesNotContain(page.Shelves.Single(shelf => shelf.Key == key).Items, card => card.Title is "Pilot" or "Half Loop");
-        }
+        var watchNext = page.Shelves.Single(shelf => shelf.Key == "watch-next");
+        var showCard = Assert.Single(watchNext.Items, card => card.Title == "Severance");
+        Assert.Equal("/shows/severance-cover.jpg", showCard.Artwork.CoverUrl);
+        Assert.DoesNotContain(watchNext.Items, card => card.Title is "Pilot" or "Half Loop");
 
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "fresh");
 
         var continueCard = Assert.Single(page.Shelves.Single(shelf => shelf.Key == "continue").Items);
+        Assert.Equal(firstEpisode, continueCard.WorkId);
+        Assert.Equal("Pilot", continueCard.Title);
+        Assert.False(continueCard.Flags.IsCollection);
+        Assert.Equal("/episodes/pilot-still.jpg", continueCard.Artwork.BackgroundUrl);
         Assert.Equal("Continue · S5 E1", continueCard.Subtitle);
-        Assert.Equal($"/watch/tv/show/{showRootId:D}", continueCard.Actions[0].WebUrl);
+        Assert.Equal("Resume S5 E1", continueCard.Actions[0].Label);
+        Assert.Equal($"/watch/player/resolve?workId={firstEpisode:D}", continueCard.Actions[0].WebUrl);
+        Assert.Equal($"/watch/tv/show/{showRootId:D}?episode={firstEpisode:D}", continueCard.Actions[1].WebUrl);
 
         Assert.Single(page.Catalog, card => card.Title == "Severance");
         Assert.DoesNotContain(page.Catalog, card => card.Title is "Pilot" or "Half Loop");
@@ -645,7 +649,9 @@ public sealed class DisplayComposerServiceTests
         string? network = null,
         string? source = null,
         string? quality = null,
-        string? showName = null)
+        string? showName = null,
+        Guid? rootWorkId = null,
+        string? backgroundUrl = null)
     {
         return new DisplayJourneyRow
         {
@@ -669,6 +675,8 @@ public sealed class DisplayComposerServiceTests
             Source = source,
             Quality = quality,
             ShowName = showName,
+            RootWorkId = rootWorkId ?? Guid.Empty,
+            BackgroundUrl = backgroundUrl,
         };
     }
 

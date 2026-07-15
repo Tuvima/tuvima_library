@@ -189,6 +189,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-metadata-item", source);
         Assert.Contains("tl-detail-metadata-item--rating", source);
         Assert.DoesNotContain("tl-detail-pill", source);
+        Assert.Contains("EntityType == DetailEntityType.TvShow ? 4 : 6", source);
+        Assert.Contains("or \"episode_count\" or \"rating\"", source);
+        Assert.Contains("\"episode_count\" => 2", source);
     }
 
     [Fact]
@@ -543,10 +546,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("a.tl-series-item", styles);
         Assert.Contains("padding-bottom: 1.4rem", styles);
         Assert.Contains("tl-series-episode-play", source);
-        Assert.Contains("tl-series-episode-info", source);
+        Assert.Contains("tl-series-episode-details-overlay", source);
         Assert.Contains("EpisodeDetailRoute", source);
         Assert.Contains("tl-series-item__description", source);
-        Assert.DoesNotContain("tl-series-episode-detail", source);
+        Assert.Contains("EpisodeWatchLabel", source);
+        Assert.Contains("is-season-episode", source);
+        Assert.Contains("-webkit-line-clamp: 4", styles);
         Assert.DoesNotContain("tl-series-position-summary__label", source);
         Assert.Contains("tl-series-show-link", source);
         Assert.DoesNotContain("ShortContainerDescription", source);
@@ -582,6 +587,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SupplyParameterFromQuery(Name = \"episode\")", showPage);
         Assert.Contains("GetDetailPageAsync(DetailEntityType.TvEpisode", showPage);
         Assert.Contains("@ContainerTitleDisplay", sequence);
+        Assert.Contains("tl-series-episode-details-overlay", sequence);
+        Assert.Contains("Watch S{season} E{episode}", sequence);
     }
 
     [Fact]

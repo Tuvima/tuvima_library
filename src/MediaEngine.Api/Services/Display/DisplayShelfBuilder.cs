@@ -55,7 +55,7 @@ public sealed class DisplayShelfBuilder
         var groupShelf = _groupPolicy.GetShelf("watch");
         var tvShowCards = _cards.BuildTvShowCards(works);
         AddShelf(shelves, "continue-watching", "Continue watching", "Movies and shows already in progress",
-            journey.Take(take).Select(item => _cards.FromJourney(item, "watch", tvShowCards)).ToList(), "/watch/movies");
+            journey.Take(take).Select(item => _cards.FromJourney(item, "watch")).ToList(), "/watch/movies");
         if (groupShelf.Enabled)
         {
             AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,

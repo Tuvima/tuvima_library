@@ -255,6 +255,57 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_UsesLandscapeEpisodeStillForIndividualTvEpisode()
+    {
+        var episodeId = Guid.Parse("88888888-1111-1111-1111-888888888888");
+        var card = new DisplayCardDto(
+            Id: episodeId,
+            WorkId: episodeId,
+            AssetId: Guid.NewGuid(),
+            CollectionId: null,
+            MediaType: "TV",
+            GroupingType: "work",
+            Title: "Episode Three",
+            Subtitle: "Continue · S1 E3",
+            Facts: ["2026", "45m"],
+            Artwork: new DisplayArtworkDto(
+                CoverUrl: null, CoverSmallUrl: null, CoverMediumUrl: null, CoverLargeUrl: null,
+                SquareUrl: null, SquareSmallUrl: null, SquareMediumUrl: null, SquareLargeUrl: null,
+                BannerUrl: null, BannerSmallUrl: null, BannerMediumUrl: null, BannerLargeUrl: null,
+                BackgroundUrl: "/episodes/3.jpg",
+                BackgroundSmallUrl: "/episodes/3-s.jpg",
+                BackgroundMediumUrl: "/episodes/3-m.jpg",
+                BackgroundLargeUrl: "/episodes/3-l.jpg",
+                LogoUrl: null,
+                CoverWidthPx: null, CoverHeightPx: null,
+                SquareWidthPx: null, SquareHeightPx: null,
+                BannerWidthPx: null, BannerHeightPx: null,
+                BackgroundWidthPx: 1920, BackgroundHeightPx: 1080,
+                AccentColor: "#8b5cf6"),
+            PreferredShape: "landscape",
+            Presentation: "default",
+            TileTextMode: "coverOnly",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions:
+            [
+                new DisplayActionDto("playAsset", "Resume S1 E3", episodeId, WebUrl: $"/watch/player/resolve?workId={episodeId:D}"),
+                new DisplayActionDto("openWork", "Details", episodeId, WebUrl: $"/watch/tv/show/{Guid.NewGuid():D}?episode={episodeId:D}"),
+            ],
+            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-07-14T12:00:00Z"));
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.Equal(MediaTileShape.Landscape, mapped.Shape);
+        Assert.Equal(MediaTileSurfaceKind.BannerLandscape, mapped.SurfaceKind);
+        Assert.Equal("/episodes/3-s.jpg", mapped.TileImageUrl);
+        Assert.Equal("/episodes/3-m.jpg", mapped.HoverImageUrl);
+        Assert.Equal("Resume S1 E3", mapped.PrimaryActionLabel);
+        Assert.Equal(card.Actions[1].WebUrl, mapped.DetailsNavigationUrl);
+    }
+
+    [Fact]
     public void FromDisplayCard_MapsReadSeriesCollectionsToExpandedHover()
     {
         var collectionId = Guid.Parse("66666666-2222-2222-2222-666666666666");

@@ -22,8 +22,8 @@ else if (_detail is null)
 {
     <div class="tl-detail-page">
         <div class="tl-glass-panel">
-            <MudText Typo="Typo.h5">TV show not found</MudText>
-            <MudText Typo="Typo.body2">This show could not be loaded from your library.</MudText>
+            <MudText Typo="Typo.h5">@(EpisodeId.HasValue ? "Episode not found" : "TV show not found")</MudText>
+            <MudText Typo="Typo.body2">@(EpisodeId.HasValue ? "This episode could not be loaded from your library." : "This show could not be loaded from your library.")</MudText>
         </div>
     </div>
 }

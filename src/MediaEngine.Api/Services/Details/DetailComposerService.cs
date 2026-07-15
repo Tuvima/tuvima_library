@@ -235,7 +235,13 @@ public sealed class DetailComposerService
             SyncCapability = BuildSyncCapability(workId, ownedFormats, multiFormatState),
             SequencePlacement = sequencePlacement,
             Metadata = BuildMetadataPills(detail, entityType, values, ownedFormats),
-            PrimaryActions = BuildPrimaryActions(workId, entityType, context, ownedFormats, heroProgress),
+            PrimaryActions = BuildPrimaryActions(
+                workId,
+                entityType,
+                context,
+                ownedFormats,
+                heroProgress,
+                FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber)),
             SecondaryActions = BuildSecondaryActions(workId, entityType, favoriteWorkIds.Contains(workId), ownedFormats),
             OverflowActions = BuildOverflowActions(workId, entityType, isAdminView),
             ContributorGroups = contributorGroups,
@@ -4327,12 +4333,19 @@ public sealed class DetailComposerService
             format.FormatType == MediaFormatType.Audiobook
             && format.Progress?.Percent is > 0 and < 99.5);
 
-    private static IReadOnlyList<DetailAction> BuildPrimaryActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, IReadOnlyList<OwnedFormatViewModel> formats, ProgressViewModel? heroProgress)
+    private static IReadOnlyList<DetailAction> BuildPrimaryActions(
+        Guid id,
+        DetailEntityType entityType,
+        DetailPresentationContext context,
+        IReadOnlyList<OwnedFormatViewModel> formats,
+        ProgressViewModel? heroProgress,
+        string? episodePosition)
     {
         return entityType switch
         {
             DetailEntityType.Movie => BuildWatchActions($"/watch/player/resolve?workId={id}", heroProgress),
-            DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => BuildWatchActions(null, heroProgress),
+            DetailEntityType.TvEpisode => BuildWatchActions($"/watch/player/resolve?workId={id}", heroProgress, episodePosition),
+            DetailEntityType.TvShow or DetailEntityType.TvSeason => BuildWatchActions(null, heroProgress),
             DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
@@ -4449,12 +4462,13 @@ public sealed class DetailComposerService
             ],
         };
 
-    private static IReadOnlyList<DetailAction> BuildWatchActions(string? route, ProgressViewModel? progress)
+    private static IReadOnlyList<DetailAction> BuildWatchActions(string? route, ProgressViewModel? progress, string? episodePosition = null)
     {
+        var verb = progress is null ? "Watch" : "Resume";
         var watch = new DetailAction
         {
             Key = "watch",
-            Label = progress is null ? "Watch" : "Resume",
+            Label = string.IsNullOrWhiteSpace(episodePosition) ? verb : $"{verb} {episodePosition}",
             Icon = "play_arrow",
             Route = route,
             IsPrimary = true,
@@ -5686,6 +5700,36 @@ public sealed class DetailComposerService
         IReadOnlyList<CollectionWorkSummary> works,
         IReadOnlyDictionary<string, string> values)
     {
+        if (entityType == DetailEntityType.TvShow)
+        {
+            var pills = new List<MetadataPill>();
+            var firstOwnedYear = works
+                .Where(work => work.IsOwned && !string.IsNullOrWhiteSpace(work.Year))
+                .Select(work => ReleaseYear(work.Year))
+                .Where(year => !string.IsNullOrWhiteSpace(year))
+                .OrderBy(year => year, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            var ownedEpisodeCount = works.Count(work => work.IsOwned && InferMediaItemEntityType(work) == DetailEntityType.TvEpisode);
+
+            AddPlain(pills, FirstNonBlank(GetValue(values, "content_rating"), GetValue(values, "certification")), "content_rating");
+            AddPlain(pills, FirstNonBlank(
+                GetValue(values, "start_year"),
+                ReleaseYear(GetValue(values, "first_air_date")),
+                GetValue(values, MetadataFieldConstants.Year),
+                GetValue(values, "release_year"),
+                firstOwnedYear), "year");
+            AddPlain(pills, FormatCountLabel(
+                GetValue(values, "episode_count")
+                ?? (ownedEpisodeCount > 0 ? ownedEpisodeCount.ToString(CultureInfo.InvariantCulture) : null),
+                "episode"), "episode_count");
+            AddPlain(pills, FormatRating(GetValue(values, MetadataFieldConstants.Rating)), "rating");
+
+            return pills
+                .Where(value => !string.IsNullOrWhiteSpace(value.Label))
+                .DistinctBy(value => $"{value.Kind}:{value.Label}", StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         if (entityType == DetailEntityType.MusicAlbum)
         {
             var pills = new List<MetadataPill>();
@@ -6998,6 +7042,8 @@ public sealed class DetailComposerService
 
     private static string? FormatSeasonEpisode(string? season, string? episode)
     {
+        season = NormalizeEpisodeOrdinal(season);
+        episode = NormalizeEpisodeOrdinal(episode);
         if (string.IsNullOrWhiteSpace(season) && string.IsNullOrWhiteSpace(episode))
         {
             return null;
@@ -7014,6 +7060,18 @@ public sealed class DetailComposerService
         }
 
         return $"S{season} E{episode}";
+    }
+
+    private static string? NormalizeEpisodeOrdinal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        var normalized = trimmed.TrimStart('0');
+        return normalized.Length == 0 ? "0" : normalized;
     }
 
     private static string? FormatIssue(string? position)

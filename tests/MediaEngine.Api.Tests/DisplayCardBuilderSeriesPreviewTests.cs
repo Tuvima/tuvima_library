@@ -85,6 +85,43 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(2, card.PreviewTotalCount);
     }
 
+    [Fact]
+    public void FromJourney_TvEpisodeKeepsEpisodeStillAndSeparatesResumeFromDetails()
+    {
+        var showId = Guid.Parse("aaaaaaaa-2222-3333-4444-555555555555");
+        var episodeId = Guid.Parse("bbbbbbbb-2222-3333-4444-555555555555");
+        var assetId = Guid.Parse("cccccccc-2222-3333-4444-555555555555");
+        var row = new DisplayJourneyRow
+        {
+            RootWorkId = showId,
+            WorkId = episodeId,
+            AssetId = assetId,
+            MediaType = "TV",
+            ProgressPct = 37,
+            LastAccessed = DateTimeOffset.Parse("2026-07-14T12:00:00Z"),
+            Title = "The One with the Test",
+            ShowName = "Example Show",
+            SeasonNumber = "01",
+            EpisodeNumber = "03",
+            BackgroundSmallUrl = "/episodes/s01e03-s.jpg",
+            BackgroundMediumUrl = "/episodes/s01e03-m.jpg",
+            BackgroundLargeUrl = "/episodes/s01e03-l.jpg",
+        };
+
+        var card = new DisplayCardBuilder().FromJourney(row, "watch");
+
+        Assert.Equal(episodeId, card.Id);
+        Assert.Equal(episodeId, card.WorkId);
+        Assert.False(card.Flags.IsCollection);
+        Assert.Equal("Continue · S1 E3", card.Subtitle);
+        Assert.Equal("/episodes/s01e03-s.jpg", card.Artwork.BackgroundSmallUrl);
+        Assert.Equal("Resume S1 E3", card.Actions[0].Label);
+        Assert.Equal($"/watch/player/resolve?workId={episodeId:D}", card.Actions[0].WebUrl);
+        Assert.Equal("Details", card.Actions[1].Label);
+        Assert.Equal($"/watch/tv/show/{showId:D}?episode={episodeId:D}", card.Actions[1].WebUrl);
+        Assert.Equal(card.Actions[0], card.Progress?.ResumeAction);
+    }
+
     private static DisplayWorkRow CreateWork(
         Guid collectionId,
         string mediaType,

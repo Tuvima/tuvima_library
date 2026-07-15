@@ -22,6 +22,7 @@ public sealed class DisplayJourneyProjectionReader
             SELECT
                 us.asset_id AS AssetId,
                 w.id AS WorkId,
+                COALESCE(gpw.id, pw.id, w.id) AS RootWorkId,
                 w.collection_id AS CollectionId,
                 w.media_type AS MediaType,
                 us.progress_pct AS ProgressPct,

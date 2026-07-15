@@ -365,6 +365,38 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTile_TvEpisodeKeepsSeasonEpisodeInResumeAction()
+    {
+        var details = "/watch/tv/show/1?episode=3";
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            WorkId = Guid.NewGuid(),
+            Title = "Episode Three",
+            MediaKind = "TV",
+            Shape = MediaTileShape.Landscape,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            TileImageUrl = "/episodes/3.jpg",
+            HoverImageUrl = "/episodes/3.jpg",
+            NavigationUrl = details,
+            DetailsNavigationUrl = details,
+            PrimaryNavigationUrl = "/watch/player/3",
+            PrimaryActionLabel = "Resume S1 E3",
+            ProgressPct = 42,
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.NotEmpty(cut.FindAll("button[aria-label='Resume S1 E3']"));
+        Assert.Contains("Resume S1 E3", cut.Find(".media-tile-hover-control-primary").TextContent);
+
+        cut.Find(".media-tile-media").Click();
+        var nav = Services.GetRequiredService<NavigationManager>();
+        Assert.EndsWith(details, nav.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MediaTile_AudioPrimaryActionUsesUnifiedListenLabel()
     {
         var item = new MediaTileViewModel

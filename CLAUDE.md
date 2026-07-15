@@ -643,9 +643,10 @@ Reusable visual components, organised by feature slice.
 | `/universe/{Qid}/explore` | `ChronicleExplorer.razor` | Universe graph explorer |
 | `/search` | `SearchPage.razor` | Global search |
 
-TV episodes are children of the show detail page, organized by season; they do
-not have standalone detail routes. Continue surfaces retain the episode playback
-target and identify it with compact copy such as `Continue · S5 E1`.
+TV episodes are children of the show detail page, organized by season. Each owned
+episode has a show-scoped detail route opened from its still. Continue surfaces
+retain the episode still and playback target, identify it with compact copy such
+as `Continue · S5 E1`, and use actions such as `Resume S5 E1`.
 | `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`, ingestion at `/settings/ingestion`, temporary harness at `/settings/dev-harness`) |
 | `/not-found`, `/Error` | `NotFound.razor`, `Error.razor` | Error pages |
 

@@ -31,7 +31,7 @@ public sealed class DisplayComposerService
         var continueCards = journey
             .OrderByDescending(item => item.LastAccessed)
             .Take(Math.Max(1, shelfLimit))
-            .Select(item => _cards.FromJourney(item, "home", tvShowCards))
+            .Select(item => _cards.FromJourney(item, "home"))
             .ToList();
 
         var freshCandidates = works

@@ -628,6 +628,11 @@
         {
             if (Item.ProgressPct is > 0)
             {
+                if (Item.MediaKind == "TV" && HasEpisodeActionLabel)
+                {
+                    return PrimaryActionDisplayLabel;
+                }
+
                 return Item.MediaKind switch
                 {
                     "Book" or "Comic" => "Continue Reading",
@@ -733,7 +738,7 @@
             var label = PrimaryActionDisplayLabel;
             if (label.Contains("Resume", StringComparison.OrdinalIgnoreCase))
             {
-                return "Resume";
+                return Item.MediaKind == "TV" && HasEpisodeActionLabel ? label : "Resume";
             }
 
             if (label.Contains("Continue", StringComparison.OrdinalIgnoreCase))
@@ -750,6 +755,13 @@
             if (label.Contains("Play", StringComparison.OrdinalIgnoreCase))
             {
                 return Item.MediaKind is "Music" or "Audiobook" ? "Listen" : "Play";
+            }
+
+            if (Item.MediaKind == "TV"
+                && label.StartsWith("Watch ", StringComparison.OrdinalIgnoreCase)
+                && HasEpisodeActionLabel)
+            {
+                return label;
             }
 
             return label.Length <= 12 ? label : "Open";
@@ -774,7 +786,7 @@
 
             if (label.Contains("Resume", StringComparison.OrdinalIgnoreCase))
             {
-                return "Resume";
+                return Item.MediaKind == "TV" && HasEpisodeActionLabel ? label : "Resume";
             }
 
             if (label.Contains("Continue", StringComparison.OrdinalIgnoreCase))
@@ -825,6 +837,12 @@
             return label;
         }
     }
+
+    private bool HasEpisodeActionLabel =>
+        Item.PrimaryActionLabel.StartsWith("Watch S", StringComparison.OrdinalIgnoreCase)
+        || Item.PrimaryActionLabel.StartsWith("Watch E", StringComparison.OrdinalIgnoreCase)
+        || Item.PrimaryActionLabel.StartsWith("Resume S", StringComparison.OrdinalIgnoreCase)
+        || Item.PrimaryActionLabel.StartsWith("Resume E", StringComparison.OrdinalIgnoreCase);
 
     private string FallbackIcon => Item.Presentation switch
     {

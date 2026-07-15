@@ -507,7 +507,7 @@
         => FirstNonBlank(item.Title, $"{ItemNoun} {SequenceNumber(item)}")!;
 
     private string SequenceItemClass(SequenceItemViewModel item)
-        => $"tl-series-item{(item.IsCurrent ? " is-current" : string.Empty)}{(item.IsOwned ? " is-owned" : " is-missing")}{(SequenceItemRoute(item) is not null ? " is-clickable" : string.Empty)}";
+        => $"tl-series-item{(item.IsCurrent ? " is-current" : string.Empty)}{(item.IsOwned ? " is-owned" : " is-missing")}{(SequenceItemRoute(item) is not null ? " is-clickable" : string.Empty)}{(IsSeasonContainer ? " is-season-episode" : string.Empty)}";
 
     private string? SequenceItemRoute(SequenceItemViewModel item)
     {
@@ -556,21 +556,21 @@
             }
             @if (IsSeasonContainer && item.IsOwned)
             {
+                @if (EpisodeDetailRoute(item) is { } detailRoute)
+                {
+                    <a class="tl-series-episode-details-overlay"
+                       href="@detailRoute"
+                       aria-label="Open details for @SequenceItemTitle(item)">
+                        <span>Details</span>
+                    </a>
+                }
                 @if (SequenceItemRoute(item) is { } playRoute)
                 {
                     <a class="tl-series-episode-play"
                        href="@playRoute"
-                       aria-label="Play @SequenceItemTitle(item)">
+                       aria-label="@EpisodeWatchLabel(item)"
+                       title="@EpisodeWatchLabel(item)">
                         <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Large" />
-                    </a>
-                }
-                @if (EpisodeDetailRoute(item) is { } detailRoute)
-                {
-                    <a class="tl-series-episode-info"
-                       href="@detailRoute"
-                       aria-label="Open details for @SequenceItemTitle(item)"
-                       title="Episode details">
-                        <span aria-hidden="true">i</span>
                     </a>
                 }
             }
@@ -594,6 +594,45 @@
         => IsSeasonContainer && item.IsOwned && Guid.TryParse(item.Id, out var episodeId) && ShowDetailRoute != "#"
             ? $"{ShowDetailRoute}?episode={episodeId:D}"
             : null;
+
+    private string EpisodeWatchLabel(SequenceItemViewModel item)
+    {
+        var season = ActiveGroup?.Key?.Trim();
+        if (!string.IsNullOrWhiteSpace(season))
+        {
+            season = season.StartsWith("season-", StringComparison.OrdinalIgnoreCase)
+                ? season["season-".Length..]
+                : season.StartsWith("season ", StringComparison.OrdinalIgnoreCase)
+                    ? season["season ".Length..]
+                    : season;
+            season = season.TrimStart('0');
+            if (season.Length == 0)
+            {
+                season = "0";
+            }
+        }
+
+        var episode = SequenceNumberOrNull(item)?.Trim();
+        if (!string.IsNullOrWhiteSpace(episode))
+        {
+            episode = episode.StartsWith("Episode ", StringComparison.OrdinalIgnoreCase)
+                ? episode["Episode ".Length..]
+                : episode.StartsWith('E') && episode.Length > 1 && char.IsDigit(episode[1])
+                    ? episode[1..]
+                    : episode;
+            episode = episode.TrimStart('0');
+            if (episode.Length == 0)
+            {
+                episode = "0";
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(season) && !string.IsNullOrWhiteSpace(episode)
+            ? $"Watch S{season} E{episode}"
+            : !string.IsNullOrWhiteSpace(episode)
+                ? $"Watch E{episode}"
+                : $"Watch {SequenceItemTitle(item)}";
+    }
 
     private static string ToRouteEntityType(DetailEntityType entityType)
         => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();

@@ -112,7 +112,7 @@
                 .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
                 .OrderBy(WatchStatSort)
-                .Take(6)
+                .Take(EntityType == DetailEntityType.TvShow ? 4 : 6)
                 .ToList();
         }
     }
@@ -151,9 +151,14 @@
             or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality";
     }
 
-    private static bool IsWatchHeroStat(MetadataPill item)
+    private bool IsWatchHeroStat(MetadataPill item)
     {
         var kind = item.Kind?.ToLowerInvariant();
+        if (EntityType == DetailEntityType.TvShow)
+        {
+            return kind is "certification" or "content_rating" or "year" or "episode_count" or "rating";
+        }
+
         return kind is "certification" or "content_rating" or "rating" or "duration" or "year" or "quality" or "subtitles";
     }
 
@@ -181,11 +186,12 @@
     {
         "certification" or "content_rating" => 0,
         "year" => 1,
-        "duration" => 2,
-        "quality" => 3,
-        "subtitles" => 4,
-        "rating" => 5,
-        _ => 6,
+        "episode_count" => 2,
+        "duration" => 3,
+        "quality" => 4,
+        "subtitles" => 5,
+        "rating" => 6,
+        _ => 7,
     };
 
     private static int PrimaryChromeStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch

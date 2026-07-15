@@ -165,8 +165,9 @@ public sealed class MediaTileComposerService
                                or MediaTilePresentation.ComicSeries
                                or MediaTilePresentation.AudiobookSeries
                                or MediaTilePresentation.Album;
-        // A TV show is represented by its show-level cover at rest. Episode stills and
-        // enriched widescreen art belong in the detail/expanded experience, not the tile.
+        var isTvEpisode = bucket == MediaTileBucket.Tv && !card.Flags.IsCollection;
+        // TV shows keep their show-level cover at rest; individual episode cards use
+        // the managed episode still as their landscape surface.
         var surface = MediaTileArtworkResolver.Resolve(
             bucket,
             presentation,
@@ -176,16 +177,20 @@ public sealed class MediaTileComposerService
                 new MediaTileArtworkVariant(ArtworkRole.Square, card.Artwork.SquareSmallUrl, card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
                 new MediaTileArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverSmallUrl, card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
             ],
-            preferLandscapeTile: false);
+            preferLandscapeTile: isTvEpisode);
         var artworkStackItems = BuildArtworkStackItems(card);
         var useOrderedSeriesStack = UsesOrderedSeriesStack(presentation, artworkStackItems);
         var useSquareIndividual = !card.Flags.IsCollection
                                   && (bucket == MediaTileBucket.Audiobook
                                       || (bucket == MediaTileBucket.Music && surface.Shape == MediaTileShape.Square));
-        var tileShape = useSquareIndividual
+        var tileShape = isTvEpisode
+                ? MediaTileShape.Landscape
+                : useSquareIndividual
                 ? MediaTileShape.Square
                 : MediaTileShape.Portrait;
-        var surfaceKind = useSquareIndividual
+        var surfaceKind = isTvEpisode
+                ? MediaTileSurfaceKind.BannerLandscape
+                : useSquareIndividual
                 ? MediaTileSurfaceKind.CoverSquare
                 : MediaTileSurfaceKind.CoverPortrait;
         var hoverLayout = surface.HoverLayout;

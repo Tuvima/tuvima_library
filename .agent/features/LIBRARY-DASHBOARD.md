@@ -75,6 +75,6 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 The Dashboard is no longer a general management workspace. It is a story-first library experience: people browse through Home, Read, Watch, Listen, Collections, Search, and detail pages, and they only go to Review Queue when Tuvima needs human confirmation. Normal corrections happen where the user finds the problem, using one shared editor.
 
 TV detail is show-centered: seasons contain episode rows, episode rows play from
-the show, and Continue cards use `Sx Ey` context without creating standalone
-episode detail pages. Comic sequence presentation shows issue numbers and owned
+the show, each owned episode has a show-scoped detail page opened from its still,
+and Continue cards retain the episode target with `Sx Ey` action context. Comic sequence presentation shows issue numbers and owned
 counts without treating the current provider run count as a completion target.

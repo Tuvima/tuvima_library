@@ -10,7 +10,7 @@ public sealed class DisplayCardBuilder
     {
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(row.MediaType);
         var title = DisplayTitleFor(mediaKind, row.Title, row.Series, row.SeriesPosition);
-        var action = PrimaryAction(row.AssetId, row.WorkId, row.CollectionId, mediaKind, progress?.ProgressPct);
+        var action = PrimaryAction(row.AssetId, row.WorkId, row.CollectionId, mediaKind, progress?.ProgressPct, row.SeasonNumber, row.EpisodeNumber);
         var progressDto = progress is null ? null : ToProgress(progress, action);
         return new DisplayCardDto(
             Id: row.WorkId,
@@ -28,7 +28,7 @@ public sealed class DisplayCardBuilder
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
             PreviewPlacement: "smart",
             Progress: progressDto,
-            Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind)],
+            Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind, row.RootWorkId)],
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.CreatedAt)
         {
@@ -37,30 +37,11 @@ public sealed class DisplayCardBuilder
         };
     }
 
-    public DisplayCardDto FromJourney(DisplayJourneyRow row, string context, IReadOnlyList<DisplayCardDto>? tvShowCards = null)
+    public DisplayCardDto FromJourney(DisplayJourneyRow row, string context)
     {
         var mediaKind = DisplayMediaRules.NormalizeDisplayKind(row.MediaType);
         var title = DisplayTitleFor(mediaKind, row.Title, row.Series, row.SeriesPosition);
-        var action = PrimaryAction(row.AssetId, row.WorkId, row.CollectionId, mediaKind, row.ProgressPct);
-        if (mediaKind == "TV" && tvShowCards is not null)
-        {
-            var showCard = tvShowCards.FirstOrDefault(card =>
-                !string.IsNullOrWhiteSpace(row.ShowName)
-                && string.Equals(card.Title, row.ShowName, StringComparison.OrdinalIgnoreCase));
-            if (showCard is not null)
-            {
-                var showRoute = showCard.Actions.FirstOrDefault()?.WebUrl;
-                var resumeAction = action with { WebUrl = showRoute };
-                return showCard with
-                {
-                    Subtitle = ContinueEpisodeSubtitle(row.SeasonNumber, row.EpisodeNumber) ?? showCard.Subtitle,
-                    TileTextMode = string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
-                    Progress = ToProgress(row, resumeAction),
-                    Actions = [resumeAction, .. showCard.Actions],
-                    SortTimestamp = row.LastAccessed,
-                };
-            }
-        }
+        var action = PrimaryAction(row.AssetId, row.WorkId, row.CollectionId, mediaKind, row.ProgressPct, row.SeasonNumber, row.EpisodeNumber);
 
         return new DisplayCardDto(
             Id: row.WorkId,
@@ -81,7 +62,7 @@ public sealed class DisplayCardBuilder
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
             PreviewPlacement: "smart",
             Progress: ToProgress(row, action),
-            Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind)],
+            Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind, row.RootWorkId)],
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.LastAccessed)
         {
@@ -263,7 +244,14 @@ public sealed class DisplayCardBuilder
     private static DisplayProgressDto ToProgress(DisplayJourneyRow row, DisplayActionDto resumeAction) =>
         new(Math.Clamp(row.ProgressPct, 0, 100), $"{Math.Max(1, row.ProgressPct):F0}%", row.LastAccessed, resumeAction);
 
-    private static DisplayActionDto PrimaryAction(Guid? assetId, Guid workId, Guid? collectionId, string mediaKind, double? progressPct)
+    private static DisplayActionDto PrimaryAction(
+        Guid? assetId,
+        Guid workId,
+        Guid? collectionId,
+        string mediaKind,
+        double? progressPct,
+        string? seasonNumber,
+        string? episodeNumber)
     {
         var isContinue = progressPct is > 0 and < 99.5;
         if (mediaKind is "Book" or "Comic")
@@ -271,7 +259,14 @@ public sealed class DisplayCardBuilder
             return new DisplayActionDto("readWork", isContinue ? "Continue Reading" : "Read", workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
         }
 
-        if (mediaKind is "Movie" or "TV" or "Music" or "Audiobook")
+        if (mediaKind == "TV")
+        {
+            var position = EpisodePosition(seasonNumber, episodeNumber);
+            var label = $"{(isContinue ? "Resume" : "Watch")}{(position is null ? string.Empty : $" {position}")}";
+            return new DisplayActionDto("playAsset", label, workId, assetId, collectionId, $"/watch/player/resolve?workId={workId:D}");
+        }
+
+        if (mediaKind is "Movie" or "Music" or "Audiobook")
         {
             return new DisplayActionDto("playAsset", isContinue ? ContinueLabel(mediaKind) : "Play", workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
         }
@@ -279,8 +274,10 @@ public sealed class DisplayCardBuilder
         return new DisplayActionDto("openWork", "Open", workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
     }
 
-    private static DisplayActionDto DetailsAction(Guid workId, Guid? collectionId, string mediaKind) =>
-        new("openWork", "Details", workId, null, collectionId, WebUrlFor(workId, collectionId, mediaKind));
+    private static DisplayActionDto DetailsAction(Guid workId, Guid? collectionId, string mediaKind, Guid rootWorkId) =>
+        new("openWork", "Details", workId, null, collectionId, mediaKind == "TV"
+            ? $"/watch/tv/show/{(rootWorkId == Guid.Empty ? workId : rootWorkId):D}?episode={workId:D}"
+            : WebUrlFor(workId, collectionId, mediaKind));
 
     private static string WebUrlFor(Guid workId, Guid? collectionId, string mediaKind)
     {
@@ -301,7 +298,7 @@ public sealed class DisplayCardBuilder
         return mediaKind switch
         {
             "Movie" => $"/watch/movie/{workId}",
-            "TV" => "/watch",
+            "TV" => $"/watch/player/resolve?workId={workId:D}",
             "Music" => $"/listen/music/tracks/{workId}",
             "Audiobook" => $"/listen/audiobook/{workId}",
             "Comic" => $"/book/{workId}?mode=read",
@@ -766,6 +763,22 @@ public sealed class DisplayCardBuilder
             : normalizedEpisode is null
                 ? $"Continue · S{normalizedSeason}"
                 : $"Continue · S{normalizedSeason} E{normalizedEpisode}";
+    }
+
+    private static string? EpisodePosition(string? season, string? episode)
+    {
+        var normalizedSeason = NormalizeEpisodeOrdinal(season);
+        var normalizedEpisode = NormalizeEpisodeOrdinal(episode);
+        if (normalizedSeason is null && normalizedEpisode is null)
+        {
+            return null;
+        }
+
+        return normalizedSeason is null
+            ? $"E{normalizedEpisode}"
+            : normalizedEpisode is null
+                ? $"S{normalizedSeason}"
+                : $"S{normalizedSeason} E{normalizedEpisode}";
     }
 
     private static string? NormalizeEpisodeOrdinal(string? value)

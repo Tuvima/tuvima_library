@@ -184,6 +184,20 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void DetailComposer_BuildsTvShowHeroMetadataAndEpisodeAwareActions()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("if (entityType == DetailEntityType.TvShow)", source);
+        Assert.Contains("GetValue(values, \"start_year\")", source);
+        Assert.Contains("GetValue(values, \"episode_count\")", source);
+        Assert.Contains("GetValue(values, \"content_rating\")", source);
+        Assert.Contains("FormatRating(GetValue(values, MetadataFieldConstants.Rating))", source);
+        Assert.Contains("FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber)", source);
+        Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/resolve?workId={id}\"", source);
+    }
+
+    [Fact]
     public void DetailComposer_DetailAndChildListsPreferDisplayOverrides()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
@@ -207,7 +221,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildHeroProgress", source);
         Assert.Contains("BuildCollectionHeroProgress", source);
         Assert.Contains("LEFT JOIN user_states us ON us.asset_id = ma.id", source);
-        Assert.Contains("Label = progress is null ? \"Watch\" : \"Resume\"", source);
+        Assert.Contains("var verb = progress is null ? \"Watch\" : \"Resume\"", source);
+        Assert.Contains("$\"{verb} {episodePosition}\"", source);
+        Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/resolve?workId={id}\"", source);
         Assert.Contains("Key = \"restart\"", source);
         Assert.Contains("Continue watching", source);
         Assert.Contains("public ProgressViewModel? Progress { get; init; }", contracts);
