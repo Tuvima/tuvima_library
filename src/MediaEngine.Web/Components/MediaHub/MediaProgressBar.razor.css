@@ -4,9 +4,9 @@
     align-items: center;
     gap: 10px;
     color: rgba(226, 232, 240, 0.78);
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .media-progress-bar progress {

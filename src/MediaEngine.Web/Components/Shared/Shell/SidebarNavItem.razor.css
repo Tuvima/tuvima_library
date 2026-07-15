@@ -87,7 +87,7 @@
 .sidebar-nav-item--level-1.is-active,
 .sidebar-nav-item--level-2.is-active,
 .sidebar-nav-item--level-3.is-active {
-    font-weight: 820;
+    font-weight: 700;
 }
 
 .sidebar-nav-item--level-2,
@@ -147,14 +147,14 @@
     justify-self: start;
     min-width: 0;
     overflow: hidden;
-    font-weight: 560;
+    font-weight: 600;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .sidebar-nav-item.is-active .sidebar-nav-item__label {
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .sidebar-nav-item__meta {
@@ -162,7 +162,7 @@
     overflow: hidden;
     color: rgba(208, 218, 255, 0.58);
     font-size: 0.72rem;
-    font-weight: 760;
+    font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -181,7 +181,7 @@
     background: rgba(120, 86, 255, 0.18);
     color: #c7b7ff;
     font-size: 0.74rem;
-    font-weight: 850;
+    font-weight: 700;
     text-align: center;
 }
 

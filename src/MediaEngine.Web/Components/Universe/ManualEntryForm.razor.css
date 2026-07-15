@@ -7,7 +7,7 @@
     }
 
     .manual-form-title {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-weight: 600;
         color: #fff;
         margin: 0 0 4px 0;

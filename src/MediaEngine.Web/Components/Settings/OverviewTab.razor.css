@@ -172,12 +172,12 @@
     .admin-library-banner__title {
         color: rgba(255, 255, 255, 0.96) !important;
         font-size: clamp(1.65rem, 2.8vw, 2.35rem) !important;
-        font-weight: 650 !important;
+        font-weight: 600 !important;
         line-height: 1.05 !important;
     }
 
     .admin-library-banner__title span {
-        font-weight: 900;
+        font-weight: 700;
     }
 
     .admin-library-banner__subtitle {
@@ -242,7 +242,7 @@
     .admin-library-media__count {
         color: #fff;
         font-size: 1.12rem;
-        font-weight: 850;
+        font-weight: 700;
         line-height: 1.1;
     }
 
@@ -291,7 +291,7 @@
         padding: 0 1px;
         color: rgba(226, 232, 255, 0.72);
         font-size: 0.76rem;
-        font-weight: 760;
+        font-weight: 700;
         text-align: center;
     }
 
@@ -353,7 +353,7 @@
     .admin-overview-eyebrow {
         color: var(--settings-blue, #4f9dff) !important;
         font-size: 0.72rem !important;
-        font-weight: 850 !important;
+        font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.08em !important;
     }
@@ -371,7 +371,7 @@
         color: rgba(232, 238, 255, 0.86);
         background: rgba(255, 255, 255, 0.055);
         font-size: 0.74rem;
-        font-weight: 800;
+        font-weight: 700;
         white-space: nowrap;
     }
 
@@ -420,7 +420,7 @@
         gap: 12px;
         color: rgba(232, 238, 255, 0.78);
         font-size: 0.82rem;
-        font-weight: 750;
+        font-weight: 700;
     }
 
     .admin-detail-grid,
@@ -464,7 +464,7 @@
         overflow: hidden;
         color: rgba(255, 255, 255, 0.94);
         font-size: 0.9rem;
-        font-weight: 850;
+        font-weight: 700;
         line-height: 1.25;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -538,7 +538,7 @@
     .admin-compact-row__body span {
         color: rgba(255, 255, 255, 0.94);
         font-size: 0.86rem;
-        font-weight: 800;
+        font-weight: 700;
     }
 
     .admin-compact-row__body small {
@@ -570,7 +570,7 @@
         padding: 0 10px 8px;
         color: rgba(255, 255, 255, 0.46);
         font-size: 0.72rem;
-        font-weight: 850;
+        font-weight: 700;
         text-transform: uppercase;
     }
 

@@ -81,9 +81,9 @@
     }
 
     .hero-context-text {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 10px;
-        font-weight: 900;
+        font-weight: 700;
         color: var(--tl-accent-primary);
         text-transform: uppercase;
         letter-spacing: 0.2em;
@@ -91,9 +91,9 @@
 
 
     .hero-title {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 2.5rem;
-        font-weight: 900;
+        font-weight: 700;
         color: white;
         line-height: 0.85;
         letter-spacing: -0.05em;
@@ -117,7 +117,7 @@
         align-items: center;
         justify-content: center;
         gap: 1rem;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 12px;
         font-weight: 700;
         color: rgba(148, 163, 184, 1);
@@ -171,9 +171,9 @@
         border: none;
         border-radius: 999px;
         padding: 1rem 2.5rem;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 12px;
-        font-weight: 900;
+        font-weight: 700;
         cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
         transition: all 0.2s ease;

@@ -62,7 +62,7 @@
 
 .browse-shell__title-eyebrow {
     font-size: 0.72rem;
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--tl-text-muted);
@@ -71,7 +71,7 @@
 .browse-shell__title-text {
     margin: 0;
     font-size: clamp(1.55rem, 1.2vw + 1rem, 2rem);
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: 0;
     line-height: 1;
     color: var(--tl-text-primary);
@@ -128,7 +128,7 @@
     background: transparent !important;
     color: var(--tl-text-secondary) !important;
     font-size: 0.95rem;
-    font-weight: 850;
+    font-weight: 700;
     line-height: 1 !important;
     text-transform: none;
 }
@@ -185,7 +185,7 @@
     background: rgba(7, 12, 27, 0.56) !important;
     color: var(--tl-text-secondary) !important;
     font-size: 0.82rem;
-    font-weight: 850;
+    font-weight: 700;
     line-height: 1 !important;
     box-sizing: border-box;
 }
@@ -228,7 +228,7 @@
     color: var(--tl-text-secondary);
     font: inherit;
     font-size: 0.86rem;
-    font-weight: 850;
+    font-weight: 700;
     cursor: pointer;
 }
 

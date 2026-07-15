@@ -22,7 +22,7 @@
 
 .model-card__title {
     color: var(--tl-text-primary);
-    font-weight: 760;
+    font-weight: 700;
 }
 
 .model-card__meta {

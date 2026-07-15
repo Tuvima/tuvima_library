@@ -58,14 +58,24 @@ public sealed class ThemeService
             {
                 Default = new DefaultTypography
                 {
-                    FontFamily = ["Nunito", "Segoe UI", "sans-serif"],
+                    FontFamily =
+                    [
+                        "Segoe UI Variable",
+                        "Segoe UI",
+                        "system-ui",
+                        "-apple-system",
+                        "BlinkMacSystemFont",
+                        "Helvetica Neue",
+                        "Arial",
+                        "sans-serif",
+                    ],
                     FontSize = "14px",
                     FontWeight = "400",
                     LineHeight = "1.5",
                 },
-                H1 = new H1Typography { FontWeight = "700", FontSize = "20px", LetterSpacing = "0", LineHeight = "1.3" },
-                H2 = new H2Typography { FontWeight = "700", FontSize = "18px", LetterSpacing = "0", LineHeight = "1.35" },
-                H3 = new H3Typography { FontWeight = "700", FontSize = "17px", LetterSpacing = "0", LineHeight = "1.35" },
+                H1 = new H1Typography { FontWeight = "600", FontSize = "20px", LetterSpacing = "0", LineHeight = "1.3" },
+                H2 = new H2Typography { FontWeight = "600", FontSize = "18px", LetterSpacing = "0", LineHeight = "1.35" },
+                H3 = new H3Typography { FontWeight = "600", FontSize = "17px", LetterSpacing = "0", LineHeight = "1.35" },
                 H4 = new H4Typography { FontWeight = "600", FontSize = "16px", LetterSpacing = "0", LineHeight = "1.4" },
                 H5 = new H5Typography { FontWeight = "600", FontSize = "14px", LetterSpacing = "0", LineHeight = "1.4" },
                 H6 = new H6Typography { FontWeight = "600", FontSize = "13px", LetterSpacing = "0", LineHeight = "1.4" },
@@ -73,7 +83,7 @@ public sealed class ThemeService
                 Body2 = new Body2Typography { FontWeight = "400", FontSize = "13px", LineHeight = "1.5" },
                 Subtitle1 = new Subtitle1Typography { FontWeight = "600", FontSize = "14px", LineHeight = "1.5" },
                 Subtitle2 = new Subtitle2Typography { FontWeight = "600", FontSize = "13px", LineHeight = "1.45" },
-                Button = new ButtonTypography { FontWeight = "500", FontSize = "14px", TextTransform = "none" },
+                Button = new ButtonTypography { FontWeight = "600", FontSize = "14px", TextTransform = "none" },
                 Caption = new CaptionTypography { FontWeight = "400", FontSize = "12px", LineHeight = "1.4" },
                 Overline = new OverlineTypography { FontWeight = "600", FontSize = "11px", LetterSpacing = "0.02em", TextTransform = "uppercase" },
             },

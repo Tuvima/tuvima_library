@@ -214,7 +214,7 @@
 }
 
 .reader-top-bar .reader-book-title {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--reader-chrome-text);
@@ -282,7 +282,7 @@
 }
 
 .reader-bottom-bar .reader-page-info {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.75rem;
     color: var(--reader-chrome-text-dim);
     white-space: nowrap;
@@ -324,7 +324,7 @@
 }
 
 .reader-bottom-bar .reader-percent {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--reader-accent);
@@ -431,7 +431,7 @@
 }
 
 .reader-drawer-header h3 {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 1rem;
     font-weight: 600;
     color: var(--reader-chrome-text);
@@ -507,7 +507,7 @@
 }
 
 .reader-settings-label {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -619,7 +619,7 @@
 }
 
 .reader-size-control .reader-size-label {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.8rem;
     color: var(--reader-chrome-text-dim);
     min-width: 32px;
@@ -803,7 +803,7 @@
     padding: 8px 12px;
     border-radius: var(--app-radius-md);
     font-size: 0.8rem;
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -877,7 +877,7 @@
 }
 
 .reader-stat-value {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--reader-chrome-text);
@@ -896,7 +896,7 @@
 }
 
 .reader-loading .reader-loading-title {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--reader-chrome-text);

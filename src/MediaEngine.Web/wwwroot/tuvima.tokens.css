@@ -39,12 +39,15 @@
     --tl-text-disabled: rgba(127, 141, 165, 0.58);
     --tl-text-on-accent: #FFFFFF;
     --tl-text-on-warning: #1F1303;
+    --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system,
+        BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --font-brand: "Montserrat", sans-serif;
     --tl-font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-    --media-identity-font-family: var(--app-font-brand, 'Montserrat', 'Inter', 'Segoe UI', system-ui, sans-serif);
-    --media-identity-title-weight: 850;
-    --media-identity-title-line-height: 0.96;
+    --media-identity-font-family: var(--font-ui);
+    --media-identity-title-weight: 600;
+    --media-identity-title-line-height: 1.05;
     --media-identity-title-letter-spacing: 0;
-    --media-identity-subtitle-weight: 650;
+    --media-identity-subtitle-weight: 600;
 
     --tl-border-subtle: rgba(148, 163, 184, 0.10);
     --tl-border-default: rgba(148, 163, 184, 0.16);

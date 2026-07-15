@@ -25,9 +25,9 @@
     color: rgba(248, 250, 252, 0.86);
     background: rgba(7, 11, 20, 0.42);
     text-decoration: none;
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-brand);
     font-size: 0.86rem;
-    font-weight: 800;
+    font-weight: 600;
     line-height: 1;
     white-space: nowrap;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);

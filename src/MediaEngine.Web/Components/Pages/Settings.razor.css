@@ -104,7 +104,7 @@
 .settings-admin-style-scope ::deep .settings-admin-panel .mud-table-head .mud-table-cell {
     color: rgba(255, 255, 255, 0.46);
     font-size: 0.75rem;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -339,7 +339,7 @@
         0 14px 36px rgba(0, 0, 0, 0.34),
         inset 0 -10px 20px rgba(0, 0, 0, 0.18);
     font-size: 2.15rem !important;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar-image {
@@ -406,7 +406,7 @@
 ::deep .user-overview-photo-preview span {
     color: var(--tl-text-primary);
     font-size: 3rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 ::deep .user-overview-photo-alert,
@@ -435,7 +435,7 @@
 .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-name {
     font-size: 1.62rem !important;
     line-height: 1.1 !important;
-    font-weight: 750 !important;
+    font-weight: 700 !important;
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-inline-edit {
@@ -499,7 +499,7 @@
 .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-value {
     font-size: 1.95rem !important;
     line-height: 1 !important;
-    font-weight: 800 !important;
+    font-weight: 700 !important;
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-value--long {

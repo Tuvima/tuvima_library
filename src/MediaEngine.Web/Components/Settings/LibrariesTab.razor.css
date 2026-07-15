@@ -35,7 +35,7 @@
     margin: 0;
     color: var(--tl-text-primary);
     font-size: 1rem;
-    font-weight: 850;
+    font-weight: 700;
 }
 
 .file-org-card-heading p,
@@ -50,7 +50,7 @@
 .file-org-section-title {
     color: var(--tl-text-primary);
     font-size: 0.86rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .folder-path-input-row {
@@ -189,7 +189,7 @@
 .file-org-option-block__header span {
     color: var(--tl-text-primary);
     font-size: 0.82rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .file-org-option-block__header small {
@@ -210,7 +210,7 @@
 
 .file-org-token-brace {
     color: var(--tl-status-warning);
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .file-org-preview {

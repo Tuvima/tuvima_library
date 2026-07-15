@@ -1,4 +1,4 @@
-﻿::deep .sme-dialog {
+::deep .sme-dialog {
     background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid var(--tl-border-subtle) !important;
     box-shadow: 0 28px 70px rgba(0,0,0,0.4) !important;
@@ -679,7 +679,7 @@
 
 .sme-match-info-title {
     font-size: 1.02rem;
-    font-weight: 750;
+    font-weight: 700;
     line-height: 1.2;
 }
 
@@ -709,7 +709,7 @@
 
 .sme-match-info-row strong {
     color: rgba(255,255,255,0.88);
-    font-weight: 650;
+    font-weight: 600;
     text-align: right;
     overflow-wrap: anywhere;
 }
@@ -764,7 +764,7 @@
     margin-top: 3px;
     color: rgba(255,255,255,0.94);
     font-size: 1.75rem;
-    font-weight: 750;
+    font-weight: 700;
     line-height: 1;
 }
 
@@ -784,7 +784,7 @@
     background: rgba(255,255,255,0.055);
     color: rgba(255,255,255,0.82);
     font-size: 0.78rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 .sme-match-info-note {
@@ -839,14 +839,14 @@
     display: block;
     margin-bottom: 7px;
     font-size: 0.78rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 .sme-match-status-item strong {
     display: block;
     color: rgba(255,255,255,0.92);
     font-size: 0.96rem;
-    font-weight: 750;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -944,7 +944,7 @@
 
 .sme-current-match-art--qid span,
 .sme-match-result-art--qid span {
-    font-weight: 850;
+    font-weight: 700;
     line-height: 1;
 }
 
@@ -991,7 +991,7 @@
     background: rgba(109, 40, 217, 0.16);
     color: #c4b5fd;
     font-size: 0.8rem;
-    font-weight: 800;
+    font-weight: 700;
     text-decoration: none;
     overflow-wrap: anywhere;
 }
@@ -1012,7 +1012,7 @@
     color: rgba(103, 232, 249, 0.95);
     background: rgba(8, 145, 178, 0.10);
     font-size: 0.78rem;
-    font-weight: 750;
+    font-weight: 700;
     overflow-wrap: anywhere;
 }
 
@@ -1074,7 +1074,7 @@
 
 ::deep .sme-match-mode-card span {
     color: rgba(255,255,255,0.93);
-    font-weight: 760;
+    font-weight: 700;
 }
 
 ::deep .sme-match-mode-card small {
@@ -1117,13 +1117,13 @@
     margin-bottom: 4px;
     color: var(--tl-accent-primary);
     font-size: 0.78rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .sme-match-result-title {
     color: rgba(255,255,255,0.94);
     font-size: 0.98rem;
-    font-weight: 760;
+    font-weight: 700;
     line-height: 1.25;
 }
 
@@ -1544,7 +1544,7 @@
     border-radius: var(--app-radius-sm);
     padding: 5px 9px;
     font-size: 0.76rem;
-    font-weight: 800;
+    font-weight: 700;
     white-space: nowrap;
 }
 
@@ -1687,7 +1687,7 @@
 
 .sme-content-group-meter strong {
     font-size: 0.86rem;
-    font-weight: 800;
+    font-weight: 700;
     color: rgba(255,255,255,0.9);
     white-space: nowrap;
 }
@@ -1749,7 +1749,7 @@
     background: rgba(255,255,255,0.055);
     color: rgba(255,255,255,0.64);
     font-size: 0.72rem;
-    font-weight: 800;
+    font-weight: 700;
     white-space: nowrap;
 }
 
@@ -2426,7 +2426,7 @@
     padding: 0 4px;
     color: rgba(255,255,255,0.9);
     font-size: 1rem;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 ::deep .sme-artwork-rail {
@@ -3001,7 +3001,7 @@
     color: rgba(255,255,255,0.95);
     font-size: 1.15rem;
     line-height: 1.2;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 .sme-artwork-gallery-heading-row {
@@ -3063,7 +3063,7 @@
     border-radius: 8px;
     text-transform: none;
     font-size: 0.82rem;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 ::deep .sme-artwork-toolbar-button .mud-button-label {
@@ -3325,7 +3325,7 @@
     background: rgba(54, 15, 23, 0.72);
     color: #ffd6db;
     font-size: 0.76rem;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 .sme-artwork-disclaimer {
@@ -3350,7 +3350,7 @@
 .sme-artwork-disclaimer-title {
     color: rgba(235, 240, 255, 0.92);
     font-size: 0.88rem;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 .sme-artwork-disclaimer-copy {
@@ -3384,7 +3384,7 @@
     padding: 0 8px;
     border-radius: 7px;
     font-size: 0.72rem;
-    font-weight: 750;
+    font-weight: 700;
     text-transform: none;
 }
 

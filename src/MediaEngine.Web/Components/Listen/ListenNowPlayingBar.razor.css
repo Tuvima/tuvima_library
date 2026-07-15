@@ -132,7 +132,7 @@
 
     .listen-player-panel__lyric-line.is-active {
         color: var(--app-text-primary, #aab8c5);
-        font-weight: 800;
+        font-weight: 700;
         transform: translateX(4px);
     }
 
@@ -368,7 +368,7 @@
     .listen-player-panel__sheet-title {
         color: rgba(248, 250, 252, 0.92);
         font-size: 0.92rem;
-        font-weight: 850;
+        font-weight: 700;
     }
 
     .listen-player-panel__handle {
@@ -493,7 +493,7 @@
     .listen-player-panel__resume {
         color: var(--tl-status-warning, #f59e0b);
         font-size: 0.8rem;
-        font-weight: 800;
+        font-weight: 700;
         white-space: nowrap;
     }
 

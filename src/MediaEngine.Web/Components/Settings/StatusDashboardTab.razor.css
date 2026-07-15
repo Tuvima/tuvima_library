@@ -34,7 +34,7 @@
 .status-dashboard__info-item strong {
     display: block;
     color: var(--tl-text-primary);
-    font-weight: 760;
+    font-weight: 700;
 }
 
 .status-dashboard__cache-progress {

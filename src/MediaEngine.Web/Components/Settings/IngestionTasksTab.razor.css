@@ -37,7 +37,7 @@
 ::deep .library-update__actions .mud-button-root,
 ::deep .library-update-status__failure-actions .mud-button-root {
     border-radius: 8px;
-    font-weight: 760;
+    font-weight: 700;
     min-height: 42px;
     text-transform: none;
 }
@@ -61,7 +61,7 @@
     margin: 6px 0 0;
     color: rgba(241, 245, 255, 0.92);
     font-size: 2.05rem;
-    font-weight: 720;
+    font-weight: 700;
     line-height: 1.2;
 }
 
@@ -114,7 +114,7 @@
 ::deep .library-update-overall-progress__top strong {
     color: #f8fbff;
     font-size: 1.2rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 ::deep .library-update-overall-progress__top span {
@@ -127,7 +127,7 @@
     min-width: 76px;
     font-style: normal;
     font-size: 1.45rem;
-    font-weight: 820;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     text-align: right;
 }
@@ -221,7 +221,7 @@
     color: #93c5fd;
     background: #071126;
     font-size: 0.62rem;
-    font-weight: 800;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
@@ -278,7 +278,7 @@
 ::deep .library-update-stage-card strong {
     color: #f8fbff;
     font-size: 0.95rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 ::deep .library-update-stage-card > span:last-child {
@@ -471,13 +471,13 @@
 ::deep .library-update-stage-detail > span:not(.library-update-stage-detail__icon) {
     color: rgba(226, 232, 255, 0.58);
     font-size: 0.84rem;
-    font-weight: 680;
+    font-weight: 600;
 }
 
 ::deep .library-update-stage-detail strong {
     color: #f8fbff;
     font-size: 1.85rem;
-    font-weight: 820;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
@@ -627,7 +627,7 @@
 
 ::deep .library-update-batch-chip strong {
     color: #f8fbff;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 ::deep .library-update-batch-chip.is-green { color: #86efac; background: rgba(34, 197, 94, 0.10); }
@@ -675,7 +675,7 @@
     min-height: 26px;
     padding: 3px 7px;
     border-radius: 7px;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 ::deep .library-update-batch-count .mud-icon-root {

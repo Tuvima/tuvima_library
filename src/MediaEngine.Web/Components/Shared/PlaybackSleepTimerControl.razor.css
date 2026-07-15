@@ -20,7 +20,7 @@
 .playback-sleep-timer__status-label {
     color: rgba(203, 213, 225, 0.74);
     font-size: 1rem;
-    font-weight: 760;
+    font-weight: 700;
 }
 
 .playback-sleep-timer__status-value {
@@ -33,7 +33,7 @@
 .playback-sleep-timer__status-value strong {
     color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
     font-size: clamp(4.35rem, 16vw, 6.6rem);
-    font-weight: 950;
+    font-weight: 700;
     line-height: 0.92;
     text-shadow: 0 14px 36px rgba(245, 158, 11, 0.18);
 }
@@ -41,7 +41,7 @@
 .playback-sleep-timer__status-value span {
     color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
     font-size: clamp(1.35rem, 5vw, 2.4rem);
-    font-weight: 900;
+    font-weight: 700;
 }
 
 .playback-sleep-timer__status-value:not(.is-active) strong,
@@ -63,7 +63,7 @@
 .playback-sleep-timer__section h3 {
     color: rgba(203, 213, 225, 0.76);
     font-size: 0.82rem;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0.08em;
     margin: 0;
     text-transform: uppercase;
@@ -119,14 +119,14 @@
 
 .playback-sleep-timer__preset strong {
     font-size: 0.92rem;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.1;
     white-space: nowrap;
 }
 
 .playback-sleep-timer ::deep .playback-sleep-timer__preset strong {
     font-size: 0.92rem;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.1;
     white-space: nowrap;
 }
@@ -134,13 +134,13 @@
 .playback-sleep-timer__preset span {
     color: rgba(203, 213, 225, 0.72);
     font-size: 0.86rem;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 .playback-sleep-timer ::deep .playback-sleep-timer__preset span {
     color: rgba(203, 213, 225, 0.72);
     font-size: 0.86rem;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 .playback-sleep-timer__preset-icon {
@@ -262,13 +262,13 @@
 
 .playback-sleep-timer__chapter-copy strong {
     font-size: 1.12rem;
-    font-weight: 900;
+    font-weight: 700;
 }
 
 .playback-sleep-timer__chapter-copy span {
     color: rgba(203, 213, 225, 0.72);
     font-size: 0.92rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 .playback-sleep-timer__stepper {
@@ -286,7 +286,7 @@
     color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
     display: inline-flex;
     font-size: 1.08rem;
-    font-weight: 900;
+    font-weight: 700;
     height: 54px;
     justify-content: center;
     padding: 0 10px;
@@ -301,7 +301,7 @@
     color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
     display: inline-flex;
     font-size: 1.08rem;
-    font-weight: 900;
+    font-weight: 700;
     height: 54px;
     justify-content: center;
     padding: 0 10px;

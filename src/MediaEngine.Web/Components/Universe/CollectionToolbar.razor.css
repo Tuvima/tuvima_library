@@ -16,7 +16,7 @@
         cursor: pointer;
         transition: all 0.12s ease;
         color: var(--tl-text-faint);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
     }
 
     .collection-toolbar-tt:hover {

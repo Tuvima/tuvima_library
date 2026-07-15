@@ -75,7 +75,7 @@
 
     .browse-hero__eyebrow {
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: 0.16em;
         text-transform: uppercase;
         color: var(--tl-text-secondary);
@@ -87,7 +87,7 @@
         line-height: 0.94;
         letter-spacing: 0;
         color: var(--tl-text-primary);
-        font-weight: 900;
+        font-weight: 700;
     }
 
     .browse-hero--listen .browse-hero__title {
@@ -161,7 +161,7 @@
         border: 0;
         border-radius: var(--app-radius-md);
         font-size: 0.9rem;
-        font-weight: 800;
+        font-weight: 700;
         cursor: pointer;
         transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
     }
@@ -235,7 +235,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: 700;
     }
 
     .browse-hero__art {

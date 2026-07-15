@@ -92,10 +92,10 @@
 
 .media-hero__page-heading h1 {
     margin: 0;
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-ui);
     font-size: clamp(1.72rem, 2.1vw, 2.42rem);
     line-height: 1;
-    font-weight: 900;
+    font-weight: 600;
     letter-spacing: 0;
     color: rgba(248, 250, 252, 0.98);
 }
@@ -103,7 +103,7 @@
 .media-hero__page-heading p {
     margin: 0;
     max-width: 38rem;
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     color: rgba(203, 213, 225, 0.72);
     font-size: 0.94rem;
     line-height: 1.5;
@@ -118,10 +118,10 @@
 }
 
 .media-hero__eyebrow {
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-brand);
     font-size: 0.72rem;
-    font-weight: 900;
-    letter-spacing: 0.12em;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--media-hero-accent) 74%, white 12%);
 }
@@ -159,9 +159,9 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.82rem;
-    font-weight: 800;
+    font-weight: 700;
     color: rgba(226, 232, 240, 0.82);
 }
 
@@ -179,7 +179,7 @@
 .media-hero__description {
     margin: 0;
     max-width: 34rem;
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.96rem;
     line-height: 1.55;
     color: rgba(226, 232, 240, 0.82);

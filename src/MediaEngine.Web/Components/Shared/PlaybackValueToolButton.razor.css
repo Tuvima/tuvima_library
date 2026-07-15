@@ -43,12 +43,12 @@
 
 .playback-value-tool-button__copy strong {
     font-size: 0.92rem;
-    font-weight: 900;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
 
 .playback-value-tool-button__copy span {
     color: rgba(203, 213, 225, 0.72);
     font-size: 0.66rem;
-    font-weight: 760;
+    font-weight: 700;
 }

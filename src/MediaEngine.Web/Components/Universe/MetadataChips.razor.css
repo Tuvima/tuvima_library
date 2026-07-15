@@ -6,7 +6,7 @@
     }
 
     .metadata-chip {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif) !important;
+        font-family: var(--font-ui) !important;
         font-size: 0.72rem !important;
         font-weight: 500 !important;
         letter-spacing: 0.02em;

@@ -1,4 +1,4 @@
-﻿.sidebar-page-header {
+.sidebar-page-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -13,7 +13,7 @@
 .sidebar-page-header__eyebrow {
     color: var(--tl-text-muted);
     font-size: 0.74rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
@@ -50,7 +50,7 @@
     background: var(--tl-bg-surface-raised);
     color: var(--tl-text-secondary);
     font-size: 0.84rem;
-    font-weight: 850;
+    font-weight: 700;
 }
 
 .sidebar-page-header__status.is-healthy {

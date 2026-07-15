@@ -14,17 +14,17 @@
 
 .shelf-header h2 {
     margin: 0;
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-ui);
     font-size: clamp(1rem, 0.72vw + 0.86rem, 1.28rem);
     line-height: 1.15;
-    font-weight: 900;
+    font-weight: 600;
     letter-spacing: 0;
     color: rgba(248, 250, 252, 0.98);
 }
 
 .shelf-header p {
     margin: 0;
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.82rem;
     line-height: 1.42;
     color: rgba(148, 163, 184, 0.82);
@@ -32,18 +32,18 @@
 
 .shelf-header__count {
     color: rgba(148, 163, 184, 0.82);
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-ui);
     font-size: 0.72rem;
-    font-weight: 850;
+    font-weight: 500;
 }
 
 .shelf-header__link {
     margin-left: auto;
     color: var(--tl-accent-primary);
     text-decoration: none;
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-ui);
     font-size: 0.78rem;
-    font-weight: 850;
+    font-weight: 600;
     white-space: nowrap;
 }
 

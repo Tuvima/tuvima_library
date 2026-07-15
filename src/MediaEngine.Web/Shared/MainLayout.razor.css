@@ -98,10 +98,10 @@
 
 .layout-shell__nav-link .layout-shell__nav-link-label {
     display: inline-block;
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--font-brand);
     font-size: 1.02rem;
-    font-weight: 400;
-    letter-spacing: 0;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     line-height: 1;
     text-transform: uppercase;
 }
@@ -250,7 +250,7 @@
 .layout-shell__avatar {
     width: 2rem !important;
     height: 2rem !important;
-    font-family: var(--app-font-sans, "Nunito", sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.78rem;
     font-weight: 700;
     flex: 0 0 auto;
@@ -320,7 +320,7 @@
     padding: 0.45rem 0.55rem 0.1rem;
     color: var(--app-text-muted, #8391a2);
     font-size: 0.68rem;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1.2;
     text-transform: uppercase;
 }
@@ -329,7 +329,7 @@
     padding: 0 0.55rem 0.5rem;
     color: var(--app-text-primary, #e5edf5);
     font-size: 0.9rem;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1.25;
 }
 

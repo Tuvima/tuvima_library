@@ -13,7 +13,7 @@
 
     .watch-player-page__eyebrow {
         font-size: 0.82rem;
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: var(--tl-text-muted);
@@ -59,7 +59,7 @@
         background: rgba(5, 8, 16, 0.78);
         color: rgba(255, 255, 255, 0.94);
         font-size: 0.82rem;
-        font-weight: 800;
+        font-weight: 700;
         backdrop-filter: blur(12px);
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
         cursor: pointer;
@@ -106,7 +106,7 @@
         border: 1px solid var(--tl-border-default);
         background: var(--tl-border-subtle);
         color: rgba(255, 255, 255, 0.92);
-        font-weight: 800;
+        font-weight: 700;
         cursor: pointer;
     }
 

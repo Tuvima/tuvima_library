@@ -1,5 +1,5 @@
-﻿.chronicle-explorer-title {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+.chronicle-explorer-title {
+    font-family: var(--font-ui);
 }
 
 .chronicle-explorer-controls {

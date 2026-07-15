@@ -66,7 +66,7 @@
 .playback-icon-button-shell ::deep .playback-icon-button__value {
     color: inherit;
     font-size: 0.98rem;
-    font-weight: 900;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
@@ -78,7 +78,7 @@
 .playback-icon-button-shell ::deep .playback-icon-button__badge {
     color: var(--playback-icon-button-badge-color, currentColor);
     font-size: 0.68rem;
-    font-weight: 900;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     margin-top: -4px;
@@ -87,7 +87,7 @@
 .playback-icon-button-shell ::deep .playback-icon-button__label {
     color: currentColor;
     font-size: 0.68rem;
-    font-weight: 760;
+    font-weight: 700;
     line-height: 1.12;
     max-width: 100%;
     overflow-wrap: anywhere;

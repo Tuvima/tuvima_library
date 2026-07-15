@@ -15,7 +15,7 @@
     padding: 0 8px 10px;
     color: var(--tl-text-muted);
     font-size: 0.72rem;
-    font-weight: 800;
+    font-weight: 700;
     border-bottom: 1px solid var(--tl-divider);
 }
 
@@ -153,7 +153,7 @@
 
 .listen-song-table__title {
     color: var(--tl-text-primary);
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .listen-song-table__time,
@@ -216,7 +216,7 @@
     padding: 0 8px 10px;
     color: var(--tl-text-muted);
     font-size: 0.72rem;
-    font-weight: 800;
+    font-weight: 700;
     border-bottom: 1px solid var(--tl-divider);
 }
 

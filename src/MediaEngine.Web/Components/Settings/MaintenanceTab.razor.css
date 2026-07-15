@@ -28,7 +28,7 @@
 .maintenance-diff__media {
     color: var(--tl-text-primary);
     font-size: 0.9rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .maintenance-diff__added {

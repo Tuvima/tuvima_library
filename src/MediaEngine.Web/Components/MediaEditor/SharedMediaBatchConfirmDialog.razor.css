@@ -8,12 +8,12 @@
         display: flex;
         flex-direction: column;
         gap: 22px;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
     }
 
     .smb-title {
         font-size: 1.65rem;
-        font-weight: 650;
+        font-weight: 600;
         line-height: 1.2;
         letter-spacing: -0.02em;
         max-width: 460px;

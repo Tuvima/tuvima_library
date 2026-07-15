@@ -56,7 +56,7 @@
 
 .playback-sheet-row-shell ::deep .playback-sheet-row__copy strong {
     font-size: 0.98rem;
-    font-weight: 850;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -70,7 +70,7 @@
 
 .playback-sheet-row-shell ::deep .playback-sheet-row__resume {
     color: var(--listen-accent, var(--tl-status-warning, #f59e0b));
-    font-weight: 800;
+    font-weight: 700;
     white-space: nowrap;
 }
 

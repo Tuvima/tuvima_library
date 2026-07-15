@@ -44,7 +44,7 @@
     background: transparent;
     color: rgba(255, 255, 255, 0.94);
     font-size: 0.96rem;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0.11em;
     text-align: left;
     text-transform: uppercase;
@@ -102,7 +102,7 @@
     background: rgba(120, 86, 255, 0.18);
     color: #c7b7ff;
     font-size: 0.74rem;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
     text-align: center;
 }
@@ -131,7 +131,7 @@
         radial-gradient(circle at 14% 50%, color-mix(in srgb, var(--nav-accent) 18%, transparent), transparent 28%),
         linear-gradient(135deg, rgba(55, 45, 106, 0.62), rgba(14, 20, 40, 0.7));
     font-size: 0.95rem;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0;
     text-transform: none;
     box-shadow: inset 3px 0 0 var(--nav-active-line);

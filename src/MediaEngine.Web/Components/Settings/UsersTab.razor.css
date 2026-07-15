@@ -14,7 +14,7 @@
 
 .users-table__name {
     color: var(--tl-text-primary);
-    font-weight: 750;
+    font-weight: 700;
 }
 
 .users-table__muted {
@@ -36,7 +36,7 @@
 .users-dialog-title {
     margin-bottom: var(--tl-space-3);
     color: var(--tl-text-primary);
-    font-weight: 750;
+    font-weight: 700;
 }
 
 .users-linked-list {
@@ -61,7 +61,7 @@
 .users-linked-account__provider {
     color: var(--tl-text-primary);
     font-size: 0.88rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .users-linked-account__identity {

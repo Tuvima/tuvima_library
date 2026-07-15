@@ -18,7 +18,7 @@
 
 .cover-compare-label {
     color: rgba(248, 248, 248, 0.40);
-    font-family: var(--app-font-sans, "Nunito", sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.10em;
@@ -61,6 +61,6 @@
 
 ::deep .cover-compare-radio .mud-radio {
     color: var(--tl-text-secondary);
-    font-family: var(--app-font-sans, "Nunito", sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.75rem;
 }

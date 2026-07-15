@@ -50,7 +50,7 @@
     .vmt-th {
         padding: 8px 16px;
         font-size: 10px;
-        font-weight: 800;
+        font-weight: 700;
         color: rgba(255, 255, 255, 0.60);
         text-transform: uppercase;
         letter-spacing: 0.1em;
@@ -263,7 +263,7 @@
 
     .vmt-creator-link {
         font-size: 10px;
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
         color: var(--tl-text-muted);
@@ -310,7 +310,7 @@
 
     .vmt-universe-linked {
         font-size: 10px;
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
         color: #A78BFA;
@@ -318,7 +318,7 @@
 
     .vmt-universe-standalone {
         font-size: 10px;
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
         color: var(--tl-text-faint);
@@ -362,7 +362,7 @@
 
     .vmt-group-label {
         font-size: 10px;
-        font-weight: 800;
+        font-weight: 700;
         color: var(--tl-text-muted);
         text-transform: uppercase;
         letter-spacing: 0.15em;
@@ -398,7 +398,7 @@
         border: none;
         color: var(--tl-text-faint);
         font-size: 9px;
-        font-weight: 800;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         cursor: pointer;
@@ -546,7 +546,7 @@
 
     .media-type-badge {
         font-size: 9px;
-        font-weight: 900;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.15em;
         padding: 2px 8px;

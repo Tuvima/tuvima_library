@@ -18,13 +18,13 @@
 
 .empty-shelf-state h2 {
     margin: 0;
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-ui);
     font-size: 1.05rem;
-    font-weight: 900;
+    font-weight: 600;
 }
 
 .empty-shelf-state p {
     margin: 6px 0 0;
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     color: rgba(203, 213, 225, 0.78);
 }

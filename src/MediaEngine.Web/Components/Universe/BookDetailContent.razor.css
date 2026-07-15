@@ -4,7 +4,7 @@
 }
 
 .book-detail-title {
-    font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
+    font-family: var(--media-identity-font-family);
     font-weight: var(--media-identity-title-weight, 850);
     line-height: var(--media-identity-title-line-height, .96);
     letter-spacing: var(--media-identity-title-letter-spacing, 0);
@@ -36,7 +36,7 @@
     }
 
     .book-detail-bc-link {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.80rem;
         font-weight: 500;
         color: rgba(248, 248, 248, 0.50);
@@ -53,7 +53,7 @@
     .book-detail-bc-author:hover   { color: var(--tl-accent-primary); }
 
     .book-detail-bc-sep {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.75rem;
         color: rgba(248, 248, 248, 0.22);
         user-select: none;
@@ -61,7 +61,7 @@
     }
 
     .book-detail-bc-current {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.80rem;
         font-weight: 500;
         color: rgba(248, 248, 248, 0.45);
@@ -102,7 +102,7 @@
     }
 
     .book-detail-sidebar-label {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.62rem;
         font-weight: 700;
         color: rgba(248, 248, 248, 0.35);
@@ -111,7 +111,7 @@
     }
 
     .book-detail-sidebar-value {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.85rem;
         font-weight: 500;
         color: rgba(248, 248, 248, 0.70);
@@ -156,13 +156,13 @@
         justify-content: center;
         background: var(--tl-status-warning-soft);
         color: var(--tl-accent-primary);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 1.0rem;
         font-weight: 700;
     }
 
     .book-detail-sidebar-author {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.88rem;
         font-weight: 600;
         color: var(--tl-accent-primary);
@@ -186,7 +186,7 @@
     }
 
     .book-detail-center-genre-chip {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.68rem;
         font-weight: 600;
         letter-spacing: 0.04em;
@@ -208,7 +208,7 @@
     }
 
     .book-detail-genre-chip {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.62rem;
         font-weight: 600;
         letter-spacing: 0.02em;
@@ -221,7 +221,7 @@
     }
 
     .book-detail-genre-more {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.62rem;
         font-weight: 600;
         color: var(--tl-accent-primary);
@@ -263,7 +263,7 @@
         display: flex;
         align-items: center;
         gap: 5px;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.85rem;
         font-weight: 400;
         color: rgba(248, 248, 248, 0.55);
@@ -277,7 +277,7 @@
     }
 
     .book-detail-meta-rating-val {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.80rem;
         font-weight: 600;
         color: rgba(248, 248, 248, 0.50);
@@ -304,7 +304,7 @@
     .book-detail-description-wrap { display: flex; flex-direction: column; gap: 8px; }
 
     .book-detail-description {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.90rem;
         font-weight: 300;
         line-height: 1.72;
@@ -314,7 +314,7 @@
     }
 
     .book-detail-attribution {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.72rem;
         font-weight: 400;
         color: rgba(248, 248, 248, 0.35);
@@ -323,7 +323,7 @@
     }
 
     .book-detail-expand-btn {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.78rem;
         font-weight: 600;
         color: var(--tl-accent-primary);
@@ -361,7 +361,7 @@
     }
 
     .book-detail-progress-label {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.73rem;
         font-weight: 600;
         color: var(--tl-accent-primary);
@@ -378,7 +378,7 @@
 
 
     .book-detail-title {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 2.2rem;
         font-weight: 700;
         color: rgba(248, 248, 248, 0.97);
@@ -403,7 +403,7 @@
         display: inline-flex;
         align-items: center;
         gap: 7px;
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.82rem;
         font-weight: 600;
         padding: 8px 18px;
@@ -580,7 +580,7 @@
     }
 
     .book-detail-action-label {
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.70rem;
         font-weight: 500;
         color: rgba(248, 248, 248, 0.50);
@@ -652,7 +652,7 @@
         backdrop-filter: blur(16px);
         border: 1px solid var(--tl-border-default);
         color: rgba(248, 248, 248, 0.88);
-        font-family: var(--app-font-sans, 'Nunito', sans-serif);
+        font-family: var(--font-ui);
         font-size: 0.85rem;
         font-weight: 500;
         padding: 12px 24px;
@@ -778,7 +778,7 @@
     }
 
     .book-detail-title {
-        font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
+        font-family: var(--media-identity-font-family);
         font-weight: var(--media-identity-title-weight, 850);
         line-height: var(--media-identity-title-line-height, .96);
         letter-spacing: var(--media-identity-title-letter-spacing, 0);

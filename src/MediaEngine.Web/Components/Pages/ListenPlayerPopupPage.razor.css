@@ -127,7 +127,7 @@
     margin: 0 auto;
     font-size: clamp(1.22rem, 3vw, 1.55rem);
     line-height: 1.22;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
 }
 
@@ -324,7 +324,7 @@
     border: 1px solid rgba(148, 163, 184, 0.24);
     background: rgba(15, 23, 42, 0.64);
     color: rgba(248, 250, 252, 0.9);
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .listen-popup-sheet__empty {
@@ -379,13 +379,13 @@
     align-items: center;
     gap: 14px;
     text-align: left;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 .listen-popup-menu__cancel {
     margin-top: 8px;
     text-align: center;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 .listen-popup__empty {

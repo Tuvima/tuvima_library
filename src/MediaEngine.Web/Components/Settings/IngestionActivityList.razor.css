@@ -55,7 +55,7 @@
 .ingestion-activity-shell__copy strong {
     color: #f8fbff;
     font-size: 1rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .ingestion-activity-shell__copy span {
@@ -79,7 +79,7 @@
     color: #bfdbfe;
     background: rgba(96, 165, 250, 0.11);
     font-size: 0.78rem;
-    font-weight: 760;
+    font-weight: 700;
 }
 
 ::deep .ingestion-activity-shell__chevron {
@@ -150,7 +150,7 @@
     color: #86efac;
     background: rgba(34, 197, 94, 0.12);
     font-size: 0.78rem;
-    font-weight: 760;
+    font-weight: 700;
     white-space: nowrap;
 }
 
@@ -230,7 +230,7 @@
 
 .ingestion-current-row__copy strong {
     color: #f8fbff;
-    font-weight: 760;
+    font-weight: 700;
 }
 
 .ingestion-current-row__copy span,
@@ -282,7 +282,7 @@
 .ingestion-current-row__bar > span {
     color: #dbeafe;
     font-size: 0.78rem;
-    font-weight: 760;
+    font-weight: 700;
     text-align: right;
 }
 
@@ -323,7 +323,7 @@
     border: 1px solid rgba(176, 190, 255, 0.10);
     border-radius: 999px;
     font-size: 0.78rem;
-    font-weight: 780;
+    font-weight: 700;
     line-height: 1;
     white-space: nowrap;
 }
@@ -520,7 +520,7 @@
 
 .ingestion-worker-items span {
     color: #f8fbff;
-    font-weight: 720;
+    font-weight: 700;
 }
 
 .ingestion-worker-items small {

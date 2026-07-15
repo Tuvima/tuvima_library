@@ -20,7 +20,7 @@
 }
 
 .search-page-title {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 1.6rem;
     font-weight: 700;
     color: rgba(248, 248, 248, 0.85);
@@ -28,7 +28,7 @@
 }
 
 .search-page-subtitle {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.95rem;
     color: rgba(248, 248, 248, 0.40);
     margin: 0;
@@ -44,7 +44,7 @@
 }
 
 .search-recent-title {
-    font-family: var(--app-font-sans, 'Nunito', sans-serif);
+    font-family: var(--font-ui);
     font-size: 1rem;
     font-weight: 600;
     color: rgba(248, 248, 248, 0.60);
@@ -147,7 +147,7 @@
 
 .search-result-title {
     font-size: 0.98rem;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--tl-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;

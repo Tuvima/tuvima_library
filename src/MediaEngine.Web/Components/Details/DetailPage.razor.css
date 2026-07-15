@@ -7,7 +7,7 @@
     background-repeat: no-repeat;
     background-size: 100% 100%;
     color: #f6f0e8;
-    font-family: "Montserrat", "Inter", "Segoe UI", system-ui, sans-serif;
+    font-family: var(--font-ui);
 }
 
 .tl-detail-page a,
@@ -298,7 +298,7 @@
 ::deep .tl-detail-hero--listen:not(.tl-detail-hero--watch) .tl-detail-hero__subtitle {
     color: color-mix(in srgb, var(--tl-detail-primary, #dca53e) 88%, #fff);
     font-size: clamp(1.2rem, 2vw, 1.85rem);
-    font-weight: 650;
+    font-weight: 600;
     letter-spacing: 0.38em;
     text-transform: uppercase;
 }
@@ -358,7 +358,7 @@
     z-index: 4;
     color: rgba(255, 248, 235, 0.92);
     font-size: 1rem;
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: 0;
     text-transform: uppercase;
     text-shadow: 0 0.3rem 1.2rem rgba(0, 0, 0, 0.62);
@@ -417,7 +417,7 @@
 ::deep .tl-detail-hero-brand-badge span {
     color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.95);
     font-size: 0.86rem;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
     line-height: 1;
     white-space: nowrap;
@@ -447,7 +447,7 @@
     margin: 0;
     font-size: clamp(2.45rem, 6vw, 5.8rem);
     line-height: 0.94;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
     text-wrap: balance;
 }
@@ -475,7 +475,7 @@
     width: fit-content;
     color: color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 72%, #fff);
     font-size: clamp(0.78rem, 0.9vw, 0.95rem);
-    font-weight: 820;
+    font-weight: 700;
     line-height: 1.35;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -513,7 +513,7 @@
 ::deep .tl-detail-hero-credit-stack__label {
     color: color-mix(in srgb, var(--tl-detail-primary, #dca53e) 78%, #fff);
     font-size: 0.66rem;
-    font-weight: 760;
+    font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
 }
@@ -521,7 +521,7 @@
 ::deep .tl-detail-hero-credit-stack__value {
     color: color-mix(in srgb, var(--tl-detail-primary, #dca53e) 62%, #fff);
     font-size: clamp(0.98rem, 1.35vw, 1.28rem);
-    font-weight: 650;
+    font-weight: 600;
     letter-spacing: 0.03em;
     text-transform: none;
 }
@@ -549,7 +549,7 @@
     background: rgba(246, 240, 232, 0.075);
     color: rgba(246, 240, 232, 0.84);
     font-size: 0.78rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 ::deep .tl-generated-identity,
@@ -565,7 +565,7 @@
         linear-gradient(145deg, color-mix(in srgb, var(--tl-detail-primary, #c9922e) 48%, #15171f), color-mix(in srgb, var(--tl-detail-secondary, #271a3a) 62%, #111318));
     color: white;
     font-size: clamp(2rem, 6vw, 4rem);
-    font-weight: 850;
+    font-weight: 700;
 }
 
 ::deep .tl-person-avatar {
@@ -581,7 +581,7 @@
         radial-gradient(circle at 30% 20%, hsla(calc(var(--person-avatar-hue) + 32), 72%, 72%, 0.42), transparent 58%),
         linear-gradient(145deg, hsl(var(--person-avatar-hue), 48%, 30%), hsl(calc(var(--person-avatar-hue) + 72), 46%, 18%));
     color: #fff8eb;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
 }
 
@@ -709,7 +709,7 @@
     color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff);
     text-decoration: none;
     font-size: 0.9rem;
-    font-weight: 720;
+    font-weight: 700;
     transition: background 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
@@ -795,7 +795,7 @@
     margin: 0;
     color: rgba(246, 240, 232, 0.92);
     font-size: 0.82rem;
-    font-weight: 840;
+    font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
 }
@@ -803,7 +803,7 @@
 ::deep .tl-overview-credit-group__heading span {
     color: rgba(246, 240, 232, 0.48);
     font-size: 0.76rem;
-    font-weight: 760;
+    font-weight: 700;
 }
 
 ::deep .tl-overview-credit-grid {
@@ -946,7 +946,7 @@
     margin: 0;
     color: rgba(246, 240, 232, 0.78);
     font-size: clamp(0.98rem, 1.6vw, 1.18rem);
-    font-weight: 720;
+    font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
 }
@@ -958,7 +958,7 @@
     gap: 0.45rem;
     color: rgba(246, 240, 232, 0.84);
     font-size: 0.98rem;
-    font-weight: 640;
+    font-weight: 600;
 }
 
 ::deep .tl-audio-detail__tagline {
@@ -1166,7 +1166,7 @@
     margin: 0;
     color: rgba(246, 240, 232, 0.78);
     font-size: 0.88rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 ::deep .tl-person-library-lane h3 .mud-icon-root {
@@ -1224,7 +1224,7 @@
     overflow: hidden;
     color: rgba(246, 240, 232, 0.92);
     font-size: 0.82rem;
-    font-weight: 760;
+    font-weight: 700;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1258,7 +1258,7 @@
     margin: 0.35rem 0 0.1rem;
     color: rgba(246, 240, 232, 0.58);
     font-size: 0.78rem;
-    font-weight: 820;
+    font-weight: 700;
     text-transform: uppercase;
 }
 
@@ -1306,7 +1306,7 @@
     overflow: hidden;
     color: rgba(246, 240, 232, 0.92);
     font-size: 0.96rem;
-    font-weight: 780;
+    font-weight: 700;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1328,7 +1328,7 @@
 ::deep .tl-detail-person-fact-card__label {
     color: rgba(246, 240, 232, 0.52);
     font-size: 0.78rem;
-    font-weight: 820;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-person-fact-card__value {
@@ -1423,7 +1423,7 @@
     border-radius: 999px;
     background: rgba(255,255,255,0.08);
     color: #fff8eb;
-    font-weight: 750;
+    font-weight: 700;
     letter-spacing: 0;
     cursor: pointer;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
@@ -1498,7 +1498,7 @@
     border-radius: 0.5rem;
     color: #0a0b0f;
     font-size: 1.16rem;
-    font-weight: 900;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-secondary-action > span,
@@ -1584,7 +1584,7 @@
 ::deep .tl-detail-panel__header h2 {
     margin: 0 0 1rem;
     font-size: 1rem;
-    font-weight: 800;
+    font-weight: 700;
     color: #fff8eb;
 }
 
@@ -1600,7 +1600,7 @@
     flex: 0 0 7.5rem;
     color: rgba(246, 240, 232, 0.66);
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 700;
     text-transform: uppercase;
 }
 
@@ -1707,7 +1707,7 @@
 ::deep .tl-credit-card__name,
 ::deep .tl-character-card__name,
 ::deep .tl-child-card__title {
-    font-weight: 780;
+    font-weight: 700;
     line-height: 1.25;
 }
 
@@ -1767,7 +1767,7 @@
     color: rgba(246, 240, 232, 0.58);
     font: inherit;
     font-size: 0.86rem;
-    font-weight: 800;
+    font-weight: 700;
     white-space: nowrap;
     cursor: pointer;
 }
@@ -1830,14 +1830,14 @@
     margin: 0;
     color: #fff;
     font-size: 1.35rem;
-    font-weight: 850;
+    font-weight: 700;
 }
 
 ::deep .tl-episode-panel__meta,
 ::deep .tl-episode-row__meta {
     color: rgba(255,255,255,0.62);
     font-size: 0.82rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 ::deep .tl-season-dropdown {
@@ -1856,7 +1856,7 @@
     color: #fff;
     font: inherit;
     font-size: 0.94rem;
-    font-weight: 800;
+    font-weight: 700;
     cursor: pointer;
 }
 
@@ -1905,7 +1905,7 @@
     justify-self: center;
     color: rgba(255,255,255,0.78);
     font-size: 1.45rem;
-    font-weight: 550;
+    font-weight: 600;
 }
 
 ::deep .tl-episode-row__thumb {
@@ -1977,14 +1977,14 @@
     margin: 0;
     color: #fff;
     font-size: 0.98rem;
-    font-weight: 850;
+    font-weight: 700;
     line-height: 1.3;
 }
 
 ::deep .tl-episode-row__titleline span {
     color: rgba(255,255,255,0.82);
     font-size: 0.9rem;
-    font-weight: 800;
+    font-weight: 700;
     white-space: nowrap;
 }
 
@@ -2096,7 +2096,7 @@
     border-radius: 999px;
     background: transparent;
     color: rgba(246, 240, 232, 0.68);
-    font-weight: 800;
+    font-weight: 700;
     cursor: pointer;
 }
 
@@ -2184,7 +2184,7 @@
     background: rgba(255,255,255,0.08);
     color: rgba(246, 240, 232, 0.58);
     font-size: 0.75rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 ::deep .tl-owned-format-card.is-selected {
@@ -2213,7 +2213,7 @@
     white-space: nowrap;
     color: rgba(255, 248, 235, 0.94);
     font-size: 0.82rem;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
     text-transform: uppercase;
 }
@@ -2278,7 +2278,7 @@
 
 ::deep .tl-detail-hero__copy h1 {
     font-size: clamp(3rem, 7vw, 6.6rem);
-    font-weight: 900;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-hero__copy h1 {
@@ -2392,7 +2392,7 @@
     white-space: nowrap;
     color: #fff;
     font-size: 1.02rem;
-    font-weight: 650;
+    font-weight: 600;
     line-height: 1.05;
 }
 
@@ -2418,7 +2418,7 @@
     background: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 18%, rgba(0,0,0,0.30));
     color: #ffe1af;
     font-size: 0.88rem;
-    font-weight: 850;
+    font-weight: 700;
     text-decoration: none;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
 }
@@ -2456,7 +2456,7 @@
     border-left: 1px solid rgba(255,255,255,0.14);
     color: rgba(255,255,255,0.64);
     font-size: 0.78rem;
-    font-weight: 750;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-actions {
@@ -2479,7 +2479,7 @@
 ::deep .tl-detail-hero-progress__label {
     color: rgba(var(--hero-text-rgb), 0.86);
     font-size: 0.92rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-hero-progress__summary,
@@ -2493,7 +2493,7 @@
 ::deep .tl-detail-hero-progress__summary {
     color: rgba(var(--hero-text-rgb), 0.92);
     font-size: 0.96rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-hero-progress__context {
@@ -2512,14 +2512,14 @@
 
 ::deep .tl-detail-hero-progress__percent {
     color: rgba(var(--hero-accent-rgb), 0.98);
-    font-weight: 900;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
 
 ::deep .tl-detail-hero-progress__meta {
     color: rgba(var(--hero-text-rgb), 0.76);
     font-size: 0.86rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-hero-progress__track {
@@ -2563,7 +2563,7 @@
     min-width: 4.4rem;
     color: #fff;
     font-size: 0.9rem;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-action--primary {
@@ -2575,7 +2575,7 @@
     background: linear-gradient(180deg, #fff, #f2f2f2);
     color: #111217;
     font-size: clamp(1.25rem, 2.1vw, 1.85rem);
-    font-weight: 900;
+    font-weight: 700;
     box-shadow: 0 0.95rem 2.2rem rgba(0,0,0,0.30);
 }
 
@@ -2615,7 +2615,7 @@
         linear-gradient(180deg, var(--tl-accent-primary, #8b5cf6) 0%, var(--tl-accent-primary-active, #7652d6) 100%);
     color: #fff;
     font-size: clamp(1.08rem, 1.45vw, 1.28rem);
-    font-weight: 900;
+    font-weight: 700;
     box-shadow:
         0 0 0 1px rgba(196, 181, 253, 0.24),
         0 0 28px rgba(139, 92, 246, 0.48),
@@ -2656,7 +2656,7 @@
     background: rgba(13, 15, 20, 0.58);
     color: rgba(var(--hero-text-rgb), 0.95);
     font-size: clamp(1.02rem, 1.35vw, 1.2rem);
-    font-weight: 820;
+    font-weight: 700;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0.8rem 1.8rem rgba(0, 0, 0, 0.22);
     backdrop-filter: blur(14px);
     cursor: pointer;
@@ -2703,7 +2703,7 @@
         linear-gradient(135deg, color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 92%, #b794f6) 0%, var(--tl-accent-primary, #7c3aed) 100%);
     color: #fff;
     font-size: clamp(1.08rem, 1.45vw, 1.28rem);
-    font-weight: 900;
+    font-weight: 700;
     box-shadow: 0 0.85rem 2rem rgba(76, 29, 149, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
@@ -2805,7 +2805,7 @@
     margin: 0 0 0.65rem;
     color: #fff;
     font-size: 0.82rem;
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2906,7 +2906,7 @@
 ::deep .tl-credit-card__name {
     color: #fff;
     font-size: 0.84rem;
-    font-weight: 850;
+    font-weight: 700;
     line-height: 1.15;
     text-shadow: 0 1px 2px rgba(0,0,0,0.45);
 }
@@ -2992,7 +2992,7 @@
     border-radius: 999px;
     color: rgba(246, 240, 232, 0.72);
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 700;
 }
 
 ::deep .tl-credit-group--secondary {
@@ -3008,7 +3008,7 @@
     background: rgba(246, 240, 232, 0.06);
     color: rgba(246, 240, 232, 0.82);
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 700;
     cursor: pointer;
 }
 
@@ -3121,7 +3121,7 @@
     padding: 0.45rem 0;
     color: rgba(235, 241, 252, 0.82);
     font-size: 0.92rem;
-    font-weight: 680;
+    font-weight: 600;
 }
 
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-owned-summary {
@@ -3142,7 +3142,7 @@
     margin-left: 0;
     color: rgba(167, 192, 255, 0.82);
     font-size: 0.72rem;
-    font-weight: 720;
+    font-weight: 700;
     text-decoration: none;
 }
 
@@ -3301,7 +3301,7 @@
 ::deep .tl-credits-detail-card .tl-credit-group__heading h2 {
     color: rgba(246, 240, 232, 0.92);
     font-size: 0.82rem;
-    font-weight: 840;
+    font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
 }
@@ -3359,7 +3359,7 @@
     color: #fff;
     font-size: clamp(2rem, 3.2vw, 3.8rem);
     line-height: 0.98;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
 }
 
@@ -3390,7 +3390,7 @@
     margin: 0;
     color: color-mix(in srgb, var(--tl-detail-accent, #7f8cff) 74%, #fff);
     font-size: 0.84rem;
-    font-weight: 860;
+    font-weight: 700;
     letter-spacing: 0.24em;
     text-transform: uppercase;
 }
@@ -3400,7 +3400,7 @@
     background: transparent;
     color: color-mix(in srgb, var(--tl-detail-accent, #7f8cff) 82%, #fff);
     font-size: 0.86rem;
-    font-weight: 680;
+    font-weight: 600;
     cursor: pointer;
 }
 
@@ -3425,7 +3425,7 @@
     margin: 0;
     color: color-mix(in srgb, var(--tl-detail-accent, #7f8cff) 78%, #fff);
     font-size: 0.84rem;
-    font-weight: 860;
+    font-weight: 700;
     letter-spacing: 0.24em;
     text-transform: uppercase;
 }
@@ -3465,7 +3465,7 @@
     margin: 0;
     color: #fff;
     font-size: 0.78rem;
-    font-weight: 820;
+    font-weight: 700;
     line-height: 1.2;
     text-align: center;
     display: -webkit-box;
@@ -3629,7 +3629,7 @@
 ::deep .tl-media-overview-card__series .tl-series-placement--compact .tl-series-eyebrow small {
     color: rgba(246, 240, 232, 0.62);
     font-size: 0.8rem;
-    font-weight: 650;
+    font-weight: 600;
     letter-spacing: 0;
     text-transform: none;
 }
@@ -3728,7 +3728,7 @@
 ::deep .tl-series-control .app-field__label {
     color: rgba(218, 225, 240, 0.72);
     font-size: 0.86rem;
-    font-weight: 760;
+    font-weight: 700;
     letter-spacing: 0.04em;
 }
 
@@ -3764,7 +3764,7 @@
 ::deep .tl-series-heading strong {
     color: #87a9ff;
     font-size: 0.78rem;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0.28em;
     text-transform: uppercase;
 }
@@ -3783,7 +3783,7 @@
     margin: clamp(1.6rem, 3vw, 2.4rem) 0 0;
     color: rgba(246, 249, 255, 0.98);
     font-size: clamp(2.4rem, 4.9vw, 4.6rem);
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
     line-height: 0.98;
     text-shadow: 0 0.5rem 1.8rem rgba(0,0,0,0.35);
@@ -3795,7 +3795,7 @@
     gap: 0.85rem;
     color: #87a9ff;
     font-size: 0.9rem;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0.34em;
     text-transform: uppercase;
 }
@@ -3871,20 +3871,20 @@
 
 ::deep .tl-series-position-summary__number {
     font-size: clamp(2.2rem, 4vw, 3.3rem);
-    font-weight: 950;
+    font-weight: 700;
     line-height: 1;
 }
 
 ::deep .tl-series-position-summary__total {
     color: rgba(216, 227, 255, 0.78);
     font-size: clamp(0.95rem, 1.3vw, 1.1rem);
-    font-weight: 850;
+    font-weight: 700;
 }
 
 ::deep .tl-series-position-summary__label {
     color: #9bb7ff;
     font-size: 0.8rem;
-    font-weight: 840;
+    font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
 }
@@ -3900,7 +3900,7 @@
     background: rgba(21, 33, 66, 0.56);
     color: #7ea2ff;
     font-size: 0.88rem;
-    font-weight: 860;
+    font-weight: 700;
 }
 
 ::deep .tl-series-selector {
@@ -3919,7 +3919,7 @@
     background: rgba(10, 18, 30, 0.7);
     color: rgba(235, 242, 255, 0.86);
     font-size: 0.78rem;
-    font-weight: 840;
+    font-weight: 700;
 }
 
 ::deep .tl-series-selector__option.is-selected {
@@ -4041,7 +4041,7 @@
     background: rgba(6, 10, 16, 0.92);
     color: rgba(231, 238, 250, 0.84);
     font-size: clamp(0.82rem, 1.1vw, 1rem);
-    font-weight: 900;
+    font-weight: 700;
     box-shadow: 0 0 0 0.15rem rgba(255,255,255,0.04);
 }
 
@@ -4094,7 +4094,7 @@
     background: rgba(46, 102, 255, 0.92);
     color: #fff;
     font-size: 0.62rem;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1;
     text-align: center;
     text-transform: uppercase;
@@ -4116,7 +4116,7 @@
     align-content: center;
     color: rgba(210, 220, 238, 0.36);
     font-size: 0.58rem;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0.16em;
     text-align: center;
     text-transform: uppercase;
@@ -4140,7 +4140,7 @@
     margin-top: 0.56rem;
     color: #fff;
     font-size: 0.82rem;
-    font-weight: 820;
+    font-weight: 700;
     line-height: 1.22;
     text-align: center;
     min-height: 3.75rem;
@@ -4172,7 +4172,7 @@
 
 ::deep .tl-series-owned-summary span:first-of-type {
     color: #6f9bff;
-    font-weight: 850;
+    font-weight: 700;
 }
 
 ::deep .tl-series-owned-summary__dot {
@@ -4250,7 +4250,7 @@
     border-bottom: 1px solid color-mix(in srgb, var(--tl-detail-primary, #c9922e) 72%, transparent);
     color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff);
     font-size: 0.78rem;
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
 }
@@ -4290,7 +4290,7 @@
     margin: -0.2rem 0 0;
     color: color-mix(in srgb, rgb(var(--hero-text-rgb, 246, 240, 232)) 76%, var(--tl-detail-primary, #c9922e));
     font-size: clamp(1.05rem, 1.8vw, 1.55rem);
-    font-weight: 720;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-capability-row {
@@ -4309,7 +4309,7 @@
     background: rgba(var(--hero-surface-rgb, 18, 22, 28), 0.48);
     color: rgba(var(--hero-text-rgb, 246, 240, 232), 0.88);
     font-size: 0.82rem;
-    font-weight: 760;
+    font-weight: 700;
     backdrop-filter: blur(10px);
 }
 
@@ -4337,7 +4337,7 @@
     max-width: min(100%, 52rem);
     color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.88);
     font-size: clamp(1rem, 1.3vw, 1.18rem);
-    font-weight: 620;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-watch-metadata-item {
@@ -4360,7 +4360,7 @@
     background: rgba(22, 24, 29, 0.78);
     color: rgba(var(--hero-text-rgb, 245, 247, 250), 0.94);
     font-size: 0.9em;
-    font-weight: 730;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-watch-metadata-item--rating .mud-icon-root {
@@ -4393,7 +4393,7 @@
 ::deep .tl-detail-metadata-item__value,
 ::deep .tl-detail-stat__value {
     font-size: 0.94rem;
-    font-weight: 820;
+    font-weight: 700;
     white-space: nowrap;
 }
 
@@ -4623,7 +4623,7 @@
 
 ::deep .tl-detail-premium-action__label {
     font-size: 1rem;
-    font-weight: 880;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-premium-action__subtitle {
@@ -4660,7 +4660,7 @@
     padding: 0 0.9rem;
     color: rgba(246, 240, 232, 0.46);
     font-size: 0.72rem;
-    font-weight: 820;
+    font-weight: 700;
     text-transform: uppercase;
 }
 
@@ -4733,7 +4733,7 @@
     background: rgba(246, 240, 232, 0.20);
     color: #fff;
     font-size: 0.68rem;
-    font-weight: 900;
+    font-weight: 700;
 }
 
 ::deep .tl-detail-track-row__duration,
@@ -4768,7 +4768,7 @@
     border-bottom: 1px solid rgba(255,255,255,0.08);
     color: rgba(246, 240, 232, 0.66);
     font-size: 0.82rem;
-    font-weight: 640;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-track-toggle {
@@ -4859,7 +4859,7 @@
     color: rgba(246, 240, 232, 0.48);
     font: inherit;
     font-size: 0.72rem;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0;
     text-transform: uppercase;
     cursor: pointer;
@@ -4961,7 +4961,7 @@
     background: rgba(11, 17, 28, 0.64);
     color: rgba(246, 240, 232, 0.52);
     font-size: 0.72rem;
-    font-weight: 820;
+    font-weight: 700;
     text-transform: uppercase;
     box-shadow: inset 0 -1px 0 rgba(255,255,255,0.08);
 }
@@ -5646,7 +5646,7 @@
     margin: 0;
     color: rgba(248, 250, 252, 0.96);
     font-size: clamp(1.35rem, 2vw, 1.75rem);
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
 }
 
@@ -5764,7 +5764,7 @@
 ::deep .tl-audiobook-chapters__copy strong {
     color: inherit;
     font-size: 0.98rem;
-    font-weight: 850;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -5773,7 +5773,7 @@
 ::deep .tl-audiobook-chapters__copy span {
     color: var(--tl-status-warning, #f59e0b);
     font-size: 0.86rem;
-    font-weight: 750;
+    font-weight: 700;
     min-height: 1.05rem;
 }
 
@@ -5792,7 +5792,7 @@
     min-width: 8.25rem;
     color: rgba(203, 213, 225, 0.74);
     font-size: 0.82rem;
-    font-weight: 750;
+    font-weight: 700;
     gap: 0.5rem;
 }
 
@@ -5877,7 +5877,7 @@
     gap: 0.42rem;
     color: rgba(255, 255, 255, 0.78);
     font-size: clamp(0.74rem, 0.82vw, 0.86rem);
-    font-weight: 580;
+    font-weight: 600;
     letter-spacing: 0.015em;
 }
 
@@ -5926,7 +5926,7 @@
     margin: 0;
     color: rgba(255, 255, 255, 0.72);
     font-size: 0.78rem;
-    font-weight: 650;
+    font-weight: 600;
     line-height: 1.35;
 }
 
@@ -5935,7 +5935,7 @@
     max-width: min(47.5rem, 62vw);
     color: rgba(255, 255, 255, 0.88);
     font-size: clamp(0.82rem, 0.9vw, 0.94rem);
-    font-weight: 470;
+    font-weight: 500;
     line-height: 1.45;
     white-space: normal;
 }
@@ -5945,14 +5945,14 @@
     margin: 0;
     color: rgba(255, 255, 255, 0.62);
     font-size: 0.76rem;
-    font-weight: 480;
+    font-weight: 500;
     line-height: 1.35;
 }
 
 ::deep .tl-detail-genre-text__label {
     margin-right: 0.42rem;
     color: rgba(255, 255, 255, 0.82);
-    font-weight: 650;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-genre-text a {
@@ -5982,7 +5982,7 @@
     min-height: 3.35rem;
     color: rgba(255, 255, 255, 0.62);
     font-size: 0.78rem;
-    font-weight: 650;
+    font-weight: 600;
     letter-spacing: 0.035em;
 }
 
@@ -6104,7 +6104,7 @@
 ::deep .tl-series-show-link {
     color: #87a9ff;
     font-size: 0.78rem;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0.18em;
     text-decoration: underline;
     text-decoration-color: rgba(135, 169, 255, 0.72);
@@ -6209,7 +6209,7 @@
     border-radius: 999px;
     background: rgba(6, 10, 18, 0.78);
     font-size: 0.72rem;
-    font-weight: 760;
+    font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
@@ -6388,7 +6388,7 @@
 }
 
 ::deep .tl-detail-flat-action .mud-icon-root { font-size: 1.8rem; }
-::deep .tl-detail-flat-action span { font-size: 0.76rem; font-weight: 760; }
+::deep .tl-detail-flat-action span { font-size: 0.76rem; font-weight: 700; }
 
 ::deep .tl-detail-flat-action:hover,
 ::deep .tl-detail-flat-action:focus-visible {
@@ -6457,7 +6457,7 @@
 ::deep .tl-episode-panel__header h2 {
     color: rgba(255,255,255,0.68);
     font-size: 1rem;
-    font-weight: 620;
+    font-weight: 600;
 }
 
 ::deep .tl-episode-coverage {
@@ -6466,7 +6466,7 @@
     gap: 0.75rem;
     color: rgba(255, 255, 255, 0.68);
     font-size: 0.85rem;
-    font-weight: 720;
+    font-weight: 700;
 }
 
 ::deep .tl-episode-coverage__ring {
@@ -6567,7 +6567,7 @@
     margin: 0;
     color: #fff;
     font-size: 1rem;
-    font-weight: 820;
+    font-weight: 700;
     line-height: 1.35;
 }
 
@@ -6579,7 +6579,7 @@
     margin: 0.55rem 0 0;
     color: rgba(255,255,255,0.62);
     font-size: 0.9rem;
-    font-weight: 540;
+    font-weight: 600;
     line-height: 1.45;
 }
 
@@ -6590,7 +6590,7 @@
     margin-top: 0.75rem;
     color: rgba(255,255,255,0.66);
     font-size: 0.8rem;
-    font-weight: 620;
+    font-weight: 600;
 }
 
 ::deep .tl-episode-card__meta span + span::before {
@@ -6645,7 +6645,7 @@
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__subtitle,
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__tagline,
 ::deep .tl-audio-detail__subtitle {
-    font-family: var(--media-identity-font-family, var(--app-font-brand, 'Montserrat', sans-serif));
+    font-family: var(--media-identity-font-family);
     font-weight: var(--media-identity-subtitle-weight, 650);
     letter-spacing: 0;
     text-transform: none;
@@ -6791,7 +6791,7 @@
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
     gap: 0.7rem;
     font-size: clamp(1rem, 1.3vw, 1.18rem);
-    font-weight: 620;
+    font-weight: 600;
     letter-spacing: 0;
 }
 
@@ -6823,7 +6823,7 @@
     border-radius: 0.28rem;
     background: rgba(255, 255, 255, 0.055);
     color: rgba(255, 255, 255, 0.78);
-    font-weight: 540;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-watch-metadata-item .mud-icon-root {
@@ -6838,7 +6838,7 @@
 
 ::deep .tl-detail-hero--watch .tl-detail-actions--watch .tl-detail-flat-action span {
     font-size: 0.8rem;
-    font-weight: 540;
+    font-weight: 600;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-actions--watch .tl-detail-flat-action .mud-icon-root {
@@ -6860,9 +6860,9 @@
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis h2 {
     margin: 0 0 0.42rem;
     color: rgba(255, 255, 255, 0.94);
-    font-family: var(--app-font-brand, 'Montserrat', sans-serif);
+    font-family: var(--font-ui);
     font-size: 0.92rem;
-    font-weight: 680;
+    font-weight: 600;
     line-height: 1.35;
     letter-spacing: 0.01em;
 }
@@ -6872,7 +6872,7 @@
     margin: 0;
     color: rgba(255, 255, 255, 0.72);
     font-size: clamp(0.94rem, 1.05vw, 1.08rem);
-    font-weight: 430;
+    font-weight: 400;
     line-height: 1.62;
 }
 
@@ -6881,7 +6881,7 @@
     margin-top: 0.45rem;
     color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 82%, #fff);
     font-size: 0.86rem;
-    font-weight: 650;
+    font-weight: 600;
     text-decoration: none;
 }
 
@@ -6930,7 +6930,7 @@
     margin: 0 0 0.75rem;
     color: rgba(255, 255, 255, 0.68);
     font-size: 0.72rem;
-    font-weight: 650;
+    font-weight: 600;
     line-height: 1.3;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -6957,7 +6957,7 @@
     margin: 0;
     color: rgba(224, 231, 244, 0.68);
     font-size: 0.92rem;
-    font-weight: 430;
+    font-weight: 400;
     line-height: 1.6;
 }
 

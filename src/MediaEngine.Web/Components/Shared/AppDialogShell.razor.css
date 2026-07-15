@@ -1,4 +1,4 @@
-﻿.app-dialog-shell {
+.app-dialog-shell {
     display: flex;
     flex-direction: column;
     width: min(100vw - 32px, 980px);
@@ -61,7 +61,7 @@
     margin-bottom: 4px;
     color: rgba(255, 255, 255, 0.54);
     font-size: 0.72rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -70,7 +70,7 @@
     margin: 0;
     font-size: 1.2rem;
     line-height: 1.2;
-    font-weight: 850;
+    font-weight: 700;
     letter-spacing: 0;
 }
 

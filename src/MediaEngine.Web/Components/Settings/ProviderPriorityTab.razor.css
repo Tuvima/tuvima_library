@@ -44,7 +44,7 @@
 .provider-panel__title {
     margin: 0;
     font-size: 1.02rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .provider-panel__copy {
@@ -118,7 +118,7 @@
     color: #fff;
     background: rgba(154, 109, 255, 0.22);
     font-size: 0.76rem;
-    font-weight: 850;
+    font-weight: 700;
     line-height: 1;
     text-align: center;
 }
@@ -143,7 +143,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 740;
+    font-weight: 700;
 }
 
 .provider-list-card__description,
@@ -237,7 +237,7 @@
 
 .provider-media-slot__title {
     font-size: 0.95rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .provider-media-slot__strategy {
@@ -281,7 +281,7 @@
     color: #fff;
     background: linear-gradient(135deg, #8357f2, #4d2dac);
     font-size: 0.78rem;
-    font-weight: 850;
+    font-weight: 700;
 }
 
 .provider-assignment-actions {
@@ -361,7 +361,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .provider-insight-card__copy,
@@ -398,7 +398,7 @@
     color: rgba(220, 229, 255, 0.72);
     background: rgba(255, 255, 255, 0.055);
     font-size: 0.72rem;
-    font-weight: 740;
+    font-weight: 700;
 }
 
 .provider-status-pill.is-healthy {
@@ -432,7 +432,7 @@
     white-space: nowrap;
     color: rgba(245, 247, 255, 0.96);
     font-size: 0.94rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .provider-metric__label {
@@ -471,7 +471,7 @@
 
 .provider-settings__name {
     font-size: 1.18rem;
-    font-weight: 780;
+    font-weight: 700;
 }
 
 .provider-settings-details {

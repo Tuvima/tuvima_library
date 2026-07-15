@@ -9,9 +9,9 @@
     align-items: center;
     justify-content: center;
     gap: 9px;
-    font-family: var(--app-font-brand, 'Montserrat', var(--app-font-sans, sans-serif));
+    font-family: var(--font-ui);
     font-size: 0.88rem;
-    font-weight: 900;
+    font-weight: 600;
     line-height: 1;
     color: rgba(248, 250, 252, 0.94);
     cursor: pointer;
