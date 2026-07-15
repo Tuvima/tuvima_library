@@ -3482,6 +3482,8 @@ public sealed class DetailComposerService
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'runtime' LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'duration' LIMIT 1)) AS TEXT) AS Duration,
                    CAST(COALESCE(
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('air_date', 'original_air_date', 'release_date', 'publication_date') LIMIT 1),
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('air_date', 'original_air_date', 'release_date', 'publication_date') LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('year', 'release_year') LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('year', 'release_year') LIMIT 1)) AS TEXT) AS Year,
                    CAST(COALESCE(
@@ -5580,7 +5582,7 @@ public sealed class DetailComposerService
 
         var orderedWorks = entityType == DetailEntityType.TvShow
             ? DeduplicateTvEpisodeSummaries(works)
-                .Where(work => work.IsOwned)
+                .Where(work => expectedTotal is > 0 || work.IsOwned)
                 .ToList()
             : works
                 .OrderBy(work => work.Ordinal ?? int.MaxValue)
@@ -5692,7 +5694,7 @@ public sealed class DetailComposerService
             GroupLabel = labels.GroupLabel,
             CurrentGroupKey = selectedGroup?.Key ?? initialGroup?.Key,
             TotalKnownItems = totalKnownItems,
-            HasAuthoritativeTotal = entityType != DetailEntityType.TvShow && expectedTotal is > 0,
+            HasAuthoritativeTotal = expectedTotal is > 0,
             OrderingType = entityType switch
             {
                 DetailEntityType.TvShow => SequenceOrderingType.EpisodeNumber,

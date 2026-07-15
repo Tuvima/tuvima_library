@@ -585,7 +585,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("a.tl-series-item", styles);
         Assert.Contains("padding-bottom: 1.4rem", styles);
         Assert.Contains("tl-series-episode-play", source);
-        Assert.Contains("tl-series-episode-details-overlay", source);
+        Assert.DoesNotContain("tl-series-episode-details-overlay", source);
+        Assert.Contains("tl-series-episode-details", source);
+        Assert.Contains("Icons.Material.Outlined.MoreVert", source);
         Assert.Contains("EpisodeDetailRoute", source);
         Assert.Contains("tl-series-item__description", source);
         Assert.Contains("EpisodeWatchLabel", source);
@@ -630,7 +632,14 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("show-details", showPage);
         Assert.DoesNotContain("tl-tv-episode-detail-back", showPage);
         Assert.Contains("@ContainerTitleDisplay", sequence);
-        Assert.Contains("tl-series-episode-details-overlay", sequence);
+        Assert.DoesNotContain("tl-series-episode-details-overlay", sequence);
+        Assert.Contains("SequenceItemDisplayTitle", sequence);
+        Assert.Contains("EpisodeNumberLabel", sequence);
+        Assert.Contains("SequenceItemAirDate", sequence);
+        Assert.Contains("Icons.Material.Outlined.CalendarMonth", sequence);
+        Assert.Contains("Icons.Material.Outlined.Schedule", sequence);
+        Assert.Contains("Label=\"Show Missing\"", sequence);
+        Assert.Contains("CanShowMissingToggle", sequence);
         Assert.Contains("Watch S{season} E{episode}", sequence);
     }
 

@@ -6128,6 +6128,54 @@
     overflow: hidden;
 }
 
+::deep .tl-series-content__toolbar {
+    min-height: 3.25rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-inline: 3.6rem;
+}
+
+::deep .tl-series-content__toolbar .tl-series-show-missing {
+    margin-left: auto;
+    color: rgba(239, 244, 255, 0.9);
+    font-size: 0.86rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+::deep .tl-series-control--group {
+    width: min(100%, 13rem);
+}
+
+::deep .tl-series-control--group .mud-input,
+::deep .tl-series-control--group .mud-input-control {
+    min-height: 3rem !important;
+    height: 3rem !important;
+}
+
+::deep .tl-series-control--group .mud-input-outlined,
+::deep .tl-series-control--group .mud-input-slot,
+::deep .tl-series-control--group .mud-select-input {
+    background: #545454 !important;
+}
+
+::deep .tl-series-control--group .mud-input-outlined-border {
+    border-color: transparent !important;
+    border-radius: 0.45rem !important;
+}
+
+::deep .tl-series-control--group .mud-input-adornment-end {
+    color: #fff !important;
+    opacity: 1 !important;
+}
+
+::deep .tl-series-control--group .mud-input-adornment-end .mud-icon-root {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+}
+
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-carousel {
     display: block;
 }
@@ -6168,8 +6216,7 @@
     right: 0.2rem;
 }
 
-::deep .tl-series-episode-play,
-::deep .tl-series-episode-details-overlay {
+::deep .tl-series-episode-play {
     position: absolute;
     color: #fff;
     text-decoration: none;
@@ -6192,28 +6239,6 @@
     transform: translate(-50%, -50%) scale(0.86);
 }
 
-::deep .tl-series-episode-details-overlay {
-    z-index: 4;
-    inset: 0;
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-end;
-    padding: 0.7rem;
-    border-radius: inherit;
-    background: linear-gradient(180deg, rgba(4, 8, 16, 0.04) 34%, rgba(4, 8, 16, 0.82) 100%);
-}
-
-::deep .tl-series-episode-details-overlay span {
-    padding: 0.34rem 0.62rem;
-    border: 1px solid rgba(255,255,255,0.7);
-    border-radius: 999px;
-    background: rgba(6, 10, 18, 0.78);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
 ::deep .tl-series-panel--landscape .tl-series-item__art:hover img,
 ::deep .tl-series-panel--landscape .tl-series-item__art:focus-within img {
     filter: brightness(0.58);
@@ -6221,9 +6246,7 @@
 }
 
 ::deep .tl-series-panel--landscape .tl-series-item__art:hover .tl-series-episode-play,
-::deep .tl-series-panel--landscape .tl-series-item__art:hover .tl-series-episode-details-overlay,
-::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-play,
-::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-details-overlay {
+::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-play {
     opacity: 1;
 }
 
@@ -6232,16 +6255,50 @@
     transform: translate(-50%, -50%) scale(1);
 }
 
-::deep .tl-series-panel--landscape .tl-series-item__art:focus-within .tl-series-episode-details-overlay {
-    outline: 2px solid color-mix(in srgb, var(--tl-detail-accent, #7587ff) 80%, #fff);
-    outline-offset: -2px;
+::deep .tl-series-item__title-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2rem;
+    align-items: start;
+    gap: 0.35rem;
 }
 
-::deep .tl-series-item__duration {
-    margin-top: 0.3rem;
-    color: rgba(214, 222, 237, 0.56);
+::deep .tl-series-episode-details.app-icon-button {
+    width: 2rem !important;
+    min-width: 2rem !important;
+    height: 2rem !important;
+    padding: 0 !important;
+    color: rgba(255,255,255,0.92);
+    border-radius: 50%;
+}
+
+::deep .tl-series-episode-details.app-icon-button:hover,
+::deep .tl-series-episode-details.app-icon-button:focus-visible {
+    background: rgba(255,255,255,0.1);
+}
+
+::deep .tl-series-item__meta {
+    min-height: 1.35rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.65rem;
+    margin-top: 0.25rem;
+    color: rgba(214, 222, 237, 0.62);
     font-size: 0.82rem;
-    text-align: center;
+    font-weight: 600;
+}
+
+::deep .tl-series-item__meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+::deep .tl-series-item__meta .mud-icon-root {
+    width: 1rem;
+    height: 1rem;
+    font-size: 1rem;
 }
 
 ::deep .tl-series-item__description {
@@ -6258,8 +6315,12 @@
 
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-item.is-season-episode .tl-series-item__title {
     min-height: 1.25rem;
-    margin-top: 0.42rem;
+    margin-top: 0;
     text-align: left;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-item.is-season-episode .tl-series-item__title-row {
+    margin-top: 0.65rem;
 }
 
 @media (max-width: 900px) {
@@ -6270,6 +6331,10 @@
 
     ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-layout {
         grid-template-columns: 1fr;
+    }
+
+    ::deep .tl-series-content__toolbar {
+        padding-inline: 0;
     }
 
     ::deep .tl-series-control-row {

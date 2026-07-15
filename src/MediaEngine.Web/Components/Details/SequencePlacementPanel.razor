@@ -168,15 +168,29 @@
     </aside>
 
     <div class="tl-series-content">
-        @if (!Compact && ShowJumpSelector)
+        @if (!Compact && (ShowJumpSelector || CanShowMissingToggle))
         {
-            <div class="tl-series-jump">
-                <AppSelect Label="Jump to"
-                           Value="@JumpSelectionValue"
-                           ValueChanged="SelectJump"
-                           Options="@JumpSelectOptions"
-                           Class="tl-series-control tl-series-control--jump"
-                           PopoverClass="app-select__popover tl-series-select-popover" />
+            <div class="tl-series-content__toolbar">
+                @if (ShowJumpSelector)
+                {
+                    <div class="tl-series-jump">
+                        <AppSelect Label="Jump to"
+                                   Value="@JumpSelectionValue"
+                                   ValueChanged="SelectJump"
+                                   Options="@JumpSelectOptions"
+                                   Class="tl-series-control tl-series-control--jump"
+                                   PopoverClass="app-select__popover tl-series-select-popover" />
+                    </div>
+                }
+                @if (CanShowMissingToggle)
+                {
+                    <MudCheckBox T="bool"
+                                 @bind-Value="_showMissing"
+                                 Class="tl-series-show-missing"
+                                 Color="Color.Primary"
+                                 Dense="true"
+                                 Label="Show Missing" />
+                }
             </div>
         }
 
@@ -239,6 +253,7 @@
     private bool _seriesDescriptionExpanded;
     private bool _hasExpandableSeriesDescription;
     private bool _needsSeriesDescriptionMeasurement = true;
+    private bool _showMissing = true;
     private ElementReference _seriesDescriptionElement;
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
@@ -327,10 +342,15 @@
             ? null
             : VisibleGroups.FirstOrDefault(group => group.Key == SelectedGroupKey);
 
-    private IReadOnlyList<SequenceItemViewModel> ActiveItems
+    private IReadOnlyList<SequenceItemViewModel> GroupItems
         => ShowGroupSelector
             ? ActiveGroup?.Items ?? []
             : Placement.OrderedItems;
+    private IReadOnlyList<SequenceItemViewModel> ActiveItems
+        => _showMissing || !CanShowMissingToggle
+            ? GroupItems
+            : GroupItems.Where(item => item.IsOwned).ToList();
+    private bool CanShowMissingToggle => Placement.HasAuthoritativeTotal && GroupItems.Any(item => !item.IsOwned);
     private bool IsLongSequence => TotalItems >= LongSequenceThreshold;
     private bool ShowJumpSelector => ActiveItems.Count > 5;
     private string? JumpSelectionValue => _jumpSelectionValue;
@@ -339,13 +359,13 @@
             index.ToString(CultureInfo.InvariantCulture),
             $"#{SequenceNumber(item)} — {SequenceItemTitle(item)}"))
         .ToList();
-    private int OwnedCount => ActiveItems.Count(item => item.IsOwned);
+    private int OwnedCount => GroupItems.Count(item => item.IsOwned);
     private int MissingCount => Math.Max(0, TotalItems - OwnedCount);
     private bool IsComicSequence => Placement.CurrentItem.EntityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
     private bool ShowCoverageDonut => !IsComicSequence && Placement.HasAuthoritativeTotal && TotalItems > 0;
     private int TotalItems => ShowGroupSelector
-        ? Math.Max(ActiveItems.Count, ActiveGroup?.TotalKnownItems ?? ActiveItems.Count)
-        : Math.Max(ActiveItems.Count, Placement.TotalKnownItems ?? ActiveItems.Count);
+        ? Math.Max(GroupItems.Count, ActiveGroup?.TotalKnownItems ?? GroupItems.Count)
+        : Math.Max(GroupItems.Count, Placement.TotalKnownItems ?? GroupItems.Count);
     private bool HasCurrentPosition => FirstNonBlank(
         Placement.PositionText,
         Placement.CurrentItem.PositionText,
@@ -468,6 +488,7 @@
             _seriesDescriptionExpanded = false;
             _hasExpandableSeriesDescription = false;
             _needsSeriesDescriptionMeasurement = true;
+            _showMissing = true;
             ResetWindowToCurrentItem();
         }
 
@@ -581,9 +602,12 @@
     }
 
     private RenderFragment SequenceItemContent(SequenceItemViewModel item) => @<text>
-        <div class="tl-series-item__position">
-            <span class="tl-series-item__node">@SequenceNumber(item)</span>
-        </div>
+        @if (!IsSeasonContainer)
+        {
+            <div class="tl-series-item__position">
+                <span class="tl-series-item__node">@SequenceNumber(item)</span>
+            </div>
+        }
 
         <div class="tl-series-item__art">
             @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
@@ -613,14 +637,6 @@
             }
             @if (IsSeasonContainer && item.IsOwned)
             {
-                @if (EpisodeDetailRoute(item) is { } detailRoute)
-                {
-                    <a class="tl-series-episode-details-overlay"
-                       href="@detailRoute"
-                       aria-label="Open details for @SequenceItemTitle(item)">
-                        <span>Details</span>
-                    </a>
-                }
                 @if (SequenceItemRoute(item) is { } playRoute)
                 {
                     <a class="tl-series-episode-play"
@@ -632,7 +648,38 @@
                 }
             }
         </div>
-        <div class="@SequenceItemTitleClass(item)">@SequenceItemTitle(item)</div>
+        @if (IsSeasonContainer)
+        {
+            <div class="tl-series-item__title-row">
+                <div class="@SequenceItemTitleClass(item)">@SequenceItemDisplayTitle(item)</div>
+                @if (EpisodeDetailRoute(item) is { } detailRoute)
+                {
+                    <AppIconButton Icon="@Icons.Material.Outlined.MoreVert"
+                                   Href="@detailRoute"
+                                   Size="Size.Small"
+                                   Class="tl-series-episode-details"
+                                   AriaLabel="@($"Open details for {SequenceItemTitle(item)}")"
+                                   Tooltip="Episode details" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="@SequenceItemTitleClass(item)">@SequenceItemTitle(item)</div>
+        }
+        @if (IsSeasonContainer && (SequenceItemAirDate(item) is not null || !string.IsNullOrWhiteSpace(item.Duration)))
+        {
+            <div class="tl-series-item__meta">
+                @if (SequenceItemAirDate(item) is { } airDate)
+                {
+                    <span><MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small" />@airDate</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(item.Duration))
+                {
+                    <span><MudIcon Icon="@Icons.Material.Outlined.Schedule" Size="Size.Small" />@item.Duration</span>
+                }
+            </div>
+        }
         @if (IsSeasonContainer && !string.IsNullOrWhiteSpace(item.Description))
         {
             <p class="tl-series-item__description">@item.Description</p>
@@ -641,11 +688,25 @@
         {
             <div class="tl-series-item__date">@itemDate</div>
         }
-        @if (IsSeasonContainer && !string.IsNullOrWhiteSpace(item.Duration))
-        {
-            <div class="tl-series-item__duration">@item.Duration</div>
-        }
     </text>;
+
+    private string SequenceItemDisplayTitle(SequenceItemViewModel item)
+        => IsSeasonContainer
+            ? $"{EpisodeNumberLabel(item)}: {SequenceItemTitle(item)}"
+            : SequenceItemTitle(item);
+
+    private static string EpisodeNumberLabel(SequenceItemViewModel item)
+    {
+        var value = SequenceNumberOrNull(item)?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return "Episode";
+
+        return value.StartsWith('E') && value.Length > 1
+            ? value
+            : value.StartsWith("Episode ", StringComparison.OrdinalIgnoreCase)
+                ? $"E{value["Episode ".Length..]}"
+                : $"E{value}";
+    }
 
     private string? EpisodeDetailRoute(SequenceItemViewModel item)
         => IsSeasonContainer && item.IsOwned && Guid.TryParse(item.Id, out var episodeId) && ShowDetailRoute != "#"
@@ -711,6 +772,17 @@
     private static string? SequenceItemDate(SequenceItemViewModel item)
         => SequenceYear(item.PublicationDate)?.ToString()
            ?? FirstNonBlank(item.PublicationDate);
+
+    private static string? SequenceItemAirDate(SequenceItemViewModel item)
+    {
+        if (string.IsNullOrWhiteSpace(item.PublicationDate))
+            return null;
+
+        var value = item.PublicationDate.Trim();
+        return DateTimeOffset.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out var parsed)
+            ? parsed.ToString("MMM d, yyyy", CultureInfo.CurrentCulture)
+            : value;
+    }
 
     private static int? SequenceYear(string? value)
     {
