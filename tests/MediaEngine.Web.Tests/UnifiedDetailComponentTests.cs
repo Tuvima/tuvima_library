@@ -189,8 +189,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-metadata-item", source);
         Assert.Contains("tl-detail-metadata-item--rating", source);
         Assert.DoesNotContain("tl-detail-pill", source);
-        Assert.Contains("EntityType == DetailEntityType.TvShow ? 4 : 6", source);
-        Assert.Contains("or \"episode_count\" or \"rating\"", source);
+        Assert.Contains(".Take(8)", source);
+        Assert.Contains("or \"episode_count\" or \"quality\" or \"subtitles\" or \"rating\"", source);
+        Assert.DoesNotContain("tl-detail-watch-metadata-item--badge", source);
         Assert.Contains("\"episode_count\" => 2", source);
     }
 
@@ -586,6 +587,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("?episode={episodeId:D}", sequence);
         Assert.Contains("SupplyParameterFromQuery(Name = \"episode\")", showPage);
         Assert.Contains("GetDetailPageAsync(DetailEntityType.TvEpisode", showPage);
+        Assert.Contains("HeroSecondaryActions=\"EpisodeHeroActions\"", showPage);
+        Assert.Contains("Key = \"show-details\"", showPage);
+        Assert.Contains("Icon = \"arrow_back\"", showPage);
+        Assert.DoesNotContain("tl-tv-episode-detail-back", showPage);
         Assert.Contains("@ContainerTitleDisplay", sequence);
         Assert.Contains("tl-series-episode-details-overlay", sequence);
         Assert.Contains("Watch S{season} E{episode}", sequence);
@@ -640,16 +645,24 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void DetailComposer_UsesOnlyLocalAiTldrForHeroSummary()
+    public void DetailHero_UsesShortProviderCopyAndEpisodeDescriptions()
     {
         var source = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
         var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var presentation = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroPresentation.cs");
+        var genres = ReadSource("src/MediaEngine.Web/Components/Details/HeroGenreChips.razor");
 
         Assert.Contains("BuildHeroSummary(values)", source);
+        Assert.Contains("MetadataFieldConstants.ShortDescription", source);
         Assert.Contains("GetValue(canonicalValues, \"tldr\")", source);
         Assert.DoesNotContain("BuildFallbackHeroSummary", source);
         Assert.Contains("data-ai-summary-slot=\"tldr\"", hero);
         Assert.Contains("tl-detail-hero__tagline--ai", hero);
+        Assert.Contains("model.EntityType == DetailEntityType.TvEpisode", presentation);
+        Assert.Contains("FirstNonBlank(model.Description, model.Tagline)", presentation);
+        Assert.Contains("tl-detail-hero__watch-series", hero);
+        Assert.Contains("PlainText=\"Presentation.IsWatchHero\"", hero);
+        Assert.Contains("tl-detail-genre-text", genres);
         Assert.Contains("BuildSeriesContextLabel", hero);
         Assert.Contains("{containerTitle} · {positionedItem}", hero);
         Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode", hero);

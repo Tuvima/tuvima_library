@@ -5864,6 +5864,137 @@
     }
 }
 
+/* Compact cinematic watch hierarchy shared by TV and movie details. */
+::deep .tl-detail-hero--watch .tl-detail-metadata-stack {
+    width: min(47.5rem, 100%);
+    justify-items: center;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-watch-metadata-row {
+    justify-content: center;
+    width: 100%;
+    max-width: none;
+    gap: 0.42rem;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: clamp(0.74rem, 0.82vw, 0.86rem);
+    font-weight: 580;
+    letter-spacing: 0.015em;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-watch-metadata-item {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-watch-metadata-item--rating .mud-icon-root {
+    font-size: 0.92rem;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-watch-metadata-separator {
+    color: rgba(255, 255, 255, 0.36);
+}
+
+::deep .tl-detail-hero--watch .tl-detail-actions--watch {
+    width: min(47.5rem, 100%);
+}
+
+::deep .tl-detail-hero--watch .tl-detail-actions--watch .tl-detail-primary-actions:has(> :only-child) {
+    grid-template-columns: minmax(18rem, 34rem);
+    justify-content: center;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-actions--watch .tl-detail-action--primary {
+    min-height: 3.35rem;
+    font-size: clamp(0.94rem, 1.05vw, 1.08rem);
+}
+
+::deep .tl-detail-hero--watch .tl-detail-actions--watch .tl-detail-action--primary .mud-icon-root {
+    font-size: 1.35rem;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-actions--watch .tl-detail-action--restart {
+    background: rgba(46, 49, 57, 0.68);
+    color: rgba(255, 255, 255, 0.94);
+}
+
+::deep .tl-detail-hero__watch-series {
+    order: 5;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+::deep .tl-detail-hero--watch .tl-detail-hero__tagline {
+    order: 6;
+    max-width: min(47.5rem, 62vw);
+    color: rgba(255, 255, 255, 0.88);
+    font-size: clamp(0.82rem, 0.9vw, 0.94rem);
+    font-weight: 470;
+    line-height: 1.45;
+    white-space: normal;
+}
+
+::deep .tl-detail-genre-text {
+    order: 7;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.76rem;
+    font-weight: 480;
+    line-height: 1.35;
+}
+
+::deep .tl-detail-genre-text__label {
+    margin-right: 0.42rem;
+    color: rgba(255, 255, 255, 0.82);
+    font-weight: 650;
+}
+
+::deep .tl-detail-genre-text a {
+    color: inherit;
+    text-decoration: none;
+}
+
+::deep .tl-detail-genre-text a:hover,
+::deep .tl-detail-genre-text a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+}
+
+::deep .tl-detail-tabs {
+    border-bottom-color: rgba(255, 255, 255, 0.10);
+    background: rgba(7, 10, 15, 0.46);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    backdrop-filter: blur(18px) saturate(115%);
+}
+
+::deep .tl-detail-tabs::before {
+    height: clamp(2rem, 5vh, 3.5rem);
+    background: linear-gradient(to top, rgba(7, 10, 15, 0.54), transparent 100%);
+}
+
+::deep .tl-detail-tabs button {
+    min-height: 3.35rem;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.78rem;
+    font-weight: 650;
+    letter-spacing: 0.035em;
+}
+
+@media (max-width: 720px) {
+    ::deep .tl-detail-hero--watch .tl-detail-metadata-stack,
+    ::deep .tl-detail-hero--watch .tl-detail-actions--watch,
+    ::deep .tl-detail-hero--watch .tl-detail-hero__tagline {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
 /* Unified below-hero canvas. Detail tabs share the page background and horizontal
    rhythm; individual sections no longer create a second, width-limiting shell. */
 ::deep .tl-detail-tab-panel,

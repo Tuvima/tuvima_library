@@ -34,7 +34,9 @@
         }
         else
         {
-            <DetailHero Model="Model" OnActionSelected="HandleDetailActionAsync" />
+            <DetailHero Model="Model"
+                        ContextSecondaryActions="HeroSecondaryActions"
+                        OnActionSelected="HandleDetailActionAsync" />
 
             <DetailTabs Tabs="VisibleTabs" ActiveTab="@CurrentActiveTab" ActiveTabChanged="SetActiveTabAsync" />
 
@@ -131,6 +133,7 @@
     [Parameter] public string? ActiveTab { get; set; }
     [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+    [Parameter] public IReadOnlyList<DetailAction> HeroSecondaryActions { get; set; } = [];
 
 
     private IReadOnlyList<DetailTab> VisibleTabs =>

@@ -3,23 +3,48 @@
 
 @if (GenreItems.Count > 0)
 {
-    <div class="tl-detail-genre-row" aria-label="Genres">
-        @foreach (var genre in GenreItems)
-        {
-            @if (!string.IsNullOrWhiteSpace(genre.Route))
+    @if (PlainText)
+    {
+        <p class="tl-detail-genre-text" aria-label="Genres">
+            <span class="tl-detail-genre-text__label">Genre</span>
+            @foreach (var entry in GenreItems.Select((genre, index) => new { genre, index }))
             {
-                <a class="tl-detail-genre-chip" href="@genre.Route" title="@genre.Tooltip">@genre.Label</a>
+                @if (entry.index > 0)
+                {
+                    <span class="tl-detail-genre-text__separator" aria-hidden="true"> · </span>
+                }
+                @if (!string.IsNullOrWhiteSpace(entry.genre.Route))
+                {
+                    <a href="@entry.genre.Route" title="@entry.genre.Tooltip">@entry.genre.Label</a>
+                }
+                else
+                {
+                    <span>@entry.genre.Label</span>
+                }
             }
-            else
+        </p>
+    }
+    else
+    {
+        <div class="tl-detail-genre-row" aria-label="Genres">
+            @foreach (var genre in GenreItems)
             {
-                <span class="tl-detail-genre-chip" title="@genre.Tooltip">@genre.Label</span>
+                @if (!string.IsNullOrWhiteSpace(genre.Route))
+                {
+                    <a class="tl-detail-genre-chip" href="@genre.Route" title="@genre.Tooltip">@genre.Label</a>
+                }
+                else
+                {
+                    <span class="tl-detail-genre-chip" title="@genre.Tooltip">@genre.Label</span>
+                }
             }
-        }
-    </div>
+        </div>
+    }
 }
 
 @code {
     [Parameter] public IReadOnlyList<MetadataPill> Metadata { get; set; } = [];
+    [Parameter] public bool PlainText { get; set; }
 
     private IReadOnlyList<MetadataPill> GenreItems =>
         Metadata

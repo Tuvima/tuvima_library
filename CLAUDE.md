@@ -646,7 +646,9 @@ Reusable visual components, organised by feature slice.
 TV episodes are children of the show detail page, organized by season. Each owned
 episode has a show-scoped detail route opened from its still. Continue surfaces
 retain the episode still and playback target, identify it with compact copy such
-as `Continue · S5 E1`, and use actions such as `Resume S5 E1`.
+as `Continue · S5 E1`, and use actions such as `Resume S5 E1`. Episode detail
+heroes retain that episode's still, synopsis, and genre. Root show heroes report
+owned episodes and target either the in-progress episode or the first owned episode.
 | `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`, ingestion at `/settings/ingestion`, temporary harness at `/settings/dev-harness`) |
 | `/not-found`, `/Error` | `NotFound.razor`, `Error.razor` | Error pages |
 

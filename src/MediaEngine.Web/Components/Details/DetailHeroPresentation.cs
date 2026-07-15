@@ -54,8 +54,13 @@ public sealed class DetailHeroPresentation
         var isWatchHero = IsWatchEntity(model.EntityType);
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
-        var copy = !string.IsNullOrWhiteSpace(model.Tagline)
-            ? Truncate(model.Tagline, 220)
+        var copySource = model.EntityType == DetailEntityType.TvEpisode
+            ? FirstNonBlank(model.Description, model.Tagline)
+            : isWatchHero
+                ? FirstNonBlank(model.Tagline, model.Description)
+                : model.Tagline;
+        var copy = !string.IsNullOrWhiteSpace(copySource)
+            ? Truncate(copySource, isWatchHero ? 360 : 220)
             : null;
 
         return new DetailHeroPresentation(
@@ -138,6 +143,9 @@ public sealed class DetailHeroPresentation
 
     private static bool IsWatchEntity(DetailEntityType entityType)
         => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string BuildGradientStyle(ArtworkSet artwork)
     {

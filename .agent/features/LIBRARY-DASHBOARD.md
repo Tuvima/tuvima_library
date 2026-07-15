@@ -76,5 +76,7 @@ The Dashboard is no longer a general management workspace. It is a story-first l
 
 TV detail is show-centered: seasons contain episode rows, episode rows play from
 the show, each owned episode has a show-scoped detail page opened from its still,
-and Continue cards retain the episode target with `Sx Ey` action context. Comic sequence presentation shows issue numbers and owned
+and its hero retains the episode still, synopsis, genre, and `Sx Ey` action context.
+The show hero reports owned episodes and starts or resumes the correct owned episode.
+Continue cards retain the episode target with `Sx Ey` action context. Comic sequence presentation shows issue numbers and owned
 counts without treating the current provider run count as a completion target.

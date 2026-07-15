@@ -21,7 +21,7 @@
                 </span>
                 @if (entry.index < inlineStatItems.Count - 1)
                 {
-                    <span class="tl-detail-watch-metadata-separator" aria-hidden="true"> - </span>
+                    <span class="tl-detail-watch-metadata-separator" aria-hidden="true"> · </span>
                 }
             }
         </div>
@@ -112,7 +112,7 @@
                 .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
                 .OrderBy(WatchStatSort)
-                .Take(EntityType == DetailEntityType.TvShow ? 4 : 6)
+                .Take(8)
                 .ToList();
         }
     }
@@ -156,7 +156,7 @@
         var kind = item.Kind?.ToLowerInvariant();
         if (EntityType == DetailEntityType.TvShow)
         {
-            return kind is "certification" or "content_rating" or "year" or "episode_count" or "rating";
+            return kind is "certification" or "content_rating" or "year" or "episode_count" or "quality" or "subtitles" or "rating";
         }
 
         return kind is "certification" or "content_rating" or "rating" or "duration" or "year" or "quality" or "subtitles";
@@ -212,10 +212,8 @@
             : "tl-detail-metadata-item";
 
     private static string WatchStatClass(MetadataPill item)
-        => item.Kind?.ToLowerInvariant() is "certification" or "content_rating" or "quality" or "subtitles"
-            ? "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--badge"
-            : item.Kind?.ToLowerInvariant() == "rating"
-                ? "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--rating"
+        => item.Kind?.ToLowerInvariant() == "rating"
+            ? "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--rating"
             : "tl-detail-watch-metadata-item";
 
     private static string WatchStatGroupKey(MetadataPill item)

@@ -135,7 +135,7 @@
             }
 
             <HeroActionRow PrimaryActions="Model.PrimaryActions"
-                           SecondaryActions="Model.SecondaryActions"
+                           SecondaryActions="CombinedSecondaryActions"
                            OverflowActions="Model.OverflowActions"
                            InlineEditAction="InlineEditAction"
                            UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
@@ -143,11 +143,16 @@
 
             <HeroProgressBlock Progress="Presentation.Progress" />
 
+            @if (!string.IsNullOrWhiteSpace(WatchSeriesLabel))
+            {
+                <p class="tl-detail-hero__watch-series">@WatchSeriesLabel</p>
+            }
+
             <p class="@HeroSummaryClass"
                data-ai-summary-slot="tldr"
                aria-live="polite">@Presentation.HeroCopy</p>
 
-            <HeroGenreChips Metadata="Model.Metadata" />
+            <HeroGenreChips Metadata="Model.Metadata" PlainText="Presentation.IsWatchHero" />
             </div>
         </div>
     }
@@ -155,10 +160,19 @@
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+    [Parameter] public IReadOnlyList<DetailAction> ContextSecondaryActions { get; set; } = [];
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private string? SeriesContextLabel => BuildSeriesContextLabel(Model.EntityType, Model.SequencePlacement);
+    private string? WatchSeriesLabel => Model.EntityType == DetailEntityType.TvEpisode
+        ? FirstNonBlank(Model.Subtitle, Model.SequencePlacement?.ContainerTitle)
+        : null;
+    private IReadOnlyList<DetailAction> CombinedSecondaryActions =>
+        ContextSecondaryActions
+            .Concat(Model.SecondaryActions)
+            .DistinctBy(action => action.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     private string SeriesContextClass => $"tl-detail-hero__series-context{(SeriesContextLabel is null ? " is-empty" : string.Empty)}";
     private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);

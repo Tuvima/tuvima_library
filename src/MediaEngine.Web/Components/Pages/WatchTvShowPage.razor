@@ -29,11 +29,11 @@ else if (_detail is null)
 }
 else
 {
-    @if (EpisodeId.HasValue)
-    {
-        <a class="tl-tv-episode-detail-back" href="@ShowRoute">Back to show details</a>
-    }
-    <DetailPage Model="_detail" ActiveTab="@_activeTab" ActiveTabChanged="HandleTabChangedAsync" OnActionSelected="HandleActionAsync" />
+    <DetailPage Model="_detail"
+                ActiveTab="@_activeTab"
+                ActiveTabChanged="HandleTabChangedAsync"
+                HeroSecondaryActions="EpisodeHeroActions"
+                OnActionSelected="HandleActionAsync" />
 }
 
 @code {
@@ -84,4 +84,18 @@ else
     }
 
     private string ShowRoute => $"/watch/tv/show/{CollectionId:D}";
+
+    private IReadOnlyList<DetailAction> EpisodeHeroActions => EpisodeId.HasValue
+        ? [
+            new DetailAction
+            {
+                Key = "show-details",
+                Label = "Show details",
+                Icon = "arrow_back",
+                Route = ShowRoute,
+                Tooltip = "Back to show details",
+                DisplayStyle = "icon",
+            },
+        ]
+        : [];
 }

@@ -173,10 +173,15 @@ public sealed class DetailComposerService
             GetValue(values, "poster"),
             artworkFallback.CoverUrl,
             artworkFallback.SquareUrl);
-        var backdropUrl = FirstNonBlank(
-            detail.BackgroundUrl,
-            detail.HeroUrl,
-            artworkFallback.BackgroundUrl);
+        var backdropUrl = entityType == DetailEntityType.TvEpisode
+            ? FirstNonBlank(
+                artworkFallback.BackgroundUrl,
+                detail.BackgroundUrl,
+                detail.HeroUrl)
+            : FirstNonBlank(
+                detail.BackgroundUrl,
+                detail.HeroUrl,
+                artworkFallback.BackgroundUrl);
         var bannerUrl = FirstNonBlank(detail.BannerUrl, artworkFallback.BannerUrl);
 
         var artwork = BuildArtwork(
@@ -429,7 +434,7 @@ public sealed class DetailComposerService
                 FirstNonBlank(row.HeroBrandImageUrl, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
             Progress = heroProgress,
             Metadata = BuildCollectionMetadata(entityType, displayWorks, values),
-            PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress),
+            PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress, displayWorks),
             SecondaryActions = BuildSecondaryActions(rootWorkId ?? collectionId, entityType, rootWorkId.HasValue && favoriteWorkIds.Contains(rootWorkId.Value)),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
             SequencePlacement = sequencePlacement,
@@ -1365,6 +1370,7 @@ public sealed class DetailComposerService
                 WHERE current_work.id = @workId
             )
             SELECT w.id AS WorkId,
+                   ma.id AS AssetId,
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'issue_title' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'issue_title' LIMIT 1),
@@ -1373,6 +1379,13 @@ public sealed class DetailComposerService
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'title' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'title' LIMIT 1),
                        'Untitled') AS TEXT) AS Title,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('episode_description', 'episode_overview') LIMIT 1),
+                       (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = ma.id AND key IN ('episode_description', 'episode_overview') LIMIT 1),
+                       (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = w.id AND claim_key IN ('episode_description', 'episode_overview') ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
+                       (SELECT NULLIF(CAST(claim_value AS TEXT), '') FROM metadata_claims WHERE entity_id = ma.id AND claim_key IN ('episode_description', 'episode_overview') ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
+                       (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key IN ('description', 'overview') LIMIT 1),
+                       (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = ma.id AND key IN ('description', 'overview') LIMIT 1)) AS TEXT) AS Description,
                    CAST(w.media_type AS TEXT) AS MediaType,
                    CAST(COALESCE(
                        (SELECT claim_value FROM metadata_claims WHERE entity_id = ma.id AND claim_key = 'series_position' AND provider_id = @wikidataProviderId ORDER BY confidence DESC, claimed_at DESC LIMIT 1),
@@ -1389,8 +1402,18 @@ public sealed class DetailComposerService
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'episode_number' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'episode_number' LIMIT 1)) AS TEXT) AS EpisodeLabel,
                    CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_url', 'background') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_url', 'background') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover') LIMIT 1)) AS TEXT) AS ArtworkUrl
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover') LIMIT 1)) AS TEXT) AS ArtworkUrl,
+                   CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_state', 'hero_state', 'cover_state') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_state', 'hero_state', 'cover_state') LIMIT 1)) AS TEXT) AS ArtworkState,
+                   CAST(COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('runtime', 'duration') LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('runtime', 'duration') LIMIT 1)) AS TEXT) AS Duration
                   ,CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('publication_date', 'release_date', 'year') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('publication_date', 'release_date', 'year') LIMIT 1)) AS TEXT) AS PublicationDate
@@ -1440,7 +1463,12 @@ public sealed class DetailComposerService
                 Id = row.WorkId.ToString("D"),
                 EntityType = entityType,
                 Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
-                ArtworkUrl = row.ArtworkUrl,
+                ArtworkUrl = ResolveCollectionArtworkUrl(row.ArtworkUrl, row.AssetId?.ToString("D"), "background", row.ArtworkState),
+                Description = row.Description,
+                Duration = FormatTrackDuration(row.Duration),
+                Route = entityType == DetailEntityType.TvEpisode
+                    ? $"/watch/player/resolve?workId={row.WorkId:D}"
+                    : null,
                 PublicationDate = row.PublicationDate,
                 PositionNumber = positionNumber,
                 PositionSort = positionSort,
@@ -1472,7 +1500,13 @@ public sealed class DetailComposerService
                 Id = workId.ToString("D"),
                 EntityType = entityType,
                 Title = detail.Title,
-                ArtworkUrl = detail.CoverUrl,
+                ArtworkUrl = FirstNonBlank(
+                    GetDetailCanonicalValue(detail, "episode_still_url"),
+                    GetDetailCanonicalValue(detail, "episode_still"),
+                    detail.BackgroundUrl,
+                    detail.CoverUrl),
+                Description = detail.Description,
+                Duration = FormatTrackDuration(detail.Runtime),
                 PublicationDate = FirstNonBlank(detail.ReleaseDate, detail.Year),
                 PositionLabel = fallbackPositionLabel,
                 PositionNumber = fallbackPositionNumber,
@@ -2670,6 +2704,9 @@ public sealed class DetailComposerService
                 EntityType = item.EntityType,
                 Title = item.Title,
                 ArtworkUrl = item.ArtworkUrl,
+                Route = item.Route,
+                Description = item.Description,
+                Duration = item.Duration,
                 PublicationDate = item.PublicationDate,
                 PositionNumber = position ?? item.PositionNumber,
                 PositionSort = positionSort,
@@ -3055,6 +3092,9 @@ public sealed class DetailComposerService
             EntityType = item.EntityType,
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
+            Route = item.Route,
+            Description = item.Description,
+            Duration = item.Duration,
             PublicationDate = FirstNonBlank(manifestItem.PublicationDate, item.PublicationDate),
             PositionNumber = position ?? item.PositionNumber,
             PositionSort = positionSort ?? item.PositionSort,
@@ -3102,6 +3142,9 @@ public sealed class DetailComposerService
             EntityType = item.EntityType,
             Title = item.Title,
             ArtworkUrl = item.ArtworkUrl,
+            Route = item.Route,
+            Description = item.Description,
+            Duration = item.Duration,
             PublicationDate = FirstNonBlank(manifestItem.PublicationDate, item.PublicationDate),
             PositionNumber = position ?? item.PositionNumber,
             PositionSort = positionSort ?? item.PositionSort,
@@ -3701,7 +3744,9 @@ public sealed class DetailComposerService
     }
 
     private static string? BuildHeroSummary(IReadOnlyDictionary<string, string> canonicalValues)
-        => NormalizeHeroSummary(GetValue(canonicalValues, "tldr"));
+        => NormalizeHeroSummary(FirstNonBlank(
+            GetValue(canonicalValues, MetadataFieldConstants.ShortDescription),
+            GetValue(canonicalValues, "tldr")));
 
     private async Task<WorkArtworkFallback> LoadWorkArtworkFallbackAsync(Guid workId, CancellationToken ct)
     {
@@ -3736,6 +3781,8 @@ public sealed class DetailComposerService
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('square_url', 'square') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('square_url', 'square') LIMIT 1)) AS SquareUrl,
                 COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('background_url', 'background') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('background_url', 'background') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('background_url', 'background') LIMIT 1)) AS BackgroundUrl,
@@ -4290,10 +4337,12 @@ public sealed class DetailComposerService
             return null;
         }
 
-        var item = works
-            .Where(work => work.ProgressPercent is > 0 and < 99.5)
-            .OrderByDescending(work => work.ProgressPercent)
-            .FirstOrDefault();
+        var item = entityType == DetailEntityType.TvShow
+            ? SelectInProgressTvEpisode(works)
+            : works
+                .Where(work => work.IsOwned && work.ProgressPercent is > 0 and < 99.5)
+                .OrderByDescending(work => work.ProgressPercent)
+                .FirstOrDefault();
         if (item is null || item.ProgressPercent is null)
         {
             return null;
@@ -5718,11 +5767,27 @@ public sealed class DetailComposerService
                 GetValue(values, MetadataFieldConstants.Year),
                 GetValue(values, "release_year"),
                 firstOwnedYear), "year");
-            AddPlain(pills, FormatCountLabel(
-                GetValue(values, "episode_count")
-                ?? (ownedEpisodeCount > 0 ? ownedEpisodeCount.ToString(CultureInfo.InvariantCulture) : null),
-                "episode"), "episode_count");
+            AddPlain(pills, ownedEpisodeCount > 0
+                ? $"{ownedEpisodeCount.ToString(CultureInfo.InvariantCulture)} {(ownedEpisodeCount == 1 ? "episode" : "episodes")} owned"
+                : null, "episode_count");
+            AddPlain(pills, FirstNonBlank(
+                GetValue(values, "quality"),
+                GetValue(values, "video_quality"),
+                GetValue(values, "resolution"),
+                GetValue(values, "video_resolution_label"),
+                works.Where(work => work.IsOwned).Select(work => work.Quality).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))), "quality");
             AddPlain(pills, FormatRating(GetValue(values, MetadataFieldConstants.Rating)), "rating");
+
+            foreach (var genre in SplitMetadataValues(GetValue(values, MetadataFieldConstants.Genre)).Take(4))
+            {
+                pills.Add(new MetadataPill
+                {
+                    Label = genre,
+                    Kind = "genre",
+                    Route = $"/search?genre={Uri.EscapeDataString(genre)}",
+                    Tooltip = $"Browse {genre}",
+                });
+            }
 
             return pills
                 .Where(value => !string.IsNullOrWhiteSpace(value.Label))
@@ -5748,13 +5813,51 @@ public sealed class DetailComposerService
         return [new MetadataPill { Label = FormatEntityType(entityType), Kind = "type" }, new MetadataPill { Label = OwnedCollectionCountLabel(entityType, works), Kind = "count" }];
     }
 
-    private static IReadOnlyList<DetailAction> BuildCollectionActions(Guid id, DetailEntityType entityType, DetailPresentationContext context, ProgressViewModel? heroProgress)
+    private static IReadOnlyList<DetailAction> BuildCollectionActions(
+        Guid id,
+        DetailEntityType entityType,
+        DetailPresentationContext context,
+        ProgressViewModel? heroProgress,
+        IReadOnlyList<CollectionWorkSummary> works)
         => entityType switch
         {
-            DetailEntityType.TvShow => BuildWatchActions(null, heroProgress),
+            DetailEntityType.TvShow => BuildTvShowWatchActions(works, heroProgress),
             DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
+
+    private static IReadOnlyList<DetailAction> BuildTvShowWatchActions(
+        IReadOnlyList<CollectionWorkSummary> works,
+        ProgressViewModel? heroProgress)
+    {
+        var episode = SelectInProgressTvEpisode(works) ?? SelectFirstOwnedTvEpisode(works);
+        if (episode is null || !Guid.TryParse(episode.Id, out var episodeId))
+        {
+            return BuildWatchActions(null, heroProgress);
+        }
+
+        return BuildWatchActions(
+            $"/watch/player/resolve?workId={episodeId:D}",
+            heroProgress,
+            FormatSeasonEpisode(FirstNonBlank(episode.Season, "1"), FirstNonBlank(episode.Episode, "1")));
+    }
+
+    private static CollectionWorkSummary? SelectInProgressTvEpisode(IReadOnlyList<CollectionWorkSummary> works)
+        => works
+            .Where(work => work.IsOwned
+                           && InferMediaItemEntityType(work) == DetailEntityType.TvEpisode
+                           && work.ProgressPercent is > 0 and < 99.5)
+            .OrderByDescending(work => work.ProgressPercent)
+            .FirstOrDefault();
+
+    private static CollectionWorkSummary? SelectFirstOwnedTvEpisode(IReadOnlyList<CollectionWorkSummary> works)
+        => works
+            .Where(work => work.IsOwned && InferMediaItemEntityType(work) == DetailEntityType.TvEpisode)
+            .OrderBy(work => TryParseSeriesPositionSort(work.Season) ?? double.MaxValue)
+            .ThenBy(work => TryParseSeriesPositionSort(work.Episode) ?? double.MaxValue)
+            .ThenBy(work => work.Ordinal ?? int.MaxValue)
+            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
 
     private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionCreditsAsync(
         Guid collectionId,
@@ -6964,6 +7067,9 @@ public sealed class DetailComposerService
                 EntityType = item.EntityType,
                 Title = item.Title,
                 ArtworkUrl = item.ArtworkUrl,
+                Route = item.Route,
+                Description = item.Description,
+                Duration = item.Duration,
                 PublicationDate = item.PublicationDate,
                 PositionNumber = item.PositionNumber,
                 PositionSort = item.PositionSort,
@@ -7593,13 +7699,17 @@ public sealed class DetailComposerService
     private sealed class SequenceRow
     {
         public Guid WorkId { get; init; }
+        public Guid? AssetId { get; init; }
         public string Title { get; init; } = "Untitled";
+        public string? Description { get; init; }
         public string? MediaType { get; init; }
         public string? PositionLabel { get; init; }
         public double? PositionSort { get; init; }
         public string? SeasonLabel { get; init; }
         public string? EpisodeLabel { get; init; }
         public string? ArtworkUrl { get; init; }
+        public string? ArtworkState { get; init; }
+        public string? Duration { get; init; }
         public string? PublicationDate { get; init; }
     }
 

@@ -190,11 +190,18 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("if (entityType == DetailEntityType.TvShow)", source);
         Assert.Contains("GetValue(values, \"start_year\")", source);
-        Assert.Contains("GetValue(values, \"episode_count\")", source);
+        Assert.Contains("ownedEpisodeCount == 1 ? \"episode\" : \"episodes\"", source);
+        Assert.Contains(")} owned\"", source);
+        Assert.DoesNotContain("GetValue(values, \"episode_count\")", source);
         Assert.Contains("GetValue(values, \"content_rating\")", source);
+        Assert.Contains("GetValue(values, \"video_quality\")", source);
         Assert.Contains("FormatRating(GetValue(values, MetadataFieldConstants.Rating))", source);
         Assert.Contains("FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber)", source);
         Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/resolve?workId={id}\"", source);
+        Assert.Contains("SelectFirstOwnedTvEpisode", source);
+        Assert.Contains("SelectInProgressTvEpisode", source);
+        Assert.Contains("BuildTvShowWatchActions", source);
+        Assert.Contains("/watch/player/resolve?workId={episodeId:D}", source);
     }
 
     [Fact]
@@ -311,6 +318,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("COALESCE(gp.id, p.id, w.id)", source);
         Assert.Contains("ResolveCollectionArtworkUrl", source);
         Assert.Contains("DisplayArtworkUrlResolver.Resolve(value, assetId, kind, state)", source);
+        Assert.Contains("'episode_still_url', 'episode_still', 'still_url', 'still'", source);
+        Assert.Contains("Description = row.Description", source);
+        Assert.Contains("Duration = FormatTrackDuration(row.Duration)", source);
+        Assert.Contains("Route = item.Route", source);
     }
 
     [Fact]
