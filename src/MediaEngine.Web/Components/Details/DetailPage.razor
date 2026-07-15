@@ -35,11 +35,12 @@
         else
         {
             <DetailHero Model="Model"
-                        OnActionSelected="HandleDetailActionAsync" />
+                        OnActionSelected="HandleDetailActionAsync"
+                        OnTabRequested="SetActiveTabAsync" />
 
             <DetailTabs Tabs="VisibleTabs" ActiveTab="@CurrentActiveTab" ActiveTabChanged="SetActiveTabAsync" />
 
-            <section class="tl-detail-body">
+            <section id="overview" class="tl-detail-body">
                 @if (CurrentActiveTab is "overview")
                 {
                     <MediaEngine.Web.Components.Details.OverviewTab Model="Model"

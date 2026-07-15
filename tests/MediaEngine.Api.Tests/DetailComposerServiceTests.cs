@@ -191,7 +191,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("if (entityType == DetailEntityType.TvShow)", source);
         Assert.Contains("GetValue(values, \"start_year\")", source);
         Assert.Contains("ownedEpisodeCount == 1 ? \"episode\" : \"episodes\"", source);
-        Assert.Contains(")} owned\"", source);
+        Assert.DoesNotContain(")} owned\"", source);
         Assert.DoesNotContain("GetValue(values, \"episode_count\")", source);
         Assert.Contains("GetValue(values, \"content_rating\")", source);
         Assert.Contains("GetValue(values, \"video_quality\")", source);
@@ -205,7 +205,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("var tvPlaybackEpisode = tvInProgressEpisode ??", source);
         Assert.Contains("var tvInProgressEpisode = entityType == DetailEntityType.TvShow", source);
         Assert.Contains("Tagline = entityType == DetailEntityType.TvShow", source);
-        Assert.Contains("tvInProgressEpisode?.Description", source);
+        Assert.Contains("tvPlaybackEpisode?.Description", source);
         Assert.Contains("tvInProgressEpisode?.BackgroundUrl", source);
         Assert.Contains("entityType == DetailEntityType.TvShow ? heroSummary : longDescription", source);
         Assert.Contains("currentWorkId ?? tvPlaybackEpisodeId", source);
@@ -215,7 +215,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Runtime)", source);
         Assert.Contains("GetValue(tvPlaybackValues, \"duration\")", source);
         Assert.Contains("AddTechnicalClaimFallbacksAsync(conn, assetId, values, ct)", source);
-        Assert.Contains("claim_key IN ('duration_sec', 'duration_seconds')", source);
+        Assert.Contains("claim_key IN ('duration_sec', 'duration_seconds', 'genre')", source);
         Assert.Contains("FormatSecondsDuration(ParseDurationSeconds(FirstNonBlank(", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Genre)", source);
         Assert.Contains("SplitMetadataValues(playbackGenres).Take(2)", source);
@@ -224,6 +224,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("LoadWorkCanonicalMapAsync(workId, detail, ct)", source);
         Assert.Contains("SELECT ma.id", source);
         Assert.Contains("entityType == DetailEntityType.TvEpisode ? \"background\" : \"cover\"", source);
+        Assert.Contains("useEpisodeArtwork = entityType == DetailEntityType.TvEpisode ? 1 : 0", source);
+        Assert.Contains("entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("? FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl)", source);
+        Assert.Contains(": work.ArtworkUrl", source);
     }
 
     [Fact]

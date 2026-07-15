@@ -1998,7 +1998,7 @@
 }
 
 @media (max-width: 1180px) {
-    .listen-page {
+.listen-page {
         grid-template-columns: 284px minmax(0, 1fr);
         padding-bottom: 112px;
     }
@@ -2021,6 +2021,36 @@
     .audiobooks-featured-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.listen-page--detail {
+    display: block;
+    height: auto;
+    min-height: calc(100dvh - var(--app-topbar-height, 65px));
+    margin-top: -24px;
+}
+
+.listen-page--detail .listen-rail-shell,
+.listen-page--detail .listen-topbar,
+.listen-page--detail ::deep .listen-now-panel {
+    display: none;
+}
+
+.listen-page--detail .listen-content {
+    padding: 0;
+    overflow: visible;
+}
+
+.listen-page--detail .listen-audio-detail-host {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.listen-page--detail ::deep .tl-audio-detail {
+    padding: 0;
+    overflow: visible;
 }
 
 @media (max-width: 860px) {

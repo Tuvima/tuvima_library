@@ -126,6 +126,12 @@ window.getSwimlaneScrollState = function (el) {
     };
 };
 
+window.isElementContentOverflowing = function (element) {
+    if (!element) return false;
+    return element.scrollHeight > element.clientHeight + 1
+        || element.scrollWidth > element.clientWidth + 1;
+};
+
 window.getSwimlaneItems = function (el) {
     if (!el) return [];
 

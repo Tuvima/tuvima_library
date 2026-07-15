@@ -6663,8 +6663,16 @@
     width: min(47.5rem, 72vw);
 }
 
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__identity {
+    display: grid;
+    align-content: end;
+    justify-items: start;
+    gap: 0.62rem;
+    width: min(47.5rem, 100%);
+}
+
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy h1 {
-    width: min(34rem, 100%);
+    width: min(47.5rem, 100%);
     justify-self: start;
     text-align: left;
 }
@@ -6672,7 +6680,7 @@
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
     width: min(34rem, 100%);
     height: auto;
-    max-height: 18rem;
+    max-height: none;
     justify-self: start;
     margin-bottom: 0.55rem;
     object-position: left center;
@@ -6680,7 +6688,7 @@
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack,
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
-    width: min(34rem, 100%);
+    width: min(47.5rem, 100%);
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack {
@@ -6727,7 +6735,7 @@
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__series-context,
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero-credit-stack,
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__subtitle {
-    width: min(34rem, 100%);
+    width: min(47.5rem, 100%);
     justify-self: start;
 }
 
@@ -6745,6 +6753,10 @@
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row--genres {
     margin-top: 0.08rem;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row--facts {
+    flex-wrap: nowrap;
 }
 
 ::deep .tl-detail-watch-metadata-item[href] {
@@ -6768,6 +6780,11 @@
 
 ::deep .tl-detail-watch-genre-group .tl-detail-watch-metadata-item {
     flex: 0 0 auto;
+}
+
+::deep .tl-detail-watch-genre-comma {
+    display: inline-block;
+    margin-right: 0.28em;
 }
 
 /* Read, Watch, and Listen share one primary-action scale and facts typography. */
@@ -6796,8 +6813,8 @@
     font-size: 1.55rem;
 }
 
-::deep .tl-detail-hero--watch .tl-detail-hero__synopsis {
-    width: min(34rem, 100%);
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis {
+    width: min(47.5rem, 100%);
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-watch-metadata-item--classification {
@@ -6832,15 +6849,15 @@
     flex: 0 1 6.75rem;
 }
 
-::deep .tl-detail-hero--watch .tl-detail-hero__synopsis {
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis {
     order: 6;
-    width: min(34rem, 100%);
+    width: min(47.5rem, 100%);
     margin-top: 0.55rem;
     padding-top: 1.35rem;
     border-top: 1px solid rgba(255, 255, 255, 0.16);
 }
 
-::deep .tl-detail-hero--watch .tl-detail-hero__synopsis h2 {
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis h2 {
     margin: 0 0 0.42rem;
     color: rgba(255, 255, 255, 0.94);
     font-family: var(--app-font-brand, 'Montserrat', sans-serif);
@@ -6850,13 +6867,54 @@
     letter-spacing: 0.01em;
 }
 
-::deep .tl-detail-hero--watch .tl-detail-hero__synopsis .tl-detail-hero__tagline {
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis .tl-detail-hero__tagline {
     max-width: none;
     margin: 0;
     color: rgba(255, 255, 255, 0.72);
     font-size: clamp(0.94rem, 1.05vw, 1.08rem);
     font-weight: 430;
     line-height: 1.62;
+}
+
+::deep .tl-detail-hero__overview-link {
+    display: inline-block;
+    margin-top: 0.45rem;
+    color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 82%, #fff);
+    font-size: 0.86rem;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+::deep .tl-detail-hero__overview-link:hover,
+::deep .tl-detail-hero__overview-link:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+@media (min-width: 721px) {
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-start;
+        padding: 6rem 4rem 3rem;
+    }
+
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
+        align-content: start;
+        transform: none;
+    }
+
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__identity {
+        height: 14rem;
+    }
+
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
+        max-height: 13rem;
+    }
+
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack {
+        height: 4.25rem;
+        align-content: start;
+    }
 }
 
 ::deep .tl-series-information {

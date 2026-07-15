@@ -78,6 +78,7 @@
     {
         <div class="tl-detail-hero__inner">
             <div class="tl-detail-hero__copy">
+            <div class="tl-detail-hero__identity">
             @if (!(Presentation.IsWatchHero && HasHeroBrand) && !string.IsNullOrWhiteSpace(Presentation.Eyebrow))
             {
                 <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
@@ -114,6 +115,7 @@
             {
                 <p class="tl-detail-hero__subtitle">@Presentation.Subtitle</p>
             }
+            </div>
 
             <HeroMetadataPills Metadata="Model.Metadata"
                                EntityType="Model.EntityType"
@@ -139,6 +141,7 @@
                            OverflowActions="Model.OverflowActions"
                            InlineEditAction="InlineEditAction"
                            UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
+                           ActionAttributes="ActionAttributes"
                            OnActionSelected="OnActionSelected" />
 
             <HeroProgressBlock Progress="Presentation.Progress" />
@@ -153,6 +156,13 @@
                     <p class="@HeroSummaryClass"
                        data-ai-summary-slot="tldr"
                        aria-live="polite">@Presentation.HeroCopy</p>
+                    @if (Presentation.HeroCopyHasMore)
+                    {
+                        <a class="tl-detail-hero__overview-link"
+                           href="#overview"
+                           @onclick="OpenOverviewAsync"
+                           @onclick:preventDefault="true">(more in overview)</a>
+                    }
                 </div>
             }
 
@@ -164,12 +174,12 @@
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+    [Parameter] public EventCallback<string> OnTabRequested { get; set; }
+    [Parameter] public Func<DetailAction, IReadOnlyDictionary<string, object>?>? ActionAttributes { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private string? SeriesContextLabel => BuildSeriesContextLabel(Model.EntityType, Model.SequencePlacement);
-    private string? WatchEpisodeHeading => Model.EntityType is DetailEntityType.TvShow or DetailEntityType.TvEpisode
-        ? EpisodePositionFromWatchAction()
-        : null;
+    private string? WatchEpisodeHeading => BuildWatchEpisodeHeading();
     private string SeriesContextClass => $"tl-detail-hero__series-context{(SeriesContextLabel is null ? " is-empty" : string.Empty)}";
     private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
@@ -228,6 +238,23 @@
 
         return null;
     }
+
+    private string? BuildWatchEpisodeHeading()
+    {
+        if (Model.EntityType is not (DetailEntityType.TvShow or DetailEntityType.TvEpisode))
+            return null;
+
+        var position = EpisodePositionFromWatchAction();
+        if (string.IsNullOrWhiteSpace(position))
+            return null;
+
+        var episodeTitle = Model.SequencePlacement?.CurrentItem.Title;
+        return string.IsNullOrWhiteSpace(episodeTitle)
+            ? position
+            : $"{position}: {episodeTitle.Trim()}";
+    }
+
+    private Task OpenOverviewAsync() => OnTabRequested.InvokeAsync("overview");
 
     private string? PersonEyebrow => FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
 

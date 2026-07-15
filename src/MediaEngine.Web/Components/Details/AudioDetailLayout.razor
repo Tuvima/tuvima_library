@@ -2,61 +2,10 @@
 @using MediaEngine.Contracts.Details
 
 <AppCssElement Tag="div" Class="@AudioDetailClass" Css="@AudioChromeStyle">
-    <section class="@AudioHeroClass" aria-label="@($"{Model.Title} audio details")">
-        @if (!string.IsNullOrWhiteSpace(ArtworkUrl))
-        {
-            <AppCssElement Tag="div" Class="tl-audio-detail__hero-artwash" Css="@BackdropStyle"></AppCssElement>
-        }
-        <div class="tl-audio-detail__shade"></div>
-        <div class="tl-audio-detail__copy">
-            <h1>@Model.Title</h1>
-
-            @if (!string.IsNullOrWhiteSpace(PrimaryCreditLine))
-            {
-                <p class="tl-audio-detail__credit">@PrimaryCreditLine</p>
-            }
-
-            @if (MetadataLine.Count > 0)
-            {
-                <div class="tl-audio-detail__metadata" aria-label="Metadata">
-                    @for (var index = 0; index < MetadataLine.Count; index++)
-                    {
-                        if (index > 0)
-                        {
-                            <span aria-hidden="true">&bull;</span>
-                        }
-                        <span>@MetadataLine[index]</span>
-                    }
-                </div>
-            }
-
-            <HeroActionRow PrimaryActions="Model.PrimaryActions"
-                           SecondaryActions="Model.SecondaryActions"
-                           OverflowActions="Model.OverflowActions"
-                           InlineEditAction="InlineEditAction"
-                           UsePrimaryHeroChrome="true"
-                           ActionAttributes="ActionAttributes"
-                           OnActionSelected="SelectActionAsync" />
-
-            <HeroProgressBlock Progress="Model.Progress" />
-
-            @if (!string.IsNullOrWhiteSpace(Model.Tagline))
-            {
-                <p class="tl-audio-detail__tagline">@Model.Tagline</p>
-            }
-        </div>
-
-        <div class="tl-audio-detail__art" aria-label="@($"{Model.Title} cover art")">
-            @if (!string.IsNullOrWhiteSpace(ArtworkUrl))
-            {
-                <img src="@ArtworkUrl" alt="@Model.Title" />
-            }
-            else
-            {
-                <MudIcon Icon="@FallbackIcon" Class="tl-u-font-size-56px" />
-            }
-        </div>
-    </section>
+    <DetailHero Model="Model"
+                OnActionSelected="SelectActionAsync"
+                OnTabRequested="ActiveTabChanged"
+                ActionAttributes="ActionAttributes" />
 
     @if (Model.EntityType == DetailEntityType.MusicAlbum)
     {
@@ -121,30 +70,6 @@
     private string AudioDetailClass =>
         $"tl-audio-detail{(Model.EntityType == DetailEntityType.Audiobook ? " tl-audio-detail--audiobook" : " tl-audio-detail--music")}";
 
-    private string AudioHeroClass =>
-        $"tl-audio-detail__hero {TitleDensityClass}";
-
-    private string TitleDensityClass
-    {
-        get
-        {
-            var title = Model.Title?.Trim() ?? string.Empty;
-            var wordCount = title.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-            return title.Length >= 78 || wordCount >= 9
-                ? "tl-audio-detail__hero--title-dense"
-                : title.Length >= 48 || wordCount >= 6
-                    ? "tl-audio-detail__hero--title-long"
-                    : "tl-audio-detail__hero--title-normal";
-        }
-    }
-
-    private string FallbackIcon => Model.EntityType == DetailEntityType.MusicAlbum
-        ? Icons.Material.Outlined.Album
-        : Icons.Material.Outlined.Headphones;
-
-    private string? PrimaryCreditLine =>
-        FirstNonBlank(Model.Subtitle, Model.PreviewContributors.FirstOrDefault()?.DisplayName);
-
     private string AudioChromeStyle =>
         $"{DetailHeroPresentation.From(Model).GradientStyle}{ArtworkColorFallbacks}";
 
@@ -152,30 +77,6 @@
         "--tl-audio-primary:" + FirstNonBlank(Model.Artwork.PrimaryColor, "#dca53e") + ";" +
         "--tl-audio-secondary:" + FirstNonBlank(Model.Artwork.SecondaryColor, "#0b1019") + ";" +
         "--tl-audio-accent:" + FirstNonBlank(Model.Artwork.AccentColor, "#dca53e") + ";";
-
-    private string BackdropStyle =>
-        string.IsNullOrWhiteSpace(ArtworkUrl)
-            ? string.Empty
-            : $"background-image:url('{ArtworkUrl.Replace("'", "%27", StringComparison.Ordinal)}');";
-
-    private IReadOnlyList<string> MetadataLine
-    {
-        get
-        {
-            var values = new List<string>();
-            AddFirstMetadata(values, "year", "release", "release_date", "published");
-
-            var countLabel = TrackOrChapterCountLabel();
-            if (!string.IsNullOrWhiteSpace(countLabel))
-            {
-                values.Add(countLabel);
-            }
-
-            AddFirstMetadata(values, "duration", "runtime");
-            AddFirstMetadata(values, "genre");
-            return values;
-        }
-    }
 
     private IReadOnlyList<DetailTab> SupplementalTabs =>
         Tabs.Where(tab => tab.Key is not "tracks").ToList();
@@ -190,50 +91,6 @@
             .Where(group => group.Key is not "tracks" and not "chapters")
             .ToList();
 
-    private bool CanInlineEdit => Model.EntityType is DetailEntityType.Audiobook or DetailEntityType.MusicAlbum;
-
-    private DetailAction? InlineEditAction => CanInlineEdit
-        ? new DetailAction
-        {
-            Key = "edit-media",
-            Label = "Edit",
-            Icon = "edit",
-            Tooltip = "Edit",
-        }
-        : null;
-
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-
-    private void AddFirstMetadata(List<string> values, params string[] kinds)
-    {
-        var item = Model.Metadata.FirstOrDefault(metadata =>
-            kinds.Any(kind => string.Equals(metadata.Kind, kind, StringComparison.OrdinalIgnoreCase))
-            && !string.IsNullOrWhiteSpace(metadata.Label));
-        if (item is not null && !values.Contains(item.Label, StringComparer.OrdinalIgnoreCase))
-        {
-            values.Add(item.Label);
-        }
-    }
-
-    private string? TrackOrChapterCountLabel()
-    {
-        var group = Model.MediaGroups.FirstOrDefault(mediaGroup =>
-            Model.EntityType == DetailEntityType.MusicAlbum
-                ? mediaGroup.Key == "tracks"
-                : mediaGroup.Key == "chapters"
-                  && string.Equals(mediaGroup.Title, "Chapters", StringComparison.OrdinalIgnoreCase));
-        if (group is null || group.TotalCount <= 0)
-        {
-            return null;
-        }
-
-        var noun = Model.EntityType == DetailEntityType.MusicAlbum
-            ? group.TotalCount == 1 ? "track" : "tracks"
-            : group.TotalCount == 1 ? "chapter" : "chapters";
-
-        return Model.EntityType == DetailEntityType.MusicAlbum && group.OwnedCount > 0 && group.OwnedCount < group.TotalCount
-            ? $"{group.OwnedCount} of {group.TotalCount} {noun}"
-            : $"{group.TotalCount} {noun}";
-    }
 }

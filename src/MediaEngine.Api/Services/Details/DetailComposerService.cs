@@ -453,7 +453,7 @@ public sealed class DetailComposerService
             Title = collectionTitle,
             Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
             Tagline = entityType == DetailEntityType.TvShow
-                ? tvInProgressEpisode?.Description
+                ? tvPlaybackEpisode?.Description
                 : heroSummary,
             Description = longDescription,
             DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
@@ -1433,16 +1433,24 @@ public sealed class DetailComposerService
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'episode_number' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'episode_number' LIMIT 1)) AS TEXT) AS EpisodeLabel,
-                   CAST(COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_url', 'background') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_url', 'background') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover') LIMIT 1)) AS TEXT) AS ArtworkUrl,
-                   CAST(COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_state', 'hero_state', 'cover_state') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_state', 'hero_state', 'cover_state') LIMIT 1)) AS TEXT) AS ArtworkState,
+                    CAST(CASE WHEN @useEpisodeArtwork = 1 THEN COALESCE(
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('episode_still_url', 'episode_still', 'still_url', 'still') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_url', 'background') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_url', 'background') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover') LIMIT 1))
+                    ELSE COALESCE(
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('cover_url', 'cover') LIMIT 1)) END AS TEXT) AS ArtworkUrl,
+                    CAST(CASE WHEN @useEpisodeArtwork = 1 THEN COALESCE(
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('background_state', 'hero_state') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('background_state', 'hero_state') LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'cover_state' LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'cover_state' LIMIT 1))
+                    ELSE COALESCE(
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'cover_state' LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'cover_state' LIMIT 1)) END AS TEXT) AS ArtworkState,
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('runtime', 'duration') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('runtime', 'duration') LIMIT 1)) AS TEXT) AS Duration
@@ -1481,6 +1489,7 @@ public sealed class DetailComposerService
                 series = containerTitle,
                 mediaFilter = SeriesMediaFilter(entityType, detail.MediaType),
                 wikidataProviderId = WellKnownProviders.Wikidata.ToString(),
+                useEpisodeArtwork = entityType == DetailEntityType.TvEpisode ? 1 : 0,
             },
             cancellationToken: ct))).ToList();
 
@@ -1533,11 +1542,13 @@ public sealed class DetailComposerService
                 Id = workId.ToString("D"),
                 EntityType = entityType,
                 Title = detail.Title,
-                ArtworkUrl = FirstNonBlank(
-                    GetDetailCanonicalValue(detail, "episode_still_url"),
-                    GetDetailCanonicalValue(detail, "episode_still"),
-                    detail.BackgroundUrl,
-                    detail.CoverUrl),
+                ArtworkUrl = entityType == DetailEntityType.TvEpisode
+                    ? FirstNonBlank(
+                        GetDetailCanonicalValue(detail, "episode_still_url"),
+                        GetDetailCanonicalValue(detail, "episode_still"),
+                        detail.BackgroundUrl,
+                        detail.CoverUrl)
+                    : detail.CoverUrl,
                 Description = detail.Description,
                 Duration = FormatTrackDuration(detail.Runtime),
                 PublicationDate = FirstNonBlank(detail.ReleaseDate, detail.Year),
@@ -3731,7 +3742,7 @@ public sealed class DetailComposerService
             SELECT claim_key AS Key, claim_value AS Value
             FROM metadata_claims
             WHERE entity_id = @entityId
-              AND claim_key IN ('duration_sec', 'duration_seconds')
+              AND claim_key IN ('duration_sec', 'duration_seconds', 'genre')
               AND NULLIF(CAST(claim_value AS TEXT), '') IS NOT NULL
             ORDER BY confidence DESC, claimed_at DESC;
             """,
@@ -3739,7 +3750,21 @@ public sealed class DetailComposerService
             cancellationToken: ct));
         foreach (var row in rows)
         {
-            values.TryAdd(row.Key, row.Value);
+            if (!string.Equals(row.Key, MetadataFieldConstants.Genre, StringComparison.OrdinalIgnoreCase))
+            {
+                values.TryAdd(row.Key, row.Value);
+                continue;
+            }
+
+            values.TryGetValue(MetadataFieldConstants.Genre, out var existingGenres);
+            var genres = SplitMetadataValues(existingGenres)
+                .Concat(SplitMetadataValues(row.Value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (genres.Count > 0)
+            {
+                values[MetadataFieldConstants.Genre] = string.Join('|', genres);
+            }
         }
     }
 
@@ -5588,7 +5613,9 @@ public sealed class DetailComposerService
                 Title = work.Title,
                 Description = work.Description,
                 Duration = FormatTrackDuration(work.Duration),
-                ArtworkUrl = FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl),
+                ArtworkUrl = entityType == DetailEntityType.TvShow
+                    ? FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl)
+                    : work.ArtworkUrl,
                 Route = work.IsOwned ? BuildWorkRoute(work) : null,
                 PublicationDate = work.Year,
                 PositionNumber = positionNumber,
@@ -5910,7 +5937,7 @@ public sealed class DetailComposerService
                 GetValue(values, "release_year"),
                 firstOwnedYear), "year");
             AddPlain(pills, ownedEpisodeCount > 0
-                ? $"{ownedEpisodeCount.ToString(CultureInfo.InvariantCulture)} {(ownedEpisodeCount == 1 ? "episode" : "episodes")} owned"
+                ? $"{ownedEpisodeCount.ToString(CultureInfo.InvariantCulture)} {(ownedEpisodeCount == 1 ? "episode" : "episodes")}"
                 : null, "episode_count");
             AddPlain(pills, FirstNonBlank(
                 FormatTrackDuration(FirstNonBlank(

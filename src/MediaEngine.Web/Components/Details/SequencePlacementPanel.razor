@@ -2,8 +2,10 @@
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Services.Integration
 @using System.Globalization
+@using Microsoft.JSInterop
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
+@inject IJSRuntime Js
 
 <section class="tl-series-placement @PanelClass">
     <div class="tl-series-layout">
@@ -107,7 +109,7 @@
         {
             <section class="tl-series-information" aria-labelledby="series-description-heading">
                 <h2 id="series-description-heading"><span>Series Description</span></h2>
-                <p id="series-description-copy" class="@SeriesDescriptionClass">@Placement.ContainerDescription</p>
+                <p id="series-description-copy" class="@SeriesDescriptionClass" @ref="_seriesDescriptionElement">@Placement.ContainerDescription</p>
                 @if (HasExpandableSeriesDescription)
                 {
                     <AppNativeButton Type="button"
@@ -235,6 +237,9 @@
     private bool _canCurateSequence;
     private bool _settingDefault;
     private bool _seriesDescriptionExpanded;
+    private bool _hasExpandableSeriesDescription;
+    private bool _needsSeriesDescriptionMeasurement = true;
+    private ElementReference _seriesDescriptionElement;
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
@@ -287,7 +292,7 @@
         : "#";
     private string GroupSelectorAriaLabel => IsSeasonContainer ? "Choose season" : "Choose series section";
     private string SourceKindLabel => IsSeasonContainer ? "Show" : "Series";
-    private bool HasExpandableSeriesDescription => (Placement.ContainerDescription?.Length ?? 0) > 180;
+    private bool HasExpandableSeriesDescription => _hasExpandableSeriesDescription;
     private string SeriesDescriptionClass => $"tl-series-information__copy{(_seriesDescriptionExpanded ? " is-expanded" : string.Empty)}";
     private IReadOnlyDictionary<string, object> SeriesDescriptionToggleAttributes => new Dictionary<string, object>
     {
@@ -461,11 +466,32 @@
             _placementKey = key;
             _selectedGroupKey = Placement.CurrentGroupKey;
             _seriesDescriptionExpanded = false;
+            _hasExpandableSeriesDescription = false;
+            _needsSeriesDescriptionMeasurement = true;
             ResetWindowToCurrentItem();
         }
 
         var profile = await Orchestrator.GetActiveProfileAsync();
         _canCurateSequence = profile?.Role is "Administrator" or "Curator";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_needsSeriesDescriptionMeasurement
+            || Compact
+            || !IsSeasonContainer
+            || string.IsNullOrWhiteSpace(Placement.ContainerDescription))
+        {
+            return;
+        }
+
+        _needsSeriesDescriptionMeasurement = false;
+        var hasOverflow = await Js.InvokeAsync<bool>("isElementContentOverflowing", _seriesDescriptionElement);
+        if (_hasExpandableSeriesDescription != hasOverflow)
+        {
+            _hasExpandableSeriesDescription = hasOverflow;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private void ToggleSeriesDescription()

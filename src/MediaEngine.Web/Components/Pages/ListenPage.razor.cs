@@ -203,7 +203,11 @@ public partial class ListenPage
     private string SongsGridTemplate => BuildSongsGridTemplate();
     private IReadOnlyList<ContentGroupViewModel> FilteredAlbumGroups => ApplyAlbumFilters();
     private IReadOnlyList<ContentGroupViewModel> FilteredArtistGroups => ApplyArtistFilters();
-    private string ListenPageClass => IsAudiobooksMode ? "listen-page listen-page--audiobooks" : "listen-page";
+    private string ListenPageClass => IsAudioDetailSurface
+        ? "listen-page listen-page--detail"
+        : IsAudiobooksMode
+            ? "listen-page listen-page--audiobooks"
+            : "listen-page";
     private IReadOnlyList<AudiobookListenItem> AudiobookContinueCards => BuildAudiobookContinueCards();
     private IReadOnlyList<AudiobookDisplayItem> AudiobookDisplayItems => BuildAudiobookDisplayItems();
     private IReadOnlyList<AudiobookDisplayItem> FilteredAudiobookItems => ApplyAudiobookFilters();

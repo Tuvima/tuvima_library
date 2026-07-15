@@ -13,6 +13,7 @@ public sealed class DetailHeroPresentation
         string title,
         string? subtitle,
         string? heroCopy,
+        bool heroCopyHasMore,
         ProgressViewModel? progress,
         bool isWatchHero,
         bool usePrimaryHeroChrome,
@@ -27,6 +28,7 @@ public sealed class DetailHeroPresentation
         Title = title;
         Subtitle = subtitle;
         HeroCopy = heroCopy;
+        HeroCopyHasMore = heroCopyHasMore;
         Progress = progress;
         IsWatchHero = isWatchHero;
         UsePrimaryHeroChrome = usePrimaryHeroChrome;
@@ -42,6 +44,7 @@ public sealed class DetailHeroPresentation
     public string Title { get; }
     public string? Subtitle { get; }
     public string? HeroCopy { get; }
+    public bool HeroCopyHasMore { get; }
     public ProgressViewModel? Progress { get; }
     public bool IsWatchHero { get; }
     public bool UsePrimaryHeroChrome { get; }
@@ -60,11 +63,21 @@ public sealed class DetailHeroPresentation
             DetailEntityType.TvEpisode => FirstNonBlank(model.Description, model.Tagline),
             DetailEntityType.Movie => FirstNonBlank(model.Tagline, model.Description),
             _ when isWatchHero => FirstNonBlank(model.Tagline, model.Description),
-            _ => model.Tagline,
+            _ => FirstNonBlank(model.Tagline, model.Description),
         };
-        var copy = !string.IsNullOrWhiteSpace(copySource)
-            ? Truncate(copySource, isWatchHero ? 360 : 220)
+        var usesReadOverviewCopy = UsesReadOverviewCopy(model.EntityType);
+        var readFirstParagraph = usesReadOverviewCopy
+            ? FirstParagraph(copySource)
+            : copySource;
+        var copyLimit = isWatchHero ? 360 : 320;
+        var copy = !string.IsNullOrWhiteSpace(readFirstParagraph)
+            ? usesReadOverviewCopy
+                ? readFirstParagraph
+                : Truncate(readFirstParagraph, copyLimit)
             : null;
+        var copyHasMore = usesReadOverviewCopy
+            && !string.IsNullOrWhiteSpace(copySource)
+            && !string.Equals(copySource.Trim(), readFirstParagraph?.Trim(), StringComparison.Ordinal);
 
         return new DetailHeroPresentation(
             BuildHeroClass(mode, model.EntityType, isWatchHero),
@@ -75,6 +88,7 @@ public sealed class DetailHeroPresentation
             model.Title,
             ResolveSubtitle(model, isWatchHero),
             copy,
+            copyHasMore,
             model.Progress,
             isWatchHero,
             usePrimaryHeroChrome,
@@ -143,6 +157,25 @@ public sealed class DetailHeroPresentation
             or DetailEntityType.MusicAlbum
             or DetailEntityType.MusicArtist
             or DetailEntityType.MusicTrack;
+
+    private static bool UsesReadOverviewCopy(DetailEntityType entityType)
+        => entityType is DetailEntityType.Book
+            or DetailEntityType.BookSeries
+            or DetailEntityType.ComicIssue
+            or DetailEntityType.ComicSeries
+            or DetailEntityType.Work;
+
+    private static string? FirstParagraph(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
+        var paragraphEnd = normalized.IndexOf("\n\n", StringComparison.Ordinal);
+        return (paragraphEnd >= 0 ? normalized[..paragraphEnd] : normalized)
+            .Replace('\n', ' ')
+            .Trim();
+    }
 
     private static bool IsWatchEntity(DetailEntityType entityType)
         => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;

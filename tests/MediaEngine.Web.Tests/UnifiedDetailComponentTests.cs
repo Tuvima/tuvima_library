@@ -178,6 +178,7 @@ public sealed class UnifiedDetailComponentTests
     public void HeroMetadata_UsesInlineRowInsteadOfPills()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroMetadataPills.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("IsWatchHero", source);
         Assert.Contains("UsePrimaryHeroChrome", source);
@@ -193,6 +194,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("genre:{item.Label}", source);
         Assert.Contains("tl-detail-watch-genre-group", source);
         Assert.Contains("tl-detail-watch-genre-comma", source);
+        Assert.Contains("margin-right: 0.28em", styles);
         Assert.Contains("tl-detail-watch-metadata-row--facts", source);
         Assert.Contains("tl-detail-watch-metadata-row--genres", source);
         Assert.Contains("inlinePrimaryItems", source);
@@ -216,8 +218,10 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("justify-self: start", styles);
-        Assert.Contains("max-height: 18rem", styles);
+        Assert.Contains("max-height: none", styles);
         Assert.Contains(".tl-detail-watch-metadata-row--genres", styles);
+        Assert.Contains(".tl-detail-watch-metadata-row--facts", styles);
+        Assert.Contains("flex-wrap: nowrap", styles);
         Assert.Contains("font-size: clamp(1rem, 1.3vw, 1.18rem)", styles);
         Assert.Contains("min-height: 4.8rem", styles);
         Assert.Contains(".tl-detail-primary-actions:has(> :only-child)", styles);
@@ -554,6 +558,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("width: min(36rem, 100%)", styles);
         Assert.Contains("grid-template-columns: minmax(15rem, 0.24fr) minmax(0, 0.76fr)", styles);
         Assert.Contains("tl-series-description", styles);
+        Assert.Contains("isElementContentOverflowing", ReadSource("src/MediaEngine.Web/wwwroot/app.js"));
+        Assert.Contains("@ref=\"_seriesDescriptionElement\"", source);
+        Assert.Contains("OnAfterRenderAsync", source);
+        Assert.DoesNotContain("ContainerDescription?.Length", source);
         Assert.Contains("tl-series-date-range", styles);
         Assert.Contains("tl-series-item__date", styles);
         Assert.Contains("repeat(var(--series-count, 6), clamp(10.25rem, 11vw, 13rem))", styles);
@@ -694,6 +702,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-hero__synopsis", hero);
         Assert.Contains("WatchEpisodeHeading", hero);
         Assert.Contains("EpisodePositionFromWatchAction", hero);
+        Assert.Contains("$\"{position}: {episodeTitle.Trim()}\"", hero);
+        Assert.Contains("FirstParagraph(copySource)", presentation);
+        Assert.Contains("? readFirstParagraph", presentation);
+        Assert.DoesNotContain("(readFirstParagraph?.Length ?? 0) > copyLimit", presentation);
+        Assert.Contains("HeroCopyHasMore", presentation);
+        Assert.Contains("(more in overview)", hero);
         Assert.DoesNotContain("HeroGenreChips", hero);
         Assert.Contains("tl-detail-genre-text", genres);
         Assert.Contains("BuildSeriesContextLabel", hero);
@@ -770,6 +784,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("DetailEntityType.MusicAlbum or DetailEntityType.Audiobook", detailPage);
         Assert.Contains("<AudioDetailLayout", detailPage);
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
+        Assert.Contains("<DetailHero Model=\"Model\"", audioLayout);
+        Assert.DoesNotContain("<HeroActionRow", audioLayout);
         Assert.Contains("<MusicTrackList", audioLayout);
         Assert.Contains("<AudiobookChapterList", audioLayout);
         Assert.DoesNotContain("<AudioItemTable", chapterList);
@@ -991,9 +1007,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("CurrentChapterProgressLabel", popupPlayer);
         Assert.DoesNotContain("FormatChapterTimeRange", chapterList);
         Assert.Contains("SupplementalActiveTab is \"chapters\"", audioLayout);
-        Assert.Contains("tl-audio-detail__hero-artwash", audioLayout);
-        Assert.Contains("tl-audio-detail__metadata", audioLayout);
-        Assert.Contains("tl-audio-detail__hero--title-dense", audioLayout);
+        Assert.DoesNotContain("tl-audio-detail__hero-artwash", audioLayout);
+        Assert.DoesNotContain("tl-audio-detail__metadata", audioLayout);
+        Assert.DoesNotContain("tl-audio-detail__hero--title-dense", audioLayout);
+        Assert.Contains("ActionAttributes=\"ActionAttributes\"", audioLayout);
+        Assert.Contains("listen-page listen-page--detail", listenPage);
+        Assert.Contains(".listen-page--detail", ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor.css"));
         Assert.DoesNotContain("HeroMetadataPills", audioLayout);
         Assert.DoesNotContain("<AudiobookChapterList Groups=\"Model.MediaGroups\"", audioLayout[..audioLayout.IndexOf("<DetailTabs", StringComparison.Ordinal)]);
         Assert.Contains("InitialPositionSeconds = ResumePositionFor(item)", audioTable);
