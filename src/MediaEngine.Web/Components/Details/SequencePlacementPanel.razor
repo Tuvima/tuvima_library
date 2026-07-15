@@ -198,6 +198,14 @@
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />
         </div>
+
+        @if (!Compact && IsSeasonContainer && !string.IsNullOrWhiteSpace(Placement.ContainerDescription))
+        {
+            <section class="tl-series-information" aria-labelledby="series-information-heading">
+                <h2 id="series-information-heading">Series information</h2>
+                <p>@Placement.ContainerDescription</p>
+            </section>
+        }
     </div>
     </div>
 </section>

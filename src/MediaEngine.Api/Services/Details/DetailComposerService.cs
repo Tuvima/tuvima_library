@@ -402,6 +402,12 @@ public sealed class DetailComposerService
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
         var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
+        var tvPlaybackEpisode = entityType == DetailEntityType.TvShow
+            ? SelectInProgressTvEpisode(works) ?? SelectFirstOwnedTvEpisode(works)
+            : null;
+        var tvPlaybackEpisodeId = tvPlaybackEpisode is not null && Guid.TryParse(tvPlaybackEpisode.Id, out var parsedEpisodeId)
+            ? parsedEpisodeId
+            : (Guid?)null;
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var manifest = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
         var displayWorks = MergeCollectionManifestPlaceholders(entityType, works, manifest);
@@ -428,7 +434,7 @@ public sealed class DetailComposerService
             longDescription,
             displayWorks,
             expectedTotal,
-            currentWorkId);
+            currentWorkId ?? tvPlaybackEpisodeId);
 
         return new DetailPageViewModel
         {
@@ -438,7 +444,9 @@ public sealed class DetailComposerService
             EditorTarget = BuildCollectionEditorTarget(collectionId, entityType, rootWorkId),
             Title = collectionTitle,
             Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
-            Tagline = heroSummary,
+            Tagline = entityType == DetailEntityType.TvShow
+                ? tvPlaybackEpisode?.Description
+                : heroSummary,
             Description = longDescription,
             DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
             SourceLinks = BuildExternalSourceLinks(row.WikidataQid, GetValue(values, "wikipedia_url"), null, values),

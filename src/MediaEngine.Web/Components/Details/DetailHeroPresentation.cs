@@ -54,11 +54,14 @@ public sealed class DetailHeroPresentation
         var isWatchHero = IsWatchEntity(model.EntityType);
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
-        var copySource = model.EntityType == DetailEntityType.TvEpisode
-            ? FirstNonBlank(model.Description, model.Tagline)
-            : isWatchHero
-                ? FirstNonBlank(model.Tagline, model.Description)
-                : model.Tagline;
+        var copySource = model.EntityType switch
+        {
+            DetailEntityType.TvShow => model.Tagline,
+            DetailEntityType.TvEpisode => FirstNonBlank(model.Description, model.Tagline),
+            DetailEntityType.Movie => FirstNonBlank(model.Tagline, model.Description),
+            _ when isWatchHero => FirstNonBlank(model.Tagline, model.Description),
+            _ => model.Tagline,
+        };
         var copy = !string.IsNullOrWhiteSpace(copySource)
             ? Truncate(copySource, isWatchHero ? 360 : 220)
             : null;

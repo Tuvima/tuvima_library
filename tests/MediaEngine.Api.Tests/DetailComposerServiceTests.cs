@@ -202,6 +202,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("SelectInProgressTvEpisode", source);
         Assert.Contains("BuildTvShowWatchActions", source);
         Assert.Contains("/watch/player/resolve?workId={episodeId:D}", source);
+        Assert.Contains("var tvPlaybackEpisode = entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("Tagline = entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("tvPlaybackEpisode?.Description", source);
+        Assert.Contains("currentWorkId ?? tvPlaybackEpisodeId", source);
     }
 
     [Fact]

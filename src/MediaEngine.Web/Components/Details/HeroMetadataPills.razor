@@ -17,6 +17,10 @@
                     {
                         <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" />
                     }
+                    else if (WatchIconFor(entry.item) is { } watchIcon)
+                    {
+                        <MudIcon Icon="@watchIcon" Size="Size.Small" />
+                    }
                     <span>@entry.item.Label</span>
                 </span>
                 @if (entry.index < inlineStatItems.Count - 1)
@@ -212,9 +216,22 @@
             : "tl-detail-metadata-item";
 
     private static string WatchStatClass(MetadataPill item)
-        => item.Kind?.ToLowerInvariant() == "rating"
-            ? "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--rating"
-            : "tl-detail-watch-metadata-item";
+        => item.Kind?.ToLowerInvariant() switch
+        {
+            "rating" => "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--rating",
+            "certification" or "content_rating" => "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--classification",
+            _ => "tl-detail-watch-metadata-item",
+        };
+
+    private static string? WatchIconFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
+    {
+        "year" => Icons.Material.Outlined.CalendarMonth,
+        "episode_count" => Icons.Material.Outlined.VideoLibrary,
+        "duration" => Icons.Material.Outlined.Schedule,
+        "quality" => Icons.Material.Outlined.Tv,
+        "subtitles" => Icons.Material.Outlined.ClosedCaption,
+        _ => null,
+    };
 
     private static string WatchStatGroupKey(MetadataPill item)
         => item.Kind?.ToLowerInvariant() is "certification" or "content_rating"

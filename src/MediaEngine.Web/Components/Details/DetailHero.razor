@@ -135,7 +135,7 @@
             }
 
             <HeroActionRow PrimaryActions="Model.PrimaryActions"
-                           SecondaryActions="CombinedSecondaryActions"
+                           SecondaryActions="Model.SecondaryActions"
                            OverflowActions="Model.OverflowActions"
                            InlineEditAction="InlineEditAction"
                            UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
@@ -143,14 +143,18 @@
 
             <HeroProgressBlock Progress="Presentation.Progress" />
 
-            @if (!string.IsNullOrWhiteSpace(WatchSeriesLabel))
+            @if (!string.IsNullOrWhiteSpace(Presentation.HeroCopy))
             {
-                <p class="tl-detail-hero__watch-series">@WatchSeriesLabel</p>
+                <div class="tl-detail-hero__synopsis">
+                    @if (!string.IsNullOrWhiteSpace(WatchEpisodeHeading))
+                    {
+                        <h2>@WatchEpisodeHeading</h2>
+                    }
+                    <p class="@HeroSummaryClass"
+                       data-ai-summary-slot="tldr"
+                       aria-live="polite">@Presentation.HeroCopy</p>
+                </div>
             }
-
-            <p class="@HeroSummaryClass"
-               data-ai-summary-slot="tldr"
-               aria-live="polite">@Presentation.HeroCopy</p>
 
             <HeroGenreChips Metadata="Model.Metadata" PlainText="Presentation.IsWatchHero" />
             </div>
@@ -160,19 +164,13 @@
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
-    [Parameter] public IReadOnlyList<DetailAction> ContextSecondaryActions { get; set; } = [];
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
     private DetailHeroPresentation Presentation => DetailHeroPresentation.From(Model);
     private string? SeriesContextLabel => BuildSeriesContextLabel(Model.EntityType, Model.SequencePlacement);
-    private string? WatchSeriesLabel => Model.EntityType == DetailEntityType.TvEpisode
-        ? FirstNonBlank(Model.Subtitle, Model.SequencePlacement?.ContainerTitle)
+    private string? WatchEpisodeHeading => Model.EntityType is DetailEntityType.TvShow or DetailEntityType.TvEpisode
+        ? EpisodePositionFromWatchAction()
         : null;
-    private IReadOnlyList<DetailAction> CombinedSecondaryActions =>
-        ContextSecondaryActions
-            .Concat(Model.SecondaryActions)
-            .DistinctBy(action => action.Key, StringComparer.OrdinalIgnoreCase)
-            .ToList();
     private string SeriesContextClass => $"tl-detail-hero__series-context{(SeriesContextLabel is null ? " is-empty" : string.Empty)}";
     private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
@@ -206,6 +204,31 @@
             Tooltip = "Edit",
         }
         : null;
+
+    private string? EpisodePositionFromWatchAction()
+    {
+        var label = Model.PrimaryActions
+            .FirstOrDefault(action => string.Equals(action.Key, "watch", StringComparison.OrdinalIgnoreCase))
+            ?.Label;
+        if (string.IsNullOrWhiteSpace(label))
+            return null;
+
+        var parts = label.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        for (var index = 0; index < parts.Length - 1; index++)
+        {
+            if (parts[index].StartsWith('S')
+                && parts[index].Length > 1
+                && parts[index][1..].All(char.IsDigit)
+                && parts[index + 1].StartsWith('E')
+                && parts[index + 1].Length > 1
+                && parts[index + 1][1..].All(char.IsDigit))
+            {
+                return $"{parts[index]} {parts[index + 1]}";
+            }
+        }
+
+        return null;
+    }
 
     private string? PersonEyebrow => FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
 

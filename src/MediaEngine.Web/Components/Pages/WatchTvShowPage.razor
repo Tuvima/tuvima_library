@@ -32,7 +32,6 @@ else
     <DetailPage Model="_detail"
                 ActiveTab="@_activeTab"
                 ActiveTabChanged="HandleTabChangedAsync"
-                HeroSecondaryActions="EpisodeHeroActions"
                 OnActionSelected="HandleActionAsync" />
 }
 
@@ -88,19 +87,4 @@ else
         _activeTab = resolution.ActiveTab;
     }
 
-    private string ShowRoute => $"/watch/tv/show/{CollectionId:D}";
-
-    private IReadOnlyList<DetailAction> EpisodeHeroActions => EpisodeId.HasValue
-        ? [
-            new DetailAction
-            {
-                Key = "show-details",
-                Label = "Show details",
-                Icon = "arrow_back",
-                Route = ShowRoute,
-                Tooltip = "Back to show details",
-                DisplayStyle = "icon",
-            },
-        ]
-        : [];
 }
