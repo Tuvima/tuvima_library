@@ -6658,10 +6658,110 @@
     }
 }
 
-/* Watch hero hierarchy: compact facts and controls followed by a separated synopsis. */
-::deep .tl-detail-hero--watch .tl-detail-metadata-stack,
-::deep .tl-detail-hero--watch .tl-detail-watch-metadata-row {
+/* Shared detail hierarchy: one left-aligned identity column anchored to the primary action. */
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
+    width: min(47.5rem, 72vw);
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy h1 {
     width: min(34rem, 100%);
+    justify-self: center;
+    text-align: left;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
+    width: min(34rem, 100%);
+    justify-self: center;
+    margin-bottom: 0.55rem;
+    object-position: left center;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack,
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
+    width: min(34rem, 100%);
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack {
+    justify-self: center;
+    justify-items: center;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions {
+    justify-self: center;
+}
+
+::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero__series-context,
+::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero-credit-stack,
+::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-hero__subtitle {
+    width: min(34rem, 100%);
+    justify-self: center;
+}
+
+::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-watch-metadata-row {
+    justify-content: flex-start;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero-credit-stack {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 1.8rem;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero-credit-stack__line + .tl-detail-hero-credit-stack__line {
+    padding-left: 1.8rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
+    justify-content: center;
+}
+
+::deep .tl-detail-hero--read:not(.tl-detail-hero--watch) .tl-detail-watch-metadata-row {
+    justify-content: flex-start;
+}
+
+/* One shared identity column for Read, Watch, and Listen. */
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__series-context,
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero-credit-stack,
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__subtitle {
+    width: min(34rem, 100%);
+    justify-self: center;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
+    object-position: left center;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack {
+    justify-items: start;
+}
+
+::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row {
+    justify-content: flex-start;
+}
+
+::deep .tl-detail-watch-metadata-item[href] {
+    color: inherit;
+    text-decoration: none;
+}
+
+::deep .tl-detail-watch-metadata-item[href]:hover,
+::deep .tl-detail-watch-metadata-item[href]:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+::deep .tl-detail-watch-genre-group {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+::deep .tl-detail-watch-genre-group .tl-detail-watch-metadata-item {
+    flex: 0 0 auto;
 }
 
 ::deep .tl-detail-hero--watch .tl-detail-watch-metadata-item--classification {
@@ -6692,6 +6792,10 @@
     font-size: 1.7rem;
 }
 
+::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch {
+    flex: 0 1 6.75rem;
+}
+
 ::deep .tl-detail-hero--watch .tl-detail-hero__synopsis {
     order: 6;
     width: min(47.5rem, 72vw);
@@ -6720,17 +6824,39 @@
 }
 
 ::deep .tl-series-information {
-    width: min(62rem, 100%);
-    margin-top: 2.2rem;
-    padding-top: 1.35rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
+    margin-top: 1.4rem;
+    padding-top: 0.2rem;
 }
 
-::deep .tl-series-information h2 {
-    margin: 0 0 0.65rem;
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.96rem;
-    font-weight: 680;
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-header .tl-series-information > h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 0.75rem;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-shadow: none;
+    overflow-wrap: normal;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-header .tl-series-information > h2::before,
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-header .tl-series-information > h2::after {
+    content: "";
+    height: 1px;
+    background: rgba(255, 255, 255, 0.13);
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-header .tl-series-information > h2::before {
+    width: 1.2rem;
+}
+
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-header .tl-series-information > h2::after {
+    flex: 1;
 }
 
 ::deep .tl-series-information p {
@@ -6739,6 +6865,32 @@
     font-size: 0.92rem;
     font-weight: 430;
     line-height: 1.6;
+}
+
+::deep .tl-series-information__copy:not(.is-expanded) {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+}
+
+::deep .tl-series-information__toggle {
+    margin-top: 0.55rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #87a9ff;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+::deep .tl-series-information__toggle:hover,
+::deep .tl-series-information__toggle:focus-visible {
+    color: #b7c9ff;
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
 }
 
 @media (max-width: 720px) {

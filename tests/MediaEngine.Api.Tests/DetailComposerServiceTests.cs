@@ -195,17 +195,29 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("GetValue(values, \"episode_count\")", source);
         Assert.Contains("GetValue(values, \"content_rating\")", source);
         Assert.Contains("GetValue(values, \"video_quality\")", source);
-        Assert.Contains("FormatRating(GetValue(values, MetadataFieldConstants.Rating))", source);
+        Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);
         Assert.Contains("FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber)", source);
         Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/resolve?workId={id}\"", source);
         Assert.Contains("SelectFirstOwnedTvEpisode", source);
         Assert.Contains("SelectInProgressTvEpisode", source);
         Assert.Contains("BuildTvShowWatchActions", source);
         Assert.Contains("/watch/player/resolve?workId={episodeId:D}", source);
-        Assert.Contains("var tvPlaybackEpisode = entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("var tvPlaybackEpisode = tvInProgressEpisode ??", source);
+        Assert.Contains("var tvInProgressEpisode = entityType == DetailEntityType.TvShow", source);
         Assert.Contains("Tagline = entityType == DetailEntityType.TvShow", source);
-        Assert.Contains("tvPlaybackEpisode?.Description", source);
+        Assert.Contains("tvInProgressEpisode?.Description", source);
+        Assert.Contains("tvInProgressEpisode?.BackgroundUrl", source);
+        Assert.Contains("entityType == DetailEntityType.TvShow ? heroSummary : longDescription", source);
         Assert.Contains("currentWorkId ?? tvPlaybackEpisodeId", source);
+        Assert.Contains("FormatTrackDuration(tvPlaybackEpisode?.Duration)", source);
+        Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);
+        Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Genre)", source);
+        Assert.Contains("SplitMetadataValues(playbackGenres).Take(2)", source);
+        Assert.Contains("FROM canonical_value_arrays WHERE entity_id = @entityId ORDER BY key, ordinal", source);
+        Assert.Contains("GetValue(canonicalValues, MetadataFieldConstants.Genre))).Take(2)", source);
+        Assert.Contains("LoadWorkCanonicalMapAsync(workId, detail, ct)", source);
+        Assert.Contains("SELECT ma.id", source);
+        Assert.Contains("entityType == DetailEntityType.TvEpisode ? \"background\" : \"cover\"", source);
     }
 
     [Fact]

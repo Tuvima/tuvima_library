@@ -152,9 +152,9 @@ public sealed class DetailComposerService
             return null;
         }
 
-        var values = detail.CanonicalValues.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
         var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct);
+        var values = await LoadWorkCanonicalMapAsync(workId, detail, ct);
         var artworkFallback = await LoadWorkArtworkFallbackAsync(workId, ct);
         var multiFormatState = ownedFormats.Count > 1
             ? MultiFormatState.MultipleFormatsSeparateProgress
@@ -355,6 +355,19 @@ public sealed class DetailComposerService
             entityType = InferCollectionEntityType(works);
         }
 
+        var tvInProgressEpisode = entityType == DetailEntityType.TvShow
+            ? SelectInProgressTvEpisode(works)
+            : null;
+        var tvPlaybackEpisode = tvInProgressEpisode ?? (entityType == DetailEntityType.TvShow
+            ? SelectFirstOwnedTvEpisode(works)
+            : null);
+        var tvPlaybackEpisodeId = tvPlaybackEpisode is not null && Guid.TryParse(tvPlaybackEpisode.Id, out var parsedEpisodeId)
+            ? parsedEpisodeId
+            : (Guid?)null;
+        var tvPlaybackValues = tvPlaybackEpisodeId.HasValue
+            ? await LoadCanonicalMapAsync(tvPlaybackEpisodeId.Value, ct)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         var relatedArt = works
             .SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })
             .Where(url => !string.IsNullOrWhiteSpace(url))
@@ -382,6 +395,7 @@ public sealed class DetailComposerService
             ? works.Select(w => w.ArtworkUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
             : null;
         var collectionBackdrop = FirstNonBlank(
+            tvInProgressEpisode?.BackgroundUrl,
             row.BackgroundUrl,
             GetValue(values, "background_url"),
             GetValue(values, "background"),
@@ -402,12 +416,6 @@ public sealed class DetailComposerService
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
         var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
-        var tvPlaybackEpisode = entityType == DetailEntityType.TvShow
-            ? SelectInProgressTvEpisode(works) ?? SelectFirstOwnedTvEpisode(works)
-            : null;
-        var tvPlaybackEpisodeId = tvPlaybackEpisode is not null && Guid.TryParse(tvPlaybackEpisode.Id, out var parsedEpisodeId)
-            ? parsedEpisodeId
-            : (Guid?)null;
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var manifest = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
         var displayWorks = MergeCollectionManifestPlaceholders(entityType, works, manifest);
@@ -431,7 +439,7 @@ public sealed class DetailComposerService
             entityType,
             collectionTitle,
             row.WikidataQid,
-            longDescription,
+            entityType == DetailEntityType.TvShow ? heroSummary : longDescription,
             displayWorks,
             expectedTotal,
             currentWorkId ?? tvPlaybackEpisodeId);
@@ -445,7 +453,7 @@ public sealed class DetailComposerService
             Title = collectionTitle,
             Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
             Tagline = entityType == DetailEntityType.TvShow
-                ? tvPlaybackEpisode?.Description
+                ? tvInProgressEpisode?.Description
                 : heroSummary,
             Description = longDescription,
             DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
@@ -457,7 +465,7 @@ public sealed class DetailComposerService
                 FirstNonBlank(row.HeroBrandLabel, GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
                 FirstNonBlank(row.HeroBrandImageUrl, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
             Progress = heroProgress,
-            Metadata = BuildCollectionMetadata(entityType, displayWorks, values),
+            Metadata = BuildCollectionMetadata(entityType, displayWorks, values, tvPlaybackEpisode, tvPlaybackValues),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress, displayWorks),
             SecondaryActions = BuildSecondaryActions(rootWorkId ?? collectionId, entityType, rootWorkId.HasValue && favoriteWorkIds.Contains(rootWorkId.Value)),
             OverflowActions = BuildOverflowActions(collectionId, entityType, isAdminView),
@@ -1482,12 +1490,13 @@ public sealed class DetailComposerService
             var positionNumber = TryParseSeriesPosition(positionLabel);
             var positionSort = row.PositionSort ?? TryParseSeriesPositionSort(positionLabel);
             var group = ResolveSequenceGroup(entityType, row.SeasonLabel);
+            var artworkKind = entityType == DetailEntityType.TvEpisode ? "background" : "cover";
             return new SequenceItemViewModel
             {
                 Id = row.WorkId.ToString("D"),
                 EntityType = entityType,
                 Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
-                ArtworkUrl = ResolveCollectionArtworkUrl(row.ArtworkUrl, row.AssetId?.ToString("D"), "background", row.ArtworkState),
+                ArtworkUrl = ResolveCollectionArtworkUrl(row.ArtworkUrl, row.AssetId?.ToString("D"), artworkKind, row.ArtworkState),
                 Description = row.Description,
                 Duration = FormatTrackDuration(row.Duration),
                 Route = entityType == DetailEntityType.TvEpisode
@@ -3641,12 +3650,63 @@ public sealed class DetailComposerService
     private async Task<Dictionary<string, string>> LoadCanonicalMapAsync(Guid entityId, CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
+        var entityIdBlob = GuidSql.ToBlob(entityId);
         var rows = await conn.QueryAsync<CanonicalPair>(new CommandDefinition(
             "SELECT key AS Key, value AS Value FROM canonical_values WHERE entity_id = @entityId;",
-            new { entityId = GuidSql.ToBlob(entityId) },
+            new { entityId = entityIdBlob },
             cancellationToken: ct));
-        return rows.GroupBy(r => r.Key, StringComparer.OrdinalIgnoreCase)
+        var values = rows.GroupBy(r => r.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Value, StringComparer.OrdinalIgnoreCase);
+
+        var arrayRows = await conn.QueryAsync<CanonicalPair>(new CommandDefinition(
+            "SELECT key AS Key, value AS Value FROM canonical_value_arrays WHERE entity_id = @entityId ORDER BY key, ordinal;",
+            new { entityId = entityIdBlob },
+            cancellationToken: ct));
+        foreach (var group in arrayRows.GroupBy(row => row.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            values[group.Key] = string.Join('|', group.Select(row => row.Value).Where(value => !string.IsNullOrWhiteSpace(value)));
+        }
+
+        return values;
+    }
+
+    private async Task<Dictionary<string, string>> LoadWorkCanonicalMapAsync(
+        Guid workId,
+        LibraryItemDetail detail,
+        CancellationToken ct)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using var conn = _db.CreateConnection();
+        var assetIds = await conn.QueryAsync<Guid>(new CommandDefinition(
+            """
+            SELECT ma.id
+            FROM media_assets ma
+            INNER JOIN editions e ON e.id = ma.edition_id
+            WHERE e.work_id = @workId
+              AND ma.status = 'Normal'
+            ORDER BY ma.id;
+            """,
+            new { workId = GuidSql.ToBlob(workId) },
+            cancellationToken: ct));
+        foreach (var assetId in assetIds.Distinct())
+        {
+            foreach (var (key, value) in await LoadCanonicalMapAsync(assetId, ct))
+            {
+                values.TryAdd(key, value);
+            }
+        }
+
+        foreach (var (key, value) in await LoadCanonicalMapAsync(workId, ct))
+        {
+            values[key] = value;
+        }
+
+        foreach (var canonical in detail.CanonicalValues)
+        {
+            values[canonical.Key] = canonical.Value;
+        }
+
+        return values;
     }
 
     private async Task<Guid?> LoadCollectionRootWorkIdAsync(
@@ -4186,7 +4246,9 @@ public sealed class DetailComposerService
         AddPlain(pills, FirstNonBlank(GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")), "content_rating");
         AddPlain(pills, FormatRating(detail.Rating), "rating");
 
-        foreach (var genre in SplitMetadataValues(detail.Genre).Take(3))
+        foreach (var genre in SplitMetadataValues(FirstNonBlank(
+                     detail.Genre,
+                     GetValue(canonicalValues, MetadataFieldConstants.Genre))).Take(2))
         {
             pills.Add(new MetadataPill
             {
@@ -5783,7 +5845,9 @@ public sealed class DetailComposerService
     private static IReadOnlyList<MetadataPill> BuildCollectionMetadata(
         DetailEntityType entityType,
         IReadOnlyList<CollectionWorkSummary> works,
-        IReadOnlyDictionary<string, string> values)
+        IReadOnlyDictionary<string, string> values,
+        CollectionWorkSummary? tvPlaybackEpisode = null,
+        IReadOnlyDictionary<string, string>? tvPlaybackValues = null)
     {
         if (entityType == DetailEntityType.TvShow)
         {
@@ -5796,8 +5860,16 @@ public sealed class DetailComposerService
                 .FirstOrDefault();
             var ownedEpisodeCount = works.Count(work => work.IsOwned && InferMediaItemEntityType(work) == DetailEntityType.TvEpisode);
 
-            AddPlain(pills, FirstNonBlank(GetValue(values, "content_rating"), GetValue(values, "certification")), "content_rating");
+            tvPlaybackValues ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             AddPlain(pills, FirstNonBlank(
+                GetValue(tvPlaybackValues, "content_rating"),
+                GetValue(tvPlaybackValues, "certification"),
+                GetValue(values, "content_rating"),
+                GetValue(values, "certification")), "content_rating");
+            AddPlain(pills, FirstNonBlank(
+                ReleaseYear(tvPlaybackEpisode?.Year),
+                ReleaseYear(GetValue(tvPlaybackValues, "release_date")),
+                GetValue(tvPlaybackValues, MetadataFieldConstants.Year),
                 GetValue(values, "start_year"),
                 ReleaseYear(GetValue(values, "first_air_date")),
                 GetValue(values, MetadataFieldConstants.Year),
@@ -5806,15 +5878,25 @@ public sealed class DetailComposerService
             AddPlain(pills, ownedEpisodeCount > 0
                 ? $"{ownedEpisodeCount.ToString(CultureInfo.InvariantCulture)} {(ownedEpisodeCount == 1 ? "episode" : "episodes")} owned"
                 : null, "episode_count");
+            AddPlain(pills, FormatTrackDuration(tvPlaybackEpisode?.Duration), "duration");
             AddPlain(pills, FirstNonBlank(
+                tvPlaybackEpisode?.Quality,
+                GetValue(tvPlaybackValues, "quality"),
+                GetValue(tvPlaybackValues, "video_quality"),
+                GetValue(tvPlaybackValues, "resolution"),
                 GetValue(values, "quality"),
                 GetValue(values, "video_quality"),
                 GetValue(values, "resolution"),
                 GetValue(values, "video_resolution_label"),
                 works.Where(work => work.IsOwned).Select(work => work.Quality).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))), "quality");
-            AddPlain(pills, FormatRating(GetValue(values, MetadataFieldConstants.Rating)), "rating");
+            AddPlain(pills, FormatRating(FirstNonBlank(
+                GetValue(tvPlaybackValues, MetadataFieldConstants.Rating),
+                GetValue(values, MetadataFieldConstants.Rating))), "rating");
 
-            foreach (var genre in SplitMetadataValues(GetValue(values, MetadataFieldConstants.Genre)).Take(4))
+            var playbackGenres = FirstNonBlank(
+                GetValue(tvPlaybackValues, MetadataFieldConstants.Genre),
+                GetValue(values, MetadataFieldConstants.Genre));
+            foreach (var genre in SplitMetadataValues(playbackGenres).Take(2))
             {
                 pills.Add(new MetadataPill
                 {

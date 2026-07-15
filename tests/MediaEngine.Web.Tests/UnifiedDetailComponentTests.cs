@@ -148,6 +148,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner", styles);
         Assert.Contains("align-items: center", styles);
         Assert.Contains("width: min(34rem, 100%)", styles);
+        Assert.Contains("object-position: left center", styles);
+        Assert.Contains(".tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions", styles);
         Assert.Contains("tl-detail-secondary-action--watch + .tl-detail-secondary-action--watch::before", styles);
         Assert.Contains("transform: translateY(-1rem)", styles);
     }
@@ -187,13 +189,21 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-watch-metadata-item--rating", source);
         Assert.Contains("tl-detail-watch-metadata-item--classification", source);
         Assert.Contains("WatchIconFor", source);
+        Assert.Contains("LimitGenres", source);
+        Assert.Contains("genre:{item.Label}", source);
+        Assert.Contains("tl-detail-watch-genre-group", source);
+        Assert.Contains("tl-detail-watch-genre-comma", source);
+        Assert.Contains(">, </span>", source);
+        Assert.DoesNotContain("WatchSeparator", source);
+        Assert.Contains("href=\"@entry.item.Route\"", source);
         Assert.Contains("tl-detail-metadata-row", source);
         Assert.Contains("tl-detail-metadata-item", source);
         Assert.Contains("tl-detail-metadata-item--rating", source);
         Assert.DoesNotContain("tl-detail-pill", source);
         Assert.Contains(".Take(8)", source);
-        Assert.Contains("or \"episode_count\" or \"quality\" or \"subtitles\" or \"rating\"", source);
+        Assert.Contains("or \"episode_count\" or \"duration\" or \"genre\" or \"quality\" or \"subtitles\" or \"rating\"", source);
         Assert.Contains("\"episode_count\" => 2", source);
+        Assert.Contains("\"genre\" => 4", source);
     }
 
     [Fact]
@@ -665,7 +675,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-hero__synopsis", hero);
         Assert.Contains("WatchEpisodeHeading", hero);
         Assert.Contains("EpisodePositionFromWatchAction", hero);
-        Assert.Contains("PlainText=\"Presentation.IsWatchHero\"", hero);
+        Assert.DoesNotContain("HeroGenreChips", hero);
         Assert.Contains("tl-detail-genre-text", genres);
         Assert.Contains("BuildSeriesContextLabel", hero);
         Assert.Contains("{containerTitle} · {positionedItem}", hero);
@@ -676,6 +686,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SeriesContextClass", hero);
         Assert.Contains("tl-detail-hero__series-context.is-empty", ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css"));
         Assert.Contains("tl-series-information", ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor"));
+        Assert.Contains("Series Description", ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor"));
+        Assert.Contains("tl-series-information__toggle", ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor"));
+        Assert.Contains("ToggleSeriesDescription", ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor"));
+        Assert.Contains("_seriesDescriptionExpanded", ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor"));
     }
 
     [Fact]

@@ -74,12 +74,13 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 
 The Dashboard is no longer a general management workspace. It is a story-first library experience: people browse through Home, Read, Watch, Listen, Collections, Search, and detail pages, and they only go to Review Queue when Tuvima needs human confirmation. Normal corrections happen where the user finds the problem, using one shared editor.
 
-TV detail is show-centered: seasons contain episode rows, episode rows play from
-the show, each owned episode has a show-scoped detail page opened from its still,
-and its hero retains the episode still, synopsis, genre, and `Sx Ey` action context.
-The show hero reports owned episodes and starts or resumes the correct owned episode.
-Its separated synopsis block identifies that playback target as `Sx Ey` and shows
-the episode description without repeating its title; show copy remains in Series
-information below. Movie synopsis blocks use the movie description without a heading.
+TV detail is show-centered: seasons contain owned episode rows, and each episode
+has a show-scoped detail page opened from its still. An unstarted show may keep the
+series hero while its facts and action target the first owned episode; after progress,
+the hero switches to that episode's still and separated `Sx Ey` synopsis. Short
+provider show copy appears under the owned summary in Series Description. Detail
+heroes keep written identity and credits left-aligned while centering logos, compact
+facts, and actions. The facts show at most two linked genres as a non-wrapping pair.
+Movie synopsis blocks use the movie description.
 Continue cards retain the episode target with `Sx Ey` action context. Comic sequence presentation shows issue numbers and owned
 counts without treating the current provider run count as a completion target.

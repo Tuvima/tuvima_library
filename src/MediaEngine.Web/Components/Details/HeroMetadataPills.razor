@@ -12,20 +12,37 @@
         <div class="tl-detail-watch-metadata-row" aria-label="Media details">
             @foreach (var entry in inlineStatItems.Select((item, index) => new { item, index }))
             {
-                <span class="@WatchStatClass(entry.item)" title="@entry.item.Tooltip">
-                    @if (KindEquals(entry.item, "rating"))
-                    {
-                        <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" />
-                    }
-                    else if (WatchIconFor(entry.item) is { } watchIcon)
-                    {
-                        <MudIcon Icon="@watchIcon" Size="Size.Small" />
-                    }
-                    <span>@entry.item.Label</span>
-                </span>
-                @if (entry.index < inlineStatItems.Count - 1)
+                @if (KindEquals(entry.item, "genre"))
                 {
-                    <span class="tl-detail-watch-metadata-separator" aria-hidden="true"> · </span>
+                    @if (entry.index == 0 || !KindEquals(inlineStatItems[entry.index - 1], "genre"))
+                    {
+                        var genreItems = inlineStatItems.Where(item => KindEquals(item, "genre")).ToList();
+                        <span class="tl-detail-watch-genre-group">
+                            @foreach (var genreEntry in genreItems.Select((item, index) => new { item, index }))
+                            {
+                                <a class="@WatchStatClass(genreEntry.item)" href="@genreEntry.item.Route" title="@genreEntry.item.Tooltip">@WatchStatContent(genreEntry.item)</a>@if (genreEntry.index < genreItems.Count - 1){<span class="tl-detail-watch-genre-comma" aria-hidden="true">, </span>}
+                            }
+                        </span>
+                        @if (entry.index + genreItems.Count < inlineStatItems.Count)
+                        {
+                            <span class="tl-detail-watch-metadata-separator" aria-hidden="true"> · </span>
+                        }
+                    }
+                }
+                else
+                {
+                    @if (!string.IsNullOrWhiteSpace(entry.item.Route))
+                    {
+                        <a class="@WatchStatClass(entry.item)" href="@entry.item.Route" title="@entry.item.Tooltip">@WatchStatContent(entry.item)</a>
+                    }
+                    else
+                    {
+                        <span class="@WatchStatClass(entry.item)" title="@entry.item.Tooltip">@WatchStatContent(entry.item)</span>
+                    }
+                    @if (entry.index < inlineStatItems.Count - 1)
+                    {
+                        <span class="tl-detail-watch-metadata-separator" aria-hidden="true"> · </span>
+                    }
                 }
             }
         </div>
@@ -96,11 +113,11 @@
         : "tl-detail-hero-brand-badge tl-detail-hero-brand-badge--text";
 
     private IReadOnlyList<MetadataPill> StatItems =>
-        Metadata
+        LimitGenres(Metadata)
             .Where(IsHeroStat)
             .Where(item => !ShouldSuppressTypeStat(item))
             .OrderBy(StatSort)
-            .Take(EntityType == DetailEntityType.MusicAlbum ? 6 : 5)
+            .Take(EntityType == DetailEntityType.MusicAlbum ? 8 : 7)
             .ToList();
 
     private IReadOnlyList<MetadataPill> InlineStatItems
@@ -110,7 +127,7 @@
     {
         get
         {
-            return Metadata
+            return LimitGenres(Metadata)
                 .Where(IsWatchHeroStat)
                 .Where(item => !string.IsNullOrWhiteSpace(item.Label))
                 .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
@@ -122,7 +139,7 @@
     }
 
     private IReadOnlyList<MetadataPill> PrimaryChromeStatItems =>
-        Metadata
+            LimitGenres(Metadata)
             .Where(IsPrimaryChromeHeroStat)
             .Where(item => !string.IsNullOrWhiteSpace(item.Label))
             .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
@@ -160,17 +177,17 @@
         var kind = item.Kind?.ToLowerInvariant();
         if (EntityType == DetailEntityType.TvShow)
         {
-            return kind is "certification" or "content_rating" or "year" or "episode_count" or "quality" or "subtitles" or "rating";
+            return kind is "certification" or "content_rating" or "year" or "episode_count" or "duration" or "genre" or "quality" or "subtitles" or "rating";
         }
 
-        return kind is "certification" or "content_rating" or "rating" or "duration" or "year" or "quality" or "subtitles";
+        return kind is "certification" or "content_rating" or "rating" or "duration" or "year" or "genre" or "quality" or "subtitles";
     }
 
     private static bool IsPrimaryChromeHeroStat(MetadataPill item)
     {
         var kind = item.Kind?.ToLowerInvariant();
         return kind is "certification" or "content_rating" or "rating" or "duration" or "year"
-            or "page_count" or "track_count" or "season_count" or "episode_count" or "quality" or "subtitles";
+            or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality" or "subtitles";
     }
 
     private static int StatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
@@ -192,10 +209,11 @@
         "year" => 1,
         "episode_count" => 2,
         "duration" => 3,
-        "quality" => 4,
-        "subtitles" => 5,
-        "rating" => 6,
-        _ => 7,
+        "genre" => 4,
+        "quality" => 5,
+        "subtitles" => 6,
+        "rating" => 7,
+        _ => 8,
     };
 
     private static int PrimaryChromeStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
@@ -204,10 +222,11 @@
         "year" => 1,
         "duration" => 2,
         "page_count" or "track_count" or "season_count" or "episode_count" => 3,
-        "quality" => 4,
-        "subtitles" => 5,
-        "rating" => 6,
-        _ => 7,
+        "genre" => 4,
+        "quality" => 5,
+        "subtitles" => 6,
+        "rating" => 7,
+        _ => 8,
     };
 
     private static string StatClass(MetadataPill item)
@@ -234,9 +253,41 @@
     };
 
     private static string WatchStatGroupKey(MetadataPill item)
-        => item.Kind?.ToLowerInvariant() is "certification" or "content_rating"
-            ? "content-rating"
-            : item.Kind ?? item.Label;
+        => item.Kind?.ToLowerInvariant() switch
+        {
+            "certification" or "content_rating" => "content-rating",
+            "genre" => $"genre:{item.Label}",
+            _ => item.Kind ?? item.Label,
+        };
+
+    private static IEnumerable<MetadataPill> LimitGenres(IEnumerable<MetadataPill> items)
+    {
+        var genreCount = 0;
+        foreach (var item in items)
+        {
+            if (KindEquals(item, "genre") && ++genreCount > 2)
+                continue;
+
+            yield return item;
+        }
+    }
+
+    private static RenderFragment WatchStatContent(MetadataPill item) => builder =>
+    {
+        var sequence = 0;
+        var icon = KindEquals(item, "rating") ? Icons.Material.Filled.Star : WatchIconFor(item);
+        if (!string.IsNullOrWhiteSpace(icon))
+        {
+            builder.OpenComponent<MudIcon>(sequence++);
+            builder.AddAttribute(sequence++, nameof(MudIcon.Icon), icon);
+            builder.AddAttribute(sequence++, nameof(MudIcon.Size), Size.Small);
+            builder.CloseComponent();
+        }
+
+        builder.OpenElement(sequence++, "span");
+        builder.AddContent(sequence++, item.Label);
+        builder.CloseElement();
+    };
 
     private static string IconFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
