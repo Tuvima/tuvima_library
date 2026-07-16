@@ -353,6 +353,23 @@ public sealed class LibraryItemProjectionTests : IDisposable
         Assert.Equal("George Orwell", detail!.Author);
     }
 
+    [Fact]
+    public async Task LibraryItemDetail_UsesExplicitActiveRetailMatchInsteadOfOlderClaims()
+    {
+        var (workId, assetId) = await BuildStandaloneWorkAsync("Books");
+        await InsertCanonicalAsync(assetId, MetadataFieldConstants.Title, "The Martian", WellKnownProviders.OpenLibrary);
+        await InsertClaimAsync(assetId, MetadataFieldConstants.Title, "The Martian", WellKnownProviders.OpenLibrary, 0.99);
+        await InsertCanonicalAsync(assetId, MetadataFieldConstants.IdentityProvider, "apple_api", WellKnownProviders.AppleApi);
+        await InsertCanonicalAsync(assetId, MetadataFieldConstants.IdentityProviderItemId, "721429965", WellKnownProviders.AppleApi);
+
+        var repo = new LibraryItemRepository(_db);
+        var detail = await repo.GetDetailAsync(workId);
+
+        Assert.NotNull(detail);
+        Assert.Equal("apple_api", detail!.RetailProviderName);
+        Assert.Equal("721429965", detail.RetailProviderItemId);
+    }
+
     private async Task<(Guid WorkId, Guid AssetId)> BuildStandaloneWorkAsync(string mediaType)
     {
         using var conn = _db.CreateConnection();

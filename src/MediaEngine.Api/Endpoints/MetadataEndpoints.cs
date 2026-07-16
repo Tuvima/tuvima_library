@@ -557,6 +557,9 @@ public static partial class MetadataEndpoints
                     scope.DisplaySubtitle,
                     scope.BreadcrumbLabel,
                     scope.CanonicalTargetGroup,
+                    context.ScopeIdentitySummaries.TryGetValue(scope.FieldEntityId, out var scopeIdentity)
+                        ? scopeIdentity
+                        : context.IdentitySummary,
                     scope.ScopeSummary,
                     scope.ReadOnlyHint,
                     scope.CanEditFields,
@@ -1790,6 +1793,22 @@ public static partial class MetadataEndpoints
         if (scopes.Count == 0)
             return null;
 
+        var scopeIdentitySummaries = new Dictionary<Guid, MediaEditorIdentitySummaryEnvelope>();
+        foreach (var scope in scopes
+                     .Where(scope => !string.Equals(scope.ScopeId, "file", StringComparison.OrdinalIgnoreCase))
+                     .DistinctBy(scope => scope.FieldEntityId))
+        {
+            LibraryItemDetail? scopeDetail;
+            if (scope.FieldEntityId == launch.WorkId)
+                scopeDetail = launchDetail;
+            else if (scope.FieldEntityId == launch.RootWorkId)
+                scopeDetail = rootDetail;
+            else
+                scopeDetail = await libraryItemRepo.GetDetailAsync(scope.FieldEntityId, ct);
+
+            scopeIdentitySummaries[scope.FieldEntityId] = BuildIdentitySummary(scopeDetail);
+        }
+
         var initialScope = GetDefaultEditorScope(launch, scopes);
         var initialScopeResolution = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, initialScope, StringComparison.OrdinalIgnoreCase))
             ?? scopes[0];
@@ -1807,12 +1826,15 @@ public static partial class MetadataEndpoints
                 && !string.IsNullOrWhiteSpace(launch.RepresentativeMediaFilePath),
             BuildFileMetadataSyncStatus(launch.RepresentativeMediaFilePath, launch.RepresentativeWritebackStatus),
             BuildCurrentTargetSummary(initialScopeResolution),
-            BuildIdentitySummary(launchDetail),
+            scopeIdentitySummaries.TryGetValue(initialScopeResolution.FieldEntityId, out var initialIdentitySummary)
+                ? initialIdentitySummary
+                : BuildIdentitySummary(launchDetail),
             BuildFieldLockMap(launch.MediaType, initialScopeResolution.ScopeId),
             BuildDisplayOverrideKeys(launch.MediaType),
             displayOverrides,
             initialScope,
-            scopes);
+            scopes,
+            scopeIdentitySummaries);
     }
 
     private static bool IsContainerEditorMediaType(string? mediaType) =>
@@ -2827,6 +2849,7 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("display_subtitle")] string? DisplaySubtitle,
         [property: JsonPropertyName("breadcrumb_label")] string BreadcrumbLabel,
         [property: JsonPropertyName("canonical_target_group")] string CanonicalTargetGroup,
+        [property: JsonPropertyName("identity_summary")] MediaEditorIdentitySummaryEnvelope IdentitySummary,
         [property: JsonPropertyName("scope_summary")] string? ScopeSummary,
         [property: JsonPropertyName("read_only_hint")] string? ReadOnlyHint,
         [property: JsonPropertyName("can_edit_fields")] bool CanEditFields,
@@ -2884,7 +2907,8 @@ public static partial class MetadataEndpoints
         IReadOnlyList<string> DisplayOverrideKeys,
         IReadOnlyDictionary<string, string> DisplayOverrides,
         string InitialScope,
-        IReadOnlyList<EditorScopeResolution> Scopes);
+        IReadOnlyList<EditorScopeResolution> Scopes,
+        IReadOnlyDictionary<Guid, MediaEditorIdentitySummaryEnvelope> ScopeIdentitySummaries);
     private sealed record EditorScopeResolution(
         string ScopeId,
         string Label,

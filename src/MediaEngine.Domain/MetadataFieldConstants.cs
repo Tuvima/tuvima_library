@@ -72,6 +72,7 @@ public static class MetadataFieldConstants
     public const string QidResolutionMethod = "qid_resolution_method";
     public const string WikidataQidScope = "wikidata_qid_scope";
     public const string IdentityProvider = "identity_provider";
+    public const string IdentityProviderItemId = "identity_provider_item_id";
     public const string EnrichmentProviders = "enrichment_providers";
     public const string BridgePending = "bridge_pending";
     public const string FictionalUniverse = "fictional_universe";

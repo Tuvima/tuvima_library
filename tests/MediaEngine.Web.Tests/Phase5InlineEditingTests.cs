@@ -160,7 +160,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("https://www.wikidata.org/wiki/", code, StringComparison.Ordinal);
         Assert.Contains("BuildCandidateChips", code, StringComparison.Ordinal);
         Assert.Contains("FormatCandidateScore", code, StringComparison.Ordinal);
-        Assert.Contains("CanonicalEndpointEntityId => EditorContextEntityId", code, StringComparison.Ordinal);
+        Assert.Contains("CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);
         Assert.Contains("CanonicalEndpointEntityId,", code, StringComparison.Ordinal);
         Assert.Contains("\"Unknown\" => \"Books\"", code, StringComparison.Ordinal);
         Assert.Contains("MediaType = _selectedMediaType", code, StringComparison.Ordinal);
@@ -351,6 +351,24 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("GetBaselineValue(\"isbn\")", method, StringComparison.Ordinal);
         Assert.DoesNotContain("return \"open_library\"", method, StringComparison.Ordinal);
         Assert.Contains("ISBN: {providerItemId}", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_ExposesHierarchyIdentityTargetsAndParentArtworkNavigation()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var context = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/MediaEditorContextDtos.cs");
+
+        Assert.Contains("aria-label=\"Edit level\"", shell, StringComparison.Ordinal);
+        Assert.Contains("SelectScopeAsync(scope.ScopeId)", shell, StringComparison.Ordinal);
+        Assert.Contains("Change identity for", shell, StringComparison.Ordinal);
+        Assert.Contains("GetIdentityTargetImpactText", shell, StringComparison.Ordinal);
+        Assert.Contains("Open @scope.Label Artwork", shell, StringComparison.Ordinal);
+        Assert.Contains("private Guid CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);
+        Assert.Contains("ActiveScope?.IdentitySummary", code, StringComparison.Ordinal);
+        Assert.Contains("IdentityProviderItemId", ReadSource("src/MediaEngine.Domain/MetadataFieldConstants.cs"), StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"identity_summary\")", context, StringComparison.Ordinal);
     }
 
     private static string ReadSource(

@@ -53,6 +53,26 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
     }
 
     [Fact]
+    public void BuildCollectionCards_UsesOwnedMovieCountInsteadOfManifestTotal()
+    {
+        var collectionId = Guid.Parse("55555555-2222-3333-4444-555555555555");
+        var createdAt = DateTimeOffset.Parse("2026-06-01T12:00:00Z");
+        var works = new[]
+        {
+            CreateWork(collectionId, "Movie", "Harry Potter and the Philosopher's Stone", "1", "/covers/hp-1.jpg", createdAt, manifestTotalCount: 8),
+            CreateWork(collectionId, "Movie", "Harry Potter and the Chamber of Secrets", "2", "/covers/hp-2.jpg", createdAt.AddMinutes(1), manifestTotalCount: 8),
+        };
+
+        var card = new DisplayCardBuilder()
+            .BuildWatchGroupCards(works, minimumSeriesItems: 2)
+            .Single();
+
+        Assert.Equal("2 owned titles", card.Subtitle);
+        Assert.Equal(["2 owned titles"], card.Facts);
+        Assert.Equal(2, card.PreviewTotalCount);
+    }
+
+    [Fact]
     public void BuildWatchGroupCards_DoesNotPromoteSingleMovieAsSeries()
     {
         var collectionId = Guid.Parse("22222222-2222-3333-4444-555555555555");

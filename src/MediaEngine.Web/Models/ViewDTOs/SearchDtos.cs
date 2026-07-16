@@ -546,12 +546,27 @@ public sealed class ItemCanonicalApplyResponseDto
 
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
+
+    [JsonPropertyName("identity_job_id")]
+    public Guid? IdentityJobId { get; set; }
+
+    [JsonPropertyName("pipeline_state")]
+    public string? PipelineState { get; set; }
 }
 
 public sealed class ReplaceRetailMatchRequestDto
 {
+    [JsonPropertyName("target_kind")]
+    public string TargetKind { get; set; } = "";
+
     [JsonPropertyName("target_field_group")]
     public string TargetFieldGroup { get; set; } = "";
+
+    [JsonPropertyName("target_scope_id")]
+    public string TargetScopeId { get; set; } = "";
+
+    [JsonPropertyName("provider_id")]
+    public string ProviderId { get; set; } = "";
 
     [JsonPropertyName("provider_name")]
     public string ProviderName { get; set; } = "";
@@ -577,6 +592,15 @@ public sealed class ReplaceRetailMatchRequestDto
 
 public sealed class ReplaceWikidataMatchRequestDto
 {
+    [JsonPropertyName("target_kind")]
+    public string TargetKind { get; set; } = "";
+
+    [JsonPropertyName("target_field_group")]
+    public string TargetFieldGroup { get; set; } = "";
+
+    [JsonPropertyName("target_scope_id")]
+    public string TargetScopeId { get; set; } = "";
+
     [JsonPropertyName("action")]
     public string Action { get; set; } = "replace";
 

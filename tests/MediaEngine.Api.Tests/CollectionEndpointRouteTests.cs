@@ -181,12 +181,15 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ExpandWithChildCollections", source, StringComparison.Ordinal);
         Assert.Contains("candidate.ParentCollectionId == collection.Id", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogDisplayWorkIdsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetOwnedCollectionCatalogDisplayWorkIdsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("INNER JOIN media_assets ma ON ma.edition_id = e.id", source, StringComparison.Ordinal);
+        Assert.Contains("var itemCount = workIds.Count", source, StringComparison.Ordinal);
         Assert.Contains("WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("parent_by_key.parent_key = LOWER(TRIM(CAST(show_name.value AS TEXT)))", source, StringComparison.Ordinal);
         Assert.DoesNotContain("parent_value.key IN ('show_name', 'title')", source, StringComparison.Ordinal);
         Assert.Contains("catalogReadService.ResolveMembershipWorkIdAsync(body.WorkId, ct)", source, StringComparison.Ordinal);
         Assert.Contains("existingDisplayWorkIds.Contains(collectionWorkId)", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("GetOwnedCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct)", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionWorkIdsAsync(collection, ct)", source, StringComparison.Ordinal);
         Assert.Contains("IsGeneratedTvShowContainer", source, StringComparison.Ordinal);
         Assert.Contains("mediaCounts.WatchCount == mediaCounts.TvCount", source, StringComparison.Ordinal);

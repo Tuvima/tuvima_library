@@ -1,3 +1,6 @@
+using MediaEngine.Contracts.Details;
+using MediaEngine.Web.Components.Details;
+
 namespace MediaEngine.Web.Tests;
 
 public sealed class UnifiedDetailComponentTests
@@ -477,6 +480,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Label=\"Series Set\"", source);
         Assert.Contains("[Parameter] public bool Compact { get; set; }", source);
         Assert.Contains("Placement.ContainerDescription", source);
+        Assert.Contains("Placement.Groups.Count}:{Placement.ContainerDescription}", source);
+        Assert.Contains("isElementContentOverflowing", source);
+        Assert.Contains("_seriesDescriptionExpanded ? \"Less\" : \"More\"", source);
+        Assert.Contains("display: flex", styles);
+        Assert.Contains("flex: 0 0 2rem", styles);
         Assert.Contains("tl-series-placement--compact", source);
         Assert.Contains("item.IsCurrent && !Compact", source);
         Assert.DoesNotContain("Part of", source);
@@ -722,8 +730,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("EpisodePositionFromWatchAction", hero);
         Assert.Contains("$\"{position}: {episodeTitle.Trim()}\"", hero);
         Assert.Contains("FirstParagraph(copySource)", presentation);
-        Assert.Contains("? readFirstParagraph", presentation);
-        Assert.DoesNotContain("(readFirstParagraph?.Length ?? 0) > copyLimit", presentation);
+        Assert.Contains("usesFullParagraphCopy = usesReadOverviewCopy || isWatchHero", presentation);
+        Assert.Contains("? firstParagraph", presentation);
+        Assert.DoesNotContain("(firstParagraph?.Length ?? 0) > copyLimit", presentation);
         Assert.Contains("HeroCopyHasMore", presentation);
         Assert.Contains("(more in overview)", hero);
         Assert.DoesNotContain("HeroGenreChips", hero);
@@ -1353,6 +1362,33 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("#ff416c", popupCss, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("#ff2746", popupCss, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("#8b5cf6", popupCss, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void WatchHero_PreservesTheCompleteFirstParagraph()
+    {
+        var firstParagraph = string.Join(' ', Enumerable.Repeat("A complete movie synopsis should remain readable.", 15));
+        var model = new DetailPageViewModel
+        {
+            EntityType = DetailEntityType.Movie,
+            Title = "Example Movie",
+            Description = $"{firstParagraph}\n\nA second paragraph belongs in the overview.",
+        };
+
+        var presentation = DetailHeroPresentation.From(model);
+
+        Assert.Equal(firstParagraph, presentation.HeroCopy);
+        Assert.True(presentation.HeroCopyHasMore);
+    }
+
+    [Fact]
+    public void AppHeadOutlet_IsInteractiveSoPageTitlesFollowClientNavigation()
+    {
+        var app = ReadSource("src/MediaEngine.Web/Components/App.razor");
+        var reader = ReadSource("src/MediaEngine.Web/Components/Pages/EpubReader.razor");
+
+        Assert.Contains("<HeadOutlet @rendermode=\"InteractiveServer\" />", app);
+        Assert.Contains("<PageTitle>", reader);
     }
 
     private static string ReadSource(string relativePath)

@@ -69,6 +69,23 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("GetRepresentativeAssetForWorkTree(conn, collectionWorkId)", navigatorService, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RetailReplacement_UsesExplicitScopeProviderProvenanceAndPipelineJob()
+    {
+        var canonical = ReadSource("src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs");
+        var models = ReadSource("src/MediaEngine.Api/Models/ItemCanonicalModels.cs");
+
+        Assert.Contains("ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup)", canonical, StringComparison.Ordinal);
+        Assert.Contains("DecisionSourceProviderId = WellKnownProviders.UserManual", canonical, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.IdentityProviderItemId", canonical, StringComparison.Ordinal);
+        Assert.Contains("FindChildParentIdentityConflictAsync", canonical, StringComparison.Ordinal);
+        Assert.Contains("BridgeIdKeys.TmdbEpisodeId", canonical, StringComparison.Ordinal);
+        Assert.Contains("(\"Music\", \"track\")", canonical, StringComparison.Ordinal);
+        Assert.Contains("identityJobId = await pipeline.EnqueueAsync", canonical, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"identity_job_id\")", models, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"target_scope_id\")", models, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath) =>
         File.ReadAllText(Path.Combine(FindRepoRoot(), relativePath));
 

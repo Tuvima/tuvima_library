@@ -35,6 +35,11 @@ public interface IItemCanonicalDataService
     Task<ItemCanonicalWorkWikidataState?> LoadWorkWikidataStateAsync(Guid workId, CancellationToken ct = default);
     Task UpdateWorkIdentityAsync(Guid workId, string wikidataQid, CancellationToken ct = default);
     Task DeleteIdentityArtifactsAsync(IReadOnlyCollection<ItemCanonicalIdentityArtifact> artifacts, CancellationToken ct = default);
+    Task ReplaceExternalIdentifiersAsync(
+        Guid workId,
+        IReadOnlyCollection<string> keysToRemove,
+        IReadOnlyDictionary<string, string> replacements,
+        CancellationToken ct = default);
     Task<string> AppendRejectedQidAsync(Guid workId, string? rejectedQid, CancellationToken ct = default);
 }
 
@@ -308,6 +313,65 @@ public sealed class ItemCanonicalDataService(
                 tx.Rollback();
                 throw;
             }
+        }
+        finally
+        {
+            db.ReleaseWriteLock();
+        }
+    }
+
+    public async Task ReplaceExternalIdentifiersAsync(
+        Guid workId,
+        IReadOnlyCollection<string> keysToRemove,
+        IReadOnlyDictionary<string, string> replacements,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(keysToRemove);
+        ArgumentNullException.ThrowIfNull(replacements);
+        ct.ThrowIfCancellationRequested();
+
+        await db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
+        try
+        {
+            using var conn = db.CreateConnection();
+            var json = await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+                "SELECT external_identifiers FROM works WHERE id = @workId LIMIT 1;",
+                new { workId = GuidSql.ToBlob(workId) },
+                cancellationToken: ct)).ConfigureAwait(false);
+
+            Dictionary<string, string> identifiers;
+            try
+            {
+                var parsed = string.IsNullOrWhiteSpace(json)
+                    ? null
+                    : JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                identifiers = parsed is null
+                    ? new(StringComparer.OrdinalIgnoreCase)
+                    : new(parsed, StringComparer.OrdinalIgnoreCase);
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Replacing malformed external identifiers for work {WorkId}.", workId);
+                identifiers = new(StringComparer.OrdinalIgnoreCase);
+            }
+
+            foreach (var key in keysToRemove.Where(key => !string.IsNullOrWhiteSpace(key)))
+                identifiers.Remove(key);
+
+            foreach (var (key, value) in replacements)
+            {
+                if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                    identifiers[key] = value;
+            }
+
+            await conn.ExecuteAsync(new CommandDefinition(
+                "UPDATE works SET external_identifiers = @json WHERE id = @workId;",
+                new
+                {
+                    json = identifiers.Count == 0 ? null : JsonSerializer.Serialize(identifiers),
+                    workId = GuidSql.ToBlob(workId),
+                },
+                cancellationToken: ct)).ConfigureAwait(false);
         }
         finally
         {

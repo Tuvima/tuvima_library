@@ -105,6 +105,10 @@ public static class ClaimScopeCatalog
             },
             [MediaType.TV] = new(StringComparer.OrdinalIgnoreCase)
             {
+                // TMDB exposes both a show id and an episode id. The generic
+                // tmdb_id is the show/container identity for TV; the distinct
+                // tmdb_episode_id remains attached to the owned episode.
+                [BridgeIdKeys.TmdbId]                  = ClaimScope.Parent,
                 [BridgeIdKeys.TmdbEpisodeId]           = ClaimScope.Self,
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,  // showrunner
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,

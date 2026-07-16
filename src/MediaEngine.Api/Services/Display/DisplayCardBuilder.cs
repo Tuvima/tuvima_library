@@ -159,7 +159,6 @@ public sealed class DisplayCardBuilder
         var presentation = CollectionPresentation(lane, mediaKind);
         var previewItems = BuildSeriesPreviewItems(mediaKind, works);
         var ownedCount = DistinctOwnedSeriesMemberCount(works);
-        var knownTotalCount = KnownSeriesMemberCount(works, ownedCount);
 
         return new DisplayCardDto(
             Id: collectionId,
@@ -169,8 +168,8 @@ public sealed class DisplayCardBuilder
             MediaType: mediaKind,
             GroupingType: CollectionPresentation(lane, mediaKind),
             Title: title,
-            Subtitle: CollectionSubtitle(mediaKind, works, ownedCount, knownTotalCount),
-            Facts: CollectionFacts(mediaKind, works, representative.Genre, ownedCount, knownTotalCount, representative.Rating),
+            Subtitle: CollectionSubtitle(mediaKind, works, ownedCount),
+            Facts: CollectionFacts(mediaKind, works, representative.Genre, ownedCount, rating: representative.Rating),
             Artwork: artwork,
             PreferredShape: CollectionShape(lane, mediaKind, representative.MediaType, artwork),
             Presentation: presentation,
@@ -183,9 +182,7 @@ public sealed class DisplayCardBuilder
         {
             Description = representative.Description,
             PreviewItems = previewItems,
-            PreviewTotalCount = previewItems.Count > 0
-                ? mediaKind == "Comic" ? ownedCount : knownTotalCount ?? ownedCount
-                : null,
+            PreviewTotalCount = previewItems.Count > 0 ? ownedCount : null,
         };
     }
 
@@ -511,7 +508,6 @@ public sealed class DisplayCardBuilder
         IReadOnlyList<DisplayWorkRow> works,
         string? genre,
         int? ownedCount = null,
-        int? knownTotalCount = null,
         string? rating = null)
     {
         var facts = new List<string>();
@@ -520,7 +516,7 @@ public sealed class DisplayCardBuilder
             AddFact(facts, "New episodes added");
         }
 
-        AddFact(facts, CollectionSubtitle(mediaKind, works, ownedCount, knownTotalCount));
+        AddFact(facts, CollectionSubtitle(mediaKind, works, ownedCount));
         AddFact(facts, DisplayFactBuilder.Build(mediaKind, string.Empty, rating: rating).FirstOrDefault());
         facts.AddRange(DisplayMediaRules.SplitValues(genre).Where(value => !string.Equals(value, mediaKind, StringComparison.OrdinalIgnoreCase)).Take(2));
         return facts;
@@ -674,8 +670,7 @@ public sealed class DisplayCardBuilder
     private static string CollectionSubtitle(
         string mediaKind,
         IReadOnlyList<DisplayWorkRow> works,
-        int? ownedCount = null,
-        int? knownTotalCount = null)
+        int? ownedCount = null)
     {
         if (mediaKind == "TV")
         {
@@ -693,7 +688,7 @@ public sealed class DisplayCardBuilder
 
         if (mediaKind is "Book" or "Comic" or "Movie" or "Audiobook")
         {
-            return OwnedSeriesCountLabel(mediaKind, ownedCount ?? DistinctOwnedSeriesMemberCount(works), knownTotalCount);
+            return OwnedSeriesCountLabel(mediaKind, ownedCount ?? DistinctOwnedSeriesMemberCount(works));
         }
 
         return CollectionCountLabel(mediaKind, works.Count);
@@ -728,25 +723,15 @@ public sealed class DisplayCardBuilder
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
 
-    private static int? KnownSeriesMemberCount(IReadOnlyList<DisplayWorkRow> works, int ownedCount)
-    {
-        var manifestTotal = works.Max(work => work.CollectionManifestTotalCount);
-        return manifestTotal > ownedCount ? manifestTotal : null;
-    }
-
-    private static string OwnedSeriesCountLabel(string mediaKind, int ownedCount, int? knownTotalCount)
+    private static string OwnedSeriesCountLabel(string mediaKind, int ownedCount)
     {
         var noun = mediaKind switch
         {
-            "Comic" => knownTotalCount is > 1 ? "issues" : ownedCount == 1 ? "issue" : "issues",
-            _ => knownTotalCount is > 1 ? "titles" : ownedCount == 1 ? "title" : "titles",
+            "Comic" => ownedCount == 1 ? "issue" : "issues",
+            _ => ownedCount == 1 ? "title" : "titles",
         };
 
-        return mediaKind == "Comic"
-            ? $"{ownedCount} owned {noun}"
-            : knownTotalCount is > 0
-            ? $"{ownedCount} of {knownTotalCount.Value} {noun} owned"
-            : $"{ownedCount} owned {noun}";
+        return $"{ownedCount} owned {noun}";
     }
 
     private static string? ContinueEpisodeSubtitle(string? season, string? episode)

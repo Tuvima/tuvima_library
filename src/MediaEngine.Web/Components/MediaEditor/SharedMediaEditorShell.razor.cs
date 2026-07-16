@@ -124,6 +124,10 @@ public partial class SharedMediaEditorShell
     private MediaEditorIdentityIntent _identityIntent = MediaEditorIdentityIntent.None;
     private string _lastNonFileTab => _tabState.LastNonFileTab;
     private bool _showArtworkUrlInput;
+    private bool _matchActionPending;
+    private bool _hasCommittedChanges;
+    private string? _matchActionStatus;
+    private Guid? _matchIdentityJobId;
     private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
     private string? _fieldToFocus;
     private ContainerReturnState? _containerReturnState;
@@ -146,7 +150,7 @@ public partial class SharedMediaEditorShell
         _identityIntent == MediaEditorIdentityIntent.None ? Request.IdentityIntent : _identityIntent;
     protected Guid EditorContextEntityId => _editorContext?.LaunchEntityId ?? LaunchEntityId;
     protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? EditorContextEntityId;
-    private Guid CanonicalEndpointEntityId => EditorContextEntityId;
+    private Guid CanonicalEndpointEntityId => CurrentEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
     protected bool ShouldShowEditorFooter =>
         _confirmDiscard
@@ -201,13 +205,24 @@ public partial class SharedMediaEditorShell
         EditorContentGroups.FirstOrDefault(group => group.MissingCount > 0) is { } group
             ? $"{group.Title} incomplete"
             : null;
-    protected string CurrentTargetTitle => _editorContext?.CurrentTargetSummary?.Title ?? ActiveScope?.DisplayTitle ?? HeaderTitle;
+    protected string CurrentTargetTitle => IdentityTargetScope?.DisplayTitle ?? ActiveScope?.DisplayTitle ?? HeaderTitle;
 
     protected MediaEditorScopeDto? ActiveScope =>
         _editorContext?.Scopes
             .OrderBy(scope => scope.Order)
             .FirstOrDefault(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase))
         ?? _editorContext?.Scopes.OrderBy(scope => scope.Order).FirstOrDefault();
+    protected MediaEditorIdentitySummaryDto? ActiveIdentitySummary =>
+        ActiveScope?.IdentitySummary ?? _editorContext?.IdentitySummary;
+    protected MediaEditorScopeDto? IdentityTargetScope =>
+        (_selectedMediaType, _canonicalTargetGroup) switch
+        {
+            ("TV", "show") => GetScopeById("series") ?? ActiveScope,
+            ("Music", "album") => GetScopeById("album") ?? ActiveScope,
+            _ => ActiveScope,
+        };
+    protected MediaEditorIdentitySummaryDto? IdentityTargetSummary =>
+        IdentityTargetScope?.IdentitySummary ?? ActiveIdentitySummary;
     protected MediaEditorScopeDto? ArtworkScope => ActiveScope;
     protected bool IsFileScope => string.Equals(ActiveScope?.ScopeId, "file", StringComparison.OrdinalIgnoreCase);
     protected string BreadcrumbText => BuildBreadcrumbText();
@@ -546,6 +561,36 @@ public partial class SharedMediaEditorShell
 
         await SelectScopeAsync(scopeId);
     }
+
+    protected void SelectCanonicalTargetGroup(string targetGroup)
+    {
+        if (string.IsNullOrWhiteSpace(targetGroup)
+            || string.Equals(_canonicalTargetGroup, targetGroup, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _canonicalTargetGroup = targetGroup;
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+        _selectedSuggestedFieldKeys.Clear();
+        _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        _matchActionStatus = null;
+        StateHasChanged();
+    }
+
+    protected string GetIdentityTargetImpactText() =>
+        (_selectedMediaType, ActiveScope?.ScopeId, _canonicalTargetGroup) switch
+        {
+            ("TV", "series", _) => "Series identity and provider links are shared by every owned episode in this show.",
+            ("TV", "season", _) => "Season placement and artwork live here; show identity is managed on the Series scope.",
+            ("TV", "episode", "show") => "This updates the parent Series identity shared by every owned episode.",
+            ("TV", "episode", _) => "This updates only the episode identity and episode still. A different series must be selected through the Details placement controls first.",
+            ("Music", "album", _) => "Album identity and artwork are shared by every owned track on this release.",
+            ("Music", "track", "album") => "This updates the parent Album identity shared by its tracks.",
+            ("Music", "track", _) => "This updates only the recording/track identity. A different album must be selected through the Details placement controls first.",
+            _ => ActiveScope?.ScopeSummary ?? "This match applies to the selected editor scope.",
+        };
 
     private async Task LoadArtworkStateAsync(string? scopeId, bool forceReload = false)
     {
@@ -975,10 +1020,19 @@ public partial class SharedMediaEditorShell
             return;
         }
 
-        MudDialog.Cancel();
+        if (_hasCommittedChanges)
+            MudDialog.Close(DialogResult.Ok(true));
+        else
+            MudDialog.Cancel();
     }
 
-    protected void DiscardAndClose() => MudDialog.Cancel();
+    protected void DiscardAndClose()
+    {
+        if (_hasCommittedChanges)
+            MudDialog.Close(DialogResult.Ok(true));
+        else
+            MudDialog.Cancel();
+    }
 
     protected async Task ConfirmNavigationWithUnsavedChanges(LocationChangingContext context)
     {
@@ -1679,7 +1733,7 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<(string Label, string Value)> GetMatchStatusStripRows()
     {
-        var summary = _editorContext?.IdentitySummary;
+        var summary = IdentityTargetSummary;
         var provider = GetRetailMatchDisplayName(summary);
         var providerId = summary?.ProviderItemId;
         var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
@@ -1703,7 +1757,7 @@ public partial class SharedMediaEditorShell
 
     protected MatchCardDisplay BuildCurrentRetailMatchCard()
     {
-        var summary = _editorContext?.IdentitySummary;
+        var summary = IdentityTargetSummary;
         var provider = GetRetailMatchDisplayName(summary);
         var providerId = FirstNonBlank(summary?.ProviderItemId, GetBaselineValue("tmdb_id"), GetBaselineValue("imdb_id"), GetBaselineValue("comicvine_id"), GetBaselineValue("musicbrainz_id"), GetBaselineValue("asin"), GetBaselineValue("isbn"));
         provider = FirstNonBlank(provider, InferProviderNameFromIdentifierFields()) ?? provider;
@@ -1735,9 +1789,9 @@ public partial class SharedMediaEditorShell
 
     protected MatchCardDisplay BuildCurrentWikidataMatchCard()
     {
-        var summary = _editorContext?.IdentitySummary;
+        var summary = IdentityTargetSummary;
         var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
-        var title = FirstNonBlank(GetBaselineValue("title"), CurrentTargetTitle, _detail?.Title, "No Wikidata identity")!;
+        var title = FirstNonBlank(CurrentTargetTitle, GetBaselineValue("title"), _detail?.Title, "No Wikidata identity")!;
         var type = FirstNonBlank(GetBaselineValue("instance_of"), summary?.MatchLevel, _detail?.MediaType);
         var year = FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"));
         var chips = new List<string>();
@@ -1944,7 +1998,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task ApplyRetailCandidateAsync(RetailCandidateDto candidate)
     {
-        if (!candidate.IsApplicable)
+        if (!candidate.IsApplicable || _matchActionPending)
             return;
 
         var acceptedSuggested = GetAcceptedSuggestedKeys(GetCandidateId(candidate));
@@ -1952,11 +2006,18 @@ public partial class SharedMediaEditorShell
             .Where(key => candidate.SuggestedFields.ContainsKey(key))
             .ToDictionary(key => key, key => candidate.SuggestedFields[key], StringComparer.OrdinalIgnoreCase);
 
+        _matchActionPending = true;
+        _matchActionStatus = $"Applying {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()} retail identity...";
+        StateHasChanged();
+
         var response = await ApiClient.ReplaceRetailMatchAsync(
             CanonicalEndpointEntityId,
             new ReplaceRetailMatchRequestDto
             {
+                TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
                 TargetFieldGroup = _canonicalTargetGroup,
+                TargetScopeId = ActiveScope?.ScopeId ?? string.Empty,
+                ProviderId = candidate.ProviderId,
                 ProviderName = candidate.ProviderName,
                 ProviderItemId = candidate.ProviderItemId ?? string.Empty,
                 RequiredFields = candidate.RequiredFields,
@@ -1970,17 +2031,24 @@ public partial class SharedMediaEditorShell
 
     protected async Task ApplyLinkedCandidateAsync(UniverseCandidateDto candidate)
     {
-        if (!candidate.IsApplicable)
+        if (!candidate.IsApplicable || _matchActionPending)
             return;
 
         var qid = candidate.QidFields.TryGetValue("wikidata_qid", out var qidField)
             ? qidField
             : candidate.Qid;
 
+        _matchActionPending = true;
+        _matchActionStatus = "Applying canonical Wikidata identity...";
+        StateHasChanged();
+
         var response = await ApiClient.ReplaceWikidataMatchAsync(
             CanonicalEndpointEntityId,
             new ReplaceWikidataMatchRequestDto
             {
+                TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
+                TargetFieldGroup = _canonicalTargetGroup,
+                TargetScopeId = ActiveScope?.ScopeId ?? string.Empty,
                 Action = "replace",
                 Qid = qid,
                 ReviewItemId = Request.ReviewItemId,
@@ -1991,10 +2059,18 @@ public partial class SharedMediaEditorShell
 
     protected async Task MarkWikidataMissingAsync()
     {
+        if (_matchActionPending)
+            return;
+
+        _matchActionPending = true;
+        _matchActionStatus = "Updating Wikidata identity state...";
         var response = await ApiClient.ReplaceWikidataMatchAsync(
             CanonicalEndpointEntityId,
             new ReplaceWikidataMatchRequestDto
             {
+                TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
+                TargetFieldGroup = _canonicalTargetGroup,
+                TargetScopeId = ActiveScope?.ScopeId ?? string.Empty,
                 Action = "mark_missing",
                 ReviewItemId = Request.ReviewItemId,
             });
@@ -2004,10 +2080,18 @@ public partial class SharedMediaEditorShell
 
     protected async Task ClearWikidataMatchAsync()
     {
+        if (_matchActionPending)
+            return;
+
+        _matchActionPending = true;
+        _matchActionStatus = "Clearing Wikidata identity...";
         var response = await ApiClient.ReplaceWikidataMatchAsync(
             CanonicalEndpointEntityId,
             new ReplaceWikidataMatchRequestDto
             {
+                TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
+                TargetFieldGroup = _canonicalTargetGroup,
+                TargetScopeId = ActiveScope?.ScopeId ?? string.Empty,
                 Action = "clear",
                 ReviewItemId = Request.ReviewItemId,
             });
@@ -2015,17 +2099,43 @@ public partial class SharedMediaEditorShell
         await FinishMatchActionAsync(response, "Wikidata identity cleared; retail match kept.");
     }
 
-    private Task FinishMatchActionAsync(ItemCanonicalApplyResponseDto? response, string fallbackMessage)
+    private async Task FinishMatchActionAsync(ItemCanonicalApplyResponseDto? response, string fallbackMessage)
     {
         if (response is null)
         {
+            _matchActionPending = false;
+            _matchActionStatus = ApiClient.LastError ?? "Match update failed.";
             Snackbar.Add(ApiClient.LastError ?? "Match update failed.", Severity.Error);
-            return Task.CompletedTask;
+            return;
+        }
+
+        _matchIdentityJobId = response.IdentityJobId;
+        _hasCommittedChanges = true;
+        _matchActionStatus = response.IdentityJobId.HasValue
+            ? "Identity saved. Canonical alignment and artwork refresh are continuing in the background."
+            : string.IsNullOrWhiteSpace(response.Message) ? fallbackMessage : response.Message;
+
+        try
+        {
+            var refreshedContext = await ApiClient.GetMediaEditorContextAsync(EditorContextEntityId);
+            if (refreshedContext is not null)
+            {
+                _editorContext = refreshedContext;
+                if (!_editorContext.Scopes.Any(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase)))
+                    _activeScopeId = _editorContext.InitialScope;
+            }
+
+            _scopeStates.Clear();
+            _artworkStates.Clear();
+            await LoadScopeStateAsync(forceReload: true);
+        }
+        finally
+        {
+            _matchActionPending = false;
         }
 
         Snackbar.Add(string.IsNullOrWhiteSpace(response.Message) ? fallbackMessage : response.Message, Severity.Success);
-        MudDialog.Close(DialogResult.Ok(true));
-        return Task.CompletedTask;
+        StateHasChanged();
     }
 
     private async Task ApplyCanonicalAsync(
@@ -2258,8 +2368,8 @@ public partial class SharedMediaEditorShell
             ("TV", "series") => [("show", "Show")],
             ("TV", "season") => [("show", "Show")],
             ("TV", "episode") => [("show_episode", "Episode"), ("show", "Show")],
-            ("Music", "album") => [("album", "Album"), ("artist", "Artist")],
-            ("Music", "track") => [("track", "Track"), ("album", "Album"), ("artist", "Artist")],
+            ("Music", "album") => [("album", "Album")],
+            ("Music", "track") => [("track", "Track"), ("album", "Album")],
             ("Movies", _) => [("movie_identity", "Movie")],
             ("Comics", _) => [("issue", "Issue")],
             ("Audiobooks", _) => [("audiobook_identity", "Audiobook"), ("narrator", "Narrator")],
@@ -2297,11 +2407,11 @@ public partial class SharedMediaEditorShell
             ("TV", "series") =>
                 "Series scope manages poster, square art, background, banner, and logo for the show. Those images are shared across episodes.",
             ("TV", "episode") =>
-                "Episode scope only manages episode stills. Show and season artwork stay on their parent scopes.",
+                "Episode scope manages only the episode still. Series and season artwork remain inherited and can be opened from this panel.",
             ("Music", "album") =>
-                "Album scope manages cover and square art for the album.",
+                "Album scope manages the square-first cover, alternate square art, disc art, and clear art shared by its tracks.",
             ("Music", "track") =>
-                "Track scope inherits art from the album. Use the album target to update the artwork people actually see.",
+                "Track scope inherits art from the album. The Details page derives its music palette from that managed album cover.",
             ("Movies", "item") =>
                 "Movie scope manages poster, square art, background, banner, and logo for the movie.",
             ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
@@ -2338,6 +2448,27 @@ public partial class SharedMediaEditorShell
         }
 
         return [];
+    }
+
+    protected IReadOnlyList<MediaEditorScopeDto> GetRelatedArtworkScopeTargets()
+    {
+        if (_editorContext is null)
+            return [];
+
+        return (_selectedMediaType, ArtworkScope?.ScopeId) switch
+        {
+            ("TV", "episode") => _editorContext.Scopes
+                .Where(scope => scope.ScopeId is "series" or "season")
+                .OrderBy(scope => scope.Order)
+                .ToList(),
+            ("TV", "season") => _editorContext.Scopes
+                .Where(scope => string.Equals(scope.ScopeId, "series", StringComparison.OrdinalIgnoreCase))
+                .ToList(),
+            ("Music", "track") => _editorContext.Scopes
+                .Where(scope => string.Equals(scope.ScopeId, "album", StringComparison.OrdinalIgnoreCase))
+                .ToList(),
+            _ => [],
+        };
     }
 
     private bool IsTabVisible(string tabId)
@@ -2531,7 +2662,7 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<(string Label, string Value)> GetMatchInformationRows()
     {
-        var summary = _editorContext?.IdentitySummary;
+        var summary = ActiveIdentitySummary;
         var provider = GetRetailMatchDisplayName(summary);
         var hasProviderEvidence = !string.IsNullOrWhiteSpace(provider) || !string.IsNullOrWhiteSpace(summary?.ProviderItemId);
         var hasQid = !string.IsNullOrWhiteSpace(summary?.WikidataQid);
@@ -2724,9 +2855,9 @@ public partial class SharedMediaEditorShell
             && !IsDisplayOverrideKey(key));
 
     private bool HasCanonicalWikidataIdentity =>
-        !string.IsNullOrWhiteSpace(_editorContext?.IdentitySummary?.WikidataQid)
-        && (_editorContext?.IdentitySummary?.WikidataStatus is "confirmed" or "auto_aligned" or "user_confirmed" or "user_replaced"
-            || !string.IsNullOrWhiteSpace(_editorContext?.IdentitySummary?.WikidataQid));
+        !string.IsNullOrWhiteSpace(ActiveIdentitySummary?.WikidataQid)
+        && (ActiveIdentitySummary?.WikidataStatus is "confirmed" or "auto_aligned" or "user_confirmed" or "user_replaced"
+            || !string.IsNullOrWhiteSpace(ActiveIdentitySummary?.WikidataQid));
 
     private bool IsIdentityField(string key) =>
         _schema.Groups

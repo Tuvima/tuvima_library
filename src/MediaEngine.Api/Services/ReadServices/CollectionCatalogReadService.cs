@@ -64,19 +64,13 @@ public sealed class CollectionCatalogReadService(
         CancellationToken ct = default)
     {
         var collections = await GetAccessibleCollectionsAsync(activeProfile, ct).ConfigureAwait(false);
-        var materializedCounts = await collectionRepo.GetCollectionItemCountsAsync(
-            collections
-                .Where(collection => !string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase))
-                .Select(collection => collection.Id),
-            ct).ConfigureAwait(false);
-
         var candidates = new List<CollectionManagementCatalogCandidate>();
         foreach (var collection in collections)
         {
             var classification = ClassifyCollectionForCatalog(collection);
             var sourceWorkIds = await GetCollectionCatalogSourceWorkIdsAsync(collection, collections, ct).ConfigureAwait(false);
-            var workIds = await GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct).ConfigureAwait(false);
-            var itemCount = GetManagedCollectionItemCount(collection, materializedCounts, workIds);
+            var workIds = await GetOwnedCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct).ConfigureAwait(false);
+            var itemCount = workIds.Count;
             var mediaCounts = await GetCollectionMediaCountsAsync(workIds, ct).ConfigureAwait(false);
             var hasKnownSeriesManifest = await HasKnownSeriesManifestAsync(collection, ct).ConfigureAwait(false);
             if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts, hasKnownSeriesManifest))
@@ -517,7 +511,7 @@ public sealed class CollectionCatalogReadService(
             workIds.AddRange(await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false));
         }
 
-        return await GetCollectionCatalogDisplayWorkIdsAsync(workIds, ct).ConfigureAwait(false);
+        return await GetOwnedCollectionCatalogDisplayWorkIdsAsync(workIds, ct).ConfigureAwait(false);
     }
 
     private async Task<IReadOnlyList<Guid>> GetCollectionCatalogSourceWorkIdsAsync(
@@ -590,6 +584,44 @@ public sealed class CollectionCatalogReadService(
             .Select(row => row.WorkId)
             .Distinct()
             .ToList();
+    }
+
+    private async Task<IReadOnlyList<Guid>> GetOwnedCollectionCatalogDisplayWorkIdsAsync(
+        IEnumerable<Guid> sourceWorkIds,
+        CancellationToken ct)
+    {
+        var displayWorkIds = await GetCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct).ConfigureAwait(false);
+        if (displayWorkIds.Count == 0)
+        {
+            return [];
+        }
+
+        using var conn = db.CreateConnection();
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var rows = await conn.QueryAsync<CollectionDisplayWorkRow>(new CommandDefinition(
+            $"""
+            WITH RECURSIVE work_tree(RootWorkId, WorkId) AS (
+                SELECT w.id AS RootWorkId,
+                       w.id AS WorkId
+                FROM works w
+                WHERE w.id IN @WorkIds
+                UNION
+                SELECT work_tree.RootWorkId,
+                       child.id AS WorkId
+                FROM works child
+                INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
+            )
+            SELECT DISTINCT work_tree.RootWorkId AS WorkId
+            FROM work_tree
+            INNER JOIN editions e ON e.work_id = work_tree.WorkId
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE {visibleAssetPredicate};
+            """,
+            new { WorkIds = displayWorkIds.Select(GuidSql.ToBlob).ToArray() },
+            cancellationToken: ct)).ConfigureAwait(false);
+
+        var ownedIds = rows.Select(row => row.WorkId).ToHashSet();
+        return displayWorkIds.Where(ownedIds.Contains).ToList();
     }
 
     private async Task<List<CollectionItemDto>> ResolveCollectionWorkIdsToItemsAsync(

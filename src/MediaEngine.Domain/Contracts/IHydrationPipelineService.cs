@@ -37,7 +37,7 @@ public interface IHydrationPipelineService
     /// </summary>
     /// <param name="request">The harvest request to enqueue.</param>
     /// <param name="ct">Cancellation token.</param>
-    ValueTask EnqueueAsync(HarvestRequest request, CancellationToken ct = default);
+    ValueTask<Guid> EnqueueAsync(HarvestRequest request, CancellationToken ct = default);
 
     /// <summary>
     /// Runs the full two-stage hydration pipeline synchronously and returns

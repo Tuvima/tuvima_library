@@ -430,6 +430,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     public void MediaTile_CssAndJavascriptProvideWideFallbackAndInRowExpansion()
     {
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
+        var tileSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor"));
         var appJs = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.js"));
         var layout = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Shared/MainLayout.razor"));
 
@@ -438,6 +439,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains(".media-tile-book-pages", css);
         Assert.Contains("background: transparent", css);
         Assert.Contains(".media-tile-feedback-control:focus-within", css);
+        Assert.Contains("media-tile-visible-dislike-action", tileSource);
+        Assert.Contains("Icons.Material.Outlined.ThumbDownOffAlt", tileSource);
         Assert.Contains("width: 188px", css);
         Assert.Contains("--media-tile-hover-anchor-height", css);
         Assert.Contains("clamp(820px, 52vw, 980px)", css);

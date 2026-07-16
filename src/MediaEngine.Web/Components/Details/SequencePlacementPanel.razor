@@ -505,7 +505,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        var key = $"{Placement.ContainerId}:{Placement.CurrentItem.Id}:{Placement.OrderedItems.Count}:{Placement.Groups.Count}";
+        var key = $"{Placement.ContainerId}:{Placement.CurrentItem.Id}:{Placement.OrderedItems.Count}:{Placement.Groups.Count}:{Placement.ContainerDescription}";
         if (!string.Equals(key, _placementKey, StringComparison.Ordinal))
         {
             _placementKey = key;

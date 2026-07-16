@@ -208,6 +208,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("tvPlaybackEpisode?.Description", source);
         Assert.Contains("tvInProgressEpisode?.BackgroundUrl", source);
         Assert.Contains("entityType == DetailEntityType.TvShow ? heroSummary : longDescription", source);
+        Assert.Contains("GetValue(values, \"wikipedia_extract\")", source);
         Assert.Contains("currentWorkId ?? tvPlaybackEpisodeId", source);
         Assert.Contains("FormatTrackDuration(FirstNonBlank(", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);

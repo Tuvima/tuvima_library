@@ -66,18 +66,18 @@ public sealed class DetailHeroPresentation
             _ => FirstNonBlank(model.Tagline, model.Description),
         };
         var usesReadOverviewCopy = UsesReadOverviewCopy(model.EntityType);
-        var readFirstParagraph = usesReadOverviewCopy
+        var usesFullParagraphCopy = usesReadOverviewCopy || isWatchHero;
+        var firstParagraph = usesFullParagraphCopy
             ? FirstParagraph(copySource)
             : copySource;
-        var copyLimit = isWatchHero ? 360 : 320;
-        var copy = !string.IsNullOrWhiteSpace(readFirstParagraph)
-            ? usesReadOverviewCopy
-                ? readFirstParagraph
-                : Truncate(readFirstParagraph, copyLimit)
+        var copy = !string.IsNullOrWhiteSpace(firstParagraph)
+            ? usesFullParagraphCopy
+                ? firstParagraph
+                : Truncate(firstParagraph, 320)
             : null;
-        var copyHasMore = usesReadOverviewCopy
+        var copyHasMore = usesFullParagraphCopy
             && !string.IsNullOrWhiteSpace(copySource)
-            && !string.Equals(copySource.Trim(), readFirstParagraph?.Trim(), StringComparison.Ordinal);
+            && !string.Equals(copySource.Trim(), firstParagraph?.Trim(), StringComparison.Ordinal);
 
         return new DetailHeroPresentation(
             BuildHeroClass(mode, model.EntityType, isWatchHero),

@@ -130,6 +130,9 @@ public sealed class MediaEditorScopeDto
     [JsonPropertyName("canonical_target_group")]
     public string CanonicalTargetGroup { get; set; } = string.Empty;
 
+    [JsonPropertyName("identity_summary")]
+    public MediaEditorIdentitySummaryDto? IdentitySummary { get; set; }
+
     [JsonPropertyName("scope_summary")]
     public string? ScopeSummary { get; set; }
 

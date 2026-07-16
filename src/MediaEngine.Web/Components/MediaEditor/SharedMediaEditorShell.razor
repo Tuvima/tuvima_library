@@ -98,6 +98,33 @@
                 </div>
             }
 
+            @if (IsSingleItem && ScopeOptions.Count(scope => scope.ScopeId != "file") > 1)
+            {
+                <nav class="sme-scope-switcher" aria-label="Edit level">
+                    <div class="sme-scope-switcher-copy">
+                        <span class="sme-scope-picker-kicker">Editing level</span>
+                        <span class="sme-scope-switcher-hint">Choose the owner before changing details, identity, or artwork.</span>
+                    </div>
+                    <div class="sme-scope-switcher-items">
+                        @foreach (var scope in ScopeOptions.Where(scope => scope.ScopeId != "file"))
+                        {
+                            var isActiveScope = string.Equals(scope.ScopeId, ActiveScope?.ScopeId, StringComparison.OrdinalIgnoreCase);
+                            <AppButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       Class="@(isActiveScope ? "sme-scope-chip sme-scope-chip--active" : "sme-scope-chip")"
+                                       title="@scope.ScopeSummary"
+                                       OnClick="@(() => SelectScopeAsync(scope.ScopeId))">
+                                <span>@scope.Label</span>
+                                @if (!string.IsNullOrWhiteSpace(GetScopePickerTitle(scope)))
+                                {
+                                    <small>@GetScopePickerTitle(scope)</small>
+                                }
+                            </AppButton>
+                        }
+                    </div>
+                </nav>
+            }
+
             <div class="sme-workspace">
                 <div class="sme-main-pane">
                     <div class="settings-admin-panel">
@@ -351,6 +378,21 @@
                             }
                         </section>
 
+                        @if (!string.IsNullOrWhiteSpace(_matchActionStatus))
+                        {
+                            <div class="sme-match-progress @(_matchActionPending ? "sme-match-progress--active" : string.Empty)" role="status">
+                                <MudIcon Icon="@(_matchActionPending ? Icons.Material.Outlined.Sync : Icons.Material.Outlined.CheckCircle)" Class="tl-u-font-size-18px" />
+                                <div>
+                                    <strong>@(_matchActionPending ? "Updating identity" : "Identity update accepted")</strong>
+                                    <span>@_matchActionStatus</span>
+                                    @if (_matchIdentityJobId.HasValue)
+                                    {
+                                        <small>Pipeline job @_matchIdentityJobId</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+
                         @if (IsSingleItem)
                         {
                             <div class="sme-match-workflow">
@@ -451,11 +493,33 @@
                                     @if (SupportsCanonicalSearch)
                                     {
                                         <div class="sme-match-panel-heading sme-match-panel-heading--row">
-                                            <div>
-                                                <div class="sme-group-title">Correct Match</div>
-                                                <p>@GetCanonicalSearchSubtitle()</p>
-                                            </div>
+                                        <div>
+                                            <div class="sme-group-title">Correct Match</div>
+                                            <p>@GetCanonicalSearchSubtitle()</p>
                                         </div>
+                                    </div>
+
+                                    @if (QuickSearchTargets.Count > 1)
+                                    {
+                                        <div class="sme-identity-targets" aria-label="Identity target">
+                                            <span>Change identity for</span>
+                                            @foreach (var target in QuickSearchTargets)
+                                            {
+                                                var isActiveTarget = string.Equals(target.Key, _canonicalTargetGroup, StringComparison.OrdinalIgnoreCase);
+                                                <AppButton Variant="Variant.Text"
+                                                           Color="Color.Inherit"
+                                                           Class="@(isActiveTarget ? "sme-identity-target sme-identity-target--active" : "sme-identity-target")"
+                                                           OnClick="@(() => SelectCanonicalTargetGroup(target.Key))">
+                                                    @target.Label
+                                                </AppButton>
+                                            }
+                                        </div>
+                                    }
+
+                                    <div class="sme-identity-impact">
+                                        <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Class="tl-u-font-size-17px" />
+                                        <span>@GetIdentityTargetImpactText()</span>
+                                    </div>
 
                                         <div class="settings-admin-panel">
                                             <AppTabs ActivePanelIndex="@MatchSearchModeIndex"
@@ -541,9 +605,9 @@
                                                             <AppButton Variant="Variant.Filled"
                                                                        Color="Color.Primary"
                                                                        Class="sme-inline-btn sme-inline-btn--primary"
-                                                                       Disabled="@(!candidate.IsApplicable)"
+                                                                       Disabled="@(!candidate.IsApplicable || _matchActionPending)"
                                                                        OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
-                                                                Use This QID
+                                                                @(_matchActionPending ? "Applying..." : "Use This QID")
                                                             </AppButton>
                                                         }
                                                     </div>
@@ -552,12 +616,14 @@
                                                     <AppButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"
                                                                Class="sme-inline-btn"
+                                                               Disabled="@_matchActionPending"
                                                                OnClick="MarkWikidataMissingAsync">
                                                         Mark Wikidata Missing
                                                     </AppButton>
                                                     <AppButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"
                                                                Class="sme-inline-btn"
+                                                               Disabled="@_matchActionPending"
                                                                OnClick="ClearWikidataMatchAsync">
                                                         Clear QID
                                                     </AppButton>
@@ -607,9 +673,9 @@
                                                             <AppButton Variant="Variant.Filled"
                                                                        Color="Color.Primary"
                                                                        Class="sme-inline-btn sme-inline-btn--primary"
-                                                                       Disabled="@(!candidate.IsApplicable)"
+                                                                       Disabled="@(!candidate.IsApplicable || _matchActionPending)"
                                                                        OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                                Use This Match
+                                                                @(_matchActionPending ? "Applying..." : "Use This Match")
                                                             </AppButton>
                                                         }
                                                     </div>
@@ -684,6 +750,26 @@
                     <div class="sme-artwork">
                         @if (IsSingleItem)
                         {
+                            <div class="sme-artwork-context">
+                                <div>
+                                    <strong>@(ArtworkScope?.Label ?? "Artwork") artwork</strong>
+                                    <span>@GetArtworkTabExplanation()</span>
+                                </div>
+                                @if (ArtworkSlots.Count > 0 && GetRelatedArtworkScopeTargets().Count > 0)
+                                {
+                                    <div class="sme-artwork-context-actions">
+                                        @foreach (var scope in GetRelatedArtworkScopeTargets())
+                                        {
+                                            <AppButton Variant="Variant.Outlined"
+                                                       Color="Color.Inherit"
+                                                       Class="sme-inline-btn"
+                                                       OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
+                                                Open @scope.Label Artwork
+                                            </AppButton>
+                                        }
+                                    </div>
+                                }
+                            </div>
                             <section class="sme-artwork-workspace">
                                 <div class="sme-artwork-sidebar">
                                     <div class="sme-artwork-sidebar-title">Artwork Types</div>

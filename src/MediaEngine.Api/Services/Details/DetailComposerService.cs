@@ -379,11 +379,18 @@ public sealed class DetailComposerService
             ? await LoadCanonicalMapAsync(rootWorkId.Value, ct)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var values = MergeCanonicalMaps(collectionValues, rootValues);
-        var longDescription = FirstText(
-            GetValue(values, MetadataFieldConstants.Description),
-            GetValue(values, "overview"),
-            GetValue(values, "plot_summary"),
-            row.Description);
+        var longDescription = entityType == DetailEntityType.TvShow
+            ? FirstText(
+                GetValue(values, "wikipedia_extract"),
+                GetValue(values, MetadataFieldConstants.Description),
+                GetValue(values, "overview"),
+                GetValue(values, "plot_summary"),
+                row.Description)
+            : FirstText(
+                GetValue(values, MetadataFieldConstants.Description),
+                GetValue(values, "overview"),
+                GetValue(values, "plot_summary"),
+                row.Description);
         var heroSummary = BuildHeroSummary(values);
         // Episode artwork must never stand in for show artwork. An unenriched TV show
         // deliberately falls back to its own cover (or the generated placeholder).

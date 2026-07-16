@@ -389,7 +389,18 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             .ToList();
 
         var providerNamesById = LoadProviderNamesById(conn);
-        var retailProviderName = ResolveRetailProviderName(canonicalValues, claims, providerNamesById);
+        var retailProviderName = canonicalValues
+            .FirstOrDefault(value => string.Equals(
+                value.Key,
+                MetadataFieldConstants.IdentityProvider,
+                StringComparison.OrdinalIgnoreCase))?.Value;
+        if (string.IsNullOrWhiteSpace(retailProviderName))
+            retailProviderName = ResolveRetailProviderName(canonicalValues, claims, providerNamesById);
+        var retailProviderItemId = canonicalValues
+            .FirstOrDefault(value => string.Equals(
+                value.Key,
+                MetadataFieldConstants.IdentityProviderItemId,
+                StringComparison.OrdinalIgnoreCase))?.Value;
 
         var rqRow = conn.QueryFirstOrDefault<(Guid Id, string Trigger, double? ConfidenceScore, string? Detail, string? CandidatesJson)>("""
             SELECT id AS Id,
@@ -582,7 +593,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             MatchSource = projection?.MatchSource?.ToString(),
             MatchMethod = projection?.PipelineStep,
             RetailProviderName = retailProviderName,
-            RetailProviderItemId = GetProviderBridgeId(bridgeIds, retailProviderName),
+            RetailProviderItemId = !string.IsNullOrWhiteSpace(retailProviderItemId)
+                ? retailProviderItemId
+                : GetProviderBridgeId(bridgeIds, retailProviderName),
             Author = resolvedAuthor,
             Director = projection?.Director ?? Canonical("director"),
             Artist = projection?.Artist ?? Canonical("artist"),

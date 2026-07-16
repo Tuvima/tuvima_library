@@ -48,7 +48,7 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
     /// Creates an <c>identity_jobs</c> row for asynchronous processing by the
     /// hosted service workers.
     /// </summary>
-    public async ValueTask EnqueueAsync(HarvestRequest request, CancellationToken ct = default)
+    public async ValueTask<Guid> EnqueueAsync(HarvestRequest request, CancellationToken ct = default)
     {
         var job = new IdentityJob
         {
@@ -91,6 +91,8 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         _logger.LogInformation(
             "Enqueued identity job {JobId} for entity {EntityId} ({MediaType}) at state {State}",
             job.Id, job.EntityId, job.MediaType, job.State);
+
+        return job.Id;
     }
 
     /// <summary>

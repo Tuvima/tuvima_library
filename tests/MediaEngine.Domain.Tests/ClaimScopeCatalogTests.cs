@@ -94,6 +94,17 @@ public class ClaimScopeCatalogTests
     }
 
     [Fact]
+    public void TV_TmdbShowId_RoutesToParentWhileEpisodeIdStaysSelf()
+    {
+        Assert.Equal(
+            ClaimScope.Parent,
+            ClaimScopeCatalog.GetScope(BridgeIdKeys.TmdbId, MediaType.TV));
+        Assert.Equal(
+            ClaimScope.Self,
+            ClaimScopeCatalog.GetScope(BridgeIdKeys.TmdbEpisodeId, MediaType.TV));
+    }
+
+    [Fact]
     public void TV_Director_RoutesToSelf()
     {
         // Different episodes have different directors — TV-specific override.

@@ -297,12 +297,27 @@ public sealed class ItemCanonicalApplyResponse
 
     [JsonPropertyName("message")]
     public string Message { get; init; } = "";
+
+    [JsonPropertyName("identity_job_id")]
+    public Guid? IdentityJobId { get; init; }
+
+    [JsonPropertyName("pipeline_state")]
+    public string? PipelineState { get; init; }
 }
 
 public sealed class ReplaceRetailMatchRequest
 {
+    [JsonPropertyName("target_kind")]
+    public string TargetKind { get; init; } = "";
+
     [JsonPropertyName("target_field_group")]
     public string TargetFieldGroup { get; init; } = "";
+
+    [JsonPropertyName("target_scope_id")]
+    public string TargetScopeId { get; init; } = "";
+
+    [JsonPropertyName("provider_id")]
+    public string ProviderId { get; init; } = "";
 
     [JsonPropertyName("provider_name")]
     public string ProviderName { get; init; } = "";
@@ -328,6 +343,15 @@ public sealed class ReplaceRetailMatchRequest
 
 public sealed class ReplaceWikidataMatchRequest
 {
+    [JsonPropertyName("target_kind")]
+    public string TargetKind { get; init; } = "";
+
+    [JsonPropertyName("target_field_group")]
+    public string TargetFieldGroup { get; init; } = "";
+
+    [JsonPropertyName("target_scope_id")]
+    public string TargetScopeId { get; init; } = "";
+
     [JsonPropertyName("action")]
     public string Action { get; init; } = "replace";
 

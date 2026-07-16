@@ -199,6 +199,13 @@
                                     </AppNativeButton>
                                 </div>
 
+                                <div class="media-tile-hover-action-unit">
+                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-visible-dislike-action")" AriaLabel="Not for me" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
+                                        <span class="media-tile-visually-hidden">Not for me</span>
+                                    </AppNativeButton>
+                                </div>
+
                                 <div class="media-tile-hover-action-unit media-tile-reaction-menu" tabindex="0" aria-label="Rate this title">
                                     <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-reaction-trigger" AriaLabel="Rate this title" Title="Rate this title" StopPropagation="true">
                                         <MudIcon Icon="@ReactionTriggerIcon" />

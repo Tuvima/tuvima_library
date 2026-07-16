@@ -540,48 +540,139 @@ public static class ItemCanonicalEndpoints
             if (string.IsNullOrWhiteSpace(request.ProviderName) || string.IsNullOrWhiteSpace(request.ProviderItemId))
                 return Results.BadRequest("Provider name and provider item ID are required.");
 
+            if (!Guid.TryParse(request.ProviderId, out var providerId))
+                return Results.BadRequest("A valid provider ID is required for a retail replacement.");
+
+            var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
+            if (policy is null)
+                return Results.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+
             var now = DateTimeOffset.UtcNow;
             var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
+            if (lineage is null)
+                return Results.NotFound($"No work lineage found for {entityId}.");
+            var allowedFieldKeys = policy.RequiredFieldKeys
+                .Concat(policy.SuggestedFieldKeys)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var selectedFields = request.RequiredFields
                 .Concat(request.SuggestedFields)
-                .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                .Where(kv => allowedFieldKeys.Contains(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+            var missingRequiredFields = policy.RequiredFieldKeys
+                .Where(key => !selectedFields.ContainsKey(key))
+                .ToList();
+            if (missingRequiredFields.Count > 0)
+                return Results.BadRequest($"Retail match is missing required fields: {string.Join(", ", missingRequiredFields)}.");
+
+            var selectedBridgeIds = request.BridgeIds
+                .Where(kv => policy.BridgeIdKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase)
+                             && !string.IsNullOrWhiteSpace(kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+            var parentConflict = await FindChildParentIdentityConflictAsync(
+                policy,
+                lineage,
+                selectedFields,
+                selectedBridgeIds,
+                canonicalRepo,
+                bridgeIdRepo,
+                ct);
+            if (!string.IsNullOrWhiteSpace(parentConflict))
+                return Results.Conflict(parentConflict);
+
+            var staleBridgeKeys = policy.BridgeIdKeys
+                .Where(key => !selectedBridgeIds.ContainsKey(key))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (staleBridgeKeys.Count > 0)
+            {
+                await itemCanonicalData.DeleteIdentityArtifactsAsync(
+                    staleBridgeKeys.Select(key => new ItemCanonicalIdentityArtifact(
+                        ResolvePolicyScopedTarget(context.AssetId, lineage, policy, key),
+                        key)).ToList(),
+                    ct);
+            }
 
             var claims = selectedFields.Select(kv => new MetadataClaim
             {
                 Id = Guid.NewGuid(),
-                EntityId = ResolveScopedTarget(context.AssetId, lineage, kv.Key),
-                ProviderId = WellKnownProviders.UserManual,
+                EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, kv.Key),
+                ProviderId = providerId,
+                DecisionSourceProviderId = WellKnownProviders.UserManual,
                 ClaimKey = kv.Key,
                 ClaimValue = kv.Value,
                 ClaimedAt = now,
                 Confidence = 1.0,
-                IsUserLocked = true,
+                IsUserLocked = false,
             }).ToList();
 
             var canonicals = selectedFields.Select(kv => new CanonicalValue
             {
-                EntityId = ResolveScopedTarget(context.AssetId, lineage, kv.Key),
+                EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, kv.Key),
                 Key = kv.Key,
                 Value = kv.Value,
                 LastScoredAt = now,
                 IsConflicted = false,
                 NeedsReview = false,
-                WinningProviderId = WellKnownProviders.UserManual,
+                WinningProviderId = providerId,
             }).ToList();
 
-            if (claims.Count > 0)
-                await claimRepo.InsertBatchAsync(claims, ct);
-            if (canonicals.Count > 0)
-                await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+            var identityTarget = ResolvePolicyIdentityTarget(context.AssetId, lineage, policy);
+            claims.AddRange(
+            [
+                new MetadataClaim
+                {
+                    Id = Guid.NewGuid(),
+                    EntityId = identityTarget,
+                    ProviderId = providerId,
+                    DecisionSourceProviderId = WellKnownProviders.UserManual,
+                    ClaimKey = MetadataFieldConstants.IdentityProvider,
+                    ClaimValue = request.ProviderName,
+                    ClaimedAt = now,
+                    Confidence = 1.0,
+                },
+                new MetadataClaim
+                {
+                    Id = Guid.NewGuid(),
+                    EntityId = identityTarget,
+                    ProviderId = providerId,
+                    DecisionSourceProviderId = WellKnownProviders.UserManual,
+                    ClaimKey = MetadataFieldConstants.IdentityProviderItemId,
+                    ClaimValue = request.ProviderItemId,
+                    ClaimedAt = now,
+                    Confidence = 1.0,
+                },
+            ]);
+            canonicals.AddRange(
+            [
+                new CanonicalValue
+                {
+                    EntityId = identityTarget,
+                    Key = MetadataFieldConstants.IdentityProvider,
+                    Value = request.ProviderName,
+                    LastScoredAt = now,
+                    WinningProviderId = providerId,
+                },
+                new CanonicalValue
+                {
+                    EntityId = identityTarget,
+                    Key = MetadataFieldConstants.IdentityProviderItemId,
+                    Value = request.ProviderItemId,
+                    LastScoredAt = now,
+                    WinningProviderId = providerId,
+                },
+            ]);
 
-            if (request.BridgeIds.Count > 0)
+            await claimRepo.InsertBatchAsync(claims, ct);
+            await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+
+            if (selectedBridgeIds.Count > 0)
             {
-                var bridgeEntries = request.BridgeIds
-                    .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                var bridgeEntries = selectedBridgeIds
                     .Select(kv => new BridgeIdEntry
                     {
-                        EntityId = ResolveScopedTarget(context.AssetId, lineage, kv.Key),
+                        EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, kv.Key),
                         IdType = kv.Key,
                         IdValue = kv.Value,
                         ProviderId = request.ProviderName,
@@ -595,12 +686,12 @@ public static class ItemCanonicalEndpoints
                 {
                     Id = Guid.NewGuid(),
                     EntityId = entry.EntityId,
-                    ProviderId = WellKnownProviders.UserManual,
+                    ProviderId = providerId,
+                    DecisionSourceProviderId = WellKnownProviders.UserManual,
                     ClaimKey = entry.IdType,
                     ClaimValue = entry.IdValue,
                     ClaimedAt = now,
                     Confidence = 1.0,
-                    IsUserLocked = true,
                 }).ToList();
                 var bridgeCanonicals = bridgeEntries.Select(entry => new CanonicalValue
                 {
@@ -610,14 +701,22 @@ public static class ItemCanonicalEndpoints
                     LastScoredAt = now,
                     IsConflicted = false,
                     NeedsReview = false,
-                    WinningProviderId = WellKnownProviders.UserManual,
+                    WinningProviderId = providerId,
                 }).ToList();
 
                 await claimRepo.InsertBatchAsync(bridgeClaims, ct);
                 await canonicalRepo.UpsertBatchAsync(bridgeCanonicals, ct);
             }
 
-            var workId = ResolveScopedTarget(context.AssetId, lineage, BridgeIdKeys.WikidataQid);
+            await ReplaceScopedExternalIdentifiersAsync(
+                lineage,
+                policy,
+                staleBridgeKeys,
+                selectedBridgeIds,
+                itemCanonicalData,
+                ct);
+
+            var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
             var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(workId, ct);
             if (request.ClearAutoAlignedWikidata
                 && !string.IsNullOrWhiteSpace(currentState?.Qid)
@@ -649,12 +748,14 @@ public static class ItemCanonicalEndpoints
                 Math.Max(1, selectedFields.Count + request.BridgeIds.Count),
                 ct: ct);
 
-            await pipeline.EnqueueAsync(new HarvestRequest
+            var identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
             {
                 EntityId = context.AssetId,
                 EntityType = EntityType.MediaAsset,
                 MediaType = ToMediaType(context.MediaType),
-                Hints = selectedFields,
+                Hints = selectedFields
+                    .Append(new KeyValuePair<string, string>(MetadataFieldConstants.IdentityProvider, request.ProviderName))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
                 SkipRetailStage = true,
                 IsUserResolution = true,
             }, ct);
@@ -662,6 +763,8 @@ public static class ItemCanonicalEndpoints
             await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
             {
                 entity_id = entityId,
+                target_scope_id = request.TargetScopeId,
+                target_field_group = policy.TargetFieldGroup,
                 provider_name = request.ProviderName,
                 provider_item_id = request.ProviderItemId,
                 updated_fields = selectedFields.Keys.Concat(request.BridgeIds.Keys).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
@@ -673,7 +776,10 @@ public static class ItemCanonicalEndpoints
                 LinkState = "provider_only",
                 LinkStatusLabel = "Retail match applied; Wikidata alignment queued.",
                 FieldsApplied = selectedFields.Count,
+                IdsCleared = staleBridgeKeys,
                 Message = "Retail match applied; Wikidata alignment queued.",
+                IdentityJobId = identityJobId,
+                PipelineState = IdentityJobState.RetailMatched.ToString(),
             });
         })
         .WithName("ReplaceItemRetailMatch")
@@ -692,6 +798,7 @@ public static class ItemCanonicalEndpoints
             ISystemActivityRepository activityRepo,
             IEventPublisher publisher,
             ICollectionRepository collectionRepo,
+            IWorkRepository workRepo,
             IReviewQueueRepository reviewRepo,
             IItemCanonicalDataService itemCanonicalData,
             CancellationToken ct) =>
@@ -701,9 +808,16 @@ public static class ItemCanonicalEndpoints
                 return Results.NotFound($"No current media asset or work target found for {entityId}.");
 
             var action = (request.Action ?? "replace").Trim().ToLowerInvariant();
-            var workId = await itemCanonicalData.ResolveWorkIdForAssetAsync(context.AssetId, ct) ?? entityId;
+            var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
+            if (policy is null)
+                return Results.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+            var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
+            if (lineage is null)
+                return Results.NotFound($"No work lineage found for {entityId}.");
+            var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
             var now = DateTimeOffset.UtcNow;
             var fieldsApplied = 0;
+            Guid? identityJobId = null;
             var message = action switch
             {
                 "replace" => "Wikidata identity replaced; enrichment queued.",
@@ -723,12 +837,12 @@ public static class ItemCanonicalEndpoints
                 {
                     Id = Guid.NewGuid(),
                     EntityId = workId,
-                    ProviderId = WellKnownProviders.UserManual,
+                    ProviderId = WellKnownProviders.Wikidata,
+                    DecisionSourceProviderId = WellKnownProviders.UserManual,
                     ClaimKey = BridgeIdKeys.WikidataQid,
                     ClaimValue = qid,
                     Confidence = 1.0,
                     ClaimedAt = now,
-                    IsUserLocked = true,
                 }], ct);
 
                 await canonicalRepo.UpsertBatchAsync([new CanonicalValue
@@ -739,7 +853,7 @@ public static class ItemCanonicalEndpoints
                     LastScoredAt = now,
                     IsConflicted = false,
                     NeedsReview = false,
-                    WinningProviderId = WellKnownProviders.UserManual,
+                    WinningProviderId = WellKnownProviders.Wikidata,
                 }], ct);
 
                 await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.UserReplaced, WorkWikidataMatchSource.User, true, qid, ct: ct);
@@ -749,7 +863,7 @@ public static class ItemCanonicalEndpoints
                 {
                     var canonicals = await canonicalRepo.GetByEntityAsync(workId, ct);
                     var hints = canonicals.ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-                    await pipeline.EnqueueAsync(new HarvestRequest
+                    identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
                     {
                         EntityId = context.AssetId,
                         EntityType = EntityType.MediaAsset,
@@ -795,6 +909,8 @@ public static class ItemCanonicalEndpoints
             await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
             {
                 entity_id = entityId,
+                target_scope_id = request.TargetScopeId,
+                target_field_group = policy.TargetFieldGroup,
                 provider_name = "user_manual",
                 updated_fields = new[] { BridgeIdKeys.WikidataQid, "wikidata_status" },
             }, ct);
@@ -806,6 +922,8 @@ public static class ItemCanonicalEndpoints
                 LinkStatusLabel = message,
                 FieldsApplied = fieldsApplied,
                 Message = message,
+                IdentityJobId = identityJobId,
+                PipelineState = identityJobId.HasValue ? IdentityJobState.QidResolved.ToString() : null,
             });
         })
         .WithName("ReplaceItemWikidataMatch")
@@ -852,10 +970,17 @@ public static class ItemCanonicalEndpoints
         {
             ("Music", "album") => new CanonicalTargetPolicy(mediaType, "container", "album",
                 [MetadataFieldConstants.Artist, MetadataFieldConstants.Album],
-                [MetadataFieldConstants.Title, MetadataFieldConstants.TrackNumber, MetadataFieldConstants.Year, MetadataFieldConstants.Composer, MetadataFieldConstants.Genre, MetadataFieldConstants.DurationField, "disc_number"],
-                [BridgeIdKeys.AppleArtistId, BridgeIdKeys.AppleMusicCollectionId, BridgeIdKeys.AppleMusicId, BridgeIdKeys.MusicBrainzId, BridgeIdKeys.MusicBrainzReleaseGroupId, BridgeIdKeys.MusicBrainzRecordingId],
-                ["album_qid"],
-                [MetadataFieldConstants.Artist, MetadataFieldConstants.Album, MetadataFieldConstants.Title],
+                [MetadataFieldConstants.Year, MetadataFieldConstants.Genre, MetadataFieldConstants.Description, "album_artist"],
+                [BridgeIdKeys.AppleArtistId, BridgeIdKeys.AppleMusicCollectionId, BridgeIdKeys.MusicBrainzId, BridgeIdKeys.MusicBrainzReleaseId, BridgeIdKeys.MusicBrainzReleaseGroupId],
+                [BridgeIdKeys.WikidataQid],
+                [MetadataFieldConstants.Artist, MetadataFieldConstants.Album],
+                true, true, true),
+            ("Music", "track") => new CanonicalTargetPolicy(mediaType, "item", "track",
+                [MetadataFieldConstants.Title, MetadataFieldConstants.Artist, MetadataFieldConstants.Album],
+                [MetadataFieldConstants.TrackNumber, MetadataFieldConstants.DurationField, MetadataFieldConstants.Composer, MetadataFieldConstants.Year, "disc_number"],
+                [BridgeIdKeys.AppleMusicId, BridgeIdKeys.MusicBrainzRecordingId, BridgeIdKeys.MusicBrainzWorkId, BridgeIdKeys.Isrc],
+                [BridgeIdKeys.WikidataQid],
+                [MetadataFieldConstants.Title, MetadataFieldConstants.Artist, MetadataFieldConstants.Album],
                 true, true, true),
             ("Music", "artist") => new CanonicalTargetPolicy(mediaType, "person", "artist",
                 [MetadataFieldConstants.Artist],
@@ -910,13 +1035,13 @@ public static class ItemCanonicalEndpoints
                 [MetadataFieldConstants.ShowName],
                 [MetadataFieldConstants.Year, MetadataFieldConstants.Network],
                 [BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId],
-                ["series_qid"],
+                [BridgeIdKeys.WikidataQid],
                 [MetadataFieldConstants.ShowName, MetadataFieldConstants.Year],
                 true, true, true),
             ("TV", "show_episode") => new CanonicalTargetPolicy(mediaType, string.IsNullOrWhiteSpace(targetKind) ? "item" : targetKind, "show_episode",
                 [MetadataFieldConstants.ShowName, MetadataFieldConstants.SeasonNumber, MetadataFieldConstants.EpisodeNumber],
                 [MetadataFieldConstants.EpisodeTitle, MetadataFieldConstants.Year, MetadataFieldConstants.Runtime, MetadataFieldConstants.Director, MetadataFieldConstants.CastMember],
-                [BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId],
+                [BridgeIdKeys.TmdbId, BridgeIdKeys.TmdbEpisodeId, BridgeIdKeys.ImdbId],
                 [BridgeIdKeys.WikidataQid],
                 [MetadataFieldConstants.ShowName, MetadataFieldConstants.SeasonNumber, MetadataFieldConstants.EpisodeNumber, MetadataFieldConstants.EpisodeTitle],
                 true, true, true),
@@ -955,8 +1080,9 @@ public static class ItemCanonicalEndpoints
         CanonicalTargetPolicy policy)
     {
         var allFields = BuildRetailFieldBag(candidate, mediaType, policy.TargetFieldGroup);
-        var requiredFields = ExtractFields(allFields, policy.RequiredFieldKeys);
-        var suggestedFields = ExtractFields(allFields, policy.SuggestedFieldKeys);
+        var allowContainerTitleAliases = IsContainerIdentityPolicy(policy);
+        var requiredFields = ExtractFields(allFields, policy.RequiredFieldKeys, allowContainerTitleAliases);
+        var suggestedFields = ExtractFields(allFields, policy.SuggestedFieldKeys, allowContainerTitleAliases);
         var bridgeIds = ExtractFields(allFields, policy.BridgeIdKeys);
         var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
 
@@ -1125,19 +1251,26 @@ public static class ItemCanonicalEndpoints
         return fields;
     }
 
-    private static Dictionary<string, string> ExtractFields(IReadOnlyDictionary<string, string> source, IEnumerable<string> keys)
+    private static Dictionary<string, string> ExtractFields(
+        IReadOnlyDictionary<string, string> source,
+        IEnumerable<string> keys,
+        bool allowContainerTitleAliases = true)
     {
         var output = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var key in keys)
         {
-            if (TryResolveFieldValue(source, key, out var value))
+            if (TryResolveFieldValue(source, key, allowContainerTitleAliases, out var value))
                 output[key] = value;
         }
 
         return output;
     }
 
-    private static bool TryResolveFieldValue(IReadOnlyDictionary<string, string> source, string key, out string value)
+    private static bool TryResolveFieldValue(
+        IReadOnlyDictionary<string, string> source,
+        string key,
+        bool allowContainerTitleAliases,
+        out string value)
     {
         if (source.TryGetValue(key, out value!) && !string.IsNullOrWhiteSpace(value))
             return true;
@@ -1146,9 +1279,9 @@ public static class ItemCanonicalEndpoints
         {
             MetadataFieldConstants.Artist => [MetadataFieldConstants.Author],
             MetadataFieldConstants.Author => [MetadataFieldConstants.Artist],
-            MetadataFieldConstants.Album => [MetadataFieldConstants.Title],
-            MetadataFieldConstants.Series => [MetadataFieldConstants.Title],
-            MetadataFieldConstants.ShowName => [MetadataFieldConstants.Title],
+            MetadataFieldConstants.Album when allowContainerTitleAliases => [MetadataFieldConstants.Title],
+            MetadataFieldConstants.Series when allowContainerTitleAliases => [MetadataFieldConstants.Title],
+            MetadataFieldConstants.ShowName when allowContainerTitleAliases => [MetadataFieldConstants.Title],
             _ => Array.Empty<string>(),
         };
 
@@ -1168,7 +1301,10 @@ public static class ItemCanonicalEndpoints
         if (normalized.Contains("comic"))
             return BridgeIdKeys.ComicVineId;
         if (normalized.Contains("tmdb"))
-            return BridgeIdKeys.TmdbId;
+            return string.Equals(mediaType, MediaType.TV.ToString(), StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(targetFieldGroup, "show_episode", StringComparison.OrdinalIgnoreCase)
+                ? BridgeIdKeys.TmdbEpisodeId
+                : BridgeIdKeys.TmdbId;
         if (normalized.Contains("imdb"))
             return BridgeIdKeys.ImdbId;
         if (normalized.Contains("audible"))
@@ -1220,6 +1356,121 @@ public static class ItemCanonicalEndpoints
         }
 
         return toClear;
+    }
+
+    private static async Task<string?> FindChildParentIdentityConflictAsync(
+        CanonicalTargetPolicy policy,
+        WorkLineage lineage,
+        IReadOnlyDictionary<string, string> selectedFields,
+        IReadOnlyDictionary<string, string> selectedBridgeIds,
+        ICanonicalValueRepository canonicalRepo,
+        IBridgeIdRepository bridgeIdRepo,
+        CancellationToken ct)
+    {
+        if (lineage.TargetForSelfScope == lineage.TargetForParentScope)
+            return null;
+
+        string? parentField = policy.TargetFieldGroup switch
+        {
+            "show_episode" => MetadataFieldConstants.ShowName,
+            "track" => MetadataFieldConstants.Album,
+            _ => null,
+        };
+        if (string.IsNullOrWhiteSpace(parentField))
+            return null;
+
+        var parentCanonicals = await canonicalRepo.GetByEntityAsync(lineage.TargetForParentScope, ct);
+        var currentParentName = parentCanonicals
+            .FirstOrDefault(value => string.Equals(value.Key, parentField, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? parentCanonicals.FirstOrDefault(value =>
+                string.Equals(value.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        if (selectedFields.TryGetValue(parentField, out var selectedParentName)
+            && !string.IsNullOrWhiteSpace(currentParentName)
+            && !IdentityTextEquals(currentParentName, selectedParentName))
+        {
+            var childLabel = policy.TargetFieldGroup == "show_episode" ? "episode" : "track";
+            var parentLabel = policy.TargetFieldGroup == "show_episode" ? "series" : "album";
+            return $"This {childLabel} match belongs to '{selectedParentName}', not the current {parentLabel} '{currentParentName}'. Move the {childLabel} from the Details panel before applying this identity match.";
+        }
+
+        if (policy.TargetFieldGroup == "show_episode"
+            && selectedBridgeIds.TryGetValue(BridgeIdKeys.TmdbId, out var selectedShowId))
+        {
+            var existingShowId = await bridgeIdRepo.FindAsync(lineage.TargetForParentScope, BridgeIdKeys.TmdbId, ct);
+            if (existingShowId is not null
+                && !string.Equals(existingShowId.IdValue, selectedShowId, StringComparison.OrdinalIgnoreCase))
+            {
+                return "This episode match resolves to a different TMDB series. Move the episode from the Details panel before applying the episode identity.";
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IdentityTextEquals(string left, string right)
+    {
+        static string Normalize(string value) =>
+            new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+
+        return string.Equals(Normalize(left), Normalize(right), StringComparison.Ordinal);
+    }
+
+    private static Guid ResolvePolicyIdentityTarget(
+        Guid assetId,
+        WorkLineage lineage,
+        CanonicalTargetPolicy policy) =>
+        IsContainerIdentityPolicy(policy)
+            ? lineage.TargetForParentScope
+            : assetId;
+
+    private static Guid ResolvePolicyScopedTarget(
+        Guid assetId,
+        WorkLineage lineage,
+        CanonicalTargetPolicy policy,
+        string key) =>
+        IsContainerIdentityPolicy(policy) || ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
+            ? lineage.TargetForParentScope
+            : assetId;
+
+    private static Guid ResolvePolicyWorkTarget(
+        WorkLineage lineage,
+        CanonicalTargetPolicy policy,
+        string key) =>
+        IsContainerIdentityPolicy(policy) || ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
+            ? lineage.TargetForParentScope
+            : lineage.TargetForSelfScope;
+
+    private static bool IsContainerIdentityPolicy(CanonicalTargetPolicy policy) =>
+        string.Equals(policy.TargetKind, "container", StringComparison.OrdinalIgnoreCase);
+
+    private static async Task ReplaceScopedExternalIdentifiersAsync(
+        WorkLineage lineage,
+        CanonicalTargetPolicy policy,
+        IReadOnlyCollection<string> staleKeys,
+        IReadOnlyDictionary<string, string> replacements,
+        IItemCanonicalDataService itemCanonicalData,
+        CancellationToken ct)
+    {
+        var targetWorkIds = policy.BridgeIdKeys
+            .Concat(replacements.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .GroupBy(key => ResolvePolicyWorkTarget(lineage, policy, key));
+
+        foreach (var target in targetWorkIds)
+        {
+            var keysForTarget = staleKeys
+                .Where(key => ResolvePolicyWorkTarget(lineage, policy, key) == target.Key)
+                .ToList();
+            var replacementsForTarget = replacements
+                .Where(pair => ResolvePolicyWorkTarget(lineage, policy, pair.Key) == target.Key)
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+            await itemCanonicalData.ReplaceExternalIdentifiersAsync(
+                target.Key,
+                keysForTarget,
+                replacementsForTarget,
+                ct);
+        }
     }
 
     private static Guid ResolveScopedTarget(Guid assetId, WorkLineage? lineage, string key)

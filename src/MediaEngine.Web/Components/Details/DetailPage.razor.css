@@ -6266,13 +6266,19 @@
 
 ::deep .tl-series-item__title-row {
     min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 2rem;
+    display: flex;
     align-items: start;
     gap: 0.35rem;
 }
 
+::deep .tl-series-item__title-row .tl-series-item__title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 ::deep .tl-series-episode-details.app-icon-button {
+    flex: 0 0 2rem;
+    align-self: flex-start;
     width: 2rem !important;
     min-width: 2rem !important;
     height: 2rem !important;
