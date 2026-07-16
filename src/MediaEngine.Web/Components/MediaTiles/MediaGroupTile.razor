@@ -2,148 +2,148 @@
 @using MediaEngine.Web.Components.Shared
 @inject NavigationManager Nav
 
-<AppCssElement Tag="article"
-               Class="media-group-tile"
-               Css="@TileStyle"
-               OnKeyDown="HandleKeyDown"
-               aria-label="@Item.Title">
-    <div class="media-group-tile__frame">
-        <a class="media-group-tile__base"
-           href="@GroupNavigationUrl"
-           aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
-           @onclick="OpenGroupAsync"
-           @onclick:preventDefault="true">
-            <div class="media-group-tile__atmosphere" aria-hidden="true"></div>
+<AppCssElement Tag="div" Css="@($"display: contents; {TileStyle}")">
+    <article class="media-group-tile"
+             aria-label="@Item.Title"
+             @onkeydown="HandleKeyDown">
+        <div class="media-group-tile__frame">
+            <a class="media-group-tile__base"
+               href="@GroupNavigationUrl"
+               aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
+               @onclick="OpenGroupAsync"
+               @onclick:preventDefault="true">
+                <div class="media-group-tile__atmosphere" aria-hidden="true"></div>
 
-            @if (RestingItems.Count > 0)
-            {
-                <div class="media-group-tile__resting-stack" aria-hidden="true">
-                    @for (var index = 0; index < RestingItems.Count; index++)
-                    {
-                        var artwork = RestingItems[index];
-                        <img @key="artwork.Id"
-                             src="@artwork.ImageUrl"
-                             alt=""
-                             class="@RestingArtworkClass(artwork, index)"
-                             loading="lazy"
-                             decoding="async" />
-                    }
-                </div>
-            }
-            else
-            {
-                <div class="media-group-tile__fallback">
-                    <MudIcon Icon="@GroupKindIcon" />
-                </div>
-            }
-
-            <div class="media-group-tile__base-copy">
-                <span class="media-group-tile__kind">
-                    <MudIcon Icon="@GroupKindIcon" />
-                    <span>@GroupKindLabel</span>
-                </span>
-                <strong>@Item.Title</strong>
-                <span>@GroupCountLabel</span>
-            </div>
-        </a>
-
-        @if (ShowCarousel && ActiveItem is { } activeItem)
-        {
-            <div class="media-group-tile__carousel"
-                 role="group"
-                 aria-label="@($"{Item.Title} item carousel")">
-                <div class="media-group-tile__carousel-atmosphere" aria-hidden="true"></div>
-
-                <span class="media-group-tile__carousel-kind">
-                    <MudIcon Icon="@GroupKindIcon" />
-                    <span>@GroupKindLabel</span>
-                </span>
-
-                <div class="media-group-tile__carousel-stage">
-                    @if (PreviousItem is { } previousItem)
-                    {
-                        <img src="@previousItem.ImageUrl"
-                             alt=""
-                             class="@CarouselSideArtworkClass(previousItem, "is-previous")"
-                             loading="lazy"
-                             decoding="async" />
-                    }
-
-                    <AppNativeButton Type="button"
-                                     Class="media-group-tile__arrow is-previous"
-                                     AriaLabel="Previous item"
-                                     Title="Previous item"
-                                     Disabled="@(!CanPrevious)"
-                                     StopPropagation="true"
-                                     OnClick="ShowPrevious">
-                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
-                    </AppNativeButton>
-
-                    <AppNativeButton Type="button"
-                                     Class="@ActiveArtworkButtonClass(activeItem)"
-                                     AriaLabel="@($"Open {activeItem.Title}")"
-                                     Title="@($"Open {activeItem.Title}")"
-                                     StopPropagation="true"
-                                     OnClick="OpenActiveItemAsync">
-                        <img src="@activeItem.ImageUrl"
-                             alt="@activeItem.Title"
-                             loading="lazy"
-                             decoding="async" />
-                    </AppNativeButton>
-
-                    <AppNativeButton Type="button"
-                                     Class="media-group-tile__arrow is-next"
-                                     AriaLabel="Next item"
-                                     Title="Next item"
-                                     Disabled="@(!CanNext)"
-                                     StopPropagation="true"
-                                     OnClick="ShowNext">
-                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
-                    </AppNativeButton>
-
-                    @if (NextItem is { } nextItem)
-                    {
-                        <img src="@nextItem.ImageUrl"
-                             alt=""
-                             class="@CarouselSideArtworkClass(nextItem, "is-next")"
-                             loading="lazy"
-                             decoding="async" />
-                    }
-                </div>
-
-                <div class="media-group-tile__carousel-copy">
-                    <div class="media-group-tile__selected-copy">
-                        <strong>@activeItem.Title</strong>
-                        <span>@ActivePositionLabel</span>
+                @if (RestingItems.Count > 0)
+                {
+                    <div class="media-group-tile__resting-stack" aria-hidden="true">
+                        @for (var index = 0; index < RestingItems.Count; index++)
+                        {
+                            var artwork = RestingItems[index];
+                            <img @key="artwork.Id"
+                                 src="@artwork.ImageUrl"
+                                 alt=""
+                                 class="@RestingArtworkClass(artwork, index)"
+                                 loading="lazy"
+                                 decoding="async" />
+                        }
                     </div>
+                }
+                else
+                {
+                    <div class="media-group-tile__fallback">
+                        <MudIcon Icon="@GroupKindIcon" />
+                    </div>
+                }
 
-                    <div class="media-group-tile__carousel-actions">
+                <div class="media-group-tile__base-copy">
+                    <span class="media-group-tile__kind">
+                        <MudIcon Icon="@GroupKindIcon" />
+                        <span>@GroupKindLabel</span>
+                    </span>
+                    <strong>@Item.Title</strong>
+                    <span>@GroupCountLabel</span>
+                </div>
+            </a>
+
+            @if (ShowCarousel && ActiveItem is { } activeItem)
+            {
+                <div class="media-group-tile__carousel"
+                     role="group"
+                     aria-label="@($"{Item.Title} item carousel")">
+                    <div class="media-group-tile__carousel-atmosphere" aria-hidden="true"></div>
+
+                    <span class="media-group-tile__carousel-kind">
+                        <MudIcon Icon="@GroupKindIcon" />
+                        <span>@GroupKindLabel</span>
+                    </span>
+
+                    <div class="media-group-tile__carousel-stage">
+                        @if (PreviousItem is { } previousItem)
+                        {
+                            <img src="@previousItem.ImageUrl"
+                                 alt=""
+                                 class="@CarouselSideArtworkClass(previousItem, "is-previous")"
+                                 loading="lazy"
+                                 decoding="async" />
+                        }
+
                         <AppNativeButton Type="button"
-                                         Class="tl-media-action tl-media-action--primary tl-media-action--compact media-group-tile__open-item"
+                                         Class="media-group-tile__arrow is-previous"
+                                         AriaLabel="Previous item"
+                                         Title="Previous item"
+                                         Disabled="@(!CanPrevious)"
+                                         StopPropagation="true"
+                                         OnClick="ShowPrevious">
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
+                        </AppNativeButton>
+
+                        <AppNativeButton Type="button"
+                                         Class="@ActiveArtworkButtonClass(activeItem)"
                                          AriaLabel="@($"Open {activeItem.Title}")"
                                          Title="@($"Open {activeItem.Title}")"
                                          StopPropagation="true"
                                          OnClick="OpenActiveItemAsync">
-                            <MudIcon Icon="@ActiveItemIcon" />
-                            <span>@ActiveItemActionLabel</span>
+                            <img src="@activeItem.ImageUrl"
+                                 alt="@activeItem.Title"
+                                 loading="lazy"
+                                 decoding="async" />
                         </AppNativeButton>
 
                         <AppNativeButton Type="button"
-                                         Class="tl-media-action tl-media-action--flat tl-media-action--compact media-group-tile__open-group"
-                                         AriaLabel="@($"Open {GroupKindLabel} {Item.Title}")"
-                                         Title="@($"Open {GroupKindLabel} {Item.Title}")"
+                                         Class="media-group-tile__arrow is-next"
+                                         AriaLabel="Next item"
+                                         Title="Next item"
+                                         Disabled="@(!CanNext)"
                                          StopPropagation="true"
-                                         OnClick="OpenGroupAsync">
-                            <MudIcon Icon="@Icons.Material.Outlined.List" />
-                            <span>Open @ShortGroupKindLabel</span>
+                                         OnClick="ShowNext">
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
                         </AppNativeButton>
+
+                        @if (NextItem is { } nextItem)
+                        {
+                            <img src="@nextItem.ImageUrl"
+                                 alt=""
+                                 class="@CarouselSideArtworkClass(nextItem, "is-next")"
+                                 loading="lazy"
+                                 decoding="async" />
+                        }
                     </div>
 
-                    <span class="media-group-tile__position">@(_activeIndex + 1) of @CarouselItems.Count</span>
+                    <div class="media-group-tile__carousel-copy">
+                        <div class="media-group-tile__selected-copy">
+                            <strong>@activeItem.Title</strong>
+                            <span>@ActivePositionLabel</span>
+                        </div>
+
+                        <div class="media-group-tile__carousel-actions">
+                            <AppNativeButton Type="button"
+                                             Class="tl-media-action tl-media-action--primary tl-media-action--compact media-group-tile__open-item"
+                                             AriaLabel="@($"Open {activeItem.Title}")"
+                                             Title="@($"Open {activeItem.Title}")"
+                                             StopPropagation="true"
+                                             OnClick="OpenActiveItemAsync">
+                                <MudIcon Icon="@ActiveItemIcon" />
+                                <span>@ActiveItemActionLabel</span>
+                            </AppNativeButton>
+
+                            <AppNativeButton Type="button"
+                                             Class="tl-media-action tl-media-action--flat tl-media-action--compact media-group-tile__open-group"
+                                             AriaLabel="@($"Open {GroupKindLabel} {Item.Title}")"
+                                             Title="@($"Open {GroupKindLabel} {Item.Title}")"
+                                             StopPropagation="true"
+                                             OnClick="OpenGroupAsync">
+                                <MudIcon Icon="@Icons.Material.Outlined.List" />
+                                <span>Open @ShortGroupKindLabel</span>
+                            </AppNativeButton>
+                        </div>
+
+                        <span class="media-group-tile__position">@(_activeIndex + 1) of @CarouselItems.Count</span>
+                    </div>
                 </div>
-            </div>
-        }
-    </div>
+            }
+        </div>
+    </article>
 </AppCssElement>
 
 @code {

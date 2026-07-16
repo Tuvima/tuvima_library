@@ -197,7 +197,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     {
         var group = CreateGroupTile();
         var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
+        var root = cut.Find("article.media-group-tile");
 
+        Assert.Contains(root.Attributes, attribute => attribute.Name.StartsWith("b-", StringComparison.Ordinal));
         Assert.Contains("Foundation", cut.Find(".media-group-tile__selected-copy").TextContent);
         Assert.Empty(cut.FindAll(".media-tile"));
 
@@ -213,7 +215,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.EndsWith("/book/2?mode=read", nav.Uri, StringComparison.Ordinal);
 
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
-        Assert.Contains("aspect-ratio: 16 / 10", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-width: clamp(520px, 38vw, 720px)", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-height: clamp(400px, 25vw, 500px)", css, StringComparison.Ordinal);
+        Assert.Contains("height: 100%", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".media-group-tile:hover {\n    transform:", css.ReplaceLineEndings("\n"), StringComparison.Ordinal);
     }
 

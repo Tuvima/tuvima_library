@@ -49,7 +49,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("item.UseLandscapeGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("<MediaGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("media-group-tile__carousel", groupTileSource, StringComparison.Ordinal);
-        Assert.Contains("aspect-ratio: 16 / 10", groupTileStylesSource, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-width: clamp(520px, 38vw, 720px)", groupTileStylesSource, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-height: clamp(400px, 25vw, 500px)", groupTileStylesSource, StringComparison.Ordinal);
         Assert.Contains("PreviewTotalCount = collection.ItemCount", source, StringComparison.Ordinal);
         Assert.Contains("TileTextMode = MediaTileTextMode.CoverOnly", source, StringComparison.Ordinal);
         Assert.Contains("Take(5)", source, StringComparison.Ordinal);

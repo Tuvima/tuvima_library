@@ -1,10 +1,13 @@
 .media-group-tile {
     --media-group-accent: var(--tl-accent-primary);
     --media-group-secondary: #111827;
+    --media-group-tile-width: clamp(520px, 38vw, 720px);
+    --media-group-tile-height: clamp(400px, 25vw, 500px);
     position: relative;
-    flex: 0 0 clamp(330px, 22vw, 430px);
-    width: clamp(330px, 22vw, 430px);
-    max-width: min(86vw, 430px);
+    flex: 0 0 min(calc(100vw - 32px), var(--media-group-tile-width));
+    width: min(calc(100vw - 32px), var(--media-group-tile-width));
+    height: var(--media-group-tile-height);
+    min-width: 0;
     scroll-snap-align: start;
     font-family: var(--font-ui);
 }
@@ -12,7 +15,7 @@
 .media-group-tile__frame {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 10;
+    height: 100%;
     overflow: hidden;
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: var(--tl-radius-lg);
@@ -376,8 +379,10 @@
 
 @media (max-width: 720px) {
     .media-group-tile {
-        flex-basis: min(84vw, 370px);
-        width: min(84vw, 370px);
+        --media-group-tile-width: min(88vw, 560px);
+        --media-group-tile-height: clamp(300px, 58vw, 410px);
+        flex-basis: var(--media-group-tile-width);
+        width: var(--media-group-tile-width);
     }
 }
 
