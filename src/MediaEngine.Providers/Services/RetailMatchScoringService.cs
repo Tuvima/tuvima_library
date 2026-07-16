@@ -97,51 +97,7 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         var fileAuthor = GetCreatorHint(fileHints, mediaType);
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
-            // First try a full-string comparison (handles single-author and matching order).
-            authorScore = AreEquivalentComparableText(fileAuthor, candidateAuthor)
-                ? 1.0
-                : _fuzzy.ComputeTokenSetRatio(fileAuthor, candidateAuthor);
-
-            // When the full-string score is low, split on common multi-author
-            // separators and compare each individual name independently.
-            // "Neil Gaiman & Terry Pratchett" vs "Terry Pratchett" scores 0.5 (1 of 2).
-            if (authorScore < 0.70)
-            {
-                var fileAuthors = SplitAuthors(fileAuthor);
-                var candidateAuthors = SplitAuthors(candidateAuthor);
-
-                if (fileAuthors.Count > 1 || candidateAuthors.Count > 1)
-                {
-                    // For each file author, find the best matching candidate author.
-                    int matched = 0;
-                    var usedCandidates = new HashSet<int>();
-                    foreach (var fa in fileAuthors)
-                    {
-                        double bestMatch = 0.0;
-                        int bestIdx = -1;
-                        for (int i = 0; i < candidateAuthors.Count; i++)
-                        {
-                            if (usedCandidates.Contains(i)) continue;
-                            var sim = _fuzzy.ComputeTokenSetRatio(fa, candidateAuthors[i]);
-                            if (sim > bestMatch)
-                            {
-                                bestMatch = sim;
-                                bestIdx = i;
-                            }
-                        }
-                        if (bestMatch >= 0.70 && bestIdx >= 0)
-                        {
-                            matched++;
-                            usedCandidates.Add(bestIdx);
-                        }
-                    }
-
-                    // Proportional: 2 of 2 = 1.0, 1 of 2 = 0.5, 0 of 2 = 0.0
-                    var splitScore = (double)matched / Math.Max(fileAuthors.Count, candidateAuthors.Count);
-                    if (splitScore > authorScore)
-                        authorScore = splitScore;
-                }
-            }
+            authorScore = ComputeCreatorScore(fileAuthor, candidateAuthor);
         }
         else if (string.IsNullOrWhiteSpace(candidateAuthor) && !string.IsNullOrWhiteSpace(fileAuthor))
         {
@@ -519,5 +475,87 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             .Select(p => p.Trim())
             .Where(p => p.Length > 0)
             .ToList();
+    }
+
+    private double ComputeCreatorScore(string fileCreator, string candidateCreator)
+    {
+        if (HaveSameCreatorTokens(fileCreator, candidateCreator))
+            return 1.0;
+
+        var fileCreators = SplitAuthors(fileCreator);
+        var candidateCreators = SplitAuthors(candidateCreator);
+        if (fileCreators.Count == 1 && candidateCreators.Count == 1)
+            return _fuzzy.ComputeTokenSetRatio(fileCreator, candidateCreator);
+
+        // Creator lists must be compared member-by-member. Token-set similarity alone
+        // treats a shorter list as a perfect subset of a longer one, so a candidate such
+        // as "J. R. R. Tolkien & Rafat Allam" would otherwise score 1.0 against Tolkien.
+        int matched = 0;
+        var usedCandidates = new HashSet<int>();
+        foreach (var fileCreatorPart in fileCreators)
+        {
+            double bestMatch = 0.0;
+            int bestIndex = -1;
+            for (int i = 0; i < candidateCreators.Count; i++)
+            {
+                if (usedCandidates.Contains(i))
+                    continue;
+
+                var similarity = AreEquivalentComparableText(fileCreatorPart, candidateCreators[i])
+                    ? 1.0
+                    : _fuzzy.ComputeTokenSetRatio(fileCreatorPart, candidateCreators[i]);
+                if (similarity > bestMatch)
+                {
+                    bestMatch = similarity;
+                    bestIndex = i;
+                }
+            }
+
+            if (bestMatch >= 0.70 && bestIndex >= 0)
+            {
+                matched++;
+                usedCandidates.Add(bestIndex);
+            }
+        }
+
+        return (double)matched / Math.Max(fileCreators.Count, candidateCreators.Count);
+    }
+
+    private static bool HaveSameCreatorTokens(string left, string right)
+    {
+        var leftTokens = GetCreatorTokens(left);
+        var rightTokens = GetCreatorTokens(right);
+
+        return leftTokens.SetEquals(rightTokens);
+    }
+
+    private static HashSet<string> GetCreatorTokens(string value)
+    {
+        var words = NormalizeComparableText(value)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(token => !string.Equals(token, "and", StringComparison.Ordinal))
+            .ToList();
+        var tokens = new HashSet<string>(StringComparer.Ordinal);
+
+        for (int i = 0; i < words.Count; i++)
+        {
+            if (words[i].Length == 1)
+            {
+                var initials = new StringBuilder();
+                while (i < words.Count && words[i].Length == 1)
+                {
+                    initials.Append(words[i]);
+                    i++;
+                }
+
+                tokens.Add(initials.ToString());
+                i--;
+                continue;
+            }
+
+            tokens.Add(words[i]);
+        }
+
+        return tokens;
     }
 }

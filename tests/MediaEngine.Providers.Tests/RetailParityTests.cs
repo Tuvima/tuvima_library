@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Intelligence.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
@@ -34,7 +35,7 @@ public sealed class RetailParityTests
     {
         _output = output;
         _scorer = new RetailMatchScoringService(
-            new StubFuzzyMatchingService(),
+            new FuzzyMatchingService(),
             new MinimalConfigLoader(),
             coverArtHash: null,
             logger: null);
@@ -145,6 +146,67 @@ public sealed class RetailParityTests
         Assert.Equal(1.0, score.TitleScore);
         Assert.Equal(1.0, score.AuthorScore);
         Assert.True(score.CompositeScore >= 0.95);
+    }
+
+    [Theory]
+    [InlineData("J. R. R. Tolkien", "J. R. R. Tolkien & Rafat Allam", 0.5)]
+    [InlineData("J. R. R. Tolkien & Rafat Allam", "J. R. R. Tolkien", 0.5)]
+    [InlineData("Neil Gaiman & Terry Pratchett", "Terry Pratchett and Neil Gaiman", 1.0)]
+    [InlineData("J. R. R. Tolkien", "Tolkien, J. R. R.", 1.0)]
+    [InlineData("JRR Tolkien", "Tolkien, J. R. R.", 1.0)]
+    public void ScoreCandidate_ComparesCreatorListsProportionally(
+        string fileAuthor,
+        string candidateAuthor,
+        double expectedAuthorScore)
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "The Two Towers",
+            [MetadataFieldConstants.Author] = fileAuthor,
+            [MetadataFieldConstants.Year] = "1954",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "The Two Towers",
+            candidateAuthor: candidateAuthor,
+            candidateYear: "2025",
+            mediaType: MediaType.Books);
+
+        Assert.Equal(expectedAuthorScore, score.AuthorScore);
+    }
+
+    [Fact]
+    public void ScoreCandidate_ExtraRetailCreatorCannotProducePerfectOrAutoAcceptedMatch()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "The Two Towers",
+            [MetadataFieldConstants.Author] = "J. R. R. Tolkien",
+            [MetadataFieldConstants.Year] = "1954",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "THE TWO TOWERS",
+            candidateAuthor: "J. R. R. Tolkien & Rafat Allam",
+            candidateYear: "2025",
+            mediaType: MediaType.Books);
+        var decision = new RetailCandidateScorer().EvaluateDecision(
+            fileHints,
+            candidateTitle: "THE TWO TOWERS",
+            candidateCreator: "J. R. R. Tolkien & Rafat Allam",
+            candidateYear: "2025",
+            retailScore: score,
+            finalScore: score.CompositeScore,
+            retailAcceptThreshold: 0.90,
+            retailAmbiguousThreshold: 0.65,
+            matchContext: "single_item",
+            mediaType: MediaType.Books);
+
+        Assert.Equal(0.5, score.AuthorScore);
+        Assert.True(score.CompositeScore < 0.90);
+        Assert.Equal("Ambiguous", decision.Outcome);
     }
 
     [Fact]
@@ -272,19 +334,6 @@ public sealed class RetailParityTests
     }
 
     // ── Stubs ─────────────────────────────────────────────────────────────────
-
-    /// <summary>Deterministic fuzzy matcher: identical strings = 1.0, else 0.0.</summary>
-    private sealed class StubFuzzyMatchingService : IFuzzyMatchingService
-    {
-        public double ComputeTokenSetRatio(string a, string b) =>
-            string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase) ? 1.0 : 0.0;
-
-        public double ComputePartialRatio(string a, string b) =>
-            string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase) ? 1.0 : 0.0;
-
-        public FieldMatchResult ScoreCandidate(LocalMetadata local, CandidateMetadata candidate) =>
-            new() { TitleScore = 1.0, AuthorScore = 1.0, YearScore = 1.0, CompositeScore = 1.0 };
-    }
 
     /// <summary>Minimal config loader returning default HydrationSettings (default fuzzy match weights).</summary>
     private sealed class MinimalConfigLoader : IConfigurationLoader

@@ -506,9 +506,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("options.Any(IsTrustedContainerOption)", source);
         Assert.Contains("!IsTitleOnlyContainerOption(option)", source);
         Assert.Contains("CanChooseDistinctContainer", source);
-        Assert.Contains("grid-template-columns: minmax(16rem, 1fr) max-content;", styles);
-        Assert.Contains("padding: 0.35rem 0.65rem;", styles);
-        Assert.Contains("min-height: 2rem;", styles);
+        Assert.Contains("grid-template-columns: minmax(0, 1fr) max-content;", styles);
+        Assert.Contains("text-overflow: ellipsis !important;", styles);
+        Assert.Contains("padding-right: 2.15rem !important;", styles);
+        Assert.Contains("tl-series-default-control", source);
+        Assert.Contains("Icons.Material.Outlined.StarOutline", source);
+        Assert.Contains("Use as your default series", source);
         Assert.Contains("!string.Equals(group.Key, \"all\"", source);
         Assert.DoesNotContain("ContainerOptionLabel", source);
         Assert.DoesNotContain("ContainerSourceLabel", source);

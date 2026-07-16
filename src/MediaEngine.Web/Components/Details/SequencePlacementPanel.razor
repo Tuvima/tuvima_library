@@ -47,9 +47,13 @@
                                aria-label="Choose series" />
                     @if (ShowSetDefault)
                     {
-                        <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
-                            Make default
-                        </AppNativeButton>
+                        <div class="tl-series-default-control">
+                            <AppNativeButton Type="button" Class="tl-series-default-action" Disabled="@_settingDefault" OnClick="SetDefaultSequenceAsync">
+                                <MudIcon Icon="@Icons.Material.Outlined.StarOutline" Size="Size.Small" />
+                                <span>Make default</span>
+                            </AppNativeButton>
+                            <small>Use as your default series</small>
+                        </div>
                     }
                 </div>
             }

@@ -6045,14 +6045,15 @@
 /* Series selectors use one control scale and preserve normal reading alignment. */
 ::deep .tl-series-control-row {
     width: min(100%, 46rem);
-    grid-template-columns: minmax(16rem, 1fr) max-content;
-    align-items: center;
-    gap: 0.65rem;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: start;
+    gap: 0.75rem;
 }
 
 ::deep .tl-series-control-row > .tl-series-control {
     height: 4.25rem;
     min-height: 4.25rem;
+    min-width: 0;
 }
 
 ::deep .tl-series-control .mud-input-control,
@@ -6078,27 +6079,62 @@
 }
 
 ::deep .tl-series-control--set .mud-input-adornment-start {
-    margin-right: 0.25rem !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin-right: 0.1rem !important;
+    padding: 0 !important;
+    overflow: visible !important;
 }
 
-::deep .tl-series-control--set .mud-select-input {
-    flex: 0 1 auto !important;
-    width: auto !important;
-    margin-right: auto !important;
-    padding-left: 0.3rem !important;
+::deep .tl-series-control--set .mud-input-slot.mud-select-input {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    padding-left: 0.15rem !important;
+    padding-right: 2.15rem !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+::deep .tl-series-control--set .mud-input-control-input-container::after {
+    right: 0.9rem;
+}
+
+::deep .tl-series-default-control {
+    display: grid;
+    gap: 0.35rem;
+    justify-items: start;
+    min-width: max-content;
+}
+
+::deep .tl-series-default-control small {
+    color: rgba(218, 225, 240, 0.62);
+    font-size: 0.68rem;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 ::deep .tl-series-default-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
     align-self: center;
     width: auto;
     min-width: 0;
-    min-height: 2rem;
+    min-height: 2.35rem;
     height: auto;
-    padding: 0.35rem 0.65rem;
+    padding: 0.4rem 0.7rem;
     border-radius: 0.55rem;
-    font-size: 0.7rem;
+    font-size: 0.74rem;
     line-height: 1.1;
     white-space: nowrap;
+}
+
+::deep .tl-series-default-action .mud-icon-root {
+    color: currentColor;
+    font-size: 1.05rem;
 }
 
 ::deep .tl-series-show-link {
