@@ -10,6 +10,14 @@ using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
 
+public sealed record RetailArtworkReplacementResult(
+    bool ArtworkChanged,
+    bool CoverDownloaded,
+    Guid OwnerEntityId,
+    Guid? PreferredVariantId,
+    int RemovedVariantCount,
+    string Message);
+
 /// <summary>
 /// Downloads cover art from provider URLs, computes perceptual hashes for dedup,
 /// and stamps measured artwork metadata plus display renditions.
@@ -54,6 +62,178 @@ public sealed class CoverArtWorker
         _logger = logger;
         _coverArtHash = coverArtHash;
         _eventPublisher = eventPublisher;
+    }
+
+    /// <summary>
+    /// Replaces provider-managed artwork after a user selects a different retail identity.
+    /// The new cover is downloaded before stale provider variants are removed, so readers
+    /// never observe the old identity after this call completes. User-uploaded variants are
+    /// retained as alternatives.
+    /// </summary>
+    public async Task<RetailArtworkReplacementResult> ReplaceProviderArtworkAsync(
+        Guid entityId,
+        string? coverUrl,
+        string providerSource,
+        Guid providerId,
+        CancellationToken ct)
+    {
+        if (_entityAssetRepo is null)
+        {
+            return new RetailArtworkReplacementResult(
+                false,
+                false,
+                entityId,
+                null,
+                0,
+                "Artwork storage is unavailable for immediate replacement.");
+        }
+
+        var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+        var ownerEntityId = ResolveCoverOwnerEntityId(entityId, lineage);
+        var before = await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), ct: ct);
+        var staleProviderArtwork = before
+            .Where(IsReplaceableProviderArtwork)
+            .ToList();
+
+        var normalizedCoverUrl = NormalizeRemoteArtworkUrl(coverUrl);
+        EntityAsset? replacement = null;
+        if (normalizedCoverUrl is not null)
+        {
+            var now = DateTimeOffset.UtcNow;
+            await _canonicalRepo.UpsertBatchAsync(
+            [
+                new CanonicalValue
+                {
+                    EntityId = ownerEntityId,
+                    Key = MetadataFieldConstants.Cover,
+                    Value = normalizedCoverUrl,
+                    LastScoredAt = now,
+                    WinningProviderId = providerId,
+                },
+                new CanonicalValue
+                {
+                    EntityId = ownerEntityId,
+                    Key = MetadataFieldConstants.CoverSource,
+                    Value = providerSource,
+                    LastScoredAt = now,
+                    WinningProviderId = providerId,
+                },
+                .. ArtworkCanonicalHelper.CreateFlags(
+                    ownerEntityId,
+                    coverState: "pending",
+                    coverSource: null,
+                    heroState: "pending",
+                    lastScoredAt: now,
+                    settled: false),
+            ], ct);
+
+            try
+            {
+                await DownloadAndPersistAsync(entityId, wikidataQid: null, ct);
+                replacement = (await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), "CoverArt", ct))
+                    .FirstOrDefault(asset =>
+                        string.Equals(asset.ImageUrl, normalizedCoverUrl, StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(asset.LocalImagePath)
+                        && File.Exists(asset.LocalImagePath));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Immediate retail artwork download failed for entity {EntityId} from {CoverUrl}",
+                    entityId,
+                    normalizedCoverUrl);
+                await _canonicalRepo.UpsertBatchAsync(
+                    ArtworkCanonicalHelper.CreateFlags(
+                        ownerEntityId,
+                        coverState: "missing",
+                        coverSource: "provider_download_failed",
+                        heroState: "missing",
+                        lastScoredAt: DateTimeOffset.UtcNow,
+                        settled: true),
+                    ct);
+            }
+        }
+        else
+        {
+            await _canonicalRepo.DeleteByKeyAsync(ownerEntityId, MetadataFieldConstants.Cover, ct);
+            await _canonicalRepo.DeleteByKeyAsync(ownerEntityId, MetadataFieldConstants.CoverSource, ct);
+            await _canonicalRepo.UpsertBatchAsync(
+                ArtworkCanonicalHelper.CreateFlags(
+                    ownerEntityId,
+                    coverState: "missing",
+                    coverSource: "selected_match_has_no_cover",
+                    heroState: "missing",
+                    lastScoredAt: DateTimeOffset.UtcNow,
+                    settled: true),
+                ct);
+        }
+
+        var variantsToRemove = staleProviderArtwork
+            .Where(asset => replacement is null || asset.Id != replacement.Id)
+            .ToList();
+        foreach (var stale in variantsToRemove)
+        {
+            await _entityAssetRepo.DeleteAsync(stale.Id, ct);
+            DeleteManagedArtworkFiles(stale);
+        }
+
+        var affectedTypes = variantsToRemove
+            .Select(asset => asset.AssetTypeValue)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        foreach (var assetType in affectedTypes)
+        {
+            if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase) && replacement is not null)
+                continue;
+
+            var survivors = await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType, ct);
+            var survivor = survivors.FirstOrDefault(asset => asset.IsPreferred)
+                           ?? survivors.FirstOrDefault(asset => asset.IsUserOverride)
+                           ?? survivors.FirstOrDefault();
+            if (survivor is not null)
+            {
+                await _entityAssetRepo.SetPreferredAsync(survivor.Id, ct);
+                await _canonicalRepo.UpsertBatchAsync(
+                    ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(ownerEntityId, survivor, DateTimeOffset.UtcNow),
+                    ct);
+                if (_assetExportService is not null)
+                    await _assetExportService.ReconcileArtworkAsync(survivor.EntityId, survivor.EntityType, survivor.AssetTypeValue, ct);
+                continue;
+            }
+
+            await ClearArtworkDisplayCanonicalsAsync(ownerEntityId, assetType, ct);
+            if (_assetExportService is not null)
+                await _assetExportService.ClearArtworkExportAsync(ownerEntityId.ToString(), "Work", assetType, ct);
+        }
+
+        if (replacement is null && affectedTypes.All(type => !string.Equals(type, "CoverArt", StringComparison.OrdinalIgnoreCase)))
+            await ClearArtworkDisplayCanonicalsAsync(ownerEntityId, "CoverArt", ct);
+
+        // The artwork state always changes for a supported retail replacement:
+        // it either points at the new managed cover or is explicitly cleared.
+        const bool changed = true;
+        var message = replacement is not null
+            ? "Retail artwork replaced immediately."
+            : normalizedCoverUrl is null
+                ? "The previous retail artwork was removed; the selected match did not provide a cover."
+                : "The previous retail artwork was removed, but the selected cover could not be downloaded.";
+
+        _logger.LogInformation(
+            "Retail artwork replacement for entity {EntityId}: owner={OwnerEntityId}, downloaded={Downloaded}, removed={RemovedCount}, provider={Provider}",
+            entityId,
+            ownerEntityId,
+            replacement is not null,
+            variantsToRemove.Count,
+            providerSource);
+
+        return new RetailArtworkReplacementResult(
+            changed,
+            replacement is not null,
+            ownerEntityId,
+            replacement?.Id,
+            variantsToRemove.Count,
+            message);
     }
 
     /// <summary>
@@ -384,6 +564,127 @@ public sealed class CoverArtWorker
             MediaType.Books or MediaType.Audiobooks or MediaType.Comics => lineage.TargetForSelfScope,
             _ => lineage.TargetForParentScope,
         };
+    }
+
+    private static bool IsReplaceableProviderArtwork(EntityAsset asset) =>
+        string.Equals(asset.AssetClassValue, "Artwork", StringComparison.OrdinalIgnoreCase)
+        && !asset.IsUserOverride
+        && !string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase);
+
+    private static string? NormalizeRemoteArtworkUrl(string? value)
+    {
+        if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            return null;
+        }
+
+        return uri.AbsoluteUri;
+    }
+
+    private void DeleteManagedArtworkFiles(EntityAsset asset)
+    {
+        var managedRoot = Path.GetFullPath(_assetPaths.AssetsRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        foreach (var path in new[]
+                 {
+                     asset.LocalImagePath,
+                     asset.LocalImagePathSmall,
+                     asset.LocalImagePathMedium,
+                     asset.LocalImagePathLarge,
+                 }
+                     .Where(path => !string.IsNullOrWhiteSpace(path))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var fullPath = Path.GetFullPath(path!);
+            if (!fullPath.StartsWith(managedRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "Skipped deletion of artwork file outside the managed asset root: {Path}",
+                    fullPath);
+                continue;
+            }
+
+            try
+            {
+                if (File.Exists(fullPath))
+                    File.Delete(fullPath);
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete stale managed artwork file {Path}", fullPath);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Access was denied deleting stale managed artwork file {Path}", fullPath);
+            }
+        }
+    }
+
+    private async Task ClearArtworkDisplayCanonicalsAsync(Guid entityId, string assetType, CancellationToken ct)
+    {
+        foreach (var key in GetArtworkDisplayCanonicalKeys(assetType))
+            await _canonicalRepo.DeleteByKeyAsync(entityId, key, ct);
+    }
+
+    private static IReadOnlyList<string> GetArtworkDisplayCanonicalKeys(string assetType)
+    {
+        var prefix = assetType switch
+        {
+            "CoverArt" => "cover",
+            "Background" => "background",
+            "Banner" => "banner",
+            "Logo" => "logo",
+            "SquareArt" => "square",
+            "SeasonPoster" => "season_poster",
+            "SeasonThumb" => "season_thumb",
+            "EpisodeStill" => "episode_still",
+            "DiscArt" => "disc_art",
+            "ClearArt" => "clear_art",
+            _ => null,
+        };
+        if (prefix is null)
+            return [];
+
+        var keys = new List<string>
+        {
+            $"{prefix}_url_s",
+            $"{prefix}_url_m",
+            $"{prefix}_url_l",
+            $"{prefix}_aspect_class",
+            $"{prefix}_width_px",
+            $"{prefix}_height_px",
+            $"{prefix}_primary_hex",
+            $"{prefix}_secondary_hex",
+            $"{prefix}_accent_hex",
+        };
+        keys.AddRange(assetType switch
+        {
+            "CoverArt" => [MetadataFieldConstants.CoverUrl],
+            "Background" => ["background", "background_url"],
+            "Banner" => ["banner", "banner_url"],
+            "Logo" => ["logo", "logo_url"],
+            "SquareArt" => ["square", "square_url"],
+            "SeasonPoster" => ["season_poster", "season_poster_url"],
+            "SeasonThumb" => ["season_thumb", "season_thumb_url"],
+            "EpisodeStill" => ["episode_still", "episode_still_url"],
+            "DiscArt" => ["disc", "disc_art_url"],
+            "ClearArt" => ["clearart", "clear_art_url"],
+            _ => [],
+        });
+        if (assetType == "CoverArt")
+        {
+            keys.AddRange(
+            [
+                MetadataFieldConstants.ArtworkPrimaryHex,
+                MetadataFieldConstants.ArtworkSecondaryHex,
+                MetadataFieldConstants.ArtworkAccentHex,
+                "dominant_color",
+            ]);
+        }
+
+        return keys.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private async Task<EntityAsset?> EnsureCoverVariantAsync(

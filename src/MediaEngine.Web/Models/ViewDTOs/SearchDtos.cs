@@ -552,6 +552,15 @@ public sealed class ItemCanonicalApplyResponseDto
 
     [JsonPropertyName("pipeline_state")]
     public string? PipelineState { get; set; }
+
+    [JsonPropertyName("artwork_changed")]
+    public bool ArtworkChanged { get; set; }
+
+    [JsonPropertyName("artwork_removed_count")]
+    public int ArtworkRemovedCount { get; set; }
+
+    [JsonPropertyName("artwork_message")]
+    public string? ArtworkMessage { get; set; }
 }
 
 public sealed class ReplaceRetailMatchRequestDto
@@ -573,6 +582,9 @@ public sealed class ReplaceRetailMatchRequestDto
 
     [JsonPropertyName("provider_item_id")]
     public string ProviderItemId { get; set; } = "";
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
 
     [JsonPropertyName("required_fields")]
     public Dictionary<string, string> RequiredFields { get; set; } = [];

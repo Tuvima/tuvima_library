@@ -41,9 +41,13 @@ The launch request should include the current context:
 
 Use `SharedMediaEditorMode.Normal` from media surfaces, `SharedMediaEditorMode.Review` from Review Queue, and `SharedMediaEditorMode.Batch` only when a real list/table selection exists.
 
+For a single item, Details owns canonical metadata, local overrides, tags, ratings, notes, and sort fields; do not split those fields into an ambiguous Options tab. Batch editing may retain a separate Options step for bulk-only controls. File is limited to the physical file path and processing state. Identity, metadata, artwork, and ingestion events belong exclusively in History.
+
 ## After save
 
 After an edit is applied, the current surface should refresh its data, keep the user in the same context, and show a clear success or failure message. Editing should not navigate away to a management workspace.
+
+Applying a different retail match is a two-speed operation. The selected provider identity and its primary artwork are committed synchronously: stale provider-managed artwork is removed, the replacement cover is downloaded into managed storage, and the detail hero refreshes while the editor remains open. User-uploaded artwork remains available. Wikidata alignment and deeper enrichment are then queued and may finish in the background. The manual update and queued identity job must both be visible in application logs and item History.
 
 In Review mode, resolving a row is explicit. Saving field changes, applying a provider/canonical match, or approving the current metadata must call the Engine review API for the concrete review item. If that call fails, the item stays in the Review Queue.
 

@@ -640,7 +640,7 @@ public partial class SharedMediaEditorShell
             var visibleKeys = GetVisibleFieldKeysForScope();
             var sourceTabIds = tabId switch
             {
-                "details" => new[] { "details" },
+                "details" => new[] { "details", "options", "sorting" },
                 "options" => new[] { "options", "sorting" },
                 _ => new[] { tabId },
             };
@@ -2020,6 +2020,7 @@ public partial class SharedMediaEditorShell
                 ProviderId = candidate.ProviderId,
                 ProviderName = candidate.ProviderName,
                 ProviderItemId = candidate.ProviderItemId ?? string.Empty,
+                CoverUrl = candidate.CoverUrl,
                 RequiredFields = candidate.RequiredFields,
                 SuggestedFields = selectedSuggested,
                 BridgeIds = candidate.BridgeIds,
@@ -2112,11 +2113,25 @@ public partial class SharedMediaEditorShell
         _matchIdentityJobId = response.IdentityJobId;
         _hasCommittedChanges = true;
         _matchActionStatus = response.IdentityJobId.HasValue
-            ? "Identity saved. Canonical alignment and artwork refresh are continuing in the background."
+            ? response.ArtworkChanged
+                ? $"{response.ArtworkMessage ?? "Identity and artwork saved."} Canonical alignment is continuing in the background."
+                : "Identity saved. Canonical alignment is continuing in the background."
             : string.IsNullOrWhiteSpace(response.Message) ? fallbackMessage : response.Message;
 
         try
         {
+            if (Request.OnArtworkChanged is not null)
+            {
+                try
+                {
+                    await Request.OnArtworkChanged.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"The match was saved, but the detail page could not refresh: {ex.Message}", Severity.Warning);
+                }
+            }
+
             var refreshedContext = await ApiClient.GetMediaEditorContextAsync(EditorContextEntityId);
             if (refreshedContext is not null)
             {
@@ -2495,7 +2510,7 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<string> GetAvailableTabIds() =>
         _editorContext?.AvailableTabs?.Count > 0
             ? _editorContext.AvailableTabs
-            : ["details", "artwork", "links", "options"];
+            : ["details", "artwork", "links", "history"];
 
     private string GetTabLabel(string tabId) =>
         tabId switch

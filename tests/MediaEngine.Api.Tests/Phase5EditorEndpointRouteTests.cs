@@ -82,7 +82,12 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("BridgeIdKeys.TmdbEpisodeId", canonical, StringComparison.Ordinal);
         Assert.Contains("(\"Music\", \"track\")", canonical, StringComparison.Ordinal);
         Assert.Contains("identityJobId = await pipeline.EnqueueAsync", canonical, StringComparison.Ordinal);
+        Assert.Contains("ReplaceProviderArtworkAsync", canonical, StringComparison.Ordinal);
+        Assert.Contains("SystemActionType.MediaUpdated", canonical, StringComparison.Ordinal);
+        Assert.Contains("SystemActionType.HydrationEnqueued", canonical, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"identity_job_id\")", models, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"cover_url\")", models, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"artwork_changed\")", models, StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"target_scope_id\")", models, StringComparison.Ordinal);
     }
 

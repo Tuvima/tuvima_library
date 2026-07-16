@@ -9,6 +9,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Workers;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -529,8 +530,10 @@ public static class ItemCanonicalEndpoints
             IWorkRepository workRepo,
             IReviewQueueRepository reviewRepo,
             IHydrationPipelineService pipeline,
+            CoverArtWorker coverArtWorker,
             TimelineRecorder timeline,
             IItemCanonicalDataService itemCanonicalData,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
@@ -716,6 +719,35 @@ public static class ItemCanonicalEndpoints
                 itemCanonicalData,
                 ct);
 
+            RetailArtworkReplacementResult? artworkResult = null;
+            if (SupportsImmediateRetailArtworkReplacement(policy))
+            {
+                if (!string.IsNullOrWhiteSpace(request.CoverUrl))
+                {
+                    await claimRepo.InsertBatchAsync(
+                    [
+                        new MetadataClaim
+                        {
+                            Id = Guid.NewGuid(),
+                            EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, MetadataFieldConstants.Cover),
+                            ProviderId = providerId,
+                            DecisionSourceProviderId = WellKnownProviders.UserManual,
+                            ClaimKey = MetadataFieldConstants.Cover,
+                            ClaimValue = request.CoverUrl.Trim(),
+                            ClaimedAt = now,
+                            Confidence = 1.0,
+                        },
+                    ], ct);
+                }
+
+                artworkResult = await coverArtWorker.ReplaceProviderArtworkAsync(
+                    context.AssetId,
+                    request.CoverUrl,
+                    request.ProviderName,
+                    providerId,
+                    ct);
+            }
+
             var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
             var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(workId, ct);
             if (request.ClearAutoAlignedWikidata
@@ -760,6 +792,38 @@ public static class ItemCanonicalEndpoints
                 IsUserResolution = true,
             }, ct);
 
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt = DateTimeOffset.UtcNow,
+                ActionType = SystemActionType.MediaUpdated,
+                EntityId = context.AssetId,
+                EntityType = "MediaAsset",
+                CollectionName = context.WorkTitle,
+                Detail = artworkResult is null
+                    ? $"Retail identity changed to {request.ProviderName} {request.ProviderItemId}."
+                    : $"Retail identity changed to {request.ProviderName} {request.ProviderItemId}. {artworkResult.Message}",
+            }, ct);
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt = DateTimeOffset.UtcNow,
+                ActionType = SystemActionType.HydrationEnqueued,
+                EntityId = context.AssetId,
+                EntityType = "MediaAsset",
+                CollectionName = context.WorkTitle,
+                Detail = $"Queued identity job {identityJobId} for post-retail Wikidata alignment.",
+            }, ct);
+
+            loggerFactory
+                .CreateLogger("MediaEngine.Api.Endpoints.ItemCanonicalEndpoints")
+                .LogInformation(
+                    "Manual retail update completed for {Title} ({AssetId}): provider={Provider}, providerItemId={ProviderItemId}, artworkChanged={ArtworkChanged}, identityJobId={IdentityJobId}",
+                    context.WorkTitle,
+                    context.AssetId,
+                    request.ProviderName,
+                    request.ProviderItemId,
+                    artworkResult?.ArtworkChanged ?? false,
+                    identityJobId);
+
             await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
             {
                 entity_id = entityId,
@@ -767,19 +831,32 @@ public static class ItemCanonicalEndpoints
                 target_field_group = policy.TargetFieldGroup,
                 provider_name = request.ProviderName,
                 provider_item_id = request.ProviderItemId,
-                updated_fields = selectedFields.Keys.Concat(request.BridgeIds.Keys).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                updated_fields = selectedFields.Keys
+                    .Concat(request.BridgeIds.Keys)
+                    .Concat(artworkResult?.ArtworkChanged == true
+                        ? [MetadataFieldConstants.Cover, MetadataFieldConstants.CoverUrl, MetadataFieldConstants.CoverState]
+                        : [])
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
             }, ct);
 
             return Results.Ok(new ItemCanonicalApplyResponse
             {
                 EntityId = entityId,
                 LinkState = "provider_only",
-                LinkStatusLabel = "Retail match applied; Wikidata alignment queued.",
+                LinkStatusLabel = artworkResult?.CoverDownloaded == true
+                    ? "Retail match and artwork applied; Wikidata alignment queued."
+                    : "Retail match applied; Wikidata alignment queued.",
                 FieldsApplied = selectedFields.Count,
                 IdsCleared = staleBridgeKeys,
-                Message = "Retail match applied; Wikidata alignment queued.",
+                Message = artworkResult?.CoverDownloaded == true
+                    ? "Retail match and artwork applied; Wikidata alignment queued."
+                    : "Retail match applied; Wikidata alignment queued.",
                 IdentityJobId = identityJobId,
                 PipelineState = IdentityJobState.RetailMatched.ToString(),
+                ArtworkChanged = artworkResult?.ArtworkChanged ?? false,
+                ArtworkRemovedCount = artworkResult?.RemovedVariantCount ?? 0,
+                ArtworkMessage = artworkResult?.Message,
             });
         })
         .WithName("ReplaceItemRetailMatch")
@@ -1443,6 +1520,15 @@ public static class ItemCanonicalEndpoints
 
     private static bool IsContainerIdentityPolicy(CanonicalTargetPolicy policy) =>
         string.Equals(policy.TargetKind, "container", StringComparison.OrdinalIgnoreCase);
+
+    private static bool SupportsImmediateRetailArtworkReplacement(CanonicalTargetPolicy policy) =>
+        policy.TargetFieldGroup is
+            "book_identity" or
+            "audiobook_identity" or
+            "issue" or
+            "movie_identity" or
+            "album" or
+            "show";
 
     private static async Task ReplaceScopedExternalIdentifiersAsync(
         WorkLineage lineage,

@@ -1856,9 +1856,9 @@ public static partial class MetadataEndpoints
         {
             return normalized switch
             {
-                "TV" => ["details", "episodes", "artwork", "links", "options", "history"],
-                "Music" => ["details", "tracks", "artwork", "links", "options", "history"],
-                _ => ["details", "links", "options", "history"],
+                "TV" => ["details", "episodes", "artwork", "links", "history"],
+                "Music" => ["details", "tracks", "artwork", "links", "history"],
+                _ => ["details", "links", "history"],
             };
         }
 
@@ -1867,7 +1867,6 @@ public static partial class MetadataEndpoints
             tabs.Add("artwork");
 
         tabs.Add("links");
-        tabs.Add("options");
 
         if (!string.IsNullOrWhiteSpace(representativeMediaFilePath))
             tabs.Add("file");

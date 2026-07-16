@@ -171,6 +171,105 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
         Assert.Empty(trackAssets);
     }
 
+    [Fact]
+    public async Task ReplaceProviderArtworkAsync_BookReplacesOldManagedArtworkAndKeepsUserUpload()
+    {
+        var seriesWorkId = await _workRepo.InsertParentAsync(
+            MediaType.Books,
+            "books:lord-of-the-rings",
+            grandparentWorkId: null,
+            ordinal: null);
+        var bookWorkId = await _workRepo.InsertChildAsync(MediaType.Books, seriesWorkId, ordinal: 2);
+        var assetId = await SeedAssetForExistingWorkAsync(bookWorkId, Path.Combine("Books", "The Two Towers.epub"));
+        await SeedCanonicalsAsync(
+            bookWorkId,
+            ("cover", "https://images.test/old-two-towers.jpg"),
+            ("cover_source", "apple_books"),
+            ("title", "The Two Towers"));
+
+        var worker = new CoverArtWorker(
+            _assetRepo,
+            _canonicalRepo,
+            _workRepo,
+            new NoOpImageCacheRepository(),
+            new RoutingHttpClientFactory(_ => ImageResponse(CreateTestImageBytes())),
+            _assetPaths,
+            NullLogger<CoverArtWorker>.Instance,
+            assetExportService: null,
+            coverArtHash: null,
+            entityAssetRepo: _entityAssetRepo);
+
+        await worker.DownloadAndPersistAsync(assetId, null, CancellationToken.None);
+        var oldCover = Assert.Single(await _entityAssetRepo.GetByEntityAsync(bookWorkId.ToString(), "CoverArt"));
+        var oldCoverPath = oldCover.LocalImagePath!;
+
+        var staleBackgroundId = Guid.NewGuid();
+        var staleBackgroundPath = _assetPaths.GetCentralAssetPath("Work", bookWorkId, "Background", staleBackgroundId, ".jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(staleBackgroundPath)!);
+        await File.WriteAllBytesAsync(staleBackgroundPath, CreateTestImageBytes());
+        await _entityAssetRepo.UpsertAsync(new EntityAsset
+        {
+            Id = staleBackgroundId,
+            EntityId = bookWorkId.ToString(),
+            EntityType = "Work",
+            AssetTypeValue = "Background",
+            ImageUrl = "https://images.test/old-background.jpg",
+            LocalImagePath = staleBackgroundPath,
+            SourceProvider = "wikidata",
+            IsPreferred = true,
+            IsUserOverride = false,
+        });
+        await SeedCanonicalsAsync(bookWorkId, ("background_url", $"/stream/artwork/{staleBackgroundId}"));
+
+        var userSquareId = Guid.NewGuid();
+        var userSquarePath = _assetPaths.GetCentralAssetPath("Work", bookWorkId, "SquareArt", userSquareId, ".jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(userSquarePath)!);
+        await File.WriteAllBytesAsync(userSquarePath, CreateTestImageBytes());
+        await _entityAssetRepo.UpsertAsync(new EntityAsset
+        {
+            Id = userSquareId,
+            EntityId = bookWorkId.ToString(),
+            EntityType = "Work",
+            AssetTypeValue = "SquareArt",
+            LocalImagePath = userSquarePath,
+            SourceProvider = "user_upload",
+            IsPreferred = true,
+            IsUserOverride = true,
+        });
+
+        var result = await worker.ReplaceProviderArtworkAsync(
+            assetId,
+            "https://images.test/new-two-towers.jpg",
+            "open_library",
+            WellKnownProviders.OpenLibrary,
+            CancellationToken.None);
+
+        Assert.True(result.ArtworkChanged);
+        Assert.True(result.CoverDownloaded);
+        Assert.Equal(bookWorkId, result.OwnerEntityId);
+        Assert.Equal(2, result.RemovedVariantCount);
+
+        var covers = await _entityAssetRepo.GetByEntityAsync(bookWorkId.ToString(), "CoverArt");
+        var replacement = Assert.Single(covers);
+        Assert.Equal("https://images.test/new-two-towers.jpg", replacement.ImageUrl);
+        Assert.True(replacement.IsPreferred);
+        Assert.True(File.Exists(replacement.LocalImagePath));
+        Assert.False(File.Exists(oldCoverPath));
+        Assert.False(File.Exists(staleBackgroundPath));
+        Assert.Empty(await _entityAssetRepo.GetByEntityAsync(bookWorkId.ToString(), "Background"));
+        Assert.Single(await _entityAssetRepo.GetByEntityAsync(bookWorkId.ToString(), "SquareArt"));
+        Assert.True(File.Exists(userSquarePath));
+
+        var canonicals = await _canonicalRepo.GetByEntityAsync(bookWorkId);
+        Assert.Equal(
+            "https://images.test/new-two-towers.jpg",
+            canonicals.Single(value => value.Key == MetadataFieldConstants.Cover).Value);
+        Assert.Equal(
+            $"/stream/artwork/{replacement.Id}",
+            canonicals.Single(value => value.Key == MetadataFieldConstants.CoverUrl).Value);
+        Assert.DoesNotContain(canonicals, value => value.Key == "background_url");
+    }
+
     private async Task<Guid> SeedAssetForExistingWorkAsync(Guid workId, string relativeFilePath)
     {
         var editionId = Guid.NewGuid();

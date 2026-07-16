@@ -301,26 +301,26 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
-    public void SharedEditor_OptionsTabUsesCentralizedLocalOptionsComponent()
+    public void SharedEditor_ConsolidatesSingleItemOptionsIntoDetailsAndKeepsHistoryOutOfFile()
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
-        var component = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorLocalOptions.razor");
+        var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
         var schema = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorModels.cs");
 
-        Assert.Contains("<MediaEditorLocalOptions", shell, StringComparison.Ordinal);
-        Assert.Contains("TagValue=\"@GetEditableValue(\"custom_tags\")\"", shell, StringComparison.Ordinal);
-        Assert.Contains("GetAdditionalOptionsGroups", code, StringComparison.Ordinal);
-        Assert.Contains("key is \"genre\" or \"custom_tags\" or \"rating\" or \"comment\"", code, StringComparison.Ordinal);
-        Assert.Contains("Genres <span>(Local)</span>", component, StringComparison.Ordinal);
-        Assert.Contains("Tags <span>(Local)</span>", component, StringComparison.Ordinal);
-        Assert.Contains("CancelGenreAdd", component, StringComparison.Ordinal);
-        Assert.Contains("CancelTagAdd", component, StringComparison.Ordinal);
-        Assert.Contains("sme-local-cancel-button", component, StringComparison.Ordinal);
-        Assert.Contains("User Notes", component, StringComparison.Ordinal);
-        Assert.Contains("These notes are private and not written to metadata.", component, StringComparison.Ordinal);
-        Assert.Contains("AppChip", component, StringComparison.Ordinal);
-        Assert.Contains("AppIconButton", component, StringComparison.Ordinal);
+        Assert.Contains("\"details\" => new[] { \"details\", \"options\", \"sorting\" }", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("tabs.Add(\"options\");", metadata, StringComparison.Ordinal);
+        Assert.Contains("Canonical metadata and library-specific fields live together here", shell, StringComparison.Ordinal);
+        Assert.Contains("return [(\"details\", \"Details\", GetTabIcon(\"details\")), (\"options\", \"Options\"", code, StringComparison.Ordinal);
+
+        var fileStart = shell.IndexOf("else if (_activeTab == \"file\")", StringComparison.Ordinal);
+        var historyStart = shell.IndexOf("else if (_activeTab == \"history\")", fileStart, StringComparison.Ordinal);
+        Assert.True(fileStart >= 0 && historyStart > fileStart);
+        var filePanel = shell[fileStart..historyStart];
+        Assert.DoesNotContain("Recent History", filePanel, StringComparison.Ordinal);
+        Assert.DoesNotContain("Canonical Snapshot", filePanel, StringComparison.Ordinal);
+        Assert.Contains("Change History", shell[historyStart..], StringComparison.Ordinal);
+
         Assert.DoesNotContain("Field(\"edition\", \"Edition\")", schema, StringComparison.Ordinal);
         Assert.Contains("Field(\"custom_tags\", \"Tags\")", schema, StringComparison.Ordinal);
         Assert.Contains("Add(values, \"custom_tags\"", schema, StringComparison.Ordinal);
@@ -366,6 +366,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("GetIdentityTargetImpactText", shell, StringComparison.Ordinal);
         Assert.Contains("Open @scope.Label Artwork", shell, StringComparison.Ordinal);
         Assert.Contains("private Guid CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);
+        Assert.Contains("CoverUrl = candidate.CoverUrl", code, StringComparison.Ordinal);
+        Assert.Contains("await Request.OnArtworkChanged.Invoke()", code, StringComparison.Ordinal);
         Assert.Contains("ActiveScope?.IdentitySummary", code, StringComparison.Ordinal);
         Assert.Contains("IdentityProviderItemId", ReadSource("src/MediaEngine.Domain/MetadataFieldConstants.cs"), StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"identity_summary\")", context, StringComparison.Ordinal);

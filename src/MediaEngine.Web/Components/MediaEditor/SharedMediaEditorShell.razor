@@ -177,7 +177,7 @@
                 {
                     <div class="sme-details sme-details--with-summary">
                         <div class="sme-fields-pane sme-details-main">
-                            <MediaEditorPanel Title="Metadata" Description="Canonical data from Wikimedia sources. Override any field to use a local value.">
+                            <MediaEditorPanel Title="Metadata" Description="Canonical metadata and library-specific fields live together here. Override a canonical field to use a local value.">
                                 <div class="sme-metadata-legend" aria-label="Metadata editing legend">
                                     <span><MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" /> Locked uses canonical data</span>
                                     <span><MudIcon Icon="@Icons.Material.Outlined.LockOpen" Size="Size.Small" Color="Color.Warning" Class="sme-metadata-legend-icon--unlock" /> Unlock edits a local value</span>
@@ -1104,38 +1104,6 @@
                                 }
                             </section>
 
-                            <section class="sme-group">
-                                <div class="sme-group-title">Canonical Snapshot</div>
-                                @foreach (var field in _canonicalValues.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase).Take(18))
-                                {
-                                    <div class="sme-readonly-row">
-                                        <span>@field.Key</span>
-                                        <strong>@field.Value</strong>
-                                    </div>
-                                }
-                            </section>
-
-                            <section class="sme-group">
-                                <div class="sme-group-title">Recent History</div>
-                                @if (_history.Count == 0)
-                                {
-                                    <div class="sme-field-hint">No recent history is available.</div>
-                                }
-                                else
-                                {
-                                    @foreach (var entry in _history.Take(10))
-                                    {
-                                        <div class="sme-history-row">
-                                            <div class="sme-history-title">@entry.Label</div>
-                                            @if (!string.IsNullOrWhiteSpace(entry.Detail))
-                                            {
-                                                <div class="sme-history-detail">@entry.Detail</div>
-                                            }
-                                            <div class="sme-history-time">@entry.OccurredAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</div>
-                                        </div>
-                                    }
-                                }
-                            </section>
                         }
                     </div>
                 }
