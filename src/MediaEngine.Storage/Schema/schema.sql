@@ -1003,6 +1003,7 @@ CREATE TABLE IF NOT EXISTS series_manifest_items (
     ordinal_scope_qid           TEXT,
     sort_order                  REAL,
     publication_date            TEXT,
+    duration                    TEXT,
     previous_qid                TEXT,
     next_qid                    TEXT,
     parent_collection_qid       TEXT,

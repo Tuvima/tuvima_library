@@ -75,6 +75,7 @@ public static class ClaimScopeCatalog
             [MetadataFieldConstants.SequenceTotalScope] = ClaimScope.Parent,
             [MetadataFieldConstants.SeriesStartYear]   = ClaimScope.Parent,
             [MetadataFieldConstants.ChildEntitiesJson] = ClaimScope.Parent,
+            [MetadataFieldConstants.SequenceManifestJson] = ClaimScope.Parent,
             ["cast_member_character"]                  = ClaimScope.Parent,
             ["network_logo_url"]                       = ClaimScope.Parent,
             ["studio"]                                 = ClaimScope.Parent,
@@ -104,6 +105,7 @@ public static class ClaimScopeCatalog
             },
             [MediaType.TV] = new(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.TmdbEpisodeId]           = ClaimScope.Self,
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,  // showrunner
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
                 [MetadataFieldConstants.CastMember]  = ClaimScope.Parent,

@@ -41,6 +41,12 @@ internal sealed class SchemaMigrator
 
         AddColumnIfMissing(
             conn,
+            "series_manifest_items",
+            "duration",
+            "ALTER TABLE series_manifest_items ADD COLUMN duration TEXT;");
+
+        AddColumnIfMissing(
+            conn,
             "metadata_claims",
             "decision_source_provider_id",
             "ALTER TABLE metadata_claims ADD COLUMN decision_source_provider_id BLOB REFERENCES metadata_providers(id);");

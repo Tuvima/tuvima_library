@@ -2142,7 +2142,8 @@ public sealed class WikidataBridgeWorker
                 // Only route well-known external identifier keys; everything
                 // else (title, year, genre, etc.) is handled by the existing
                 // canonical-value persistence path.
-                if (BridgeIdKeys.All.Contains(claim.Key))
+                if (BridgeIdKeys.All.Contains(claim.Key)
+                    && IsBridgeIdCompatibleWithMediaType(claim.Key, mediaType))
                     ids.TryAdd(claim.Key, claim.Value);
             }
 
@@ -2191,6 +2192,20 @@ public sealed class WikidataBridgeWorker
             _logger.LogWarning(ex,
                 "Phase 3b Work routing failed for asset {AssetId}", assetId);
         }
+    }
+
+    private static bool IsBridgeIdCompatibleWithMediaType(string key, MediaType mediaType)
+    {
+        if (string.Equals(key, BridgeIdKeys.ComicVineId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase))
+        {
+            return mediaType == MediaType.Comics;
+        }
+
+        if (string.Equals(key, BridgeIdKeys.TmdbEpisodeId, StringComparison.OrdinalIgnoreCase))
+            return mediaType == MediaType.TV;
+
+        return true;
     }
 
     private static Guid ResolveBridgeIdEntityId(WorkLineage? lineage, Guid assetId, string key)

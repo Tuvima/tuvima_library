@@ -55,6 +55,7 @@ public sealed class BridgeIdHelper
         BridgeIdKeys.Asin => true,
         BridgeIdKeys.AppleBooksId => true,
         BridgeIdKeys.TmdbId => true,
+        BridgeIdKeys.TmdbEpisodeId => true,
         BridgeIdKeys.ImdbId => true,
         BridgeIdKeys.AudibleId => true,
         BridgeIdKeys.GoodreadsId => true,

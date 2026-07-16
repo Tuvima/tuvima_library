@@ -368,11 +368,13 @@ Library display preferences used by browse and discovery surfaces.
 
 | Field | Type | Description |
 |---|---|---|
-| `show_unowned` | boolean | Whether lane shelf detail views include unowned items discovered from metadata. |
+| `missing_item_display` | object | Required per-media missing-member display policy. Each registered media type is configured explicitly; there are no runtime display defaults. |
 | `view_modes` | object | Per-tab default groupings, such as `tv: "shows"` or `comics: "series"`. |
 | `lane_group_display` | object | Per-lane display policy for lane group shelves. Watch defaults to `Shows & Series` and Read defaults to `Series & Reading Lists`; these are lane groups, not top-level Collections tiles. |
 
 Each `lane_group_display` entry supports `enabled`, `shelf_key`, `title`, `subtitle`, and `see_all_route`.
+
+Each `missing_item_display` entry supports `enabled`, `default_visibility` (`shown` or `hidden`), `presentation` (`all` or `paged`), `page_size` (1-500), and `detail_hydration` (`owned_only`, `on_demand`, or `all`). Authoritative manifest completeness remains a data-integrity requirement and cannot be relaxed by configuration. Comic policy defaults are recorded in this file as hidden, paged, and owned-only detail hydration so large runs remain lightweight.
 
 ### config/ui/playback-client.json
 

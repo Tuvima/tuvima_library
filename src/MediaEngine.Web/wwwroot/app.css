@@ -3904,26 +3904,35 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     flex: 1 1 auto !important;
     min-width: 0 !important;
     justify-content: flex-start !important;
-    padding-right: 8px !important;
+    padding-right: 42px !important;
     text-align: left !important;
 }
 
 .app-select .mud-input-adornment-end {
-    position: static !important;
-    flex: 0 0 auto !important;
-    width: 28px !important;
-    min-width: 28px !important;
-    max-width: 28px !important;
-    justify-content: center !important;
-    margin: 0 10px 0 auto !important;
-    padding-right: 0 !important;
-    transform: none !important;
-    pointer-events: none;
+    display: none !important;
 }
 
-.app-select .mud-input-adornment-end .mud-icon-root {
-    width: 18px !important;
-    height: 18px !important;
+.app-select .mud-input-control-input-container::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    right: 17px;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    color: var(--tl-text-primary);
+    opacity: 0.92;
+    pointer-events: none;
+    transform: translateY(-68%) rotate(45deg);
+    transform-origin: 60% 60%;
+    transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.app-select:has([aria-expanded="true"]) .mud-input-control-input-container::after {
+    opacity: 1;
+    transform: translateY(-25%) rotate(225deg);
 }
 
 .app-textarea .mud-input,
@@ -3996,12 +4005,17 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .app-native-select {
+    appearance: none;
     min-height: 2.75rem;
     width: 100%;
     padding: 0 2.5rem 0 0.85rem;
     border: 1px solid var(--app-control-border, rgba(135, 151, 184, 0.48));
     border-radius: var(--app-control-radius, 0.65rem);
     background-color: var(--app-control-surface, rgba(11, 18, 29, 0.86));
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23f4f7ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+    background-position: right 0.85rem center;
+    background-repeat: no-repeat;
+    background-size: 1.15rem;
     color: var(--app-control-text, #f4f7ff);
     font: inherit;
     color-scheme: dark;

@@ -1106,7 +1106,7 @@ public interface IEngineApiClient
 
     // ── Library Preferences (/settings/ui/library-preferences) ──────────────────
 
-    /// <summary>GET /settings/ui/library-preferences - library display preferences (view modes, show unowned).</summary>
+    /// <summary>GET /settings/ui/library-preferences - library display preferences, including per-media missing-item policies.</summary>
     Task<LibraryPreferencesSettings?> GetLibraryPreferencesAsync();
 
     /// <summary>PUT /settings/ui/library-preferences - save library display preferences.</summary>

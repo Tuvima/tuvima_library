@@ -146,6 +146,10 @@ public sealed class AppComponentSystemGuardrailTests
         Assert.Contains(".app-select__popover.mud-popover", appCss, StringComparison.Ordinal);
         Assert.Contains(".app-select__popover .mud-paper", appCss, StringComparison.Ordinal);
         Assert.Contains("border: 0 !important;", appCss, StringComparison.Ordinal);
+        Assert.Contains(".app-select .mud-input-control-input-container::after", appCss, StringComparison.Ordinal);
+        Assert.Contains(".app-select:has([aria-expanded=\"true\"])", appCss, StringComparison.Ordinal);
+        Assert.Contains(".app-native-select", appCss, StringComparison.Ordinal);
+        Assert.Contains("background-image: url(\"data:image/svg+xml", appCss, StringComparison.Ordinal);
         Assert.DoesNotContain(".provider-strategy-select .mud-paper", appCss, StringComparison.Ordinal);
         Assert.DoesNotContain("settings-select-menu .mud-paper", appCss, StringComparison.Ordinal);
     }

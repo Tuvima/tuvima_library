@@ -6149,33 +6149,6 @@
     width: min(100%, 13rem);
 }
 
-::deep .tl-series-control--group .mud-input,
-::deep .tl-series-control--group .mud-input-control {
-    min-height: 3rem !important;
-    height: 3rem !important;
-}
-
-::deep .tl-series-control--group .mud-input-outlined,
-::deep .tl-series-control--group .mud-input-slot,
-::deep .tl-series-control--group .mud-select-input {
-    background: #545454 !important;
-}
-
-::deep .tl-series-control--group .mud-input-outlined-border {
-    border-color: transparent !important;
-    border-radius: 0.45rem !important;
-}
-
-::deep .tl-series-control--group .mud-input-adornment-end {
-    color: #fff !important;
-    opacity: 1 !important;
-}
-
-::deep .tl-series-control--group .mud-input-adornment-end .mud-icon-root {
-    width: 1.25rem !important;
-    height: 1.25rem !important;
-}
-
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-carousel {
     display: block;
 }
@@ -6314,13 +6287,20 @@
 }
 
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-item.is-season-episode .tl-series-item__title {
-    min-height: 1.25rem;
+    min-height: 0;
     margin-top: 0;
+    font-size: clamp(0.82rem, 1vw, 1.05rem);
+    line-height: 1.18;
     text-align: left;
 }
 
+::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-item.is-season-episode {
+    grid-template-rows: auto;
+    align-content: start;
+}
+
 ::deep .tl-series-placement:not(.tl-series-placement--compact) .tl-series-item.is-season-episode .tl-series-item__title-row {
-    margin-top: 0.65rem;
+    margin-top: 0.45rem;
 }
 
 @media (max-width: 900px) {

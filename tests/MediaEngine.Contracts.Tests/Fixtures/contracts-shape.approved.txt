@@ -363,6 +363,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceGroupViewMod
   Key: System.String | nullability=not-null | accessors=get,init
   Title: System.String | nullability=not-null | accessors=get,init
   TotalKnownItems: System.Int32? | nullability=nullable | accessors=get,init
+  HasAuthoritativeTotal: System.Boolean | nullability=not-null | accessors=get,init
   Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SequenceItemViewModel> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceItemViewModel
@@ -1015,7 +1016,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryLaneGroupDi
   MinimumSeriesItems: System.Int32? | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryPreferencesSettings
-  ShowUnowned: System.Boolean | nullability=not-null | accessors=get,set
+  MissingItemDisplay: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Settings.MissingItemDisplayPolicy> | nullability=not-null | accessors=get,set
   ViewModes: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
   LaneGroupDisplay: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Settings.LibraryLaneGroupDisplaySettings> | nullability=not-null | accessors=get,set
 
@@ -1023,6 +1024,13 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MediaTypePipeline
   Strategy: MediaEngine.Domain.Enums.ProviderStrategy | nullability=not-null | accessors=get,set
   Providers: System.Collections.Generic.List<MediaEngine.Contracts.Settings.PipelineProviderEntry> | nullability=not-null | accessors=get,set
   FieldPriorities: System.Collections.Generic.Dictionary<System.String, System.Collections.Generic.List<System.String>> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MissingItemDisplayPolicy
+  Enabled: System.Boolean | nullability=not-null | accessors=get,set
+  DefaultVisibility: System.String | nullability=not-null | accessors=get,set
+  Presentation: System.String | nullability=not-null | accessors=get,set
+  PageSize: System.Int32 | nullability=not-null | accessors=get,set
+  DetailHydration: System.String | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PipelineConfiguration
   Pipelines: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Settings.MediaTypePipeline> | nullability=not-null | accessors=get,set

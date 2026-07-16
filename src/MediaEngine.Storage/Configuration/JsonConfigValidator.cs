@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Storage.Configuration;
@@ -53,6 +54,9 @@ public static class JsonConfigValidator
             case PaletteConfiguration palette:
                 ValidatePalette(palette, errors);
                 break;
+            case LibraryPreferencesSettings preferences:
+                ValidateLibraryPreferences(preferences, errors);
+                break;
         }
 
         return errors;
@@ -96,6 +100,19 @@ public static class JsonConfigValidator
 
         if (provider.HttpClient is not null)
             AddPositive(errors, provider.HttpClient.TimeoutSeconds, "http_client.timeout_seconds");
+
+        if (provider.SequenceManifest?.Enabled == true)
+        {
+            AddRequired(errors, provider.SequenceManifest.UrlTemplate, "sequence_manifest.url_template");
+            AddRequired(errors, provider.SequenceManifest.ContainerKind, "sequence_manifest.container_kind");
+            AddRequired(errors, provider.SequenceManifest.ExpectedTotalKind, "sequence_manifest.expected_total_kind");
+            AddPositive(errors, provider.SequenceManifest.PageSize, "sequence_manifest.page_size");
+            AddPositive(errors, provider.SequenceManifest.MaxPages, "sequence_manifest.max_pages");
+            if (provider.SequenceManifest.Fields.Count == 0)
+                errors.Add("sequence_manifest.fields must contain at least one field.");
+            if (provider.SequenceManifest.Fields.Any(field => field.Contains("image", StringComparison.OrdinalIgnoreCase)))
+                errors.Add("sequence_manifest.fields must not request image fields.");
+        }
     }
 
     private static void ValidateMediaTypes(MediaTypeConfiguration mediaTypes, List<string> errors)
@@ -159,6 +176,38 @@ public static class JsonConfigValidator
         ValidateColorMap(palette.MediaType, "media_type", errors);
         ValidateColorMap(palette.Confidence, "confidence", errors);
         ValidateColorMap(palette.ReviewTrigger, "review_trigger", errors);
+    }
+
+    private static void ValidateLibraryPreferences(LibraryPreferencesSettings preferences, List<string> errors)
+    {
+        var requiredMediaTypes = Enum.GetValues<MediaType>()
+            .Where(mediaType => mediaType != MediaType.Unknown)
+            .Select(mediaType => mediaType.ToString().ToLowerInvariant())
+            .ToArray();
+        var unknown = preferences.MissingItemDisplay.Keys
+            .Except(requiredMediaTypes, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        foreach (var key in unknown)
+            errors.Add($"missing_item_display contains unknown media type '{key}'.");
+
+        foreach (var mediaType in requiredMediaTypes)
+        {
+            if (!preferences.MissingItemDisplay.TryGetValue(mediaType, out var policy))
+            {
+                errors.Add($"missing_item_display.{mediaType} is required.");
+                continue;
+            }
+
+            if (!Allowed(policy.DefaultVisibility, "shown", "hidden"))
+                errors.Add($"missing_item_display.{mediaType}.default_visibility must be shown or hidden.");
+            if (!Allowed(policy.Presentation, "all", "paged"))
+                errors.Add($"missing_item_display.{mediaType}.presentation must be all or paged.");
+            if (!Allowed(policy.DetailHydration, "owned_only", "on_demand", "all"))
+                errors.Add($"missing_item_display.{mediaType}.detail_hydration must be owned_only, on_demand, or all.");
+            if (policy.PageSize is < 1 or > 500)
+                errors.Add($"missing_item_display.{mediaType}.page_size must be between 1 and 500.");
+        }
     }
 
     private static void ValidateColorMap(object colors, string section, List<string> errors)

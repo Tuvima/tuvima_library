@@ -739,6 +739,80 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task ComicVine_FetchAsync_BuildsLightweightAuthoritativeVolumeManifestWithoutImages()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+        var requestedUrls = new List<string>();
+        var issue = """
+            {
+              "name": "Chapter One",
+              "issue_number": "1",
+              "id": 101,
+              "cover_date": "2012-03-14",
+              "volume": { "id": 900, "name": "Saga" }
+            }
+            """;
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+                if (url.Contains("field_list=", StringComparison.OrdinalIgnoreCase))
+                {
+                    return JsonResponse("""
+                        {
+                          "number_of_total_results": 2,
+                          "results": [
+                            { "id": 101, "issue_number": "1", "name": "Chapter One", "cover_date": "2012-03-14", "volume": { "id": 900, "name": "Saga" } },
+                            { "id": 102, "issue_number": "2", "name": "Chapter Two", "cover_date": "2012-04-11", "volume": { "id": 900, "name": "Saga" } }
+                          ]
+                        }
+                        """);
+                }
+                if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse("""{ "results": [{ "id": 900, "name": "Saga", "count_of_issues": 2, "start_year": "2012" }] }""");
+                if (url.Contains("/volume/4050-900/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse("""{ "results": { "id": 900, "name": "Saga", "count_of_issues": 2, "start_year": "2012" } }""");
+                if (url.Contains("/issues/", StringComparison.OrdinalIgnoreCase))
+                    return JsonResponse($$"""{ "results": [{{issue}}] }""");
+                return JsonResponse($$"""{ "results": [{{issue}}] }""");
+            }));
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var request = new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Comics,
+            Title = "Saga #1",
+            Series = "Saga",
+            Year = "2012",
+            BaseUrl = "https://comicvine.gamespot.com/api",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [MetadataFieldConstants.Series] = "Saga",
+                [MetadataFieldConstants.SeriesPosition] = "1",
+            },
+        };
+        var claims = await adapter.FetchAsync(request);
+        var repeatedClaims = await adapter.FetchAsync(request);
+
+        var manifestClaim = Assert.Single(claims, claim => claim.Key == MetadataFieldConstants.SequenceManifestJson);
+        var manifest = JsonSerializer.Deserialize<ProviderSequenceManifest>(manifestClaim.Value);
+        Assert.NotNull(manifest);
+        Assert.True(manifest.IsAuthoritative);
+        Assert.Equal("issues", manifest.ExpectedTotalKind);
+        Assert.Equal(2, manifest.Items.Count);
+        Assert.Contains(repeatedClaims, claim => claim.Key == MetadataFieldConstants.SequenceManifestJson);
+        var manifestUrl = Assert.Single(requestedUrls, url => url.Contains("field_list=", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("image", Uri.UnescapeDataString(manifestUrl), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ComicVine_FetchAsync_TriesMultipleVolumesForRunScopedIssueLookup()
     {
         var config = LoadExampleConfig("comicvine");

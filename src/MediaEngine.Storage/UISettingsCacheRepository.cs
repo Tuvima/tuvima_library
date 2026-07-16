@@ -101,6 +101,11 @@ public sealed class UISettingsCacheRepository
                 UpsertInTransaction(conn, transaction, "global",
                     System.Text.Json.JsonSerializer.Serialize(global));
 
+            var libraryPreferences = configLoader.LoadConfig<Models.LibraryPreferencesSettings>("ui", "library-preferences");
+            if (libraryPreferences is not null)
+                UpsertInTransaction(conn, transaction, "library-preferences",
+                    System.Text.Json.JsonSerializer.Serialize(libraryPreferences));
+
             // Cache device profiles
             string[] deviceClasses = ["web", "mobile", "television", "automotive"];
             foreach (var dc in deviceClasses)

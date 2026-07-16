@@ -101,6 +101,44 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task FindWorkIdsByExternalIds_ReturnsAssetScopedCanonicalMatchesThroughLineage()
+    {
+        var repo = new SeriesManifestRepository(_db);
+        var workId = await CreateWorkAsync("QEpisode", "TV");
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        using (var conn = _db.CreateConnection())
+        {
+            conn.Execute(
+                "INSERT INTO editions (id, work_id, format_label) VALUES (@editionId, @workId, 'Episode');",
+                new { editionId, workId });
+            conn.Execute(
+                """
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@assetId, @editionId, @contentHash, @filePath);
+                """,
+                new
+                {
+                    assetId,
+                    editionId,
+                    contentHash = Guid.NewGuid().ToString("N"),
+                    filePath = "episode.mkv",
+                });
+            conn.Execute(
+                """
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@assetId, 'tmdb_episode_id', '62085', @now);
+                """,
+                new { assetId, now = DateTimeOffset.UtcNow.ToString("O") });
+        }
+
+        var matches = await repo.FindWorkIdsByExternalIdsAsync("tmdb_episode_id", ["62085"]);
+
+        Assert.True(matches.TryGetValue("62085", out var workIds));
+        Assert.Equal([workId], workIds);
+    }
+
+    [Fact]
     public async Task UpsertManifest_ReplacesRemovedProviderItemsAndPersistsClassification()
     {
         var repo = new SeriesManifestRepository(_db);

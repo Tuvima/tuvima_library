@@ -53,7 +53,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                    instance_of_qids_json AS InstanceOfQidsJson,
                    raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
                    ordinal_scope_qid AS OrdinalScopeQid,
-                   sort_order AS SortOrder, publication_date AS PublicationDate,
+                   sort_order AS SortOrder, publication_date AS PublicationDate, duration AS Duration,
                    previous_qid AS PreviousQid, next_qid AS NextQid,
                    parent_collection_qid AS ParentCollectionQid,
                    parent_collection_label AS ParentCollectionLabel,
@@ -118,14 +118,45 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         using var conn = _db.CreateConnection();
         var rows = conn.Query<WorkExternalIdRow>(
             """
-            SELECT id AS WorkId,
-                   CAST(json_extract(external_identifiers, @jsonPath) AS TEXT) AS ExternalId
-            FROM works
-            WHERE CAST(json_extract(external_identifiers, @jsonPath) AS TEXT) IN @externalIds;
+            WITH candidates AS (
+                SELECT w.id AS WorkId,
+                       CAST(json_extract(w.external_identifiers, @jsonPath) AS TEXT) AS ExternalId
+                FROM works w
+                WHERE CAST(json_extract(w.external_identifiers, @jsonPath) AS TEXT) IN @externalIds
+                  AND COALESCE(w.ownership, 'Owned') <> 'Unowned'
+                  AND COALESCE(w.is_catalog_only, 0) = 0
+
+                UNION ALL
+
+                SELECT w.id AS WorkId,
+                       cv.value AS ExternalId
+                FROM canonical_values cv
+                INNER JOIN works w ON w.id = cv.entity_id
+                WHERE cv.key = @externalIdKey
+                  AND cv.value IN @externalIds
+                  AND COALESCE(w.ownership, 'Owned') <> 'Unowned'
+                  AND COALESCE(w.is_catalog_only, 0) = 0
+
+                UNION ALL
+
+                SELECT w.id AS WorkId,
+                       cv.value AS ExternalId
+                FROM canonical_values cv
+                INNER JOIN media_assets a ON a.id = cv.entity_id
+                INNER JOIN editions e ON e.id = a.edition_id
+                INNER JOIN works w ON w.id = e.work_id
+                WHERE cv.key = @externalIdKey
+                  AND cv.value IN @externalIds
+                  AND COALESCE(w.ownership, 'Owned') <> 'Unowned'
+                  AND COALESCE(w.is_catalog_only, 0) = 0
+            )
+            SELECT DISTINCT WorkId, ExternalId
+            FROM candidates;
             """,
             new
             {
                 jsonPath = $"$.{externalIdKey}",
+                externalIdKey,
                 externalIds = externalIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
             }).AsList();
 
@@ -198,7 +229,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     INSERT INTO series_manifest_items
                         (id, collection_id, series_qid, item_qid, item_label, item_description,
                          media_type, media_kind, instance_of_qids_json,
-                         raw_ordinal, parsed_ordinal, ordinal_scope_qid, sort_order, publication_date,
+                          raw_ordinal, parsed_ordinal, ordinal_scope_qid, sort_order, publication_date, duration,
                          previous_qid, next_qid, parent_collection_qid, parent_collection_label,
                          is_collection, is_expanded_from_collection, membership_scope, source_properties_json,
                          relationships_json, order_source, ownership_state, linked_work_id,
@@ -206,7 +237,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     VALUES
                         (@Id, @CollectionId, @SeriesQid, @ItemQid, @ItemLabel, @ItemDescription,
                          @MediaType, @MediaKind, @InstanceOfQidsJson,
-                         @RawOrdinal, @ParsedOrdinal, @OrdinalScopeQid, @SortOrder, @PublicationDate,
+                         @RawOrdinal, @ParsedOrdinal, @OrdinalScopeQid, @SortOrder, @PublicationDate, @Duration,
                          @PreviousQid, @NextQid, @ParentCollectionQid, @ParentCollectionLabel,
                          @IsCollection, @IsExpandedFromCollection, @MembershipScope, @SourcePropertiesJson,
                          @RelationshipsJson, @OrderSource, @OwnershipState, @LinkedWorkId,
@@ -223,6 +254,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                         ordinal_scope_qid = excluded.ordinal_scope_qid,
                         sort_order = excluded.sort_order,
                         publication_date = excluded.publication_date,
+                        duration = excluded.duration,
                         previous_qid = excluded.previous_qid,
                         next_qid = excluded.next_qid,
                         parent_collection_qid = excluded.parent_collection_qid,
@@ -365,7 +397,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                    instance_of_qids_json AS InstanceOfQidsJson,
                    raw_ordinal AS RawOrdinal, parsed_ordinal AS ParsedOrdinal,
                    ordinal_scope_qid AS OrdinalScopeQid,
-                   sort_order AS SortOrder, publication_date AS PublicationDate,
+                   sort_order AS SortOrder, publication_date AS PublicationDate, duration AS Duration,
                    previous_qid AS PreviousQid, next_qid AS NextQid,
                    parent_collection_qid AS ParentCollectionQid,
                    parent_collection_label AS ParentCollectionLabel,
@@ -388,6 +420,24 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             .ToList();
         var warnings = DeserializeWarnings(hydration.WarningsJson);
         var metadata = DeserializeApiMetadata(hydration.ApiMetadataJson);
+        var authoritativeTotals = conn.Query<HydrationRow>(
+                """
+                SELECT series_qid AS SeriesQid, collection_id AS CollectionId, series_label AS SeriesLabel,
+                       manifest_source AS ManifestSource, manifest_version AS ManifestVersion,
+                       manifest_hash AS ManifestHash, known_item_qids_hash AS KnownItemQidsHash,
+                       warnings_json AS WarningsJson, api_metadata_json AS ApiMetadataJson,
+                       last_hydrated_at AS LastHydratedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
+                FROM series_manifest_hydrations
+                WHERE collection_id = @collectionId;
+                """,
+                new { collectionId })
+            .Select(row => (row.SeriesQid, Metadata: DeserializeApiMetadata(row.ApiMetadataJson)))
+            .Where(entry => string.Equals(entry.Metadata.Completeness, "Complete", StringComparison.OrdinalIgnoreCase)
+                && entry.Metadata.ExpectedTotal is > 0)
+            .ToDictionary(
+                entry => entry.SeriesQid,
+                entry => entry.Metadata.ExpectedTotal!.Value,
+                StringComparer.OrdinalIgnoreCase);
         var ownedCount = primaryItems.Count(i => i.OwnershipState == "Owned");
         var provisionalCount = primaryItems.Count(i => i.OwnershipState == "Provisional");
         var ambiguousCount = primaryItems.Count(i => i.OwnershipState == "Ambiguous");
@@ -415,6 +465,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             SupplementaryCount = items.Count(i => string.Equals(i.MembershipScope, MediaEngine.Domain.Constants.SeriesMembershipScopeNames.Supplementary, StringComparison.OrdinalIgnoreCase)),
             CollectedContentCount = items.Count(i => string.Equals(i.MembershipScope, MediaEngine.Domain.Constants.SeriesMembershipScopeNames.CollectedContent, StringComparison.OrdinalIgnoreCase)),
             UnpositionedCount = items.Count(i => string.Equals(i.MembershipScope, MediaEngine.Domain.Constants.SeriesMembershipScopeNames.Unpositioned, StringComparison.OrdinalIgnoreCase)),
+            AuthoritativeTotalsByContainer = authoritativeTotals,
             Warnings = warnings,
             Items = items,
         });
@@ -454,6 +505,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             item.OrdinalScopeQid,
             item.SortOrder,
             item.PublicationDate,
+            item.Duration,
             item.PreviousQid,
             item.NextQid,
             item.ParentCollectionQid,
@@ -517,6 +569,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                 ExpectedTotalKind = ReadString(root, "expectedTotalKind", "expected_total_kind"),
                 ExpectedTotalSource = ReadString(root, "expectedTotalSource", "expected_total_source"),
                 ExpectedTotalConfidence = ReadDouble(root, "expectedTotalConfidence", "expected_total_confidence"),
+                Completeness = ReadString(root, "completeness"),
             };
         }
         catch (JsonException)
@@ -578,6 +631,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         public string? ExpectedTotalKind { get; init; }
         public string? ExpectedTotalSource { get; init; }
         public double? ExpectedTotalConfidence { get; init; }
+        public string? Completeness { get; init; }
     }
 
     private sealed class HydrationRow
@@ -628,6 +682,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         public string? OrdinalScopeQid { get; init; }
         public double? SortOrder { get; init; }
         public string? PublicationDate { get; init; }
+        public string? Duration { get; init; }
         public string? PreviousQid { get; init; }
         public string? NextQid { get; init; }
         public string? ParentCollectionQid { get; init; }
@@ -660,6 +715,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             OrdinalScopeQid = OrdinalScopeQid,
             SortOrder = SortOrder,
             PublicationDate = PublicationDate,
+            Duration = Duration,
             PreviousQid = PreviousQid,
             NextQid = NextQid,
             ParentCollectionQid = ParentCollectionQid,
@@ -681,6 +737,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         {
             Id = Id,
             ItemQid = ItemQid,
+            SeriesQid = SeriesQid,
             ItemLabel = ItemLabel,
             ItemDescription = ItemDescription,
             MediaType = MediaType,
@@ -691,6 +748,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             OrdinalScopeQid = OrdinalScopeQid,
             SortOrder = SortOrder,
             PublicationDate = PublicationDate,
+            Duration = Duration,
             ParentCollectionQid = ParentCollectionQid,
             ParentCollectionLabel = ParentCollectionLabel,
             IsCollection = IsCollection == 1,

@@ -298,7 +298,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Guid.TryParse(selectedContainerId, out var showId)", source);
         Assert.Contains("workId))?.SequencePlacement", source);
         Assert.Contains(".Where(work => expectedTotal is > 0 || work.IsOwned)", source);
-        Assert.Contains("HasAuthoritativeTotal = expectedTotal is > 0", source);
+        Assert.Contains("selectedGroup?.HasAuthoritativeTotal == true", source);
+        Assert.Contains("HasAuthoritativeTotal = mainSequenceExpectedTotal.HasValue", source);
         Assert.Contains("SequencePlacement = sequencePlacement", source);
         Assert.Contains("entityType == DetailEntityType.TvShow", source);
         Assert.Contains("MediaGroups = entityType == DetailEntityType.TvShow", source);

@@ -21,6 +21,9 @@ public sealed class SeriesManifestViewDto
     [JsonPropertyName("supplementary_count")] public int SupplementaryCount { get; init; }
     [JsonPropertyName("collected_content_count")] public int CollectedContentCount { get; init; }
     [JsonPropertyName("unpositioned_count")] public int UnpositionedCount { get; init; }
+    [JsonPropertyName("authoritative_totals_by_container")]
+    public IReadOnlyDictionary<string, int> AuthoritativeTotalsByContainer { get; init; } =
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
     [JsonPropertyName("warnings")] public IReadOnlyList<SeriesManifestWarningDto> Warnings { get; init; } = [];
     [JsonPropertyName("items")] public IReadOnlyList<SeriesManifestItemDto> Items { get; init; } = [];
 }
@@ -29,6 +32,7 @@ public sealed class SeriesManifestItemDto
 {
     [JsonPropertyName("id")] public Guid Id { get; init; }
     [JsonPropertyName("item_qid")] public required string ItemQid { get; init; }
+    [JsonPropertyName("series_qid")] public required string SeriesQid { get; init; }
     [JsonPropertyName("item_label")] public string? ItemLabel { get; init; }
     [JsonPropertyName("item_description")] public string? ItemDescription { get; init; }
     [JsonPropertyName("media_type")] public string? MediaType { get; init; }
@@ -39,6 +43,7 @@ public sealed class SeriesManifestItemDto
     [JsonPropertyName("ordinal_scope_qid")] public string? OrdinalScopeQid { get; init; }
     [JsonPropertyName("sort_order")] public double? SortOrder { get; init; }
     [JsonPropertyName("publication_date")] public string? PublicationDate { get; init; }
+    [JsonPropertyName("duration")] public string? Duration { get; init; }
     [JsonPropertyName("parent_collection_qid")] public string? ParentCollectionQid { get; init; }
     [JsonPropertyName("parent_collection_label")] public string? ParentCollectionLabel { get; init; }
     [JsonPropertyName("is_collection")] public bool IsCollection { get; init; }

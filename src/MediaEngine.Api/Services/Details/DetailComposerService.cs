@@ -442,6 +442,7 @@ public sealed class DetailComposerService
             entityType == DetailEntityType.TvShow ? heroSummary : longDescription,
             displayWorks,
             expectedTotal,
+            manifest?.AuthoritativeTotalsByContainer,
             currentWorkId ?? tvPlaybackEpisodeId);
 
         return new DetailPageViewModel
@@ -2826,6 +2827,7 @@ public sealed class DetailComposerService
                    ordinal_scope_qid AS OrdinalScopeQid,
                    sort_order AS SortOrder,
                    publication_date AS PublicationDate,
+                   duration AS Duration,
                    previous_qid AS PreviousQid,
                    next_qid AS NextQid,
                    parent_collection_qid AS ParentCollectionQid,
@@ -2875,6 +2877,7 @@ public sealed class DetailComposerService
                    ordinal_scope_qid AS OrdinalScopeQid,
                    sort_order AS SortOrder,
                    publication_date AS PublicationDate,
+                   duration AS Duration,
                    previous_qid AS PreviousQid,
                    next_qid AS NextQid,
                    parent_collection_qid AS ParentCollectionQid,
@@ -3029,6 +3032,8 @@ public sealed class DetailComposerService
                 Id = $"missing-{manifestItem.ItemQid}",
                 EntityType = entityType,
                 Title = FirstNonBlank(manifestItem.ItemLabel, manifestItem.ItemQid) ?? "Missing from library",
+                Description = manifestItem.ItemDescription,
+                Duration = manifestItem.Duration,
                 PublicationDate = manifestItem.PublicationDate,
                 PositionNumber = position,
                 PositionSort = positionSort,
@@ -5472,7 +5477,7 @@ public sealed class DetailComposerService
         IReadOnlyList<CollectionWorkSummary> works,
         SeriesManifestViewDto? manifest)
     {
-        if (manifest?.Items.Count is not > 0 || entityType is not (DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries))
+        if (manifest?.Items.Count is not > 0 || entityType is not (DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries or DetailEntityType.TvShow))
         {
             return works;
         }
@@ -5520,17 +5525,20 @@ public sealed class DetailComposerService
     private static CollectionWorkSummary CreateMissingManifestWork(DetailEntityType entityType, SeriesManifestItemDto item)
     {
         var qid = NormalizeQid(item.ItemQid) ?? item.ItemQid;
+        var season = entityType == DetailEntityType.TvShow
+            ? ProviderManifestSeasonNumber(item.SeriesQid)
+            : null;
         return new CollectionWorkSummary(
             $"missing-{qid}",
             ManifestPlaceholderMediaType(entityType, item.MediaType),
             item.SortOrder is { } sortOrder ? (int)Math.Round(sortOrder, MidpointRounding.AwayFromZero) : null,
             FirstNonBlank(item.ItemLabel, item.ItemQid, "Missing from library"),
             item.ItemDescription,
+            season,
+            entityType == DetailEntityType.TvShow ? item.RawOrdinal : null,
             null,
-            null,
-            null,
-            null,
-            PublicationYear(item.PublicationDate),
+            item.Duration,
+            item.PublicationDate,
             null,
             false,
             null,
@@ -5570,6 +5578,7 @@ public sealed class DetailComposerService
         string? containerDescription,
         IReadOnlyList<CollectionWorkSummary> works,
         int? expectedTotal,
+        IReadOnlyDictionary<string, int>? authoritativeTotalsByContainer,
         Guid? currentWorkId = null)
     {
         if (entityType is not (DetailEntityType.TvShow
@@ -5636,6 +5645,12 @@ public sealed class DetailComposerService
             };
         }).ToList();
 
+        var authoritativeTotalsBySeason = (authoritativeTotalsByContainer
+                ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase))
+            .Select(entry => (Season: ProviderManifestSeasonNumber(entry.Key), entry.Value))
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Season))
+            .GroupBy(entry => entry.Season!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Max(entry => entry.Value), StringComparer.OrdinalIgnoreCase);
         var groups = entityType == DetailEntityType.TvShow
             ? items
                 .GroupBy(item => item.GroupKey ?? "season-1")
@@ -5644,7 +5659,13 @@ public sealed class DetailComposerService
                 {
                     Key = group.Key,
                     Title = group.First().GroupTitle ?? "Season 1",
-                    TotalKnownItems = group.Count(),
+                    TotalKnownItems = authoritativeTotalsBySeason.TryGetValue(
+                        group.Key.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase),
+                        out var groupTotal)
+                            ? groupTotal
+                            : group.Count(),
+                    HasAuthoritativeTotal = authoritativeTotalsBySeason.ContainsKey(
+                        group.Key.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase)),
                     Items = group.OrderBy(item => item.PositionSort ?? double.MaxValue).ToList(),
                 })
                 .ToList()
@@ -5694,7 +5715,9 @@ public sealed class DetailComposerService
             GroupLabel = labels.GroupLabel,
             CurrentGroupKey = selectedGroup?.Key ?? initialGroup?.Key,
             TotalKnownItems = totalKnownItems,
-            HasAuthoritativeTotal = expectedTotal is > 0,
+            HasAuthoritativeTotal = entityType == DetailEntityType.TvShow
+                ? selectedGroup?.HasAuthoritativeTotal == true
+                : expectedTotal is > 0,
             OrderingType = entityType switch
             {
                 DetailEntityType.TvShow => SequenceOrderingType.EpisodeNumber,
@@ -5710,6 +5733,13 @@ public sealed class DetailComposerService
 
     private static string SeasonDisplayTitle(string season)
         => string.Equals(season, "0", StringComparison.OrdinalIgnoreCase) ? "Specials" : $"Season {season}";
+
+    private static string? ProviderManifestSeasonNumber(string? containerId)
+    {
+        const string marker = ":season:";
+        var index = containerId?.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase) ?? -1;
+        return index < 0 ? null : containerId![(index + marker.Length)..];
+    }
 
     private static int SeasonSortOrder(string groupKey)
     {
@@ -7287,6 +7317,9 @@ public sealed class DetailComposerService
                     || string.Equals(group.Key, "all", StringComparison.OrdinalIgnoreCase)
                     ? Math.Max(group.Count(), mainSequenceExpectedTotal ?? 0)
                     : group.Count(),
+                HasAuthoritativeTotal = mainSequenceExpectedTotal.HasValue
+                    && (string.Equals(group.Key, "main-sequence", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(group.Key, "all", StringComparison.OrdinalIgnoreCase)),
                 Items = group.ToList(),
             })
             .OrderBy(group => SequenceGroupSort(group.Key))
@@ -7300,6 +7333,7 @@ public sealed class DetailComposerService
                 Key = "all",
                 Title = fallbackTitle,
                 TotalKnownItems = Math.Max(items.Count, mainSequenceExpectedTotal ?? 0),
+                HasAuthoritativeTotal = mainSequenceExpectedTotal.HasValue,
                 Items = items,
             }]
             : grouped;
@@ -7917,6 +7951,7 @@ public sealed class DetailComposerService
         public string? OrdinalScopeQid { get; set; }
         public double? SortOrder { get; set; }
         public string? PublicationDate { get; set; }
+        public string? Duration { get; set; }
         public string? PreviousQid { get; set; }
         public string? NextQid { get; set; }
         public string? ParentCollectionQid { get; set; }
@@ -7949,6 +7984,7 @@ public sealed class DetailComposerService
             OrdinalScopeQid = OrdinalScopeQid,
             SortOrder = SortOrder,
             PublicationDate = PublicationDate,
+            Duration = Duration,
             PreviousQid = PreviousQid,
             NextQid = NextQid,
             ParentCollectionQid = ParentCollectionQid,

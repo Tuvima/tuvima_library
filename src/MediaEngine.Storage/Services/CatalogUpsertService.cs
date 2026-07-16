@@ -234,6 +234,7 @@ public sealed class CatalogUpsertService
             case MediaType.TV:
                 Add(fields, MetadataFieldConstants.EpisodeTitle, child.Title);
                 Add(fields, MetadataFieldConstants.EpisodeDescription, child.Description);
+                Add(fields, MetadataFieldConstants.AirDate, child.AirDate ?? child.ReleaseDate);
                 if (child.SeasonNumber is { } seasonNumber)
                     Add(fields, MetadataFieldConstants.SeasonNumber, seasonNumber.ToString());
                 if (child.EpisodeNumber is { } episodeNumber)

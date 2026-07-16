@@ -142,6 +142,61 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
+    public void LibraryPreferences_RequireExplicitPolicyForEveryMediaType()
+    {
+        using var temp = TempConfig.Create();
+        var uiDirectory = System.IO.Path.Combine(temp.Path, "ui");
+        Directory.CreateDirectory(uiDirectory);
+        File.WriteAllText(System.IO.Path.Combine(uiDirectory, "library-preferences.json"), """
+            {
+              "missing_item_display": {
+                "tv": {
+                  "enabled": true,
+                  "default_visibility": "shown",
+                  "presentation": "all",
+                  "page_size": 50,
+                  "detail_hydration": "owned_only"
+                }
+              },
+              "view_modes": {},
+              "lane_group_display": {}
+            }
+            """);
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+
+        var ex = Assert.Throws<ConfigValidationException>(() =>
+            loader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences"));
+
+        Assert.Contains("missing_item_display.comics is required", ex.Message);
+        Assert.Contains("ui/library-preferences.schema.json", ex.SchemaName);
+    }
+
+    [Fact]
+    public void ProviderSequenceManifest_RejectsImageFields()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var provider = new ProviderConfiguration
+        {
+            Name = "comicvine",
+            SequenceManifest = new ProviderSequenceManifestRequestConfiguration
+            {
+                Enabled = true,
+                UrlTemplate = "{base_url}/issues",
+                Fields = ["id", "image.original_url"],
+                PageSize = 100,
+                MaxPages = 20,
+                ContainerKind = "ComicVolume",
+                ExpectedTotalKind = "issues",
+            },
+        };
+
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveProvider(provider));
+
+        Assert.Contains("must not request image fields", ex.Message);
+    }
+
+    [Fact]
     public void SecretValues_AreNotIncludedInValidationException()
     {
         using var temp = TempConfig.Create();

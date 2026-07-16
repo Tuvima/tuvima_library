@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -41,6 +42,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     private readonly IProviderResponseCacheRepository? _responseCache;
     private readonly IProviderHealthMonitor _healthMonitor;
     private readonly IProviderRateLimiterCoordinator _rateLimiter;
+    private readonly ConcurrentDictionary<string, Lazy<Task<ComicVineVolumeFacts?>>> _comicVineVolumeFacts =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<Task<ProviderSequenceManifest?>>> _comicVineSequenceManifests =
+        new(StringComparer.OrdinalIgnoreCase);
 
     // Parsed once at construction.
     private readonly Guid _providerId;
@@ -900,6 +905,25 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
             AddComicVineVolumeClaim(enriched, MetadataFieldConstants.SeriesStartYear, facts.StartYear?.ToString(CultureInfo.InvariantCulture), 0.85);
             AddComicVineVolumeClaim(enriched, MetadataFieldConstants.PublisherField, facts.Publisher, 0.8);
+            var seriesLabel = claims.FirstOrDefault(claim =>
+                string.Equals(claim.Key, MetadataFieldConstants.Series, StringComparison.OrdinalIgnoreCase))?.Value
+                ?? request.Series
+                ?? request.Title;
+            var manifest = await TryFetchComicVineSequenceManifestAsync(
+                    volumeId,
+                    seriesLabel,
+                    facts.IssueCount,
+                    request,
+                    ct)
+                .ConfigureAwait(false);
+            if (manifest is not null)
+            {
+                AddComicVineVolumeClaim(
+                    enriched,
+                    MetadataFieldConstants.SequenceManifestJson,
+                    JsonSerializer.Serialize(manifest),
+                    manifest.IsAuthoritative ? 1.0 : 0.7);
+            }
             return enriched;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -920,6 +944,29 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     {
         if (string.IsNullOrWhiteSpace(volumeId))
             return null;
+
+        var lazy = _comicVineVolumeFacts.GetOrAdd(
+            volumeId,
+            _ => new Lazy<Task<ComicVineVolumeFacts?>>(
+                () => FetchComicVineVolumeFactsCoreAsync(volumeId, request, ct),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+
+        try
+        {
+            return await lazy.Value.ConfigureAwait(false);
+        }
+        catch
+        {
+            _comicVineVolumeFacts.TryRemove(volumeId, out _);
+            throw;
+        }
+    }
+
+    private async Task<ComicVineVolumeFacts?> FetchComicVineVolumeFactsCoreAsync(
+        string volumeId,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
 
         var baseUrl = ResolveBaseUrl(request);
         var apiKey = _config.HttpClient?.ApiKey;
@@ -945,6 +992,134 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var publisher = volume["publisher"]?["name"]?.GetValue<string>();
         return new ComicVineVolumeFacts(issueCount, startYear, publisher);
     }
+
+    private async Task<ProviderSequenceManifest?> TryFetchComicVineSequenceManifestAsync(
+        string volumeId,
+        string? seriesLabel,
+        int? providerIssueCount,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        var lazy = _comicVineSequenceManifests.GetOrAdd(
+            volumeId,
+            _ => new Lazy<Task<ProviderSequenceManifest?>>(
+                () => FetchComicVineSequenceManifestCoreAsync(
+                    volumeId,
+                    seriesLabel,
+                    providerIssueCount,
+                    request,
+                    ct),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+
+        try
+        {
+            return await lazy.Value.ConfigureAwait(false);
+        }
+        catch
+        {
+            _comicVineSequenceManifests.TryRemove(volumeId, out _);
+            throw;
+        }
+    }
+
+    private async Task<ProviderSequenceManifest?> FetchComicVineSequenceManifestCoreAsync(
+        string volumeId,
+        string? seriesLabel,
+        int? providerIssueCount,
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        var sequenceConfig = _config.SequenceManifest;
+        var baseUrl = ResolveBaseUrl(request);
+        var apiKey = _config.HttpClient?.ApiKey;
+        if (sequenceConfig?.Enabled != true
+            || string.IsNullOrWhiteSpace(baseUrl)
+            || string.IsNullOrWhiteSpace(apiKey))
+        {
+            return null;
+        }
+
+        var items = new List<ProviderSequenceManifestItem>();
+        int? responseTotal = null;
+        var completedAllPages = false;
+        for (var page = 0; page < sequenceConfig.MaxPages; page++)
+        {
+            var offset = page * sequenceConfig.PageSize;
+            var url = sequenceConfig.UrlTemplate
+                .Replace("{base_url}", baseUrl.TrimEnd('/'), StringComparison.Ordinal)
+                .Replace("{api_key}", Uri.EscapeDataString(apiKey), StringComparison.Ordinal)
+                .Replace("{container_id}", Uri.EscapeDataString(volumeId), StringComparison.Ordinal)
+                .Replace("{field_list}", Uri.EscapeDataString(string.Join(',', sequenceConfig.Fields)), StringComparison.Ordinal)
+                .Replace("{page_size}", sequenceConfig.PageSize.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
+                .Replace("{offset}", offset.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            var json = await FetchComicVineJsonAsync(url, ct).ConfigureAwait(false);
+            responseTotal ??= json?["number_of_total_results"]?.GetValue<int?>();
+            var results = json?["results"]?.AsArray();
+            if (results is null)
+                break;
+
+            foreach (var issue in results.Where(issue => issue is not null))
+            {
+                var id = ExtractFirstString(issue!, ["id"]);
+                var ordinal = ExtractFirstString(issue!, ["issue_number"]);
+                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(ordinal))
+                    continue;
+
+                items.Add(new ProviderSequenceManifestItem
+                {
+                    ExternalId = id,
+                    Ordinal = ordinal,
+                    Title = FirstNonBlank(
+                        ExtractFirstString(issue!, ["name"]),
+                        !string.IsNullOrWhiteSpace(seriesLabel) ? $"{seriesLabel} #{ordinal}" : null,
+                        $"Issue #{ordinal}")!,
+                    ReleaseDate = ExtractFirstString(issue!, ["cover_date"]),
+                });
+            }
+
+            var expectedTotal = providerIssueCount ?? responseTotal;
+            if (results.Count == 0
+                || results.Count < sequenceConfig.PageSize
+                || (expectedTotal.HasValue && items.Count >= expectedTotal.Value))
+            {
+                completedAllPages = results.Count < sequenceConfig.PageSize
+                    || (expectedTotal.HasValue && items.Count >= expectedTotal.Value);
+                break;
+            }
+        }
+
+        var distinctItems = items
+            .GroupBy(item => item.ExternalId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(item => ParseComicOrdinalForSort(item.Ordinal))
+            .ThenBy(item => item.Ordinal, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (distinctItems.Count == 0)
+            return null;
+
+        var total = providerIssueCount ?? responseTotal;
+        var isAuthoritative = completedAllPages
+            && total.HasValue
+            && distinctItems.Count == total.Value;
+        return new ProviderSequenceManifest
+        {
+            Provider = Name,
+            ContainerId = $"comicvine:volume:{volumeId}",
+            ContainerLabel = seriesLabel,
+            ExternalIdKey = BridgeIdKeys.ComicVineId,
+            MediaType = MediaType.Comics.ToString(),
+            ContainerKind = sequenceConfig.ContainerKind,
+            ExpectedTotal = total,
+            ExpectedTotalKind = sequenceConfig.ExpectedTotalKind,
+            IsAuthoritative = isAuthoritative,
+            Items = distinctItems,
+        };
+    }
+
+    private static double ParseComicOrdinalForSort(string value)
+        => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : double.MaxValue;
 
     private async Task<ComicVineVolumeFacts?> TryFetchComicVineVolumeFactsForSelectionAsync(
         string? volumeId,

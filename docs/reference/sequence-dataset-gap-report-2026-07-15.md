@@ -71,6 +71,8 @@ The current Comic Vine configuration fetches an issue or volume search result an
 4. Keep comic completion UI as an owned-count badge until the member list is authoritative, consistent with the product rule that comics do not show an `of N` completion target from a total alone.
 5. Fresh-ingest the comic test set only after manifest paging, identity linking, and partial-response tests pass.
 
+The Comic Vine member request must use the provider's configured field list and exclude image fields. The member enumeration stores issue identity, number, title, and date only; it does not schedule artwork downloads for missing issues. Per-media missing-item visibility, paging, page size, and detail-hydration behavior are tracked in `config/ui/library-preferences.json` rather than hardcoded in the Dashboard.
+
 ## Other data-quality finding
 
 Four TV entities currently carry a `comic_vine_id` claim. This is cross-media contamination and should be investigated in provider eligibility or hierarchy claim propagation before re-ingestion.

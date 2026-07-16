@@ -640,6 +640,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Icons.Material.Outlined.Schedule", sequence);
         Assert.Contains("Label=\"Show Missing\"", sequence);
         Assert.Contains("CanShowMissingToggle", sequence);
+        Assert.Contains("MissingItemDisplay", sequence);
+        Assert.Contains("DefaultVisibility", sequence);
+        Assert.Contains("HasMoreConfiguredMissingItems", sequence);
+        Assert.Contains("Load more missing", sequence);
+        Assert.Contains("if (IsSeasonContainer)", sequence);
+        Assert.Contains("grid-template-rows: auto", ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css"));
         Assert.Contains("Watch S{season} E{episode}", sequence);
     }
 

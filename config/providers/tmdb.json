@@ -25,6 +25,7 @@
     "sequence_format",
     "sequence_manifest_json",
     "tmdb_id",
+    "tmdb_episode_id",
     "imdb_id",
     "rating",
     "content_rating",

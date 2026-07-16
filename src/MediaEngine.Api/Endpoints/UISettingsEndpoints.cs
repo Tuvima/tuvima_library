@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 using MediaEngine.Api.Security;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
@@ -180,22 +181,43 @@ public static class UISettingsEndpoints
         grp.MapGet("/library-preferences", (IConfigurationLoader configLoader) =>
         {
             var prefs = configLoader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences")
-                        ?? new LibraryPreferencesSettings();
+                        ?? throw new InvalidOperationException("config/ui/library-preferences.json is required.");
             return Results.Ok(prefs);
         })
         .WithName("GetLibraryPreferences")
-        .WithSummary("Returns the current library display preferences (view modes, show unowned).")
+        .WithSummary("Returns the current per-media library display preferences.")
         .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK);
+
+        grp.MapGet("/library-preferences/diagnostics", (IConfigurationLoader configLoader) =>
+        {
+            var path = Path.Combine(configLoader.ConfigDirectoryPath, "ui", "library-preferences.json");
+            if (!File.Exists(path))
+                return Results.NotFound(new { error = "config/ui/library-preferences.json was not found." });
+
+            var bytes = File.ReadAllBytes(path);
+            return Results.Ok(new
+            {
+                source_path = path,
+                sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes)),
+                last_modified_at = File.GetLastWriteTimeUtc(path),
+                settings = configLoader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences"),
+            });
+        })
+        .WithName("GetLibraryPreferencesDiagnostics")
+        .WithSummary("Returns the tracked source file, content hash, timestamp, and effective per-media library preferences.")
+        .RequireAdmin();
 
         grp.MapPut("/library-preferences", (
             LibraryPreferencesSettings settings,
-            IConfigurationLoader configLoader) =>
+            IConfigurationLoader configLoader,
+            UISettingsCacheRepository cache) =>
         {
             configLoader.SaveConfig("ui", "library-preferences", settings);
+            cache.Upsert("library-preferences", JsonSerializer.Serialize(settings));
             return Results.Ok(settings);
         })
         .WithName("UpdateLibraryPreferences")
-        .WithSummary("Saves library display preferences (view modes, show unowned).")
+        .WithSummary("Validates and atomically saves per-media library display preferences and refreshes the runtime cache.")
         .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK);
 
         return app;

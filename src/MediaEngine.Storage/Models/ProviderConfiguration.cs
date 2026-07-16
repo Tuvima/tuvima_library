@@ -169,6 +169,10 @@ public sealed class ProviderConfiguration
     [JsonPropertyName("search_strategies")]
     public List<SearchStrategyConfig>? SearchStrategies { get; set; }
 
+    /// <summary>Optional provider-neutral ordered member enumeration request.</summary>
+    [JsonPropertyName("sequence_manifest")]
+    public ProviderSequenceManifestRequestConfiguration? SequenceManifest { get; set; }
+
     /// <summary>
     /// Field extraction mappings. Each entry maps a JSON path in the API response
     /// to a claim key with a confidence value and optional transform.
@@ -216,6 +220,30 @@ public sealed class ProviderConfiguration
     /// </summary>
     [JsonPropertyName("ui_metadata")]
     public ProviderUiMetadata? UiMetadata { get; set; }
+}
+
+public sealed class ProviderSequenceManifestRequestConfiguration
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("url_template")]
+    public required string UrlTemplate { get; set; }
+
+    [JsonPropertyName("fields")]
+    public List<string> Fields { get; set; } = [];
+
+    [JsonPropertyName("page_size")]
+    public int PageSize { get; set; }
+
+    [JsonPropertyName("max_pages")]
+    public int MaxPages { get; set; }
+
+    [JsonPropertyName("container_kind")]
+    public required string ContainerKind { get; set; }
+
+    [JsonPropertyName("expected_total_kind")]
+    public required string ExpectedTotalKind { get; set; }
 }
 
 public sealed class ProviderRateLimitConfiguration

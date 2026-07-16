@@ -399,6 +399,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     {
         var fullPath   = Path.Combine(_configDir, relativePath);
         var backupPath = fullPath + ".bak";
+        var validationErrors = JsonConfigValidator.Validate(config, relativePath);
+        if (validationErrors.Count > 0)
+            throw new ConfigValidationException(fullPath, ResolveSchemaName(relativePath), validationErrors);
 
         // Ensure parent directory exists
         var dir = Path.GetDirectoryName(fullPath);
@@ -413,7 +416,18 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         }
 
         var json = JsonSerializer.Serialize(config, JsonOptions);
-        File.WriteAllText(fullPath, json);
+        var temporaryPath = $"{fullPath}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, fullPath, overwrite: true);
+            RememberLastKnownGood(relativePath, config);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
     }
 
     /// <summary>Deserialize a file; returns <c>null</c> on any failure.</summary>
@@ -558,6 +572,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             "media_types.json" => "media_types.schema.json",
             "pipelines.json" => "pipelines.schema.json",
             "ui/palette.json" => "ui/palette.schema.json",
+            "ui/library-preferences.json" => "ui/library-preferences.schema.json",
             _ => $"{Path.GetFileNameWithoutExtension(normalized)}.schema.json",
         };
     }

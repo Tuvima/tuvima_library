@@ -2,6 +2,24 @@ using System.Text.Json.Serialization;
 
 namespace MediaEngine.Storage.Models;
 
+public sealed class MissingItemDisplayPolicy
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("default_visibility")]
+    public required string DefaultVisibility { get; set; }
+
+    [JsonPropertyName("presentation")]
+    public required string Presentation { get; set; }
+
+    [JsonPropertyName("page_size")]
+    public int PageSize { get; set; }
+
+    [JsonPropertyName("detail_hydration")]
+    public required string DetailHydration { get; set; }
+}
+
 /// <summary>User preferences for the library — view modes and display options.</summary>
 public sealed class LibraryLaneGroupDisplaySettings
 {
@@ -26,9 +44,10 @@ public sealed class LibraryLaneGroupDisplaySettings
 
 public sealed class LibraryPreferencesSettings
 {
-    /// <summary>Whether to show unowned items (episodes/tracks not in library) in container drill-down views. Default: true.</summary>
-    [JsonPropertyName("show_unowned")]
-    public bool ShowUnowned { get; set; } = true;
+    /// <summary>Per-media missing-member presentation and hydration policy.</summary>
+    [JsonPropertyName("missing_item_display")]
+    public Dictionary<string, MissingItemDisplayPolicy> MissingItemDisplay { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Per-tab view mode preferences. Keys are tab IDs, values are view mode strings.</summary>
     [JsonPropertyName("view_modes")]

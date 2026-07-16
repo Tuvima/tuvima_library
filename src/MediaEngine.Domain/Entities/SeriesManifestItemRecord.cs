@@ -19,6 +19,7 @@ public sealed class SeriesManifestItemRecord
     public string? OrdinalScopeQid { get; init; }
     public double? SortOrder { get; init; }
     public string? PublicationDate { get; init; }
+    public string? Duration { get; init; }
     public string? PreviousQid { get; init; }
     public string? NextQid { get; init; }
     public string? ParentCollectionQid { get; init; }

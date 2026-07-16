@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Contracts.Settings
 @using MediaEngine.Web.Services.Integration
 @using System.Globalization
 @using Microsoft.JSInterop
@@ -233,6 +234,15 @@
                        OnClick="PageRight" />
         </div>
 
+        @if (HasMoreConfiguredMissingItems)
+        {
+            <AppNativeButton Type="button"
+                             Class="tl-series-load-missing"
+                             OnClick="LoadMoreMissingItems">
+                Load more missing @Placement.ItemPluralLabel.ToLowerInvariant()
+            </AppNativeButton>
+        }
+
     </div>
     </div>
 </section>
@@ -253,7 +263,9 @@
     private bool _seriesDescriptionExpanded;
     private bool _hasExpandableSeriesDescription;
     private bool _needsSeriesDescriptionMeasurement = true;
-    private bool _showMissing = true;
+    private bool _showMissing;
+    private int _visibleMissingLimit;
+    private MissingItemDisplayPolicy? _missingItemPolicy;
     private ElementReference _seriesDescriptionElement;
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
@@ -346,11 +358,20 @@
         => ShowGroupSelector
             ? ActiveGroup?.Items ?? []
             : Placement.OrderedItems;
-    private IReadOnlyList<SequenceItemViewModel> ActiveItems
-        => _showMissing || !CanShowMissingToggle
-            ? GroupItems
-            : GroupItems.Where(item => item.IsOwned).ToList();
-    private bool CanShowMissingToggle => Placement.HasAuthoritativeTotal && GroupItems.Any(item => !item.IsOwned);
+    private IReadOnlyList<SequenceItemViewModel> ActiveItems => ApplyMissingItemPolicy(GroupItems);
+    private bool CanShowMissingToggle => _missingItemPolicy?.Enabled == true
+        && (Placement.Groups.Count > 0
+            ? ActiveGroup?.HasAuthoritativeTotal == true
+            : Placement.HasAuthoritativeTotal)
+        && GroupItems.Any(item => !item.IsOwned);
+    private bool UsesPagedMissingItems => string.Equals(
+        _missingItemPolicy?.Presentation,
+        "paged",
+        StringComparison.OrdinalIgnoreCase);
+    private bool HasMoreConfiguredMissingItems => CanShowMissingToggle
+        && _showMissing
+        && UsesPagedMissingItems
+        && GroupItems.Count(item => !item.IsOwned) > _visibleMissingLimit;
     private bool IsLongSequence => TotalItems >= LongSequenceThreshold;
     private bool ShowJumpSelector => ActiveItems.Count > 5;
     private string? JumpSelectionValue => _jumpSelectionValue;
@@ -488,7 +509,16 @@
             _seriesDescriptionExpanded = false;
             _hasExpandableSeriesDescription = false;
             _needsSeriesDescriptionMeasurement = true;
-            _showMissing = true;
+            var preferences = await ApiClient.GetLibraryPreferencesAsync();
+            _missingItemPolicy = preferences is not null
+                && preferences.MissingItemDisplay.TryGetValue(ResolveMediaPolicyKey(), out var policy)
+                    ? policy
+                    : null;
+            _showMissing = string.Equals(
+                _missingItemPolicy?.DefaultVisibility,
+                "shown",
+                StringComparison.OrdinalIgnoreCase);
+            _visibleMissingLimit = _missingItemPolicy?.PageSize ?? 0;
             ResetWindowToCurrentItem();
         }
 
@@ -524,8 +554,39 @@
             return;
 
         _selectedGroupKey = value;
+        _visibleMissingLimit = _missingItemPolicy?.PageSize ?? 0;
         ResetWindowToCurrentItem();
     }
+
+    private IReadOnlyList<SequenceItemViewModel> ApplyMissingItemPolicy(
+        IReadOnlyList<SequenceItemViewModel> source)
+    {
+        if (!CanShowMissingToggle || !_showMissing)
+            return source.Where(item => item.IsOwned).ToList();
+
+        if (!UsesPagedMissingItems)
+            return source;
+
+        var missingRemaining = Math.Max(0, _visibleMissingLimit);
+        return source.Where(item => item.IsOwned || missingRemaining-- > 0).ToList();
+    }
+
+    private void LoadMoreMissingItems()
+    {
+        _visibleMissingLimit += _missingItemPolicy?.PageSize ?? 0;
+        ResetWindowToCurrentItem();
+    }
+
+    private string ResolveMediaPolicyKey() => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tv",
+        DetailEntityType.ComicSeries or DetailEntityType.ComicIssue => "comics",
+        DetailEntityType.BookSeries or DetailEntityType.Book => "books",
+        DetailEntityType.MovieSeries or DetailEntityType.Movie => "movies",
+        DetailEntityType.MusicArtist or DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "music",
+        DetailEntityType.Audiobook => "audiobooks",
+        _ => string.Empty,
+    };
 
     private void ResetWindowToCurrentItem()
     {
@@ -765,6 +826,9 @@
 
     private string SequenceItemTitleClass(SequenceItemViewModel item)
     {
+        if (IsSeasonContainer)
+            return "tl-series-item__title";
+
         var length = SequenceItemTitle(item).Length;
         return $"tl-series-item__title{(length > 44 ? " is-very-long" : length > 26 ? " is-long" : string.Empty)}";
     }

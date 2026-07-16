@@ -5361,6 +5361,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
             Key = group.Key,
             Title = group.Title,
             TotalKnownItems = group.TotalKnownItems,
+            HasAuthoritativeTotal = group.HasAuthoritativeTotal,
             Items = group.Items.Select(NormalizeSequenceItem).OfType<SequenceItemViewModel>().ToList(),
         };
 

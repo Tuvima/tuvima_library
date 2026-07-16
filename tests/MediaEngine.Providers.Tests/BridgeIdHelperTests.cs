@@ -15,6 +15,7 @@ public sealed class BridgeIdHelperTests
     [InlineData(BridgeIdKeys.Asin, true)]
     [InlineData(BridgeIdKeys.AppleBooksId, true)]
     [InlineData(BridgeIdKeys.TmdbId, true)]
+    [InlineData(BridgeIdKeys.TmdbEpisodeId, true)]
     [InlineData(BridgeIdKeys.ImdbId, true)]
     [InlineData(BridgeIdKeys.AudibleId, true)]
     [InlineData(BridgeIdKeys.GoodreadsId, true)]

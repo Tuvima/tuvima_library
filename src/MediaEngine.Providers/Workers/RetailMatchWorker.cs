@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
@@ -1191,6 +1192,7 @@ public sealed class RetailMatchWorker
         var showPosterUrl = RetailRequestBuilder.BuildTmdbImageUrl(showPosterPath);
         var claims = BuildTvShowClaims(showDetails, tvId, providerShowName, showPosterUrl)
             .Concat(BuildTvEpisodeClaims(bestEpisode, tvId, providerShowName, fileSeason, showPosterUrl))
+            .Concat(BuildTmdbSeasonManifestClaims(seasonEpisodes, tvId, providerShowName, fileSeason))
             .ToList();
 
         // For retail scoring, the candidate title is the episode title and author/creator
@@ -1436,6 +1438,7 @@ public sealed class RetailMatchWorker
         Add(MetadataFieldConstants.ShowName,      showName, 0.85);
 
         var airDate = episode["air_date"]?.GetValue<string>();
+        Add(MetadataFieldConstants.AirDate, airDate, 0.90);
         if (!string.IsNullOrWhiteSpace(airDate) && airDate.Length >= 4)
             Add(MetadataFieldConstants.Year, airDate[..4], 0.85);
 
@@ -1447,6 +1450,9 @@ public sealed class RetailMatchWorker
         // The show-level TMDB ID is the critical bridge ID for Stage 2 Wikidata resolution.
         // Episode-level TMDB IDs are available but the show QID is what Wikidata resolves.
         Add(BridgeIdKeys.TmdbId, showTvId, 1.0);
+        Add(BridgeIdKeys.TmdbEpisodeId,
+            episode["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+                ?? episode["id"]?.GetValue<string>(), 1.0);
 
         var rating = episode["vote_average"]?.GetValue<double?>()?.ToString("F1");
         if (!string.IsNullOrWhiteSpace(rating))
@@ -1459,6 +1465,60 @@ public sealed class RetailMatchWorker
         AddTvEpisodeGuestStarClaims(claims, episode);
 
         return claims;
+    }
+
+    private static IReadOnlyList<ProviderClaim> BuildTmdbSeasonManifestClaims(
+        IReadOnlyList<JsonNode> episodes,
+        string showTvId,
+        string? showName,
+        string season)
+    {
+        if (episodes.Count == 0)
+            return [];
+
+        var items = episodes
+            .Select(episode => new ProviderSequenceManifestItem
+            {
+                ExternalId = episode["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+                    ?? episode["id"]?.GetValue<string>()
+                    ?? string.Empty,
+                Title = episode["name"]?.GetValue<string>() ?? "Untitled episode",
+                Ordinal = episode["episode_number"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+                    ?? string.Empty,
+                ReleaseDate = episode["air_date"]?.GetValue<string>(),
+                Description = episode["overview"]?.GetValue<string>(),
+                Duration = episode["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture),
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.ExternalId)
+                && !string.IsNullOrWhiteSpace(item.Ordinal))
+            .ToList();
+        var isAuthoritative = items.Count == episodes.Count
+            && items.Select(item => item.ExternalId).Distinct(StringComparer.OrdinalIgnoreCase).Count() == items.Count
+            && items.Select(item => item.Ordinal).Distinct(StringComparer.OrdinalIgnoreCase).Count() == items.Count;
+        if (items.Count == 0)
+            return [];
+
+        var manifest = new ProviderSequenceManifest
+        {
+            Provider = "tmdb",
+            ContainerId = $"tmdb:tv:{showTvId}:season:{season}",
+            ContainerLabel = $"{showName ?? "TV Show"} · Season {season}",
+            ExternalIdKey = BridgeIdKeys.TmdbEpisodeId,
+            MediaType = MediaType.TV.ToString(),
+            ContainerKind = "TvSeason",
+            ExpectedTotal = episodes.Count,
+            ExpectedTotalKind = "episodes",
+            IsAuthoritative = isAuthoritative,
+            Items = items,
+        };
+
+        return
+        [
+            new ProviderClaim(
+                MetadataFieldConstants.SequenceManifestJson,
+                JsonSerializer.Serialize(manifest),
+                isAuthoritative ? 1.0 : 0.7),
+        ];
     }
 
     private static IReadOnlyList<ProviderClaim> BuildTvShowClaims(
@@ -1483,6 +1543,10 @@ public sealed class RetailMatchWorker
         Add(MetadataFieldConstants.Rating, showDetails?["vote_average"]?.GetValue<double?>()?.ToString("F1"), 0.80);
         Add("content_rating", ExtractTmdbTvContentRating(showDetails), 0.88);
         Add(MetadataFieldConstants.OriginalLanguage, showDetails?["original_language"]?.GetValue<string>(), 0.85);
+        Add(MetadataFieldConstants.SeasonCount,
+            showDetails?["number_of_seasons"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.95);
+        Add(MetadataFieldConstants.EpisodeCount,
+            showDetails?["number_of_episodes"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.95);
 
         var firstAirDate = showDetails?["first_air_date"]?.GetValue<string>();
         if (!string.IsNullOrWhiteSpace(firstAirDate) && firstAirDate.Length >= 4)

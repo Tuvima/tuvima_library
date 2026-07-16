@@ -81,6 +81,7 @@ public static class MetadataFieldConstants
     // ── Child entity discovery claims ────────────────────────────────────────
     public const string SeasonCount       = "season_count";
     public const string EpisodeCount      = "episode_count";
+    public const string AirDate           = "air_date";
     public const string TrackCount        = "track_count";
     public const string IssueCount        = "issue_count";
     public const string IssueNumber       = "issue_number";

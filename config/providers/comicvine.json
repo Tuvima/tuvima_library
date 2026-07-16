@@ -45,6 +45,22 @@
   },
   "cache_ttl_hours": 168,
   "adapter_type": "config_driven",
+  "sequence_manifest": {
+    "enabled": true,
+    "url_template": "{base_url}/issues/?api_key={api_key}&filter=volume:{container_id}&field_list={field_list}&limit={page_size}&offset={offset}&format=json",
+    "fields": [
+      "id",
+      "issue_number",
+      "name",
+      "cover_date",
+      "site_detail_url",
+      "volume"
+    ],
+    "page_size": 100,
+    "max_pages": 20,
+    "container_kind": "ComicVolume",
+    "expected_total_kind": "issues"
+  },
   "provider_id": "b9000009-0000-4000-8000-000000000014",
   "display_name": "Comic Vine",
   "http_client": {

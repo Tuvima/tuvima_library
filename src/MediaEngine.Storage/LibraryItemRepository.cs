@@ -432,6 +432,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             BridgeIdKeys.Isbn10,
             BridgeIdKeys.Asin,
             BridgeIdKeys.TmdbId,
+            BridgeIdKeys.TmdbEpisodeId,
             BridgeIdKeys.ImdbId,
             BridgeIdKeys.WikidataQid,
             BridgeIdKeys.AppleBooksId,
