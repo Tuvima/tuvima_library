@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 3.11 and Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last audited: 2026-06-28 | Auditor: Codex
+> Last audited: 2026-07-16 | Auditor: Codex
 
 ---
 
@@ -21,6 +21,8 @@ The Dashboard is the user-facing surface for a local-first story library. It is 
 
 Lane-level shelves stay in their lane. A single book series, film series, album, or audio series should not duplicate itself as a top-level Collections tile unless it connects to a broader cross-shelf relationship.
 
+Series and collection containers render through the dedicated fixed-size landscape `MediaGroupTile`. It composes owned child artwork at rest and reveals an in-place child carousel on hover or keyboard focus. The resting surface opens the group, while the carousel opens the selected owned child. Individual and Continue cards keep their existing renderers.
+
 ---
 
 ## Core Entry Points
@@ -33,6 +35,7 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 | Read details | `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` |
 | General details | `src/MediaEngine.Web/Components/Details/DetailPage.razor` |
 | Collections | `src/MediaEngine.Web/Components/Collections/` |
+| Series/collection tiles | `src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor` |
 | Review Queue | `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` |
 | Shared editor | `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` |
 | Ingestion dashboard | `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` |
@@ -52,6 +55,7 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 | Settings/Admin scope | Settings/Admin is for folders, providers, profiles, roles, ingestion, health, logs, diagnostics, plugins, AI, and review. |
 | No removed management workflow | Do not recreate all-in-one management routes, implementation types, navigation labels, or media correction workbenches. |
 | Playback controller boundary | Listen playback UI reads the session controller and uses shared transport controls; browser mechanics stay behind the Web audio host and `listenPlayback` bridge. |
+| Group tile isolation | Series/collection carousel behavior belongs in `MediaGroupTile`; do not add it to `MediaTile` or change individual-card geometry. |
 
 ---
 

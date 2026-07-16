@@ -37,7 +37,7 @@ The Engine owns consumer display composition for Home, Watch, Read, Listen, musi
 - `DisplayHeroDto`: spotlight identity, artwork, actions, progress, and display facts copied from the source card.
 - `DisplayCardDto`: compact card identity, title, facts, typed badges, optional ordered preview items, artwork, progress, flags, and semantic actions.
 - `DisplayCardBadgeDto`: typed badge metadata such as `quality` and `source`; badges are omitted unless source data exists.
-- `DisplayCardPreviewItemDto`: ordered child-work preview metadata for lane-level series cards. Clients should preserve order, show positions when present, and use `previewTotalCount` for overflow labels such as `+3 more`.
+- `DisplayCardPreviewItemDto`: ordered owned-child preview metadata for series and collection cards, including work/asset identity, title, managed image, shape, optional position, media type, and child web route. Clients should preserve sequence order, show positions when present, and use `previewTotalCount` for owned counts or overflow.
 - `DisplayArtworkDto`: platform-neutral artwork variants and dimensions.
 - `DisplayProgressDto`: progress percent, display label, last access timestamp, and resume action.
 - `DisplayActionDto`: semantic action type such as `openWork`, `openCollection`, `playAsset`, or `readAsset`, plus IDs and optional web fallback URL.

@@ -49,6 +49,12 @@
                                                              HideSourceBadge="@HideSourceBadges"
                                                              @key="item.Id" />
                         }
+                        else if (item.UseLandscapeGroupTile)
+                        {
+                            <MediaGroupTile Item="@item"
+                                            HoverMode="@HoverMode"
+                                            @key="item.Id" />
+                        }
                         else
                         {
                             <MediaTile Item="@item"

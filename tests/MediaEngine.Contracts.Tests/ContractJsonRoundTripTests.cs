@@ -191,7 +191,9 @@ public sealed class ContractJsonRoundTripTests
                     Title: "Arrival",
                     ImageUrl: "/cover-s.jpg",
                     Shape: "portrait",
-                    Position: "1"),
+                    Position: "1",
+                    MediaType: "Movie",
+                    WebUrl: $"/watch/movie/{workId:D}"),
             ],
             PreviewTotalCount = 3,
         };
@@ -213,6 +215,8 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal("4K", roundTrip.Catalog[0].Badges.Single(badge => badge.Kind == "quality").Label);
         Assert.Equal("Arrival", roundTrip.Catalog[0].PreviewItems.Single().Title);
         Assert.Equal("1", roundTrip.Catalog[0].PreviewItems.Single().Position);
+        Assert.Equal("Movie", roundTrip.Catalog[0].PreviewItems.Single().MediaType);
+        Assert.Equal($"/watch/movie/{workId:D}", roundTrip.Catalog[0].PreviewItems.Single().WebUrl);
         Assert.Equal(3, roundTrip.Catalog[0].PreviewTotalCount);
         Assert.Contains("\"workId\":\"11111111-1111-1111-1111-111111111111\"", json, StringComparison.Ordinal);
         Assert.Contains("\"badges\":[{\"kind\":\"quality\",\"label\":\"4K\"}", json, StringComparison.Ordinal);

@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last updated: 2026-06-28
+> Last updated: 2026-07-16
 
 ---
 
@@ -17,6 +17,8 @@ Use this skill when changing Dashboard visual components, routed pages, navigati
 Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns.
 
 The removed all-in-one management workflow must not be recreated. Do not add routes, navigation labels, implementation types, or an all-in-one media correction workbench for it.
+
+Series and collection containers use `Components/MediaTiles/MediaGroupTile.razor`, a dedicated fixed-size landscape card. It shows owned child artwork at rest, reveals an in-place child carousel on hover or keyboard focus, opens the group from the resting surface, and opens the selected child from the carousel. Do not add this behavior to `MediaTile`; individual and Continue cards must retain their existing renderers and shelf geometry.
 
 ---
 
@@ -33,6 +35,7 @@ The removed all-in-one management workflow must not be recreated. Do not add rou
 | `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` | Review Queue exception workflow. |
 | `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` | Ingestion operations dashboard. |
 | `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` | Normal, Review, and Batch media editing shell. |
+| `src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor` | Fixed-size landscape series/collection card and owned-child carousel. |
 | `src/MediaEngine.Web/Components/Listen/ListenTransportControls.razor` | Shared Listen transport controls for bottom bar, side panel, and popup. |
 | `src/MediaEngine.Web/Services/Editing/MediaEditorLauncherService.cs` | Central editor launch and return path. |
 | `src/MediaEngine.Web/Services/Playback/PlaybackSessionController.cs` | Listen playback session controller, command dispatch, queue/session state, and transport command boundary. |

@@ -506,6 +506,8 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardPreviewIt
   ImageUrl: System.String | nullability=not-null | accessors=get,init
   Shape: System.String | nullability=not-null | accessors=get,init
   Position: System.String | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  WebUrl: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayHeroDto
   Title: System.String | nullability=not-null | accessors=get,init

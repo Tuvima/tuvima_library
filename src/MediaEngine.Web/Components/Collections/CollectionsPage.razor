@@ -325,9 +325,9 @@
             AccentColor = accentColor,
             SecondaryAccentColor = secondaryAccentColor,
             ArtworkPalette = collection.ArtworkPalette,
-            Shape = MediaTileShape.Portrait,
+            Shape = MediaTileShape.Landscape,
             Presentation = MediaTilePresentation.Default,
-            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
             HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
             TileTextMode = MediaTileTextMode.CoverOnly,
             TileImageUrl = primarySmall,
@@ -344,6 +344,7 @@
             PreviewTotalCount = collection.ItemCount,
             SortTimestamp = collection.ModifiedAt ?? collection.CreatedAt,
             IsCollection = true,
+            UseLandscapeGroupTile = true,
         };
     }
 
@@ -472,11 +473,21 @@
     private static ArtworkStackItem ToArtworkStackItem(CollectionArtworkItemViewModel item) => new()
     {
         Id = item.WorkId.ToString("D"),
+        WorkId = item.WorkId,
         Title = item.Title,
         ImageUrl = MediaTileArtworkUrl.Sized(item.CoverUrl, "s") ?? string.Empty,
         MediaType = item.MediaType,
+        NavigationUrl = CollectionItemRoute(item),
         Shape = ToArtworkShape(item.ArtworkShape, item.MediaType),
     };
+
+    private static string CollectionItemRoute(CollectionArtworkItemViewModel item)
+    {
+        var mediaType = item.MediaType.Trim().ToLowerInvariant();
+        return mediaType.Contains("tv")
+            ? $"/watch/tv/show/{item.WorkId:D}"
+            : MediaNavigation.ForMedia(item.MediaType, item.WorkId);
+    }
 
     private static ArtworkShape ToArtworkShape(string? shape, string? mediaType)
     {

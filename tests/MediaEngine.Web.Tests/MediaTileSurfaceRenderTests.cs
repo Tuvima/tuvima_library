@@ -174,6 +174,50 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTileGrid_RoutesOnlyOptedInGroupsToDedicatedLandscapeComponent()
+    {
+        var group = CreateGroupTile();
+        var ordinary = CreateShelfItem("Ordinary title");
+
+        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(
+            component => component.Items,
+            [group, ordinary]));
+
+        var renderedGroup = cut.FindComponent<MediaGroupTile>();
+        var renderedOrdinary = cut.FindComponent<MediaTile>();
+
+        Assert.Same(group, renderedGroup.Instance.Item);
+        Assert.Same(ordinary, renderedOrdinary.Instance.Item);
+        Assert.Single(cut.FindAll(".media-group-tile"));
+        Assert.Single(cut.FindAll(".media-tile"));
+    }
+
+    [Fact]
+    public void MediaGroupTile_ChangesSelectedItemWithoutChangingCardDimensions()
+    {
+        var group = CreateGroupTile();
+        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
+
+        Assert.Contains("Foundation", cut.Find(".media-group-tile__selected-copy").TextContent);
+        Assert.Empty(cut.FindAll(".media-tile"));
+
+        cut.Find("a.media-group-tile__base").Click();
+        var nav = Services.GetRequiredService<NavigationManager>();
+        Assert.EndsWith("/details/bookseries/foundation", nav.Uri, StringComparison.Ordinal);
+
+        cut.Find("button[aria-label='Next item']").Click();
+
+        Assert.Contains("Foundation and Empire", cut.Find(".media-group-tile__selected-copy").TextContent);
+        cut.Find("button[aria-label='Open Foundation and Empire']").Click();
+
+        Assert.EndsWith("/book/2?mode=read", nav.Uri, StringComparison.Ordinal);
+
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
+        Assert.Contains("aspect-ratio: 16 / 10", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".media-group-tile:hover {\n    transform:", css.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MediaTileShelf_ManyCardsShareProfileAndReadStateWithoutCreatingCollections()
     {
         var items = Enumerable.Range(1, 24)
@@ -238,6 +282,49 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Title = title,
         NavigationUrl = $"/details/{title.ToLowerInvariant()}",
         HoverMode = MediaTileHoverMode.None,
+    };
+
+    private static MediaTileViewModel CreateGroupTile() => new()
+    {
+        Id = Guid.NewGuid(),
+        CollectionId = Guid.NewGuid(),
+        Title = "Foundation Series",
+        MediaKind = "Book",
+        Shape = MediaTileShape.Landscape,
+        Presentation = MediaTilePresentation.BookSeries,
+        SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+        HoverMode = MediaTileHoverMode.Expanded,
+        NavigationUrl = "/details/bookseries/foundation",
+        PrimaryNavigationUrl = "/details/bookseries/foundation",
+        PrimaryActionLabel = "Open Series",
+        IsCollection = true,
+        UseLandscapeGroupTile = true,
+        PreviewTotalCount = 2,
+        ArtworkStackItems =
+        [
+            new ArtworkStackItem
+            {
+                Id = "1",
+                WorkId = Guid.NewGuid(),
+                Title = "Foundation",
+                ImageUrl = "/covers/1.jpg",
+                MediaType = "Book",
+                NavigationUrl = "/book/1?mode=read",
+                Shape = ArtworkShape.Portrait,
+                Position = "1",
+            },
+            new ArtworkStackItem
+            {
+                Id = "2",
+                WorkId = Guid.NewGuid(),
+                Title = "Foundation and Empire",
+                ImageUrl = "/covers/2.jpg",
+                MediaType = "Book",
+                NavigationUrl = "/book/2?mode=read",
+                Shape = ArtworkShape.Portrait,
+                Position = "2",
+            },
+        ],
     };
 
     [Fact]

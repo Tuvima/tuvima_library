@@ -34,7 +34,7 @@ Lane grouping is item-count aware. TV show cards can represent a show with one o
 
 TV Continue cards are episode cards, not substituted show cards. They retain the episode work/asset and managed still, send `Watch Sx Ey` or `Resume Sx Ey` to the player resolver, and expose the show-scoped episode detail route as a separate Details action. Episode detail composition keeps the episode still, short synopsis, genre, and season-list artwork; root show composition reports owned episode count and targets the in-progress or earliest owned episode.
 
-Ordered series cards use `DisplayCardDto.PreviewItems` and `PreviewTotalCount` to expose the first owned works in display order. Clients should render those previews as an ordered strip with visible positions and should preserve order. Broader curated collections can still use decorative/randomized stacks because they are not sequence previews.
+Ordered series cards use `DisplayCardDto.PreviewItems` and `PreviewTotalCount` to expose the first owned works in display order. Each preview also carries its media type and semantic web route so a group card can open the selected child without inferring parent/child navigation in the client. TV show cards include owned episode previews with show-scoped episode routes. Clients should render sequence previews in order with visible positions; broader curated collections can still use decorative resting stacks because they are not sequence previews.
 
 `DisplayProjectionRepository` owns database reads for display projections. It should keep SQL and visibility filtering out of page composition.
 

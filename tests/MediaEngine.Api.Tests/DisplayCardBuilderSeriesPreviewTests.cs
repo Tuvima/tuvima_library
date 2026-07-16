@@ -29,6 +29,8 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(["Book One", "Book Two", "Book Three", "Book Four", "Book Five"], card.PreviewItems.Select(item => item.Title));
         Assert.Equal(["1", "2", "3", "4", "5"], card.PreviewItems.Select(item => item.Position));
         Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg", "/covers/5-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
+        Assert.All(card.PreviewItems, item => Assert.Equal("Book", item.MediaType));
+        Assert.All(card.PreviewItems, item => Assert.StartsWith("/book/", item.WebUrl, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -87,7 +89,31 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
     }
 
     [Fact]
-    public void BuildTvShowCards_UsesRootShowArtworkWithoutSeriesPreviewStack()
+    public void BuildCollectionCards_OrdersAlbumPreviewsByTrackNumberAndTargetsTrack()
+    {
+        var collectionId = Guid.Parse("66666666-2222-3333-4444-555555555555");
+        var createdAt = DateTimeOffset.Parse("2026-06-01T12:00:00Z");
+        var works = new[]
+        {
+            CreateMusicTrack(collectionId, "Third Track", "3", "/covers/album.jpg", createdAt.AddMinutes(3)),
+            CreateMusicTrack(collectionId, "First Track", "1", "/covers/album.jpg", createdAt.AddMinutes(1)),
+            CreateMusicTrack(collectionId, "Second Track", "2", "/covers/album.jpg", createdAt.AddMinutes(2)),
+        };
+
+        var card = new DisplayCardBuilder()
+            .BuildCollectionCards(works, "listen", minimumSeriesItems: 2)
+            .Single();
+
+        Assert.Equal("album", card.Presentation);
+        Assert.Equal(["First Track", "Second Track", "Third Track"], card.PreviewItems.Select(item => item.Title));
+        Assert.Equal(["1", "2", "3"], card.PreviewItems.Select(item => item.Position));
+        Assert.Equal(
+            works.OrderBy(work => work.TrackNumber).Select(work => $"/listen/music/albums/{collectionId:D}?track={work.WorkId:D}"),
+            card.PreviewItems.Select(item => item.WebUrl));
+    }
+
+    [Fact]
+    public void BuildTvShowCards_UsesRootShowArtworkWithOwnedEpisodeCarousel()
     {
         var rootWorkId = Guid.Parse("33333333-2222-3333-4444-555555555555");
         var works = new[]
@@ -101,7 +127,12 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("tvSeries", card.Presentation);
         Assert.Equal("Foundation", card.Title);
         Assert.Equal("/shows/foundation-bg-s.jpg", card.Artwork.BackgroundSmallUrl);
-        Assert.Empty(card.PreviewItems);
+        Assert.Equal(2, card.PreviewItems.Count);
+        Assert.Equal(["S1 E1", "S1 E2"], card.PreviewItems.Select(item => item.Position));
+        Assert.Equal(["wide", "wide"], card.PreviewItems.Select(item => item.Shape));
+        Assert.Equal(
+            works.Select(work => $"/watch/tv/show/{rootWorkId:D}?episode={work.WorkId:D}"),
+            card.PreviewItems.Select(item => item.WebUrl));
         Assert.Equal(2, card.PreviewTotalCount);
     }
 
@@ -190,5 +221,25 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             RootBackgroundSmallUrl = "/shows/foundation-bg-s.jpg",
             RootBackgroundWidthPx = "1920",
             RootBackgroundHeightPx = "1080",
+        };
+
+    private static DisplayWorkRow CreateMusicTrack(
+        Guid collectionId,
+        string title,
+        string trackNumber,
+        string coverSmallUrl,
+        DateTimeOffset createdAt) =>
+        new()
+        {
+            WorkId = Guid.NewGuid(),
+            AssetId = Guid.NewGuid(),
+            CollectionId = collectionId,
+            MediaType = "Music",
+            CreatedAt = createdAt,
+            Title = title,
+            Album = "Test Album",
+            CollectionTitle = "Test Album",
+            TrackNumber = trackNumber,
+            SquareSmallUrl = coverSmallUrl,
         };
 }

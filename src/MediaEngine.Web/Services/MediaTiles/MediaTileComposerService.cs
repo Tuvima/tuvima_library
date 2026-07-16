@@ -183,12 +183,17 @@ public sealed class MediaTileComposerService
         var useSquareIndividual = !card.Flags.IsCollection
                                   && (bucket == MediaTileBucket.Audiobook
                                       || (bucket == MediaTileBucket.Music && surface.Shape == MediaTileShape.Square));
-        var tileShape = isTvEpisode
+        var useLandscapeGroupTile = card.Flags.IsCollection && presentation != MediaTilePresentation.Artist;
+        var tileShape = useLandscapeGroupTile
+                ? MediaTileShape.Landscape
+                : isTvEpisode
                 ? MediaTileShape.Landscape
                 : useSquareIndividual
                 ? MediaTileShape.Square
                 : MediaTileShape.Portrait;
-        var surfaceKind = isTvEpisode
+        var surfaceKind = useLandscapeGroupTile
+                ? MediaTileSurfaceKind.BannerLandscape
+                : isTvEpisode
                 ? MediaTileSurfaceKind.BannerLandscape
                 : useSquareIndividual
                 ? MediaTileSurfaceKind.CoverSquare
@@ -248,6 +253,7 @@ public sealed class MediaTileComposerService
             Creator = card.Subtitle,
             SortTimestamp = card.SortTimestamp,
             IsCollection = card.Flags.IsCollection,
+            UseLandscapeGroupTile = useLandscapeGroupTile,
         };
     }
 
@@ -377,9 +383,12 @@ public sealed class MediaTileComposerService
             .Select(item => new ArtworkStackItem
             {
                 Id = item.WorkId?.ToString("D") ?? item.AssetId?.ToString("D") ?? item.ImageUrl,
+                WorkId = item.WorkId,
+                AssetId = item.AssetId,
                 Title = item.Title,
                 ImageUrl = item.ImageUrl,
-                MediaType = card.MediaType,
+                MediaType = item.MediaType ?? card.MediaType,
+                NavigationUrl = item.WebUrl,
                 Shape = ToArtworkShape(item.Shape),
                 Position = item.Position,
             })

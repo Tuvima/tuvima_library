@@ -69,7 +69,9 @@ public sealed record DisplayCardPreviewItemDto(
     string Title,
     string ImageUrl,
     string Shape,
-    string? Position);
+    string? Position,
+    string? MediaType = null,
+    string? WebUrl = null);
 
 public sealed record DisplayArtworkDto(
     string? CoverUrl,

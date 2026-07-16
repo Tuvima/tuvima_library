@@ -157,7 +157,7 @@ public sealed class DisplayCardBuilder
         var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind, title));
         var artwork = CollectionArtworkFor(representative);
         var presentation = CollectionPresentation(lane, mediaKind);
-        var previewItems = BuildSeriesPreviewItems(mediaKind, works);
+        var previewItems = BuildSeriesPreviewItems(mediaKind, works, collectionId);
         var ownedCount = DistinctOwnedSeriesMemberCount(works);
 
         return new DisplayCardDto(
@@ -211,6 +211,7 @@ public sealed class DisplayCardBuilder
         var artwork = RootArtworkFor(representative);
         var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Title, representative.CollectionTitle) ?? "TV Show";
         var action = new DisplayActionDto("openShow", "Open Show", showRootWorkId, null, null, $"/watch/tv/show/{showRootWorkId:D}");
+        var previewItems = BuildSeriesPreviewItems("TV", works, tvShowRootId: showRootWorkId);
 
         return new DisplayCardDto(
             Id: showRootWorkId,
@@ -234,6 +235,7 @@ public sealed class DisplayCardBuilder
         {
             Description = representative.Description,
             Badges = BuildBadges("TV", representative.Quality, FirstNonBlank(representative.Network, representative.Source)),
+            PreviewItems = previewItems,
             PreviewTotalCount = works.Select(work => work.WorkId).Distinct().Count(),
         };
     }
@@ -559,9 +561,13 @@ public sealed class DisplayCardBuilder
         return $"{count} {noun}";
     }
 
-    private static IReadOnlyList<DisplayCardPreviewItemDto> BuildSeriesPreviewItems(string mediaKind, IReadOnlyList<DisplayWorkRow> works)
+    private static IReadOnlyList<DisplayCardPreviewItemDto> BuildSeriesPreviewItems(
+        string mediaKind,
+        IReadOnlyList<DisplayWorkRow> works,
+        Guid? collectionId = null,
+        Guid? tvShowRootId = null)
     {
-        if (mediaKind is not ("Book" or "Comic" or "Movie" or "Audiobook" or "Music"))
+        if (mediaKind is not ("Book" or "Comic" or "Movie" or "TV" or "Audiobook" or "Music"))
         {
             return [];
         }
@@ -571,8 +577,14 @@ public sealed class DisplayCardBuilder
             {
                 Work = work,
                 ImageUrl = SeriesPreviewImage(work),
-                SortPosition = ParseSeriesPosition(work.SeriesPosition),
+                SortPosition = PreviewSortPosition(mediaKind, work),
                 DisplayTitle = DisplayTitleFor(mediaKind, work.Title, work.Series, work.SeriesPosition),
+                DisplayPosition = mediaKind switch
+                {
+                    "TV" => EpisodePosition(work.SeasonNumber, work.EpisodeNumber),
+                    "Music" => work.TrackNumber,
+                    _ => work.SeriesPosition,
+                },
             })
             .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
             .GroupBy(item => item.Work.WorkId)
@@ -588,7 +600,9 @@ public sealed class DisplayCardBuilder
                 item.DisplayTitle,
                 item.ImageUrl!,
                 SeriesPreviewShape(item.Work, item.ImageUrl),
-                item.Work.SeriesPosition))
+                item.DisplayPosition,
+                mediaKind,
+                PreviewWebUrlFor(item.Work.WorkId, mediaKind, collectionId, tvShowRootId)))
             .ToList();
     }
 
@@ -601,13 +615,35 @@ public sealed class DisplayCardBuilder
             work.SquareSmallUrl,
             work.SquareMediumUrl,
             work.SquareLargeUrl,
-            work.SquareUrl);
+            work.SquareUrl,
+            work.BackgroundSmallUrl,
+            work.BackgroundMediumUrl,
+            work.BackgroundLargeUrl,
+            work.BackgroundUrl,
+            work.BannerSmallUrl,
+            work.BannerMediumUrl,
+            work.BannerLargeUrl,
+            work.BannerUrl);
 
     private static string SeriesPreviewShape(DisplayWorkRow work, string? imageUrl)
     {
         if (MatchesAny(imageUrl, work.SquareUrl, work.SquareSmallUrl, work.SquareMediumUrl, work.SquareLargeUrl))
         {
             return "square";
+        }
+
+        if (MatchesAny(
+                imageUrl,
+                work.BackgroundUrl,
+                work.BackgroundSmallUrl,
+                work.BackgroundMediumUrl,
+                work.BackgroundLargeUrl,
+                work.BannerUrl,
+                work.BannerSmallUrl,
+                work.BannerMediumUrl,
+                work.BannerLargeUrl))
+        {
+            return "wide";
         }
 
         var width = ParseInt(work.CoverWidthPx);
@@ -627,6 +663,50 @@ public sealed class DisplayCardBuilder
         }
 
         return "portrait";
+    }
+
+    private static double? PreviewSortPosition(string mediaKind, DisplayWorkRow work)
+    {
+        if (mediaKind == "Music")
+        {
+            return ParseSeriesPosition(work.TrackNumber);
+        }
+
+        if (mediaKind != "TV")
+        {
+            return ParseSeriesPosition(work.SeriesPosition);
+        }
+
+        var season = ParseSeriesPosition(work.SeasonNumber);
+        var episode = ParseSeriesPosition(work.EpisodeNumber);
+        if (season is null && episode is null)
+        {
+            return null;
+        }
+
+        return (season ?? 0) * 10000 + (episode ?? 0);
+    }
+
+    internal static string PreviewWebUrlFor(
+        Guid workId,
+        string mediaKind,
+        Guid? collectionId = null,
+        Guid? tvShowRootId = null)
+    {
+        var normalizedKind = DisplayMediaRules.NormalizeDisplayKind(mediaKind);
+        return normalizedKind switch
+        {
+            "TV" => $"/watch/tv/show/{(tvShowRootId ?? workId):D}?episode={workId:D}",
+            "Movie" => collectionId.HasValue
+                ? $"/watch/movie/{workId:D}?collectionId={collectionId.Value:D}"
+                : $"/watch/movie/{workId:D}",
+            "Music" => collectionId.HasValue
+                ? $"/listen/music/albums/{collectionId.Value:D}?track={workId:D}"
+                : $"/listen/music/songs?track={workId:D}",
+            "Audiobook" => $"/listen/audiobook/{workId:D}",
+            "Book" or "Comic" => $"/book/{workId:D}?mode=read",
+            _ => $"/details/work/{workId:D}",
+        };
     }
 
     private static double? ParseSeriesPosition(string? value)

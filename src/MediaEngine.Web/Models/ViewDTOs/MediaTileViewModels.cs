@@ -122,6 +122,7 @@ public sealed class MediaTileViewModel
     public int SortYear { get; init; }
     public DateTimeOffset SortTimestamp { get; init; }
     public bool IsCollection { get; init; }
+    public bool UseLandscapeGroupTile { get; init; }
 
     public bool CanAddToCollection => WorkId.HasValue && !IsCollection;
 }

@@ -3,13 +3,22 @@
 <div class="media-tile-grid @Class">
     @foreach (var item in Items)
     {
-        <MediaTile Item="@item"
-                   HoverMode="@HoverMode"
-                   OnEditClicked="@OnEditClicked"
-                   OnPrimaryClicked="@OnPrimaryClicked"
-                   HideMediaKindBadge="@HideMediaKindBadges"
-                   HideSourceBadge="@HideSourceBadges"
-                   @key="item.Id" />
+        @if (item.UseLandscapeGroupTile)
+        {
+            <MediaGroupTile Item="@item"
+                            HoverMode="@HoverMode"
+                            @key="item.Id" />
+        }
+        else
+        {
+            <MediaTile Item="@item"
+                       HoverMode="@HoverMode"
+                       OnEditClicked="@OnEditClicked"
+                       OnPrimaryClicked="@OnPrimaryClicked"
+                       HideMediaKindBadge="@HideMediaKindBadges"
+                       HideSourceBadge="@HideSourceBadges"
+                       @key="item.Id" />
+        }
     }
 </div>
 

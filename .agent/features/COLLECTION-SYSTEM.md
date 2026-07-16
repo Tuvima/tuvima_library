@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` §1 (Grouping Model), §3.13 (Universal Parameterized Collection System) — keep both in sync per `.agent/SYNC-MAP.md`
 
-> Last audited: 2026-04-01 | Auditor: Claude (Product-Led Architect)
+> Last audited: 2026-07-16 | Auditor: Codex
 
 > **Terminology:** User-facing names differ from internal code names. See table below.
 
@@ -22,6 +22,8 @@
 **Rule:** Anything the user sees (UI labels, column headers, tab names) uses the user-facing name. Internal code names (ParentCollection, Collection) stay in the domain/engine layer only.
 
 **Shelf vs Collection rule:** Read, Watch, and Listen show immediate shelves: book series, movie series, TV shows, music albums, and audio series. The Collections page shows broader rollups only when a shared series/franchise/universe relationship connects at least two shelves. A single shelf, even with multiple works, remains in its lane; multiple formats of one Work are variants and do not create a rollup.
+
+**Container card rule:** Series and collection containers use a fixed-size landscape card backed by owned-child previews. Hover or keyboard focus reveals an in-place carousel without growing the card. The resting action opens the container; the selected-child action follows the child route supplied by the display API. Ordered series and TV episodes preserve Engine order, while broader curated collections may use a decorative resting stack.
 
 ---
 

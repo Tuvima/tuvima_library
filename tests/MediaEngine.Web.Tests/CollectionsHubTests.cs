@@ -26,6 +26,9 @@ public sealed class CollectionsHubTests
         var heroStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseHero.razor.css"));
         var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
         var browseShellStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\BrowseShellStyles.razor.css"));
+        var tileGridSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaTileGrid.razor"));
+        var groupTileSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaGroupTile.razor"));
+        var groupTileStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaGroupTile.razor.css"));
 
         Assert.Contains("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
         Assert.Contains("Where(collection => collection.Id != CurrentHeroCollection?.Id)", source, StringComparison.Ordinal);
@@ -40,8 +43,13 @@ public sealed class CollectionsHubTests
         Assert.Contains("browse-shell collections-browse", source, StringComparison.Ordinal);
         Assert.Contains("<MediaBrowseHero", source, StringComparison.Ordinal);
         Assert.Contains("<MediaTileGrid", source, StringComparison.Ordinal);
-        Assert.Contains("Shape = MediaTileShape.Portrait", source, StringComparison.Ordinal);
-        Assert.Contains("SurfaceKind = MediaTileSurfaceKind.CoverPortrait", source, StringComparison.Ordinal);
+        Assert.Contains("Shape = MediaTileShape.Landscape", source, StringComparison.Ordinal);
+        Assert.Contains("SurfaceKind = MediaTileSurfaceKind.BannerLandscape", source, StringComparison.Ordinal);
+        Assert.Contains("UseLandscapeGroupTile = true", source, StringComparison.Ordinal);
+        Assert.Contains("item.UseLandscapeGroupTile", tileGridSource, StringComparison.Ordinal);
+        Assert.Contains("<MediaGroupTile", tileGridSource, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__carousel", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("aspect-ratio: 16 / 10", groupTileStylesSource, StringComparison.Ordinal);
         Assert.Contains("PreviewTotalCount = collection.ItemCount", source, StringComparison.Ordinal);
         Assert.Contains("TileTextMode = MediaTileTextMode.CoverOnly", source, StringComparison.Ordinal);
         Assert.Contains("Take(5)", source, StringComparison.Ordinal);

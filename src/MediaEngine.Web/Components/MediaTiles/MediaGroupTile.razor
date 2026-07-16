@@ -1,0 +1,418 @@
+@namespace MediaEngine.Web.Components.MediaTiles
+@using MediaEngine.Web.Components.Shared
+@inject NavigationManager Nav
+
+<AppCssElement Tag="article"
+               Class="media-group-tile"
+               Css="@TileStyle"
+               OnKeyDown="HandleKeyDown"
+               aria-label="@Item.Title">
+    <div class="media-group-tile__frame">
+        <a class="media-group-tile__base"
+           href="@GroupNavigationUrl"
+           aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
+           @onclick="OpenGroupAsync"
+           @onclick:preventDefault="true">
+            <div class="media-group-tile__atmosphere" aria-hidden="true"></div>
+
+            @if (RestingItems.Count > 0)
+            {
+                <div class="media-group-tile__resting-stack" aria-hidden="true">
+                    @for (var index = 0; index < RestingItems.Count; index++)
+                    {
+                        var artwork = RestingItems[index];
+                        <img @key="artwork.Id"
+                             src="@artwork.ImageUrl"
+                             alt=""
+                             class="@RestingArtworkClass(artwork, index)"
+                             loading="lazy"
+                             decoding="async" />
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="media-group-tile__fallback">
+                    <MudIcon Icon="@GroupKindIcon" />
+                </div>
+            }
+
+            <div class="media-group-tile__base-copy">
+                <span class="media-group-tile__kind">
+                    <MudIcon Icon="@GroupKindIcon" />
+                    <span>@GroupKindLabel</span>
+                </span>
+                <strong>@Item.Title</strong>
+                <span>@GroupCountLabel</span>
+            </div>
+        </a>
+
+        @if (ShowCarousel && ActiveItem is { } activeItem)
+        {
+            <div class="media-group-tile__carousel"
+                 role="group"
+                 aria-label="@($"{Item.Title} item carousel")">
+                <div class="media-group-tile__carousel-atmosphere" aria-hidden="true"></div>
+
+                <span class="media-group-tile__carousel-kind">
+                    <MudIcon Icon="@GroupKindIcon" />
+                    <span>@GroupKindLabel</span>
+                </span>
+
+                <div class="media-group-tile__carousel-stage">
+                    @if (PreviousItem is { } previousItem)
+                    {
+                        <img src="@previousItem.ImageUrl"
+                             alt=""
+                             class="@CarouselSideArtworkClass(previousItem, "is-previous")"
+                             loading="lazy"
+                             decoding="async" />
+                    }
+
+                    <AppNativeButton Type="button"
+                                     Class="media-group-tile__arrow is-previous"
+                                     AriaLabel="Previous item"
+                                     Title="Previous item"
+                                     Disabled="@(!CanPrevious)"
+                                     StopPropagation="true"
+                                     OnClick="ShowPrevious">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
+                    </AppNativeButton>
+
+                    <AppNativeButton Type="button"
+                                     Class="@ActiveArtworkButtonClass(activeItem)"
+                                     AriaLabel="@($"Open {activeItem.Title}")"
+                                     Title="@($"Open {activeItem.Title}")"
+                                     StopPropagation="true"
+                                     OnClick="OpenActiveItemAsync">
+                        <img src="@activeItem.ImageUrl"
+                             alt="@activeItem.Title"
+                             loading="lazy"
+                             decoding="async" />
+                    </AppNativeButton>
+
+                    <AppNativeButton Type="button"
+                                     Class="media-group-tile__arrow is-next"
+                                     AriaLabel="Next item"
+                                     Title="Next item"
+                                     Disabled="@(!CanNext)"
+                                     StopPropagation="true"
+                                     OnClick="ShowNext">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
+                    </AppNativeButton>
+
+                    @if (NextItem is { } nextItem)
+                    {
+                        <img src="@nextItem.ImageUrl"
+                             alt=""
+                             class="@CarouselSideArtworkClass(nextItem, "is-next")"
+                             loading="lazy"
+                             decoding="async" />
+                    }
+                </div>
+
+                <div class="media-group-tile__carousel-copy">
+                    <div class="media-group-tile__selected-copy">
+                        <strong>@activeItem.Title</strong>
+                        <span>@ActivePositionLabel</span>
+                    </div>
+
+                    <div class="media-group-tile__carousel-actions">
+                        <AppNativeButton Type="button"
+                                         Class="tl-media-action tl-media-action--primary tl-media-action--compact media-group-tile__open-item"
+                                         AriaLabel="@($"Open {activeItem.Title}")"
+                                         Title="@($"Open {activeItem.Title}")"
+                                         StopPropagation="true"
+                                         OnClick="OpenActiveItemAsync">
+                            <MudIcon Icon="@ActiveItemIcon" />
+                            <span>@ActiveItemActionLabel</span>
+                        </AppNativeButton>
+
+                        <AppNativeButton Type="button"
+                                         Class="tl-media-action tl-media-action--flat tl-media-action--compact media-group-tile__open-group"
+                                         AriaLabel="@($"Open {GroupKindLabel} {Item.Title}")"
+                                         Title="@($"Open {GroupKindLabel} {Item.Title}")"
+                                         StopPropagation="true"
+                                         OnClick="OpenGroupAsync">
+                            <MudIcon Icon="@Icons.Material.Outlined.List" />
+                            <span>Open @ShortGroupKindLabel</span>
+                        </AppNativeButton>
+                    </div>
+
+                    <span class="media-group-tile__position">@(_activeIndex + 1) of @CarouselItems.Count</span>
+                </div>
+            </div>
+        }
+    </div>
+</AppCssElement>
+
+@code {
+    [Parameter, EditorRequired] public MediaTileViewModel Item { get; set; } = default!;
+    [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
+
+    private Guid _lastItemId;
+    private int _activeIndex;
+
+    private MediaTileHoverMode EffectiveHoverMode => HoverMode ?? Item.HoverMode;
+    private bool ShowCarousel => EffectiveHoverMode != MediaTileHoverMode.None && CarouselItems.Count > 0;
+    private bool CanPrevious => _activeIndex > 0;
+    private bool CanNext => _activeIndex < CarouselItems.Count - 1;
+    private ArtworkStackItem? ActiveItem => CarouselItems.Count == 0 ? null : CarouselItems[_activeIndex];
+    private ArtworkStackItem? PreviousItem => CanPrevious ? CarouselItems[_activeIndex - 1] : null;
+    private ArtworkStackItem? NextItem => CanNext ? CarouselItems[_activeIndex + 1] : null;
+    private IReadOnlyList<ArtworkStackItem> RestingItems => CarouselItems.Take(4).ToList();
+
+    private IReadOnlyList<ArtworkStackItem> CarouselItems
+    {
+        get
+        {
+            var items = Item.ArtworkStackItems
+                .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+                .DistinctBy(item => item.Id)
+                .ToList();
+            if (items.Count > 0)
+            {
+                return items;
+            }
+
+            var fallbackUrl = FirstNonBlank(Item.TileImageUrl, Item.CoverUrl, Item.HoverImageUrl);
+            return string.IsNullOrWhiteSpace(fallbackUrl)
+                ? []
+                :
+                [
+                    new ArtworkStackItem
+                    {
+                        Id = Item.Id.ToString("D"),
+                        WorkId = Item.WorkId,
+                        Title = Item.Title,
+                        ImageUrl = fallbackUrl,
+                        MediaType = Item.MediaKind,
+                        NavigationUrl = GroupNavigationUrl,
+                        Shape = Item.Shape == MediaTileShape.Square ? ArtworkShape.Square : ArtworkShape.Portrait,
+                    },
+                ];
+        }
+    }
+
+    private string GroupNavigationUrl =>
+        FirstNonBlank(Item.PrimaryNavigationUrl, Item.NavigationUrl, Item.DetailsNavigationUrl) ?? "/";
+
+    private string ActiveNavigationUrl =>
+        FirstNonBlank(ActiveItem?.NavigationUrl, FallbackItemNavigation(ActiveItem), GroupNavigationUrl) ?? "/";
+
+    private string TileStyle
+    {
+        get
+        {
+            var activeArtwork = ActiveItem?.ImageUrl ?? RestingItems.FirstOrDefault()?.ImageUrl;
+            var atmosphere = FirstNonBlank(activeArtwork, Item.HeroBackgroundImageUrl, Item.BackgroundUrl, Item.HoverImageUrl, Item.TileImageUrl);
+            var imageVariable = string.IsNullOrWhiteSpace(atmosphere)
+                ? string.Empty
+                : $"--media-group-image: url(\"{EscapeCssString(atmosphere)}\");";
+            return $"{Item.ArtworkPalette?.CssVariableStyle} --media-group-accent: {Item.AccentColor}; --media-group-secondary: {Item.SecondaryAccentColor}; {imageVariable}";
+        }
+    }
+
+    private string GroupKindLabel => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries => "TV Show",
+        MediaTilePresentation.MovieSeries => "Movie Series",
+        MediaTilePresentation.BookSeries => "Book Series",
+        MediaTilePresentation.ComicSeries => "Comic Series",
+        MediaTilePresentation.AudiobookSeries => "Audiobook Series",
+        MediaTilePresentation.Album => "Album",
+        _ => "Collection",
+    };
+
+    private string ShortGroupKindLabel => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries => "Show",
+        MediaTilePresentation.MovieSeries
+            or MediaTilePresentation.BookSeries
+            or MediaTilePresentation.ComicSeries
+            or MediaTilePresentation.AudiobookSeries => "Series",
+        _ => GroupKindLabel,
+    };
+
+    private string GroupKindIcon => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries => Icons.Material.Outlined.LiveTv,
+        MediaTilePresentation.Album => Icons.Material.Outlined.Album,
+        MediaTilePresentation.BookSeries or MediaTilePresentation.ComicSeries => Icons.Material.Outlined.AutoStories,
+        MediaTilePresentation.MovieSeries => Icons.Material.Outlined.VideoLibrary,
+        MediaTilePresentation.AudiobookSeries => Icons.Material.Outlined.Headphones,
+        _ => Icons.Material.Outlined.CollectionsBookmark,
+    };
+
+    private string GroupCountLabel
+    {
+        get
+        {
+            var count = Item.PreviewTotalCount ?? CarouselItems.Count;
+            var noun = Item.Presentation switch
+            {
+                MediaTilePresentation.TvSeries => count == 1 ? "owned episode" : "owned episodes",
+                MediaTilePresentation.BookSeries => count == 1 ? "book" : "books",
+                MediaTilePresentation.ComicSeries => count == 1 ? "owned issue" : "owned issues",
+                MediaTilePresentation.MovieSeries => count == 1 ? "movie" : "movies",
+                MediaTilePresentation.AudiobookSeries => count == 1 ? "audiobook" : "audiobooks",
+                MediaTilePresentation.Album => count == 1 ? "track" : "tracks",
+                _ => count == 1 ? "item" : "items",
+            };
+            return $"{count} {noun}";
+        }
+    }
+
+    private string ActivePositionLabel
+    {
+        get
+        {
+            if (ActiveItem is not { } activeItem)
+            {
+                return string.Empty;
+            }
+
+            var ordinal = string.IsNullOrWhiteSpace(activeItem.Position)
+                ? $"{_activeIndex + 1} of {CarouselItems.Count}"
+                : activeItem.Position;
+            var noun = Item.Presentation switch
+            {
+                MediaTilePresentation.TvSeries => "Episode",
+                MediaTilePresentation.BookSeries => "Book",
+                MediaTilePresentation.ComicSeries => "Issue",
+                MediaTilePresentation.MovieSeries => "Movie",
+                MediaTilePresentation.AudiobookSeries => "Audiobook",
+                MediaTilePresentation.Album => "Track",
+                _ => "Item",
+            };
+            return $"{noun} {ordinal}";
+        }
+    }
+
+    private string ActiveItemActionLabel => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries => "Open Episode",
+        MediaTilePresentation.BookSeries or MediaTilePresentation.ComicSeries => "Open Item",
+        MediaTilePresentation.MovieSeries => "Open Movie",
+        MediaTilePresentation.AudiobookSeries => "Open Audiobook",
+        MediaTilePresentation.Album => "Open Track",
+        _ => "Open Item",
+    };
+
+    private string ActiveItemIcon => Item.Presentation switch
+    {
+        MediaTilePresentation.TvSeries or MediaTilePresentation.MovieSeries => Icons.Material.Filled.PlayArrow,
+        MediaTilePresentation.Album or MediaTilePresentation.AudiobookSeries => Icons.Material.Outlined.Headphones,
+        MediaTilePresentation.BookSeries or MediaTilePresentation.ComicSeries => Icons.Material.Outlined.MenuBook,
+        _ => Icons.Material.Outlined.ArrowForward,
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (_lastItemId != Item.Id)
+        {
+            _lastItemId = Item.Id;
+            _activeIndex = 0;
+        }
+
+        _activeIndex = Math.Clamp(_activeIndex, 0, Math.Max(0, CarouselItems.Count - 1));
+    }
+
+    private Task ShowPrevious(MouseEventArgs _)
+    {
+        if (CanPrevious)
+        {
+            _activeIndex--;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task ShowNext(MouseEventArgs _)
+    {
+        if (CanNext)
+        {
+            _activeIndex++;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OpenGroupAsync(MouseEventArgs _)
+    {
+        Nav.NavigateTo(GroupNavigationUrl);
+        return Task.CompletedTask;
+    }
+
+    private Task OpenActiveItemAsync(MouseEventArgs _)
+    {
+        Nav.NavigateTo(ActiveNavigationUrl);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleKeyDown(KeyboardEventArgs args) =>
+        args.Key switch
+        {
+            "ArrowLeft" => ShowPrevious(default!),
+            "ArrowRight" => ShowNext(default!),
+            _ => Task.CompletedTask,
+        };
+
+    private static string RestingArtworkClass(ArtworkStackItem item, int index) =>
+        $"media-group-tile__resting-artwork is-index-{index} {ArtworkShapeClass(item.Shape)}";
+
+    private static string CarouselSideArtworkClass(ArtworkStackItem item, string positionClass) =>
+        $"media-group-tile__side-artwork {positionClass} {ArtworkShapeClass(item.Shape)}";
+
+    private static string ActiveArtworkButtonClass(ArtworkStackItem item) =>
+        $"media-group-tile__active-artwork {ArtworkShapeClass(item.Shape)}";
+
+    private static string ArtworkShapeClass(ArtworkShape shape) => shape switch
+    {
+        ArtworkShape.Square => "is-square-art",
+        ArtworkShape.Wide => "is-wide-art",
+        _ => "is-portrait-art",
+    };
+
+    private static string? FallbackItemNavigation(ArtworkStackItem? item)
+    {
+        if (item?.WorkId is not { } workId)
+        {
+            return null;
+        }
+
+        var mediaType = item.MediaType.Trim().ToLowerInvariant();
+        if (mediaType.Contains("tv"))
+        {
+            return $"/watch/tv/show/{workId:D}";
+        }
+
+        if (mediaType.Contains("movie") || mediaType.Contains("video"))
+        {
+            return $"/watch/movie/{workId:D}";
+        }
+
+        if (mediaType.Contains("music") || mediaType == "audio")
+        {
+            return $"/listen/music/songs?track={workId:D}";
+        }
+
+        if (mediaType.Contains("audiobook") || mediaType.Contains("m4b"))
+        {
+            return $"/listen/audiobook/{workId:D}";
+        }
+
+        if (mediaType.Contains("book") || mediaType.Contains("comic") || mediaType.Contains("epub"))
+        {
+            return $"/book/{workId:D}?mode=read";
+        }
+
+        return $"/details/work/{workId:D}";
+    }
+
+    private static string EscapeCssString(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+}
