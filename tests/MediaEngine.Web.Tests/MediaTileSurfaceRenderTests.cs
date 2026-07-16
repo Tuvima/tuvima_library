@@ -200,16 +200,18 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var root = cut.Find("article.media-group-tile");
 
         Assert.Contains(root.Attributes, attribute => attribute.Name.StartsWith("b-", StringComparison.Ordinal));
-        Assert.Contains("Foundation", cut.Find(".media-group-tile__selected-copy").TextContent);
+        Assert.Contains("Foundation", cut.Find(".media-artwork-carousel__caption").TextContent);
         Assert.Empty(cut.FindAll(".media-tile"));
+        Assert.Contains("Open Series", cut.Find(".media-group-tile__group-action").TextContent);
+        Assert.Contains("Open Book", cut.Find(".media-group-tile__item-action").TextContent);
 
         cut.Find("a.media-group-tile__base").Click();
         var nav = Services.GetRequiredService<NavigationManager>();
         Assert.EndsWith("/details/bookseries/foundation", nav.Uri, StringComparison.Ordinal);
 
-        cut.Find("button[aria-label='Next item']").Click();
+        cut.Find("button[aria-label='Next book']").Click();
 
-        Assert.Contains("Foundation and Empire", cut.Find(".media-group-tile__selected-copy").TextContent);
+        Assert.Contains("Foundation and Empire", cut.Find(".media-artwork-carousel__caption").TextContent);
         cut.Find("button[aria-label='Open Foundation and Empire']").Click();
 
         Assert.EndsWith("/book/2?mode=read", nav.Uri, StringComparison.Ordinal);

@@ -1239,11 +1239,25 @@ public static class CollectionEndpoints
                     .Select(work =>
                     {
                         var dto = WorkDto.FromDomain(work);
-                        var imageUrl = BuildCoverStreamUrl(work, primaryAssetIds.GetValueOrDefault(work.Id));
+                        var primaryAssetId = primaryAssetIds.GetValueOrDefault(work.Id);
+                        var coverUrl = BuildCoverStreamUrl(work, primaryAssetId);
+                        var backgroundUrl = BuildBackgroundStreamUrl(work, primaryAssetId);
+                        var bannerUrl = BuildBannerStreamUrl(work, primaryAssetId);
+                        var imageUrl = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                            ? backgroundUrl ?? bannerUrl ?? coverUrl
+                            : coverUrl ?? backgroundUrl ?? bannerUrl;
                         return new
                         {
                             Work = work,
                             ImageUrl = imageUrl,
+                            Shape = ResolveContentGroupPreviewShape(
+                                primaryMediaType,
+                                imageUrl,
+                                coverUrl,
+                                backgroundUrl,
+                                bannerUrl,
+                                ParseNullableInt(GetCanonical(dto, "cover_width_px")),
+                                ParseNullableInt(GetCanonical(dto, "cover_height_px"))),
                             Title = GetCanonical(dto, "title") ?? h.DisplayName ?? "Untitled",
                             Position = GetCanonical(dto, "series_position")
                                 ?? GetCanonical(dto, "episode_number")
@@ -1259,7 +1273,7 @@ public static class CollectionEndpoints
                         item.Work.Id,
                         item.Title,
                         item.ImageUrl!,
-                        "portrait",
+                        item.Shape,
                         item.Position))
                     .ToList();
 
@@ -2438,6 +2452,45 @@ public static class CollectionEndpoints
             assetId,
             MetadataFieldConstants.CoverUrl,
             MetadataFieldConstants.Cover);
+    }
+
+    private static string ResolveContentGroupPreviewShape(
+        string primaryMediaType,
+        string? imageUrl,
+        string? coverUrl,
+        string? backgroundUrl,
+        string? bannerUrl,
+        int? coverWidth,
+        int? coverHeight)
+    {
+        if (string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase))
+        {
+            return "square";
+        }
+
+        if (string.Equals(imageUrl, backgroundUrl, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(imageUrl, bannerUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            return "wide";
+        }
+
+        if (string.Equals(imageUrl, coverUrl, StringComparison.OrdinalIgnoreCase)
+            && coverWidth is > 0
+            && coverHeight is > 0)
+        {
+            var ratio = coverWidth.Value / (double)coverHeight.Value;
+            if (ratio >= 1.32)
+            {
+                return "wide";
+            }
+
+            if (ratio >= 0.86)
+            {
+                return "square";
+            }
+        }
+
+        return "portrait";
     }
 
     private static string? BuildBackgroundStreamUrl(Work? w, Guid? assetId = null)

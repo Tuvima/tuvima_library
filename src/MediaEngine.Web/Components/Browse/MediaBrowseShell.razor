@@ -609,7 +609,15 @@
             SortTimestamp: group.CreatedAt)
         {
             PreviewItems = group.PreviewItems
-                .Select(item => new DisplayCardPreviewItemDto(item.WorkId, null, item.Title, item.ImageUrl, item.Shape, item.Position))
+                .Select(item => new DisplayCardPreviewItemDto(
+                    item.WorkId,
+                    null,
+                    item.Title,
+                    item.ImageUrl,
+                    item.Shape,
+                    item.Position,
+                    group.PrimaryMediaType,
+                    BuildGroupPreviewNavigationUrl(group, item.WorkId)))
                 .ToList(),
             PreviewTotalCount = group.WorkCount,
         };
@@ -1100,6 +1108,13 @@
 
     private static string BuildGroupDescription(ContentGroupViewModel group)
     {
+        var suppliedDescription = new[] { group.Description, group.Tagline }
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+        if (!string.IsNullOrWhiteSpace(suppliedDescription))
+        {
+            return suppliedDescription;
+        }
+
         var parts = new[]
         {
             group.Creator,
@@ -1109,8 +1124,19 @@
             group.WorkCount > 0 ? $"{group.WorkCount} items" : null,
         }.Where(part => !string.IsNullOrWhiteSpace(part));
 
-        return string.Join("  -  ", parts);
+        return string.Join(" · ", parts);
     }
+
+    private string BuildGroupPreviewNavigationUrl(ContentGroupViewModel group, Guid workId) =>
+        (_activeTabId, _grouping) switch
+        {
+            ("movies", "series") => $"/watch/movie/{workId:D}?collectionId={group.CollectionId:D}",
+            ("books", "series") => $"/book/{workId:D}?mode=read",
+            ("audiobooks", "series") => $"/listen/audiobook/{workId:D}",
+            ("comics", "series") => $"/book/{workId:D}?mode=read",
+            ("music", "albums") => $"/listen/music/albums/{group.CollectionId:D}?track={workId:D}",
+            _ => $"/details/work/{workId:D}",
+        };
 
     private static string AccentForMedia(string? mediaType) => mediaType switch
     {

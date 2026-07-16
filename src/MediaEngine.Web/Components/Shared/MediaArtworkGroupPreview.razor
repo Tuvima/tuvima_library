@@ -1,0 +1,92 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<div class="@PreviewClass"
+     role="img"
+     aria-label="@AriaLabel">
+    @for (var index = 0; index < VisibleItems.Count; index++)
+    {
+        var artwork = VisibleItems[index];
+        <img @key="artwork.Id"
+             class="@ArtworkClass(artwork, index)"
+             src="@artwork.ImageUrl"
+             alt=""
+             loading="lazy"
+             decoding="async" />
+    }
+
+    @if (OverflowCount > 0)
+    {
+        <span class="media-artwork-group-preview__overflow" aria-hidden="true">+@OverflowCount</span>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ArtworkStackItem> Items { get; set; } = [];
+    [Parameter] public int? TotalCount { get; set; }
+    [Parameter] public string AriaLabel { get; set; } = "Group artwork preview";
+
+    private IReadOnlyList<ArtworkStackItem> VisibleItems => Items
+        .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+        .DistinctBy(item => item.Id)
+        .Take(4)
+        .ToList();
+
+    private int ResolvedTotalCount => Math.Max(TotalCount ?? VisibleItems.Count, VisibleItems.Count);
+    private int OverflowCount => Math.Max(0, ResolvedTotalCount - VisibleItems.Count);
+
+    private string PreviewClass =>
+        $"media-artwork-group-preview {CountClass} {ShapeClusterClass}";
+
+    private string CountClass
+    {
+        get
+        {
+            if (VisibleItems.Count >= 4 && ResolvedTotalCount > 4)
+            {
+                return "has-more";
+            }
+
+            return VisibleItems.Count switch
+            {
+                1 => "has-one",
+                2 => "has-two",
+                3 => "has-three",
+                _ => "has-four",
+            };
+        }
+    }
+
+    private string ShapeClusterClass
+    {
+        get
+        {
+            if (VisibleItems.Count == 0)
+            {
+                return "is-empty";
+            }
+
+            var firstShape = VisibleItems[0].Shape;
+            if (VisibleItems.Any(item => item.Shape != firstShape))
+            {
+                return "is-mixed";
+            }
+
+            return firstShape switch
+            {
+                ArtworkShape.Square => "is-square-cluster",
+                ArtworkShape.Wide => "is-wide-cluster",
+                _ => "is-portrait-cluster",
+            };
+        }
+    }
+
+    private static string ArtworkClass(ArtworkStackItem item, int index) =>
+        $"media-artwork-group-preview__artwork is-slot-{index + 1} {ShapeClass(item.Shape)}";
+
+    private static string ShapeClass(ArtworkShape shape) => shape switch
+    {
+        ArtworkShape.Square => "is-square-art",
+        ArtworkShape.Wide => "is-wide-art",
+        _ => "is-portrait-art",
+    };
+}

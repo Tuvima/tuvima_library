@@ -28,3 +28,9 @@ public enum ArtworkStackVariant
     Hero,
     Dense,
 }
+
+public enum MediaArtworkCarouselDensity
+{
+    Tile,
+    Detail,
+}
