@@ -186,6 +186,10 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
             ("cover", "https://images.test/old-two-towers.jpg"),
             ("cover_source", "apple_books"),
             ("title", "The Two Towers"));
+        await SeedCanonicalsAsync(
+            assetId,
+            ("cover", "https://images.test/stale-asset-scope-two-towers.jpg"),
+            ("cover_source", "apple_books"));
 
         var worker = new CoverArtWorker(
             _assetRepo,
@@ -268,6 +272,10 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
             $"/stream/artwork/{replacement.Id}",
             canonicals.Single(value => value.Key == MetadataFieldConstants.CoverUrl).Value);
         Assert.DoesNotContain(canonicals, value => value.Key == "background_url");
+
+        var assetCanonicals = await _canonicalRepo.GetByEntityAsync(assetId);
+        Assert.DoesNotContain(assetCanonicals, value => value.Key == MetadataFieldConstants.Cover);
+        Assert.DoesNotContain(assetCanonicals, value => value.Key == MetadataFieldConstants.CoverUrl);
     }
 
     private async Task<Guid> SeedAssetForExistingWorkAsync(Guid workId, string relativeFilePath)

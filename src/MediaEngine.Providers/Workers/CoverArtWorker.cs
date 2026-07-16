@@ -90,6 +90,11 @@ public sealed class CoverArtWorker
 
         var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
         var ownerEntityId = ResolveCoverOwnerEntityId(entityId, lineage);
+        var removedScopedVariantCount = await ClearStaleLowerScopeCoverStateAsync(
+            entityId,
+            lineage,
+            ownerEntityId,
+            ct);
         var before = await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), ct: ct);
         var staleProviderArtwork = before
             .Where(IsReplaceableProviderArtwork)
@@ -129,7 +134,11 @@ public sealed class CoverArtWorker
 
             try
             {
-                await DownloadAndPersistAsync(entityId, wikidataQid: null, ct);
+                await DownloadAndPersistAsync(
+                    entityId,
+                    wikidataQid: null,
+                    ct,
+                    explicitCoverUrl: normalizedCoverUrl);
                 replacement = (await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), "CoverArt", ct))
                     .FirstOrDefault(asset =>
                         string.Equals(asset.ImageUrl, normalizedCoverUrl, StringComparison.OrdinalIgnoreCase)
@@ -224,7 +233,7 @@ public sealed class CoverArtWorker
             entityId,
             ownerEntityId,
             replacement is not null,
-            variantsToRemove.Count,
+            variantsToRemove.Count + removedScopedVariantCount,
             providerSource);
 
         return new RetailArtworkReplacementResult(
@@ -232,7 +241,7 @@ public sealed class CoverArtWorker
             replacement is not null,
             ownerEntityId,
             replacement?.Id,
-            variantsToRemove.Count,
+            variantsToRemove.Count + removedScopedVariantCount,
             message);
     }
 
@@ -240,15 +249,26 @@ public sealed class CoverArtWorker
     /// Downloads cover art from the provider URL stored in canonicals
     /// and persists measured artwork metadata plus renditions.
     /// </summary>
-    public async Task DownloadAndPersistAsync(Guid entityId, string? wikidataQid, CancellationToken ct)
+    public async Task DownloadAndPersistAsync(
+        Guid entityId,
+        string? wikidataQid,
+        CancellationToken ct,
+        string? explicitCoverUrl = null)
     {
         var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
         var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
         var ownerEntityId = ResolveCoverOwnerEntityId(entityId, lineage);
 
-        // Find cover URL from the asset's own canonicals.
-        var coverLookup = await FindCoverUrlWithLineageAsync(entityId, canonicals, lineage, ct)
-            .ConfigureAwait(false);
+        // Manual retail replacement passes the exact selected URL. This must
+        // bypass normal lineage lookup because an older asset-scope canonical
+        // can otherwise win before the newly selected work-scope cover.
+        var normalizedExplicitCoverUrl = NormalizeRemoteArtworkUrl(explicitCoverUrl);
+        var coverLookup = normalizedExplicitCoverUrl is not null
+            ? new CoverLookupResult(
+                normalizedExplicitCoverUrl,
+                await _canonicalRepo.GetByEntityAsync(ownerEntityId, ct).ConfigureAwait(false))
+            : await FindCoverUrlWithLineageAsync(entityId, canonicals, lineage, ct)
+                .ConfigureAwait(false);
         var coverUrl = coverLookup.Url;
         var coverSourceCanonicals = coverLookup.Canonicals;
 
@@ -570,6 +590,50 @@ public sealed class CoverArtWorker
         string.Equals(asset.AssetClassValue, "Artwork", StringComparison.OrdinalIgnoreCase)
         && !asset.IsUserOverride
         && !string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<int> ClearStaleLowerScopeCoverStateAsync(
+        Guid entityId,
+        WorkLineage? lineage,
+        Guid ownerEntityId,
+        CancellationToken ct)
+    {
+        var staleEntityIds = new HashSet<Guid>();
+        if (entityId != ownerEntityId)
+            staleEntityIds.Add(entityId);
+
+        // Parent-owned artwork (albums, shows, and movies) must also clear a
+        // stale child-work cover. Self-owned artwork (books, audiobooks, and
+        // comic issues) deliberately leaves the parent shelf artwork intact.
+        if (lineage is not null
+            && ownerEntityId == lineage.TargetForParentScope
+            && lineage.TargetForSelfScope != ownerEntityId)
+        {
+            staleEntityIds.Add(lineage.TargetForSelfScope);
+        }
+
+        var removed = 0;
+        foreach (var staleEntityId in staleEntityIds)
+        {
+            var staleAssets = (await _entityAssetRepo!.GetByEntityAsync(
+                    staleEntityId.ToString(),
+                    "CoverArt",
+                    ct))
+                .Where(IsReplaceableProviderArtwork)
+                .ToList();
+            foreach (var staleAsset in staleAssets)
+            {
+                await _entityAssetRepo.DeleteAsync(staleAsset.Id, ct);
+                DeleteManagedArtworkFiles(staleAsset);
+                removed++;
+            }
+
+            await _canonicalRepo.DeleteByKeyAsync(staleEntityId, MetadataFieldConstants.Cover, ct);
+            await _canonicalRepo.DeleteByKeyAsync(staleEntityId, MetadataFieldConstants.CoverSource, ct);
+            await ClearArtworkDisplayCanonicalsAsync(staleEntityId, "CoverArt", ct);
+        }
+
+        return removed;
+    }
 
     private static string? NormalizeRemoteArtworkUrl(string? value)
     {
