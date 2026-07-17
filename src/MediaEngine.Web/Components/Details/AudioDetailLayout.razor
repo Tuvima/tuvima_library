@@ -2,10 +2,13 @@
 @using MediaEngine.Contracts.Details
 
 <AppCssElement Tag="div" Class="@AudioDetailClass" Css="@AudioChromeStyle">
-    <DetailHero Model="Model"
-                OnActionSelected="SelectActionAsync"
-                OnTabRequested="ActiveTabChanged"
-                ActionAttributes="ActionAttributes" />
+    @if (IncludeHero)
+    {
+        <DetailHero Model="Model"
+                    OnActionSelected="SelectActionAsync"
+                    OnTabRequested="ActiveTabChanged"
+                    ActionAttributes="ActionAttributes" />
+    }
 
     @if (Model.EntityType == DetailEntityType.MusicAlbum)
     {
@@ -55,6 +58,7 @@
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+    [Parameter] public bool IncludeHero { get; set; } = true;
     [Parameter] public IReadOnlyList<DetailTab> Tabs { get; set; } = [];
     [Parameter] public string ActiveTab { get; set; } = "overview";
     [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }

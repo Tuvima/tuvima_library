@@ -25,10 +25,28 @@
 {
     <article class="tl-detail-page">
         <div class="tl-detail-edit-stage tl-detail-edit-stage--@_inlineEditorPhase">
-        <div class="tl-detail-edit-face tl-detail-edit-face--detail" @attributes="DetailFaceAttributes">
+            <div class="tl-detail-edit-face tl-detail-edit-face--detail" @attributes="DetailFaceAttributes">
+                <DetailHero Model="Model"
+                            OnActionSelected="HandleDetailActionAsync"
+                            OnTabRequested="SetActiveTabAsync"
+                            ActionAttributes="@(IsAudioDetail ? AudiobookActionAttributes : null)" />
+            </div>
+
+            @if (_inlineEditorSession is not null)
+            {
+                <div class="tl-detail-edit-face tl-detail-edit-face--editor">
+                    <SharedMediaEditorShell Request="_inlineEditorSession.Request"
+                                            Inline="true"
+                                            HeroConstrained="true"
+                                            Closed="HandleInlineEditorClosedAsync" />
+                </div>
+            }
+        </div>
+
         @if (IsAudioDetail)
         {
             <AudioDetailLayout Model="Model"
+                               IncludeHero="false"
                                Tabs="VisibleTabs"
                                ActiveTab="@CurrentActiveTab"
                                ActiveTabChanged="SetActiveTabAsync"
@@ -38,10 +56,6 @@
         }
         else
         {
-            <DetailHero Model="Model"
-                        OnActionSelected="HandleDetailActionAsync"
-                        OnTabRequested="SetActiveTabAsync" />
-
             <DetailTabs Tabs="VisibleTabs" ActiveTab="@CurrentActiveTab" ActiveTabChanged="SetActiveTabAsync" />
 
             <section id="overview" class="tl-detail-body">
@@ -129,17 +143,6 @@
                 }
             </section>
         }
-        </div>
-
-        @if (_inlineEditorSession is not null)
-        {
-            <div class="tl-detail-edit-face tl-detail-edit-face--editor">
-                <SharedMediaEditorShell Request="_inlineEditorSession.Request"
-                                        Inline="true"
-                                        Closed="HandleInlineEditorClosedAsync" />
-            </div>
-        }
-        </div>
     </article>
 }
 

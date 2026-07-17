@@ -6,6 +6,29 @@
         linear-gradient(180deg, rgba(8, 17, 30, 0.99), rgba(6, 14, 25, 0.99));
 }
 
+.sme-inline-surface--hero {
+    height: calc(80svh - var(--app-topbar-height, 65px) - 1rem);
+    min-height: 28rem;
+    max-height: calc(80svh - var(--app-topbar-height, 65px) - 1rem);
+    overflow: hidden;
+}
+
+@media (max-width: 960px) {
+    .sme-inline-surface--hero {
+        height: calc(84svh - var(--app-topbar-height, 65px));
+        min-height: 36rem;
+        max-height: calc(84svh - var(--app-topbar-height, 65px));
+    }
+}
+
+@media (max-width: 640px) {
+    .sme-inline-surface--hero {
+        height: calc(88svh - var(--app-topbar-height, 65px));
+        min-height: 38rem;
+        max-height: calc(88svh - var(--app-topbar-height, 65px));
+    }
+}
+
 .sme-inline-surface ::deep .app-dialog-shell {
     width: min(100%, 1440px);
     min-height: calc(100svh - var(--app-topbar-height, 65px));

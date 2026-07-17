@@ -16,7 +16,7 @@ Tuvima no longer uses a separate media management workbench. Users browse throug
 
 ## Product model
 
-- On detail pages, normal correction replaces the cinematic hero/detail surface with a full-width editor at the same URL. The global application shell remains visible.
+- On detail pages, normal correction flips only the cinematic hero into a full-width landscape editor at the same URL. The global application shell and the lower Series/Overview/detail tabs remain visible and mounted.
 - Review and batch correction continue to use the same editor workspace in a dialog because they originate outside a single detail-page context.
 - Review Queue is only for blocked, uncertain, or low-confidence items that need human confirmation.
 - Settings/Admin is for folders, providers, profiles, ingestion status, system health, logs, and configuration.
@@ -51,7 +51,7 @@ Canonical presentation overrides are limited to `title`, `description`, `tagline
 
 ## After save
 
-After an edit is applied, the current surface refreshes behind the editor and flips back only after the save succeeds. Cancel returns to the unchanged detail surface. Save failures and structural confirmations keep the editor visible. Dirty route changes are guarded, focus enters the editor on open and returns to the Edit action on close, and reduced-motion users receive an immediate swap instead of the 3D transition. Editing never changes the detail URL or navigates to a management workspace.
+After an edit is applied, the current hero refreshes behind the editor and flips back only after the save succeeds. The editor is constrained to the hero's landscape footprint and scrolls internally; Series, Overview, and the active lower detail content stay in place below it. Cancel returns to the unchanged hero. Save failures and structural confirmations keep the editor visible. Dirty route changes are guarded, focus enters the editor on open and returns to the Edit action on close, and reduced-motion users receive an immediate swap instead of the 3D transition. Editing never changes the detail URL or navigates to a management workspace.
 
 Applying a different retail match is a two-speed operation. The selected provider identity and its primary artwork are committed synchronously: stale provider-managed artwork is removed, the replacement cover is downloaded into managed storage, and the detail hero refreshes while the editor remains open. User-uploaded artwork remains available. Wikidata alignment and deeper enrichment are then queued and may finish in the background. The manual update and queued identity job must both be visible in application logs and item History.
 

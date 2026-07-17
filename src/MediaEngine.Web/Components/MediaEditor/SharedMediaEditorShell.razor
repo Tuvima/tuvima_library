@@ -9,10 +9,12 @@
 <NavigationLock ConfirmExternalNavigation="@IsDirty"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
-<MediaEditorSurface Inline="@Inline">
-        <div class="sme-shell">
+<MediaEditorSurface Inline="@Inline" HeroConstrained="@HeroConstrained">
+        <div class="sme-shell @(HeroConstrained ? "sme-shell--hero" : string.Empty)">
             <div class="sme-header">
-                <div class="sme-cover-cluster @(IsSingleItem ? "sme-cover-cluster--single" : "sme-cover-cluster--batch")">
+                @if (!Inline)
+                {
+                    <div class="sme-cover-cluster @(IsSingleItem ? "sme-cover-cluster--single" : "sme-cover-cluster--batch")">
                     @if (IsBatchMode)
                     {
                         <div class="sme-batch-cover-grid">
@@ -41,24 +43,38 @@
                             <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-36px tl-u-opacity-0-2" />
                         </div>
                     }
-                </div>
+                    </div>
+                }
 
-                <div class="sme-header-copy">
-                    <div class="sme-kicker">@HeaderKicker</div>
-                    @if (!string.IsNullOrWhiteSpace(BreadcrumbText))
+                <div class="sme-header-copy @(Inline ? "sme-header-copy--inline" : string.Empty)">
+                    @if (Inline)
                     {
-                        <div class="sme-breadcrumb">@BreadcrumbText</div>
+                        <div class="sme-inline-breadcrumb">
+                            <span>@HeaderKicker</span>
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" />
+                            <strong>@HeaderTitle</strong>
+                        </div>
+                        <h2 class="sme-title sme-title--inline" tabindex="-1">Edit @HeaderKicker</h2>
+                        <div class="sme-subtitle sme-subtitle--inline">Customize how this item appears and behaves in your library.</div>
                     }
-                    <h2 class="sme-title" tabindex="-1">@HeaderTitle</h2>
-                    @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
+                    else
                     {
-                        <div class="sme-subtitle">@HeaderSubtitle</div>
-                    }
-                    @if (IsSingleItem && !string.IsNullOrWhiteSpace(_detail?.WikidataQid))
-                    {
-                        <a class="sme-qid-link" href="https://www.wikidata.org/wiki/@_detail!.WikidataQid" target="_blank" rel="noopener">
-                            @_detail.WikidataQid
-                        </a>
+                        <div class="sme-kicker">@HeaderKicker</div>
+                        @if (!string.IsNullOrWhiteSpace(BreadcrumbText))
+                        {
+                            <div class="sme-breadcrumb">@BreadcrumbText</div>
+                        }
+                        <h2 class="sme-title" tabindex="-1">@HeaderTitle</h2>
+                        @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
+                        {
+                            <div class="sme-subtitle">@HeaderSubtitle</div>
+                        }
+                        @if (IsSingleItem && !string.IsNullOrWhiteSpace(_detail?.WikidataQid))
+                        {
+                            <a class="sme-qid-link" href="https://www.wikidata.org/wiki/@_detail!.WikidataQid" target="_blank" rel="noopener">
+                                @_detail.WikidataQid
+                            </a>
+                        }
                     }
                 </div>
 
@@ -224,6 +240,24 @@
                             <span>@tab.Label</span>
                         </AppButton>
                     }
+
+                    @if (Inline && IsSingleItem)
+                    {
+                        <div class="sme-sidebar-artwork" aria-label="Current artwork preview">
+                            <span class="sme-sidebar-artwork__label">Artwork preview</span>
+                            @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
+                            {
+                                <img src="@CurrentCoverUrl" alt="" />
+                            }
+                            else
+                            {
+                                <div class="sme-sidebar-artwork__fallback">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Image" />
+                                </div>
+                            }
+                            <span class="sme-sidebar-artwork__hint">Manage from Artwork</span>
+                        </div>
+                    }
                 </nav>
                 <div class="sme-main-pane">
                     @if (HasContainerReturnState)
@@ -266,13 +300,14 @@
                                 <span>Source-managed facts refresh when matching changes. Customize only the values that control how this item appears in your library.</span>
                             </div>
 
-                            <MediaEditorPanel Title="Appearance" Description="The title and copy shown across Tuvima Library.">
-                                @foreach (var field in GetAppearanceFields())
-                                {
-                                    <AppFormFieldRow Label="@field.Label"
-                                                     Value="@GetEditableValue(field.Key)"
-                                                     ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
-                                                     Placeholder="@GetPlaceholder(field)"
+                            <div class="sme-details-grid">
+                                <MediaEditorPanel Title="Appearance" Description="The title and copy shown across Tuvima Library." Class="sme-details-grid__appearance">
+                                    @foreach (var field in GetAppearanceFields())
+                                    {
+                                        <AppFormFieldRow Label="@field.Label"
+                                                         Value="@GetEditableValue(field.Key)"
+                                                         ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                         Placeholder="@GetPlaceholder(field)"
                                                       InputKind="@field.InputKind"
                                                       Lines="@GetFieldLineCount(field)"
                                                       Locked="@IsInlineFieldReadOnly(field.Key)"
@@ -287,53 +322,56 @@
                                                       ConfirmingAction="@IsInlineFieldConfirmingRevert(field.Key)"
                                                       ConfirmLabel="@($"Remove local override for {field.Label}")"
                                                       CancelLabel="Keep override"
-                                                      OnConfirmAction="@(() => ConfirmInlineFieldRevertAsync(field.Key))"
-                                                      OnCancelAction="@(() => CancelInlineFieldRevert(field.Key))" />
-                                }
-                            </MediaEditorPanel>
+                                                          OnConfirmAction="@(() => ConfirmInlineFieldRevertAsync(field.Key))"
+                                                          OnCancelAction="@(() => CancelInlineFieldRevert(field.Key))" />
+                                    }
+                                </MediaEditorPanel>
 
-                            <MediaEditorPanel Title="My Library" Description="Private notes and local organization that provider refreshes will not replace.">
-                                @foreach (var field in GetLibraryFields())
-                                {
-                                    <AppFormFieldRow Label="@field.Label"
-                                                     Value="@GetEditableValue(field.Key)"
-                                                     ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
-                                                     Placeholder="@GetPlaceholder(field)"
-                                                     InputKind="@field.InputKind"
-                                                     Lines="@GetFieldLineCount(field)"
-                                                     HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
-                                }
-                                @if (Request.ActiveProfileId.HasValue)
-                                {
-                                    <div class="sme-profile-preferences">
-                                        <AppSwitchRow T="bool"
-                                                      Label="Hidden from this profile"
-                                                      Description="Keep this item out of normal browsing for the active profile."
-                                                      Value="@_isHidden"
-                                                      ValueChanged="OnHiddenChanged" />
-                                        <AppSwitchRow T="bool"
-                                                      Label="Use for recommendations"
-                                                      Description="Allow this item to influence suggestions for the active profile."
-                                                      Value="@_includeInRecommendations"
-                                                      ValueChanged="OnRecommendationsChanged" />
-                                    </div>
-                                }
-                            </MediaEditorPanel>
-
-                            @if (GetSourceFacts().Count > 0)
-                            {
-                                <MediaEditorPanel Title="Source facts" Description="These visible facts come from the matched source or physical media and are changed through Matching or ingestion.">
-                                    <dl class="sme-source-facts">
-                                        @foreach (var fact in GetSourceFacts())
+                                <div class="sme-details-grid__secondary">
+                                    <MediaEditorPanel Title="My Library" Description="Private notes and local organization that provider refreshes will not replace.">
+                                        @foreach (var field in GetLibraryFields())
                                         {
-                                            <div>
-                                                <dt>@fact.Label</dt>
-                                                <dd>@fact.Value</dd>
+                                            <AppFormFieldRow Label="@field.Label"
+                                                             Value="@GetEditableValue(field.Key)"
+                                                             ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                             Placeholder="@GetPlaceholder(field)"
+                                                             InputKind="@field.InputKind"
+                                                             Lines="@GetFieldLineCount(field)"
+                                                             HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
+                                        }
+                                        @if (Request.ActiveProfileId.HasValue)
+                                        {
+                                            <div class="sme-profile-preferences">
+                                                <AppSwitchRow T="bool"
+                                                              Label="Hidden from this profile"
+                                                              Description="Keep this item out of normal browsing for the active profile."
+                                                              Value="@_isHidden"
+                                                              ValueChanged="OnHiddenChanged" />
+                                                <AppSwitchRow T="bool"
+                                                              Label="Use for recommendations"
+                                                              Description="Allow this item to influence suggestions for the active profile."
+                                                              Value="@_includeInRecommendations"
+                                                              ValueChanged="OnRecommendationsChanged" />
                                             </div>
                                         }
-                                    </dl>
-                                </MediaEditorPanel>
-                            }
+                                    </MediaEditorPanel>
+
+                                    @if (GetSourceFacts().Count > 0)
+                                    {
+                                        <MediaEditorPanel Title="Source facts" Description="These visible facts come from the matched source or physical media and are changed through Matching or ingestion.">
+                                            <dl class="sme-source-facts">
+                                                @foreach (var fact in GetSourceFacts())
+                                                {
+                                                    <div>
+                                                        <dt>@fact.Label</dt>
+                                                        <dd>@fact.Value</dd>
+                                                    </div>
+                                                }
+                                            </dl>
+                                        </MediaEditorPanel>
+                                    }
+                                </div>
+                            </div>
                         </div>
                     </div>
                 }

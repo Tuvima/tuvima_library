@@ -4265,3 +4265,392 @@
         flex: 1 1 180px;
     }
 }
+
+/* Hero-hosted editing is a compact landscape workspace. The dialog and
+   standalone editor retain their existing dimensions and behavior. */
+.sme-shell.sme-shell--hero {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    border-radius: 0;
+    background:
+        radial-gradient(circle at 86% -30%, rgba(111, 65, 255, 0.22), transparent 34rem),
+        linear-gradient(180deg, rgba(8, 16, 29, 0.995), rgba(6, 13, 24, 0.995));
+    font-family: var(--font-ui);
+}
+
+.sme-shell--hero .sme-header {
+    min-height: 7.25rem;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.1rem clamp(1.5rem, 3vw, 3rem);
+    border-bottom-color: rgba(154, 170, 207, 0.14);
+    background:
+        linear-gradient(90deg, rgba(4, 11, 21, 0.98), rgba(9, 17, 33, 0.92) 64%, rgba(30, 18, 76, 0.48));
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.14);
+}
+
+.sme-header-copy--inline {
+    display: grid;
+    align-content: center;
+    gap: 0.25rem;
+}
+
+.sme-inline-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    color: rgba(177, 154, 255, 0.92);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sme-inline-breadcrumb strong {
+    min-width: 0;
+    overflow: hidden;
+    color: rgba(214, 204, 255, 0.92);
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sme-title--inline {
+    margin-top: 0.2rem;
+    font-size: clamp(1.55rem, 2.1vw, 2rem);
+    line-height: 1.08;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.sme-subtitle--inline {
+    margin-top: 0.2rem;
+    color: rgba(225, 231, 243, 0.62);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.sme-shell--hero .sme-inline-header-actions {
+    gap: 0.65rem;
+}
+
+.sme-shell--hero ::deep .sme-inline-header-actions .mud-button-root {
+    min-width: 7.5rem;
+    min-height: 2.65rem;
+    border-color: rgba(166, 179, 211, 0.2);
+    border-radius: 0.55rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.sme-shell--hero ::deep .sme-inline-header-actions .mud-button-filled-primary {
+    background: linear-gradient(135deg, #6f41ff, #8b3dff);
+    box-shadow: 0 10px 28px rgba(105, 56, 255, 0.27);
+}
+
+.sme-shell--hero .sme-workspace {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: 13.5rem minmax(0, 1fr);
+}
+
+.sme-shell--hero .sme-section-nav {
+    min-height: 0;
+    gap: 0.45rem;
+    padding: 1.15rem 0.85rem 1rem;
+    overflow: hidden;
+    border-right-color: rgba(155, 174, 211, 0.14);
+    background:
+        linear-gradient(180deg, rgba(8, 17, 31, 0.96), rgba(5, 12, 23, 0.98));
+}
+
+.sme-shell--hero ::deep .sme-section-nav__item {
+    position: relative;
+    min-height: 2.75rem;
+    padding-inline: 0.9rem;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 0.55rem;
+    color: rgba(222, 229, 242, 0.68);
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+.sme-shell--hero ::deep .sme-section-nav__item .mud-icon-root {
+    color: rgba(195, 207, 230, 0.7);
+}
+
+.sme-shell--hero ::deep .sme-section-nav__item:hover,
+.sme-shell--hero ::deep .sme-section-nav__item:focus-visible {
+    border-color: rgba(156, 128, 255, 0.24);
+    background: rgba(112, 76, 214, 0.1);
+}
+
+.sme-shell--hero ::deep .sme-section-nav__item.is-active {
+    border-color: rgba(153, 112, 255, 0.42);
+    background: linear-gradient(90deg, rgba(113, 65, 255, 0.32), rgba(113, 65, 255, 0.12));
+    box-shadow:
+        inset 3px 0 0 #9a73ff,
+        0 8px 22px rgba(30, 14, 74, 0.22);
+    color: #fff;
+}
+
+.sme-shell--hero ::deep .sme-section-nav__item.is-active .mud-icon-root {
+    color: #c7b3ff;
+}
+
+.sme-sidebar-artwork {
+    display: grid;
+    justify-items: center;
+    gap: 0.3rem;
+    margin-top: auto;
+    padding: 0.6rem 0.5rem 0.1rem;
+    border-top: 1px solid rgba(158, 176, 211, 0.12);
+}
+
+.sme-sidebar-artwork__label {
+    justify-self: start;
+    color: rgba(197, 177, 255, 0.82);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sme-sidebar-artwork img,
+.sme-sidebar-artwork__fallback {
+    width: 3.75rem;
+    height: 5.25rem;
+    border: 1px solid rgba(174, 190, 222, 0.18);
+    border-radius: 0.45rem;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.035);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+.sme-sidebar-artwork__fallback {
+    display: grid;
+    place-items: center;
+    color: rgba(224, 231, 244, 0.34);
+}
+
+.sme-sidebar-artwork__hint {
+    display: none;
+}
+
+.sme-shell--hero .sme-main-pane {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.sme-shell--hero .sme-body {
+    min-height: 0;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1rem clamp(1.15rem, 2.2vw, 2.25rem) 1.4rem;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(74, 51, 145, 0.1), transparent 28rem),
+        rgba(6, 14, 26, 0.76);
+    scrollbar-color: rgba(151, 122, 255, 0.44) transparent;
+    scrollbar-width: thin;
+}
+
+.sme-shell--hero .sme-details--single {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+}
+
+.sme-shell--hero .sme-source-managed-note {
+    margin-bottom: 0.8rem;
+    padding: 0.75rem 0.9rem;
+    border-color: rgba(146, 164, 199, 0.16);
+    background: rgba(21, 35, 57, 0.5);
+    font-size: 0.76rem;
+}
+
+.sme-details-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.85fr);
+    align-items: start;
+    gap: 0.85rem;
+}
+
+.sme-details-grid__secondary {
+    display: grid;
+    gap: 0.85rem;
+    min-width: 0;
+}
+
+.sme-shell--hero ::deep .sme-details-grid .sme-panel {
+    margin: 0;
+    padding: 1rem 1.1rem;
+    border-color: rgba(153, 171, 207, 0.14);
+    border-radius: 0.6rem;
+    background:
+        linear-gradient(180deg, rgba(19, 31, 51, 0.78), rgba(11, 21, 37, 0.72));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.sme-shell--hero ::deep .sme-details-grid .sme-panel__header {
+    margin-bottom: 0.8rem;
+}
+
+.sme-shell--hero ::deep .sme-details-grid .sme-group-title {
+    color: rgba(185, 157, 255, 0.95);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+
+.sme-shell--hero ::deep .sme-details-grid .tl-field-grid {
+    grid-template-columns: minmax(6.5rem, 8rem) minmax(0, 1fr) 2.65rem;
+    gap: 0.5rem 0.7rem;
+    margin-bottom: 0.55rem;
+}
+
+.sme-shell--hero ::deep .sme-details-grid .tl-field-label {
+    color: rgba(213, 222, 239, 0.7);
+    font-size: 0.76rem !important;
+    font-weight: 500;
+}
+
+.sme-shell--hero ::deep .sme-details-grid .app-dialog-field input,
+.sme-shell--hero ::deep .sme-details-grid .app-dialog-field textarea,
+.sme-shell--hero ::deep .sme-details-grid .app-dialog-field .mud-input-slot {
+    font-size: 0.84rem !important;
+    line-height: 1.38 !important;
+}
+
+.sme-shell--hero ::deep .sme-details-grid .tl-field-grid--textarea .app-dialog-textarea textarea {
+    min-height: 6.5rem !important;
+    resize: none !important;
+}
+
+.sme-shell--hero .sme-profile-preferences {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+}
+
+.sme-shell--hero .sme-source-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.sme-shell--hero .sme-source-facts > div {
+    padding: 0.65rem 0.75rem;
+    background: rgba(255, 255, 255, 0.026);
+}
+
+.sme-shell--hero .sme-source-facts dt {
+    font-size: 0.62rem;
+}
+
+.sme-shell--hero .sme-source-facts dd {
+    font-size: 0.78rem;
+}
+
+@media (max-width: 1180px) {
+    .sme-details-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.72fr);
+    }
+
+    .sme-shell--hero .sme-profile-preferences {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 960px) {
+    .sme-shell.sme-shell--hero {
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+    }
+
+    .sme-shell--hero .sme-header {
+        min-height: auto;
+        padding: 0.9rem 1rem;
+    }
+
+    .sme-shell--hero .sme-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .sme-shell--hero .sme-section-nav {
+        position: static;
+        flex-direction: row;
+        min-height: 3.7rem;
+        padding: 0.55rem 0.75rem;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid rgba(155, 174, 211, 0.14);
+    }
+
+    .sme-shell--hero ::deep .sme-section-nav__item {
+        flex: 0 0 auto;
+        width: auto;
+        min-height: 2.55rem;
+    }
+
+    .sme-sidebar-artwork {
+        display: none;
+    }
+
+    .sme-details-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .sme-shell.sme-shell--hero {
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+    }
+
+    .sme-shell--hero .sme-header {
+        align-items: flex-start;
+        gap: 0.7rem;
+    }
+
+    .sme-title--inline {
+        font-size: 1.35rem;
+    }
+
+    .sme-subtitle--inline {
+        display: none;
+    }
+
+    .sme-shell--hero .sme-inline-header-actions {
+        width: auto;
+        margin-left: auto;
+    }
+
+    .sme-shell--hero ::deep .sme-inline-header-actions .mud-button-root {
+        min-width: 0;
+        padding-inline: 0.75rem;
+    }
+
+    .sme-shell--hero .sme-body {
+        padding: 0.8rem;
+    }
+
+    .sme-shell--hero ::deep .sme-details-grid .tl-field-grid {
+        grid-template-columns: minmax(0, 1fr) 2.65rem;
+    }
+
+    .sme-shell--hero .sme-source-facts,
+    .sme-shell--hero .sme-profile-preferences {
+        grid-template-columns: 1fr;
+    }
+}

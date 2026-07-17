@@ -80,6 +80,7 @@ public partial class SharedMediaEditorShell
     [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
     [Parameter] public MediaEditorLaunchRequest Request { get; set; } = new();
     [Parameter] public bool Inline { get; set; }
+    [Parameter] public bool HeroConstrained { get; set; }
     [Parameter] public EventCallback<bool> Closed { get; set; }
 
     private LibraryItemDetailViewModel? _detail;

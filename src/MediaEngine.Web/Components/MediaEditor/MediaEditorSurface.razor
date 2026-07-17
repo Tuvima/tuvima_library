@@ -2,7 +2,7 @@
 
 @if (Inline)
 {
-    <section class="sme-inline-surface" aria-label="Media editor">
+    <section class="sme-inline-surface @(HeroConstrained ? "sme-inline-surface--hero" : string.Empty)" aria-label="Media editor">
         @ChildContent
     </section>
 }
@@ -17,5 +17,6 @@ else
 
 @code {
     [Parameter] public bool Inline { get; set; }
+    [Parameter] public bool HeroConstrained { get; set; }
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
 }

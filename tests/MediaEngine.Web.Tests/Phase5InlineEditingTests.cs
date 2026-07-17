@@ -12,8 +12,25 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("MediaEditorLauncher.BeginInline(request)", source, StringComparison.Ordinal);
         Assert.Contains("<SharedMediaEditorShell", source, StringComparison.Ordinal);
         Assert.Contains("Inline=\"true\"", source, StringComparison.Ordinal);
+        Assert.Contains("HeroConstrained=\"true\"", source, StringComparison.Ordinal);
+        Assert.Contains("IncludeHero=\"false\"", source, StringComparison.Ordinal);
         Assert.Contains("ActiveProfileId = activeProfile?.Id", source, StringComparison.Ordinal);
         Assert.Contains("Mode = SharedMediaEditorMode.Normal", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DetailPage_OnlyFlipsTheHeroAndKeepsLowerDetailContentMounted()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var stageIndex = source.IndexOf("tl-detail-edit-stage", StringComparison.Ordinal);
+        var editorIndex = source.IndexOf("HeroConstrained=\"true\"", stageIndex, StringComparison.Ordinal);
+        var stageEndIndex = source.IndexOf("@if (IsAudioDetail)", editorIndex, StringComparison.Ordinal);
+        var tabsIndex = source.IndexOf("<DetailTabs Tabs=\"VisibleTabs\"", stageEndIndex, StringComparison.Ordinal);
+
+        Assert.True(stageIndex >= 0);
+        Assert.True(editorIndex > stageIndex);
+        Assert.True(stageEndIndex > editorIndex);
+        Assert.True(tabsIndex > stageEndIndex);
     }
 
     [Fact]
@@ -74,6 +91,9 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Title=\"Appearance\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"My Library\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"Source facts\"", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-details-grid", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-sidebar-artwork", shell, StringComparison.Ordinal);
+        Assert.Contains("@if (!Inline)", shell, StringComparison.Ordinal);
         Assert.Contains("ActionIcon=\"@GetInlineFieldActionIcon(field.Key)\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Match Information", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Title=\"Local Library Details\"", shell, StringComparison.Ordinal);
