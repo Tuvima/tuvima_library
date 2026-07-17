@@ -14,7 +14,7 @@
 
 <AppCssElement Tag="div"
                Css="@PaletteScopeStyle">
-<article class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")} {(_dismissedFromContinue ? "is-dismissed" : "")}")'
+<article class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")} {(_dismissedFromContinue ? "is-dismissed" : "")}")'
          @ref="_cardRef"
          aria-label="@Item.Title"
          @onkeydown="HandleCardKeyDown">
@@ -325,7 +325,10 @@
         _ => "is-hover-expanded",
     };
 
-    private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(Item.IsCollection ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
+    private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
+
+    private bool UsesCollectionVisualTreatment =>
+        Item.IsCollection && Item.Presentation != MediaTilePresentation.TvSeries;
 
     private string TileStyle => $"{Item.ArtworkPalette?.CssVariableStyle} --media-tile-accent: {Item.AccentColor}; --media-tile-secondary-accent: {Item.SecondaryAccentColor}; {HoverAtmosphereStyle}";
 

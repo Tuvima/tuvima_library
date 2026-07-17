@@ -18,7 +18,7 @@ Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery
 
 The removed all-in-one management workflow must not be recreated. Do not add routes, navigation labels, implementation types, or an all-in-one media correction workbench for it.
 
-Series and collection containers use `Components/MediaTiles/MediaGroupTile.razor`, a dedicated fixed-size landscape card. It shows owned child artwork at rest, reveals an in-place child carousel on hover or keyboard focus, opens the group from the resting surface, and opens the selected child from the carousel. Do not add this behavior to `MediaTile`; individual and Continue cards must retain their existing renderers and shelf geometry.
+Non-TV series and collection containers use `Components/MediaTiles/MediaGroupTile.razor`, a dedicated fixed-size landscape card. It shows owned child artwork at rest, reveals an in-place child carousel on hover or keyboard focus, opens the group from the resting surface, and opens the selected child from the carousel. TV shows remain on `MediaTile`: show cover at rest, then the show-level cinematic background and rich identity/actions on hover. Do not give TV shows the generic collection carousel merely because their storage identity is series-backed. Individual and Continue cards must retain their existing renderers and shelf geometry.
 
 ---
 

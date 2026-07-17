@@ -208,7 +208,7 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
-    public void FromDisplayCard_UsesShowCoverInsteadOfEpisodeStyleBackgroundForTvSeries()
+    public void FromDisplayCard_UsesCinematicMediaTileForTvSeries()
     {
         var collectionId = Guid.Parse("77777777-1111-1111-1111-777777777777");
         var card = new DisplayCardDto(
@@ -249,9 +249,12 @@ public sealed class MediaTileComposerServiceTests
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
 
-        Assert.True(mapped.UseLandscapeGroupTile);
-        Assert.Equal(MediaTileShape.Landscape, mapped.Shape);
-        Assert.Equal(MediaTileSurfaceKind.BannerLandscape, mapped.SurfaceKind);
+        Assert.False(mapped.UseLandscapeGroupTile);
+        Assert.Equal(collectionId, mapped.WorkId);
+        Assert.Equal(MediaTileShape.Portrait, mapped.Shape);
+        Assert.Equal(MediaTileSurfaceKind.CoverPortrait, mapped.SurfaceKind);
+        Assert.Equal(MediaTileHoverLayout.BannerPopover, mapped.HoverLayout);
+        Assert.Equal(MediaTileHoverMode.Expanded, mapped.HoverMode);
         Assert.Equal("/shows/expanse-cover-s.jpg", mapped.TileImageUrl);
         Assert.Equal("/episodes/still-m.jpg", mapped.HoverImageUrl);
     }

@@ -23,7 +23,7 @@
 
 **Shelf vs Collection rule:** Read, Watch, and Listen show immediate shelves: book series, movie series, TV shows, music albums, and audio series. The Collections page shows broader rollups only when a shared series/franchise/universe relationship connects at least two shelves. A single shelf, even with multiple works, remains in its lane; multiple formats of one Work are variants and do not create a rollup.
 
-**Container card rule:** Series and collection containers use a fixed-size landscape card backed by owned-child previews. Hover or keyboard focus reveals an in-place carousel without growing the card. The resting action opens the container; the selected-child action follows the child route supplied by the display API. Ordered series and TV episodes preserve Engine order, while broader curated collections may use a decorative resting stack.
+**Container card rule:** Non-TV series and collection containers use a fixed-size landscape card backed by owned-child previews. Hover or keyboard focus reveals an in-place carousel without growing the card. The resting action opens the container; the selected-child action follows the child route supplied by the display API. Ordered series preserve Engine order, while broader curated collections may use a decorative resting stack. TV shows are rendered as rich media identities instead: show cover at rest and the show-level cinematic background, logo, facts, description, and actions on hover; owned episodes stay available on the show detail surface.
 
 ---
 

@@ -158,6 +158,7 @@ public sealed class MediaTileComposerService
             "artist" => MediaTilePresentation.Artist,
             _ => MediaTilePresentation.Default,
         };
+        var isTvSeries = presentation == MediaTilePresentation.TvSeries;
         var isTypedGroup = card.Flags.IsCollection
                            && presentation is MediaTilePresentation.TvSeries
                                or MediaTilePresentation.MovieSeries
@@ -183,7 +184,11 @@ public sealed class MediaTileComposerService
         var useSquareIndividual = !card.Flags.IsCollection
                                   && (bucket == MediaTileBucket.Audiobook
                                       || (bucket == MediaTileBucket.Music && surface.Shape == MediaTileShape.Square));
-        var useLandscapeGroupTile = card.Flags.IsCollection && presentation != MediaTilePresentation.Artist;
+        // A TV show is structurally a group, but its card is a cinematic media identity.
+        // Keep it on MediaTile so the show cover can expand into the show backdrop instead
+        // of presenting the owned-episode carousel used by collection and series cards.
+        var useLandscapeGroupTile = card.Flags.IsCollection
+                                    && presentation is not (MediaTilePresentation.Artist or MediaTilePresentation.TvSeries);
         var tileShape = useLandscapeGroupTile
                 ? MediaTileShape.Landscape
                 : isTvEpisode
@@ -203,7 +208,7 @@ public sealed class MediaTileComposerService
         return new MediaTileViewModel
         {
             Id = card.Id,
-            WorkId = card.WorkId,
+            WorkId = card.WorkId ?? (isTvSeries ? card.Id : null),
             CollectionId = card.CollectionId,
             Title = card.Title,
             Subtitle = card.Subtitle,

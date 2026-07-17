@@ -424,12 +424,14 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             Id = Guid.NewGuid(),
             Title = "Foundation",
             MediaKind = "TV",
+            WorkId = Guid.NewGuid(),
             Shape = MediaTileShape.Portrait,
             Presentation = MediaTilePresentation.TvSeries,
             SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
-            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
             TileImageUrl = "/shows/foundation.jpg",
-            HoverImageUrl = "/shows/foundation.jpg",
+            HoverImageUrl = "/shows/foundation-background.jpg",
             NavigationUrl = "/watch/tv/show/1",
             IsCollection = true,
             PreviewTotalCount = 12,
@@ -440,6 +442,11 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("TV Show", cut.Find(".media-tile-group-kind").TextContent);
         Assert.Equal("12 episodes owned", cut.Find(".media-tile-group-count").GetAttribute("aria-label"));
         Assert.Empty(cut.FindAll(".media-tile-collage"));
+        Assert.DoesNotContain("is-collection-card", cut.Find("article.media-tile").ClassList);
+        Assert.DoesNotContain("is-collection-hover", cut.Find(".media-tile-hover-panel").ClassList);
+        Assert.Contains("is-banner-popover", cut.Find(".media-tile-hover-panel").ClassList);
+        Assert.Equal("/shows/foundation-background.jpg", cut.Find(".media-tile-hover-image").GetAttribute("src"));
+        Assert.NotEmpty(cut.FindAll(".media-tile-hover-body"));
     }
 
     [Fact]

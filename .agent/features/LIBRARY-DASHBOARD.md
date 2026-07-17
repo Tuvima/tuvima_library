@@ -22,7 +22,7 @@ The Dashboard is the user-facing surface for a local-first story library. It is 
 
 Lane-level shelves stay in their lane. A single book series, film series, album, or audio series should not duplicate itself as a top-level Collections tile unless it connects to a broader cross-shelf relationship.
 
-Series and collection containers render through the dedicated fixed-size landscape `MediaGroupTile`. It composes owned child artwork at rest and reveals an in-place child carousel on hover or keyboard focus. The resting surface opens the group, while the carousel opens the selected owned child. Individual and Continue cards keep their existing renderers.
+Non-TV series and collection containers render through the dedicated fixed-size landscape `MediaGroupTile`. It composes owned child artwork at rest and reveals an in-place child carousel on hover or keyboard focus. The resting surface opens the group, while the carousel opens the selected owned child. TV shows render through `MediaTile`, using the show cover at rest and the show-level cinematic backdrop and rich identity on hover. Individual and Continue cards keep their existing renderers.
 
 ---
 
