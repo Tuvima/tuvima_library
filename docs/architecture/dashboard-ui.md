@@ -22,15 +22,20 @@ The Dashboard is organized around discovery and media use, not a separate media 
 - Brand/logo placement.
 - Primary navigation.
 - Global search.
-- Review Queue notification.
-- Profile switcher.
-- Engine health/status copy.
+- A profile-aware **My List** bookmark route backed by the saved/favorites collection.
+- A unified circular activity indicator for playback, ingestion, AI work, enrichment, and other durable operations; it becomes an idle check icon when no work is active.
+- The account menu, including profile switching, Settings, Help, conditional sign-out, and permission-gated Needs Review count.
+- Engine connection/degraded-state messaging.
 - Command palette host.
 - Persistent Listen now-playing bar.
 - Device context initialization.
 - Keyboard shortcut registration and unregister on disposal.
 
 Persistent playback stays in the shell so it survives navigation. Media editing does not live in the shell.
+
+The current navbar replaces the former standalone review bell and ingestion percentage button. Before this change, operational state was split across unrelated controls and the profile popover only exposed profiles and Settings. After the change, My List is a first-class action, active work is represented by one consistent progress surface, and review attention appears beside the active identity and as **Needs Review** inside the menu. Consumer profiles do not fetch or render the review count. Sign out is shown only when OIDC or hybrid authentication is enabled; a local-only profile is switched rather than signed out.
+
+The activity surface is composed by `ShellActivityState`. It merges live SignalR ingestion, AI model-download, universe-enrichment, and durable `MediaOperationChanged` updates with scoped audio/video playback state. `GET /system/activity-status` supplies a sanitized active-operation snapshot so a newly opened Dashboard does not need to wait for the next SignalR event. Operation titles and filesystem paths are intentionally excluded from that shell endpoint.
 
 ## Listen Playback
 
@@ -47,6 +52,7 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 - `/watch` is the cinematic movie and TV lane landing page. `/watch/movies` and `/watch/tv` render detailed browse tabs.
 - `/listen` is the music, audiobook, album, artist, song, and playlist lane.
 - `/search` is cross-library discovery.
+- `/my-list` is the active profile's saved shortlist.
 - Detail pages show the selected media item and expose inline edit where appropriate.
 - `/settings/review` is the Review Queue.
 - `/settings` and `/settings/{Section}` are Settings/Admin.

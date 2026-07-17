@@ -1,9 +1,12 @@
 using System.Reflection;
+using System.Text.Json.Serialization;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Ingestion.Contracts;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -37,6 +40,28 @@ public static class SystemEndpoints
         .WithName("GetSystemStatus")
         .WithSummary("Returns service health and version. Used by external apps to test connectivity.")
         .Produces<SystemStatusResponse>(StatusCodes.Status200OK);
+
+        app.MapGet("/system/activity-status", async (
+            IMediaOperationRepository operations,
+            CancellationToken ct) =>
+        {
+            var queue = await operations.GetQueueAsync(null, 200, ct);
+            var active = queue
+                .Where(operation => operation.Status.Equals(MediaOperationStatus.Leased, StringComparison.OrdinalIgnoreCase)
+                                    || operation.Status.Equals(MediaOperationStatus.Running, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(operation => operation.Priority)
+                .ThenByDescending(operation => operation.UpdatedAt)
+                .Take(50)
+                .Select(SystemActivityOperationDto.From)
+                .ToList();
+
+            return Results.Ok(active);
+        })
+        .WithTags("System")
+        .WithName("GetSystemActivityStatus")
+        .WithSummary("Returns sanitized active Engine operations for the Dashboard activity indicator.")
+        .Produces<List<SystemActivityOperationDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
 
         app.MapGet("/system/watcher-status", (IFileWatcher watcher) =>
             Results.Ok(new
@@ -75,4 +100,30 @@ public static class SystemEndpoints
 
         return app;
     }
+}
+
+public sealed record SystemActivityOperationDto
+{
+    [JsonPropertyName("id")] public Guid Id { get; init; }
+    [JsonPropertyName("operation_type")] public string OperationType { get; init; } = string.Empty;
+    [JsonPropertyName("operation_kind")] public string OperationKind { get; init; } = string.Empty;
+    [JsonPropertyName("status")] public string Status { get; init; } = string.Empty;
+    [JsonPropertyName("stage")] public string? Stage { get; init; }
+    [JsonPropertyName("progress_percent")] public int ProgressPercent { get; init; }
+    [JsonPropertyName("items_total")] public int ItemsTotal { get; init; }
+    [JsonPropertyName("items_completed")] public int ItemsCompleted { get; init; }
+    [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
+
+    public static SystemActivityOperationDto From(MediaOperation operation) => new()
+    {
+        Id = operation.Id,
+        OperationType = operation.OperationType,
+        OperationKind = operation.OperationKind,
+        Status = operation.Status,
+        Stage = operation.Stage,
+        ProgressPercent = operation.ProgressPercent,
+        ItemsTotal = operation.ItemsTotal,
+        ItemsCompleted = operation.ItemsCompleted,
+        UpdatedAt = operation.UpdatedAt,
+    };
 }

@@ -1,0 +1,149 @@
+@namespace MediaEngine.Web.Components.Navigation
+
+@inject IStringLocalizer<SharedStrings> L
+
+<MudMenu Dense="true"
+         AnchorOrigin="Origin.BottomRight"
+         TransformOrigin="Origin.TopRight"
+         Class="top-nav-account-menu"
+         PopoverClass="top-nav-account-menu__popover"
+         aria-label="@L["TopBar_OpenProfileMenu"]">
+    <ActivatorContent>
+        <AppNativeButton Type="button"
+                         Class="top-nav-account-menu__trigger"
+                         AriaLabel="@L["TopBar_OpenProfileMenu"]"
+                         OnClick="@context.ToggleAsync">
+            <AppAvatar ImageUrl="@AvatarImageUrl"
+                       AltText=""
+                       Initials="@AvatarInitial"
+                       AccentColor="@AvatarColor"
+                       ForegroundColor="@AvatarForeground"
+                       Class="top-nav-account-menu__avatar" />
+            <span class="top-nav-account-menu__trigger-copy">
+                <span class="top-nav-account-menu__trigger-name">@DisplayName</span>
+                <span class="top-nav-account-menu__trigger-role">@ProfileRole</span>
+            </span>
+            <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown"
+                     Class="top-nav-account-menu__chevron" />
+        </AppNativeButton>
+    </ActivatorContent>
+    <ChildContent>
+        <div class="top-nav-account-menu__panel" role="presentation">
+            <header class="top-nav-account-menu__header">
+                <AppAvatar ImageUrl="@AvatarImageUrl"
+                           AltText=""
+                           Initials="@AvatarInitial"
+                           AccentColor="@AvatarColor"
+                           ForegroundColor="@AvatarForeground"
+                           Class="top-nav-account-menu__header-avatar" />
+                <div class="top-nav-account-menu__identity">
+                    <strong>@DisplayName</strong>
+                    <span>@ProfileRole</span>
+                </div>
+                @if (CanViewReview && ReviewCount > 0)
+                {
+                    <span class="top-nav-account-menu__notification"
+                          title="@L["Nav_ReviewPending", ReviewCount]"
+                          aria-label="@L["Nav_ReviewPending", ReviewCount]">
+                        <MudIcon Icon="@Icons.Material.Outlined.NotificationsNone" />
+                        <span>@ReviewCountLabel</span>
+                    </span>
+                }
+            </header>
+
+            @if (OtherProfiles.Count > 0)
+            {
+                <div class="top-nav-account-menu__section-label">@L["TopBar_SwitchProfile"]</div>
+                @foreach (var profile in OtherProfiles)
+                {
+                    <MudMenuItem Class="top-nav-account-menu__item top-nav-account-menu__profile-item"
+                                 @key="profile.Id"
+                                 OnClick="@(() => SelectProfileAsync(profile.Id))">
+                        <AppAvatar ImageUrl="@profile.AvatarImageUrl"
+                                   AltText=""
+                                   Initials="@AvatarInitialFor(profile.DisplayName)"
+                                   AccentColor="@profile.AvatarColor"
+                                   ForegroundColor="@AvatarForeground"
+                                   Class="top-nav-account-menu__profile-avatar" />
+                        <span>@profile.DisplayName</span>
+                    </MudMenuItem>
+                }
+                <MudDivider Class="top-nav-account-menu__divider" />
+            }
+
+            @if (CanViewReview)
+            {
+                <MudMenuItem Class="top-nav-account-menu__item"
+                             Icon="@Icons.Material.Outlined.RateReview"
+                             OnClick="OpenReviewAsync">
+                    <span class="top-nav-account-menu__item-copy">
+                        <span>@L["TopBar_NeedsReview"]</span>
+                        <span class="top-nav-account-menu__review-count">@ReviewCountLabel</span>
+                    </span>
+                </MudMenuItem>
+            }
+
+            <MudMenuItem Class="top-nav-account-menu__item"
+                         Icon="@Icons.Material.Outlined.Settings"
+                         OnClick="OpenSettingsAsync">
+                @L["Nav_Settings"]
+            </MudMenuItem>
+
+            <a class="top-nav-account-menu__link"
+               href="https://tuvima.github.io/tuvima_library/"
+               target="_blank"
+               rel="noopener noreferrer"
+               role="menuitem">
+                <MudIcon Icon="@Icons.Material.Outlined.HelpOutline" />
+                <span>@L["TopBar_Help"]</span>
+                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="top-nav-account-menu__external" />
+            </a>
+
+            @if (ShowSignOut)
+            {
+                <MudDivider Class="top-nav-account-menu__divider" />
+                <form method="post" action="/auth/logout" class="top-nav-account-menu__signout-form">
+                    <AntiforgeryToken />
+                    <AppNativeButton Type="submit" Class="top-nav-account-menu__link top-nav-account-menu__signout" role="menuitem">
+                        <MudIcon Icon="@Icons.Material.Outlined.Logout" />
+                        <span>@L["TopBar_SignOut"]</span>
+                    </AppNativeButton>
+                </form>
+            }
+        </div>
+    </ChildContent>
+</MudMenu>
+
+@code {
+    [Parameter] public string DisplayName { get; set; } = "User";
+    [Parameter] public string ProfileRole { get; set; } = "Profile";
+    [Parameter] public string AvatarInitial { get; set; } = "?";
+    [Parameter] public string AvatarColor { get; set; } = "var(--tl-accent-primary)";
+    [Parameter] public string AvatarForeground { get; set; } = "#fff";
+    [Parameter] public string? AvatarImageUrl { get; set; }
+    [Parameter] public Guid? ActiveProfileId { get; set; }
+    [Parameter] public IReadOnlyList<ProfileViewModel> Profiles { get; set; } = [];
+    [Parameter] public int ReviewCount { get; set; }
+    [Parameter] public bool CanViewReview { get; set; }
+    [Parameter] public bool ShowSignOut { get; set; }
+    [Parameter] public EventCallback<Guid> ProfileSelected { get; set; }
+    [Parameter] public EventCallback ReviewSelected { get; set; }
+    [Parameter] public EventCallback SettingsSelected { get; set; }
+
+    private IReadOnlyList<ProfileViewModel> OtherProfiles => Profiles
+        .Where(profile => profile.Id != ActiveProfileId)
+        .OrderBy(profile => profile.DisplayName, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private string ReviewCountLabel => ReviewCount > 99 ? "99+" : Math.Max(0, ReviewCount).ToString();
+
+    private Task SelectProfileAsync(Guid profileId) => ProfileSelected.InvokeAsync(profileId);
+    private Task OpenReviewAsync() => ReviewSelected.InvokeAsync();
+    private Task OpenSettingsAsync() => SettingsSelected.InvokeAsync();
+
+    private static string AvatarInitialFor(string displayName)
+    {
+        var initial = displayName.FirstOrDefault(character => !char.IsWhiteSpace(character));
+        return initial == default ? "?" : char.ToUpperInvariant(initial).ToString();
+    }
+}

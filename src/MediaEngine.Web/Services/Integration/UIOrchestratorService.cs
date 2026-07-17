@@ -628,6 +628,15 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         try
         {
+            var activeProfile = _activeProfileSession.CurrentProfile
+                ?? await _activeProfileSession.GetActiveProfileAsync(ct);
+            if (activeProfile is null || !SettingsNav.IsVisible(SettingsSection.Review, activeProfile.Role))
+            {
+                _reviewCount = 0;
+                OnReviewCountChanged?.Invoke();
+                return;
+            }
+
             _reviewCount = await _api.GetReviewCountAsync(ct);
         }
         catch (Exception ex)
@@ -1172,6 +1181,30 @@ public sealed class UIOrchestratorService : IAsyncDisposable
                 "Intercom ? UniverseEnrichmentProgress: {Step} {Done}/{Total}  -  {Title} ({Qid})",
                 ev.CurrentStep, ev.ProcessedCount, ev.TotalCount, ev.WorkTitle, ev.WorkQid);
             _state.PushUniverseEnrichmentProgress(ev);
+        });
+
+        _hubConnection.On<ModelDownloadProgressEvent>(SignalREvents.ModelDownloadProgress, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom - ModelDownloadProgress: {Role} {Percent}%",
+                ev.Role, ev.Percent);
+            _state.PushModelDownloadProgress(ev);
+        });
+
+        _hubConnection.On<ModelStateChangedEvent>(SignalREvents.ModelStateChanged, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom - ModelStateChanged: {Role} {OldState} -> {NewState}",
+                ev.Role, ev.OldState, ev.NewState);
+            _state.PushModelStateChanged(ev);
+        });
+
+        _hubConnection.On<MediaOperationChangedEvent>(SignalREvents.MediaOperationChanged, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom - MediaOperationChanged: {OperationType} {Status} {Progress}%",
+                ev.OperationType, ev.Status, ev.ProgressPercent);
+            _state.PushMediaOperationChanged(ev);
         });
 
         // -- "RetagSweepProgress" ---------------------------------------------

@@ -91,7 +91,7 @@ The old all-in-one management workspace has been removed and must not be rebuilt
 
 Current UI entry points:
 
-1. `src/MediaEngine.Web/Shared/MainLayout.razor` for the global shell, search, review notification, profile menu, engine status, command palette, and persistent playback host.
+1. `src/MediaEngine.Web/Shared/MainLayout.razor` for the global shell, search, My List, unified activity indicator, permission-aware account menu, engine status, command palette, and persistent playback host. The account menu owns Needs Review attention; do not restore a standalone notification button.
 2. `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` for Home/discovery.
 3. `src/MediaEngine.Web/Components/Discovery/DiscoverySpotlightCarousel.razor` and `src/MediaEngine.Web/Components/Discovery/DiscoveryHero.razor` for the reusable cinematic spotlight.
 4. `src/MediaEngine.Web/Components/Pages/ReadPage.razor` and `src/MediaEngine.Web/Components/Pages/WatchPage.razor` for the `/read` and `/watch` lane landing pages.

@@ -16,6 +16,7 @@ The Dashboard is the user-facing surface for a local-first story library. It is 
 - **Listen** (`/listen`) is for music, albums, artists, tracks, and audiobooks.
 - **Collections** (`/collections`) is for broader rollups where multiple shelves share a series, franchise, or universe relationship.
 - **Search** (`/search`) searches across the library.
+- **My List** (`/my-list`) shows the active profile's saved shortlist.
 - **Detail pages** show item identity, artwork, people, relationships, variants, and inline correction entry points.
 - **Settings/Admin** owns configuration and operations, including Review Queue.
 
@@ -29,7 +30,7 @@ Series and collection containers render through the dedicated fixed-size landsca
 
 | Area | Files |
 |---|---|
-| Shell, search, profile, review badge, engine state | `src/MediaEngine.Web/Shared/MainLayout.razor` |
+| Shell, search, My List, account menu, unified activity, engine state | `src/MediaEngine.Web/Shared/MainLayout.razor`, `src/MediaEngine.Web/Components/Navigation/` |
 | Home/discovery | `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` |
 | Shared lane browsing | `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` |
 | Read details | `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` |
@@ -52,6 +53,8 @@ Series and collection containers render through the dedicated fixed-size landsca
 | Inline correction | Normal media fixes launch from the surface where the user found the issue. |
 | Shared editor | Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch modes. |
 | Review exception | Review Queue is only for blocked, uncertain, low-confidence, or unresolved items. |
+| Review attention | Needs Review is permission-gated inside the account menu; there is no standalone navbar notification button. |
+| Global activity | Playback, ingestion, AI, enrichment, and durable Engine work share one circular busy/idle indicator. |
 | Settings/Admin scope | Settings/Admin is for folders, providers, profiles, roles, ingestion, health, logs, diagnostics, plugins, AI, and review. |
 | No removed management workflow | Do not recreate all-in-one management routes, implementation types, navigation labels, or media correction workbenches. |
 | Playback controller boundary | Listen playback UI reads the session controller and uses shared transport controls; browser mechanics stay behind the Web audio host and `listenPlayback` bridge. |

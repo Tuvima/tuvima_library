@@ -25,6 +25,8 @@ public sealed class UniverseStateContainer
     private readonly Dictionary<Guid, LiveIngestionItemProgress> _ingestionItemProgress = new();
     private UniverseEnrichmentProgressEvent? _universeEnrichmentProgress;
     private DateTimeOffset?            _universeEnrichmentProgressReceivedAt;
+    private readonly Dictionary<string, LiveModelDownloadProgress> _modelDownloadActivity = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Guid, MediaOperationChangedEvent> _mediaOperationActivity = [];
     private List<IngestionProviderActivityViewModel> _providerActivity = [];
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
     private string[]?                  _activeLaneMediaTypes;
@@ -73,6 +75,10 @@ public sealed class UniverseStateContainer
             .ToList();
     public UniverseEnrichmentProgressEvent? UniverseEnrichmentProgress  => _universeEnrichmentProgress;
     public DateTimeOffset?                  UniverseEnrichmentProgressReceivedAt => _universeEnrichmentProgressReceivedAt;
+    public IReadOnlyList<LiveModelDownloadProgress> ModelDownloadActivity =>
+        _modelDownloadActivity.Values.OrderByDescending(item => item.ReceivedAt).ToList();
+    public IReadOnlyList<MediaOperationChangedEvent> MediaOperationActivity =>
+        _mediaOperationActivity.Values.OrderByDescending(item => item.UpdatedAt).ToList();
     public IReadOnlyList<IngestionProviderActivityViewModel> ProviderActivity => _providerActivity;
     public bool                             LastStateChangeRequiresSnapshotRefresh => _lastStateChangeRequiresSnapshotRefresh;
 
@@ -251,6 +257,43 @@ public sealed class UniverseStateContainer
         NotifyStateChanged(requiresSnapshotRefresh: false);
     }
 
+    public void PushModelDownloadProgress(ModelDownloadProgressEvent ev)
+    {
+        if (ev.Percent >= 100)
+            _modelDownloadActivity.Remove(ev.Role);
+        else
+            _modelDownloadActivity[ev.Role] = new LiveModelDownloadProgress(ev, DateTimeOffset.UtcNow);
+
+        NotifyStateChanged(requiresSnapshotRefresh: false);
+    }
+
+    public void PushModelStateChanged(ModelStateChangedEvent ev)
+    {
+        if (!ev.NewState.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
+            _modelDownloadActivity.Remove(ev.Role);
+
+        NotifyStateChanged(requiresSnapshotRefresh: false);
+    }
+
+    public void PushMediaOperationChanged(MediaOperationChangedEvent ev)
+    {
+        if (IsActiveOperationStatus(ev.Status))
+            _mediaOperationActivity[ev.Id] = ev;
+        else
+            _mediaOperationActivity.Remove(ev.Id);
+
+        NotifyStateChanged(requiresSnapshotRefresh: false);
+    }
+
+    public void SetMediaOperationActivity(IEnumerable<MediaOperationChangedEvent> operations)
+    {
+        _mediaOperationActivity.Clear();
+        foreach (var operation in operations.Where(operation => IsActiveOperationStatus(operation.Status)))
+            _mediaOperationActivity[operation.Id] = operation;
+
+        NotifyStateChanged(requiresSnapshotRefresh: false);
+    }
+
     /// <summary>
     /// Called when a <c>"MediaAdded"</c> event arrives on the Intercom collection.
     /// Logs the event and invalidates the collection cache so the next navigation
@@ -409,8 +452,16 @@ public sealed class UniverseStateContainer
         || ev.Stage.Equals("missing", StringComparison.OrdinalIgnoreCase)
         || ev.Stage.Equals("skipped_non_media", StringComparison.OrdinalIgnoreCase)
         || ev.Stage.Equals("failed", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsActiveOperationStatus(string status) =>
+        status.Equals("leased", StringComparison.OrdinalIgnoreCase)
+        || status.Equals("running", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed record LiveIngestionItemProgress(
     IngestionItemProgressEvent Event,
+    DateTimeOffset ReceivedAt);
+
+public sealed record LiveModelDownloadProgress(
+    ModelDownloadProgressEvent Event,
     DateTimeOffset ReceivedAt);

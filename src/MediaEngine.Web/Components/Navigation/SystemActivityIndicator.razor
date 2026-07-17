@@ -1,0 +1,121 @@
+@namespace MediaEngine.Web.Components.Navigation
+@implements IDisposable
+
+@inject ShellActivityState Activity
+@inject PlaybackSessionController Playback
+@inject NavigationManager Nav
+
+<MudTooltip Text="@TooltipText" Placement="Placement.Bottom">
+    <AppNativeButton Type="button"
+                     Class="@ButtonClass"
+                     AriaLabel="@AriaLabel"
+                     OnClick="HandleClick">
+        @if (ShowConnectionProblem)
+        {
+            <MudIcon Icon="@ConnectionIcon" Class="system-activity-indicator__idle-icon" />
+        }
+        else if (Snapshot.IsBusy)
+        {
+            <span class="system-activity-indicator__ring" aria-hidden="true">
+                @if (Snapshot.Primary?.ProgressPercent is { } progress)
+                {
+                    <MudProgressCircular Value="@progress" Size="Size.Small" />
+                }
+                else
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                }
+            </span>
+            <MudIcon Icon="@PrimaryIcon" Class="system-activity-indicator__center-icon" />
+            @if (Snapshot.ActiveCount > 1)
+            {
+                <span class="system-activity-indicator__count" aria-hidden="true">@CountLabel</span>
+            }
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="system-activity-indicator__idle-icon" />
+        }
+    </AppNativeButton>
+</MudTooltip>
+
+@code {
+    [Parameter] public EngineConnectionState ConnectionState { get; set; }
+    [Parameter] public bool CanOpenSystemActivity { get; set; }
+
+    private ShellActivitySnapshot Snapshot => Activity.Current;
+    private bool ShowConnectionProblem => ConnectionState is EngineConnectionState.Offline
+        or EngineConnectionState.Degraded
+        or EngineConnectionState.LiveUpdatesDisconnected;
+
+    private string ButtonClass => ShowConnectionProblem
+        ? "system-activity-indicator is-warning"
+        : Snapshot.IsBusy
+            ? "system-activity-indicator is-active"
+            : "system-activity-indicator is-idle";
+
+    private string ConnectionIcon => ConnectionState == EngineConnectionState.Offline
+        ? Icons.Material.Outlined.CloudOff
+        : Icons.Material.Outlined.WarningAmber;
+
+    private string PrimaryIcon => Snapshot.Primary?.Kind switch
+    {
+        ShellActivityKind.Playback => Icons.Material.Filled.PlayArrow,
+        ShellActivityKind.Ingestion => Icons.Material.Outlined.Sync,
+        ShellActivityKind.Ai => Icons.Material.Outlined.AutoAwesome,
+        ShellActivityKind.Enrichment => Icons.Material.Outlined.Hub,
+        _ => Icons.Material.Outlined.Build,
+    };
+
+    private string CountLabel => Snapshot.ActiveCount > 9 ? "9+" : Snapshot.ActiveCount.ToString();
+
+    private string AriaLabel => ShowConnectionProblem
+        ? TooltipText
+        : Snapshot.IsBusy
+            ? $"{Snapshot.ActiveCount} active system {Pluralize("action", Snapshot.ActiveCount)}. {TooltipText}"
+            : "System idle";
+
+    private string TooltipText
+    {
+        get
+        {
+            if (ConnectionState == EngineConnectionState.Offline)
+                return "Engine unavailable";
+            if (ConnectionState == EngineConnectionState.Degraded)
+                return "Engine degraded";
+            if (ConnectionState == EngineConnectionState.LiveUpdatesDisconnected)
+                return "Live updates disconnected";
+            if (!Snapshot.IsBusy)
+                return "System idle";
+
+            return string.Join(" • ", Snapshot.Items.Take(3).Select(FormatActivity));
+        }
+    }
+
+    protected override void OnInitialized() => Activity.Changed += OnActivityChanged;
+
+    private void OnActivityChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task HandleClick()
+    {
+        if (ShowConnectionProblem)
+            return;
+
+        if (Snapshot.Primary?.Kind == ShellActivityKind.Playback && Playback.HasQueue)
+        {
+            await Playback.DispatchAsync(new PlaybackCommand(PlaybackCommandKind.TogglePanel));
+            return;
+        }
+
+        if (CanOpenSystemActivity)
+            Nav.NavigateTo("/settings/activity");
+    }
+
+    private static string FormatActivity(ShellActivityItem activity) => activity.ProgressPercent is { } progress
+        ? $"{activity.Label} ({progress}%)"
+        : activity.Label;
+
+    private static string Pluralize(string value, int count) => count == 1 ? value : value + "s";
+
+    public void Dispose() => Activity.Changed -= OnActivityChanged;
+}

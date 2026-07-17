@@ -3,7 +3,7 @@ const playerState = new WeakMap();
 function buildState(video, dotNetRef) {
     let lastSentAt = 0;
 
-    const sendProgress = (ended = false) => {
+    const sendProgress = (ended = false, force = false) => {
         if (!video || !dotNetRef) {
             return;
         }
@@ -14,16 +14,17 @@ function buildState(video, dotNetRef) {
         }
 
         const now = Date.now();
-        if (!ended && now - lastSentAt < 10000) {
+        if (!ended && !force && now - lastSentAt < 10000) {
             return;
         }
 
         lastSentAt = now;
-        dotNetRef.invokeMethodAsync("OnPlayerProgress", video.currentTime || 0, duration, ended);
+        dotNetRef.invokeMethodAsync("OnPlayerProgress", video.currentTime || 0, duration, ended, video.paused);
     };
 
     const onTimeUpdate = () => sendProgress(false);
-    const onPause = () => sendProgress(false);
+    const onPlay = () => sendProgress(false, true);
+    const onPause = () => sendProgress(false, true);
     const onEnded = () => sendProgress(true);
     const onVisibilityChange = () => {
         if (document.visibilityState === "hidden") {
@@ -34,6 +35,7 @@ function buildState(video, dotNetRef) {
 
     return {
         onTimeUpdate,
+        onPlay,
         onPause,
         onEnded,
         onVisibilityChange,
@@ -50,6 +52,7 @@ export function attachPlayer(video, dotNetRef) {
     playerState.set(video, state);
 
     video.addEventListener("timeupdate", state.onTimeUpdate);
+    video.addEventListener("play", state.onPlay);
     video.addEventListener("pause", state.onPause);
     video.addEventListener("ended", state.onEnded);
     document.addEventListener("visibilitychange", state.onVisibilityChange);
@@ -108,6 +111,7 @@ export function detachPlayer(video) {
     }
 
     video.removeEventListener("timeupdate", state.onTimeUpdate);
+    video.removeEventListener("play", state.onPlay);
     video.removeEventListener("pause", state.onPause);
     video.removeEventListener("ended", state.onEnded);
     document.removeEventListener("visibilitychange", state.onVisibilityChange);

@@ -255,6 +255,9 @@ internal class EngineApiClientStub : DispatchProxy
                 Language = "en",
             });
 
+        _handlers[nameof(IEngineApiClient.GetSystemActivityOperationsAsync)] =
+            _ => Task.FromResult<IReadOnlyList<SystemActivityOperationViewModel>>([]);
+
         _handlers[nameof(IEngineApiClient.GetFolderSettingsAsync)] =
             _ => Task.FromResult<FolderSettingsDto?>(new FolderSettingsDto(
                 WatchDirectories: [@"C:\Tuvima\Incoming"]));

@@ -128,6 +128,21 @@
   <data name="TopBar_OpenProfileMenu" xml:space="preserve">
     <value>Abrir menú de perfil</value>
   </data>
+  <data name="TopBar_MyList" xml:space="preserve">
+    <value>Mi lista</value>
+  </data>
+  <data name="TopBar_SwitchProfile" xml:space="preserve">
+    <value>Cambiar perfil</value>
+  </data>
+  <data name="TopBar_NeedsReview" xml:space="preserve">
+    <value>Necesita revisión</value>
+  </data>
+  <data name="TopBar_Help" xml:space="preserve">
+    <value>Ayuda</value>
+  </data>
+  <data name="TopBar_SignOut" xml:space="preserve">
+    <value>Cerrar sesión</value>
+  </data>
   <data name="TopBar_SignedInAs" xml:space="preserve">
     <value>Sesión iniciada como</value>
   </data>

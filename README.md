@@ -73,6 +73,7 @@ Tuvima is Early Access, but it is not just a mockup. Current builds include:
 
 - Engine and Dashboard apps for local development.
 - Home, Read, Watch, Listen, Collections, Search, detail pages, Settings/Admin, and Review Queue surfaces. Home and Watch/Read lane landings use spotlight-and-shelf discovery; detailed browse tabs stay available under lane subroutes.
+- A profile-aware navbar with My List, clear account/settings/help actions, permission-gated Needs Review attention, and one circular activity indicator for playback, ingestion, AI, enrichment, and other active Engine work.
 - Folder scanning, ingestion operations, file fingerprinting, duplicate handling, review creation, and live progress.
 - SQLite persistence with startup schema initialization, `guid-blob-v1` internal GUID storage, and reset/reingest safety for legacy database epochs.
 - Relationship-scoped series manifests keep the main sequence separate from short fiction, collected content, and broader franchise context while preserving provider/Wikidata decimal ordinals exactly.

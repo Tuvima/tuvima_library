@@ -1,0 +1,167 @@
+@page "/my-list"
+@namespace MediaEngine.Web.Components.Pages
+@implements IDisposable
+
+@inject UIOrchestratorService Orchestrator
+@inject FavoriteService Favorites
+@inject ILogger<MyList> Logger
+
+<PageTitle>My List - Tuvima</PageTitle>
+
+<section class="my-list-page">
+    <header class="my-list-page__header">
+        <div class="my-list-page__eyebrow">Your profile</div>
+        <div class="my-list-page__title-row">
+            <div>
+                <h1>My List</h1>
+                <p>Books, shows, movies, and audio you saved for later.</p>
+            </div>
+            @if (!_loading && string.IsNullOrWhiteSpace(_error))
+            {
+                <span class="my-list-page__count">@ItemCountLabel</span>
+            }
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <div class="my-list-page__state" role="status" aria-label="Loading My List">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="my-list-page__state">
+            <AppErrorState Title="My List could not load"
+                           Message="The Dashboard could not read the saved items for this profile."
+                           Details="@_error"
+                           Retry="LoadAsync"
+                           Icon="@Icons.Material.Outlined.BookmarkBorder" />
+        </div>
+    }
+    else if (_cards.Count == 0)
+    {
+        <div class="my-list-page__state">
+            <AppEmptyState Title="Your list is empty"
+                           Message="Use the bookmark action on any media card or detail page to save it here.">
+                <Action>
+                    <AppButton Href="/" Label="Browse your library" />
+                </Action>
+            </AppEmptyState>
+        </div>
+    }
+    else
+    {
+        <MediaTileGrid Items="@_cards"
+                       HoverMode="MediaTileHoverMode.Preview"
+                       HideSourceBadges="true"
+                       Class="my-list-page__grid" />
+    }
+</section>
+
+@code {
+    private readonly List<MediaTileViewModel> _cards = [];
+    private Guid? _activeProfileId;
+    private bool _loading = true;
+    private string? _error;
+
+    private string ItemCountLabel => _cards.Count == 1 ? "1 saved item" : $"{_cards.Count:N0} saved items";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Orchestrator.OnProfileChanged += OnProfileChanged;
+        Favorites.Changed += OnFavoritesChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var profile = await Orchestrator.GetActiveProfileAsync();
+            _activeProfileId = profile?.Id;
+            var snapshot = await Favorites.GetListAsync(_activeProfileId);
+
+            _cards.Clear();
+            _cards.AddRange(snapshot.Items
+                .OrderBy(item => item.SortOrder)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                .Select(ToCard));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load My List for profile {ProfileId}.", _activeProfileId);
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnProfileChanged() => _ = InvokeAsync(LoadAsync);
+
+    private void OnFavoritesChanged(Guid profileId)
+    {
+        if (_activeProfileId == profileId)
+            _ = InvokeAsync(LoadAsync);
+    }
+
+    private static MediaTileViewModel ToCard(CollectionItemViewModel item)
+    {
+        var mediaType = NormalizeMediaType(item.MediaType);
+        var isSquare = mediaType is "Music" or "Audiobook";
+
+        return new MediaTileViewModel
+        {
+            Id = item.WorkId,
+            WorkId = item.WorkId,
+            Title = string.IsNullOrWhiteSpace(item.Title) ? "Untitled item" : item.Title,
+            Subtitle = item.Creator,
+            Creator = item.Creator,
+            MediaKind = mediaType,
+            CoverUrl = item.CoverUrl,
+            TileImageUrl = item.CoverUrl,
+            HoverImageUrl = item.CoverUrl,
+            Shape = isSquare ? MediaTileShape.Square : MediaTileShape.Portrait,
+            SurfaceKind = isSquare ? MediaTileSurfaceKind.CoverSquare : MediaTileSurfaceKind.CoverPortrait,
+            Presentation = MediaTilePresentation.Default,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Preview,
+            TileTextMode = MediaTileTextMode.Caption,
+            NavigationUrl = $"/details/Work/{item.WorkId:D}",
+            DetailsNavigationUrl = $"/details/Work/{item.WorkId:D}",
+            PrimaryNavigationUrl = $"/details/Work/{item.WorkId:D}",
+            PrimaryActionLabel = "Details",
+            AccentColor = AccentFor(mediaType),
+        };
+    }
+
+    private static string NormalizeMediaType(string? mediaType) => mediaType switch
+    {
+        "Audiobooks" => "Audiobook",
+        "Books" => "Book",
+        "Comics" => "Comic",
+        "Movies" => "Movie",
+        _ => string.IsNullOrWhiteSpace(mediaType) ? "Media" : mediaType,
+    };
+
+    private static string AccentFor(string mediaType) => mediaType.ToLowerInvariant() switch
+    {
+        "book" => "var(--tl-media-book)",
+        "comic" => "var(--tl-media-comic)",
+        "audiobook" or "music" or "audio" => "var(--tl-media-audio)",
+        "movie" or "tv" or "video" => "var(--tl-media-video)",
+        _ => "var(--tl-accent-primary)",
+    };
+
+    public void Dispose()
+    {
+        Orchestrator.OnProfileChanged -= OnProfileChanged;
+        Favorites.Changed -= OnFavoritesChanged;
+    }
+}

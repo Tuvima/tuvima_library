@@ -54,6 +54,8 @@ public sealed class UiShellRenderTests : TestContext
         Services.AddScoped<MediaTileComposerService>();
         Services.AddSingleton(new ListenPlaybackClientSettings());
         Services.AddScoped<PlaybackSessionController>();
+        Services.AddScoped<ShellActivityState>();
+        Services.AddSingleton(new DashboardAuthUiOptions(false));
         Services.AddScoped<ListenAudioDragService>();
         Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();
         Services.AddScoped<MediaReactionService>();
@@ -76,24 +78,33 @@ public sealed class UiShellRenderTests : TestContext
             Assert.DoesNotContain("Home", cut.Markup);
             Assert.Contains("Search your library", cut.Markup);
             Assert.Single(cut.FindAll(".layout-shell__search-shell"));
-            Assert.Single(cut.FindAll(".layout-shell__profile-trigger"));
+            Assert.Single(cut.FindAll(".top-nav-account-menu__trigger"));
+            Assert.Single(cut.FindAll(".layout-shell__my-list"));
+            Assert.Single(cut.FindAll(".system-activity-indicator"));
+            Assert.Empty(cut.FindAll(".layout-shell__review-button"));
             Assert.Empty(cut.FindAll(".layout-shell__avatar-trigger"));
         });
     }
 
     [Fact]
-    public void MainLayout_StartsLiveUpdatesAndUsesClickHandlersForProfileMenuNavigation()
+    public void MainLayout_StartsLiveUpdatesAndUsesDedicatedNavbarComponents()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor"));
+        var accountSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Navigation", "TopNavAccountMenu.razor"));
+        var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor.css"));
 
         Assert.Contains("await Orchestrator.StartSignalRAsync();", source);
-        Assert.Contains("OnClick=\"OpenSettingsAsync\"", source);
-        Assert.Contains("ToggleProfileMenu", source);
-        Assert.Contains("layout-shell__profile-menu-item", source);
-        Assert.DoesNotContain("<MudMenu AnchorOrigin=\"Origin.BottomRight\"", source);
-        Assert.DoesNotContain("<MudMenuItem", source);
-        Assert.DoesNotContain("Href=\"/settings/review\"", source);
-        Assert.DoesNotContain("Href=\"/settings\"", source);
+        Assert.Contains("await Activity.InitializeAsync();", source);
+        Assert.Contains("<TopNavAccountMenu", source);
+        Assert.Contains("<SystemActivityIndicator", source);
+        Assert.Contains("TopBar_MyList", source);
+        Assert.DoesNotContain("NotificationsNone", source);
+        Assert.DoesNotContain("ToggleProfileMenu", source);
+        Assert.Contains("@if (CanViewReview)", accountSource);
+        Assert.Contains("TopBar_NeedsReview", accountSource);
+        Assert.Contains("ShowSignOut", accountSource);
+        Assert.Contains("font-family: var(--font-ui);", css);
+        Assert.DoesNotContain("font-family: var(--font-brand);", css);
     }
 
     [Fact]

@@ -136,6 +136,51 @@ public sealed class ProfileAndFavoriteServiceTests : TestContext
         Assert.Equal(1, addItemRequests);
     }
 
+    [Fact]
+    public async Task FavoriteList_ReturnsSavedItemsWithoutCreatingACollection()
+    {
+        var favoritesCollectionId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var createCollectionRequests = 0;
+        var api = EngineApiClientStub.Create(stub =>
+        {
+            stub.SetHandler(nameof(IEngineApiClient.GetManagedCollectionsAsync), _ =>
+                Task.FromResult(new List<ManagedCollectionViewModel>
+                {
+                    new()
+                    {
+                        Id = favoritesCollectionId,
+                        Name = "Favorites",
+                        CollectionType = "Playlist",
+                        ProfileId = ProfileId,
+                    },
+                }));
+            stub.SetHandler(nameof(IEngineApiClient.GetCollectionItemsAsync), _ =>
+                Task.FromResult(new List<CollectionItemViewModel>
+                {
+                    new()
+                    {
+                        Id = Guid.NewGuid(),
+                        WorkId = workId,
+                        Title = "Saved work",
+                        MediaType = "Book",
+                    },
+                }));
+            stub.SetHandler(nameof(IEngineApiClient.CreateCollectionAsync), _ =>
+            {
+                Interlocked.Increment(ref createCollectionRequests);
+                return Task.FromResult(true);
+            });
+        });
+        var favorites = new FavoriteService(api);
+
+        var list = await favorites.GetListAsync(ProfileId);
+
+        Assert.Equal(favoritesCollectionId, list.CollectionId);
+        Assert.Collection(list.Items, item => Assert.Equal(workId, item.WorkId));
+        Assert.Equal(0, createCollectionRequests);
+    }
+
     private static ProfileViewModel CreateProfile() => new(
         ProfileId,
         "Test User",

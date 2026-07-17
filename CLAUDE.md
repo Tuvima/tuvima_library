@@ -203,6 +203,8 @@ Config: `config/scoring.json`, `config/field_priorities.json`.
 
 Every endpoint requires authentication except `/system/status` and localhost (when bypass is enabled). Endpoints declare intent through extension guards (`RequireAdmin()`, `RequireAdminOrCurator()`, `RequireAnyRole()`). Three roles: Administrator (full), Curator (browse + metadata), Consumer (browse only). API keys are labelled and individually revocable. Rate-limiting policies (`key_generation`, `streaming`, `general`) are configured in `config/core.json`. Path traversal protection (`PathValidator`) guards folder endpoints. The SignalR `Intercom` hub is server-push only (no client-invokable methods) and is gated by `IntercomAuthFilter` registered in `Program.cs`.
 
+The Dashboard account menu uses `SettingsNav` role visibility for Needs Review. Consumer profiles neither request nor render the review count; Administrator and Curator profiles can open the queue.
+
 ### 3.4 — Dashboard UI
 **Detail:** [`docs/architecture/dashboard-ui.md`](docs/architecture/dashboard-ui.md)
 
@@ -219,6 +221,8 @@ Dark-mode-only cinematic design with an ambient gradient background. The Dashboa
 - `/settings`, `/settings/{Section}` — Settings shell (review queue lives at `/settings/review`)
 
 Real-time SignalR updates push pipeline progress into every surface. Theming is fixed dark with a purple chrome accent (`#8B5CF6`); EPUB reader highlight colors remain reader-specific.
+
+`MainLayout` exposes My List as the active profile's saved shortlist and delegates account actions to `TopNavAccountMenu`. Needs Review lives inside that permission-aware menu rather than in a standalone bell. `SystemActivityIndicator` uses `ShellActivityState` to combine playback, ingestion, AI download/parsing, enrichment, and durable-operation activity into one circular progress surface, with an idle check icon when no work is active. Sign out is present only for OIDC/hybrid authentication.
 
 ### 3.5 — Brand Assets
 

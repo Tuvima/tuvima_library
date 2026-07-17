@@ -25,6 +25,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/system/status` | Service health, version, uptime | None |
+| GET | `/system/activity-status` | Sanitized leased/running durable operations used to seed the Dashboard navbar activity indicator; excludes media titles and filesystem paths | Required |
 | GET | `/system/watcher-status` | File watcher diagnostic - shows monitored folders and last event | Required |
 | POST | `/maintenance/sweep-orphan-assets` | Scan `.data/assets/` for managed files with no database reference and remove them. | Administrator |
 | POST | `/maintenance/storage/run` | Run storage maintenance on demand. Supports `dryRun`, cache retention, image retention, and claim compaction batch query parameters. | Administrator |

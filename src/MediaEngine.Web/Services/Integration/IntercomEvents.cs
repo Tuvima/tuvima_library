@@ -338,3 +338,27 @@ public sealed record ModelStateChangedEvent(
 
 /// <summary>All AI models are downloaded and ready for inference.</summary>
 public sealed record AiReadyEvent(DateTimeOffset ReadyAt);
+
+/// <summary>A sanitized durable-operation update for global shell activity.</summary>
+public sealed record MediaOperationChangedEvent(
+    Guid Id,
+    string OperationType,
+    string OperationKind,
+    string Status,
+    string? Stage,
+    int ProgressPercent,
+    int ItemsTotal,
+    int ItemsCompleted,
+    DateTimeOffset UpdatedAt)
+{
+    public static MediaOperationChangedEvent From(MediaEngine.Web.Models.ViewDTOs.SystemActivityOperationViewModel operation) => new(
+        operation.Id,
+        operation.OperationType,
+        operation.OperationKind,
+        operation.Status,
+        operation.Stage,
+        operation.ProgressPercent,
+        operation.ItemsTotal,
+        operation.ItemsCompleted,
+        operation.UpdatedAt);
+}

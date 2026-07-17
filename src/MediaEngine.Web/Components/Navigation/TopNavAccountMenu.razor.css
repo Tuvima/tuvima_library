@@ -1,0 +1,261 @@
+.top-nav-account-menu {
+    font-family: var(--font-ui);
+}
+
+::deep .top-nav-account-menu__trigger {
+    min-width: 9.85rem;
+    max-width: 12.5rem;
+    height: 2.75rem;
+    padding: 0 0.25rem !important;
+    border-radius: var(--app-radius-sm, 5px) !important;
+    color: var(--app-text-primary, #e5edf5) !important;
+    font-family: var(--font-ui) !important;
+    text-align: left;
+    text-transform: none !important;
+}
+
+::deep .top-nav-account-menu__trigger:hover {
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
+}
+
+::deep .top-nav-account-menu__trigger:focus-visible {
+    outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
+    outline-offset: 2px;
+}
+
+::deep .top-nav-account-menu__avatar {
+    width: 2rem !important;
+    height: 2rem !important;
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+}
+
+.top-nav-account-menu__trigger-copy {
+    min-width: 0;
+    display: inline-flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    margin-inline: 0.55rem 0.35rem;
+    line-height: 1.05;
+}
+
+.top-nav-account-menu__trigger-name,
+.top-nav-account-menu__trigger-role {
+    display: block;
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.top-nav-account-menu__trigger-name {
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.top-nav-account-menu__trigger-role {
+    margin-top: 0.18rem;
+    color: var(--app-text-muted, #8391a2);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+::deep .top-nav-account-menu__chevron {
+    width: 1rem;
+    height: 1rem;
+    color: var(--app-text-muted, #8391a2);
+    flex: 0 0 auto;
+}
+
+.top-nav-account-menu__panel {
+    width: min(20rem, calc(100vw - 1rem));
+    padding: 0.5rem;
+    color: var(--app-text-primary, #e5edf5);
+    background: var(--app-surface, #1e1f27);
+    font-family: var(--font-ui);
+}
+
+.top-nav-account-menu__header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.55rem 0.75rem;
+}
+
+::deep .top-nav-account-menu__header-avatar {
+    width: 2.35rem !important;
+    height: 2.35rem !important;
+}
+
+.top-nav-account-menu__identity {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.top-nav-account-menu__identity strong,
+.top-nav-account-menu__identity span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.top-nav-account-menu__identity strong {
+    font-size: 0.94rem;
+    font-weight: 700;
+}
+
+.top-nav-account-menu__identity span {
+    margin-top: 0.16rem;
+    color: var(--app-text-muted, #8391a2);
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+
+.top-nav-account-menu__notification {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    color: var(--app-text-muted, #8391a2);
+}
+
+.top-nav-account-menu__notification span {
+    position: absolute;
+    top: -0.15rem;
+    right: -0.2rem;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    display: grid;
+    place-items: center;
+    padding-inline: 0.18rem;
+    border: 2px solid var(--app-surface, #1e1f27);
+    border-radius: 999px;
+    color: #16100a;
+    background: var(--tl-status-warning, #fbbf24);
+    font-size: 0.58rem;
+    font-weight: 800;
+}
+
+.top-nav-account-menu__section-label {
+    padding: 0.5rem 0.75rem 0.25rem;
+    color: var(--app-text-muted, #8391a2);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+::deep .top-nav-account-menu__item {
+    min-height: 2.65rem;
+    margin: 0.08rem 0;
+    padding: 0.45rem 0.65rem !important;
+    border-radius: var(--app-radius-sm, 5px) !important;
+    color: var(--app-text-primary, #dbe4ed) !important;
+    font-family: var(--font-ui) !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+}
+
+::deep .top-nav-account-menu__item:hover,
+::deep .top-nav-account-menu__item:focus-visible,
+.top-nav-account-menu__link:hover,
+.top-nav-account-menu__link:focus-visible {
+    color: var(--app-text-primary, #fff) !important;
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055)) !important;
+}
+
+::deep .top-nav-account-menu__profile-item .mud-menu-item-content {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+::deep .top-nav-account-menu__profile-avatar {
+    width: 1.8rem !important;
+    height: 1.8rem !important;
+    font-size: 0.68rem;
+}
+
+.top-nav-account-menu__item-copy {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.top-nav-account-menu__review-count {
+    min-width: 1.6rem;
+    padding: 0.15rem 0.42rem;
+    border-radius: 999px;
+    color: #16100a;
+    background: var(--tl-status-warning, #fbbf24);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+::deep .top-nav-account-menu__divider {
+    margin: 0.42rem -0.5rem !important;
+    border-color: var(--app-border, rgba(255, 255, 255, 0.09)) !important;
+}
+
+.top-nav-account-menu__link {
+    width: 100%;
+    min-height: 2.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.82rem;
+    margin: 0.08rem 0;
+    padding: 0.45rem 0.72rem;
+    border: 0;
+    border-radius: var(--app-radius-sm, 5px);
+    color: var(--app-text-primary, #dbe4ed);
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+::deep .top-nav-account-menu__link > .mud-icon-root {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--app-text-muted, #8391a2);
+    font-size: 1.25rem;
+}
+
+::deep .top-nav-account-menu__external {
+    width: 1rem !important;
+    height: 1rem !important;
+    margin-left: auto;
+    font-size: 1rem !important;
+}
+
+.top-nav-account-menu__signout-form {
+    margin: 0;
+}
+
+.top-nav-account-menu__signout {
+    text-align: left;
+}
+
+@media (max-width: 860px) {
+    ::deep .top-nav-account-menu__trigger {
+        min-width: 2.4rem;
+        max-width: 2.4rem;
+        justify-content: center;
+        padding: 0 !important;
+    }
+
+    .top-nav-account-menu__trigger-copy,
+    ::deep .top-nav-account-menu__chevron {
+        display: none;
+    }
+}

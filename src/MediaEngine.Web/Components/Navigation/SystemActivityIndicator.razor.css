@@ -1,0 +1,86 @@
+.system-activity-indicator {
+    position: relative;
+    width: 2.6rem;
+    min-width: 2.6rem;
+    height: 2.6rem;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    color: var(--app-text-muted, #8391a2);
+    background: transparent;
+    cursor: pointer;
+}
+
+.system-activity-indicator:hover,
+.system-activity-indicator:focus-visible {
+    color: var(--app-text-primary, #e5edf5);
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055));
+}
+
+.system-activity-indicator:focus-visible {
+    outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
+    outline-offset: 2px;
+}
+
+.system-activity-indicator.is-active {
+    color: var(--app-primary, var(--tl-accent-primary, #7c4dff));
+}
+
+.system-activity-indicator.is-warning {
+    color: var(--tl-status-warning, #fbbf24);
+}
+
+.system-activity-indicator__ring,
+.system-activity-indicator__center-icon {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+}
+
+.system-activity-indicator__ring {
+    width: 2rem;
+    height: 2rem;
+}
+
+::deep .system-activity-indicator__ring .mud-progress-circular {
+    width: 2rem !important;
+    height: 2rem !important;
+}
+
+::deep .system-activity-indicator__center-icon {
+    width: 0.9rem;
+    height: 0.9rem;
+    font-size: 0.9rem;
+}
+
+::deep .system-activity-indicator__idle-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+    font-size: 1.35rem;
+}
+
+.system-activity-indicator__count {
+    position: absolute;
+    top: -0.12rem;
+    right: -0.12rem;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    display: grid;
+    place-items: center;
+    padding-inline: 0.2rem;
+    border: 2px solid var(--app-surface, #1e1f27);
+    border-radius: 999px;
+    color: #fff;
+    background: var(--app-primary, #7c4dff);
+    font-size: 0.58rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::deep .system-activity-indicator__ring .mud-progress-circular-indeterminate {
+        animation-duration: 2.4s !important;
+    }
+}

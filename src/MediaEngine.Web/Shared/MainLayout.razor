@@ -4,6 +4,8 @@
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer State
+@inject ShellActivityState Activity
+@inject DashboardAuthUiOptions AuthUi
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
 @inject ILogger<MainLayout> Logger
@@ -45,7 +47,7 @@
                        class="@GetNavLinkClass(link.Path)"
                        aria-current="@(IsNavActive(link.Path) ? "page" : null)">
                         <span class="layout-shell__nav-link-label">
-                            @L[link.LabelKey].Value.ToUpperInvariant()
+                            @L[link.LabelKey]
                         </span>
                     </a>
                 }
@@ -67,102 +69,32 @@
         </div>
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__actions">
-            @if (State.BatchProgress is { } batchProgress)
-            {
-                <MudTooltip Text="@GetIngestionProgressText(batchProgress)">
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Inherit"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Outlined.Sync"
-                               Class="layout-shell__ingestion-indicator"
-                               OnClick="@OpenIngestionDashboard">
-                        @batchProgress.ProgressPercent%
-                    </MudButton>
-                </MudTooltip>
-            }
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Outlined.BookmarkBorder"
+                       Class="layout-shell__my-list"
+                       aria-label="@L["TopBar_MyList"]"
+                       OnClick="OpenMyList">
+                <span class="layout-shell__my-list-label">@L["TopBar_MyList"]</span>
+            </MudButton>
 
-            @if (_reviewCount > 0)
-            {
-                <MudBadge Overlap="true"
-                          Content="@_reviewCount"
-                          Color="Color.Warning"
-                          Class="layout-shell__review-badge">
-                    <MudIconButton Icon="@Icons.Material.Outlined.NotificationsNone"
-                                   Color="Color.Inherit"
-                                   Class="layout-shell__review-button"
-                                   aria-label="@(_reviewCount > 0 ? L["Nav_ReviewPending", _reviewCount] : L["Nav_ReviewQueue"])"
-                                   OnClick="@OpenReviewQueue" />
-                </MudBadge>
-            }
-            else
-            {
-                <MudIconButton Icon="@Icons.Material.Outlined.NotificationsNone"
-                               Color="Color.Inherit"
-                               Class="layout-shell__review-button"
-                               aria-label="@L["Nav_ReviewQueue"]"
-                               OnClick="@OpenReviewQueue" />
-            }
+            <SystemActivityIndicator ConnectionState="@Orchestrator.EngineConnectionState"
+                                     CanOpenSystemActivity="@CanViewSystemActivity" />
 
-            <span class="layout-shell__account-spacer" aria-hidden="true"></span>
-
-            <div class="layout-shell__profile-menu-shell">
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Inherit"
-                           Class="layout-shell__profile-trigger"
-                           aria-label="@_displayName"
-                           aria-haspopup="menu"
-                           aria-expanded="@_isProfileMenuOpen"
-                           OnClick="ToggleProfileMenu">
-                    <AppAvatar ImageUrl="@_avatarImageUrl"
-                               AltText=""
-                               Initials="@_avatarInitial"
-                               AccentColor="@_avatarColor"
-                               ForegroundColor="@AvatarForeground"
-                               Class="layout-shell__avatar" />
-                    <span class="layout-shell__profile-copy">
-                        <span class="layout-shell__profile-name">@_displayName</span>
-                        <span class="layout-shell__profile-role">@_profileRole</span>
-                    </span>
-                    <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown"
-                             Class="layout-shell__profile-chevron" />
-                </MudButton>
-
-                @if (_isProfileMenuOpen)
-                {
-                    <div class="layout-shell__profile-popover" role="menu">
-                        <div class="layout-shell__profile-menu-heading">@L["TopBar_SignedInAs"]</div>
-                        <div class="layout-shell__profile-menu-name">@_displayName</div>
-                        @if (_profiles.Count > 1)
-                        {
-                            <div class="layout-shell__profile-menu-divider" role="separator"></div>
-                            @foreach (var profile in _profiles)
-                            {
-                                <MudButton role="menuitem"
-                                           Variant="Variant.Text"
-                                           Color="Color.Inherit"
-                                           Class="layout-shell__profile-menu-item"
-                                           @key="profile.Id"
-                                           OnClick="@(() => SwitchProfileAsync(profile.Id))">
-                                    <MudIcon Icon="@(profile.Id == _activeProfileId ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Person)"
-                                             Size="Size.Small" />
-                                    <span>@profile.DisplayName</span>
-                                </MudButton>
-                            }
-                        }
-                        <div class="layout-shell__profile-menu-divider" role="separator"></div>
-                        <MudButton role="menuitem"
-                                   Variant="Variant.Text"
-                                   Color="Color.Inherit"
-                                   Class="layout-shell__profile-menu-item"
-                                   OnClick="OpenSettingsAsync">
-                            <MudIcon Icon="@Icons.Material.Outlined.Settings" Size="Size.Small" />
-                            <span>@L["Nav_Settings"]</span>
-                        </MudButton>
-                        <div class="layout-shell__profile-menu-divider" role="separator"></div>
-                        <div class="layout-shell__menu-status">@_engineStatusSummary</div>
-                    </div>
-                }
-            </div>
+            <TopNavAccountMenu DisplayName="@_displayName"
+                               ProfileRole="@_profileRole"
+                               AvatarInitial="@_avatarInitial"
+                               AvatarColor="@_avatarColor"
+                               AvatarForeground="@AvatarForeground"
+                               AvatarImageUrl="@_avatarImageUrl"
+                               ActiveProfileId="@_activeProfileId"
+                               Profiles="@_profiles"
+                               ReviewCount="@_reviewCount"
+                               CanViewReview="@CanViewReview"
+                               ShowSignOut="@AuthUi.SsoEnabled"
+                               ProfileSelected="SwitchProfileAsync"
+                               ReviewSelected="OpenReviewQueueAsync"
+                               SettingsSelected="OpenSettingsAsync" />
         </MudStack>
     </MudAppBar>
 
@@ -194,7 +126,6 @@
     private string _profileRole = "Profile";
     private string _searchTerm = string.Empty;
     private Guid? _activeProfileId;
-    private bool _isProfileMenuOpen;
     private int _reviewCount;
     private List<ProfileViewModel> _profiles = [];
     private DotNetObjectReference<MainLayout>? _dotNetRef;
@@ -214,6 +145,8 @@
     private const string AppBarClass = "layout-shell__appbar";
     private const string MainContentClass = "main-content-with-topbar";
     private string MainContainerClass => IsDetailShell ? "px-0 py-0" : "py-6 px-0";
+    private bool CanViewReview => SettingsNav.IsVisible(SettingsSection.Review, _profileRole);
+    private bool CanViewSystemActivity => SettingsNav.IsVisible(SettingsSection.ActivityLogs, _profileRole);
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -248,6 +181,7 @@
         await LoadActiveProfileAsync();
         await LoadReviewCountAsync();
         await Orchestrator.StartSignalRAsync();
+        await Activity.InitializeAsync();
         await LoadEngineStatusAsync();
 
         Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
@@ -290,26 +224,23 @@
         Nav.NavigateTo(url);
     }
 
-    private void OpenReviewQueue()
+    private Task OpenReviewQueueAsync()
     {
-        _isProfileMenuOpen = false;
-        Nav.NavigateTo("/settings/review");
+        if (CanViewReview)
+        {
+            Nav.NavigateTo("/settings/review");
+        }
+
+        return Task.CompletedTask;
     }
 
     private Task OpenSettingsAsync()
     {
-        _isProfileMenuOpen = false;
         Nav.NavigateTo("/settings");
         return Task.CompletedTask;
     }
 
-    private void OpenIngestionDashboard()
-    {
-        _isProfileMenuOpen = false;
-        Nav.NavigateTo("/settings/ingestion");
-    }
-
-    private void ToggleProfileMenu() => _isProfileMenuOpen = !_isProfileMenuOpen;
+    private void OpenMyList() => Nav.NavigateTo("/my-list");
 
     private string GetNavLinkClass(string path) =>
         IsNavActive(path)
@@ -387,7 +318,6 @@
 
     private async Task SwitchProfileAsync(Guid profileId)
     {
-        _isProfileMenuOpen = false;
         var profile = await Orchestrator.SetActiveProfileAsync(profileId);
         if (profile is null)
         {
@@ -395,11 +325,18 @@
         }
 
         await LoadActiveProfileAsync();
+        await LoadReviewCountAsync();
         StateHasChanged();
     }
 
     private async Task LoadReviewCountAsync()
     {
+        if (!CanViewReview)
+        {
+            _reviewCount = 0;
+            return;
+        }
+
         try
         {
             _reviewCount = await Orchestrator.RefreshReviewCountAsync();
@@ -426,7 +363,7 @@
 
     private void OnReviewCountChanged()
     {
-        _reviewCount = Orchestrator.ReviewCount;
+        _reviewCount = CanViewReview ? Orchestrator.ReviewCount : 0;
         InvokeAsync(StateHasChanged);
     }
 
@@ -435,6 +372,7 @@
         _ = InvokeAsync(async () =>
         {
             await LoadActiveProfileAsync();
+            await LoadReviewCountAsync();
             StateHasChanged();
         });
     }
@@ -503,30 +441,10 @@
 
     private void OnUniverseStateChanged() => InvokeAsync(StateHasChanged);
 
-    private static string GetIngestionProgressText(BatchProgressEvent progress)
-    {
-        var current = string.IsNullOrWhiteSpace(progress.CurrentFileTitle)
-            ? progress.CurrentStage
-            : $"{progress.CurrentStage}: {progress.CurrentFileTitle}";
-        return string.IsNullOrWhiteSpace(current)
-            ? $"{progress.FilesProcessed} of {progress.FilesTotal} files processed"
-            : $"{current} - {progress.FilesProcessed} of {progress.FilesTotal} files processed";
-    }
-
-    private Color GetEngineStatusColor() =>
-        _engineStatusSummary.Contains(L["TopBar_EngineOnline"].Value, StringComparison.OrdinalIgnoreCase)
-            ? Color.Success
-            : Color.Warning;
-
     private string GetEngineStatusIcon() =>
         _engineStatusSummary.Contains(L["TopBar_EngineOnline"].Value, StringComparison.OrdinalIgnoreCase)
             ? Icons.Material.Filled.CheckCircle
             : Icons.Material.Filled.ErrorOutline;
-
-    private string GetEngineStatusLabel() =>
-        _engineStatusSummary.Contains(L["TopBar_EngineOnline"].Value, StringComparison.OrdinalIgnoreCase)
-            ? L["TopBar_EngineOnline"]
-            : L["TopBar_EngineUnavailable"];
 
     private bool IsNavActive(string path) =>
         _currentPath.Equals(path, StringComparison.OrdinalIgnoreCase)

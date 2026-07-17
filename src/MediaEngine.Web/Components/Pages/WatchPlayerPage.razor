@@ -12,6 +12,7 @@
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
+@inject ShellActivityState Activity
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ILogger<WatchPlayerPage> Logger
@@ -177,8 +178,16 @@ else
     }
 
     [JSInvokable]
-    public async Task OnPlayerProgress(double currentTime, double duration, bool ended)
+    public async Task OnPlayerProgress(double currentTime, double duration, bool ended, bool paused)
     {
+        Activity.ReportVideoPlayback(
+            AssetId,
+            _detail?.Title ?? "Video",
+            currentTime,
+            duration,
+            isPlaying: !paused && !ended,
+            ended);
+
         if (duration <= 0)
             return;
 
@@ -263,6 +272,8 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        Activity.ClearVideoPlayback(AssetId);
+
         try
         {
             if (_module is not null)

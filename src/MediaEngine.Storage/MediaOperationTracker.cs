@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MediaEngine.Domain;
+using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -10,11 +12,19 @@ public sealed class MediaOperationTracker : IMediaOperationTracker
 
     private readonly IMediaOperationRepository _operations;
     private readonly IMediaOperationEventRepository _events;
+    private readonly IEventPublisher _publisher;
+    private readonly ILogger<MediaOperationTracker> _logger;
 
-    public MediaOperationTracker(IMediaOperationRepository operations, IMediaOperationEventRepository events)
+    public MediaOperationTracker(
+        IMediaOperationRepository operations,
+        IMediaOperationEventRepository events,
+        IEventPublisher publisher,
+        ILogger<MediaOperationTracker> logger)
     {
         _operations = operations;
         _events = events;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task<MediaOperation> EnsureQueuedAsync(MediaOperation operation, CancellationToken ct = default)
@@ -30,6 +40,7 @@ public sealed class MediaOperationTracker : IMediaOperationTracker
             NewStage = ensured.Stage,
             Message = "Operation ensured."
         }, ct);
+        await PublishOperationChangedAsync(ensured, ct);
         return ensured;
     }
 
@@ -107,5 +118,41 @@ public sealed class MediaOperationTracker : IMediaOperationTracker
             Message = message,
             DetailJson = detail is null ? null : JsonSerializer.Serialize(detail, JsonOptions)
         }, ct);
+        await PublishOperationChangedAsync(after, ct);
     }
+
+    private async Task PublishOperationChangedAsync(MediaOperation operation, CancellationToken ct)
+    {
+        try
+        {
+            await _publisher.PublishAsync(
+                SignalREvents.MediaOperationChanged,
+                new MediaOperationChangedPayload(
+                    operation.Id,
+                    operation.OperationType,
+                    operation.OperationKind,
+                    operation.Status,
+                    operation.Stage,
+                    operation.ProgressPercent,
+                    operation.ItemsTotal,
+                    operation.ItemsCompleted,
+                    operation.UpdatedAt),
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not publish activity for media operation {OperationId}.", operation.Id);
+        }
+    }
+
+    private sealed record MediaOperationChangedPayload(
+        Guid Id,
+        string OperationType,
+        string OperationKind,
+        string Status,
+        string? Stage,
+        int ProgressPercent,
+        int ItemsTotal,
+        int ItemsCompleted,
+        DateTimeOffset UpdatedAt);
 }

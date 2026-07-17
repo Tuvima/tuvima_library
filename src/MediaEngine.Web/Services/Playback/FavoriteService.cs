@@ -5,6 +5,7 @@ using MudBlazor;
 namespace MediaEngine.Web.Services.Playback;
 
 public sealed record FavoriteMembership(Guid CollectionId, Guid? ItemId, bool IsFavorite);
+public sealed record FavoriteListSnapshot(Guid? CollectionId, IReadOnlyList<CollectionItemViewModel> Items);
 
 public sealed class FavoriteService : IDisposable
 {
@@ -18,6 +19,16 @@ public sealed class FavoriteService : IDisposable
     public FavoriteService(IEngineApiClient apiClient)
     {
         _apiClient = apiClient;
+    }
+
+    public event Action<Guid>? Changed;
+
+    public async Task<FavoriteListSnapshot> GetListAsync(Guid? profileId, CancellationToken ct = default)
+    {
+        var state = await GetStateAsync(profileId, createCollection: false, ct);
+        return state is null
+            ? new FavoriteListSnapshot(null, [])
+            : new FavoriteListSnapshot(state.CollectionId, state.Items.ToList());
     }
 
     public async Task<IReadOnlyCollection<Guid>> GetFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct = default)
@@ -54,7 +65,10 @@ public sealed class FavoriteService : IDisposable
         {
             var removed = await _apiClient.RemoveCollectionItemAsync(membership.CollectionId, membership.ItemId.Value, profileId, ct);
             if (removed && profileId.HasValue)
+            {
                 await ReloadStateAsync(profileId.Value, ct);
+                Changed?.Invoke(profileId.Value);
+            }
 
             return removed
                 ? membership with { ItemId = null, IsFavorite = false }
@@ -63,7 +77,10 @@ public sealed class FavoriteService : IDisposable
 
         var added = await _apiClient.AddCollectionItemAsync(membership.CollectionId, workId, profileId, ct);
         if (added && profileId.HasValue)
+        {
             await ReloadStateAsync(profileId.Value, ct);
+            Changed?.Invoke(profileId.Value);
+        }
 
         return added
             ? await GetMembershipAsync(workId, profileId, ct)
@@ -130,6 +147,7 @@ public sealed class FavoriteService : IDisposable
         var state = new FavoriteState
         {
             CollectionId = favorites?.Id,
+            Items = items.ToList(),
             WorkIds = items.Select(item => item.WorkId).ToHashSet(),
             ItemIdsByWorkId = items
                 .GroupBy(item => item.WorkId)
@@ -149,6 +167,7 @@ public sealed class FavoriteService : IDisposable
     private sealed class FavoriteState
     {
         public Guid? CollectionId { get; init; }
+        public IReadOnlyList<CollectionItemViewModel> Items { get; init; } = [];
         public HashSet<Guid> WorkIds { get; init; } = [];
         public Dictionary<Guid, Guid> ItemIdsByWorkId { get; init; } = [];
     }

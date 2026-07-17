@@ -69,6 +69,7 @@ var ssoEnabled =
     authSettings.Oidc.Enabled &&
     (string.Equals(authSettings.Mode, "Oidc", StringComparison.OrdinalIgnoreCase) ||
      string.Equals(authSettings.Mode, "Hybrid", StringComparison.OrdinalIgnoreCase));
+builder.Services.AddSingleton(new DashboardAuthUiOptions(ssoEnabled));
 
 if (ssoEnabled)
 {
@@ -183,6 +184,7 @@ builder.Services.AddScoped<FavoriteService>();
 builder.Services.AddScoped<MediaReactionService>();
 builder.Services.AddSingleton(dashboardConfig.LoadPlaybackClientSettings());
 builder.Services.AddScoped<PlaybackSessionController>();
+builder.Services.AddScoped<ShellActivityState>();
 builder.Services.AddScoped<ListenAudioDragService>();
 builder.Services.AddScoped<ListenPageState>();
 builder.Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPreferencesAccessor>();

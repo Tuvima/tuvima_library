@@ -757,6 +757,23 @@ public sealed partial class EngineApiClient : IEngineApiClient
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
         => await _systemClient.GetSystemStatusAsync(ct);
 
+    public async Task<IReadOnlyList<SystemActivityOperationViewModel>> GetSystemActivityOperationsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<SystemActivityOperationViewModel>>("/system/activity-status", ct) ?? [];
+        }
+        catch (OperationCanceledException)
+        {
+            return [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GET /system/activity-status failed");
+            return [];
+        }
+    }
+
     // -- GET /collections -------------------------------------------------------------
 
     public async Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default)

@@ -26,7 +26,9 @@ Series and collection containers use `Components/MediaTiles/MediaGroupTile.razor
 
 | File | Role |
 |---|---|
-| `src/MediaEngine.Web/Shared/MainLayout.razor` | Global shell, navigation, search, review notification, profile menu, engine status, command palette, and persistent playback host. |
+| `src/MediaEngine.Web/Shared/MainLayout.razor` | Global shell, navigation, search, My List, unified activity indicator, account menu, engine status, command palette, and persistent playback host. |
+| `src/MediaEngine.Web/Components/Navigation/TopNavAccountMenu.razor` | Profile switching, permission-gated Needs Review, Settings, Help, and conditional sign-out. |
+| `src/MediaEngine.Web/Components/Navigation/SystemActivityIndicator.razor` | Busy/idle shell status for playback, ingestion, AI, enrichment, and durable Engine operations. |
 | `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` | Home/discovery page. |
 | `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` | Shared Read, Watch, and Listen browse behavior. |
 | `src/MediaEngine.Web/Components/Details/DetailPage.razor` | Detail-page surface and inline edit launcher. |
@@ -77,6 +79,8 @@ Use existing feature folders before introducing new abstractions.
 
 - `EngineApiClient` is the typed Dashboard client for Engine endpoints.
 - SignalR events keep ingestion, activity, enrichment, and review indicators current.
+- Keep review attention inside the permission-aware account menu; do not reintroduce a standalone navbar notification button.
+- Use `ShellActivityState` for cross-cutting busy/idle state instead of adding one-off navbar progress controls.
 - Dashboard view models live under `Models/ViewDTOs/`; do not pass storage implementation models into UI.
 - Razor components must not contain direct SQL.
 - Settings/Admin pages should call Engine APIs or typed services, not storage repositories.
