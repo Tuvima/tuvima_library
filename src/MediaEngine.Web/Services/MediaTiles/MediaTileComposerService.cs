@@ -69,10 +69,10 @@ public sealed class MediaTileComposerService
             Title = hero.Title,
             Subtitle = hero.Subtitle,
             Description = hero.Description,
-            BackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundLargeUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerMediumUrl),
-            HeroBackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundLargeUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerMediumUrl),
-            BannerImageUrl = FirstNonBlank(hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
-            PreviewImageUrl = FirstNonBlank(hero.Artwork.CoverLargeUrl, hero.Artwork.SquareLargeUrl, hero.Artwork.CoverMediumUrl, hero.Artwork.SquareMediumUrl),
+            BackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundUrl, hero.Artwork.BackgroundLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
+            HeroBackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundUrl, hero.Artwork.BackgroundLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
+            BannerImageUrl = FirstNonBlank(hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
+            PreviewImageUrl = FirstNonBlank(hero.Artwork.CoverUrl, hero.Artwork.CoverLargeUrl, hero.Artwork.CoverMediumUrl, hero.Artwork.SquareUrl, hero.Artwork.SquareLargeUrl, hero.Artwork.SquareMediumUrl),
             SurfaceKind = heroSurfaceKind,
             PreviewSurfaceKind = heroPreviewSurfaceKind,
             LogoUrl = hero.Artwork.LogoUrl,
@@ -143,6 +143,31 @@ public sealed class MediaTileComposerService
 
     private static IEnumerable<DisplayCardDto> SpotlightCards(DisplayPageDto page)
     {
+        if (string.Equals(page.Key, "watch", StringComparison.OrdinalIgnoreCase))
+        {
+            var continuingMovies = page.Shelves
+                .FirstOrDefault(shelf => string.Equals(shelf.Key, "continue-watching", StringComparison.OrdinalIgnoreCase))?
+                .Items
+                .Where(card => !string.Equals(card.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+                ?? [];
+            var tvShows = page.Shelves
+                .FirstOrDefault(shelf => string.Equals(shelf.Key, "tv-shows", StringComparison.OrdinalIgnoreCase))?
+                .Items
+                ?? [];
+            var movies = page.Shelves
+                .FirstOrDefault(shelf => string.Equals(shelf.Key, "movies", StringComparison.OrdinalIgnoreCase))?
+                .Items
+                ?? [];
+
+            // TV landing spotlights use show cards exclusively. Continue cards keep
+            // their episode stills in the shelf, but never donate them to the hero.
+            return continuingMovies
+                .Concat(tvShows)
+                .Concat(movies)
+                .DistinctBy(card => card.Id)
+                .Take(5);
+        }
+
         var preferredShelf = page.Shelves.FirstOrDefault(shelf =>
             string.Equals(shelf.Key, "continue", StringComparison.OrdinalIgnoreCase)
             || string.Equals(shelf.Key, "continue-watching", StringComparison.OrdinalIgnoreCase)
@@ -352,8 +377,14 @@ public sealed class MediaTileComposerService
 
     private static MediaTileSurfaceKind ResolveHeroSurfaceKind(DisplayArtworkDto artwork)
     {
-        if (HasUsableLandscape(artwork.BackgroundUrl, artwork.BackgroundWidthPx, artwork.BackgroundHeightPx)
-            || HasUsableLandscape(artwork.BannerUrl, artwork.BannerWidthPx, artwork.BannerHeightPx))
+        // Background and banner are semantic landscape roles. They remain valid
+        // hero backdrops even when a provider did not report pixel dimensions.
+        if (!string.IsNullOrWhiteSpace(artwork.BackgroundUrl)
+            || !string.IsNullOrWhiteSpace(artwork.BackgroundLargeUrl)
+            || !string.IsNullOrWhiteSpace(artwork.BackgroundMediumUrl)
+            || !string.IsNullOrWhiteSpace(artwork.BannerUrl)
+            || !string.IsNullOrWhiteSpace(artwork.BannerLargeUrl)
+            || !string.IsNullOrWhiteSpace(artwork.BannerMediumUrl))
         {
             return MediaTileSurfaceKind.BannerLandscape;
         }

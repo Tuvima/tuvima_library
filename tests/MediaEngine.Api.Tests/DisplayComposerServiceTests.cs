@@ -257,6 +257,63 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public async Task TvShowCards_DoNotFallbackToEpisodeArtworkWhenShowArtworkIsMissing()
+    {
+        var showRootId = Guid.Parse("77777777-dddd-9999-9999-888888888888");
+        var episodeId = Guid.Parse("77777777-eeee-9999-9999-888888888888");
+        var repository = new StubDisplayProjectionRepository(
+            [Work(episodeId, "TV", "Pilot", season: "1", episode: "1", showName: "Severance", coverUrl: "/art/episode-cover.jpg", backgroundUrl: "/art/episode-still.jpg", rootWorkId: showRootId)],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", "TV", "shows", null, 0, 48, includeCatalog: true);
+
+        var card = Assert.Single(page.Catalog);
+        Assert.Equal("Severance", card.Title);
+        Assert.Null(card.Artwork.CoverUrl);
+        Assert.Null(card.Artwork.BackgroundUrl);
+        Assert.Null(card.Artwork.BannerUrl);
+    }
+
+    [Fact]
+    public async Task WatchLandingHero_UsesShowBackgroundWhileResumingOwnedEpisode()
+    {
+        var showRootId = Guid.Parse("77777777-ffff-9999-9999-888888888888");
+        var episodeId = Guid.Parse("77777777-aaaa-8888-9999-888888888888");
+        var repository = new StubDisplayProjectionRepository(
+            [Work(episodeId, "TV", "Pilot", season: "1", episode: "1", showName: "Severance", backgroundUrl: "/art/episode-still.jpg", rootBackgroundUrl: "/art/severance-show.jpg", rootWorkId: showRootId)],
+            [Journey(episodeId, "TV", "Pilot", 38, season: "1", episode: "1", showName: "Severance", rootWorkId: showRootId, backgroundUrl: "/art/episode-still.jpg")]);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
+
+        Assert.NotNull(page.Hero);
+        Assert.Equal("Severance", page.Hero.Title);
+        Assert.Equal("tvSeries", page.Hero.Presentation);
+        Assert.Equal("/art/severance-show.jpg", page.Hero.Artwork.BackgroundUrl);
+        Assert.DoesNotContain("/art/episode-still.jpg", new[] { page.Hero.Artwork.BackgroundUrl, page.Hero.Artwork.BannerUrl });
+        Assert.Equal("Resume S1 E1", page.Hero.Progress?.ResumeAction?.Label);
+        Assert.Equal($"/watch/player/resolve?workId={episodeId:D}", page.Hero.Progress?.ResumeAction?.WebUrl);
+    }
+
+    [Fact]
+    public async Task WatchLandingHero_UsesShowBackgroundWhenNothingIsInProgress()
+    {
+        var showRootId = Guid.Parse("77777777-bbbb-8888-9999-888888888888");
+        var episodeId = Guid.Parse("77777777-cccc-8888-9999-888888888888");
+        var repository = new StubDisplayProjectionRepository(
+            [Work(episodeId, "TV", "Pilot", season: "1", episode: "1", showName: "Severance", backgroundUrl: "/art/episode-still.jpg", rootBackgroundUrl: "/art/severance-show.jpg", rootWorkId: showRootId)],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
+
+        Assert.NotNull(page.Hero);
+        Assert.Equal("Severance", page.Hero.Title);
+        Assert.Equal("/art/severance-show.jpg", page.Hero.Artwork.BackgroundUrl);
+    }
+
+    [Fact]
     public async Task WatchShelves_KeepTvShowsSeparateAndHideSingleMovieSeries()
     {
         var movieCollectionId = Guid.Parse("77777777-9999-aaaa-9999-777777777777");

@@ -54,6 +54,8 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 - `/watch` is the cinematic movie and TV lane landing page with Movies, TV Shows, Series, and genre filters. `/watch/movies` and `/watch/tv` render detailed browse tabs.
 - `/listen` keeps the permanent Listen rail and renders a compact square-art cinematic hero with Music, Audiobooks, and genre filters. Music shelves are album-first; individual tracks appear in album preview/detail content rather than as landing cards.
 - `/collections` uses the same rotating hero and shared filter bar for broader rollups, personal collections, and playlists.
+
+The landing carousel reuses the detail hero's complete-frame backdrop treatment: the foreground image stays uncropped, its true left edge is masked into the copy area, and the same atmosphere and layered fades preserve text contrast. Watch landing TV slides use the root show's managed background; episode stills are not promoted into the landing hero.
 - `/listen` is the music, audiobook, album, artist, song, and playlist lane.
 - `/search` is cross-library discovery.
 - `/my-list` is the active profile's saved shortlist.

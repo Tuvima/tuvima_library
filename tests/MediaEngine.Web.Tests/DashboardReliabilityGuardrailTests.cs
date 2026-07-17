@@ -144,6 +144,33 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
+    public void CinematicLandingHero_UsesDetailBackdropFitMaskAndLayeredFade()
+    {
+        var surface = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroSurface.razor");
+        var surfaceStyles = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroSurface.razor.css");
+        var carouselStyles = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor.css");
+
+        Assert.Contains("class=\"cinematic-hero-surface-scope\"", surface, StringComparison.Ordinal);
+        Assert.Contains(".cinematic-hero-surface-scope ::deep .cinematic-hero-surface", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("object-fit: contain", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("mask-image: linear-gradient(to right, transparent 0%", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.94)", surfaceStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("tl-detail-media-stage__background", carouselStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("object-fit: cover", carouselStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WatchLandingSpotlights_UseTvShowCardsInsteadOfEpisodeContinueCards()
+    {
+        var source = Read(@"src\MediaEngine.Web\Services\MediaTiles\MediaTileComposerService.cs");
+
+        Assert.Contains("string.Equals(page.Key, \"watch\"", source, StringComparison.Ordinal);
+        Assert.Contains("!string.Equals(card.MediaType, \"TV\"", source, StringComparison.Ordinal);
+        Assert.Contains("string.Equals(shelf.Key, \"tv-shows\"", source, StringComparison.Ordinal);
+        Assert.Contains("TV landing spotlights use show cards exclusively", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IngestionDashboard_ExplainsIconMeaningWithSimpleTooltips()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor")

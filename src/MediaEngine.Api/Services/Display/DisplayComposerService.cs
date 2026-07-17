@@ -398,6 +398,10 @@ public sealed class DisplayComposerService
             .Select(work => _cards.FromWork(work, lane, progressByWork.GetValueOrDefault(work.WorkId)))
             .ToList();
 
+        var tvShowCards = string.Equals(lane, "watch", StringComparison.OrdinalIgnoreCase)
+            ? _cards.BuildTvShowCards(laneWorks)
+            : [];
+
         var shelves = lane switch
         {
             "watch" => _shelves.BuildWatchShelves(laneWorks, laneJourney, progressByWork, shelfLimit),
@@ -409,8 +413,10 @@ public sealed class DisplayComposerService
         var heroCard = string.Equals(lane, "listen", StringComparison.OrdinalIgnoreCase)
             ? shelves.SelectMany(shelf => shelf.Items).FirstOrDefault()
             : laneJourney.FirstOrDefault() is { } journeyHero
-            ? _cards.FromJourney(journeyHero, lane)
-            : catalog.FirstOrDefault();
+            ? PromoteTvJourneyToShowHero(journeyHero, _cards.FromJourney(journeyHero, lane), tvShowCards)
+            : string.Equals(lane, "watch", StringComparison.OrdinalIgnoreCase)
+                ? shelves.SelectMany(shelf => shelf.Items).FirstOrDefault()
+                : catalog.FirstOrDefault();
 
         return new DisplayPageDto(
             Key: lane,
@@ -419,6 +425,33 @@ public sealed class DisplayComposerService
             Hero: heroCard is null ? null : DisplayCardBuilder.ToHero(heroCard, EyebrowForLane(lane, laneJourney.Count > 0)),
             Shelves: shelves,
             Catalog: includeCatalog ? catalog : []);
+    }
+
+    private static DisplayCardDto PromoteTvJourneyToShowHero(
+        DisplayJourneyRow journey,
+        DisplayCardDto journeyCard,
+        IReadOnlyList<DisplayCardDto> tvShowCards)
+    {
+        if (DisplayMediaRules.NormalizeDisplayKind(journey.MediaType) != "TV"
+            || journey.RootWorkId == Guid.Empty)
+        {
+            return journeyCard;
+        }
+
+        var showCard = tvShowCards.FirstOrDefault(card => card.Id == journey.RootWorkId);
+        if (showCard is null)
+        {
+            return journeyCard;
+        }
+
+        // Lane heroes represent the show, even when their primary action resumes a
+        // specific owned episode. This keeps episode stills on episode/Continue cards.
+        return showCard with
+        {
+            Progress = journeyCard.Progress,
+            Actions = [.. journeyCard.Actions, .. showCard.Actions],
+            SortTimestamp = journeyCard.SortTimestamp,
+        };
     }
 
     private async Task<DisplayPageDto> BuildMusicHomeAsync(bool includeCatalog, Guid? profileId, CancellationToken ct, int shelfLimit = 18)

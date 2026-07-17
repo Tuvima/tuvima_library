@@ -2,18 +2,20 @@
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Details
 
-<AppCssElement Tag="section" Class="@RootClass" Css="@Css">
-    <HeroBackdrop Artwork="@Artwork" EntityType="@EntityType" HeroBrand="@HeroBrand" />
+<div class="cinematic-hero-surface-scope">
+    <AppCssElement Tag="section" Class="@RootClass" Css="@Css">
+        <HeroBackdrop Artwork="@Artwork" EntityType="@EntityType" HeroBrand="@HeroBrand" />
 
-    @if (ShowTitleBar && !string.IsNullOrWhiteSpace(Title))
-    {
-        <div class="tl-detail-titlebar">
-            <div class="tl-detail-titlebar__title">@Title</div>
-        </div>
-    }
+        @if (ShowTitleBar && !string.IsNullOrWhiteSpace(Title))
+        {
+            <div class="tl-detail-titlebar">
+                <div class="tl-detail-titlebar__title">@Title</div>
+            </div>
+        }
 
-    @ChildContent
-</AppCssElement>
+        @ChildContent
+    </AppCssElement>
+</div>
 
 @code {
     [Parameter, EditorRequired] public ArtworkSet Artwork { get; set; } = new();

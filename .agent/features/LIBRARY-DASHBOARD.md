@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 3.11 and Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last audited: 2026-07-16 | Auditor: Codex
+> Last audited: 2026-07-17 | Auditor: Codex
 
 ---
 
@@ -25,6 +25,8 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 Non-TV series and collection containers render through the dedicated fixed-size landscape `MediaGroupTile`. It composes owned child artwork at rest and reveals an in-place child carousel on hover or keyboard focus. The resting surface opens the group, while the carousel opens the selected owned child. TV shows render through `MediaTile`, using the show cover at rest and the show-level cinematic backdrop and rich identity on hover. Individual and Continue cards keep their existing renderers.
 
 Within Watch, TV shows occupy their own `TV Shows` shelf. The separate `Series` shelf contains only dynamically aligned movie series and explains that automatic grouping in its subtitle. Do not combine those shelves or place TV show cards in the Series row.
+
+The five main landings reuse the detail-derived cinematic hero and filter primitives. Their backdrop stage keeps the full detail treatment: an uncropped foreground frame, a mask beginning at the image's true left edge, blurred atmosphere, and layered contrast fades. Watch landing TV slides always use root show artwork and fall back to the settled placeholder when it is absent; episode stills stay on episode-specific surfaces.
 
 ---
 

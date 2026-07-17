@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last updated: 2026-07-16
+> Last updated: 2026-07-17
 
 ---
 
@@ -15,6 +15,8 @@ Use this skill when changing Dashboard visual components, routed pages, navigati
 ## Current Dashboard Model
 
 Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns.
+
+Home, Read, Watch, Listen, and Collections share `CinematicHeroCarousel`, `CinematicHeroSurface`, and `SurfaceTabBar` with detail presentation. The shared hero stage keeps the full detail hero's uncropped foreground backdrop, intrinsic left-edge mask, atmosphere, and layered fades. Watch landing TV slides use root show artwork only; never promote an episode still into the landing hero.
 
 The removed all-in-one management workflow must not be recreated. Do not add routes, navigation labels, implementation types, or an all-in-one media correction workbench for it.
 
@@ -30,6 +32,7 @@ Non-TV series and collection containers use `Components/MediaTiles/MediaGroupTil
 | `src/MediaEngine.Web/Components/Navigation/TopNavAccountMenu.razor` | Profile switching, permission-gated Needs Review, Settings, Help, and conditional sign-out. |
 | `src/MediaEngine.Web/Components/Navigation/SystemActivityIndicator.razor` | Busy/idle shell status for playback, ingestion, AI, enrichment, and durable Engine operations. |
 | `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` | Home/discovery page. |
+| `src/MediaEngine.Web/Components/Cinematic/` | Shared detail-derived landing hero stage, carousel, and filter tabs. |
 | `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` | Shared Read, Watch, and Listen browse behavior. |
 | `src/MediaEngine.Web/Components/Details/DetailPage.razor` | Detail-page surface and inline edit launcher. |
 | `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` | Read-detail surface for books. |

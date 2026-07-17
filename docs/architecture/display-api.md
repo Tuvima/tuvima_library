@@ -30,7 +30,7 @@ Display responses use platform-neutral DTOs from `MediaEngine.Contracts.Display`
 
 Home composition is placement-aware: the Collections & Lists shelf comes from accessible collection placements at `location=home`, filtered by the active profile when `profileId` is supplied. The composer must not synthesize broad series/franchise cards for Home.
 
-Lane grouping is item-count aware. TV show cards can represent a show with one or more owned episodes, but non-TV/non-music series cards require at least two distinct owned works by default. Operators can tune this with `config/ui/library-preferences.json` under `lane_group_display.*.minimum_series_items`. Grouped show/series cards should prefer collection/root artwork; episode stills are only a fallback when no show-level art exists.
+Lane grouping is item-count aware. TV show cards can represent a show with one or more owned episodes, but non-TV/non-music series cards require at least two distinct owned works by default. Operators can tune this with `config/ui/library-preferences.json` under `lane_group_display.*.minimum_series_items`. Grouped TV show cards and Watch landing heroes use root show artwork only; when it is unavailable they render the settled placeholder instead of borrowing an episode still.
 
 TV Continue cards are episode cards, not substituted show cards. They retain the episode work/asset and managed still, send `Watch Sx Ey` or `Resume Sx Ey` to the player resolver, and expose the show-scoped episode detail route as a separate Details action. Episode detail composition keeps the episode still, short synopsis, genre, and season-list artwork; root show composition reports owned episode count and targets the in-progress or earliest owned episode.
 
