@@ -1,8 +1,14 @@
-.system-activity-indicator {
+.system-activity-indicator-shell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.system-activity-indicator-shell ::deep .system-activity-indicator {
     position: relative;
-    width: 2.6rem;
-    min-width: 2.6rem;
-    height: 2.6rem;
+    width: 3rem;
+    min-width: 3rem;
+    height: 3rem;
     display: inline-grid;
     place-items: center;
     padding: 0;
@@ -13,58 +19,58 @@
     cursor: pointer;
 }
 
-.system-activity-indicator:hover,
-.system-activity-indicator:focus-visible {
+.system-activity-indicator-shell ::deep .system-activity-indicator:hover,
+.system-activity-indicator-shell ::deep .system-activity-indicator:focus-visible {
     color: var(--app-text-primary, #e5edf5);
     background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055));
 }
 
-.system-activity-indicator:focus-visible {
+.system-activity-indicator-shell ::deep .system-activity-indicator:focus-visible {
     outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
     outline-offset: 2px;
 }
 
-.system-activity-indicator.is-active {
+.system-activity-indicator-shell ::deep .system-activity-indicator.is-active {
     color: var(--app-primary, var(--tl-accent-primary, #7c4dff));
 }
 
-.system-activity-indicator.is-warning {
+.system-activity-indicator-shell ::deep .system-activity-indicator.is-warning {
     color: var(--tl-status-warning, #fbbf24);
 }
 
 .system-activity-indicator__ring,
-.system-activity-indicator__center-icon {
+.system-activity-indicator-shell ::deep .system-activity-indicator__center-icon {
     position: absolute;
     inset: 50% auto auto 50%;
     transform: translate(-50%, -50%);
 }
 
 .system-activity-indicator__ring {
-    width: 2rem;
-    height: 2rem;
+    width: 2.3rem;
+    height: 2.3rem;
 }
 
-::deep .system-activity-indicator__ring .mud-progress-circular {
-    width: 2rem !important;
-    height: 2rem !important;
+.system-activity-indicator-shell ::deep .system-activity-indicator__ring .mud-progress-circular {
+    width: 2.3rem !important;
+    height: 2.3rem !important;
 }
 
-::deep .system-activity-indicator__center-icon {
-    width: 0.9rem;
-    height: 0.9rem;
-    font-size: 0.9rem;
+.system-activity-indicator-shell ::deep .system-activity-indicator__center-icon {
+    width: 1rem;
+    height: 1rem;
+    font-size: 1rem;
 }
 
-::deep .system-activity-indicator__idle-icon {
-    width: 1.35rem;
-    height: 1.35rem;
-    font-size: 1.35rem;
+.system-activity-indicator-shell ::deep .system-activity-indicator__idle-icon {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 1.75rem;
 }
 
 .system-activity-indicator__count {
     position: absolute;
-    top: -0.12rem;
-    right: -0.12rem;
+    top: -0.05rem;
+    right: -0.05rem;
     min-width: 1.05rem;
     height: 1.05rem;
     display: grid;
@@ -80,7 +86,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    ::deep .system-activity-indicator__ring .mud-progress-circular-indeterminate {
+    .system-activity-indicator-shell ::deep .system-activity-indicator__ring .mud-progress-circular-indeterminate {
         animation-duration: 2.4s !important;
     }
 }

@@ -2,117 +2,108 @@
 
 @inject IStringLocalizer<SharedStrings> L
 
-<MudMenu Dense="true"
-         AnchorOrigin="Origin.BottomRight"
-         TransformOrigin="Origin.TopRight"
-         Class="top-nav-account-menu"
-         PopoverClass="top-nav-account-menu__popover"
-         aria-label="@L["TopBar_OpenProfileMenu"]">
-    <ActivatorContent>
-        <AppNativeButton Type="button"
-                         Class="top-nav-account-menu__trigger"
-                         AriaLabel="@L["TopBar_OpenProfileMenu"]"
-                         OnClick="@context.ToggleAsync">
-            <AppAvatar ImageUrl="@AvatarImageUrl"
-                       AltText=""
-                       Initials="@AvatarInitial"
-                       AccentColor="@AvatarColor"
-                       ForegroundColor="@AvatarForeground"
-                       Class="top-nav-account-menu__avatar" />
-            <span class="top-nav-account-menu__trigger-copy">
-                <span class="top-nav-account-menu__trigger-name">@DisplayName</span>
-                <span class="top-nav-account-menu__trigger-role">@ProfileRole</span>
-            </span>
-            <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown"
-                     Class="top-nav-account-menu__chevron" />
-        </AppNativeButton>
-    </ActivatorContent>
-    <ChildContent>
-        <div class="top-nav-account-menu__panel" role="presentation">
-            <header class="top-nav-account-menu__header">
+<div class="top-nav-account-menu-shell">
+    <MudMenu Dense="true"
+             AnchorOrigin="Origin.BottomRight"
+             TransformOrigin="Origin.TopRight"
+             Class="top-nav-account-menu"
+             PopoverClass="top-nav-account-menu__popover">
+        <ActivatorContent>
+            <AppNativeButton Type="button"
+                             Class="top-nav-account-menu__trigger"
+                             AriaLabel="@L["TopBar_OpenProfileMenu"]"
+                             OnClick="@context.ToggleAsync">
                 <AppAvatar ImageUrl="@AvatarImageUrl"
                            AltText=""
                            Initials="@AvatarInitial"
                            AccentColor="@AvatarColor"
                            ForegroundColor="@AvatarForeground"
-                           Class="top-nav-account-menu__header-avatar" />
-                <div class="top-nav-account-menu__identity">
+                           Class="top-nav-account-menu__avatar" />
+                <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown"
+                         Class="top-nav-account-menu__chevron" />
+            </AppNativeButton>
+        </ActivatorContent>
+        <ChildContent>
+            <div class="top-nav-account-menu__panel" role="presentation">
+                <header class="top-nav-account-menu__header">
+                    <AppAvatar ImageUrl="@AvatarImageUrl"
+                               AltText=""
+                               Initials="@AvatarInitial"
+                               AccentColor="@AvatarColor"
+                               ForegroundColor="@AvatarForeground"
+                               Class="top-nav-account-menu__header-avatar" />
                     <strong>@DisplayName</strong>
-                    <span>@ProfileRole</span>
-                </div>
-                @if (CanViewReview && ReviewCount > 0)
-                {
-                    <span class="top-nav-account-menu__notification"
-                          title="@L["Nav_ReviewPending", ReviewCount]"
-                          aria-label="@L["Nav_ReviewPending", ReviewCount]">
-                        <MudIcon Icon="@Icons.Material.Outlined.NotificationsNone" />
-                        <span>@ReviewCountLabel</span>
-                    </span>
-                }
-            </header>
+                </header>
 
-            @if (OtherProfiles.Count > 0)
-            {
-                <div class="top-nav-account-menu__section-label">@L["TopBar_SwitchProfile"]</div>
-                @foreach (var profile in OtherProfiles)
+                @if (OtherProfiles.Count > 0)
                 {
-                    <MudMenuItem Class="top-nav-account-menu__item top-nav-account-menu__profile-item"
-                                 @key="profile.Id"
-                                 OnClick="@(() => SelectProfileAsync(profile.Id))">
-                        <AppAvatar ImageUrl="@profile.AvatarImageUrl"
-                                   AltText=""
-                                   Initials="@AvatarInitialFor(profile.DisplayName)"
-                                   AccentColor="@profile.AvatarColor"
-                                   ForegroundColor="@AvatarForeground"
-                                   Class="top-nav-account-menu__profile-avatar" />
-                        <span>@profile.DisplayName</span>
+                    <div class="top-nav-account-menu__profiles">
+                        @foreach (var profile in OtherProfiles)
+                        {
+                            <MudMenuItem Class="top-nav-account-menu__item top-nav-account-menu__profile-item"
+                                         @key="profile.Id"
+                                         OnClick="@(() => SelectProfileAsync(profile.Id))">
+                                <AppAvatar ImageUrl="@profile.AvatarImageUrl"
+                                           AltText=""
+                                           Initials="@AvatarInitialFor(profile.DisplayName)"
+                                           AccentColor="@profile.AvatarColor"
+                                           ForegroundColor="@AvatarForeground"
+                                           Class="top-nav-account-menu__profile-avatar" />
+                                <span>@profile.DisplayName</span>
+                            </MudMenuItem>
+                        }
+                    </div>
+                }
+
+                <MudDivider Class="top-nav-account-menu__divider" />
+
+                @if (CanViewReview)
+                {
+                    <MudMenuItem Class="top-nav-account-menu__item"
+                                 Icon="@Icons.Material.Outlined.RateReview"
+                                 OnClick="OpenReviewAsync">
+                        <span class="top-nav-account-menu__item-copy">
+                            <span>@L["TopBar_NeedsReview"]</span>
+                            <span class="top-nav-account-menu__review-count">@ReviewCountLabel</span>
+                        </span>
                     </MudMenuItem>
                 }
-                <MudDivider Class="top-nav-account-menu__divider" />
-            }
 
-            @if (CanViewReview)
-            {
                 <MudMenuItem Class="top-nav-account-menu__item"
-                             Icon="@Icons.Material.Outlined.RateReview"
-                             OnClick="OpenReviewAsync">
+                             Icon="@Icons.Material.Outlined.Settings"
+                             OnClick="OpenSettingsAsync">
+                    @L["Nav_Settings"]
+                </MudMenuItem>
+
+                <MudMenuItem Class="top-nav-account-menu__item"
+                             Icon="@Icons.Material.Outlined.HelpOutline"
+                             Href="https://tuvima.github.io/tuvima_library/"
+                             Target="_blank"
+                             rel="noopener noreferrer">
                     <span class="top-nav-account-menu__item-copy">
-                        <span>@L["TopBar_NeedsReview"]</span>
-                        <span class="top-nav-account-menu__review-count">@ReviewCountLabel</span>
+                        <span>@L["TopBar_Help"]</span>
+                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew"
+                                 Class="top-nav-account-menu__external" />
                     </span>
                 </MudMenuItem>
-            }
 
-            <MudMenuItem Class="top-nav-account-menu__item"
-                         Icon="@Icons.Material.Outlined.Settings"
-                         OnClick="OpenSettingsAsync">
-                @L["Nav_Settings"]
-            </MudMenuItem>
-
-            <a class="top-nav-account-menu__link"
-               href="https://tuvima.github.io/tuvima_library/"
-               target="_blank"
-               rel="noopener noreferrer"
-               role="menuitem">
-                <MudIcon Icon="@Icons.Material.Outlined.HelpOutline" />
-                <span>@L["TopBar_Help"]</span>
-                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Class="top-nav-account-menu__external" />
-            </a>
-
-            @if (ShowSignOut)
-            {
-                <MudDivider Class="top-nav-account-menu__divider" />
-                <form method="post" action="/auth/logout" class="top-nav-account-menu__signout-form">
-                    <AntiforgeryToken />
-                    <AppNativeButton Type="submit" Class="top-nav-account-menu__link top-nav-account-menu__signout" role="menuitem">
-                        <MudIcon Icon="@Icons.Material.Outlined.Logout" />
-                        <span>@L["TopBar_SignOut"]</span>
-                    </AppNativeButton>
-                </form>
-            }
-        </div>
-    </ChildContent>
-</MudMenu>
+                @if (ShowSignOut)
+                {
+                    <MudDivider Class="top-nav-account-menu__divider" />
+                    <form method="post" action="/auth/logout" class="top-nav-account-menu__signout-form">
+                        <AntiforgeryToken />
+                        <AppNativeButton Type="submit"
+                                         Class="top-nav-account-menu__signout"
+                                         role="menuitem">
+                            <MudIcon Icon="@Icons.Material.Outlined.Logout" />
+                            <span>@L["TopBar_SignOut"]</span>
+                        </AppNativeButton>
+                    </form>
+                }
+            </div>
+        </ChildContent>
+    </MudMenu>
+</div>
 
 @code {
     [Parameter] public string DisplayName { get; set; } = "User";

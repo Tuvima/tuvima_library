@@ -39,7 +39,7 @@
     height: var(--app-topbar-height, 65px);
     min-width: 0;
     justify-content: flex-start;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .layout-shell__brand-link {
@@ -90,6 +90,7 @@
     min-height: 2.75rem;
     padding-inline: 0.1rem;
     min-width: 0;
+    flex: 0 0 auto;
     border-radius: var(--app-radius-xs, 4px);
     color: var(--app-text-muted, #8391a2);
     text-decoration: none;
@@ -98,11 +99,12 @@
 
 .layout-shell__nav-link .layout-shell__nav-link-label {
     display: inline-block;
-    font-family: var(--font-ui);
-    font-size: 0.9rem;
-    font-weight: 700;
-    letter-spacing: 0;
+    font-family: var(--font-brand);
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     line-height: 1;
+    text-transform: uppercase;
 }
 
 .layout-shell__nav-link::after {
@@ -178,18 +180,54 @@
     min-width: 0;
     justify-content: flex-end;
     overflow: visible;
-    gap: 0.45rem !important;
+    gap: 0 !important;
 }
 
-.layout-shell__my-list {
-    min-width: 5.6rem !important;
-    height: 2.75rem;
-    border-radius: var(--app-radius-sm, 5px);
-    color: var(--app-text-primary, #dbe4ed) !important;
-    font-family: var(--font-ui) !important;
-    font-size: 0.88rem;
-    font-weight: 700;
-    text-transform: none !important;
+.layout-shell__my-list-slot,
+.layout-shell__activity-slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.layout-shell__my-list-slot {
+    margin-right: 0.55rem;
+}
+
+.layout-shell__activity-slot {
+    margin-inline: 0.35rem 1.05rem;
+}
+
+.layout-shell__my-list-slot ::deep .layout-shell__my-list {
+    width: 3rem;
+    min-width: 3rem;
+    height: 3rem;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    color: var(--app-text-primary, #f5f7fb);
+    background: transparent;
+    cursor: pointer;
+}
+
+.layout-shell__my-list-slot ::deep .layout-shell__my-list:hover,
+.layout-shell__my-list-slot ::deep .layout-shell__my-list:focus-visible {
+    color: #fff;
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055));
+}
+
+.layout-shell__my-list-slot ::deep .layout-shell__my-list:focus-visible {
+    outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
+    outline-offset: 2px;
+}
+
+.layout-shell__my-list-slot ::deep .layout-shell__my-list-icon {
+    width: 1.78rem;
+    height: 1.78rem;
+    font-size: 1.78rem;
 }
 
 @media (max-width: 1100px) {
@@ -228,15 +266,12 @@
         max-width: 16rem;
     }
 
-    .layout-shell__my-list-label {
-        display: none;
+    .layout-shell__activity-slot {
+        margin-inline: 0.2rem 0.65rem;
     }
 
-    .layout-shell__my-list {
-        min-width: 2.4rem !important;
-        width: 2.4rem !important;
-        justify-content: center;
-        padding: 0 !important;
+    .layout-shell__left-rail {
+        overflow: hidden;
     }
 }
 
@@ -267,7 +302,6 @@
     .layout-shell__actions {
         grid-column: 3;
         justify-self: end;
-        gap: 0.45rem !important;
     }
 
 }

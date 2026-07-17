@@ -1508,7 +1508,7 @@ body {
 .mud-popover .mud-paper,
 .mud-popover.mud-paper {
     background: var(--app-surface-2) !important;
-    border: 1px solid var(--app-border) !important;
+    border: 0 !important;
 }
 
 .mud-popover .mud-list-item:hover,
@@ -1715,7 +1715,7 @@ body {
 .mud-popover {
     color: var(--app-text-primary) !important;
     background: var(--app-surface) !important;
-    border: 1px solid var(--app-border) !important;
+    border: 0 !important;
     border-radius: var(--app-radius-lg) !important;
     box-shadow: var(--app-shadow-lg) !important;
 }
@@ -3489,14 +3489,22 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
   flex: 1;
 }
 
-.mud-dialog,
+.mud-dialog {
+    z-index: var(--tl-z-dropdown);
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-elevated) !important;
+    border: 1px solid var(--tl-border-default) !important;
+    border-radius: var(--tl-radius-lg) !important;
+    box-shadow: var(--tl-shadow-lg) !important;
+}
+
 .mud-menu,
 .mud-popover,
 .mud-popover .mud-paper {
     z-index: var(--tl-z-dropdown);
     color: var(--tl-text-primary) !important;
     background: var(--tl-bg-surface-elevated) !important;
-    border: 1px solid var(--tl-border-default) !important;
+    border: 0 !important;
     border-radius: var(--tl-radius-lg) !important;
     box-shadow: var(--tl-shadow-lg) !important;
 }
@@ -3559,6 +3567,25 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+}
+
+.top-nav-account-menu__popover.mud-popover {
+    color: var(--app-text-primary, #e5edf5) !important;
+    background: #0d0f14 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42) !important;
+    overflow: hidden !important;
+}
+
+.top-nav-account-menu__popover.mud-popover .mud-paper,
+.top-nav-account-menu__popover.mud-popover .mud-list {
+    color: inherit !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
 }
 
 .tl-detail-overflow {
@@ -3950,11 +3977,19 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     resize: vertical;
 }
 
-.app-select__popover.mud-popover,
-.app-overflow-menu__popover.mud-popover {
+.app-select__popover.mud-popover {
     color: var(--tl-text-primary) !important;
     background: var(--tl-bg-surface-elevated) !important;
     border: 1px solid var(--tl-border-default) !important;
+    border-radius: var(--tl-radius-lg) !important;
+    box-shadow: var(--tl-shadow-lg) !important;
+    overflow: hidden !important;
+}
+
+.app-overflow-menu__popover.mud-popover {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-bg-surface-elevated) !important;
+    border: 0 !important;
     border-radius: var(--tl-radius-lg) !important;
     box-shadow: var(--tl-shadow-lg) !important;
     overflow: hidden !important;

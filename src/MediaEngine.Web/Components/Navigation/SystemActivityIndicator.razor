@@ -5,39 +5,41 @@
 @inject PlaybackSessionController Playback
 @inject NavigationManager Nav
 
-<MudTooltip Text="@TooltipText" Placement="Placement.Bottom">
-    <AppNativeButton Type="button"
-                     Class="@ButtonClass"
-                     AriaLabel="@AriaLabel"
-                     OnClick="HandleClick">
-        @if (ShowConnectionProblem)
-        {
-            <MudIcon Icon="@ConnectionIcon" Class="system-activity-indicator__idle-icon" />
-        }
-        else if (Snapshot.IsBusy)
-        {
-            <span class="system-activity-indicator__ring" aria-hidden="true">
-                @if (Snapshot.Primary?.ProgressPercent is { } progress)
-                {
-                    <MudProgressCircular Value="@progress" Size="Size.Small" />
-                }
-                else
-                {
-                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                }
-            </span>
-            <MudIcon Icon="@PrimaryIcon" Class="system-activity-indicator__center-icon" />
-            @if (Snapshot.ActiveCount > 1)
+<span class="system-activity-indicator-shell">
+    <MudTooltip Text="@TooltipText" Placement="Placement.Bottom">
+        <AppNativeButton Type="button"
+                         Class="@ButtonClass"
+                         AriaLabel="@AriaLabel"
+                         OnClick="HandleClick">
+            @if (ShowConnectionProblem)
             {
-                <span class="system-activity-indicator__count" aria-hidden="true">@CountLabel</span>
+                <MudIcon Icon="@ConnectionIcon" Class="system-activity-indicator__idle-icon" />
             }
-        }
-        else
-        {
-            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="system-activity-indicator__idle-icon" />
-        }
-    </AppNativeButton>
-</MudTooltip>
+            else if (Snapshot.IsBusy)
+            {
+                <span class="system-activity-indicator__ring" aria-hidden="true">
+                    @if (Snapshot.Primary?.ProgressPercent is { } progress)
+                    {
+                        <MudProgressCircular Value="@progress" Size="Size.Small" />
+                    }
+                    else
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    }
+                </span>
+                <MudIcon Icon="@PrimaryIcon" Class="system-activity-indicator__center-icon" />
+                @if (Snapshot.ActiveCount > 1)
+                {
+                    <span class="system-activity-indicator__count" aria-hidden="true">@CountLabel</span>
+                }
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="system-activity-indicator__idle-icon" />
+            }
+        </AppNativeButton>
+    </MudTooltip>
+</span>
 
 @code {
     [Parameter] public EngineConnectionState ConnectionState { get; set; }

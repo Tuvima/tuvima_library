@@ -91,6 +91,8 @@ public sealed class UiShellRenderTests : TestContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor"));
         var accountSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Navigation", "TopNavAccountMenu.razor"));
+        var accountCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Navigation", "TopNavAccountMenu.razor.css"));
+        var globalCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "app.css"));
         var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor.css"));
 
         Assert.Contains("await Orchestrator.StartSignalRAsync();", source);
@@ -103,8 +105,11 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("@if (CanViewReview)", accountSource);
         Assert.Contains("TopBar_NeedsReview", accountSource);
         Assert.Contains("ShowSignOut", accountSource);
-        Assert.Contains("font-family: var(--font-ui);", css);
-        Assert.DoesNotContain("font-family: var(--font-brand);", css);
+        Assert.DoesNotContain("NotificationsNone", accountSource);
+        Assert.DoesNotContain("top-nav-account-menu__trigger-copy", accountSource);
+        Assert.Contains("font-family: var(--font-brand);", css);
+        Assert.Contains("font-family: var(--font-ui);", accountCss);
+        Assert.Contains(".top-nav-account-menu__popover.mud-popover", globalCss);
     }
 
     [Fact]

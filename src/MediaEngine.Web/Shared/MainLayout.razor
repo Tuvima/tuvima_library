@@ -45,9 +45,9 @@
                     <a href="@link.Path"
                        @key="link.Path"
                        class="@GetNavLinkClass(link.Path)"
-                       aria-current="@(IsNavActive(link.Path) ? "page" : null)">
+                        aria-current="@(IsNavActive(link.Path) ? "page" : null)">
                         <span class="layout-shell__nav-link-label">
-                            @L[link.LabelKey]
+                            @L[link.LabelKey].Value.ToUpperInvariant()
                         </span>
                     </a>
                 }
@@ -69,17 +69,22 @@
         </div>
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__actions">
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Inherit"
-                       StartIcon="@Icons.Material.Outlined.BookmarkBorder"
-                       Class="layout-shell__my-list"
-                       aria-label="@L["TopBar_MyList"]"
-                       OnClick="OpenMyList">
-                <span class="layout-shell__my-list-label">@L["TopBar_MyList"]</span>
-            </MudButton>
+            <span class="layout-shell__my-list-slot">
+                <MudTooltip Text="@L["TopBar_MyList"]" Placement="Placement.Bottom">
+                    <AppNativeButton Type="button"
+                                     Class="layout-shell__my-list"
+                                     AriaLabel="@L["TopBar_MyList"]"
+                                     OnClick="@(_ => OpenMyList())">
+                        <MudIcon Icon="@Icons.Material.Filled.Bookmark"
+                                 Class="layout-shell__my-list-icon" />
+                    </AppNativeButton>
+                </MudTooltip>
+            </span>
 
-            <SystemActivityIndicator ConnectionState="@Orchestrator.EngineConnectionState"
-                                     CanOpenSystemActivity="@CanViewSystemActivity" />
+            <span class="layout-shell__activity-slot">
+                <SystemActivityIndicator ConnectionState="@Orchestrator.EngineConnectionState"
+                                         CanOpenSystemActivity="@CanViewSystemActivity" />
+            </span>
 
             <TopNavAccountMenu DisplayName="@_displayName"
                                ProfileRole="@_profileRole"
