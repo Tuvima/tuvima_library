@@ -30,16 +30,22 @@ public sealed class DisplayComposerService
         var progressByWork = LatestProgressByWork(journey);
         var tvShowCards = _cards.BuildTvShowCards(works);
 
+        var musicAlbumCards = BuildMusicAlbumCards(works
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
+            .ToList());
         var continueCards = journey
-            .OrderByDescending(item => item.LastAccessed)
-            .Take(Math.Max(1, shelfLimit))
+            .Where(item => DisplayMediaRules.NormalizeDisplayKind(item.MediaType) != "Music")
             .Select(item => _cards.FromJourney(item, "home"))
+            .Concat(BuildMusicJourneyAlbumCards(works, journey))
+            .OrderByDescending(card => card.SortTimestamp)
+            .Take(Math.Max(1, shelfLimit))
             .ToList();
 
         var freshCandidates = works
-            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) != "TV")
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) is not ("TV" or "Music"))
             .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
             .Concat(tvShowCards.Select(card => card with { TileTextMode = "coverOnly" }))
+            .Concat(musicAlbumCards)
             .OrderByDescending(card => card.SortTimestamp)
             .ToList();
 
@@ -58,11 +64,12 @@ public sealed class DisplayComposerService
             .Take(Math.Max(1, shelfLimit))
             .ToList();
 
-        var listenCards = works
-            .Where(work => DisplayMediaRules.IsListenKind(work.MediaType))
-            .OrderByDescending(work => progressByWork.TryGetValue(work.WorkId, out var p) ? p.LastAccessed : work.CreatedAt)
+        var listenCards = musicAlbumCards
+            .Concat(works
+                .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Audiobook")
+                .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId))))
+            .OrderByDescending(card => card.SortTimestamp)
             .Take(Math.Max(1, shelfLimit))
-            .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
             .ToList();
 
         var collectionCards = homeCollections
@@ -101,9 +108,10 @@ public sealed class DisplayComposerService
             Hero: heroCard is null ? null : DisplayCardBuilder.ToHero(heroCard, continueCards.Count > 0 ? "Jump Back In" : "New in your library"),
             Shelves: shelves,
             Catalog: includeCatalog
-                ? works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) != "TV")
+                ? works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) is not ("TV" or "Music"))
                     .Select(work => _cards.FromWork(work, "home", progressByWork.GetValueOrDefault(work.WorkId)))
                     .Concat(tvShowCards.Select(card => card with { TileTextMode = "coverOnly" }))
+                    .Concat(musicAlbumCards)
                     .ToList()
                 : []);
     }
@@ -394,11 +402,13 @@ public sealed class DisplayComposerService
         {
             "watch" => _shelves.BuildWatchShelves(laneWorks, laneJourney, progressByWork, shelfLimit),
             "read" => _shelves.BuildReadShelves(laneWorks, laneJourney, progressByWork, shelfLimit),
-            "listen" => _shelves.BuildListenShelves(laneWorks, laneJourney, progressByWork, shelfLimit),
+            "listen" => BuildAlbumFirstListenShelves(laneWorks, laneJourney, progressByWork, shelfLimit),
             _ => [new DisplayShelfDto("results", "Results", null, catalog, null)],
         };
 
-        var heroCard = laneJourney.FirstOrDefault() is { } journeyHero
+        var heroCard = string.Equals(lane, "listen", StringComparison.OrdinalIgnoreCase)
+            ? shelves.SelectMany(shelf => shelf.Items).FirstOrDefault()
+            : laneJourney.FirstOrDefault() is { } journeyHero
             ? _cards.FromJourney(journeyHero, lane)
             : catalog.FirstOrDefault();
 
@@ -441,20 +451,20 @@ public sealed class DisplayComposerService
             .ToList();
 
         var shelves = new List<DisplayShelfDto>();
-        DisplayShelfBuilder.AddShelf(shelves, "recently-played", "Recently Played", "Pick up albums and tracks from your latest listening sessions",
-            journey.Take(Math.Max(1, shelfLimit)).Select(item => _cards.FromJourney(item, "listen")).ToList(), "/listen/music/songs");
+        DisplayShelfBuilder.AddShelf(shelves, "recently-played", "Recently Played", "Pick up the albums from your latest listening sessions",
+            BuildMusicJourneyAlbumCards(works, journey).Take(Math.Max(1, shelfLimit)).ToList(), "/listen/music/albums");
         DisplayShelfBuilder.AddShelf(shelves, "favorite-songs", "Favorite Songs", "Tracks you marked as favorites",
             catalog.Where(card => card.WorkId.HasValue && favoriteWorkIds.Contains(card.WorkId.Value)).Take(Math.Max(1, shelfLimit)).ToList(), "/listen/music/playlists/system/favorite-songs");
-        DisplayShelfBuilder.AddShelf(shelves, "recently-added", "Recently Added", "Fresh arrivals from your music library",
-            works.Take(Math.Max(1, shelfLimit)).Select(work => MarkFavorite(_cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId)), favoriteWorkIds)).ToList(), "/listen/music/playlists/system/recently-added");
+        DisplayShelfBuilder.AddShelf(shelves, "new-tracks-added", "New tracks added", "Recently added tracks grouped by album",
+            BuildNewTrackAlbumCards(works, shelfLimit).ToList(), "/listen/music/albums");
         DisplayShelfBuilder.AddShelf(shelves, "albums", "Albums", "Album-first browsing with cover art at the center",
             BuildMusicAlbumCards(works).Take(Math.Max(1, shelfLimit)).ToList(), "/listen/music/albums");
         DisplayShelfBuilder.AddShelf(shelves, "artists", "Artists", "Artist-led listening built from your library",
             BuildMusicArtistCards(works).Take(Math.Max(1, shelfLimit)).ToList(), "/listen/music/artists");
 
-        var heroCard = journey.FirstOrDefault() is { } journeyHero
-            ? _cards.FromJourney(journeyHero, "listen")
-            : BuildMusicAlbumCards(works).FirstOrDefault() ?? catalog.FirstOrDefault();
+        var heroCard = BuildMusicJourneyAlbumCards(works, journey).FirstOrDefault()
+            ?? BuildMusicAlbumCards(works).FirstOrDefault()
+            ?? catalog.FirstOrDefault();
 
         return new DisplayPageDto(
             Key: "listen-music",
@@ -474,6 +484,124 @@ public sealed class DisplayComposerService
             .Cast<DisplayCardDto>()
             .OrderByDescending(card => card.SortTimestamp)
             .ToList();
+
+    private IReadOnlyList<DisplayCardDto> BuildMusicJourneyAlbumCards(
+        IReadOnlyList<DisplayWorkRow> works,
+        IReadOnlyList<DisplayJourneyRow> journey)
+    {
+        var worksByAlbum = works
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
+            .Where(work => !string.IsNullOrWhiteSpace(work.Album))
+            .GroupBy(AlbumGroupKey, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<DisplayWorkRow>)group.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        return journey
+            .Where(item => DisplayMediaRules.NormalizeDisplayKind(item.MediaType) == "Music")
+            .Where(item => !string.IsNullOrWhiteSpace(item.Album))
+            .GroupBy(AlbumGroupKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                if (!worksByAlbum.TryGetValue(group.Key, out var albumWorks)
+                    || ToMusicAlbumCard(albumWorks) is not { } albumCard)
+                {
+                    return null;
+                }
+
+                var latestTrack = group.OrderByDescending(item => item.LastAccessed).First();
+                var journeyCard = _cards.FromJourney(latestTrack, "listen");
+                var actions = journeyCard.Actions
+                    .Concat(albumCard.Actions)
+                    .DistinctBy(action => $"{action.Type}|{action.WebUrl}|{action.WorkId}|{action.CollectionId}", StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                return albumCard with
+                {
+                    Progress = journeyCard.Progress,
+                    Actions = actions,
+                    SortTimestamp = latestTrack.LastAccessed,
+                };
+            })
+            .Where(card => card is not null)
+            .Cast<DisplayCardDto>()
+            .OrderByDescending(card => card.SortTimestamp)
+            .ToList();
+    }
+
+    private IReadOnlyList<DisplayCardDto> BuildNewTrackAlbumCards(IReadOnlyList<DisplayWorkRow> works, int shelfLimit)
+    {
+        var musicWorks = works
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
+            .Where(work => !string.IsNullOrWhiteSpace(work.Album))
+            .ToList();
+        var worksByAlbum = musicWorks
+            .GroupBy(AlbumGroupKey, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<DisplayWorkRow>)group.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        return musicWorks
+            .OrderByDescending(work => work.CreatedAt)
+            .Take(Math.Max(8, Math.Max(1, shelfLimit) * 4))
+            .GroupBy(AlbumGroupKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                if (!worksByAlbum.TryGetValue(group.Key, out var albumWorks)
+                    || ToMusicAlbumCard(albumWorks) is not { } albumCard)
+                {
+                    return null;
+                }
+
+                var newTrackCount = group.Select(work => work.WorkId).Distinct().Count();
+                var additionFact = $"{newTrackCount} new {(newTrackCount == 1 ? "track" : "tracks")} added";
+                return albumCard with
+                {
+                    Facts = [additionFact, .. albumCard.Facts],
+                    SortTimestamp = group.Max(work => work.CreatedAt),
+                };
+            })
+            .Where(card => card is not null)
+            .Cast<DisplayCardDto>()
+            .OrderByDescending(card => card.SortTimestamp)
+            .Take(Math.Max(1, shelfLimit))
+            .ToList();
+    }
+
+    private IReadOnlyList<DisplayShelfDto> BuildAlbumFirstListenShelves(
+        IReadOnlyList<DisplayWorkRow> works,
+        IReadOnlyList<DisplayJourneyRow> journey,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow> progressByWork,
+        int shelfLimit)
+    {
+        var take = Math.Max(1, shelfLimit);
+        var musicWorks = works
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
+            .ToList();
+        var audiobookWorks = works
+            .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Audiobook")
+            .ToList();
+        var continueCards = BuildMusicJourneyAlbumCards(musicWorks, journey)
+            .Concat(journey
+                .Where(item => DisplayMediaRules.NormalizeDisplayKind(item.MediaType) == "Audiobook")
+                .Select(item => _cards.FromJourney(item, "listen")))
+            .OrderByDescending(card => card.SortTimestamp)
+            .Take(take)
+            .ToList();
+
+        var shelves = new List<DisplayShelfDto>();
+        DisplayShelfBuilder.AddShelf(shelves, "continue-listening", "Continue listening", "Resume albums and audiobooks already in progress",
+            continueCards, null);
+        DisplayShelfBuilder.AddShelf(shelves, "new-tracks-added", "New tracks added", "Recently added tracks grouped by album",
+            BuildNewTrackAlbumCards(musicWorks, take), "/listen/music/albums");
+        DisplayShelfBuilder.AddShelf(shelves, "albums", "Albums", "Album-first browsing with cover art at the center",
+            BuildMusicAlbumCards(musicWorks).Take(take).ToList(), "/listen/music/albums");
+        DisplayShelfBuilder.AddShelf(shelves, "audiobooks", "Audiobooks", "Spoken-word titles ready to continue",
+            audiobookWorks
+                .Take(take)
+                .Select(work => _cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId)))
+                .ToList(),
+            "/listen/audiobooks");
+        DisplayShelfBuilder.AddShelf(shelves, "audiobook-series", "Audiobook series", "Grouped audiobook runs from your library",
+            _cards.BuildCollectionCards(audiobookWorks, "listen").Take(take).ToList(), null);
+        return shelves;
+    }
 
     private IReadOnlyList<DisplayCardDto> BuildMusicArtistCards(IReadOnlyList<DisplayWorkRow> works) =>
         works
@@ -530,7 +658,31 @@ public sealed class DisplayComposerService
             Progress: null,
             Actions: [action],
             Flags: new DisplayCardFlagsDto(true, false, false, true, false),
-            SortTimestamp: works.Max(work => work.CreatedAt));
+            SortTimestamp: works.Max(work => work.CreatedAt))
+        {
+            Description = representative.Description,
+            Genres = works
+                .SelectMany(work => DisplayMediaRules.SplitValues(work.Genre))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            PreviewItems = works
+                .OrderBy(work => DisplayMediaRules.ParseDouble(work.TrackNumber) ?? double.MaxValue)
+                .ThenBy(work => work.SortTitle ?? work.Title, StringComparer.OrdinalIgnoreCase)
+                .Select(work => new DisplayCardPreviewItemDto(
+                    work.WorkId,
+                    work.AssetId,
+                    work.Title,
+                    FirstNonBlank(work.SquareSmallUrl, work.CoverSmallUrl, work.SquareUrl, work.CoverUrl) ?? string.Empty,
+                    "square",
+                    work.TrackNumber,
+                    "Music",
+                    $"/listen/music/tracks/{work.WorkId:D}",
+                    work.Description,
+                    [.. AlbumFacts([work], artist, work.Year, work.Genre, work.Rating)]))
+                .ToList(),
+            PreviewTotalCount = works.Count,
+        };
     }
 
     private static DisplayCardDto ToMusicArtistCard(string artist, IReadOnlyList<DisplayWorkRow> works)
@@ -564,7 +716,14 @@ public sealed class DisplayComposerService
             Progress: null,
             Actions: [action],
             Flags: new DisplayCardFlagsDto(true, false, false, true, false),
-            SortTimestamp: works.Max(work => work.CreatedAt));
+            SortTimestamp: works.Max(work => work.CreatedAt))
+        {
+            Genres = works
+                .SelectMany(work => DisplayMediaRules.SplitValues(work.Genre))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+        };
     }
 
     private static IReadOnlyDictionary<Guid, DisplayJourneyRow> LatestProgressByWork(IReadOnlyList<DisplayJourneyRow> journey) =>
@@ -645,7 +804,15 @@ public sealed class DisplayComposerService
     }
 
     private static string AlbumGroupKey(DisplayWorkRow work) =>
-        $"{work.Album?.Trim()}|{FirstNonBlank(work.Artist, work.Author)?.Trim()}";
+        AlbumGroupKey(work.CollectionId, work.Album, FirstNonBlank(work.Artist, work.Author));
+
+    private static string AlbumGroupKey(DisplayJourneyRow item) =>
+        AlbumGroupKey(item.CollectionId, item.Album, FirstNonBlank(item.Artist, item.Author));
+
+    private static string AlbumGroupKey(Guid? collectionId, string? album, string? artist) =>
+        collectionId.HasValue
+            ? $"collection:{collectionId.Value:N}"
+            : $"local:{album?.Trim()}|{artist?.Trim()}";
 
     private static DisplayArtworkDto ArtworkFor(IDisplayArtworkRow row) =>
         new(

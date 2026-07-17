@@ -131,16 +131,16 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
-    public void DiscoverySpotlightCarousel_UsesSubtleCounterInsteadOfDotStrip()
+    public void CinematicHeroCarousel_UsesSubtleCounterInsteadOfDotStrip()
     {
-        var source = Read(@"src\MediaEngine.Web\Components\Discovery\DiscoverySpotlightCarousel.razor");
-        var styles = Read(@"src\MediaEngine.Web\Components\Discovery\DiscoverySpotlightCarousel.razor.css");
+        var source = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor");
+        var styles = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor.css");
 
-        Assert.Contains("discovery-spotlight-carousel__counter", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("discovery-spotlight-carousel__dots", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("discovery-spotlight-carousel__dot", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("discovery-spotlight-carousel__dots", styles, StringComparison.Ordinal);
-        Assert.DoesNotContain("discovery-spotlight-carousel__dot", styles, StringComparison.Ordinal);
+        Assert.Contains("cinematic-hero-carousel__counter", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("cinematic-hero-carousel__dots", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("cinematic-hero-carousel__dot", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("cinematic-hero-carousel__dots", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("cinematic-hero-carousel__dot", styles, StringComparison.Ordinal);
     }
 
     [Fact]

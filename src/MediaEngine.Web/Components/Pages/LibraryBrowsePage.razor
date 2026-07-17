@@ -94,21 +94,26 @@ else
     <GlobalBackground Color="#05070C" />
 
     <div class="home-discovery-page @(_page.Hero is not null ? "home-discovery-page--with-hero" : null)">
-        @if (_page.Hero is not null)
+        @if (HomeHeroCandidates.Count > 0)
         {
-            @if (_page.Spotlights.Count > 1)
-            {
-                <DiscoverySpotlightCarousel Items="@_page.Spotlights" AriaLabel="Home spotlight" />
-            }
-            else
-            {
-                <DiscoveryHero Hero="@_page.Hero" />
-            }
+            <CinematicHeroCarousel Items="@HomeHeroCandidates"
+                                  SectionTitle="Home"
+                                  SectionSubtitle="A cross-media view of your local library"
+                                  AriaLabel="Home featured media" />
         }
 
         <div class="home-discovery-content-shell">
+            <div class="home-discovery-filter-shell">
+                <SurfaceTabBar Items="@HomeFilters"
+                               ActiveKey="@_activeLane"
+                               ActiveKeyChanged="SetActiveLaneAsync"
+                               AriaLabel="Filter Home"
+                               Class="home-discovery-filter-bar"
+                               ItemClass="home-discovery-filter-tab" />
+            </div>
+
             <div class="home-discovery-shelves">
-                @foreach (var shelf in _page.Shelves)
+                @foreach (var shelf in VisibleShelves)
                 {
                     <MediaTileShelf Shelf="@shelf" @key="shelf.Key" />
                 }
@@ -129,7 +134,51 @@ else
     private bool _seeding;
     private bool _scanStarting;
     private bool _canScan;
+    private string _activeLane = "all";
     private DiscoveryPageViewModel _page = new() { Key = "home" };
+
+    private static readonly IReadOnlyList<SurfaceTabItem> HomeFilters =
+    [
+        new("all", "All"),
+        new("read", "Read"),
+        new("watch", "Watch"),
+        new("listen", "Listen"),
+        new("collections", "Collections & Lists"),
+    ];
+
+    private IReadOnlyList<MediaTileShelfViewModel> VisibleShelves => _page.Shelves
+        .Select(shelf => new MediaTileShelfViewModel
+        {
+            Key = shelf.Key,
+            Title = shelf.Title,
+            Subtitle = shelf.Subtitle,
+            Items = shelf.Items.Where(MatchesActiveLane).ToList(),
+            SeeAllRoute = shelf.SeeAllRoute,
+        })
+        .Where(shelf => shelf.Items.Count > 0)
+        .ToList();
+
+    private IReadOnlyList<DiscoveryHeroViewModel> HomeHeroCandidates
+    {
+        get
+        {
+            var explicitHeroes = _page.Spotlights.Count > 0
+                ? _page.Spotlights
+                : _page.Hero is null ? [] : [_page.Hero];
+            var matchingHeroes = explicitHeroes.Where(MatchesActiveLane).Take(5).ToList();
+            if (matchingHeroes.Count > 0)
+            {
+                return matchingHeroes;
+            }
+
+            return VisibleShelves
+                .SelectMany(shelf => shelf.Items)
+                .DistinctBy(item => item.Id)
+                .Take(5)
+                .Select(HeroFromTile)
+                .ToList();
+        }
+    }
 
     private bool IsEmpty =>
         _page.Hero is null
@@ -144,6 +193,60 @@ else
         await Orchestrator.StartSignalRAsync();
         await LoadAsync();
     }
+
+    private Task SetActiveLaneAsync(string lane)
+    {
+        _activeLane = lane;
+        return Task.CompletedTask;
+    }
+
+    private bool MatchesActiveLane(MediaTileViewModel item) => MatchesActiveLane(item.MediaKind);
+
+    private bool MatchesActiveLane(DiscoveryHeroViewModel item) => MatchesActiveLane(item.MediaKind);
+
+    private bool MatchesActiveLane(string? mediaKind)
+    {
+        var normalized = (mediaKind ?? string.Empty).Trim().ToLowerInvariant();
+        return _activeLane switch
+        {
+            "read" => normalized is "book" or "comic",
+            "watch" => normalized is "movie" or "tv",
+            "listen" => normalized is "music" or "audiobook",
+            "collections" => normalized == "collection",
+            _ => true,
+        };
+    }
+
+    private static DiscoveryHeroViewModel HeroFromTile(MediaTileViewModel item) => new()
+    {
+        Eyebrow = item.ProgressPct is > 0 ? "Jump back in" : "From your library",
+        Title = item.Title,
+        Subtitle = item.Subtitle,
+        Description = item.Description,
+        BackgroundImageUrl = item.BackgroundUrl,
+        HeroBackgroundImageUrl = item.HeroBackgroundImageUrl ?? item.BackgroundUrl,
+        BannerImageUrl = item.BannerUrl,
+        PreviewImageUrl = item.PreviewImageUrl ?? item.CoverUrl,
+        PreviewSurfaceKind = item.SurfaceKind,
+        SurfaceKind = item.SurfaceKind,
+        LogoUrl = item.LogoUrl,
+        AccentColor = item.AccentColor,
+        MetaPills = item.HoverFacts,
+        ProgressPct = item.ProgressPct,
+        StatusText = item.ProgressLabel,
+        RepresentativeEntityId = item.Id,
+        WorkId = item.WorkId,
+        CollectionId = item.CollectionId,
+        MediaKind = item.MediaKind,
+        Presentation = item.Presentation.ToString(),
+        Genres = item.Genres,
+        PreviewItems = item.ArtworkStackItems,
+        PreviewTotalCount = item.PreviewTotalCount,
+        PrimaryActionLabel = item.PrimaryActionLabel,
+        PrimaryNavigationUrl = item.PrimaryNavigationUrl ?? item.NavigationUrl,
+        SecondaryActionLabel = "Details",
+        SecondaryNavigationUrl = item.DetailsNavigationUrl,
+    };
 
     private async Task LoadAsync()
     {

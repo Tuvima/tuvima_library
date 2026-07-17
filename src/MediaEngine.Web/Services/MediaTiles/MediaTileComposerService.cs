@@ -68,6 +68,7 @@ public sealed class MediaTileComposerService
             Eyebrow = hero.Eyebrow ?? "From your library",
             Title = hero.Title,
             Subtitle = hero.Subtitle,
+            Description = hero.Description,
             BackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundLargeUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerMediumUrl),
             HeroBackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundLargeUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerMediumUrl),
             BannerImageUrl = FirstNonBlank(hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
@@ -79,6 +80,14 @@ public sealed class MediaTileComposerService
             MetaText = string.Join(" / ", hero.Facts),
             MetaPills = hero.Facts,
             ProgressPct = hero.Progress?.Percent,
+            RepresentativeEntityId = hero.Id,
+            WorkId = hero.WorkId,
+            CollectionId = hero.CollectionId,
+            MediaKind = hero.MediaType,
+            Presentation = hero.Presentation,
+            Genres = hero.Genres,
+            PreviewItems = hero.PreviewItems.Select(item => ToArtworkStackItem(item, hero.MediaType)).ToList(),
+            PreviewTotalCount = hero.PreviewTotalCount,
             PrimaryActionLabel = primaryAction?.Label ?? "Open",
             PrimaryNavigationUrl = primaryAction?.WebUrl ?? "/",
             SecondaryActionLabel = "Details",
@@ -117,6 +126,15 @@ public sealed class MediaTileComposerService
                 card.Actions)
             {
                 Facts = card.Facts,
+                Id = card.Id,
+                WorkId = card.WorkId,
+                CollectionId = card.CollectionId,
+                MediaType = card.MediaType,
+                Presentation = card.Presentation,
+                Description = card.Description,
+                Genres = card.Genres,
+                PreviewItems = card.PreviewItems,
+                PreviewTotalCount = card.PreviewTotalCount,
             }));
         }
 
@@ -128,7 +146,12 @@ public sealed class MediaTileComposerService
         var preferredShelf = page.Shelves.FirstOrDefault(shelf =>
             string.Equals(shelf.Key, "continue", StringComparison.OrdinalIgnoreCase)
             || string.Equals(shelf.Key, "continue-watching", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(shelf.Key, "continue-reading", StringComparison.OrdinalIgnoreCase));
+            || string.Equals(shelf.Key, "continue-reading", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(shelf.Key, "continue-listening", StringComparison.OrdinalIgnoreCase));
+
+        preferredShelf ??= page.Shelves.FirstOrDefault(shelf =>
+            string.Equals(shelf.Key, "new-tracks-added", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(shelf.Key, "albums", StringComparison.OrdinalIgnoreCase));
 
         return preferredShelf is null
             ? page.Catalog.Take(5)
@@ -159,6 +182,7 @@ public sealed class MediaTileComposerService
             _ => MediaTilePresentation.Default,
         };
         var isTvSeries = presentation == MediaTilePresentation.TvSeries;
+        var isAlbum = presentation == MediaTilePresentation.Album;
         var isTypedGroup = card.Flags.IsCollection
                            && presentation is MediaTilePresentation.TvSeries
                                or MediaTilePresentation.MovieSeries
@@ -181,14 +205,15 @@ public sealed class MediaTileComposerService
             preferLandscapeTile: isTvEpisode);
         var artworkStackItems = BuildArtworkStackItems(card);
         var useOrderedSeriesStack = UsesOrderedSeriesStack(presentation, artworkStackItems);
-        var useSquareIndividual = !card.Flags.IsCollection
-                                  && (bucket == MediaTileBucket.Audiobook
-                                      || (bucket == MediaTileBucket.Music && surface.Shape == MediaTileShape.Square));
+        var useSquareIndividual = isAlbum
+                                  || (!card.Flags.IsCollection
+                                      && (bucket == MediaTileBucket.Audiobook
+                                          || (bucket == MediaTileBucket.Music && surface.Shape == MediaTileShape.Square)));
         // A TV show is structurally a group, but its card is a cinematic media identity.
         // Keep it on MediaTile so the show cover can expand into the show backdrop instead
         // of presenting the owned-episode carousel used by collection and series cards.
         var useLandscapeGroupTile = card.Flags.IsCollection
-                                    && presentation is not (MediaTilePresentation.Artist or MediaTilePresentation.TvSeries);
+                                    && presentation is not (MediaTilePresentation.Artist or MediaTilePresentation.TvSeries or MediaTilePresentation.Album);
         var tileShape = useLandscapeGroupTile
                 ? MediaTileShape.Landscape
                 : isTvEpisode
@@ -225,6 +250,7 @@ public sealed class MediaTileComposerService
             SourceBadgeLabel = BadgeLabel(card.Badges, "source"),
             SourceLogoUrl = SourceLogos.ResolveLogoPath(BadgeLabel(card.Badges, "source")),
             HoverFacts = card.Facts,
+            Genres = card.Genres,
             MediaKind = card.MediaType,
             AccentColor = card.Artwork.AccentColor ?? AccentForBucket(bucket),
             Shape = tileShape,
@@ -385,21 +411,23 @@ public sealed class MediaTileComposerService
     private static IReadOnlyList<ArtworkStackItem> BuildArtworkStackItems(DisplayCardDto card) =>
         card.PreviewItems
             .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-            .Select(item => new ArtworkStackItem
-            {
-                Id = item.WorkId?.ToString("D") ?? item.AssetId?.ToString("D") ?? item.ImageUrl,
-                WorkId = item.WorkId,
-                AssetId = item.AssetId,
-                Title = item.Title,
-                ImageUrl = item.ImageUrl,
-                MediaType = item.MediaType ?? card.MediaType,
-                NavigationUrl = item.WebUrl,
-                Shape = ToArtworkShape(item.Shape),
-                Position = item.Position,
-                Description = item.Description,
-                Facts = item.Facts ?? [],
-            })
+            .Select(item => ToArtworkStackItem(item, card.MediaType))
             .ToList();
+
+    private static ArtworkStackItem ToArtworkStackItem(DisplayCardPreviewItemDto item, string? fallbackMediaType) => new()
+    {
+        Id = item.WorkId?.ToString("D") ?? item.AssetId?.ToString("D") ?? item.ImageUrl,
+        WorkId = item.WorkId,
+        AssetId = item.AssetId,
+        Title = item.Title,
+        ImageUrl = item.ImageUrl,
+        MediaType = item.MediaType ?? fallbackMediaType ?? string.Empty,
+        NavigationUrl = item.WebUrl,
+        Shape = ToArtworkShape(item.Shape),
+        Position = item.Position,
+        Description = item.Description,
+        Facts = item.Facts ?? [],
+    };
 
     private static ArtworkShape ToArtworkShape(string? shape) =>
         shape?.Trim().ToLowerInvariant() switch

@@ -49,9 +49,11 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 
 ## Primary surfaces
 
-- `/` is Home/discovery, rendered by `LibraryBrowsePage`.
-- `/read` is the cinematic reading lane landing page. `/read/books` and `/read/comics` render detailed browse tabs.
-- `/watch` is the cinematic movie and TV lane landing page. `/watch/movies` and `/watch/tv` render detailed browse tabs.
+- `/` is Home/discovery, rendered by `LibraryBrowsePage` with a rotating cinematic hero and Read/Watch/Listen/Collections filters.
+- `/read` is the cinematic reading lane landing page with Books, Comics, and genre filters. `/read/books` and `/read/comics` render detailed browse tabs.
+- `/watch` is the cinematic movie and TV lane landing page with Movies, TV Shows, Series, and genre filters. `/watch/movies` and `/watch/tv` render detailed browse tabs.
+- `/listen` keeps the permanent Listen rail and renders a compact square-art cinematic hero with Music, Audiobooks, and genre filters. Music shelves are album-first; individual tracks appear in album preview/detail content rather than as landing cards.
+- `/collections` uses the same rotating hero and shared filter bar for broader rollups, personal collections, and playlists.
 - `/listen` is the music, audiobook, album, artist, song, and playlist lane.
 - `/search` is cross-library discovery.
 - `/my-list` is the active profile's saved shortlist.
@@ -59,7 +61,7 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 - `/settings/review` is the Review Queue.
 - `/settings` and `/settings/{Section}` are Settings/Admin.
 
-`LibraryBrowsePage` and `MediaHubPage` render cinematic spotlight-and-shelf discovery surfaces. `MediaBrowseShell` provides shared detailed browse behavior for current media lane tab routes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
+`LibraryBrowsePage`, `MediaHubPage`, and `CollectionsPage` compose `CinematicHeroCarousel` and `SurfaceTabBar`. `CinematicHeroSurface` is also the outer renderer for `DetailHero`, while `DetailTabs` delegates to the same tab bar, keeping landing and item-detail geometry on one rendering path. The landing carousel owns rotation, reduced-motion behavior, and compact Listen density; it must not change detail-page route state or tab content. `MediaBrowseShell` provides shared detailed browse behavior for current media lane tab routes. It may still use legacy-named helper components under `Components/Library`, but those helpers are reusable tables, columns, group pages, status pills, or batch controls. They are not a media library workflow.
 
 Desktop individual-item `MediaTile` previews expand the tile's flex item inside its existing shelf row. The resting cover is replaced at the same vertical position, neighboring cards shift horizontally, and leaving the preview restores the row. Media previews must not be portaled into a fixed overlay host or drawn over cards in another shelf.
 

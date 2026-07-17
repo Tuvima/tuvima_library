@@ -428,8 +428,8 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.Empty(cut.FindAll(".mud-table"));
             Assert.NotEmpty(cut.FindAll(".browse-shell"));
-            Assert.NotEmpty(cut.FindAll(".browse-hero"));
-            Assert.NotEmpty(cut.FindAll(".browse-hero__carousel"));
+            Assert.NotEmpty(cut.FindAll(".cinematic-hero-carousel"));
+            Assert.NotEmpty(cut.FindAll(".surface-tab-bar"));
             Assert.NotEmpty(cut.FindAll(".browse-shell__search"));
             Assert.NotEmpty(cut.FindAll(".browse-shell__sort"));
             Assert.NotEmpty(cut.FindAll(".browse-shell__grid"));
@@ -444,8 +444,8 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Dune Universe", cut.Markup);
             Assert.Contains("Middle-earth", cut.Markup);
             Assert.Contains("Weekend Picks", cut.Markup);
-            Assert.DoesNotContain("Playlist", cut.Markup);
-            Assert.Contains("Continue browsing", cut.Markup);
+            Assert.Contains(">Playlists<", cut.Markup);
+            Assert.Contains("Broader rollups", cut.Markup);
             Assert.Contains("Search collections", cut.Markup);
             Assert.NotEmpty(cut.FindAll(".app-select"));
             Assert.DoesNotContain("CROSS-MEDIA COLLECTIONS", cut.Markup);
@@ -551,7 +551,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void ListenPage_MainHubRendersWithoutSidebarOrNowPanel()
+    public void ListenPage_MainHubRendersInsidePermanentListenShell()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen");
@@ -566,10 +566,10 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains(">All<", cut.Markup);
             Assert.Contains(">Music<", cut.Markup);
             Assert.Contains(">Audiobooks<", cut.Markup);
-            Assert.Contains("Recently Added", cut.Markup);
-            Assert.Empty(cut.FindAll(".listen-rail-shell"));
-            Assert.Empty(cut.FindAll(".listen-now-panel"));
-            Assert.Empty(cut.FindAll(".listen-page"));
+            Assert.Single(cut.FindAll(".media-hub__shelves"));
+            Assert.Single(cut.FindAll(".listen-rail-shell"));
+            Assert.Single(cut.FindAll(".listen-now-panel"));
+            Assert.Single(cut.FindAll(".listen-page"));
         });
     }
 
@@ -741,12 +741,12 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void DiscoveryHero_RendersScopedRootSoListenHomeSidebarStaysVisible()
+    public void CinematicHero_RendersScopedRootSoListenHomeSidebarStaysVisible()
     {
-        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Discovery", "DiscoveryHero.razor"));
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Cinematic", "CinematicHeroCarousel.razor"));
 
-        Assert.Contains("<section class=\"@($\"discovery-hero-shell {HeroSurfaceClass}\")\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("<AppCssElement Tag=\"section\" Class='@($\"discovery-hero-shell", source, StringComparison.Ordinal);
+        Assert.Contains("<section class=\"@CarouselClass\"", source, StringComparison.Ordinal);
+        Assert.Contains("<CinematicHeroSurface", source, StringComparison.Ordinal);
     }
 
     [Fact]

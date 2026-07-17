@@ -1,0 +1,29 @@
+@namespace MediaEngine.Web.Components.Cinematic
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Details
+
+<AppCssElement Tag="section" Class="@RootClass" Css="@Css">
+    <HeroBackdrop Artwork="@Artwork" EntityType="@EntityType" HeroBrand="@HeroBrand" />
+
+    @if (ShowTitleBar && !string.IsNullOrWhiteSpace(Title))
+    {
+        <div class="tl-detail-titlebar">
+            <div class="tl-detail-titlebar__title">@Title</div>
+        </div>
+    }
+
+    @ChildContent
+</AppCssElement>
+
+@code {
+    [Parameter, EditorRequired] public ArtworkSet Artwork { get; set; } = new();
+    [Parameter] public DetailEntityType EntityType { get; set; }
+    [Parameter] public HeroBrandViewModel? HeroBrand { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Css { get; set; }
+    [Parameter] public bool ShowTitleBar { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string RootClass => $"tl-detail-hero cinematic-hero-surface {Class}";
+}

@@ -1,0 +1,55 @@
+.surface-tab-bar {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.surface-tab-bar__items {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.surface-tab-bar__items::-webkit-scrollbar {
+    display: none;
+}
+
+.surface-tab-bar__item,
+::deep .surface-tab-bar__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    white-space: nowrap;
+}
+
+.surface-tab-bar__count {
+    min-width: 1.45rem;
+    padding: 0.12rem 0.38rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.surface-tab-bar__trailing {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+@media (max-width: 760px) {
+    .surface-tab-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .surface-tab-bar__trailing {
+        width: 100%;
+    }
+}

@@ -93,32 +93,6 @@ public sealed class DisplayShelfBuilder
         return shelves;
     }
 
-    public IReadOnlyList<DisplayShelfDto> BuildListenShelves(
-        IReadOnlyList<DisplayWorkRow> works,
-        IReadOnlyList<DisplayJourneyRow> journey,
-        IReadOnlyDictionary<Guid, DisplayJourneyRow> progressByWork,
-        int shelfLimit)
-    {
-        var take = Math.Max(1, shelfLimit);
-        var shelves = new List<DisplayShelfDto>();
-        AddShelf(shelves, "continue-listening", "Continue listening", "Resume music and audiobooks already in progress",
-            journey.Take(take).Select(item => _cards.FromJourney(item, "listen")).ToList(), null);
-        AddShelf(shelves, "recently-added", "Recently added", "Fresh audio from your library",
-            works.Take(take).Select(work => _cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
-        AddShelf(shelves, "music", "Music", "Album art first for your music library",
-            works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music").Take(take).Select(work => _cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
-        AddShelf(shelves, "audiobooks", "Audiobooks", "Spoken-word titles ready to continue",
-            works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Audiobook").Take(take).Select(work => _cards.FromWork(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
-        AddShelf(shelves, "audiobook-series", "Audiobook series", "Grouped audiobook runs from your library",
-            _cards.BuildCollectionCards(
-                    works.Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Audiobook").ToList(),
-                    "listen")
-                .Take(take)
-                .ToList(),
-            null);
-        return shelves;
-    }
-
     public static void AddShelf(List<DisplayShelfDto> shelves, string key, string title, string subtitle, IReadOnlyList<DisplayCardDto> cards, string? route)
     {
         if (cards.Count == 0)

@@ -6,14 +6,42 @@
 <section class="@RootClass"
          data-media-hub="true"
          data-media-hub-section="@SectionName">
-    <MediaHero SectionType="@SectionType"
-               Title="@Title"
-               Subtitle="@Subtitle"
-               SelectedMode="@SelectedMode"
-               AvailableModes="@AvailableModes"
-               HeroItem="@HeroItem"
-               HeroItems="@HeroItems"
-               SupportsHero="@SupportsHero" />
+    @if (SupportsHero && HeroCandidates.Count > 0)
+    {
+        <CinematicHeroCarousel Items="@HeroCandidates"
+                              SectionTitle="@Title"
+                              SectionSubtitle="@Subtitle"
+                              Density="@HeroDensity"
+                              AriaLabel="@($"{Title} featured media")" />
+    }
+
+    <div class="media-hub__filter-shell">
+        <SurfaceTabBar Items="@FilterTabs"
+                       ActiveKey="@_activeMode"
+                       ActiveKeyChanged="SetModeAsync"
+                       AriaLabel="@($"Filter {Title}")"
+                       Class="media-hub__filter-bar"
+                       ItemClass="media-hub__filter-tab">
+            <TrailingContent>
+                @if (AvailableGenres.Count > 1)
+                {
+                    <AppSelect T="string"
+                               Value="@_activeGenre"
+                               ValueChanged="SetGenreAsync"
+                               Label="Genre"
+                               Variant="Variant.Outlined"
+                               Dense="true"
+                               Class="media-hub__genre-filter">
+                        <MudSelectItem T="string" Value="@("all")">All genres</MudSelectItem>
+                        @foreach (var genre in AvailableGenres)
+                        {
+                            <MudSelectItem T="string" Value="@genre">@genre</MudSelectItem>
+                        }
+                    </AppSelect>
+                }
+            </TrailingContent>
+        </SurfaceTabBar>
+    </div>
 
     <div class="media-hub__shelves">
         @if (VisibleShelves.Count == 0)
@@ -49,16 +77,175 @@
     [Parameter] public bool SupportsContinueRow { get; set; } = true;
     [Parameter] public EventCallback<MediaTileViewModel> OnPrimaryClicked { get; set; }
 
+    private string _activeMode = "all";
+    private string _activeGenre = "all";
+
     private string SectionName => SectionType.ToString().ToLowerInvariant();
 
     private string RootClass => $"media-hub media-hub--{SectionName}";
 
+    private CinematicHeroDensity HeroDensity => SectionType == MediaHubSectionType.Listen
+        ? CinematicHeroDensity.CompactAudio
+        : CinematicHeroDensity.Full;
+
+    private IReadOnlyList<SurfaceTabItem> FilterTabs => AvailableModes
+        .Select(mode => new SurfaceTabItem(mode.Id, mode.Label))
+        .ToList();
+
+    private IReadOnlyList<string> AvailableGenres => Shelves
+        .SelectMany(shelf => shelf.Items)
+        .SelectMany(item => item.Genres)
+        .Where(genre => !string.IsNullOrWhiteSpace(genre))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private IReadOnlyList<DiscoveryHeroViewModel> HeroCandidates
+    {
+        get
+        {
+            var explicitHeroes = HeroItems.Count > 0
+                ? HeroItems
+                : HeroItem is null ? [] : [HeroItem];
+            var matchingHeroes = explicitHeroes
+                .Where(MatchesHeroFilter)
+                .ToList();
+            if (matchingHeroes.Count > 0)
+            {
+                return matchingHeroes.Take(5).ToList();
+            }
+
+            return VisibleShelves
+                .SelectMany(shelf => shelf.Items)
+                .DistinctBy(item => item.Id)
+                .Take(5)
+                .Select(HeroFromTile)
+                .ToList();
+        }
+    }
+
     private IReadOnlyList<MediaHubShelfViewModel> VisibleShelves => Shelves
-        .Where(shelf => shelf.Items.Count > 0)
         .Where(shelf => SupportsContinueRow || !shelf.IsContinueShelf)
+        .Select(shelf => new MediaHubShelfViewModel
+        {
+            Key = shelf.Key,
+            Title = shelf.Title,
+            Subtitle = shelf.Subtitle,
+            Items = shelf.Items.Where(MatchesTileFilter).ToList(),
+            SeeAllRoute = shelf.SeeAllRoute,
+            ShapeOverride = shelf.ShapeOverride,
+            IsContinueShelf = shelf.IsContinueShelf,
+            SupportsMixedArtwork = shelf.SupportsMixedArtwork,
+        })
+        .Where(shelf => shelf.Items.Count > 0)
         .ToList();
 
     private string EmptyTitle => $"{Title} is waiting for media";
 
     private string EmptyMessage => $"Add items to your library and {Title.ToLowerInvariant()} will become a discovery hub.";
+
+    protected override void OnParametersSet()
+    {
+        _activeMode = AvailableModes.Any(mode => string.Equals(mode.Id, SelectedMode, StringComparison.OrdinalIgnoreCase))
+            ? SelectedMode
+            : AvailableModes.FirstOrDefault()?.Id ?? "all";
+        if (!AvailableGenres.Contains(_activeGenre, StringComparer.OrdinalIgnoreCase))
+        {
+            _activeGenre = "all";
+        }
+    }
+
+    private Task SetModeAsync(string mode)
+    {
+        _activeMode = mode;
+        return Task.CompletedTask;
+    }
+
+    private Task SetGenreAsync(string genre)
+    {
+        _activeGenre = genre;
+        return Task.CompletedTask;
+    }
+
+    private bool MatchesTileFilter(MediaTileViewModel item) =>
+        MatchesMediaKind(item.MediaKind, item.Presentation)
+        && (string.Equals(_activeGenre, "all", StringComparison.OrdinalIgnoreCase)
+            || item.Genres.Contains(_activeGenre, StringComparer.OrdinalIgnoreCase));
+
+    private bool MatchesHeroFilter(DiscoveryHeroViewModel hero) =>
+        MatchesMediaKind(hero.MediaKind, ParsePresentation(hero.Presentation))
+        && (string.Equals(_activeGenre, "all", StringComparison.OrdinalIgnoreCase)
+            || hero.Genres.Contains(_activeGenre, StringComparer.OrdinalIgnoreCase));
+
+    private bool MatchesMediaKind(string? mediaKind, MediaTilePresentation presentation)
+    {
+        var normalized = (mediaKind ?? string.Empty).Trim().ToLowerInvariant();
+        return _activeMode.Trim().ToLowerInvariant() switch
+        {
+            "all" => true,
+            "books" => normalized == "book",
+            "comics" => normalized == "comic",
+            "movies" => normalized == "movie",
+            "tv" => normalized == "tv",
+            "series" => presentation == MediaTilePresentation.MovieSeries,
+            "music" => normalized == "music",
+            "audiobooks" => normalized == "audiobook",
+            _ => true,
+        };
+    }
+
+    private static DiscoveryHeroViewModel HeroFromTile(MediaTileViewModel item) => new()
+    {
+        Eyebrow = item.ProgressPct is > 0 ? "Jump back in" : "From your library",
+        Title = item.Title,
+        Subtitle = item.Subtitle,
+        Description = item.Description,
+        BackgroundImageUrl = item.BackgroundUrl,
+        HeroBackgroundImageUrl = item.HeroBackgroundImageUrl ?? item.BackgroundUrl,
+        BannerImageUrl = item.BannerUrl,
+        PreviewImageUrl = item.PreviewImageUrl ?? item.CoverUrl,
+        PreviewSurfaceKind = item.SurfaceKind,
+        SurfaceKind = item.SurfaceKind,
+        LogoUrl = item.LogoUrl,
+        AccentColor = item.AccentColor,
+        MetaPills = item.HoverFacts,
+        ProgressPct = item.ProgressPct,
+        StatusText = item.ProgressLabel,
+        RepresentativeEntityId = item.Id,
+        WorkId = item.WorkId,
+        CollectionId = item.CollectionId,
+        MediaKind = item.MediaKind,
+        Presentation = PresentationKey(item.Presentation),
+        Genres = item.Genres,
+        PreviewItems = item.ArtworkStackItems,
+        PreviewTotalCount = item.PreviewTotalCount,
+        PrimaryActionLabel = item.PrimaryActionLabel,
+        PrimaryNavigationUrl = item.PrimaryNavigationUrl ?? item.NavigationUrl,
+        SecondaryActionLabel = "Details",
+        SecondaryNavigationUrl = item.DetailsNavigationUrl,
+    };
+
+    private static MediaTilePresentation ParsePresentation(string? presentation) => presentation?.Trim().ToLowerInvariant() switch
+    {
+        "tvseries" => MediaTilePresentation.TvSeries,
+        "movieseries" => MediaTilePresentation.MovieSeries,
+        "bookseries" => MediaTilePresentation.BookSeries,
+        "comicseries" => MediaTilePresentation.ComicSeries,
+        "audiobookseries" => MediaTilePresentation.AudiobookSeries,
+        "album" => MediaTilePresentation.Album,
+        "artist" => MediaTilePresentation.Artist,
+        _ => MediaTilePresentation.Default,
+    };
+
+    private static string PresentationKey(MediaTilePresentation presentation) => presentation switch
+    {
+        MediaTilePresentation.TvSeries => "tvSeries",
+        MediaTilePresentation.MovieSeries => "movieSeries",
+        MediaTilePresentation.BookSeries => "bookSeries",
+        MediaTilePresentation.ComicSeries => "comicSeries",
+        MediaTilePresentation.AudiobookSeries => "audiobookSeries",
+        MediaTilePresentation.Album => "album",
+        MediaTilePresentation.Artist => "artist",
+        _ => "default",
+    };
 }

@@ -133,10 +133,11 @@ public sealed class DisplayContractTests
         Assert.Contains("DisplayShelfBuilder", source, StringComparison.Ordinal);
         Assert.Contains("BuildWatchShelves", shelfBuilderSource, StringComparison.Ordinal);
         Assert.Contains("BuildReadShelves", shelfBuilderSource, StringComparison.Ordinal);
-        Assert.Contains("BuildListenShelves", shelfBuilderSource, StringComparison.Ordinal);
+        Assert.Contains("BuildAlbumFirstListenShelves", source, StringComparison.Ordinal);
         Assert.Contains("\"continue-watching\"", shelfBuilderSource, StringComparison.Ordinal);
         Assert.Contains("\"continue-reading\"", shelfBuilderSource, StringComparison.Ordinal);
-        Assert.Contains("\"continue-listening\"", shelfBuilderSource, StringComparison.Ordinal);
+        Assert.Contains("\"continue-listening\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"new-tracks-added\"", source, StringComparison.Ordinal);
         Assert.Contains("\"openCollection\"", cardBuilderSource, StringComparison.Ordinal);
     }
 

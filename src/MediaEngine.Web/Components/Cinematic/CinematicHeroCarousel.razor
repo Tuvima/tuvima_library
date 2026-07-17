@@ -1,0 +1,391 @@
+@namespace MediaEngine.Web.Components.Cinematic
+@using MediaEngine.Contracts.Details
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ILogger<CinematicHeroCarousel> Logger
+@implements IAsyncDisposable
+
+@if (Slides.Count > 0)
+{
+    <section class="@CarouselClass"
+             aria-roledescription="carousel"
+             aria-label="@AriaLabel"
+             @onmouseenter="PauseForHover"
+             @onmouseleave="ResumeFromHover"
+             @onfocusin="PauseForFocus"
+             @onfocusout="ResumeFromFocus">
+        <div class="cinematic-hero-carousel__slide" aria-live="polite">
+            <CinematicHeroSurface Artwork="@ActiveArtwork"
+                                  EntityType="@ActiveEntityType"
+                                  Title="@ActiveHero.Title"
+                                  Class="@HeroClass"
+                                  Css="@HeroStyle">
+                <div class="tl-detail-hero__inner cinematic-hero__inner">
+                    <div class="tl-detail-hero__copy cinematic-hero__copy">
+                        <div class="cinematic-hero__section-identity">
+                            <span>@SectionTitle</span>
+                            @if (!string.IsNullOrWhiteSpace(SectionSubtitle))
+                            {
+                                <small>@SectionSubtitle</small>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(ActiveHero.Eyebrow))
+                        {
+                            <div class="tl-detail-hero__eyebrow cinematic-hero__eyebrow">@ActiveHero.Eyebrow</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(ActiveHero.LogoUrl) && UsesLandscapeArtwork)
+                        {
+                            <img class="tl-detail-hero__logo cinematic-hero__logo" src="@ActiveHero.LogoUrl" alt="@ActiveHero.Title" />
+                        }
+                        else
+                        {
+                            <h1>@ActiveHero.Title</h1>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(ActiveHero.Subtitle))
+                        {
+                            <p class="tl-detail-hero__subtitle cinematic-hero__subtitle">@ActiveHero.Subtitle</p>
+                        }
+
+                        @if (DisplayFacts.Count > 0)
+                        {
+                            <div class="cinematic-hero__facts" aria-label="Featured item facts">
+                                @foreach (var fact in DisplayFacts)
+                                {
+                                    <span>@fact</span>
+                                }
+                            </div>
+                        }
+
+                        <div class="cinematic-hero__actions">
+                            <AppButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@PrimaryIcon"
+                                       Class="cinematic-hero__action cinematic-hero__action--primary"
+                                       OnClick="OpenPrimaryAsync">
+                                @ActiveHero.PrimaryActionLabel
+                            </AppButton>
+
+                            @if (!string.IsNullOrWhiteSpace(ActiveHero.SecondaryNavigationUrl))
+                            {
+                                <AppButton Variant="Variant.Outlined"
+                                           Color="Color.Default"
+                                           StartIcon="@Icons.Material.Outlined.Info"
+                                           Class="cinematic-hero__action"
+                                           OnClick="OpenSecondaryAsync">
+                                    @ActiveHero.SecondaryActionLabel
+                                </AppButton>
+                            }
+                        </div>
+
+                        @if (ActiveHero.ProgressPct is > 0)
+                        {
+                            <div class="cinematic-hero__progress" aria-label="@($"{ActiveHero.ProgressPct:F0}% complete")">
+                                <div class="cinematic-hero__progress-copy">
+                                    <span>@(ActiveHero.StatusText ?? "In progress")</span>
+                                    <span>@($"{ActiveHero.ProgressPct:F0}%")</span>
+                                </div>
+                                <div class="cinematic-hero__progress-track">
+                                    <AppCssElement Tag="div" Class="cinematic-hero__progress-fill" Css="@($"width: {Math.Clamp(ActiveHero.ProgressPct.Value, 0, 100):F0}%;")" />
+                                </div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(DisplaySummary))
+                        {
+                            <div class="tl-detail-hero__synopsis cinematic-hero__synopsis">
+                                <p>@DisplaySummary</p>
+                            </div>
+                        }
+
+                        @if (Density == CinematicHeroDensity.CompactAudio && ActiveHero.PreviewItems.Count > 0)
+                        {
+                            <div class="cinematic-hero__track-preview" aria-label="Featured album tracks">
+                                <div class="cinematic-hero__track-preview-heading">
+                                    <span>Tracks</span>
+                                    @if (ActiveHero.PreviewTotalCount is > 0)
+                                    {
+                                        <small>@ActiveHero.PreviewTotalCount total</small>
+                                    }
+                                </div>
+                                <ol>
+                                    @foreach (var track in ActiveHero.PreviewItems.Take(4))
+                                    {
+                                        <li>
+                                            <span>@(string.IsNullOrWhiteSpace(track.Position) ? "-" : track.Position)</span>
+                                            @if (!string.IsNullOrWhiteSpace(track.NavigationUrl))
+                                            {
+                                                <a href="@track.NavigationUrl">@track.Title</a>
+                                            }
+                                            else
+                                            {
+                                                <span class="cinematic-hero__track-title">@track.Title</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </CinematicHeroSurface>
+        </div>
+
+        @if (Slides.Count > 1)
+        {
+            <div class="cinematic-hero-carousel__controls">
+                <AppNativeButton Type="button"
+                                 Class="cinematic-hero-carousel__control"
+                                 AriaLabel="Previous featured item"
+                                 Title="Previous featured item"
+                                 OnClick="PreviousAsync">
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
+                </AppNativeButton>
+
+                <span class="cinematic-hero-carousel__counter"
+                      aria-label="@($"Featured item {_activeIndex + 1} of {Slides.Count}")">
+                    @(_activeIndex + 1) / @Slides.Count
+                </span>
+
+                <AppNativeButton Type="button"
+                                 Class="cinematic-hero-carousel__control"
+                                 AriaLabel="Next featured item"
+                                 Title="Next featured item"
+                                 OnClick="NextAsync">
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
+                </AppNativeButton>
+
+                <AppNativeButton Type="button"
+                                 Class="cinematic-hero-carousel__control"
+                                 AriaLabel="@PauseButtonLabel"
+                                 Title="@PauseButtonLabel"
+                                 OnClick="TogglePauseAsync">
+                    <MudIcon Icon="@PauseButtonIcon" />
+                </AppNativeButton>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<DiscoveryHeroViewModel> Items { get; set; } = [];
+    [Parameter] public string SectionTitle { get; set; } = string.Empty;
+    [Parameter] public string? SectionSubtitle { get; set; }
+    [Parameter] public string AriaLabel { get; set; } = "Featured media";
+    [Parameter] public CinematicHeroDensity Density { get; set; } = CinematicHeroDensity.Full;
+    [Parameter] public EventCallback<DiscoveryHeroViewModel> ActiveItemChanged { get; set; }
+
+    private const int MaxSlides = 5;
+    private static readonly TimeSpan RotationInterval = TimeSpan.FromSeconds(8);
+    private readonly CancellationTokenSource _disposeCts = new();
+    private int _activeIndex;
+    private bool _initializedMotionPreference;
+    private bool _prefersReducedMotion;
+    private bool _userPaused;
+    private bool _hoverPaused;
+    private bool _focusPaused;
+    private Task? _rotationTask;
+
+    private IReadOnlyList<DiscoveryHeroViewModel> Slides => Items
+        .Where(item => !string.IsNullOrWhiteSpace(item.Title))
+        .Take(MaxSlides)
+        .ToList();
+
+    private DiscoveryHeroViewModel ActiveHero => Slides[Math.Clamp(_activeIndex, 0, Slides.Count - 1)];
+    private bool IsPaused => _prefersReducedMotion || _userPaused || _hoverPaused || _focusPaused || Slides.Count < 2;
+    private bool UsesLandscapeArtwork => ActiveHero.SurfaceKind == MediaTileSurfaceKind.BannerLandscape;
+    private string? DisplaySummary => ActiveHero.Tldr ?? ActiveHero.Description;
+    private IReadOnlyList<string> DisplayFacts => ActiveHero.MetaPills
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(5)
+        .ToList();
+
+    private string CarouselClass => $"cinematic-hero-carousel cinematic-hero-carousel--{Density.ToString().ToLowerInvariant()}";
+    private string HeroClass => $"cinematic-hero cinematic-hero--landing cinematic-hero--{Density.ToString().ToLowerInvariant()} {HeroMediaClass}";
+    private string HeroMediaClass => ActiveEntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.TvShow => "tl-detail-hero--watch",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-detail-hero--music",
+        DetailEntityType.Audiobook => "tl-detail-hero--listen",
+        _ => "tl-detail-hero--read",
+    };
+    private string HeroStyle => $"--cinematic-hero-accent: {ActiveHero.AccentColor};";
+    private string PrimaryIcon => ActiveEntityType is DetailEntityType.Book or DetailEntityType.ComicIssue
+        ? Icons.Material.Outlined.AutoStories
+        : Icons.Material.Filled.PlayArrow;
+    private string PauseButtonLabel => IsPaused ? "Resume featured item rotation" : "Pause featured item rotation";
+    private string PauseButtonIcon => IsPaused ? Icons.Material.Filled.PlayArrow : Icons.Material.Filled.Pause;
+
+    private DetailEntityType ActiveEntityType => (ActiveHero.MediaKind ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "movie" => DetailEntityType.Movie,
+        "tv" => DetailEntityType.TvShow,
+        "music" => string.Equals(ActiveHero.Presentation, "artist", StringComparison.OrdinalIgnoreCase)
+            ? DetailEntityType.MusicArtist
+            : DetailEntityType.MusicAlbum,
+        "audiobook" => DetailEntityType.Audiobook,
+        "comic" => DetailEntityType.ComicIssue,
+        _ => DetailEntityType.Book,
+    };
+
+    private ArtworkSet ActiveArtwork
+    {
+        get
+        {
+            var backdrop = FirstNonBlank(ActiveHero.HeroBackgroundImageUrl, ActiveHero.BackgroundImageUrl, ActiveHero.BannerImageUrl);
+            var fallback = FirstNonBlank(ActiveHero.PreviewImageUrl, backdrop);
+            var hasBackdrop = !string.IsNullOrWhiteSpace(backdrop) && UsesLandscapeArtwork;
+            var url = hasBackdrop ? backdrop : fallback;
+            return new ArtworkSet
+            {
+                BackdropUrl = backdrop,
+                BannerUrl = ActiveHero.BannerImageUrl,
+                CoverUrl = ActiveHero.PreviewImageUrl,
+                PosterUrl = ActiveHero.PreviewImageUrl,
+                LogoUrl = ActiveHero.LogoUrl,
+                PrimaryColor = ActiveHero.AccentColor,
+                AccentColor = ActiveHero.AccentColor,
+                HeroArtwork = new HeroArtworkViewModel
+                {
+                    Url = url,
+                    HasImage = !string.IsNullOrWhiteSpace(url),
+                    Mode = string.IsNullOrWhiteSpace(url)
+                        ? HeroArtworkMode.Placeholder
+                        : hasBackdrop
+                            ? string.IsNullOrWhiteSpace(ActiveHero.LogoUrl)
+                                ? HeroArtworkMode.BackdropWithRenderedTitle
+                                : HeroArtworkMode.BackdropWithLogo
+                            : HeroArtworkMode.ArtworkFallback,
+                    BackgroundPosition = ActiveEntityType == DetailEntityType.MusicAlbum ? "72% center" : "center",
+                    MobilePosition = "center",
+                },
+            };
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_activeIndex >= Slides.Count)
+        {
+            _activeIndex = 0;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initializedMotionPreference)
+        {
+            return;
+        }
+
+        _initializedMotionPreference = true;
+        try
+        {
+            _prefersReducedMotion = await JS.InvokeAsync<bool>("tuvimaPrefersReducedMotion");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not read the reduced-motion preference for the cinematic hero.");
+        }
+
+        _rotationTask = RunRotationAsync(_disposeCts.Token);
+        await NotifyActiveItemAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RunRotationAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(RotationInterval, token);
+                if (!IsPaused && Slides.Count > 1)
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        _activeIndex = (_activeIndex + 1) % Slides.Count;
+                        await NotifyActiveItemAsync();
+                        StateHasChanged();
+                    });
+                }
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task PreviousAsync()
+    {
+        _userPaused = true;
+        if (Slides.Count > 1)
+        {
+            _activeIndex = (_activeIndex - 1 + Slides.Count) % Slides.Count;
+            await NotifyActiveItemAsync();
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        _userPaused = true;
+        if (Slides.Count > 1)
+        {
+            _activeIndex = (_activeIndex + 1) % Slides.Count;
+            await NotifyActiveItemAsync();
+        }
+    }
+
+    private Task TogglePauseAsync()
+    {
+        _userPaused = !_userPaused;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenPrimaryAsync() => OpenAsync(ActiveHero.PrimaryNavigationUrl);
+    private Task OpenSecondaryAsync() => OpenAsync(ActiveHero.SecondaryNavigationUrl);
+
+    private Task OpenAsync(string? url)
+    {
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            Nav.NavigateTo(url);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task NotifyActiveItemAsync() => ActiveItemChanged.HasDelegate
+        ? ActiveItemChanged.InvokeAsync(ActiveHero)
+        : Task.CompletedTask;
+
+    private void PauseForHover() => _hoverPaused = true;
+    private void ResumeFromHover() => _hoverPaused = false;
+    private void PauseForFocus() => _focusPaused = true;
+    private void ResumeFromFocus() => _focusPaused = false;
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposeCts.Cancel();
+        if (_rotationTask is not null)
+        {
+            try
+            {
+                await _rotationTask;
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation is expected while the page is being disposed.
+            }
+        }
+
+        _disposeCts.Dispose();
+    }
+}

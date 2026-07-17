@@ -488,6 +488,7 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   Flags: MediaEngine.Contracts.Display.DisplayCardFlagsDto | nullability=not-null | accessors=get,init
   SortTimestamp: System.DateTimeOffset | nullability=not-null | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
+  Genres: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   Badges: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardBadgeDto> | nullability=not-null | accessors=get,init
   PreviewItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardPreviewItemDto> | nullability=not-null | accessors=get,init
   PreviewTotalCount: System.Int32? | nullability=nullable | accessors=get,init
@@ -519,6 +520,15 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayHeroDto
   Progress: MediaEngine.Contracts.Display.DisplayProgressDto | nullability=nullable | accessors=get,init
   Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayActionDto> | nullability=not-null | accessors=get,init
   Facts: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Id: System.Guid? | nullability=nullable | accessors=get,init
+  WorkId: System.Guid? | nullability=nullable | accessors=get,init
+  CollectionId: System.Guid? | nullability=nullable | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  Presentation: System.String | nullability=nullable | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  Genres: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  PreviewItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardPreviewItemDto> | nullability=not-null | accessors=get,init
+  PreviewTotalCount: System.Int32? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayPageDto
   Key: System.String | nullability=not-null | accessors=get,init

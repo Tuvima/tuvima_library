@@ -22,6 +22,13 @@ public sealed class DiscoveryHeroViewModel
     public IReadOnlyList<string> MetaPills { get; init; } = [];
     public double? ProgressPct { get; init; }
     public Guid? RepresentativeEntityId { get; init; }
+    public Guid? WorkId { get; init; }
+    public Guid? CollectionId { get; init; }
+    public string? MediaKind { get; init; }
+    public string? Presentation { get; init; }
+    public IReadOnlyList<string> Genres { get; init; } = [];
+    public IReadOnlyList<ArtworkStackItem> PreviewItems { get; init; } = [];
+    public int? PreviewTotalCount { get; init; }
     public MediaTileSurfaceKind SurfaceKind { get; init; } = MediaTileSurfaceKind.BannerLandscape;
     public string PrimaryActionLabel { get; init; } = "Open";
     public string PrimaryNavigationUrl { get; init; } = "/";

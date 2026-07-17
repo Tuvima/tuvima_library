@@ -22,8 +22,8 @@ public sealed class CollectionsHubTests
     public void CollectionsPage_UsesCentralizedBrowseShell()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
-        var heroSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseHero.razor"));
-        var heroStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseHero.razor.css"));
+        var heroSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor"));
+        var heroStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor.css"));
         var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
         var browseShellStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\BrowseShellStyles.razor.css"));
         var tileGridSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaTileGrid.razor"));
@@ -31,17 +31,17 @@ public sealed class CollectionsHubTests
         var groupTileStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaGroupTile.razor.css"));
 
         Assert.Contains("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Where(collection => collection.Id != CurrentHeroCollection?.Id)", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionHeroes", source, StringComparison.Ordinal);
         Assert.Contains("Presentation = MediaTilePresentation.Default", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ResolvePresentation", source, StringComparison.Ordinal);
-        Assert.Contains("@key=\"collection.Id\"", source, StringComparison.Ordinal);
         Assert.Contains("<BrowseShellStyles", source, StringComparison.Ordinal);
         Assert.Contains("<BrowseShellStyles", browseShellSource, StringComparison.Ordinal);
         Assert.Contains(".browse-shell__grid", browseShellStylesSource, StringComparison.Ordinal);
         Assert.Contains("display: flex", browseShellStylesSource, StringComparison.Ordinal);
         Assert.Contains("flex-wrap: wrap", browseShellStylesSource, StringComparison.Ordinal);
         Assert.Contains("browse-shell collections-browse", source, StringComparison.Ordinal);
-        Assert.Contains("<MediaBrowseHero", source, StringComparison.Ordinal);
+        Assert.Contains("<CinematicHeroCarousel", source, StringComparison.Ordinal);
+        Assert.Contains("<SurfaceTabBar", source, StringComparison.Ordinal);
         Assert.Contains("<MediaTileGrid", source, StringComparison.Ordinal);
         Assert.Contains("Shape = MediaTileShape.Landscape", source, StringComparison.Ordinal);
         Assert.Contains("SurfaceKind = MediaTileSurfaceKind.BannerLandscape", source, StringComparison.Ordinal);
@@ -59,7 +59,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("Search collections", source, StringComparison.Ordinal);
         Assert.Contains("Recently Updated", source, StringComparison.Ordinal);
         Assert.Contains("Item Count", source, StringComparison.Ordinal);
-        Assert.Contains("Continue browsing", source, StringComparison.Ordinal);
+        Assert.Contains("Broader rollups", source, StringComparison.Ordinal);
         Assert.Contains("Mode = \"Collection\"", source, StringComparison.Ordinal);
         Assert.Contains("MediaKind = \"Collection\"", source, StringComparison.Ordinal);
         Assert.Contains("PaletteArtwork(collection)", source, StringComparison.Ordinal);
@@ -67,8 +67,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("SecondaryAccentColor = secondaryAccentColor", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Mode = type == \"Playlist\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaKind = \"Playlist\"", source, StringComparison.Ordinal);
-        Assert.Contains("browse-hero__carousel", heroStylesSource, StringComparison.Ordinal);
-        Assert.Contains("FooterContent", heroSource, StringComparison.Ordinal);
+        Assert.Contains("cinematic-hero-carousel", heroStylesSource, StringComparison.Ordinal);
+        Assert.Contains("CinematicHeroSurface", heroSource, StringComparison.Ordinal);
         var cardSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaTile.razor"));
         var cardStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaTile.razor.css"));
         Assert.Contains("is-collection-card", cardSource, StringComparison.Ordinal);

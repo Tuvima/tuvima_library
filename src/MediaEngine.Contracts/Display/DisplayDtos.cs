@@ -17,6 +17,15 @@ public sealed record DisplayHeroDto(
     IReadOnlyList<DisplayActionDto> Actions)
 {
     public IReadOnlyList<string> Facts { get; init; } = [];
+    public Guid? Id { get; init; }
+    public Guid? WorkId { get; init; }
+    public Guid? CollectionId { get; init; }
+    public string? MediaType { get; init; }
+    public string? Presentation { get; init; }
+    public string? Description { get; init; }
+    public IReadOnlyList<string> Genres { get; init; } = [];
+    public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; init; } = [];
+    public int? PreviewTotalCount { get; init; }
 }
 
 public sealed record DisplayShelfDto(
@@ -54,6 +63,7 @@ public sealed record DisplayCardDto(
     DateTimeOffset SortTimestamp)
 {
     public string? Description { get; init; }
+    public IReadOnlyList<string> Genres { get; init; } = [];
     public IReadOnlyList<DisplayCardBadgeDto> Badges { get; init; } = [];
     public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; init; } = [];
     public int? PreviewTotalCount { get; init; }

@@ -156,14 +156,17 @@ public sealed class DisplayComposerServiceTests
         var page = await composer.BuildBrowseAsync("listen", null, "all", null, 0, 48);
 
         Assert.Contains(page.Shelves, shelf => shelf.Key == "continue-listening");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-added");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "music");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "new-tracks-added");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "albums");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "audiobooks");
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "listen-collections");
 
-        var musicCard = page.Shelves.Single(shelf => shelf.Key == "music").Items.Single();
-        Assert.Equal(["boygenius"], musicCard.Facts);
-        Assert.Equal("square", musicCard.PreferredShape);
+        var albumCard = page.Shelves.Single(shelf => shelf.Key == "albums").Items.Single();
+        Assert.Equal("The Record", albumCard.Title);
+        Assert.Equal("album", albumCard.Presentation);
+        Assert.Equal("square", albumCard.PreferredShape);
+        Assert.Single(albumCard.PreviewItems);
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Items.Any(card => card.GroupingType == "item" && card.MediaType == "Music"));
 
         var audiobookCard = page.Shelves.Single(shelf => shelf.Key == "continue-listening").Items.Single();
         Assert.Equal(58, audiobookCard.Progress?.Percent);
@@ -589,7 +592,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("listen-music", page.Key);
         Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-played");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "favorite-songs");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-added");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "new-tracks-added");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "albums");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "artists");
 
@@ -602,7 +605,12 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("album", albumCard.GroupingType);
         Assert.Equal("album", albumCard.Presentation);
         Assert.Equal("square", albumCard.PreferredShape);
+        Assert.Equal(2, albumCard.PreviewItems.Count);
         Assert.Equal($"/listen/music/albums/{albumId:D}", albumCard.Actions[0].WebUrl);
+
+        Assert.NotNull(page.Hero);
+        Assert.Equal("album", page.Hero.Presentation);
+        Assert.Equal(2, page.Hero.PreviewItems.Count);
 
         var artistCard = page.Shelves.Single(shelf => shelf.Key == "artists").Items.Single();
         Assert.Equal("Among The Outcasts", artistCard.Title);

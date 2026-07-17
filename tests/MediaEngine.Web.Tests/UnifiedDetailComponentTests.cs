@@ -1391,6 +1391,24 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<PageTitle>", reader);
     }
 
+    [Fact]
+    public void LandingAndDetailSurfaces_ShareCinematicPrimitivesWithoutReplacingDetailComposition()
+    {
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var detailHero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var detailTabs = ReadSource("src/MediaEngine.Web/Components/Details/DetailTabs.razor");
+        var landingHero = ReadSource("src/MediaEngine.Web/Components/Cinematic/CinematicHeroCarousel.razor");
+        var home = ReadSource("src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor");
+
+        Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
+        Assert.Contains("<DetailTabs Tabs=\"VisibleTabs\"", detailPage);
+        Assert.Contains("<CinematicHeroSurface", detailHero);
+        Assert.Contains("<SurfaceTabBar", detailTabs);
+        Assert.Contains("<CinematicHeroSurface", landingHero);
+        Assert.Contains("<CinematicHeroCarousel", home);
+        Assert.Contains("<SurfaceTabBar", home);
+    }
+
     private static string ReadSource(string relativePath)
     {
         var root = FindRepoRoot();

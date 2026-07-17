@@ -328,7 +328,7 @@
     private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
 
     private bool UsesCollectionVisualTreatment =>
-        Item.IsCollection && Item.Presentation != MediaTilePresentation.TvSeries;
+        Item.IsCollection && Item.Presentation is not (MediaTilePresentation.TvSeries or MediaTilePresentation.Album);
 
     private string TileStyle => $"{Item.ArtworkPalette?.CssVariableStyle} --media-tile-accent: {Item.AccentColor}; --media-tile-secondary-accent: {Item.SecondaryAccentColor}; {HoverAtmosphereStyle}";
 
@@ -428,7 +428,7 @@
 
     private bool ShowGroupCollage =>
         Item.IsCollection
-        && Item.Presentation != MediaTilePresentation.TvSeries
+        && Item.Presentation is not (MediaTilePresentation.TvSeries or MediaTilePresentation.Album)
         && GroupCollageItems.Count >= 2;
 
     private string GroupKindLabel => Item.Presentation switch

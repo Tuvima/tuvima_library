@@ -1,17 +1,19 @@
 ﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<nav class="tl-detail-tabs" aria-label="Detail sections">
-    @foreach (var tab in Tabs)
-    {
-        <AppNativeButton Type="button" Class='@($"tl-detail-tab {(tab.Key == ActiveTab ? " is-active" : null)}")' OnClick="@(() => ActiveTabChanged.InvokeAsync(tab.Key))">
-            @tab.Label
-        </AppNativeButton>
-    }
-</nav>
+<SurfaceTabBar Items="@SurfaceTabs"
+               ActiveKey="@ActiveTab"
+               ActiveKeyChanged="@ActiveTabChanged"
+               AriaLabel="Detail sections"
+               Class="tl-detail-tabs"
+               ItemClass="tl-detail-tab" />
 
 @code {
     [Parameter] public IReadOnlyList<DetailTab> Tabs { get; set; } = [];
     [Parameter] public string ActiveTab { get; set; } = "overview";
     [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
+
+    private IReadOnlyList<SurfaceTabItem> SurfaceTabs => Tabs
+        .Select(tab => new SurfaceTabItem(tab.Key, tab.Label))
+        .ToList();
 }

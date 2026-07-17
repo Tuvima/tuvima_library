@@ -34,7 +34,8 @@ The Engine owns consumer display composition for Home, Watch, Read, Listen, musi
 
 - `DisplayPageDto`: a client-neutral page with optional hero, shelves, and/or catalog.
 - `DisplayShelfDto`: a named row of `DisplayCardDto` cards plus an optional see-all route.
-- `DisplayHeroDto`: spotlight identity, artwork, actions, progress, and display facts copied from the source card.
+- `DisplayHeroDto`: spotlight identity, artwork, actions, progress, display facts, genres, presentation, and optional ordered preview items copied from the source card. Album previews let compact Listen heroes show track context without turning tracks into landing cards.
+- Listen landing composition is album-first. `continue-listening`, `new-tracks-added`, and `albums` return album cards for Music; Audiobooks remain individual or series cards. `new-tracks-added` describes newly arrived tracks on each album card rather than returning one card per track.
 - `DisplayCardDto`: compact card identity, title, facts, typed badges, optional ordered preview items, artwork, progress, flags, and semantic actions.
 - `DisplayCardBadgeDto`: typed badge metadata such as `quality` and `source`; badges are omitted unless source data exists.
 - `DisplayCardPreviewItemDto`: ordered owned-child preview metadata for series and collection cards, including work/asset identity, title, managed image, shape, optional position, media type, and child web route. Clients should preserve sequence order, show positions when present, and use `previewTotalCount` for owned counts or overflow.

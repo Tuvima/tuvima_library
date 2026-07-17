@@ -13,38 +13,12 @@
 <BrowseShellStyles />
 
 <div class="browse-shell collections-browse">
-    @if (CurrentHero is not null)
+    @if (CollectionHeroes.Count > 0)
     {
-        var heroCollection = CurrentHeroCollection!;
-        <MediaBrowseHero Hero="@CurrentHero">
-            <FooterContent>
-                @if (RecentCollections.Count > 1)
-                {
-                    <div class="browse-hero__carousel" aria-label="Recent collections">
-                        <AppIconButton Icon="@Icons.Material.Outlined.ChevronLeft"
-                                       Size="Size.Small"
-                                       aria-label="Previous collection"
-                                       OnClick="PreviousHero" />
-                        <div class="browse-hero__carousel-rail">
-                            @foreach (var collection in RecentCollections.Take(8))
-                            {
-                                <AppNativeButton @key="collection.Id" Type="button" Class="@GetHeroChipClass(collection, heroCollection)" OnClick="() => SelectHero(collection)">
-                                    @if (!string.IsNullOrWhiteSpace(PrimaryArtwork(collection)))
-                                    {
-                                        <img src="@PrimaryArtwork(collection)" alt="" />
-                                    }
-                                    <span>@collection.Name</span>
-                                </AppNativeButton>
-                            }
-                        </div>
-                        <AppIconButton Icon="@Icons.Material.Outlined.ChevronRight"
-                                       Size="Size.Small"
-                                       aria-label="Next collection"
-                                       OnClick="NextHero" />
-                    </div>
-                }
-            </FooterContent>
-        </MediaBrowseHero>
+        <CinematicHeroCarousel Items="@CollectionHeroes"
+                              SectionTitle="Collections"
+                              SectionSubtitle="Broader rollups, curated lists, and playlists"
+                              AriaLabel="Featured collections" />
     }
 
     <div class="browse-shell__toolbar-anchor">
@@ -63,6 +37,13 @@
                     New Collection
                 </AppButton>
             </div>
+
+            <SurfaceTabBar Items="@CollectionFilters"
+                           ActiveKey="@_activeFilter"
+                           ActiveKeyChanged="SetCollectionFilterAsync"
+                           AriaLabel="Filter Collections"
+                           Class="collections-filter-bar"
+                           ItemClass="collections-filter-tab" />
 
             <div class="browse-shell__toolbar">
                 <AppTextField T="string"
@@ -121,51 +102,31 @@
     private ProfileViewModel? _activeProfile;
     private string _searchText = string.Empty;
     private string _sortBy = "recent";
+    private string _activeFilter = "all";
     private bool _loading;
-    private int _heroIndex;
+
+    private static readonly IReadOnlyList<SurfaceTabItem> CollectionFilters =
+    [
+        new("all", "All"),
+        new("broader", "Broader rollups"),
+        new("mine", "My collections"),
+        new("playlists", "Playlists"),
+    ];
 
     private bool CanManageSharedCollections => _activeProfile?.Role is "Administrator" or "Curator";
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> FilteredCollections =>
-        Sort(FilterBySearch(_collections));
+        Sort(FilterBySearch(FilterByCollectionType(_collections)));
 
-    private IReadOnlyList<CollectionManagementCatalogViewModel> RecentCollections =>
-        _collections
+    private IReadOnlyList<DiscoveryHeroViewModel> CollectionHeroes =>
+        FilteredCollections
             .OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt)
-            .Take(8)
+            .Take(5)
+            .Select(ToCollectionHero)
             .ToList();
-
-    private CollectionManagementCatalogViewModel? CurrentHeroCollection =>
-        RecentCollections.Count == 0
-            ? null
-            : RecentCollections[_heroIndex % RecentCollections.Count];
-
-    private BrowseHeroViewModel? CurrentHero
-    {
-        get
-        {
-            var collection = CurrentHeroCollection;
-            if (collection is null)
-                return null;
-
-            return new BrowseHeroViewModel
-            {
-                Variant = BrowseHeroVariant.Read,
-                Eyebrow = "Continue browsing",
-                Title = collection.Name,
-                Subtitle = CollectionSubtitle(collection),
-                Description = collection.Description,
-                CoverUrl = PrimaryArtwork(collection),
-                BackgroundUrl = HeroBackground(collection),
-                PrimaryActionLabel = "Open collection",
-                PrimaryNavigationUrl = $"/collection/{collection.Id:D}",
-            };
-        }
-    }
 
     private IReadOnlyList<MediaTileViewModel> CollectionCards =>
         FilteredCollections
-            .Where(collection => collection.Id != CurrentHeroCollection?.Id)
             .Select(ToMediaTile)
             .ToList();
 
@@ -182,7 +143,6 @@
         {
             _collections.Clear();
             _collections.AddRange(await ApiClient.GetCollectionCatalogAsync(_activeProfile?.Id));
-            _heroIndex = Math.Clamp(_heroIndex, 0, Math.Max(0, _collections.Count - 1));
         }
         finally
         {
@@ -201,6 +161,22 @@
             || collection.TypeLabel.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
             || collection.CollectionType.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
     }
+
+    private IEnumerable<CollectionManagementCatalogViewModel> FilterByCollectionType(
+        IEnumerable<CollectionManagementCatalogViewModel> collections) => _activeFilter switch
+    {
+        "broader" => collections.Where(collection =>
+            collection.IsGlobal
+            || collection.IsSystem
+            || collection.CollectionType is "Universe" or "Series" or "ContentGroup"),
+        "mine" => collections.Where(collection =>
+            !collection.IsGlobal
+            && !collection.IsSystem
+            && !string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)),
+        "playlists" => collections.Where(collection =>
+            string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)),
+        _ => collections,
+    };
 
     private IReadOnlyList<CollectionManagementCatalogViewModel> Sort(IEnumerable<CollectionManagementCatalogViewModel> collections) =>
         (_sortBy switch
@@ -223,37 +199,43 @@
         return Task.CompletedTask;
     }
 
-    private void PreviousHero()
+    private Task SetCollectionFilterAsync(string filter)
     {
-        if (RecentCollections.Count == 0)
-            return;
-
-        _heroIndex = (_heroIndex - 1 + RecentCollections.Count) % RecentCollections.Count;
+        _activeFilter = filter;
+        return Task.CompletedTask;
     }
 
-    private void NextHero()
+    private static DiscoveryHeroViewModel ToCollectionHero(CollectionManagementCatalogViewModel collection)
     {
-        if (RecentCollections.Count == 0)
-            return;
+        var previewItems = collection.ArtworkItems
+            .Select(ToArtworkStackItem)
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .ToList();
+        var paletteArtwork = PaletteArtwork(collection);
 
-        _heroIndex = (_heroIndex + 1) % RecentCollections.Count;
-    }
-
-    private void SelectHero(CollectionManagementCatalogViewModel collection)
-    {
-        var index = RecentCollections.ToList().FindIndex(item => item.Id == collection.Id);
-        if (index >= 0)
+        return new DiscoveryHeroViewModel
         {
-            _heroIndex = index;
-        }
+            Eyebrow = collection.TypeLabel,
+            Title = collection.Name,
+            Subtitle = CollectionSubtitle(collection),
+            Description = collection.Description,
+            BackgroundImageUrl = HeroBackground(collection),
+            HeroBackgroundImageUrl = HeroBackground(collection),
+            PreviewImageUrl = PrimaryArtwork(collection),
+            PreviewSurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            AccentColor = FirstNonBlank(paletteArtwork?.AccentColor, paletteArtwork?.PrimaryColor, "var(--tl-accent-primary)")!,
+            MetaPills = [collection.TypeLabel, .. BuildMediaCountLabels(collection)],
+            RepresentativeEntityId = collection.Id,
+            CollectionId = collection.Id,
+            MediaKind = "Collection",
+            Presentation = "default",
+            PreviewItems = previewItems,
+            PreviewTotalCount = collection.ItemCount,
+            PrimaryActionLabel = "Open collection",
+            PrimaryNavigationUrl = $"/collection/{collection.Id:D}",
+        };
     }
-
-    private static string GetHeroChipClass(
-        CollectionManagementCatalogViewModel collection,
-        CollectionManagementCatalogViewModel heroCollection) =>
-        collection.Id == heroCollection.Id
-            ? "browse-hero__carousel-chip is-active"
-            : "browse-hero__carousel-chip";
 
     private Task OpenCollection(CollectionManagementCatalogViewModel collection)
     {

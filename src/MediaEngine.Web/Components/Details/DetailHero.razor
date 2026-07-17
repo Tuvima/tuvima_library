@@ -2,14 +2,13 @@
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Shared
 
-<AppCssElement Tag="section" Class='@($"tl-detail-hero {Presentation.HeroClass} {TitleDensityClass}")' Css="@Presentation.GradientStyle">
-    <HeroBackdrop Artwork="Model.Artwork" EntityType="Model.EntityType" HeroBrand="Model.HeroBrand" />
-    @if (Presentation.ShowTitleBar)
-    {
-        <div class="tl-detail-titlebar">
-            <div class="tl-detail-titlebar__title">@Model.Title</div>
-        </div>
-    }
+<CinematicHeroSurface Artwork="Model.Artwork"
+                      EntityType="Model.EntityType"
+                      HeroBrand="Model.HeroBrand"
+                      Title="Model.Title"
+                      ShowTitleBar="Presentation.ShowTitleBar"
+                      Class="@($"cinematic-hero-surface--detail {Presentation.HeroClass} {TitleDensityClass}")"
+                      Css="Presentation.GradientStyle">
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
         <div class="tl-detail-hero__inner tl-detail-person-hero__inner">
@@ -169,7 +168,7 @@
             </div>
         </div>
     }
-</AppCssElement>
+</CinematicHeroSurface>
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;

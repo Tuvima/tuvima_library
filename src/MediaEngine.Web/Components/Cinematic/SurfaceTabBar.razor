@@ -1,0 +1,46 @@
+@namespace MediaEngine.Web.Components.Cinematic
+
+<nav class="@RootClass" aria-label="@AriaLabel" role="tablist">
+    <div class="surface-tab-bar__items">
+        @foreach (var item in Items)
+        {
+            <AppNativeButton Type="button"
+                             Role="tab"
+                             Class="@ItemClassFor(item)"
+                             AriaSelected="@(string.Equals(item.Key, ActiveKey, StringComparison.OrdinalIgnoreCase))"
+                             OnClick="@(() => ActiveKeyChanged.InvokeAsync(item.Key))">
+                @if (!string.IsNullOrWhiteSpace(item.Icon))
+                {
+                    <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                }
+                <span>@item.Label</span>
+                @if (item.Count is not null)
+                {
+                    <span class="surface-tab-bar__count">@item.Count</span>
+                }
+            </AppNativeButton>
+        }
+    </div>
+
+    @if (TrailingContent is not null)
+    {
+        <div class="surface-tab-bar__trailing">
+            @TrailingContent
+        </div>
+    }
+</nav>
+
+@code {
+    [Parameter] public IReadOnlyList<SurfaceTabItem> Items { get; set; } = [];
+    [Parameter] public string ActiveKey { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ActiveKeyChanged { get; set; }
+    [Parameter] public string AriaLabel { get; set; } = "Sections";
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public string ItemClass { get; set; } = "surface-tab-bar__item";
+    [Parameter] public RenderFragment? TrailingContent { get; set; }
+
+    private string RootClass => $"surface-tab-bar {Class}";
+
+    private string ItemClassFor(SurfaceTabItem item) =>
+        $"{ItemClass} {(string.Equals(item.Key, ActiveKey, StringComparison.OrdinalIgnoreCase) ? "is-active" : null)}";
+}

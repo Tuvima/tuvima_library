@@ -33,6 +33,7 @@ public sealed class DisplayCardBuilder
             SortTimestamp: row.CreatedAt)
         {
             Description = row.Description,
+            Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
         };
     }
@@ -67,6 +68,7 @@ public sealed class DisplayCardBuilder
             SortTimestamp: row.LastAccessed)
         {
             Description = row.Description,
+            Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
         };
     }
@@ -105,6 +107,15 @@ public sealed class DisplayCardBuilder
         new(card.Title, card.Subtitle, eyebrow, card.Artwork, card.Progress, card.Actions)
         {
             Facts = card.Facts,
+            Id = card.Id,
+            WorkId = card.WorkId,
+            CollectionId = card.CollectionId,
+            MediaType = card.MediaType,
+            Presentation = card.Presentation,
+            Description = card.Description,
+            Genres = card.Genres,
+            PreviewItems = card.PreviewItems,
+            PreviewTotalCount = card.PreviewTotalCount,
         };
 
     public static DisplayCardDto FromHomeCollection(DisplayHomeCollectionRow row)
@@ -185,6 +196,7 @@ public sealed class DisplayCardBuilder
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
             Description = representative.Description,
+            Genres = DisplayMediaRules.SplitValues(representative.Genre).ToList(),
             PreviewItems = previewItems,
             PreviewTotalCount = previewItems.Count > 0 ? ownedCount : null,
         };
@@ -229,6 +241,7 @@ public sealed class DisplayCardBuilder
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
             Description = representative.Description,
+            Genres = DisplayMediaRules.SplitValues(representative.Genre).ToList(),
             Badges = BuildBadges("TV", representative.Quality, FirstNonBlank(representative.Network, representative.Source)),
             PreviewItems = previewItems,
             PreviewTotalCount = works.Select(work => work.WorkId).Distinct().Count(),
