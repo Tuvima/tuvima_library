@@ -56,10 +56,14 @@ public sealed class DisplayShelfBuilder
         var tvShowCards = _cards.BuildTvShowCards(works);
         AddShelf(shelves, "continue-watching", "Continue watching", "Movies and shows already in progress",
             journey.Take(take).Select(item => _cards.FromJourney(item, "watch")).ToList(), "/watch/movies");
+
+        AddShelf(shelves, "tv-shows", "TV Shows", "Shows built from the episodes you own",
+            tvShowCards.Take(take).ToList(), "/watch/tv");
+
         if (groupShelf.Enabled)
         {
             AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,
-                _cards.BuildWatchGroupCards(works, groupShelf.MinimumSeriesItems).Take(take).ToList(), groupShelf.SeeAllRoute);
+                _cards.BuildMovieSeriesCards(works, groupShelf.MinimumSeriesItems).Take(take).ToList(), groupShelf.SeeAllRoute);
         }
 
         AddShelf(shelves, "movies", "Movies in your library", "Feature films ready to play",

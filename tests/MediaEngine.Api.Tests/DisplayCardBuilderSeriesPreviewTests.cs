@@ -73,7 +73,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         };
 
         var card = new DisplayCardBuilder()
-            .BuildWatchGroupCards(works, minimumSeriesItems: 2)
+            .BuildMovieSeriesCards(works, minimumSeriesItems: 2)
             .Single();
 
         Assert.Equal("2 owned titles", card.Subtitle);
@@ -82,7 +82,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
     }
 
     [Fact]
-    public void BuildWatchGroupCards_DoesNotPromoteSingleMovieAsSeries()
+    public void BuildMovieSeriesCards_DoesNotPromoteSingleMovieAsSeries()
     {
         var collectionId = Guid.Parse("22222222-2222-3333-4444-555555555555");
         var works = new[]
@@ -90,7 +90,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             CreateWork(collectionId, "Movie", "The Matrix", "1", "/covers/matrix-s.jpg", DateTimeOffset.Parse("2026-06-01T12:00:00Z")),
         };
 
-        var cards = new DisplayCardBuilder().BuildWatchGroupCards(works, minimumSeriesItems: 2);
+        var cards = new DisplayCardBuilder().BuildMovieSeriesCards(works, minimumSeriesItems: 2);
 
         Assert.Empty(cards);
     }

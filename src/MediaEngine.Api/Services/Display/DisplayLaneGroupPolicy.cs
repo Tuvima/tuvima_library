@@ -9,10 +9,10 @@ public sealed class DisplayLaneGroupPolicy
         new Dictionary<string, DisplayLaneGroupShelfPolicy>(StringComparer.OrdinalIgnoreCase)
         {
             ["watch"] = new(
-                Key: "shows-and-series",
-                Title: "Shows & Series",
-                Subtitle: "TV shows and film series grouped by title",
-                SeeAllRoute: "/watch/tv",
+                Key: "series",
+                Title: "Series",
+                Subtitle: "Movies dynamically aligned into series from your library metadata",
+                SeeAllRoute: "/watch/movies?grouping=series",
                 Enabled: true,
                 MinimumSeriesItems: 2),
             ["read"] = new(

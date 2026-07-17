@@ -69,10 +69,10 @@ public sealed class LibraryPreferencesSettings
         ["watch"] = new()
         {
             Enabled = true,
-            ShelfKey = "shows-and-series",
-            Title = "Shows & Series",
-            Subtitle = "TV shows and film series grouped by title",
-            SeeAllRoute = "/watch/tv",
+            ShelfKey = "series",
+            Title = "Series",
+            Subtitle = "Movies dynamically aligned into series from your library metadata",
+            SeeAllRoute = "/watch/movies?grouping=series",
             MinimumSeriesItems = 2,
         },
         ["read"] = new()

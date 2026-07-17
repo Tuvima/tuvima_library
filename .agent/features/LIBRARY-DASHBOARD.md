@@ -24,6 +24,8 @@ Lane-level shelves stay in their lane. A single book series, film series, album,
 
 Non-TV series and collection containers render through the dedicated fixed-size landscape `MediaGroupTile`. It composes owned child artwork at rest and reveals an in-place child carousel on hover or keyboard focus. The resting surface opens the group, while the carousel opens the selected owned child. TV shows render through `MediaTile`, using the show cover at rest and the show-level cinematic backdrop and rich identity on hover. Individual and Continue cards keep their existing renderers.
 
+Within Watch, TV shows occupy their own `TV Shows` shelf. The separate `Series` shelf contains only dynamically aligned movie series and explains that automatic grouping in its subtitle. Do not combine those shelves or place TV show cards in the Series row.
+
 ---
 
 ## Core Entry Points

@@ -81,9 +81,13 @@ public sealed class DisplayCardBuilder
             .OrderByDescending(card => card.SortTimestamp)
             .ToList();
 
-    public IReadOnlyList<DisplayCardDto> BuildWatchGroupCards(IReadOnlyList<DisplayWorkRow> works, int minimumSeriesItems = 2) =>
-        BuildTvShowCards(works)
-            .Concat(BuildMovieSeriesCards(works, minimumSeriesItems))
+    public IReadOnlyList<DisplayCardDto> BuildMovieSeriesCards(IReadOnlyList<DisplayWorkRow> works, int minimumSeriesItems = 2) =>
+        works
+            .Where(work => work.CollectionId.HasValue && DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Movie")
+            .GroupBy(work => work.CollectionId!.Value)
+            .Select(group => ToCollectionCard(group.Key, group.ToList(), "watch", minimumSeriesItems))
+            .Where(card => card is not null)
+            .Cast<DisplayCardDto>()
             .OrderByDescending(card => card.SortTimestamp)
             .ToList();
 
@@ -185,15 +189,6 @@ public sealed class DisplayCardBuilder
             PreviewTotalCount = previewItems.Count > 0 ? ownedCount : null,
         };
     }
-
-    private IReadOnlyList<DisplayCardDto> BuildMovieSeriesCards(IReadOnlyList<DisplayWorkRow> works, int minimumSeriesItems) =>
-        works
-            .Where(work => work.CollectionId.HasValue && DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Movie")
-            .GroupBy(work => work.CollectionId!.Value)
-            .Select(group => ToCollectionCard(group.Key, group.ToList(), "watch", minimumSeriesItems))
-            .Where(card => card is not null)
-            .Cast<DisplayCardDto>()
-            .ToList();
 
     private DisplayCardDto? ToTvShowCard(Guid showRootWorkId, IReadOnlyList<DisplayWorkRow> works)
     {

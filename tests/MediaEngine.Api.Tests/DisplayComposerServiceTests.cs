@@ -37,9 +37,12 @@ public sealed class DisplayComposerServiceTests
         var tvId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var tvRootId = Guid.Parse("22222222-bbbb-2222-2222-222222222222");
         var tvCollectionId = Guid.Parse("22222222-aaaa-2222-2222-222222222222");
+        var movieSeriesId = Guid.Parse("11111111-aaaa-1111-1111-111111111111");
         var repository = new StubDisplayProjectionRepository(
             [
                 Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction; Drama"),
+                Work(Guid.Parse("11111111-bbbb-1111-1111-111111111111"), "Movie", "Dune", year: "2021", collectionId: movieSeriesId, series: "Dune", seriesPosition: "1"),
+                Work(Guid.Parse("11111111-cccc-1111-1111-111111111111"), "Movie", "Dune: Part Two", year: "2024", collectionId: movieSeriesId, series: "Dune", seriesPosition: "2"),
                 Work(tvId, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: tvCollectionId, showName: "Breaking Bad", rootWorkId: tvRootId),
             ],
             [
@@ -51,22 +54,28 @@ public sealed class DisplayComposerServiceTests
 
         Assert.Equal("watch", page.Key);
         Assert.Contains(page.Shelves, shelf => shelf.Key == "continue-watching");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "shows-and-series");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "tv-shows");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "series");
         Assert.Contains(page.Shelves, shelf => shelf.Key == "movies");
-        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "tv");
         Assert.Equal("/watch/movies", page.Shelves.Single(shelf => shelf.Key == "movies").SeeAllRoute);
-        Assert.Equal("/watch/tv", page.Shelves.Single(shelf => shelf.Key == "shows-and-series").SeeAllRoute);
+        Assert.Equal("/watch/tv", page.Shelves.Single(shelf => shelf.Key == "tv-shows").SeeAllRoute);
+        Assert.Equal("/watch/movies?grouping=series", page.Shelves.Single(shelf => shelf.Key == "series").SeeAllRoute);
 
         var continueCard = page.Shelves.Single(shelf => shelf.Key == "continue-watching").Items.Single();
         Assert.Equal(42, continueCard.Progress?.Percent);
         Assert.Equal("Continue Watching", continueCard.Actions[0].Label);
         Assert.Equal(["2016"], continueCard.Facts);
 
-        var showCard = page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items.Single();
+        var showCard = page.Shelves.Single(shelf => shelf.Key == "tv-shows").Items.Single();
         Assert.Equal("Breaking Bad", showCard.Title);
         Assert.Equal("1 season", showCard.Subtitle);
         Assert.Equal("Open Show", showCard.Actions[0].Label);
         Assert.Equal($"/watch/tv/show/{tvRootId:D}", showCard.Actions[0].WebUrl);
+
+        var seriesCard = page.Shelves.Single(shelf => shelf.Key == "series").Items.Single();
+        Assert.Equal("Dune", seriesCard.Title);
+        Assert.Equal("movieSeries", seriesCard.Presentation);
+        Assert.DoesNotContain(page.Shelves.Single(shelf => shelf.Key == "series").Items, card => card.MediaType == "TV");
     }
 
     [Fact]
@@ -245,7 +254,7 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
-    public async Task LaneSeriesShelves_HideSingleOwnedNonTvCollections()
+    public async Task WatchShelves_KeepTvShowsSeparateAndHideSingleMovieSeries()
     {
         var movieCollectionId = Guid.Parse("77777777-9999-aaaa-9999-777777777777");
         var showCollectionId = Guid.Parse("77777777-9999-bbbb-9999-777777777777");
@@ -262,9 +271,9 @@ public sealed class DisplayComposerServiceTests
 
         var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
 
-        var groups = page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items;
-        Assert.Contains(groups, card => card.Title == "Severance" && card.Presentation == "tvSeries");
-        Assert.DoesNotContain(groups, card => card.Title == "The Matrix series");
+        var shows = page.Shelves.Single(shelf => shelf.Key == "tv-shows").Items;
+        Assert.Contains(shows, card => card.Title == "Severance" && card.Presentation == "tvSeries");
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "series");
     }
 
     [Fact]
@@ -281,7 +290,11 @@ public sealed class DisplayComposerServiceTests
 
         var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
 
-        var card = Assert.Single(page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items);
+        var seriesShelf = page.Shelves.Single(shelf => shelf.Key == "series");
+        Assert.Equal("Series", seriesShelf.Title);
+        Assert.Equal("Movies dynamically aligned into series from your library metadata", seriesShelf.Subtitle);
+        Assert.Equal("/watch/movies?grouping=series", seriesShelf.SeeAllRoute);
+        var card = Assert.Single(seriesShelf.Items);
         Assert.Equal("Dune", card.Title);
         Assert.Equal("movieSeries", card.Presentation);
     }
@@ -321,7 +334,7 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
-    public async Task WatchSeriesShelf_UsesTvRootInsteadOfSharedBookCollection()
+    public async Task WatchTvShowShelf_UsesTvRootInsteadOfSharedBookCollection()
     {
         var sharedCollectionId = Guid.Parse("77777777-9999-fafa-9999-777777777777");
         var showRootId = Guid.Parse("77777777-9999-fbfb-9999-777777777777");
@@ -336,7 +349,10 @@ public sealed class DisplayComposerServiceTests
 
         var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
 
-        var card = Assert.Single(page.Shelves.Single(shelf => shelf.Key == "shows-and-series").Items, item => item.Title == "The Expanse");
+        var showShelf = page.Shelves.Single(shelf => shelf.Key == "tv-shows");
+        Assert.Equal("TV Shows", showShelf.Title);
+        Assert.Equal("Shows built from the episodes you own", showShelf.Subtitle);
+        var card = Assert.Single(showShelf.Items, item => item.Title == "The Expanse");
         Assert.Equal("TV", card.MediaType);
         Assert.Equal("tvSeries", card.Presentation);
         Assert.Null(card.CollectionId);

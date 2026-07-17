@@ -370,7 +370,7 @@ Library display preferences used by browse and discovery surfaces.
 |---|---|---|
 | `missing_item_display` | object | Required per-media missing-member display policy. Each registered media type is configured explicitly; there are no runtime display defaults. |
 | `view_modes` | object | Per-tab default groupings, such as `tv: "shows"` or `comics: "series"`. |
-| `lane_group_display` | object | Per-lane display policy for lane group shelves. Watch defaults to `Shows & Series` and Read defaults to `Series & Reading Lists`; these are lane groups, not top-level Collections tiles. |
+| `lane_group_display` | object | Per-lane display policy for lane group shelves. Watch configures the movie-only `Series` shelf (TV shows use their own fixed shelf), and Read defaults to `Series & Reading Lists`; these are lane groups, not top-level Collections tiles. |
 
 Each `lane_group_display` entry supports `enabled`, `shelf_key`, `title`, `subtitle`, and `see_all_route`.
 
