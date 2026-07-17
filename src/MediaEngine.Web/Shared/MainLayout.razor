@@ -38,37 +38,35 @@
                              Class="layout-shell__brand-lockup" />
                 </span>
             </MudLink>
-
-            <nav class="layout-shell__desktop-nav" aria-label="Primary">
-                @foreach (var link in _navLinks)
-                {
-                    <a href="@link.Path"
-                       @key="link.Path"
-                       class="@GetNavLinkClass(link.Path)"
-                        aria-current="@(IsNavActive(link.Path) ? "page" : null)">
-                        <span class="layout-shell__nav-link-label">
-                            @L[link.LabelKey].Value.ToUpperInvariant()
-                        </span>
-                    </a>
-                }
-            </nav>
         </MudStack>
 
-        <div class="layout-shell__search-shell">
-            <MudTextField T="string"
-                          @bind-Value="_searchTerm"
-                          Placeholder="@L["Nav_SearchPlaceholder"]"
-                          aria-label="@L["Nav_SearchPlaceholder"]"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          Immediate="true"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Outlined.Search"
-                          OnKeyDown="@HandleSearchKeyDown"
-                          Class="layout-shell__search" />
-        </div>
+        <nav class="layout-shell__desktop-nav" aria-label="Primary">
+            @foreach (var link in _navLinks)
+            {
+                <a href="@link.Path"
+                   @key="link.Path"
+                   class="@GetNavLinkClass(link.Path)"
+                   aria-current="@(IsNavActive(link.Path) ? "page" : null)">
+                    <span class="layout-shell__nav-link-label">
+                        @L[link.LabelKey].Value.ToUpperInvariant()
+                    </span>
+                </a>
+            }
+        </nav>
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__actions">
+            <span class="layout-shell__search-action-slot">
+                <MudTooltip Text="@L["Nav_Search"]" Placement="Placement.Bottom">
+                    <AppNativeButton Type="button"
+                                     Class="layout-shell__search-action"
+                                     AriaLabel="@L["Nav_Search"]"
+                                     OnClick="@(_ => OpenSearch())">
+                        <MudIcon Icon="@Icons.Material.Outlined.Search"
+                                 Class="layout-shell__search-action-icon" />
+                    </AppNativeButton>
+                </MudTooltip>
+            </span>
+
             <span class="layout-shell__my-list-slot">
                 <MudTooltip Text="@L["TopBar_MyList"]" Placement="Placement.Bottom">
                     <AppNativeButton Type="button"
@@ -129,7 +127,6 @@
     private string _displayName = "User";
     private string _engineStatusSummary = string.Empty;
     private string _profileRole = "Profile";
-    private string _searchTerm = string.Empty;
     private Guid? _activeProfileId;
     private int _reviewCount;
     private List<ProfileViewModel> _profiles = [];
@@ -209,26 +206,6 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private Task HandleSearchKeyDown(KeyboardEventArgs args)
-    {
-        if (string.Equals(args.Key, "Enter", StringComparison.OrdinalIgnoreCase))
-        {
-            HandleSearchSubmit();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private void HandleSearchSubmit()
-    {
-        var trimmedSearch = _searchTerm.Trim();
-        var url = string.IsNullOrWhiteSpace(trimmedSearch)
-            ? "/search"
-            : $"/search?q={Uri.EscapeDataString(trimmedSearch)}";
-
-        Nav.NavigateTo(url);
-    }
-
     private Task OpenReviewQueueAsync()
     {
         if (CanViewReview)
@@ -247,6 +224,8 @@
 
     private void OpenMyList() => Nav.NavigateTo("/my-list");
 
+    private void OpenSearch() => Nav.NavigateTo("/search");
+
     private string GetNavLinkClass(string path) =>
         IsNavActive(path)
             ? "layout-shell__nav-link layout-shell__nav-link--active"
@@ -260,15 +239,6 @@
             ? "/"
             : $"/{trimmedPath}";
 
-        if (!_currentPath.Equals("/search", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
-        _searchTerm = query.TryGetValue("q", out var searchTerm)
-            ? searchTerm.ToString()
-            : string.Empty;
     }
 
     private async Task SyncCultureAsync()

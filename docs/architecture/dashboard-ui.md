@@ -21,7 +21,7 @@ The Dashboard is organized around discovery and media use, not a separate media 
 - MudBlazor providers.
 - Brand/logo placement.
 - Primary navigation.
-- Global search.
+- A global Search icon in the top-right action group that opens the dedicated cross-library search page.
 - A profile-aware **My List** bookmark route backed by the saved/favorites collection.
 - A unified circular activity indicator for playback, ingestion, AI work, enrichment, and other durable operations; it becomes an idle check icon when no work is active.
 - The account menu, including profile switching, Settings, Help, conditional sign-out, and permission-gated Needs Review count.
@@ -33,7 +33,7 @@ The Dashboard is organized around discovery and media use, not a separate media 
 
 Persistent playback stays in the shell so it survives navigation. Media editing does not live in the shell.
 
-The current navbar replaces the former standalone review bell and ingestion percentage button. Before this change, operational state was split across unrelated controls and the profile popover only exposed profiles and Settings. After the change, My List is a first-class bookmark action, active work is represented by one consistent progress surface, and review attention appears only as **Needs Review** inside the account menu. Consumer profiles do not fetch or render the review count. Sign out is shown only when OIDC or hybrid authentication is enabled; a local-only profile is switched rather than signed out.
+The current navbar centers Read, Watch, Listen, and Collections independently of the logo and right-side actions. Search and My List are icon actions in the top-right group, active work is represented by one consistent progress surface, and review attention appears only as **Needs Review** inside the account menu. Consumer profiles do not fetch or render the review count. Sign out is shown only when OIDC or hybrid authentication is enabled; a local-only profile is switched rather than signed out.
 
 The activity surface is composed by `ShellActivityState`. It merges live SignalR ingestion, AI model-download, universe-enrichment, and durable `MediaOperationChanged` updates with scoped audio/video playback state. `GET /system/activity-status` supplies a sanitized active-operation snapshot so a newly opened Dashboard does not need to wait for the next SignalR event. Operation titles and filesystem paths are intentionally excluded from that shell endpoint.
 

@@ -1220,7 +1220,7 @@
     <value>Buscar en su biblioteca</value>
   </data>
   <data name="Search_Subtitle" xml:space="preserve">
-    <value>Use la barra de búsqueda de arriba para encontrar libros, audiolibros y cómics.</value>
+    <value>Busque libros, audiolibros, cómics, películas, series y música.</value>
   </data>
   <data name="Search_AllTitles" xml:space="preserve">
     <value>Todos los títulos</value>

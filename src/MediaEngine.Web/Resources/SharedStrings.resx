@@ -1220,7 +1220,7 @@
     <value>Search your library</value>
   </data>
   <data name="Search_Subtitle" xml:space="preserve">
-    <value>Use the search bar above to find books, audiobooks, and comics.</value>
+    <value>Search across books, audiobooks, comics, movies, shows, and music.</value>
   </data>
   <data name="Search_AllTitles" xml:space="preserve">
     <value>All titles</value>

@@ -20,7 +20,7 @@
 
 ::deep .layout-shell__appbar .mud-toolbar {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 30rem) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     column-gap: 1.25rem;
     width: 100%;
@@ -39,7 +39,7 @@
     height: var(--app-topbar-height, 65px);
     min-width: 0;
     justify-content: flex-start;
-    overflow: visible;
+    overflow: hidden;
 }
 
 .layout-shell__brand-link {
@@ -74,10 +74,17 @@
 }
 
 .layout-shell__desktop-nav {
+    grid-column: 2;
+    grid-row: 1;
+    position: relative;
+    z-index: 2;
+    justify-self: center;
     display: flex;
     align-items: center;
-    min-width: 0;
-    margin-left: 1.65rem;
+    width: max-content;
+    min-width: max-content;
+    height: var(--app-topbar-height, 65px);
+    margin: 0;
     gap: 1.35rem;
     flex-wrap: nowrap;
 }
@@ -132,44 +139,6 @@
     transform: scaleX(1);
 }
 
-.layout-shell__search-shell {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: center;
-    position: relative;
-    z-index: 1;
-    width: min(30rem, 100%);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-width: 0;
-    max-width: 100%;
-    padding-inline: 0;
-    overflow: hidden;
-    pointer-events: none;
-}
-
-::deep .layout-shell__search {
-    width: 100%;
-    max-width: 30rem;
-    margin: 0;
-    pointer-events: auto;
-}
-
-::deep .layout-shell__search .mud-input-control {
-    margin-top: 0;
-}
-
-::deep .layout-shell__search .mud-input-outlined-border {
-    border-color: var(--app-border, #293036) !important;
-}
-
-::deep .layout-shell__search .mud-input-slot {
-    min-height: 40px !important;
-    background: var(--app-surface-2, #272832) !important;
-    border-radius: var(--app-radius-sm, 5px);
-}
-
 .layout-shell__actions {
     grid-column: 3;
     grid-row: 1;
@@ -183,6 +152,7 @@
     gap: 0 !important;
 }
 
+.layout-shell__search-action-slot,
 .layout-shell__my-list-slot,
 .layout-shell__activity-slot {
     display: inline-flex;
@@ -191,14 +161,19 @@
     flex: 0 0 auto;
 }
 
+.layout-shell__search-action-slot {
+    margin-right: 0.1rem;
+}
+
 .layout-shell__my-list-slot {
-    margin-right: 0.55rem;
+    margin-right: 0.75rem;
 }
 
 .layout-shell__activity-slot {
-    margin-inline: 0.35rem 1.05rem;
+    margin-right: 1.05rem;
 }
 
+.layout-shell__search-action-slot ::deep .layout-shell__search-action,
 .layout-shell__my-list-slot ::deep .layout-shell__my-list {
     width: 3rem;
     min-width: 3rem;
@@ -213,15 +188,24 @@
     cursor: pointer;
 }
 
+.layout-shell__search-action-slot ::deep .layout-shell__search-action:hover,
+.layout-shell__search-action-slot ::deep .layout-shell__search-action:focus-visible,
 .layout-shell__my-list-slot ::deep .layout-shell__my-list:hover,
 .layout-shell__my-list-slot ::deep .layout-shell__my-list:focus-visible {
     color: #fff;
     background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055));
 }
 
+.layout-shell__search-action-slot ::deep .layout-shell__search-action:focus-visible,
 .layout-shell__my-list-slot ::deep .layout-shell__my-list:focus-visible {
     outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
     outline-offset: 2px;
+}
+
+.layout-shell__search-action-slot ::deep .layout-shell__search-action-icon {
+    width: 1.72rem;
+    height: 1.72rem;
+    font-size: 1.72rem;
 }
 
 .layout-shell__my-list-slot ::deep .layout-shell__my-list-icon {
@@ -232,25 +216,11 @@
 
 @media (max-width: 1100px) {
     ::deep .layout-shell__appbar .mud-toolbar {
-        grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem) minmax(0, 1fr);
         column-gap: 0.9rem;
     }
-
-    .layout-shell__search-shell {
-        width: min(22rem, 100%);
-    }
-
-    ::deep .layout-shell__search {
-        max-width: 22rem;
-    }
-
 }
 
 @media (max-width: 860px) {
-    ::deep .layout-shell__appbar .mud-toolbar {
-        grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem) minmax(0, 1fr);
-    }
-
     .layout-shell__brand-lockup-shell {
         width: 8.2rem;
         height: 2.02rem;
@@ -258,24 +228,12 @@
         min-height: 2.02rem;
     }
 
-    .layout-shell__search-shell {
-        width: min(16rem, 100%);
-    }
-
-    ::deep .layout-shell__search {
-        max-width: 16rem;
-    }
-
     .layout-shell__activity-slot {
-        margin-inline: 0.2rem 0.65rem;
-    }
-
-    .layout-shell__left-rail {
-        overflow: hidden;
+        margin-right: 0.65rem;
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
     ::deep .layout-shell__appbar .mud-toolbar {
         grid-template-columns: auto minmax(0, 1fr) auto;
         padding: 0 0.7rem;
@@ -294,8 +252,7 @@
         overflow: visible;
     }
 
-    .layout-shell__desktop-nav,
-    .layout-shell__search-shell {
+    .layout-shell__desktop-nav {
         display: none;
     }
 

@@ -76,8 +76,9 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Empty(cut.FindAll(".layout-shell__mobile-menu"));
             Assert.Contains("Body content", cut.Markup);
             Assert.DoesNotContain("Home", cut.Markup);
-            Assert.Contains("Search your library", cut.Markup);
-            Assert.Single(cut.FindAll(".layout-shell__search-shell"));
+            Assert.DoesNotContain("Search your library", cut.Markup);
+            Assert.Empty(cut.FindAll(".layout-shell__search-shell"));
+            Assert.Single(cut.FindAll(".layout-shell__search-action"));
             Assert.Single(cut.FindAll(".top-nav-account-menu__trigger"));
             Assert.Single(cut.FindAll(".layout-shell__my-list"));
             Assert.Single(cut.FindAll(".system-activity-indicator"));
@@ -99,6 +100,9 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("await Activity.InitializeAsync();", source);
         Assert.Contains("<TopNavAccountMenu", source);
         Assert.Contains("<SystemActivityIndicator", source);
+        Assert.Contains("Nav_Search", source);
+        Assert.Contains("OpenSearch", source);
+        Assert.DoesNotContain("<MudTextField", source);
         Assert.Contains("TopBar_MyList", source);
         Assert.DoesNotContain("NotificationsNone", source);
         Assert.DoesNotContain("ToggleProfileMenu", source);
@@ -108,6 +112,8 @@ public sealed class UiShellRenderTests : TestContext
         Assert.DoesNotContain("NotificationsNone", accountSource);
         Assert.DoesNotContain("top-nav-account-menu__trigger-copy", accountSource);
         Assert.Contains("font-family: var(--font-brand);", css);
+        Assert.Contains("grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);", css);
+        Assert.Contains("grid-column: 2;", css);
         Assert.Contains("font-family: var(--font-ui);", accountCss);
         Assert.Contains(".top-nav-account-menu__popover.mud-popover", globalCss);
     }

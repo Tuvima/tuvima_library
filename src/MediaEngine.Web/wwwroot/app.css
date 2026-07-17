@@ -2504,15 +2504,13 @@ body,
 .mud-input-outlined,
 .mud-input-filled-control,
 .mud-select-input,
-.mud-autocomplete,
-.layout-shell__search .mud-input-slot {
+.mud-autocomplete {
     color: var(--tl-text-primary) !important;
     background: var(--tl-bg-surface-raised) !important;
     border-radius: var(--tl-radius-sm) !important;
 }
 
-.mud-input-outlined-border,
-.layout-shell__search .mud-input-outlined-border {
+.mud-input-outlined-border {
     border-color: var(--tl-border-default) !important;
 }
 
@@ -2981,8 +2979,7 @@ textarea.tl-textarea,
 
 .tl-search-control,
 .tl-control-lg .mud-input-slot,
-.tl-control-lg .mud-input-outlined,
-.layout-shell__search .mud-input-slot {
+.tl-control-lg .mud-input-outlined {
     min-height: var(--tl-control-height-lg) !important;
 }
 
@@ -3059,7 +3056,7 @@ textarea.tl-textarea,
 
 .layout-shell__appbar .mud-toolbar {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 30rem) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
     column-gap: 1.25rem !important;
     width: 100% !important;
     height: var(--app-topbar-height) !important;
@@ -3069,7 +3066,7 @@ textarea.tl-textarea,
     overflow: visible !important;
 }
 
-.layout-shell__search-shell,
+.layout-shell__desktop-nav,
 .layout-shell__actions,
 .layout-shell__left-rail {
     height: var(--app-topbar-height) !important;
@@ -3083,14 +3080,12 @@ textarea.tl-textarea,
     z-index: 2 !important;
 }
 
-.layout-shell__search-shell {
+.layout-shell__desktop-nav {
     grid-column: 2 !important;
     grid-row: 1 !important;
     justify-self: center !important;
     position: relative !important;
-    z-index: 1 !important;
-    width: min(30rem, 100%) !important;
-    pointer-events: none !important;
+    z-index: 2 !important;
 }
 
 .layout-shell__actions {
@@ -3101,33 +3096,6 @@ textarea.tl-textarea,
     justify-self: stretch !important;
     justify-content: flex-end !important;
     width: 100% !important;
-}
-
-.layout-shell__search {
-    width: 100% !important;
-    max-width: 30rem !important;
-    margin: 0 !important;
-    pointer-events: auto !important;
-}
-
-.layout-shell__search .mud-input-control {
-    margin: 0 !important;
-}
-
-.layout-shell__search .mud-input-control-input-container {
-    align-items: center !important;
-}
-
-.layout-shell__search .mud-input-root,
-.layout-shell__search .mud-input-slot,
-.layout-shell__search .mud-input-outlined {
-    height: 38px !important;
-    min-height: 38px !important;
-}
-
-.layout-shell__search .mud-input-slot {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
 }
 
 .layout-shell__profile-trigger {
@@ -3143,48 +3111,15 @@ textarea.tl-textarea,
 
 @media (max-width: 1100px) {
     .layout-shell__appbar .mud-toolbar {
-        grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem) minmax(0, 1fr) !important;
         column-gap: 0.9rem !important;
     }
-
-    .layout-shell__search-shell {
-        width: min(22rem, 100%) !important;
-    }
-
-    .layout-shell__search {
-        max-width: 22rem !important;
-    }
 }
 
-@media (max-width: 860px) {
-    .layout-shell__appbar .mud-toolbar {
-        grid-template-columns: minmax(0, 1fr) minmax(10rem, 16rem) minmax(0, 1fr) !important;
-    }
-
-    .layout-shell__search-shell {
-        width: min(16rem, 100%) !important;
-    }
-
-    .layout-shell__search {
-        max-width: 16rem !important;
-    }
-}
-
-@media (max-width: 640px) {
+@media (max-width: 760px) {
     .layout-shell__appbar .mud-toolbar {
         grid-template-columns: auto minmax(0, 1fr) auto !important;
         column-gap: 0.5rem !important;
         padding: 0 0.7rem !important;
-    }
-
-    .layout-shell__search-shell {
-        grid-column: 2 !important;
-        justify-self: stretch !important;
-        width: 100% !important;
-    }
-
-    .layout-shell__search {
-        max-width: none !important;
     }
 }
 
