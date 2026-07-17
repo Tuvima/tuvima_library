@@ -740,6 +740,8 @@ public sealed class DetailComposerServiceTests
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
         Assert.Contains("MetadataFieldConstants.IssueDescription", source);
+        Assert.Contains("IsComicIssueDescriptionSourceKey", source);
+        Assert.Contains("\"issue_overview\"", source);
         Assert.Contains("BuildComicIssueFallbackDescription", source);
         Assert.Contains("selection.IsGeneratedFallback", source);
         Assert.Contains("SourceName = \"Comic Vine\"", source);
@@ -747,6 +749,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("LicenseName = \"Comic Vine API Terms\"", source);
         Assert.Contains("LicenseUrl = \"https://comicvine.gamespot.com/api/\"", source);
         Assert.Contains("if (!isComicVine)", source);
+        Assert.Contains("GetCanonicalProviderId(detail, selection.SourceKey!)", source);
         Assert.Contains("normalizedTitle == normalizedSeries", source);
         Assert.DoesNotContain("Comic Vine: issue synopsis\";\n            SourceName = \"Wikipedia\"", source);
     }

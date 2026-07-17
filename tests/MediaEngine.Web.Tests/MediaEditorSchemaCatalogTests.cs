@@ -1,9 +1,56 @@
 using MediaEngine.Web.Services.Editing;
+using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Tests;
 
 public sealed class MediaEditorSchemaCatalogTests
 {
+    [Fact]
+    public void BuildValueMap_ComicItemUsesIssueDescriptionInsteadOfInheritedSeriesDescription()
+    {
+        var detail = new LibraryItemDetailViewModel
+        {
+            MediaType = "Comics",
+            Title = "Pilot",
+            Description = "This is the description of the entire series.",
+            CanonicalValues =
+            [
+                new LibraryItemCanonicalValueDto
+                {
+                    Key = "issue_description",
+                    Value = "This synopsis belongs to the individual issue.",
+                },
+            ],
+        };
+        CanonicalFieldViewModel[] canonicals =
+        [
+            new("description", "This is the description of the entire series.", 0.9, "Wikipedia", false, false),
+        ];
+
+        var values = MediaEditorSchemaCatalog.BuildValueMap(detail, canonicals);
+
+        Assert.Equal("This synopsis belongs to the individual issue.", values["description"]);
+    }
+
+    [Fact]
+    public void BuildValueMap_ComicItemDoesNotFallBackToInheritedSeriesDescription()
+    {
+        var detail = new LibraryItemDetailViewModel
+        {
+            MediaType = "Comics",
+            Title = "Pilot",
+            Description = "This is the description of the entire series.",
+        };
+        CanonicalFieldViewModel[] canonicals =
+        [
+            new("description", "This is the description of the entire series.", 0.9, "Wikipedia", false, false),
+        ];
+
+        var values = MediaEditorSchemaCatalog.BuildValueMap(detail, canonicals);
+
+        Assert.False(values.ContainsKey("description"));
+    }
+
     [Fact]
     public void Resolve_NormalSchemas_OmitProviderManagedPeopleAndTranscriptFields()
     {

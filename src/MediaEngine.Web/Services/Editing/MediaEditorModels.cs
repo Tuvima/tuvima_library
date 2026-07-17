@@ -253,9 +253,15 @@ public static class MediaEditorSchemaCatalog
         IEnumerable<CanonicalFieldViewModel> canonicals)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var isComicItem = detail?.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase) == true
+                          || string.Equals(detail?.MediaType, "Cbz", StringComparison.OrdinalIgnoreCase);
 
         static string? FindCanonicalValue(IEnumerable<CanonicalFieldViewModel> source, string key) =>
             source.FirstOrDefault(field => string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        static string? FindDetailCanonicalValue(LibraryItemDetailViewModel source, string key) =>
+            source.CanonicalValues
+                .FirstOrDefault(field => string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
         static void Add(IDictionary<string, string> target, string key, string? value)
         {
@@ -283,7 +289,14 @@ public static class MediaEditorSchemaCatalog
         }
 
         foreach (var field in canonicals)
+        {
+            // A comic issue inherits the parent run's generic description. Keep
+            // that series copy out of an item editor and surface only issue text.
+            if (isComicItem && string.Equals(field.Key, "description", StringComparison.OrdinalIgnoreCase))
+                continue;
+
             Add(values, field.Key, field.Value);
+        }
 
         if (detail is null)
             return values;
@@ -295,7 +308,18 @@ public static class MediaEditorSchemaCatalog
         Add(values, "language", detail.Language);
         Add(values, "genre", detail.Genre);
         Add(values, "runtime", detail.Runtime);
-        Add(values, "description", detail.Description);
+        if (isComicItem)
+        {
+            Add(values, "description",
+                FindCanonicalValue(canonicals, "issue_description")
+                ?? FindCanonicalValue(canonicals, "issue_overview")
+                ?? FindDetailCanonicalValue(detail, "issue_description")
+                ?? FindDetailCanonicalValue(detail, "issue_overview"));
+        }
+        else
+        {
+            Add(values, "description", detail.Description);
+        }
         Add(values, "series", detail.Series);
         Add(values, "series_position", detail.SeriesPosition);
         Add(values, "narrator", detail.Narrator);

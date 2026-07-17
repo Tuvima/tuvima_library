@@ -4282,10 +4282,10 @@
 }
 
 .sme-shell--hero .sme-header {
-    min-height: 7.25rem;
+    min-height: 7.9rem;
     align-items: center;
     gap: 1.5rem;
-    padding: 1.1rem clamp(1.5rem, 3vw, 3rem);
+    padding: 1.45rem clamp(1.5rem, 3vw, 3rem) 1.15rem;
     border-bottom-color: rgba(154, 170, 207, 0.14);
     background:
         linear-gradient(90deg, rgba(4, 11, 21, 0.98), rgba(9, 17, 33, 0.92) 64%, rgba(30, 18, 76, 0.48));
@@ -4295,7 +4295,7 @@
 .sme-header-copy--inline {
     display: grid;
     align-content: center;
-    gap: 0.25rem;
+    gap: 0.32rem;
 }
 
 .sme-inline-breadcrumb {
@@ -4304,7 +4304,7 @@
     gap: 0.35rem;
     min-width: 0;
     color: rgba(177, 154, 255, 0.92);
-    font-size: 0.68rem;
+    font-size: 0.74rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -4329,9 +4329,9 @@
 
 .sme-subtitle--inline {
     margin-top: 0.2rem;
-    color: rgba(225, 231, 243, 0.62);
-    font-size: 0.82rem;
-    line-height: 1.35;
+    color: rgba(225, 231, 243, 0.7);
+    font-size: 0.95rem;
+    line-height: 1.42;
 }
 
 .sme-shell--hero .sme-inline-header-actions {
@@ -4378,7 +4378,7 @@
     border: 1px solid transparent;
     border-radius: 0.55rem;
     color: rgba(222, 229, 242, 0.68);
-    font-size: 0.84rem;
+    font-size: 0.88rem;
     font-weight: 600;
 }
 
@@ -4405,48 +4405,97 @@
     color: #c7b3ff;
 }
 
-.sme-sidebar-artwork {
-    display: grid;
-    justify-items: center;
-    gap: 0.3rem;
-    margin-top: auto;
-    padding: 0.6rem 0.5rem 0.1rem;
-    border-top: 1px solid rgba(158, 176, 211, 0.12);
+.sme-shell--hero .sme-scope-switcher {
+    gap: 2rem;
+    padding: 0.9rem clamp(1.5rem, 3vw, 3rem);
+    background: rgba(5, 12, 23, 0.76);
 }
 
-.sme-sidebar-artwork__label {
-    justify-self: start;
-    color: rgba(197, 177, 255, 0.82);
-    font-size: 0.62rem;
+.sme-shell--hero .sme-scope-switcher-copy {
+    min-width: 14rem;
+    gap: 0.25rem;
+}
+
+.sme-shell--hero .sme-scope-switcher-hint {
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.sme-shell--hero .sme-scope-switcher-items {
+    gap: 0.7rem;
+}
+
+.sme-shell--hero ::deep .sme-scope-chip {
+    min-width: 9.75rem;
+    min-height: 3.65rem;
+    padding: 0.65rem 0.85rem;
+    justify-content: flex-start;
+    border: 1px solid rgba(153, 171, 207, 0.16);
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.025) !important;
+    color: rgba(239, 243, 251, 0.82);
+}
+
+.sme-shell--hero ::deep .sme-scope-chip:hover,
+.sme-shell--hero ::deep .sme-scope-chip:focus-visible {
+    border-color: rgba(157, 126, 255, 0.38);
+    background: rgba(112, 76, 214, 0.1) !important;
+}
+
+.sme-shell--hero ::deep .sme-scope-chip--active {
+    border-color: rgba(157, 126, 255, 0.58);
+    background: linear-gradient(135deg, rgba(113, 65, 255, 0.27), rgba(113, 65, 255, 0.1)) !important;
+    box-shadow: inset 3px 0 0 #9a73ff !important;
+}
+
+.sme-shell--hero ::deep .sme-scope-chip .mud-button-label {
+    display: grid;
+    justify-items: start;
+    gap: 0.2rem;
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+}
+
+.sme-shell--hero ::deep .sme-scope-chip .mud-button-label > span {
+    color: rgba(205, 213, 231, 0.62);
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.075em;
+    line-height: 1.2;
     text-transform: uppercase;
 }
 
-.sme-sidebar-artwork img,
-.sme-sidebar-artwork__fallback {
-    width: 3.75rem;
-    height: 5.25rem;
-    border: 1px solid rgba(174, 190, 222, 0.18);
-    border-radius: 0.45rem;
-    object-fit: cover;
-    background: rgba(255, 255, 255, 0.035);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+.sme-shell--hero ::deep .sme-scope-chip .mud-button-label > small {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    color: rgba(246, 248, 253, 0.9);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.sme-sidebar-artwork__fallback {
-    display: grid;
-    place-items: center;
-    color: rgba(224, 231, 244, 0.34);
-}
-
-.sme-sidebar-artwork__hint {
-    display: none;
+.sme-shell--hero ::deep .sme-scope-chip--active .mud-button-label > span {
+    color: rgba(205, 188, 255, 0.92);
 }
 
 .sme-shell--hero .sme-main-pane {
     min-height: 0;
     overflow: hidden;
+}
+
+.sme-shell--hero .sme-scope-switcher-items,
+.sme-shell--hero .sme-section-nav {
+    scrollbar-width: none;
+}
+
+.sme-shell--hero .sme-scope-switcher-items::-webkit-scrollbar,
+.sme-shell--hero .sme-section-nav::-webkit-scrollbar {
+    display: none;
 }
 
 .sme-shell--hero .sme-body {
@@ -4473,12 +4522,13 @@
     padding: 0.75rem 0.9rem;
     border-color: rgba(146, 164, 199, 0.16);
     background: rgba(21, 35, 57, 0.5);
-    font-size: 0.76rem;
+    font-size: 0.84rem;
+    line-height: 1.45;
 }
 
 .sme-details-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.85fr);
+    grid-template-columns: minmax(24rem, 1.08fr) minmax(16.5rem, 0.68fr) minmax(12rem, 0.45fr);
     align-items: start;
     gap: 0.85rem;
 }
@@ -4505,7 +4555,7 @@
 
 .sme-shell--hero ::deep .sme-details-grid .sme-group-title {
     color: rgba(185, 157, 255, 0.95);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.055em;
     text-transform: uppercase;
@@ -4519,15 +4569,15 @@
 
 .sme-shell--hero ::deep .sme-details-grid .tl-field-label {
     color: rgba(213, 222, 239, 0.7);
-    font-size: 0.76rem !important;
+    font-size: 0.82rem !important;
     font-weight: 500;
 }
 
 .sme-shell--hero ::deep .sme-details-grid .app-dialog-field input,
 .sme-shell--hero ::deep .sme-details-grid .app-dialog-field textarea,
 .sme-shell--hero ::deep .sme-details-grid .app-dialog-field .mud-input-slot {
-    font-size: 0.84rem !important;
-    line-height: 1.38 !important;
+    font-size: 0.9rem !important;
+    line-height: 1.42 !important;
 }
 
 .sme-shell--hero ::deep .sme-details-grid .tl-field-grid--textarea .app-dialog-textarea textarea {
@@ -4553,16 +4603,68 @@
 }
 
 .sme-shell--hero .sme-source-facts dt {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
 }
 
 .sme-shell--hero .sme-source-facts dd {
-    font-size: 0.78rem;
+    font-size: 0.85rem;
+}
+
+.sme-details-artwork {
+    display: grid;
+    justify-items: center;
+    gap: 0.8rem;
+}
+
+.sme-details-artwork img,
+.sme-details-artwork__fallback {
+    width: 100%;
+    max-width: 10rem;
+    aspect-ratio: 2 / 3;
+    border: 1px solid rgba(174, 190, 222, 0.2);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.035);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
+}
+
+.sme-details-artwork img {
+    object-fit: cover;
+}
+
+.sme-details-artwork__fallback {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 0.45rem;
+    color: rgba(224, 231, 244, 0.42);
+    font-size: 0.76rem;
+    text-align: center;
+}
+
+.sme-shell--hero ::deep .sme-details-artwork__action {
+    width: 100%;
+    min-height: 2.45rem;
+    border: 1px solid rgba(157, 126, 255, 0.2);
+    border-radius: 0.5rem;
+    color: rgba(203, 184, 255, 0.92);
+    font-size: 0.8rem;
+    text-transform: none;
+}
+
+.sme-details-grid ::deep .sme-details-grid__artwork .sme-group-title {
+    overflow: visible;
+    letter-spacing: 0.04em;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 @media (max-width: 1180px) {
     .sme-details-grid {
-        grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.72fr);
+        grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.65fr);
+    }
+
+    .sme-details-grid ::deep .sme-details-grid__artwork {
+        grid-column: 2;
     }
 
     .sme-shell--hero .sme-profile-preferences {
@@ -4602,12 +4704,12 @@
         min-height: 2.55rem;
     }
 
-    .sme-sidebar-artwork {
-        display: none;
-    }
-
     .sme-details-grid {
         grid-template-columns: 1fr;
+    }
+
+    .sme-details-grid ::deep .sme-details-grid__artwork {
+        grid-column: auto;
     }
 }
 
@@ -4629,6 +4731,22 @@
 
     .sme-subtitle--inline {
         display: none;
+    }
+
+    .sme-shell--hero .sme-scope-switcher-hint {
+        display: none;
+    }
+
+    .sme-shell--hero .sme-scope-switcher-items {
+        width: 100%;
+        gap: 0.45rem;
+        overflow-x: hidden;
+    }
+
+    .sme-shell--hero ::deep .sme-scope-chip {
+        flex: 1 1 0;
+        min-width: 0;
+        padding-inline: 0.65rem;
     }
 
     .sme-shell--hero .sme-inline-header-actions {

@@ -1673,6 +1673,18 @@ public partial class SharedMediaEditorShell
         return SelectTabInternalAsync(Tabs[index].Id);
     }
 
+    protected Task OpenArtworkTabAsync()
+    {
+        var artworkTabIndex = Tabs
+            .Select((tab, index) => (tab, index))
+            .Where(item => string.Equals(item.tab.Id, "artwork", StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.index)
+            .DefaultIfEmpty(-1)
+            .First();
+
+        return OnTabChanged(artworkTabIndex);
+    }
+
     protected Task OnMatchSearchModeChanged(int index)
     {
         _activeMatchSearchMode = index == 1 ? "wikidata" : "retail";

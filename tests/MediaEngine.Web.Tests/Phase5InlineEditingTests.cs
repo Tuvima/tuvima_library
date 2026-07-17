@@ -92,7 +92,9 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Title=\"My Library\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"Source facts\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-details-grid", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-sidebar-artwork", shell, StringComparison.Ordinal);
+        Assert.Contains("Title=\"Artwork preview\"", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-details-grid__artwork", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("sme-sidebar-artwork", shell, StringComparison.Ordinal);
         Assert.Contains("@if (!Inline)", shell, StringComparison.Ordinal);
         Assert.Contains("ActionIcon=\"@GetInlineFieldActionIcon(field.Key)\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Match Information", shell, StringComparison.Ordinal);

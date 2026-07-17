@@ -6839,9 +6839,9 @@ public sealed class DetailComposerService
             return null;
         }
 
-        if (string.Equals(selection.SourceKey, MetadataFieldConstants.IssueDescription, StringComparison.OrdinalIgnoreCase))
+        if (IsComicIssueDescriptionSourceKey(selection.SourceKey))
         {
-            var winningProviderId = GetCanonicalProviderId(detail, MetadataFieldConstants.IssueDescription);
+            var winningProviderId = GetCanonicalProviderId(detail, selection.SourceKey!);
             var isComicVine = Guid.TryParse(winningProviderId, out var providerId)
                 && providerId == WellKnownProviders.ComicVine;
             if (!isComicVine)
@@ -6857,7 +6857,7 @@ public sealed class DetailComposerService
                 SourceUrl = sourceUrl,
                 LicenseName = "Comic Vine API Terms",
                 LicenseUrl = "https://comicvine.gamespot.com/api/",
-                RetrievedAt = GetCanonicalLastScoredAt(detail, MetadataFieldConstants.IssueDescription),
+                RetrievedAt = GetCanonicalLastScoredAt(detail, selection.SourceKey!),
                 IsModifiedOrSummarized = false,
                 Notice = "Issue synopsis from Comic Vine; use is governed by Comic Vine API terms.",
             };
@@ -6868,6 +6868,10 @@ public sealed class DetailComposerService
             GetValue(values, "wikipedia_url"),
             GetCanonicalLastScoredAt(detail, selection.SourceKey ?? MetadataFieldConstants.Description));
     }
+
+    private static bool IsComicIssueDescriptionSourceKey(string? key) =>
+        string.Equals(key, MetadataFieldConstants.IssueDescription, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(key, "issue_overview", StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyList<ExternalSourceLinkViewModel> BuildExternalSourceLinks(
         string? wikidataQid,

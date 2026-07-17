@@ -241,23 +241,6 @@
                         </AppButton>
                     }
 
-                    @if (Inline && IsSingleItem)
-                    {
-                        <div class="sme-sidebar-artwork" aria-label="Current artwork preview">
-                            <span class="sme-sidebar-artwork__label">Artwork preview</span>
-                            @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
-                            {
-                                <img src="@CurrentCoverUrl" alt="" />
-                            }
-                            else
-                            {
-                                <div class="sme-sidebar-artwork__fallback">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Image" />
-                                </div>
-                            }
-                            <span class="sme-sidebar-artwork__hint">Manage from Artwork</span>
-                        </div>
-                    }
                 </nav>
                 <div class="sme-main-pane">
                     @if (HasContainerReturnState)
@@ -371,6 +354,38 @@
                                         </MediaEditorPanel>
                                     }
                                 </div>
+
+                                @if (Inline && IsSingleItem)
+                                {
+                                    <MediaEditorPanel Title="Artwork preview"
+                                                      Description="The current primary artwork shown across your library."
+                                                      Class="sme-details-grid__artwork">
+                                        <div class="sme-details-artwork" aria-label="Current artwork preview">
+                                            @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
+                                            {
+                                                <img src="@CurrentCoverUrl" alt="@($"{HeaderTitle} current artwork")" />
+                                            }
+                                            else
+                                            {
+                                                <div class="sme-details-artwork__fallback">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" />
+                                                    <span>No artwork yet</span>
+                                                </div>
+                                            }
+
+                                            @if (Tabs.Any(tab => string.Equals(tab.Id, "artwork", StringComparison.OrdinalIgnoreCase)))
+                                            {
+                                                <AppButton Variant="Variant.Text"
+                                                           Color="Color.Inherit"
+                                                           StartIcon="@Icons.Material.Outlined.Image"
+                                                           Class="sme-details-artwork__action"
+                                                           OnClick="OpenArtworkTabAsync">
+                                                    Manage artwork
+                                                </AppButton>
+                                            }
+                                        </div>
+                                    </MediaEditorPanel>
+                                }
                             </div>
                         </div>
                     </div>
