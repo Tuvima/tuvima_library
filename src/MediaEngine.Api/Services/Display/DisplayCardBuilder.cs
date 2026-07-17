@@ -602,7 +602,19 @@ public sealed class DisplayCardBuilder
                 SeriesPreviewShape(item.Work, item.ImageUrl),
                 item.DisplayPosition,
                 mediaKind,
-                PreviewWebUrlFor(item.Work.WorkId, mediaKind, collectionId, tvShowRootId)))
+                PreviewWebUrlFor(item.Work.WorkId, mediaKind, collectionId, tvShowRootId),
+                item.Work.Description,
+                BuildFacts(
+                    mediaKind,
+                    item.DisplayTitle,
+                    item.Work.Year,
+                    item.Work.Author,
+                    item.Work.Artist,
+                    item.Work.ContentRating,
+                    item.Work.Runtime,
+                    item.Work.Duration,
+                    item.Work.PageCount,
+                    item.Work.Rating)))
             .ToList();
     }
 

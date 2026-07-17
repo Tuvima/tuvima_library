@@ -1,13 +1,13 @@
 .media-group-tile {
     --media-group-accent: var(--tl-accent-primary);
     --media-group-secondary: #111827;
-    --media-group-tile-width: clamp(520px, 38vw, 720px);
-    --media-group-tile-height: clamp(400px, 25vw, 500px);
+    --media-group-tile-width: clamp(364px, 26.6vw, 504px);
+    --media-group-tile-height: clamp(280px, 17.5vw, 350px);
     position: relative;
-    width: min(calc(100vw - 32px), var(--media-group-tile-width));
+    width: min(calc(100vw - 22px), var(--media-group-tile-width));
     height: var(--media-group-tile-height);
     min-width: 0;
-    flex: 0 0 min(calc(100vw - 32px), var(--media-group-tile-width));
+    flex: 0 0 min(calc(100vw - 22px), var(--media-group-tile-width));
     scroll-snap-align: start;
     container-type: inline-size;
     font-family: var(--font-ui);
@@ -23,7 +23,7 @@
     background:
         radial-gradient(circle at 76% 28%, color-mix(in srgb, var(--media-group-accent) 28%, transparent), transparent 42%),
         linear-gradient(145deg, rgba(17, 24, 39, 0.98), rgba(5, 10, 24, 0.98));
-    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
     isolation: isolate;
 }
 
@@ -44,19 +44,19 @@
 .media-group-tile__atmosphere,
 .media-group-tile__hover-atmosphere {
     position: absolute;
-    inset: -20px;
+    inset: -14px;
     z-index: -1;
     background:
         linear-gradient(125deg, rgba(3, 7, 18, 0.8) 5%, rgba(3, 7, 18, 0.38) 54%, rgba(3, 7, 18, 0.72)),
         var(--media-group-image) center / cover no-repeat;
-    filter: blur(15px) saturate(0.9);
+    filter: blur(11px) saturate(0.9);
     opacity: 0.34;
     transform: scale(1.1);
 }
 
 .media-group-tile__base-artwork {
     position: absolute;
-    inset: 13px 16px 72px;
+    inset: 9px 11px 50px;
 }
 
 .media-group-tile__base-copy {
@@ -65,9 +65,9 @@
     z-index: 8;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 3px 14px;
-    min-height: 86px;
-    padding: 31px 18px 15px;
+    gap: 2px 10px;
+    min-height: 60px;
+    padding: 22px 13px 11px;
     align-content: end;
     background: linear-gradient(180deg, transparent, rgba(3, 7, 18, 0.99) 42%);
 }
@@ -77,7 +77,7 @@
     overflow: hidden;
     color: rgba(248, 250, 252, 0.98);
     font-family: var(--font-display, var(--font-ui));
-    font-size: 1.02rem;
+    font-size: 0.8rem;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -86,16 +86,16 @@
 .media-group-tile__base-copy > span:last-child {
     align-self: end;
     color: rgba(203, 213, 225, 0.82);
-    font-size: 0.73rem;
+    font-size: 0.62rem;
     white-space: nowrap;
 }
 
 .media-group-tile__kind {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 5px;
     color: color-mix(in srgb, var(--media-group-accent) 76%, white);
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -105,13 +105,18 @@
     grid-column: 1 / -1;
 }
 
+.media-group-tile__identity .media-group-tile__kind strong {
+    color: rgba(248, 250, 252, 0.96);
+    font-weight: 800;
+}
+
 .media-group-tile__kind :deep(.mud-icon-root) {
-    font-size: 1.05rem;
+    font-size: 0.8rem;
 }
 
 .media-group-tile__fallback {
     position: absolute;
-    inset: 22px 22px 72px;
+    inset: 15px 15px 50px;
     display: grid;
     place-items: center;
     color: color-mix(in srgb, var(--media-group-accent) 64%, white);
@@ -121,15 +126,15 @@
 }
 
 .media-group-tile__fallback :deep(.mud-icon-root) {
-    font-size: 3.25rem;
+    font-size: 2.3rem;
 }
 
 .media-group-tile__hover {
     z-index: 10;
     display: grid;
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    gap: clamp(14px, 2.4cqw, 28px);
-    padding: clamp(20px, 3.8cqw, 32px);
+    gap: clamp(10px, 1.7cqw, 20px);
+    padding: clamp(14px, 2.66cqw, 22px);
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
@@ -152,10 +157,10 @@
     display: flex;
     max-width: 100%;
     flex-wrap: wrap;
-    gap: 6px 16px;
-    margin-top: 15px;
+    gap: 4px 11px;
+    margin-top: 10px;
     color: rgba(203, 213, 225, 0.84);
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     font-weight: 600;
 }
 
@@ -165,19 +170,31 @@
 
 .media-group-tile__facts span + span::before {
     position: absolute;
-    left: -10px;
+    left: -7px;
     color: rgba(148, 163, 184, 0.5);
     content: "•";
+}
+
+.media-group-tile__rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #ffc328;
+    font-weight: 700;
+}
+
+.media-group-tile__rating :deep(.mud-icon-root) {
+    font-size: 0.88rem;
 }
 
 .media-group-tile__identity h3 {
     display: -webkit-box;
     max-width: 100%;
-    margin: clamp(16px, 3cqw, 25px) 0 0;
+    margin: clamp(11px, 2.1cqw, 18px) 0 0;
     overflow: hidden;
     color: rgba(248, 250, 252, 0.99);
     font-family: var(--font-display, var(--font-ui));
-    font-size: clamp(1.42rem, 4.6cqw, 2.08rem);
+    font-size: clamp(1rem, 3.22cqw, 1.46rem);
     line-height: 1.04;
     letter-spacing: -0.025em;
     -webkit-box-orient: vertical;
@@ -186,44 +203,45 @@
 
 .media-group-tile__description {
     display: -webkit-box;
-    margin: clamp(12px, 2.3cqw, 20px) 0 0;
+    margin: clamp(8px, 1.6cqw, 14px) 0 0;
     overflow: hidden;
     color: rgba(203, 213, 225, 0.82);
-    font-size: clamp(0.72rem, 1.75cqw, 0.88rem);
-    line-height: 1.55;
+    font-size: clamp(0.66rem, 1.23cqw, 0.76rem);
+    line-height: 1.45;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 4;
 }
 
 .media-group-tile__guidance {
     margin: auto 0 0;
-    padding-top: 12px;
+    padding-top: 8px;
     color: color-mix(in srgb, var(--media-group-accent) 56%, white);
     font-family: var(--font-display, var(--font-ui));
-    font-size: clamp(0.72rem, 1.7cqw, 0.86rem);
+    font-size: clamp(0.66rem, 1.19cqw, 0.75rem);
     line-height: 1.35;
 }
 
 .media-group-tile__actions {
     display: flex;
     width: 100%;
-    gap: 8px;
-    margin-top: 13px;
-    padding-top: 13px;
+    gap: 6px;
+    margin-top: 9px;
+    padding-top: 9px;
     border-top: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .media-group-tile__actions ::deep .mud-icon-root {
-    font-size: 1.08rem;
+    font-size: 0.8rem;
 }
 
 ::deep .media-group-tile__group-action,
 ::deep .media-group-tile__item-action {
     min-width: 0;
-    min-height: 38px;
-    padding-inline: 11px;
+    height: 31px;
+    min-height: 31px;
+    padding-inline: 8px;
     white-space: nowrap;
-    font-size: clamp(0.68rem, 1.55cqw, 0.8rem);
+    font-size: clamp(0.62rem, 1.09cqw, 0.7rem);
 }
 
 ::deep .media-group-tile__group-action {
@@ -260,25 +278,25 @@
     outline-offset: 3px;
 }
 
-@container (max-width: 600px) {
+@container (max-width: 420px) {
     .media-group-tile__hover {
         grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-        gap: 12px;
-        padding: 18px;
+        gap: 8px;
+        padding: 13px;
     }
 
     .media-group-tile__facts {
-        gap: 4px 12px;
-        margin-top: 10px;
-        font-size: 0.67rem;
+        gap: 3px 8px;
+        margin-top: 7px;
+        font-size: 0.62rem;
     }
 
     .media-group-tile__facts span + span::before {
-        left: -8px;
+        left: -6px;
     }
 
     .media-group-tile__identity h3 {
-        margin-top: 13px;
+        margin-top: 9px;
     }
 
     .media-group-tile__description {
@@ -287,23 +305,23 @@
 
     .media-group-tile__actions {
         flex-direction: column;
-        gap: 6px;
-        margin-top: 9px;
-        padding-top: 9px;
+        gap: 4px;
+        margin-top: 6px;
+        padding-top: 6px;
     }
 
     ::deep .media-group-tile__group-action,
     ::deep .media-group-tile__item-action {
         width: 100%;
-        min-height: 34px;
-        height: 34px;
+        min-height: 29px;
+        height: 29px;
     }
 }
 
 @media (max-width: 720px) {
     .media-group-tile {
-        --media-group-tile-width: min(88vw, 560px);
-        --media-group-tile-height: clamp(300px, 58vw, 410px);
+        --media-group-tile-width: min(61.6vw, 392px);
+        --media-group-tile-height: clamp(210px, 40.6vw, 287px);
         width: var(--media-group-tile-width);
         flex-basis: var(--media-group-tile-width);
     }

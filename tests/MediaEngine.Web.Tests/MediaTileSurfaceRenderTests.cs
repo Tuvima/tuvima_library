@@ -201,6 +201,14 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.Contains(root.Attributes, attribute => attribute.Name.StartsWith("b-", StringComparison.Ordinal));
         Assert.Contains("Foundation", cut.Find(".media-artwork-carousel__caption").TextContent);
+        Assert.Equal("Book Series: Foundation Series", cut.Find(".media-group-tile__identity .media-group-tile__kind").TextContent.Trim());
+        Assert.Equal("Foundation", cut.Find(".media-group-tile__identity h3").TextContent.Trim());
+        Assert.Equal("The first Foundation novel.", cut.Find(".media-group-tile__description").TextContent.Trim());
+        Assert.Contains("1951", cut.Find(".media-group-tile__facts").TextContent);
+        Assert.Contains("4.4", cut.Find(".media-group-tile__rating").TextContent);
+        Assert.DoesNotContain("2 books", cut.Find(".media-group-tile__facts").TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("owned titles", cut.Find(".media-group-tile__facts").TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Book 1", cut.Find(".media-artwork-carousel__caption").TextContent, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(cut.FindAll(".media-tile"));
         Assert.Contains("Open Series", cut.Find(".media-group-tile__group-action").TextContent);
         Assert.Contains("Open Book", cut.Find(".media-group-tile__item-action").TextContent);
@@ -212,13 +220,18 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         cut.Find("button[aria-label='Next book']").Click();
 
         Assert.Contains("Foundation and Empire", cut.Find(".media-artwork-carousel__caption").TextContent);
+        Assert.Equal("Foundation and Empire", cut.Find(".media-group-tile__identity h3").TextContent.Trim());
+        Assert.Equal("The second Foundation novel.", cut.Find(".media-group-tile__description").TextContent.Trim());
+        Assert.Contains("1952", cut.Find(".media-group-tile__facts").TextContent);
+        Assert.Contains("2 of 2", cut.Find(".media-artwork-carousel__pagination").TextContent);
+        Assert.DoesNotContain("Book 2", cut.Find(".media-artwork-carousel__caption").TextContent, StringComparison.OrdinalIgnoreCase);
         cut.Find("button[aria-label='Open Foundation and Empire']").Click();
 
         Assert.EndsWith("/book/2?mode=read", nav.Uri, StringComparison.Ordinal);
 
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
-        Assert.Contains("--media-group-tile-width: clamp(520px, 38vw, 720px)", css, StringComparison.Ordinal);
-        Assert.Contains("--media-group-tile-height: clamp(400px, 25vw, 500px)", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-width: clamp(364px, 26.6vw, 504px)", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-height: clamp(280px, 17.5vw, 350px)", css, StringComparison.Ordinal);
         Assert.Contains("height: 100%", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".media-group-tile:hover {\n    transform:", css.ReplaceLineEndings("\n"), StringComparison.Ordinal);
     }
@@ -306,6 +319,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         IsCollection = true,
         UseLandscapeGroupTile = true,
         PreviewTotalCount = 2,
+        HoverFacts = ["2 owned titles"],
         ArtworkStackItems =
         [
             new ArtworkStackItem
@@ -318,6 +332,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
                 NavigationUrl = "/book/1?mode=read",
                 Shape = ArtworkShape.Portrait,
                 Position = "1",
+                Description = "The first Foundation novel.",
+                Facts = ["Isaac Asimov", "1951", "★ 4.4"],
             },
             new ArtworkStackItem
             {
@@ -329,6 +345,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
                 NavigationUrl = "/book/2?mode=read",
                 Shape = ArtworkShape.Portrait,
                 Position = "2",
+                Description = "The second Foundation novel.",
+                Facts = ["Isaac Asimov", "1952", "★ 4.5"],
             },
         ],
     };
@@ -553,7 +571,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("margin-block: 2%", css);
         Assert.Contains("window.updateMediaTileShelfStableHeight", appJs);
         Assert.Contains("window.getSwimlaneItems", appJs);
-        Assert.Contains("el.querySelectorAll('.media-tile')", appJs);
+        Assert.Contains("el.querySelectorAll('.media-tile, .media-group-tile')", appJs);
+        Assert.Contains("tile.querySelector('.media-tile-frame, .media-group-tile__frame')", appJs);
         Assert.Contains("window.getSwimlaneItems(el).forEach", appJs);
         Assert.Contains("childRect.left - containerRect.left - paddingLeft", appJs);
         Assert.Contains("--media-tile-row-height", appJs);

@@ -479,6 +479,8 @@
         MediaType = item.MediaType,
         NavigationUrl = CollectionItemRoute(item),
         Shape = ToArtworkShape(item.ArtworkShape, item.MediaType),
+        Description = item.Description,
+        Facts = item.Facts,
     };
 
     private static string CollectionItemRoute(CollectionArtworkItemViewModel item)

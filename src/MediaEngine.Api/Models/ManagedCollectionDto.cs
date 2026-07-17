@@ -253,6 +253,12 @@ public sealed class CollectionArtworkItemDto
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("facts")]
+    public IReadOnlyList<string> Facts { get; init; } = [];
+
     [JsonPropertyName("primary_color")]
     public string? PrimaryColor { get; init; }
 

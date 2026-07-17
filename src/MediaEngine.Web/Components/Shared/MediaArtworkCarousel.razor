@@ -70,7 +70,6 @@
 
         <div class="media-artwork-carousel__caption" aria-live="polite" aria-atomic="true">
             <strong>@activeItem.Title</strong>
-            <span>@ActivePositionLabel</span>
         </div>
 
         @if (CarouselItems.Count > 1)
@@ -152,22 +151,6 @@
     private string CarouselClass =>
         $"media-artwork-carousel {(Density == MediaArtworkCarouselDensity.Detail ? "is-detail" : "is-tile")}";
 
-    private string ActivePositionLabel
-    {
-        get
-        {
-            if (ActiveItem is not { } activeItem)
-            {
-                return string.Empty;
-            }
-
-            var position = string.IsNullOrWhiteSpace(activeItem.Position)
-                ? $"{ActiveIndex + 1} of {ResolvedTotalCount}"
-                : activeItem.Position;
-            return $"{ToTitleCase(ItemNoun)} {position}";
-        }
-    }
-
     private IReadOnlyList<int> IndicatorIndexes
     {
         get
@@ -224,8 +207,4 @@
         _ => "is-portrait-art",
     };
 
-    private static string ToTitleCase(string value) =>
-        string.IsNullOrWhiteSpace(value)
-            ? "Item"
-            : char.ToUpperInvariant(value[0]) + value[1..];
 }

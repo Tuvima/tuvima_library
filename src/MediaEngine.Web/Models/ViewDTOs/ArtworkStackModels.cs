@@ -11,6 +11,8 @@ public sealed class ArtworkStackItem
     public string? NavigationUrl { get; init; }
     public ArtworkShape Shape { get; init; } = ArtworkShape.Portrait;
     public string? Position { get; init; }
+    public string? Description { get; init; }
+    public IReadOnlyList<string> Facts { get; init; } = [];
 }
 
 public enum ArtworkShape

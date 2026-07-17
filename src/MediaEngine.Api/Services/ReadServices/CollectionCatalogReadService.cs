@@ -1,6 +1,7 @@
 using System.Globalization;
 using Dapper;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
@@ -766,6 +767,23 @@ public sealed class CollectionCatalogReadService(
                    w.media_type AS MediaType,
                    preferred_cover.id AS CoverAssetId,
                    COALESCE(NULLIF(cover_asset.value, ''), NULLIF(cover_work.value, ''), CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END) AS CoverUrl,
+                   COALESCE(
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'short_description' LIMIT 1),
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'description' LIMIT 1)) AS Description,
+                   COALESCE(
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'release_year' LIMIT 1),
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'year' LIMIT 1)) AS Year,
+                   (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'author' LIMIT 1) AS Author,
+                   (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'artist' LIMIT 1) AS Artist,
+                   COALESCE(
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'content_rating' LIMIT 1),
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'certification' LIMIT 1)) AS ContentRating,
+                   (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'runtime' LIMIT 1) AS Runtime,
+                   (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'duration' LIMIT 1) AS Duration,
+                   (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'page_count' LIMIT 1) AS PageCount,
+                   COALESCE(
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'rating' LIMIT 1),
+                       (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'star_rating' LIMIT 1)) AS Rating,
                    COALESCE(NULLIF(primary_work.value, ''), NULLIF(cover_primary_work.value, ''), NULLIF(preferred_cover.primary_hex, '')) AS PrimaryColor,
                    COALESCE(NULLIF(secondary_work.value, ''), NULLIF(cover_secondary_work.value, ''), NULLIF(preferred_cover.secondary_hex, '')) AS SecondaryColor,
                    COALESCE(NULLIF(accent_work.value, ''), NULLIF(dominant_work.value, ''), NULLIF(cover_accent_work.value, ''), NULLIF(preferred_cover.accent_hex, '')) AS AccentColor,
@@ -817,6 +835,18 @@ public sealed class CollectionCatalogReadService(
                     CoverUrl = row.CoverAssetId is { } coverAssetId
                         ? $"/stream/artwork/{coverAssetId:D}"
                         : row.CoverUrl,
+                    Description = row.Description,
+                    Facts = DisplayFactBuilder.Build(
+                        DisplayMediaRules.NormalizeDisplayKind(row.MediaType ?? string.Empty),
+                        row.Title ?? string.Empty,
+                        year: row.Year,
+                        author: row.Author,
+                        artist: row.Artist,
+                        contentRating: row.ContentRating,
+                        runtime: row.Runtime,
+                        duration: row.Duration,
+                        pageCount: row.PageCount,
+                        starRating: row.Rating),
                     PrimaryColor = row.PrimaryColor,
                     SecondaryColor = row.SecondaryColor,
                     AccentColor = row.AccentColor,
@@ -883,6 +913,15 @@ public sealed class CollectionCatalogReadService(
         public string? MediaType { get; init; }
         public Guid? CoverAssetId { get; init; }
         public string? CoverUrl { get; init; }
+        public string? Description { get; init; }
+        public string? Year { get; init; }
+        public string? Author { get; init; }
+        public string? Artist { get; init; }
+        public string? ContentRating { get; init; }
+        public string? Runtime { get; init; }
+        public string? Duration { get; init; }
+        public string? PageCount { get; init; }
+        public string? Rating { get; init; }
         public string? PrimaryColor { get; init; }
         public string? SecondaryColor { get; init; }
         public string? AccentColor { get; init; }

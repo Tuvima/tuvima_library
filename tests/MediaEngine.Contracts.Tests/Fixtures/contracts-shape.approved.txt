@@ -508,6 +508,8 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardPreviewIt
   Position: System.String | nullability=nullable | accessors=get,init
   MediaType: System.String | nullability=nullable | accessors=get,init
   WebUrl: System.String | nullability=nullable | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  Facts: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayHeroDto
   Title: System.String | nullability=not-null | accessors=get,init

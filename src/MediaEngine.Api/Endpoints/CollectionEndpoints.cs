@@ -1246,6 +1246,10 @@ public static class CollectionEndpoints
                         var imageUrl = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
                             ? backgroundUrl ?? bannerUrl ?? coverUrl
                             : coverUrl ?? backgroundUrl ?? bannerUrl;
+                        var title = GetCanonical(dto, "title") ?? h.DisplayName ?? "Untitled";
+                        var description = GetCanonical(dto, "short_description")
+                            ?? GetCanonical(dto, "description");
+                        var mediaKind = DisplayMediaRules.NormalizeDisplayKind(primaryMediaType);
                         return new
                         {
                             Work = work,
@@ -1258,7 +1262,19 @@ public static class CollectionEndpoints
                                 bannerUrl,
                                 ParseNullableInt(GetCanonical(dto, "cover_width_px")),
                                 ParseNullableInt(GetCanonical(dto, "cover_height_px"))),
-                            Title = GetCanonical(dto, "title") ?? h.DisplayName ?? "Untitled",
+                            Title = title,
+                            Description = description,
+                            Facts = DisplayFactBuilder.Build(
+                                mediaKind,
+                                title,
+                                year: GetCanonical(dto, "release_year") ?? GetCanonical(dto, "year"),
+                                author: GetCanonical(dto, "author"),
+                                artist: GetCanonical(dto, "artist"),
+                                contentRating: GetCanonical(dto, "content_rating") ?? GetCanonical(dto, "certification"),
+                                runtime: GetCanonical(dto, "runtime"),
+                                duration: GetCanonical(dto, "duration") ?? GetCanonical(dto, "duration_seconds"),
+                                pageCount: GetCanonical(dto, "page_count"),
+                                starRating: GetCanonical(dto, "rating") ?? GetCanonical(dto, "star_rating")),
                             Position = GetCanonical(dto, "series_position")
                                 ?? GetCanonical(dto, "episode_number")
                                 ?? work.Ordinal?.ToString(CultureInfo.InvariantCulture),
@@ -1274,7 +1290,9 @@ public static class CollectionEndpoints
                         item.Title,
                         item.ImageUrl!,
                         item.Shape,
-                        item.Position))
+                        item.Position,
+                        item.Description,
+                        item.Facts))
                     .ToList();
 
                 return new ContentGroupDto

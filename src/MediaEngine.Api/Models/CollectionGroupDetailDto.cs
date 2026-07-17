@@ -372,4 +372,6 @@ public sealed record ContentGroupPreviewItemDto(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("image_url")] string ImageUrl,
     [property: JsonPropertyName("shape")] string Shape,
-    [property: JsonPropertyName("position")] string? Position);
+    [property: JsonPropertyName("position")] string? Position,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("facts")] IReadOnlyList<string>? Facts = null);

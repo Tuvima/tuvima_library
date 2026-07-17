@@ -395,7 +395,7 @@ public sealed class MediaTileComposerServiceTests
         {
             PreviewItems =
             [
-                new DisplayCardPreviewItemDto(workId, null, "Foundation", "/covers/1-s.jpg", "portrait", "1"),
+                new DisplayCardPreviewItemDto(workId, null, "Foundation", "/covers/1-s.jpg", "portrait", "1", Description: "The first novel.", Facts: ["Isaac Asimov", "1951", "★ 4.4"]),
                 new DisplayCardPreviewItemDto(Guid.NewGuid(), null, "Foundation and Empire", "/covers/2-s.jpg", "portrait", "2"),
                 new DisplayCardPreviewItemDto(Guid.NewGuid(), null, "Second Foundation", "/covers/3-s.jpg", "portrait", "3"),
                 new DisplayCardPreviewItemDto(Guid.NewGuid(), null, "Foundation's Edge", "/covers/4-s.jpg", "portrait", "4"),
@@ -414,6 +414,8 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal(6, mapped.PreviewTotalCount);
         Assert.Equal(["1", "2", "3", "4"], mapped.ArtworkStackItems.Select(item => item.Position));
         Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg"], mapped.ArtworkStackItems.Select(item => item.ImageUrl));
+        Assert.Equal("The first novel.", mapped.ArtworkStackItems[0].Description);
+        Assert.Equal(["Isaac Asimov", "1951", "★ 4.4"], mapped.ArtworkStackItems[0].Facts);
     }
 
     [Fact]

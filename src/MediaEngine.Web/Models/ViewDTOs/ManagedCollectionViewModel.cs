@@ -284,6 +284,8 @@ public sealed class ContentGroupPreviewItemViewModel
     [JsonPropertyName("image_url")] public string ImageUrl { get; set; } = string.Empty;
     [JsonPropertyName("shape")] public string Shape { get; set; } = "portrait";
     [JsonPropertyName("position")] public string? Position { get; set; }
+    [JsonPropertyName("description")] public string? Description { get; set; }
+    [JsonPropertyName("facts")] public List<string> Facts { get; set; } = [];
 }
 
 /// <summary>
@@ -448,6 +450,12 @@ public sealed class CollectionArtworkItemViewModel
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("facts")]
+    public List<string> Facts { get; set; } = [];
 
     [JsonPropertyName("primary_color")]
     public string? PrimaryColor { get; set; }

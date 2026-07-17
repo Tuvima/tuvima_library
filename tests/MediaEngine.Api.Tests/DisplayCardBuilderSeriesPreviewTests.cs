@@ -17,6 +17,11 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             CreateWork(collectionId, "Book", "Book One", "1", "/covers/1-s.jpg", createdAt.AddMinutes(1)),
             CreateWork(collectionId, "Book", "Book Three", "3", "/covers/3-s.jpg", createdAt.AddMinutes(3)),
         };
+        works[3].Description = "The first book in the sequence.";
+        works[3].Author = "Example Author";
+        works[3].Year = "1951";
+        works[3].PageCount = "255";
+        works[3].Rating = "4.4";
 
         var card = new DisplayCardBuilder()
             .BuildCollectionCards(works, "read", minimumSeriesItems: 2)
@@ -31,6 +36,8 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg", "/covers/5-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
         Assert.All(card.PreviewItems, item => Assert.Equal("Book", item.MediaType));
         Assert.All(card.PreviewItems, item => Assert.StartsWith("/book/", item.WebUrl, StringComparison.Ordinal));
+        Assert.Equal("The first book in the sequence.", card.PreviewItems[0].Description);
+        Assert.Equal(["Example Author", "1951", "255 pages", "★ 4.4"], card.PreviewItems[0].Facts);
     }
 
     [Fact]

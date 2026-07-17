@@ -136,7 +136,7 @@ window.getSwimlaneItems = function (el) {
     if (!el) return [];
 
     if (el.classList && el.classList.contains('media-tile-shelf-scroll')) {
-        return Array.prototype.filter.call(el.querySelectorAll('.media-tile'), function (item) {
+        return Array.prototype.filter.call(el.querySelectorAll('.media-tile, .media-group-tile'), function (item) {
             return item
                 && item.offsetWidth > 0
                 && item.closest('.media-tile-shelf-scroll') === el;
@@ -310,9 +310,9 @@ window.updateMediaTileShelfStableHeight = function (el) {
     paddingBottom = Number.isFinite(paddingBottom) ? paddingBottom : 0;
 
     var restingHeight = 0;
-    Array.prototype.forEach.call(el.querySelectorAll('.media-tile'), function (tile) {
+    Array.prototype.forEach.call(el.querySelectorAll('.media-tile, .media-group-tile'), function (tile) {
         if (tile.closest('.media-tile-shelf-scroll') !== el) return;
-        var frame = tile.querySelector('.media-tile-frame');
+        var frame = tile.querySelector('.media-tile-frame, .media-group-tile__frame');
         if (!frame) return;
         var rect = frame.getBoundingClientRect();
         restingHeight = Math.max(restingHeight, rect.height || frame.offsetHeight || 0);

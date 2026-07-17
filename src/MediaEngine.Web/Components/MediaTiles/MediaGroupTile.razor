@@ -45,21 +45,28 @@
                     <section class="media-group-tile__identity" aria-label="@($"About {Item.Title}")">
                         <span class="media-group-tile__kind">
                             <MudIcon Icon="@GroupKindIcon" />
-                            <span>@GroupKindLabel</span>
+                            <span>@GroupKindLabel: <strong>@Item.Title</strong></span>
                         </span>
 
-                        @if (GroupFacts.Count > 0)
+                        @if (ActiveFacts.Count > 0)
                         {
                             <div class="media-group-tile__facts">
-                                @foreach (var fact in GroupFacts)
+                                @if (!string.IsNullOrWhiteSpace(ActiveRatingFact))
+                                {
+                                    <span class="media-group-tile__rating">
+                                        <MudIcon Icon="@Icons.Material.Filled.Star" />
+                                        <span>@FormatRatingFactForDisplay(ActiveRatingFact)</span>
+                                    </span>
+                                }
+                                @foreach (var fact in ActiveNonRatingFacts)
                                 {
                                     <span @key="fact">@fact</span>
                                 }
                             </div>
                         }
 
-                        <h3>@Item.Title</h3>
-                        <p class="media-group-tile__description">@GroupDescription</p>
+                        <h3>@ActiveItem.Title</h3>
+                        <p class="media-group-tile__description">@ActiveDescription</p>
                         <p class="media-group-tile__guidance">@SelectionGuidance</p>
 
                         <div class="media-group-tile__actions">
@@ -177,24 +184,26 @@
         }
     }
 
-    private IReadOnlyList<string> GroupFacts
-    {
-        get
-        {
-            var facts = Item.HoverFacts
-                .Where(fact => !string.IsNullOrWhiteSpace(fact))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Where(fact => !string.Equals(fact, GroupCountLabel, StringComparison.OrdinalIgnoreCase))
-                .Take(2)
-                .ToList();
-            facts.Add(GroupCountLabel);
-
-            return facts;
-        }
-    }
-
     private string GroupDescription => FirstNonBlank(Item.Description, Item.Tldr, Item.Subtitle)
         ?? $"Explore the titles in {Item.Title}.";
+
+    private string ActiveDescription => FirstNonBlank(ActiveItem?.Description, GroupDescription)
+        ?? $"Explore {ActiveItem?.Title ?? Item.Title}.";
+
+    private IReadOnlyList<string> ActiveFacts => (ActiveItem is { } activeItem
+            ? activeItem.Facts
+            : [])
+        .Where(fact => !string.IsNullOrWhiteSpace(fact))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(4)
+        .ToList();
+
+    private string? ActiveRatingFact => ActiveFacts.FirstOrDefault(IsRatingFact);
+
+    private IReadOnlyList<string> ActiveNonRatingFacts => ActiveFacts
+        .Where(fact => !IsRatingFact(fact))
+        .Take(3)
+        .ToList();
 
     private string SelectionGuidance =>
         $"Choose {ArticleFor(ItemNoun)} {ItemNoun} or open the full {ShortGroupKindLabel.ToLowerInvariant()}.";
@@ -357,6 +366,42 @@
 
     private static string ArticleFor(string noun) =>
         "aeiou".Contains(char.ToLowerInvariant(noun[0])) ? "an" : "a";
+
+    private static bool IsRatingFact(string? fact)
+    {
+        if (string.IsNullOrWhiteSpace(fact))
+        {
+            return false;
+        }
+
+        return fact.Contains('\u2605')
+            || fact.Contains("IMDb", StringComparison.OrdinalIgnoreCase)
+            || fact.Contains("/10", StringComparison.OrdinalIgnoreCase)
+            || fact.StartsWith("rating", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatRatingFactForDisplay(string? fact)
+    {
+        if (string.IsNullOrWhiteSpace(fact))
+        {
+            return string.Empty;
+        }
+
+        var value = fact.Trim();
+        if (value.StartsWith('\u2605'))
+        {
+            value = value[1..].Trim();
+        }
+
+        if (value.StartsWith("Rating:", StringComparison.OrdinalIgnoreCase))
+        {
+            return value["Rating:".Length..].Trim();
+        }
+
+        return value.StartsWith("Rating", StringComparison.OrdinalIgnoreCase)
+            ? value["Rating".Length..].Trim()
+            : value;
+    }
 
     private static string EscapeCssString(string value) =>
         value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);

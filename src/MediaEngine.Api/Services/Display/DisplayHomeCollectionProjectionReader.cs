@@ -87,7 +87,9 @@ public sealed class DisplayHomeCollectionProjectionReader
                     item.ArtworkShape,
                     null,
                     item.MediaType,
-                    DisplayCardBuilder.PreviewWebUrlFor(item.WorkId, item.MediaType)))
+                    DisplayCardBuilder.PreviewWebUrlFor(item.WorkId, item.MediaType),
+                    item.Description,
+                    item.Facts))
                 .ToList(),
             CreatedAt = collection.ModifiedAt ?? collection.CreatedAt,
             BackgroundUrl = primaryArtwork,

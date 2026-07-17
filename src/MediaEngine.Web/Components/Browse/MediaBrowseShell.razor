@@ -617,7 +617,9 @@
                     item.Shape,
                     item.Position,
                     group.PrimaryMediaType,
-                    BuildGroupPreviewNavigationUrl(group, item.WorkId)))
+                    BuildGroupPreviewNavigationUrl(group, item.WorkId),
+                    item.Description,
+                    item.Facts))
                 .ToList(),
             PreviewTotalCount = group.WorkCount,
         };

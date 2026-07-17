@@ -391,6 +391,8 @@ public sealed class MediaTileComposerService
                 NavigationUrl = item.WebUrl,
                 Shape = ToArtworkShape(item.Shape),
                 Position = item.Position,
+                Description = item.Description,
+                Facts = item.Facts ?? [],
             })
             .ToList();
 
