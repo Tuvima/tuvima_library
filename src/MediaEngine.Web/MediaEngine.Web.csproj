@@ -21,4 +21,47 @@
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
   </ItemGroup>
 
+  <!--
+    Publish the shared brand directory as first-party static content. This keeps
+    assets/images/library.svg authoritative without maintaining a second copy in
+    the Dashboard's wwwroot folder.
+  -->
+  <Target Name="ResolveSharedBrandStaticWebAssets" AfterTargets="ResolveProjectStaticWebAssets">
+    <ItemGroup>
+      <_SharedBrandStaticWebAssetCandidate Include="$(MSBuildProjectDirectory)\..\..\assets\images\library.svg">
+        <RelativePath>images\library.svg</RelativePath>
+        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </_SharedBrandStaticWebAssetCandidate>
+    </ItemGroup>
+
+    <DefineStaticWebAssets
+      CandidateAssets="@(_SharedBrandStaticWebAssetCandidate)"
+      FingerprintCandidates="$(StaticWebAssetsFingerprintContent)"
+      FingerprintPatterns="@(StaticWebAssetFingerprintPattern)"
+      RelativePathPattern="**"
+      SourceType="Discovered"
+      SourceId="$(PackageId)"
+      ContentRoot="$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\assets\'))\"
+      BasePath="$(StaticWebAssetBasePath)"
+      AssetKind="All"
+      AssetMode="All"
+      AssetRole="Primary"
+      AssetMergeSource="$(StaticWebAssetMergeTarget)">
+      <Output TaskParameter="Assets" ItemName="_SharedBrandStaticWebAsset" />
+    </DefineStaticWebAssets>
+
+    <DefineStaticWebAssetEndpoints
+      CandidateAssets="@(_SharedBrandStaticWebAsset)"
+      ExistingEndpoints="@(StaticWebAssetEndpoint)"
+      ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
+      <Output TaskParameter="Endpoints" ItemName="_SharedBrandStaticWebAssetEndpoint" />
+    </DefineStaticWebAssetEndpoints>
+
+    <ItemGroup>
+      <StaticWebAsset Include="@(_SharedBrandStaticWebAsset)" />
+      <StaticWebAssetEndpoint Include="@(_SharedBrandStaticWebAssetEndpoint)" />
+    </ItemGroup>
+  </Target>
+
 </Project>

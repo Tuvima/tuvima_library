@@ -20,7 +20,7 @@ Design system for **Tuvima Library** - a unified media intelligence platform tha
 - **Core stylesheet referenced:** `src/MediaEngine.Web/wwwroot/app.css`
 - **Icon system:** FontAwesome solid SVGs copied from `src/MediaEngine.Web/wwwroot/icons/fontawesome/solid/`
 - **Fonts:** Montserrat (variable), Merriweather, JetBrains Mono - all self-hosted in `src/MediaEngine.Web/wwwroot/fonts/`
-- **Logos:** `assets/images/tuvima-logo.svg`, `tuvima-logo-dark.svg`, `tuvima-icon.svg`
+- **Logos:** `assets/images/library.svg` for the Dashboard navbar; `tuvima-logo.svg`, `tuvima-logo-dark.svg`, and `tuvima-icon.svg` for broader brand surfaces.
 - **Screenshots:** `assets/screenshots/epub-reader.png`
 
 ## Products
@@ -130,7 +130,8 @@ The codebase uses **FontAwesome Solid** SVGs served statically from `/icons/font
 **Copied icons** (in `assets/icons/`): `book-open`, `book-open-reader`, `boxes-stacked`, `cart-shopping`, `chevron-down/left/right`, `circle-info`, `clipboard-check`, `clock`, `film`, `folder-open`, `folder-tree`, `gear`, `headphones`, `house`, `layer-group`, `list-check`, `magnifying-glass`, `microchip`, `music`, `play`, `server`, `share-nodes`, `shield-halved`, `sliders`, `table-list`, `timeline`, `toggle-on`, `triangle-exclamation`, `tv`, `user`, `users`, `wand-magic-sparkles`, `wrench`, `xmark`.
 
 **Logo usage**
-- Full horizontal logo (`assets/images/tuvima-logo.svg`) - headers, login screens, marketing.
+- Library lockup (`assets/images/library.svg`) - Dashboard navbar.
+- Full horizontal logo (`assets/images/tuvima-logo.svg`) - login screens and marketing.
 - Icon mark (`assets/images/tuvima-icon.svg`) - favicon, empty-state centerpiece, app icon.
 - Never replace logo placements with hand-typed "TUVIMA" text.
 

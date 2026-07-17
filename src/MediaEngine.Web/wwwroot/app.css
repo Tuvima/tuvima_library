@@ -3080,6 +3080,17 @@ textarea.tl-textarea,
     z-index: 2 !important;
 }
 
+/* MudLink renders outside MainLayout's CSS-isolation scope. Normalize its
+   baseline here so the brand artwork shares the nav labels' centerline. */
+.layout-shell__brand-link {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0;
+    flex-shrink: 0;
+    line-height: 0 !important;
+    color: inherit !important;
+}
+
 .layout-shell__desktop-nav {
     grid-column: 2 !important;
     grid-row: 1 !important;

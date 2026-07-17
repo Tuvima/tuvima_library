@@ -73,6 +73,7 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.Single(cut.FindAll(".mud-appbar"));
             Assert.Equal(4, cut.FindAll(".layout-shell__nav-link").Count);
+            Assert.Equal("/images/library.svg", cut.Find(".layout-shell__brand-lockup").GetAttribute("src"));
             Assert.Empty(cut.FindAll(".layout-shell__mobile-menu"));
             Assert.Contains("Body content", cut.Markup);
             Assert.DoesNotContain("Home", cut.Markup);
@@ -100,6 +101,8 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("await Activity.InitializeAsync();", source);
         Assert.Contains("<TopNavAccountMenu", source);
         Assert.Contains("<SystemActivityIndicator", source);
+        Assert.Contains("/images/library.svg", source);
+        Assert.DoesNotContain("<AppLogo", source);
         Assert.Contains("Nav_Search", source);
         Assert.Contains("OpenSearch", source);
         Assert.DoesNotContain("<MudTextField", source);
