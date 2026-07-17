@@ -12,6 +12,19 @@ public sealed class MediaEditorLauncherService
         _dialogService = dialogService;
     }
 
+    public MediaEditorInlineSession BeginInline(MediaEditorLaunchRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.Mode != SharedMediaEditorMode.Normal)
+            throw new InvalidOperationException("Only normal single-item editing can be hosted inline.");
+
+        if (request.EntityIds.Count != 1)
+            throw new InvalidOperationException("Inline editing requires exactly one media entity.");
+
+        return new MediaEditorInlineSession(request);
+    }
+
     public async Task<bool> OpenAsync(MediaEditorLaunchRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -63,4 +76,21 @@ public sealed class MediaEditorLauncherService
         var result = await dialog.Result;
         return result is not null && !result.Canceled;
     }
+}
+
+public sealed class MediaEditorInlineSession
+{
+    private readonly TaskCompletionSource<bool> _completion =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    internal MediaEditorInlineSession(MediaEditorLaunchRequest request)
+    {
+        Request = request;
+    }
+
+    public MediaEditorLaunchRequest Request { get; }
+
+    public Task<bool> Completion => _completion.Task;
+
+    public bool TryComplete(bool applied) => _completion.TrySetResult(applied);
 }

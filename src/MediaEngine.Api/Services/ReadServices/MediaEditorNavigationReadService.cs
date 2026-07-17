@@ -601,10 +601,10 @@ public sealed class MediaEditorNavigationReadService(
                 }
 
                 return FirstNonBlank(
-                    GetDisplayOverrideValue(value, "episode_title", "title", "display_title"),
+                    GetDisplayOverrideValue(value, "title"),
                     value.AssetEpisodeTitle,
                     value.AssetTitle,
-                    GetDisplayOverrideValue(value, "show_name", "album", "series"),
+                    GetDisplayOverrideValue(value, "title"),
                     value.WorkTitle,
                     value.WorkShowName,
                     value.WorkAlbum,
@@ -727,19 +727,19 @@ public sealed class MediaEditorNavigationReadService(
     private static string ResolveNavigatorTitle(string mediaType, NavigatorTreeRow row, NavigatorValueRow? value) =>
         mediaType switch
         {
-            "TV" when row.Depth == 0 => FirstNonBlank(GetDisplayOverrideValue(value, "show_name", "title", "display_title"), value?.WorkShowName, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            "TV" when row.Depth == 0 => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkShowName, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
             "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
                 $"Season {ParseNavigatorOrdinal(value?.AssetSeasonNumber ?? value?.WorkSeasonNumber, ToInt(row.Ordinal))?.ToString(CultureInfo.InvariantCulture) ?? "?"}",
-            "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "episode_title", "title", "display_title"), value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+            "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Music" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(GetDisplayOverrideValue(value, "album", "title", "display_title"), value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
-            "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "title", "display_title"), value?.AssetTitle, value?.WorkTitle, $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+                FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
+            "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Comics" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(GetDisplayOverrideValue(value, "series", "title", "display_title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
-            "Comics" => FirstNonBlank(GetDisplayOverrideValue(value, "title", "display_title"), value?.AssetTitle, value?.WorkTitle, $"Issue {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+                FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            "Comics" => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, $"Issue {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Books" or "Audiobooks" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(GetDisplayOverrideValue(value, "series", "title", "display_title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
-            _ => FirstNonBlank(GetDisplayOverrideValue(value, "title", "display_title"), value?.AssetTitle, value?.WorkTitle, "Item"),
+                FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            _ => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, "Item"),
         };
 
     private static string? GetDisplayOverrideValue(NavigatorValueRow? value, params string[] keys)
@@ -784,20 +784,20 @@ public sealed class MediaEditorNavigationReadService(
         {
             return mediaType switch
             {
-                "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), BuildDelimitedLabel(FirstNonBlank(value?.WorkYear), FirstNonBlank(value?.WorkNetwork))),
-                "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), BuildDelimitedLabel(FirstNonBlank(value?.WorkArtist), FirstNonBlank(value?.WorkYear))),
-                "Comics" or "Books" or "Audiobooks" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), BuildDelimitedLabel(FirstNonBlank(value?.WorkAuthor), FirstNonBlank(value?.WorkYear))),
-                _ => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), value?.WorkYear),
+                "TV" => BuildDelimitedLabel(FirstNonBlank(value?.WorkYear), FirstNonBlank(value?.WorkNetwork)),
+                "Music" => BuildDelimitedLabel(FirstNonBlank(value?.WorkArtist), FirstNonBlank(value?.WorkYear)),
+                "Comics" or "Books" or "Audiobooks" => BuildDelimitedLabel(FirstNonBlank(value?.WorkAuthor), FirstNonBlank(value?.WorkYear)),
+                _ => value?.WorkYear,
             };
         }
 
         return mediaType switch
         {
-            "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle"), value?.WorkYear),
-            "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle", "artist"), value?.WorkArtist),
-            "Books" or "Audiobooks" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle", "author"), value?.WorkAuthor),
-            "Comics" => FirstNonBlank(GetDisplayOverrideValue(value, "display_subtitle", "volume"), value?.AssetVolume, value?.WorkYear),
-            _ => GetDisplayOverrideValue(value, "display_subtitle"),
+            "TV" => value?.WorkYear,
+            "Music" => value?.WorkArtist,
+            "Books" or "Audiobooks" => value?.WorkAuthor,
+            "Comics" => FirstNonBlank(value?.AssetVolume, value?.WorkYear),
+            _ => null,
         };
     }
 

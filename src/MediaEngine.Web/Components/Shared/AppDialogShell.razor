@@ -1,8 +1,8 @@
 @namespace MediaEngine.Web.Components.Shared
 
 <div class="app-dialog-shell app-dialog-shell--@SizeClass"
-     role="dialog"
-     aria-modal="true"
+     role="@(Modal ? "dialog" : "region")"
+     aria-modal="@(Modal ? "true" : null)"
      aria-labelledby="@TitleId">
     <header class="app-dialog-shell__header">
         @if (HeaderArt is not null)
@@ -61,6 +61,7 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? FooterContent { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool Modal { get; set; } = true;
     private string TitleId { get; } = $"dialog-title-{Guid.NewGuid():N}";
 
     private string SizeClass => Size.Trim().ToLowerInvariant() switch

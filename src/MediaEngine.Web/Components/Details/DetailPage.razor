@@ -4,6 +4,7 @@
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Discovery
+@using MediaEngine.Web.Components.MediaEditor
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Editing
@@ -18,10 +19,13 @@
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 @if (Model is not null)
 {
     <article class="tl-detail-page">
+        <div class="tl-detail-edit-stage tl-detail-edit-stage--@_inlineEditorPhase">
+        <div class="tl-detail-edit-face tl-detail-edit-face--detail" @attributes="DetailFaceAttributes">
         @if (IsAudioDetail)
         {
             <AudioDetailLayout Model="Model"
@@ -125,6 +129,17 @@
                 }
             </section>
         }
+        </div>
+
+        @if (_inlineEditorSession is not null)
+        {
+            <div class="tl-detail-edit-face tl-detail-edit-face--editor">
+                <SharedMediaEditorShell Request="_inlineEditorSession.Request"
+                                        Inline="true"
+                                        Closed="HandleInlineEditorClosedAsync" />
+            </div>
+        }
+        </div>
     </article>
 }
 
@@ -133,6 +148,19 @@
     [Parameter] public string? ActiveTab { get; set; }
     [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
+    private MediaEditorInlineSession? _inlineEditorSession;
+    private string _inlineEditorPhase = "closed";
+    private bool _startInlineEditorAnimation;
+    private bool _closingInlineEditor;
+    private bool _prefersReducedMotion;
+
+    private IReadOnlyDictionary<string, object>? DetailFaceAttributes => _inlineEditorSession is null
+        ? null
+        : new Dictionary<string, object>
+        {
+            ["aria-hidden"] = "true",
+            ["inert"] = string.Empty,
+        };
     private IReadOnlyList<DetailTab> VisibleTabs =>
         Model is null ? [] : DetailTabNavigation.GetVisibleTabs(Model);
 
@@ -258,12 +286,15 @@
                 return;
             }
 
-            var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+            var activeProfile = await Orchestrator.GetActiveProfileAsync();
+            var request = new MediaEditorLaunchRequest
             {
                 EntityIds = [target.EntityId],
                 LaunchEntityId = target.EntityId,
                 LaunchEntityKind = target.EntityKind,
                 ContainerMode = target.ContainerMode,
+                ActiveProfileId = activeProfile?.Id,
+                InitialMediaGroups = Model.MediaGroups,
                 Mode = SharedMediaEditorMode.Normal,
                 InitialTab = target.InitialTab ?? "details",
                 InitialScope = target.InitialScope,
@@ -282,18 +313,58 @@
                         MediaType = ResolveEditorMediaType(Model.EntityType, Model.PresentationContext),
                     },
                 ],
-            });
+            };
 
-            if (applied)
-            {
-                await RefreshCurrentDetailAsync();
-                Snackbar.Add("Media details updated.", Severity.Success);
-            }
+            _prefersReducedMotion = await JS.InvokeAsync<bool>("tuvimaPrefersReducedMotion");
+            _inlineEditorSession = MediaEditorLauncher.BeginInline(request);
+            _inlineEditorPhase = "entering";
+            _startInlineEditorAnimation = true;
+            await InvokeAsync(StateHasChanged);
+            await _inlineEditorSession.Completion;
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Media editor could not open: {ex.Message}", Severity.Error);
         }
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_startInlineEditorAnimation)
+            return Task.CompletedTask;
+
+        _startInlineEditorAnimation = false;
+        _inlineEditorPhase = "open";
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleInlineEditorClosedAsync(bool applied)
+    {
+        if (_inlineEditorSession is null || _closingInlineEditor)
+            return;
+
+        _closingInlineEditor = true;
+        var completedSession = _inlineEditorSession;
+
+        if (applied)
+        {
+            await RefreshCurrentDetailAsync();
+            Snackbar.Add("Media details updated.", Severity.Success);
+        }
+
+        _inlineEditorPhase = "exiting";
+        await InvokeAsync(StateHasChanged);
+
+        if (!_prefersReducedMotion)
+            await Task.Delay(380);
+
+        _inlineEditorSession = null;
+        _inlineEditorPhase = "closed";
+        _closingInlineEditor = false;
+        completedSession.TryComplete(applied);
+        await InvokeAsync(StateHasChanged);
+        await JS.InvokeVoidAsync("tuvimaEditorFocus", "button[aria-label='Edit'], button[title='Edit']");
     }
 
     private (Guid EntityId, string EntityKind, string ContainerMode, string? InitialTab, string? InitialScope) ResolveEditorTarget(Guid fallbackEntityId)

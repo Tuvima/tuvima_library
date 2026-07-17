@@ -288,6 +288,41 @@ public sealed class AiFeaturePersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task TasteSignals_ExcludeWorksDisabledForRecommendations()
+    {
+        var profileId = Guid.NewGuid();
+        var includedAsset = SeedTasteAsset(profileId, "Books", 40, "mystery", "curious", 2021);
+        var excludedAsset = SeedTasteAsset(profileId, "Movies", 100, "horror", "bleak", 1980);
+
+        using (var conn = _db.CreateConnection())
+        {
+            var excludedWorkId = conn.ExecuteScalar<Guid>(
+                """
+                SELECT e.work_id
+                FROM media_assets a
+                INNER JOIN editions e ON e.id = a.edition_id
+                WHERE a.id = @excludedAsset;
+                """,
+                new { excludedAsset });
+            conn.Execute(
+                """
+                INSERT INTO profiles (id, display_name, role, created_at)
+                VALUES (@profileId, 'Taste test', 'Consumer', @createdAt);
+                INSERT INTO profile_work_preferences
+                    (profile_id, work_id, include_in_recommendations, revision, updated_at)
+                VALUES (@profileId, @excludedWorkId, 0, 1, @createdAt);
+                """,
+                new { profileId, excludedWorkId, createdAt = DateTimeOffset.UtcNow.ToString("O") });
+        }
+
+        var signals = await _tasteProfiles.GetSignalsAsync(profileId, 50);
+
+        var signal = Assert.Single(signals);
+        Assert.Equal(includedAsset, signal.AssetId);
+        Assert.DoesNotContain(signals, value => value.AssetId == excludedAsset);
+    }
+
+    [Fact]
     public async Task RecordAiFeatureFailure_RetriesThenQuarantinesPoisonWork()
     {
         var entityId = Guid.NewGuid();

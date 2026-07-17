@@ -16,6 +16,14 @@ namespace MediaEngine.Api.Endpoints;
 
 public static class ItemCanonicalEndpoints
 {
+    private static readonly HashSet<string> AllowedDisplayOverrideKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "title",
+        "tagline",
+        "description",
+        "sort_title",
+    };
+
     public static IEndpointRouteBuilder MapItemCanonicalEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/library/items")
@@ -137,6 +145,14 @@ public static class ItemCanonicalEndpoints
         {
             if (request.Fields.Count == 0)
                 return Results.BadRequest("At least one display override is required.");
+
+            var unsupportedKeys = request.Fields.Keys
+                .Where(key => !AllowedDisplayOverrideKeys.Contains(key.Trim()))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (unsupportedKeys.Count > 0)
+                return Results.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
 
             var displayOverrideState = await itemCanonicalData.LoadDisplayOverridesAsync(entityId, ct);
             if (!displayOverrideState.WorkExists)
@@ -514,6 +530,85 @@ public static class ItemCanonicalEndpoints
         .WithName("ApplyItemCanonicalCandidate")
         .WithSummary("Apply a targeted canonical candidate and clear stale IDs for the same field group.")
         .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        group.MapGet("/{entityId:guid}/editor-preferences/{profileId:guid}", async (
+            Guid entityId,
+            Guid profileId,
+            IProfileWorkPreferencesRepository preferences,
+            CancellationToken ct) =>
+        {
+            var current = await preferences.GetAsync(profileId, entityId, ct);
+            return Results.Ok(ToEditorPreferencesResponse(current));
+        })
+        .WithName("GetItemEditorPreferences")
+        .WithSummary("Returns profile-owned editor preferences and their optimistic-concurrency revision.")
+        .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
+        group.MapPut("/{entityId:guid}/editor-preferences/{profileId:guid}", async (
+            Guid entityId,
+            Guid profileId,
+            ItemEditorPreferencesRequest request,
+            IProfileWorkPreferencesRepository preferences,
+            ISystemActivityRepository activityRepo,
+            CancellationToken ct) =>
+        {
+            var unsupportedKeys = request.DisplayOverrides.Keys
+                .Where(key => !AllowedDisplayOverrideKeys.Contains(key.Trim()))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (unsupportedKeys.Count > 0)
+                return Results.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
+
+            if (request.PersonalNotes?.Length > 4000)
+                return Results.BadRequest("Personal notes cannot exceed 4,000 characters.");
+
+            var localTags = request.LocalTags
+                .Select(tag => tag.Trim())
+                .Where(tag => tag.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (localTags.Count > 30 || localTags.Any(tag => tag.Length > 64))
+                return Results.BadRequest("Use at most 30 local tags, each no longer than 64 characters.");
+
+            var result = await preferences.SaveAsync(new EditorPreferencesSaveCommand(
+                profileId,
+                entityId,
+                request.ExpectedRevision,
+                request.DisplayOverrides,
+                request.PersonalNotes,
+                localTags,
+                request.IsHidden,
+                request.IncludeInRecommendations), ct);
+
+            if (!result.WorkExists)
+                return Results.NotFound($"No work found for {entityId}.");
+            if (!result.ProfileExists)
+                return Results.NotFound($"No profile found for {profileId}.");
+
+            var response = ToEditorPreferencesResponse(result.Preferences, result.DisplayOverrides);
+            if (result.Conflict)
+                return Results.Conflict(response);
+
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt = DateTimeOffset.UtcNow,
+                ActionType = SystemActionType.MetadataManualOverride,
+                EntityId = entityId,
+                EntityType = "Work",
+                Detail = "Saved local display and profile preferences from the inline editor.",
+            }, ct);
+
+            return Results.Ok(response);
+        })
+        .WithName("SaveItemEditorPreferences")
+        .WithSummary("Atomically saves presentation overrides and profile-owned library preferences.")
+        .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status200OK)
+        .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status409Conflict)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
@@ -1589,6 +1684,21 @@ public static class ItemCanonicalEndpoints
         "linked" => "Linked to Wikidata",
         "provider_only" => "Linked to provider only",
         _ => "Saved without external link",
+    };
+
+    private static ItemEditorPreferencesResponse ToEditorPreferencesResponse(
+        ProfileWorkPreferences preferences,
+        IReadOnlyDictionary<string, string>? displayOverrides = null) => new()
+    {
+        ProfileId = preferences.ProfileId,
+        WorkId = preferences.WorkId,
+        PersonalNotes = preferences.PersonalNotes,
+        LocalTags = preferences.LocalTags,
+        IsHidden = preferences.IsHidden,
+        IncludeInRecommendations = preferences.IncludeInRecommendations,
+        Revision = preferences.Revision,
+        UpdatedAt = preferences.UpdatedAt,
+        DisplayOverrides = displayOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
     };
 
 }

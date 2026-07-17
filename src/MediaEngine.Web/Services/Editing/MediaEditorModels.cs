@@ -1,3 +1,4 @@
+using MediaEngine.Contracts.Details;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Editing;
@@ -30,6 +31,8 @@ public sealed class MediaEditorLaunchRequest
     public string? LaunchEntityKind { get; init; }
     public string? ContainerMode { get; init; }
     public Guid? SelectedCollectionId { get; init; }
+    public Guid? ActiveProfileId { get; init; }
+    public IReadOnlyList<MediaGroupingViewModel> InitialMediaGroups { get; init; } = [];
     public SharedMediaEditorMode Mode { get; init; } = SharedMediaEditorMode.Normal;
     public MediaEditorIdentityIntent IdentityIntent { get; init; } = MediaEditorIdentityIntent.None;
     public string? InitialScope { get; init; }
@@ -356,27 +359,13 @@ public static class MediaEditorSchemaCatalog
         Groups =
         [
             Group("music_details", "Details", "details",
-                Field("title", "Title", identity: true),
-                Field("year", "Year"),
-                Field("description", "Description", "textarea", identity: true),
-                Field("artist", "Artist", identity: true),
-                Field("album", "Album", identity: true),
-                Field("track_number", "Track"),
-                Field("disc_number", "Disc"),
-                Field("composer", "Composer"),
-                Field("genre", "Genre")),
+                Field("title", "Display title", identity: true),
+                Field("description", "Description", "textarea", identity: true)),
             Group("music_options", "Options", "options",
-                Field("album_artist", "Album Artist"),
-                Field("duration", "Duration"),
-                Field("lyrics", "Lyrics", "textarea", batch: false),
-                Field("language", "Language"),
-                Field("custom_tags", "Tags"),
-                Field("rating", "Rating"),
-                Field("comment", "Comment", "textarea")),
+                Field("custom_tags", "Local tags"),
+                Field("comment", "Personal notes", "textarea")),
             Group("music_sorting", "Sorting", "sorting",
-                Field("sort_title", "Sort Title"),
-                Field("sort_artist", "Sort Artist"),
-                Field("sort_album", "Sort Album")),
+                Field("sort_title", "Sort title")),
         ],
     };
 
@@ -388,18 +377,12 @@ public static class MediaEditorSchemaCatalog
         Groups =
         [
             Group("movie_details", "Details", "details",
-                Field("title", "Title", identity: true),
-                Field("year", "Year", identity: true),
-                Field("description", "Description", "textarea", identity: true),
-                Field("director", "Director", identity: true),
-                Field("runtime", "Runtime"),
-                Field("studio", "Studio"),
-                Field("language", "Language")),
+                Field("title", "Display title", identity: true),
+                Field("tagline", "Tagline"),
+                Field("description", "Description", "textarea", identity: true)),
             Group("movie_options", "Options", "options",
-                Field("genre", "Genre"),
-                Field("custom_tags", "Tags"),
-                Field("rating", "Rating"),
-                Field("comment", "Comment", "textarea")),
+                Field("custom_tags", "Local tags"),
+                Field("comment", "Personal notes", "textarea")),
             Group("movie_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort Title")),
         ],
@@ -413,23 +396,14 @@ public static class MediaEditorSchemaCatalog
         Groups =
         [
             Group("tv_details", "Details", "details",
-                Field("show_name", "Show", identity: true),
-                Field("episode_title", "Title", identity: true),
-                Field("description", "Description", "textarea", identity: true),
-                Field("season_number", "Season", identity: true),
-                Field("episode_number", "Episode", identity: true),
-                Field("year", "Year"),
-                Field("network", "Network"),
-                Field("runtime", "Runtime")),
+                Field("title", "Display title", identity: true),
+                Field("tagline", "Tagline"),
+                Field("description", "Description", "textarea", identity: true)),
             Group("tv_options", "Options", "options",
-                Field("genre", "Genre"),
-                Field("custom_tags", "Tags"),
-                Field("rating", "Rating"),
-                Field("language", "Language"),
-                Field("comment", "Comment", "textarea")),
+                Field("custom_tags", "Local tags"),
+                Field("comment", "Personal notes", "textarea")),
             Group("tv_sorting", "Sorting", "sorting",
-                Field("sort_title", "Sort Episode Title"),
-                Field("sort_series", "Sort Show")),
+                Field("sort_title", "Sort title")),
         ],
     };
 
@@ -441,23 +415,13 @@ public static class MediaEditorSchemaCatalog
         Groups =
         [
             Group("book_details", "Details", "details",
-                Field("title", "Title", identity: true),
-                Field("year", "Year"),
-                Field("description", "Description", "textarea", identity: true),
-                Field("subtitle", "Subtitle"),
-                Field("author", "Author", identity: true),
-                Field("series", "Series"),
-                Field("series_position", "Series Number"),
-                Field("publisher", "Publisher"),
-                Field("language", "Language")),
+                Field("title", "Display title", identity: true),
+                Field("description", "Description", "textarea", identity: true)),
             Group("book_options", "Options", "options",
-                Field("genre", "Genre"),
-                Field("custom_tags", "Tags"),
-                Field("rating", "Rating"),
-                Field("comment", "Comment", "textarea")),
+                Field("custom_tags", "Local tags"),
+                Field("comment", "Personal notes", "textarea")),
             Group("book_sorting", "Sorting", "sorting",
-                Field("sort_title", "Sort Title"),
-                Field("sort_series", "Sort Series")),
+                Field("sort_title", "Sort title")),
         ],
     };
 
@@ -469,24 +433,13 @@ public static class MediaEditorSchemaCatalog
         Groups =
         [
             Group("audiobook_details", "Details", "details",
-                Field("title", "Title", identity: true),
-                Field("year", "Year"),
-                Field("description", "Description", "textarea", identity: true),
-                Field("author", "Author", identity: true),
-                Field("narrator", "Narrator", identity: true),
-                Field("series", "Series"),
-                Field("series_position", "Series Number"),
-                Field("duration", "Duration"),
-                Field("publisher", "Publisher")),
+                Field("title", "Display title", identity: true),
+                Field("description", "Description", "textarea", identity: true)),
             Group("audiobook_options", "Options", "options",
-                Field("genre", "Genre"),
-                Field("language", "Language"),
-                Field("custom_tags", "Tags"),
-                Field("rating", "Rating"),
-                Field("comment", "Comment", "textarea")),
+                Field("custom_tags", "Local tags"),
+                Field("comment", "Personal notes", "textarea")),
             Group("audiobook_sorting", "Sorting", "sorting",
-                Field("sort_title", "Sort Title"),
-                Field("sort_series", "Sort Series")),
+                Field("sort_title", "Sort title")),
         ],
     };
 
@@ -498,22 +451,13 @@ public static class MediaEditorSchemaCatalog
         Groups =
         [
             Group("comic_details", "Details", "details",
-                Field("title", "Title"),
-                Field("year", "Year"),
-                Field("description", "Description", "textarea", identity: true),
-                Field("series", "Volume", identity: true),
-                Field("series_position", "Issue Number", identity: true),
-                Field("author", "Writer"),
-                Field("illustrator", "Artist"),
-                Field("publisher", "Publisher")),
+                Field("title", "Display title", identity: true),
+                Field("description", "Description", "textarea", identity: true)),
             Group("comic_options", "Options", "options",
-                Field("volume", "Volume"),
-                Field("genre", "Genre"),
-                Field("custom_tags", "Tags"),
-                Field("comment", "Comment", "textarea")),
+                Field("custom_tags", "Local tags"),
+                Field("comment", "Personal notes", "textarea")),
             Group("comic_sorting", "Sorting", "sorting",
-                Field("sort_title", "Sort Title"),
-                Field("sort_series", "Sort Volume")),
+                Field("sort_title", "Sort title")),
         ],
     };
 

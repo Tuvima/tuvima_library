@@ -3,6 +3,11 @@
         padding-bottom: 5rem;
 }
 
+.bdc-inline-editor {
+    min-height: 100svh;
+    background: var(--tl-page-background, #050914);
+}
+
 .book-detail-title {
     font-family: var(--media-identity-font-family);
     font-weight: var(--media-identity-title-weight, 850);

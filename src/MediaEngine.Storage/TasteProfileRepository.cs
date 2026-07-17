@@ -82,6 +82,13 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE us.user_id = @userId
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM profile_work_preferences pwp
+                  WHERE pwp.profile_id = us.user_id
+                    AND pwp.work_id IN (w.id, p.id, gp.id)
+                    AND pwp.include_in_recommendations = 0
+              )
             ORDER BY us.last_accessed DESC
             LIMIT @limit;
             """,
@@ -106,6 +113,13 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
             INNER JOIN canonical_value_arrays cva
                 ON cva.entity_id IN (us.asset_id, e.work_id, COALESCE(gp.id, p.id, w.id))
             WHERE us.user_id = @userId
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM profile_work_preferences pwp
+                  WHERE pwp.profile_id = us.user_id
+                    AND pwp.work_id IN (w.id, p.id, gp.id)
+                    AND pwp.include_in_recommendations = 0
+              )
               AND cva.key IN ('genre', 'vibe', 'mood')
             ORDER BY cva.entity_id, cva.key, cva.ordinal;
             """,

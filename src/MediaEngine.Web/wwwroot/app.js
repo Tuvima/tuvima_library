@@ -12,6 +12,16 @@ window.tuvimaPrefersReducedMotion = function () {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 };
 
+window.tuvimaEditorFocus = function (selector) {
+    if (!selector) return;
+    window.requestAnimationFrame(function () {
+        var target = document.querySelector(selector);
+        if (target && typeof target.focus === 'function') {
+            target.focus({ preventScroll: true });
+        }
+    });
+};
+
 /**
  * Registers a global Ctrl+K (or Cmd+K on Mac) keydown listener that invokes
  * the .NET OpenPalette() method on the provided DotNetObjectReference.

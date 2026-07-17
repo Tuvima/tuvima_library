@@ -48,6 +48,7 @@
                                    Size="Size.Small"
                                    Color="Color.Success"
                                    Variant="Variant.Filled"
+                                   aria-label="@ConfirmLabel"
                                    OnClick="@(() => OnConfirmAction.InvokeAsync())"
                                    Class="tl-field-confirm-button tl-field-confirm-button--accept" />
                 </MudTooltip>
@@ -56,6 +57,7 @@
                                    Size="Size.Small"
                                    Color="Color.Error"
                                    Variant="Variant.Filled"
+                                   aria-label="@CancelLabel"
                                    OnClick="@(() => OnCancelAction.InvokeAsync())"
                                    Class="tl-field-confirm-button tl-field-confirm-button--cancel" />
                 </MudTooltip>
@@ -68,6 +70,7 @@
                                Size="Size.Small"
                                Color="@ActionColor"
                                Variant="Variant.Outlined"
+                               aria-label="@ActionLabel"
                                Disabled="@ActionDisabled"
                                OnClick="@(() => OnAction.InvokeAsync())"
                                Class="tl-field-action-button" />

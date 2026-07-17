@@ -12,6 +12,15 @@ public sealed class CollectionEditorLauncherService
         _dialogService = dialogService;
     }
 
+    public CollectionEditorInlineSession BeginInline(CollectionEditorLaunchRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.EditingCollection is null)
+            throw new InvalidOperationException("Inline collection editing requires an existing collection.");
+
+        return new CollectionEditorInlineSession(request);
+    }
+
     public async Task<bool> OpenAsync(CollectionEditorLaunchRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -56,4 +65,14 @@ public sealed class CollectionEditorLauncherService
             "SmartPlaylist" => "Edit Smart Playlist",
             _ => "Edit Collection",
         };
+}
+
+public sealed class CollectionEditorInlineSession
+{
+    internal CollectionEditorInlineSession(CollectionEditorLaunchRequest request)
+    {
+        Request = request;
+    }
+
+    public CollectionEditorLaunchRequest Request { get; }
 }

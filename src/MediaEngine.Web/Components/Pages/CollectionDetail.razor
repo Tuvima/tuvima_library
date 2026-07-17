@@ -1,10 +1,12 @@
 @page "/collection/{Id:guid}"
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Components.Collections
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
-@inject ISnackbar Snackbar
 @inject NavigationManager Nav
+@inject CollectionEditorLauncherService CollectionEditorLauncher
 
 @namespace MediaEngine.Web.Components.Pages
 
@@ -25,6 +27,14 @@ else if (_collection is null)
             <p>This collection could not be loaded from your library.</p>
         </div>
     </div>
+}
+else if (_editorSession is not null)
+{
+    <article class="tl-detail-page collection-detail-page collection-detail-page--editing">
+        <CollectionEditorShell Request="_editorSession.Request"
+                               Inline="true"
+                               Closed="HandleEditorClosedAsync" />
+    </article>
 }
 else
 {
@@ -50,6 +60,17 @@ else
                         </span>
                     }
                 </div>
+
+                @if (CanEditCollection)
+                {
+                    <AppButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.Edit"
+                               Class="collection-detail-edit-action"
+                               OnClick="OpenEditorAsync">
+                        Edit collection
+                    </AppButton>
+                }
             </div>
 
             <div class="collection-detail-hero__cascade">
@@ -87,7 +108,7 @@ else
                     <div class="collection-detail-empty collection-detail-empty--inline">
                         <MudIcon Icon="@Icons.Material.Outlined.LibraryAdd" />
                         <h3>No items yet</h3>
-                        <p>Add books, movies, shows, audio, or comics to build this collection.</p>
+                        <p>This collection does not contain any visible library items.</p>
                     </div>
                 }
                 else
@@ -118,14 +139,6 @@ else
                                             <AppNativeButton Type="button" OnClick="() => OpenItem(item)">@DisplayTitle(item)</AppNativeButton>
                                             <span>@FormatItemMeta(item)</span>
                                         </div>
-                                        @if (CanManageItems)
-                                        {
-                                            <AppIconButton Icon="@Icons.Material.Outlined.RemoveCircle"
-                                                           Size="Size.Small"
-                                                           Color="Color.Error"
-                                                           OnClick="() => RemoveItemAsync(item)"
-                                                           aria-label="@($"Remove {DisplayTitle(item)}")" />
-                                        }
                                     </article>
                                 }
                             </div>
@@ -134,80 +147,6 @@ else
                 }
             </div>
 
-            <aside class="collection-detail-editor">
-                <div class="collection-detail-eyebrow collection-detail-eyebrow--small">
-                    <MudIcon Icon="@Icons.Material.Outlined.EditNote" Size="Size.Small" />
-                    <span>EDIT COLLECTION</span>
-                </div>
-
-                @if (CanManageItems)
-                {
-                    <h2>Add or Remove Items</h2>
-                    <p>Search the library to add works. Remove existing items from the overview cards.</p>
-
-                    <AppTextField T="string"
-                                  Value="_itemSearch"
-                                  ValueChanged="SearchItemsAsync"
-                                  Placeholder="Search library items"
-                                  Variant="Variant.Outlined"
-                                  Immediate="true"
-                                  DebounceInterval="300"
-                                  Adornment="Adornment.Start"
-                                  AdornmentIcon="@Icons.Material.Outlined.Search"
-                                  Class="tl-field collection-detail-editor__search" />
-
-                    @if (_lookupItems.Count > 0)
-                    {
-                        <div class="collection-detail-lookup">
-                            @foreach (var result in _lookupItems.Take(8))
-                            {
-                                <div class="collection-detail-lookup__row">
-                                    @if (!string.IsNullOrWhiteSpace(result.ArtworkUrl))
-                                    {
-                                        <img src="@result.ArtworkUrl" alt="" />
-                                    }
-                                    else
-                                    {
-                                        <span class="collection-detail-lookup__fallback">
-                                            <MudIcon Icon="@IconForMediaType(result.MediaType)" Size="Size.Small" />
-                                        </span>
-                                    }
-                                    <div>
-                                        <strong>@result.Title</strong>
-                                        <span>@FormatLookupMeta(result)</span>
-                                    </div>
-                                    <AppIconButton Icon="@(result.AlreadyInCollection ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.AddCircle)"
-                                                   Size="Size.Small"
-                                                   Color="@(result.AlreadyInCollection ? Color.Success : Color.Primary)"
-                                                   Disabled="@result.AlreadyInCollection"
-                                                   OnClick="() => AddItemAsync(result)"
-                                                   aria-label="@($"Add {result.Title}")" />
-                                </div>
-                            }
-                        </div>
-                    }
-                    else if (!string.IsNullOrWhiteSpace(_itemSearch))
-                    {
-                        <div class="collection-detail-editor__note">No matching library items found.</div>
-                    }
-                }
-                else
-                {
-                    <h2>Managed Collection</h2>
-                    <p>@ReadOnlyReason</p>
-                }
-
-                <div class="collection-detail-editor__facts">
-                    <div>
-                        <span>Type</span>
-                        <strong>@CollectionLabel</strong>
-                    </div>
-                    <div>
-                        <span>Items</span>
-                        <strong>@_items.Count</strong>
-                    </div>
-                </div>
-            </aside>
         </main>
     </article>
 }
@@ -220,15 +159,14 @@ else
     [Parameter] public Guid Id { get; set; }
 
     private readonly List<CollectionItemViewModel> _items = [];
-    private readonly List<CollectionMediaLookupItemViewModel> _lookupItems = [];
     private CollectionManagementCatalogViewModel? _collection;
     private ProfileViewModel? _activeProfile;
     private Guid? _loadedCollectionId;
     private bool _loading = true;
     private bool _loadingItems;
-    private string _itemSearch = string.Empty;
+    private CollectionEditorInlineSession? _editorSession;
 
-    private bool CanManageItems => _collection?.IsManual == true && _collection.CanEdit && !_collection.IsSystem;
+    private bool CanEditCollection => _collection?.CanEdit == true && !_collection.IsSystem;
 
     private string CollectionLabel
     {
@@ -278,20 +216,6 @@ else
             .Select(group => new MediaCountChip(group.Key.Label, group.Key.Icon, group.Count()))
             .OrderBy(chip => MediaCountSort(chip.Label))
             .ToList();
-
-    private string ReadOnlyReason
-    {
-        get
-        {
-            if (_collection?.IsSystem == true)
-                return "This is a system collection. Its membership is managed by the relevant user action.";
-
-            if (_collection?.IsManual != true)
-                return "This collection is generated from Wikidata and library relationships, so item membership is not edited directly here.";
-
-            return "The active profile does not have permission to edit this collection.";
-        }
-    }
 
     private IReadOnlyList<ArtworkStackItem> HeroArtworkStackItems
     {
@@ -344,8 +268,6 @@ else
         _loading = true;
         _collection = null;
         _items.Clear();
-        _lookupItems.Clear();
-        _itemSearch = string.Empty;
 
         try
         {
@@ -375,44 +297,58 @@ else
         }
     }
 
-    private async Task SearchItemsAsync(string value)
+    private Task OpenEditorAsync()
     {
-        _itemSearch = value;
-        _lookupItems.Clear();
+        if (_collection is null || !CanEditCollection)
+            return Task.CompletedTask;
 
-        if (_collection is null || string.IsNullOrWhiteSpace(value) || !CanManageItems)
-            return;
-
-        _lookupItems.AddRange(await ApiClient.LookupCollectionMediaAsync(value, _collection.Id, null, 0, 12, _activeProfile?.Id));
-    }
-
-    private async Task AddItemAsync(CollectionMediaLookupItemViewModel item)
-    {
-        if (_collection is null || item.AlreadyInCollection)
-            return;
-
-        var ok = await ApiClient.AddCollectionItemAsync(_collection.Id, item.WorkId, _activeProfile?.Id);
-        Snackbar.Add(ok ? "Item added to collection." : "Item could not be added.", ok ? Severity.Success : Severity.Error);
-
-        if (ok)
+        _editorSession = CollectionEditorLauncher.BeginInline(new CollectionEditorLaunchRequest
         {
-            _itemSearch = string.Empty;
-            _lookupItems.Clear();
-            await LoadItemsAsync();
-        }
+            EditingCollection = ToCollectionListItem(_collection),
+            ActiveProfileId = _activeProfile?.Id ?? _collection.ProfileId,
+            CanManageSharedCollections = _collection.CanShare,
+            Mode = "Collection",
+        });
+        return InvokeAsync(StateHasChanged);
     }
 
-    private async Task RemoveItemAsync(CollectionItemViewModel item)
+    private async Task HandleEditorClosedAsync(bool applied)
     {
-        if (_collection is null)
-            return;
+        _editorSession = null;
+        if (applied)
+        {
+            _collection = await ApiClient.GetCollectionSummaryAsync(Id, _activeProfile?.Id);
+            if (_collection is not null)
+                await LoadItemsAsync();
+        }
 
-        var ok = await ApiClient.RemoveCollectionItemAsync(_collection.Id, item.Id, _activeProfile?.Id);
-        Snackbar.Add(ok ? "Item removed from collection." : "Item could not be removed.", ok ? Severity.Success : Severity.Error);
-
-        if (ok)
-            await LoadItemsAsync();
+        await InvokeAsync(StateHasChanged);
     }
+
+    private static CollectionListItemViewModel ToCollectionListItem(CollectionManagementCatalogViewModel collection) => new()
+    {
+        Id = collection.Id,
+        Name = collection.Name,
+        Description = collection.Description,
+        IconName = collection.IconName,
+        CollectionType = collection.CollectionType,
+        Resolution = collection.Resolution,
+        Scope = collection.Scope,
+        ProfileId = collection.ProfileId,
+        Visibility = collection.Visibility,
+        IsEnabled = collection.IsEnabled,
+        IsFeatured = collection.IsFeatured,
+        ItemCount = collection.ItemCount,
+        RuleJson = collection.RuleJson,
+        MatchMode = collection.MatchMode,
+        SortField = collection.SortField,
+        SortDirection = collection.SortDirection,
+        LiveUpdating = collection.LiveUpdating,
+        CoverUrl = collection.SquareArtworkUrl,
+        CreatedAt = collection.CreatedAt,
+        CanEdit = collection.CanEdit,
+        CanShare = collection.CanShare,
+    };
 
     private void OpenItem(CollectionItemViewModel item)
     {
@@ -425,9 +361,6 @@ else
 
     private static string FormatItemMeta(CollectionItemViewModel item) =>
         string.Join("  -  ", new[] { item.Creator, NormalizeMediaType(item.MediaType) }.Where(value => !string.IsNullOrWhiteSpace(value)));
-
-    private static string FormatLookupMeta(CollectionMediaLookupItemViewModel item) =>
-        string.Join("  -  ", new[] { item.Creator, NormalizeMediaType(item.MediaType), item.Year }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private static string NormalizeMediaType(string? mediaType) => mediaType switch
     {

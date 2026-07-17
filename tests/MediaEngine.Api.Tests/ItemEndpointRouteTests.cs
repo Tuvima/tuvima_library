@@ -89,6 +89,8 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("MapItemCanonicalEndpoints", source, StringComparison.Ordinal);
         Assert.Contains(".WithTags(\"Items\")", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPut(\"/{entityId:guid}/preferences\", async (", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/{entityId:guid}/editor-preferences/{profileId:guid}\", async (", source, StringComparison.Ordinal);
+        Assert.Contains("group.MapPut(\"/{entityId:guid}/editor-preferences/{profileId:guid}\", async (", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/{entityId:guid}/canonical-search\", async (", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/{entityId:guid}/canonical-apply\", async (", source, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/{entityId:guid}/retail-match\", async (", source, StringComparison.Ordinal);

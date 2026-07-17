@@ -274,6 +274,7 @@ builder.Services.AddSingleton<IProviderConfigurationRepository, ProviderConfigur
 builder.Services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IProfileRepository, ProfileRepository>();
+builder.Services.AddSingleton<IProfileWorkPreferencesRepository, ProfileWorkPreferencesRepository>();
 builder.Services.AddSingleton<ITasteProfileRepository, TasteProfileRepository>();
 builder.Services.AddSingleton<IProfileService, ProfileService>();
 builder.Services.AddSingleton<IProfileExternalLoginRepository, ProfileExternalLoginRepository>();
@@ -308,6 +309,7 @@ builder.Services.AddSingleton<IMetadataEndpointDataService, MetadataEndpointData
 builder.Services.AddSingleton<IItemCanonicalDataService, ItemCanonicalDataService>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.IDisplayProjectionRepository, MediaEngine.Api.Services.Display.DisplayProjectionRepository>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayWorkProjectionReader>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayProfilePreferenceProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayJourneyProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayFavoriteProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayHomeCollectionProjectionReader>();

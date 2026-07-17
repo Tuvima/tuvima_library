@@ -1,5 +1,6 @@
 ﻿@using MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Components.LibraryItems
+@using MediaEngine.Web.Components.MediaEditor
 @using MediaEngine.Web.Services.Playback
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
@@ -22,6 +23,14 @@ else if (_work is null)
     <AppButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/"))">
         Back to Home
     </AppButton>
+}
+else if (_inlineEditorSession is not null)
+{
+    <section class="bdc-inline-editor" aria-label="Book editor">
+        <SharedMediaEditorShell Request="_inlineEditorSession.Request"
+                                Inline="true"
+                                Closed="HandleInlineEditorClosedAsync" />
+    </section>
 }
 else
 {
@@ -559,6 +568,8 @@ else
     private bool                    _loading            = true;
     private CollectionViewModel?           _collection;
     private WorkViewModel?          _work;
+    private MediaEditorInlineSession? _inlineEditorSession;
+    private Guid?                   _autoOpenEditConsumedFor;
     private List<WorkViewModel>     _siblingWorks       = [];
     private PersonViewModel?        _authorPerson;
     private PersonViewModel?        _narratorPerson;
@@ -576,6 +587,9 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!AutoOpenEdit)
+            _autoOpenEditConsumedFor = null;
+
         _loading             = true;
         _showFullDescription = false;
         _showAllGenres       = false;
@@ -679,8 +693,11 @@ else
 
         _loading = false;
 
-        if (AutoOpenEdit)
+        if (AutoOpenEdit && _autoOpenEditConsumedFor != WorkId)
+        {
+            _autoOpenEditConsumedFor = WorkId;
             await OpenMediaItemEditor();
+        }
     }
 
     private async Task OnPrimaryAction()
@@ -766,11 +783,13 @@ else
         if (_work is null)
             return;
 
-        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+        var activeProfile = await Orchestrator.GetActiveProfileAsync();
+        _inlineEditorSession = MediaEditorLauncher.BeginInline(new MediaEditorLaunchRequest
         {
             EntityIds = [_work.Id],
             LaunchEntityId = _work.Id,
             LaunchEntityKind = "Work",
+            ActiveProfileId = activeProfile?.Id,
             Mode = SharedMediaEditorMode.Normal,
             InitialScope = _work.MediaType switch
             {
@@ -785,7 +804,6 @@ else
                 ?? ActiveWork?.Author
                 ?? _work.Author,
             CoverUrl = ActiveWork?.CoverUrl ?? _work.CoverUrl,
-            OnArtworkChanged = OnEditApplied,
             PreviewItems =
             [
                 new MediaEditorPreviewItem
@@ -798,10 +816,19 @@ else
             ],
         });
 
+        await InvokeAsync(StateHasChanged);
+        await _inlineEditorSession.Completion;
+    }
+
+    private async Task HandleInlineEditorClosedAsync(bool applied)
+    {
+        var session = _inlineEditorSession;
+        _inlineEditorSession = null;
+        session?.TryComplete(applied);
         if (applied)
-        {
             await OnEditApplied();
-        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private void ShowToast(string message)

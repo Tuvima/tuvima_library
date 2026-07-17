@@ -1856,13 +1856,16 @@ public static partial class MetadataEndpoints
         {
             return normalized switch
             {
-                "TV" => ["details", "episodes", "artwork", "links", "history"],
-                "Music" => ["details", "tracks", "artwork", "links", "history"],
+                "TV" => ["details", "episodes", "artwork", "links", "file", "history"],
+                "Music" => ["details", "tracks", "artwork", "links", "file", "history"],
                 _ => ["details", "links", "history"],
             };
         }
 
         var tabs = new List<string> { "details" };
+        if (normalized == "Audiobooks")
+            tabs.Add("contents");
+
         if (canEditArtwork)
             tabs.Add("artwork");
 
@@ -1933,13 +1936,8 @@ public static partial class MetadataEndpoints
     private static IReadOnlyList<string> BuildDisplayOverrideKeys(string mediaType) =>
         NormalizeEditorMediaType(mediaType) switch
         {
-            "Music" => ["display_title", "display_subtitle", "sort_title", "sort_album"],
-            "TV" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
-            "Movies" => ["display_title", "display_subtitle", "sort_title"],
-            "Books" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
-            "Audiobooks" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
-            "Comics" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
-            _ => ["display_title", "display_subtitle", "sort_title"],
+            "Movies" or "TV" => ["title", "tagline", "description", "sort_title"],
+            _ => ["title", "description", "sort_title"],
         };
 
     private static List<EditorScopeResolution> BuildEditorScopes(

@@ -16,6 +16,8 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("/membership-apply", navigator, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/preferences", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/display-overrides", canonical, StringComparison.Ordinal);
+        Assert.Contains("/{entityId:guid}/editor-preferences/{profileId:guid}", canonical, StringComparison.Ordinal);
+        Assert.Contains("ExpectedRevision", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/canonical-search", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/canonical-apply", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/retail-match", canonical, StringComparison.Ordinal);
@@ -44,9 +46,9 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("video_width", navigatorService, StringComparison.Ordinal);
         Assert.Contains("disc_number", navigatorService, StringComparison.Ordinal);
         Assert.Contains("display_overrides_json", navigatorService, StringComparison.Ordinal);
-        Assert.Contains("GetDisplayOverrideValue(value, \"episode_title\", \"title\", \"display_title\")", navigatorService, StringComparison.Ordinal);
-        Assert.Contains("GetDisplayOverrideValue(value, \"title\", \"display_title\")", navigatorService, StringComparison.Ordinal);
-        Assert.Contains("GetDisplayOverrideValue(value, \"display_subtitle\")", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayOverrideValue(value, \"title\")", navigatorService, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"display_title\"", navigatorService, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"display_subtitle\"", navigatorService, StringComparison.Ordinal);
         Assert.Contains("IsContainerEditorLaunch(launch)", metadata, StringComparison.Ordinal);
         Assert.Contains("!string.Equals(launch.WorkKind, \"child\"", metadata, StringComparison.Ordinal);
     }

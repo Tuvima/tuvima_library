@@ -204,6 +204,8 @@ public sealed class DatabaseStartupSafetyTests
             ("playback_segments", "asset_id"),
             ("profile_external_logins", "id"),
             ("profile_external_logins", "profile_id"),
+            ("profile_work_preferences", "profile_id"),
+            ("profile_work_preferences", "work_id"),
             ("reader_bookmarks", "id"),
             ("reader_bookmarks", "asset_id"),
             ("reader_highlights", "id"),

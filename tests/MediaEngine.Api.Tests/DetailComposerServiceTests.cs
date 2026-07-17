@@ -240,8 +240,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ResolveDisplayTitleOverride(displayOverrides, entityType)", source, StringComparison.Ordinal);
         Assert.Contains("w.display_overrides_json AS TEXT) AS WorkDisplayOverridesJson", source, StringComparison.Ordinal);
         Assert.Contains("ResolveDisplayTitleOverride(", source, StringComparison.Ordinal);
-        Assert.Contains("DetailEntityType.TvEpisode => [\"episode_title\", \"title\", \"display_title\"]", source, StringComparison.Ordinal);
-        Assert.Contains("DetailEntityType.MusicAlbum => [\"album\", \"title\", \"display_title\"]", source, StringComparison.Ordinal);
+        Assert.Contains("overrides.TryGetValue(\"title\"", source, StringComparison.Ordinal);
+        var resolverStart = source.IndexOf("ResolveDisplayTitleOverride(IReadOnlyDictionary", StringComparison.Ordinal);
+        var resolverEnd = source.IndexOf("LoadCanonicalMapAsync", resolverStart, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"display_title\"", source[resolverStart..resolverEnd]);
         Assert.Contains("return $\"{season}:{episode}\";", source, StringComparison.Ordinal);
     }
 

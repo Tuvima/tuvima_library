@@ -8,6 +8,7 @@ public interface IDisplayProjectionRepository
     Task<IReadOnlyList<DisplayJourneyRow>> LoadJourneyAsync(string? lane, CancellationToken ct);
     Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct);
     Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadHomeCollectionsAsync(Guid? profileId, CancellationToken ct);
+    Task<IReadOnlySet<Guid>> LoadHiddenWorkIdsAsync(Guid? profileId, CancellationToken ct);
 }
 
 public sealed class DisplayProjectionRepository : IDisplayProjectionRepository
@@ -16,6 +17,7 @@ public sealed class DisplayProjectionRepository : IDisplayProjectionRepository
     private readonly DisplayJourneyProjectionReader _journey;
     private readonly DisplayFavoriteProjectionReader _favorites;
     private readonly DisplayHomeCollectionProjectionReader _homeCollections;
+    private readonly DisplayProfilePreferenceProjectionReader _profilePreferences;
     private readonly IMemoryCache _cache;
 
     public DisplayProjectionRepository(
@@ -23,12 +25,14 @@ public sealed class DisplayProjectionRepository : IDisplayProjectionRepository
         DisplayJourneyProjectionReader journey,
         DisplayFavoriteProjectionReader favorites,
         DisplayHomeCollectionProjectionReader homeCollections,
+        DisplayProfilePreferenceProjectionReader profilePreferences,
         IMemoryCache cache)
     {
         _works = works;
         _journey = journey;
         _favorites = favorites;
         _homeCollections = homeCollections;
+        _profilePreferences = profilePreferences;
         _cache = cache;
     }
 
@@ -59,6 +63,9 @@ public sealed class DisplayProjectionRepository : IDisplayProjectionRepository
         _cache.Set(cacheKey, rows, TimeSpan.FromSeconds(10));
         return rows;
     }
+
+    public Task<IReadOnlySet<Guid>> LoadHiddenWorkIdsAsync(Guid? profileId, CancellationToken ct) =>
+        _profilePreferences.LoadHiddenWorkIdsAsync(profileId, ct);
 }
 
 

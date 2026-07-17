@@ -5,17 +5,19 @@ namespace MediaEngine.Web.Tests;
 public sealed class MediaEditorSchemaCatalogTests
 {
     [Fact]
-    public void Resolve_MusicSchema_IncludesLyricsTextareaField()
+    public void Resolve_NormalSchemas_OmitProviderManagedPeopleAndTranscriptFields()
     {
-        var schema = MediaEditorSchemaCatalog.Resolve("Music");
-
-        var lyricsField = schema.Groups
+        var fields = new[] { "Movies", "TV", "Books", "Audiobooks", "Comics", "Music" }
+            .SelectMany(mediaType => MediaEditorSchemaCatalog.Resolve(mediaType).Groups)
             .SelectMany(group => group.Fields)
-            .Single(field => field.Key == "lyrics");
+            .Select(field => field.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Equal("Lyrics", lyricsField.Label);
-        Assert.Equal("textarea", lyricsField.InputKind);
-        Assert.False(lyricsField.SupportsBatch);
+        Assert.DoesNotContain("cast_member", fields);
+        Assert.DoesNotContain("director", fields);
+        Assert.DoesNotContain("narrator", fields);
+        Assert.DoesNotContain("composer", fields);
+        Assert.DoesNotContain("lyrics", fields);
     }
 
     [Theory]
@@ -41,12 +43,12 @@ public sealed class MediaEditorSchemaCatalogTests
     }
 
     [Theory]
-    [InlineData("Books", "title", "year", "description")]
-    [InlineData("Audiobooks", "title", "year", "description")]
-    [InlineData("Movies", "title", "year", "description")]
-    [InlineData("TV", "show_name", "episode_title", "description")]
-    [InlineData("Music", "title", "year", "description")]
-    [InlineData("Comics", "title", "year", "description")]
+    [InlineData("Books", "title", "description")]
+    [InlineData("Audiobooks", "title", "description")]
+    [InlineData("Movies", "title", "tagline", "description")]
+    [InlineData("TV", "title", "tagline", "description")]
+    [InlineData("Music", "title", "description")]
+    [InlineData("Comics", "title", "description")]
     public void Resolve_DetailsFields_StartWithCoreIdentityBlock(string mediaType, params string[] expectedKeys)
     {
         var schema = MediaEditorSchemaCatalog.Resolve(mediaType);

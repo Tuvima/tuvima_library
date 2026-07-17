@@ -94,10 +94,11 @@ public static class DisplayEndpoints
         group.MapGet("/groups/{groupId:guid}", async (
             Guid groupId,
             bool? includeCatalog,
+            Guid? profileId,
             DisplayComposerService display,
             CancellationToken ct) =>
         {
-            var page = await display.BuildGroupAsync(groupId, includeCatalog ?? true, ct);
+            var page = await display.BuildGroupAsync(groupId, includeCatalog ?? true, profileId, ct);
             return page is null ? Results.NotFound() : Results.Ok(page);
         })
             .WithName("GetDisplayGroup")

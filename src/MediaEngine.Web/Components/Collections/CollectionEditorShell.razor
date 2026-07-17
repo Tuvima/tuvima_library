@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Routing
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Components.MediaEditor
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
@@ -13,13 +14,13 @@
 <NavigationLock ConfirmExternalNavigation="@_hasUnsavedChanges"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
-<AppDialog Class="collection-editor-dialog">
-    <DialogContent>
+<MediaEditorSurface Inline="@Inline">
         <AppDialogShell Eyebrow="@DialogEyebrow"
                         Title="@DialogTitle"
                         Subtitle="@HeaderSubtitle"
                         Icon="@CollectionTypeIcon"
                         Size="@DialogSize"
+                        Modal="@(!Inline)"
                         OnClose="Cancel">
             <ChildContent>
                 @if (VisibleTabs.Length > 1)
@@ -89,14 +90,15 @@
                 </div>
             </FooterContent>
         </AppDialogShell>
-    </DialogContent>
-</AppDialog>
+</MediaEditorSurface>
 
 @code {
-    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
     [Parameter] public CollectionEditorLaunchRequest Request { get; set; } = new();
+    [Parameter] public bool Inline { get; set; }
+    [Parameter] public EventCallback<bool> Closed { get; set; }
 
-    private static readonly (string Id, string Label)[] Tabs = [("details", "Details"), ("rules", "Rules"), ("items", "Items"), ("options", "Options")];
+    private static readonly (string Id, string Label)[] Tabs = [("details", "Details"), ("rules", "Rules"), ("items", "Contents"), ("options", "Behavior")];
     private static readonly (string Id, string Label)[] PlaylistTabs = [("details", "Details")];
     private static readonly (string Id, string Label)[] SmartPlaylistTabs = [("details", "Details")];
     private static readonly (string Label, string Icon)[] IconChoices =
@@ -299,7 +301,7 @@
             return;
 
         _hasUnsavedChanges = false;
-        MudDialog.Cancel();
+        await CloseEditorAsync(applied: false);
     }
 
     private async Task EnsureManualCollectionContextAsync()
@@ -705,7 +707,7 @@
                 Severity.Success);
 
             _hasUnsavedChanges = false;
-            MudDialog.Close(DialogResult.Ok(true));
+            await CloseEditorAsync(applied: true);
         }
         catch (Exception ex)
         {
@@ -716,6 +718,20 @@
             _saving = false;
             StateHasChanged();
         }
+    }
+
+    private async Task CloseEditorAsync(bool applied)
+    {
+        if (Inline)
+        {
+            await Closed.InvokeAsync(applied);
+            return;
+        }
+
+        if (applied)
+            MudDialog?.Close(DialogResult.Ok(true));
+        else
+            MudDialog?.Cancel();
     }
 
     private async Task AttachStagedManualItemsAsync()
@@ -860,14 +876,12 @@
                           Immediate="true"
                           Class="collection-editor-field app-dialog-field" />
 
-            <AppTextField T="string"
-                          Value="_description"
-                          ValueChanged="OnDescriptionChanged"
-                          Placeholder="Description (Optional)"
-                          Variant="Variant.Outlined"
-                          Lines="3"
-                          Immediate="true"
-                          Class="collection-editor-field app-dialog-field app-dialog-textarea" />
+            <AppTextarea Value="_description"
+                         ValueChanged="OnDescriptionChanged"
+                         Placeholder="Description (Optional)"
+                         Lines="3"
+                         Immediate="true"
+                         Class="collection-editor-field app-dialog-field app-dialog-textarea" />
 
             @if (!IsPlaylistDialog)
             {

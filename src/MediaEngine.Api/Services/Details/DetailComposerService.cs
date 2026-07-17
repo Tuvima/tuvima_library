@@ -222,6 +222,11 @@ public sealed class DetailComposerService
         var heroSummary = BuildHeroSummary(values);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
+        var displayDescription = ResolveDisplayOverride(displayOverrides, "description");
+        var displayTagline = ResolveDisplayOverride(displayOverrides, "tagline");
+        var descriptionAttribution = displayDescription is null
+            ? BuildDescriptionAttribution(descriptionSelection, detail, values)
+            : BuildLocalDescriptionAttribution();
         var relationships = BuildRelationshipStrip(detail, sequencePlacement);
 
         return new DetailPageViewModel
@@ -238,9 +243,9 @@ public sealed class DetailComposerService
             },
             Title = ResolveWorkDisplayTitle(displayTitle, detail, values, entityType),
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
-            Tagline = heroSummary,
-            Description = longDescription,
-            DescriptionAttribution = BuildDescriptionAttribution(descriptionSelection, detail, values),
+            Tagline = displayTagline ?? heroSummary,
+            Description = displayDescription ?? longDescription,
+            DescriptionAttribution = descriptionAttribution,
             SourceLinks = BuildExternalSourceLinks(detail.WikidataQid, GetValue(values, "wikipedia_url"), sequencePlacement, values),
             Facts = BuildWorkFacts(detail, entityType, values, contributorGroups),
             Artwork = artwork,
@@ -3645,31 +3650,10 @@ public sealed class DetailComposerService
 
     private static string? ResolveDisplayTitleOverride(IReadOnlyDictionary<string, string> overrides, DetailEntityType entityType)
     {
-        if (overrides.Count == 0)
-        {
-            return null;
-        }
-
-        var keys = entityType switch
-        {
-            DetailEntityType.TvShow or DetailEntityType.TvSeason => ["show_name", "title", "display_title"],
-            DetailEntityType.TvEpisode => ["episode_title", "title", "display_title"],
-            DetailEntityType.ComicIssue => ["issue_title", "title", "display_title"],
-            DetailEntityType.MusicAlbum => ["album", "title", "display_title"],
-            DetailEntityType.MusicTrack => ["title", "display_title"],
-            DetailEntityType.BookSeries or DetailEntityType.ComicSeries => ["series", "title", "display_title"],
-            _ => new[] { "title", "display_title" },
-        };
-
-        foreach (var key in keys)
-        {
-            if (overrides.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
-            {
-                return value.Trim();
-            }
-        }
-
-        return null;
+        _ = entityType;
+        return overrides.TryGetValue("title", out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value.Trim()
+            : null;
     }
 
     private async Task<Dictionary<string, string>> LoadCanonicalMapAsync(Guid entityId, CancellationToken ct)
@@ -4280,6 +4264,22 @@ public sealed class DetailComposerService
 
         return null;
     }
+
+    private static string? ResolveDisplayOverride(
+        IReadOnlyDictionary<string, string> overrides,
+        string key) =>
+        overrides.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value.Trim()
+            : null;
+
+    private static DescriptionAttributionViewModel BuildLocalDescriptionAttribution() => new()
+    {
+        SourceName = "Tuvima Library",
+        SourceTitle = "local customization",
+        LicenseName = "Local library value",
+        IsModifiedOrSummarized = true,
+        Notice = "This description was customized for this Tuvima Library.",
+    };
 
     private static string? ReleaseYear(string? value)
         => string.IsNullOrWhiteSpace(value) || value.Length < 4 ? null : value[..4];

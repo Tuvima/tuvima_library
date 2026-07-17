@@ -20,7 +20,8 @@ public sealed class Wave5AccessibilityGuardrailTests
     {
         var source = Read("src/MediaEngine.Web/Components/Shared/AppDialogShell.razor");
 
-        Assert.Contains("role=\"dialog\"", source);
+        Assert.Contains("role=\"@(Modal ? \"dialog\" : \"region\")\"", source);
+        Assert.Contains("aria-modal=\"@(Modal ? \"true\" : null)\"", source);
         Assert.Contains("aria-labelledby", source);
         Assert.Contains("aria-label=\"Close dialog\"", source);
     }
@@ -30,6 +31,16 @@ public sealed class Wave5AccessibilityGuardrailTests
     {
         Assert.Contains("NavigationLock", Read("src/MediaEngine.Web/Components/Collections/CollectionEditorShell.razor"));
         Assert.Contains("NavigationLock", Read("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor"));
+    }
+
+    [Fact]
+    public void EditorFieldActions_ExposeTheirTooltipLabelsToAssistiveTechnology()
+    {
+        var source = Read("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor");
+
+        Assert.Contains("aria-label=\"@ActionLabel\"", source);
+        Assert.Contains("aria-label=\"@ConfirmLabel\"", source);
+        Assert.Contains("aria-label=\"@CancelLabel\"", source);
     }
 
     [Fact]

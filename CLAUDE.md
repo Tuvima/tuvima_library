@@ -27,7 +27,7 @@ Every feature exists in service of that word:
 ### Quality Gates and Regression Rules
 
 - Do not recreate the old all-in-one management workflow. No new routes, implementation types, navigation labels, docs as current product behavior, or all-in-one media correction workbenches for it.
-- Normal media fixes belong inline on the media surface where the issue appears. Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for Normal, Review, and Batch editing modes.
+- Normal detail-page fixes use `MediaEditorLauncherService.BeginInline` and replace the detail hero/content at the same URL with `SharedMediaEditorShell`; Review and Batch reuse that workspace through `OpenAsync` dialogs. Keep normal Details lean (presentation overrides plus profile-local library preferences), keep provider facts read-only, and put structural parent moves in Matching.
 - Single-item editing keeps metadata, local fields, and sorting in Details; it does not expose a separate Options tab. File shows physical-file state only, while History owns identity, metadata, artwork, and ingestion events. A retail rematch synchronously replaces provider-managed artwork and refreshes the detail hero before background Wikidata alignment proceeds.
 - Review Queue is the exception workflow for blocked, uncertain, low-confidence, or unresolved items. Settings/Admin is for configuration and operational state, not a normal media correction workspace.
 - Use `IDatabaseConnection.CreateConnection()` for normal repository, read-service, endpoint, background-job, and request-path database work. Dispose each short-lived connection with `using`.

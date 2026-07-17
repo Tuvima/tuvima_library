@@ -20,10 +20,12 @@ public sealed class DisplayComposerService
         var worksTask = _repository.LoadWorksAsync(ct);
         var journeyTask = _repository.LoadJourneyAsync(null, ct);
         var homeCollectionsTask = _repository.LoadHomeCollectionsAsync(profileId, ct);
-        await Task.WhenAll(worksTask, journeyTask, homeCollectionsTask);
+        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        await Task.WhenAll(worksTask, journeyTask, homeCollectionsTask, hiddenWorkIdsTask);
 
-        var works = await worksTask;
-        var journey = await journeyTask;
+        var hiddenWorkIds = await hiddenWorkIdsTask;
+        var works = (await worksTask).Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId)).ToList();
+        var journey = (await journeyTask).Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId)).ToList();
         var homeCollections = await homeCollectionsTask;
         var progressByWork = LatestProgressByWork(journey);
         var tvShowCards = _cards.BuildTvShowCards(works);
@@ -124,7 +126,7 @@ public sealed class DisplayComposerService
             (string.IsNullOrWhiteSpace(grouping) || string.Equals(grouping, "all", StringComparison.OrdinalIgnoreCase)) &&
             offset <= 0)
         {
-            return await BuildLaneAsync(normalizedLane, includeCatalog, ct);
+            return await BuildLaneAsync(normalizedLane, includeCatalog, profileId, ct);
         }
 
         if (string.Equals(normalizedLane, "listen", StringComparison.OrdinalIgnoreCase) &&
@@ -138,10 +140,12 @@ public sealed class DisplayComposerService
 
         var worksTask = _repository.LoadWorksAsync(ct);
         var journeyTask = _repository.LoadJourneyAsync(null, ct);
-        await Task.WhenAll(worksTask, journeyTask);
+        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        await Task.WhenAll(worksTask, journeyTask, hiddenWorkIdsTask);
 
-        var works = await worksTask;
-        var journey = await journeyTask;
+        var hiddenWorkIds = await hiddenWorkIdsTask;
+        var works = (await worksTask).Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId)).ToList();
+        var journey = (await journeyTask).Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId)).ToList();
         var progressByWork = LatestProgressByWork(journey);
 
         var filtered = works.AsEnumerable();
@@ -288,13 +292,18 @@ public sealed class DisplayComposerService
             hasMore);
     }
 
-    public async Task<DisplayPageDto?> BuildGroupAsync(Guid groupId, bool includeCatalog = true, CancellationToken ct = default)
+    public async Task<DisplayPageDto?> BuildGroupAsync(
+        Guid groupId,
+        bool includeCatalog = true,
+        Guid? profileId = null,
+        CancellationToken ct = default)
     {
+        var hiddenWorkIds = await _repository.LoadHiddenWorkIdsAsync(profileId, ct);
         var works = CollapseReadVariantsByQid((await _repository.LoadWorksAsync(ct))
-            .Where(work => work.CollectionId == groupId)
+            .Where(work => work.CollectionId == groupId && !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId))
         )
             .OrderBy(work => DisplayMediaRules.ParseDouble(work.SeriesPosition) ?? double.MaxValue)
-            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(work => work.SortTitle ?? work.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (works.Count == 0)
@@ -336,20 +345,22 @@ public sealed class DisplayComposerService
             && string.IsNullOrWhiteSpace(search)
             && (string.IsNullOrWhiteSpace(grouping) || string.Equals(grouping, "all", StringComparison.OrdinalIgnoreCase)))
         {
-            return BuildLaneAsync(normalizedLane, includeCatalog: false, ct, shelfLimit);
+            return BuildLaneAsync(normalizedLane, includeCatalog: false, profileId, ct, shelfLimit);
         }
 
         return BuildBrowseAsync(lane, mediaType, grouping, search, 0, Math.Max(1, shelfLimit), includeCatalog: false, profileId, ct);
     }
 
-    private async Task<DisplayPageDto> BuildLaneAsync(string lane, bool includeCatalog, CancellationToken ct, int shelfLimit = 18)
+    private async Task<DisplayPageDto> BuildLaneAsync(string lane, bool includeCatalog, Guid? profileId, CancellationToken ct, int shelfLimit = 18)
     {
         var worksTask = _repository.LoadWorksAsync(ct);
         var journeyTask = _repository.LoadJourneyAsync(lane, ct);
-        await Task.WhenAll(worksTask, journeyTask);
+        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        await Task.WhenAll(worksTask, journeyTask, hiddenWorkIdsTask);
 
-        var works = await worksTask;
-        var journey = await journeyTask;
+        var hiddenWorkIds = await hiddenWorkIdsTask;
+        var works = (await worksTask).Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId)).ToList();
+        var journey = (await journeyTask).Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId)).ToList();
         var progressByWork = LatestProgressByWork(journey);
 
         var laneSource = works
@@ -405,17 +416,21 @@ public sealed class DisplayComposerService
         var worksTask = _repository.LoadWorksAsync(ct);
         var journeyTask = _repository.LoadJourneyAsync("listen", ct);
         var favoriteWorkIdsTask = _repository.LoadFavoriteWorkIdsAsync(profileId, ct);
-        await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask);
+        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask, hiddenWorkIdsTask);
 
+        var hiddenWorkIds = await hiddenWorkIdsTask;
         var works = (await worksTask)
+            .Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId))
             .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
             .OrderByDescending(work => work.CreatedAt)
             .ThenBy(work => work.Artist, StringComparer.OrdinalIgnoreCase)
             .ThenBy(work => work.Album, StringComparer.OrdinalIgnoreCase)
             .ThenBy(work => DisplayMediaRules.ParseDouble(work.TrackNumber) ?? double.MaxValue)
-            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(work => work.SortTitle ?? work.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var journey = (await journeyTask)
+            .Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId))
             .Where(item => DisplayMediaRules.NormalizeDisplayKind(item.MediaType) == "Music")
             .OrderByDescending(item => item.LastAccessed)
             .ToList();
@@ -706,6 +721,10 @@ public sealed class DisplayComposerService
             facts.Add(cleaned);
         }
     }
+
+    private static bool IsHidden(IReadOnlySet<Guid> hiddenWorkIds, Guid workId, Guid rootWorkId) =>
+        hiddenWorkIds.Contains(workId)
+        || (rootWorkId != Guid.Empty && hiddenWorkIds.Contains(rootWorkId));
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));

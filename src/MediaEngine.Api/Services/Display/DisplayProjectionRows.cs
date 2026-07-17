@@ -43,6 +43,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? IdentityQid { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public string Title { get; set; } = string.Empty;
+    public string? SortTitle { get; set; }
     public string? Description { get; set; }
     public string? Author { get; set; }
     public string? Artist { get; set; }

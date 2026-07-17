@@ -3144,6 +3144,64 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<ItemEditorPreferencesDto?> GetItemEditorPreferencesAsync(
+        Guid entityId, Guid profileId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"/library/items/{entityId}/editor-preferences/{profileId}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadAsStringAsync(ct);
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+                _logger.LogWarning("GET editor preferences for {EntityId}/{ProfileId} returned {Status}: {Detail}",
+                    entityId, profileId, (int)response.StatusCode, detail);
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<ItemEditorPreferencesDto>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET editor preferences for {EntityId}/{ProfileId} failed", entityId, profileId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<ItemEditorPreferencesSaveResultDto> SaveItemEditorPreferencesAsync(
+        Guid entityId,
+        Guid profileId,
+        ItemEditorPreferencesRequestDto request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync(
+                $"/library/items/{entityId}/editor-preferences/{profileId}", request, ct);
+            var result = await response.Content.ReadFromJsonAsync<ItemEditorPreferencesDto>(cancellationToken: ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                return new ItemEditorPreferencesSaveResultDto(false, true, result, "Source metadata or profile preferences changed while you were editing.");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = result is null ? await response.Content.ReadAsStringAsync(ct) : null;
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+                _logger.LogWarning("PUT editor preferences for {EntityId}/{ProfileId} returned {Status}: {Detail}",
+                    entityId, profileId, (int)response.StatusCode, detail);
+                return new ItemEditorPreferencesSaveResultDto(false, false, result, detail ?? "Editor preferences could not be saved.");
+            }
+
+            return new ItemEditorPreferencesSaveResultDto(true, false, result, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT editor preferences for {EntityId}/{ProfileId} failed", entityId, profileId);
+            LastError = ex.Message;
+            return new ItemEditorPreferencesSaveResultDto(false, false, null, ex.Message);
+        }
+    }
+
     public async Task<DevHarnessRunResult?> RunDevHarnessAsync(
         string path,
         IReadOnlyDictionary<string, string?>? query = null,

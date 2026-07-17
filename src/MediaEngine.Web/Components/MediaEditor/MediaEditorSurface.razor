@@ -1,0 +1,21 @@
+@namespace MediaEngine.Web.Components.MediaEditor
+
+@if (Inline)
+{
+    <section class="sme-inline-surface" aria-label="Media editor">
+        @ChildContent
+    </section>
+}
+else
+{
+    <AppDialog Class="sme-dialog">
+        <DialogContent>
+            @ChildContent
+        </DialogContent>
+    </AppDialog>
+}
+
+@code {
+    [Parameter] public bool Inline { get; set; }
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+}

@@ -539,6 +539,8 @@ public interface IEngineApiClient
 
     /// <summary>PUT /library/items/{entityId}/display-overrides — save presentation-only display overrides.</summary>
     Task<bool> SaveItemDisplayOverridesAsync(Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default);
+    Task<ItemEditorPreferencesDto?> GetItemEditorPreferencesAsync(Guid entityId, Guid profileId, CancellationToken ct = default);
+    Task<ItemEditorPreferencesSaveResultDto> SaveItemEditorPreferencesAsync(Guid entityId, Guid profileId, ItemEditorPreferencesRequestDto request, CancellationToken ct = default);
 
     /// <summary>GET /metadata/{entityId}/artwork/{scopeId} — load exact artwork for one editor scope.</summary>
     Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);

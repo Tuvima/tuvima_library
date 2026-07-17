@@ -204,9 +204,10 @@ public sealed class UiCompositionGuardrailTests
         var bookDetail = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Universe", "BookDetailContent.razor"));
         var launcher = File.ReadAllText(Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Services", "Editing", "MediaEditorLauncherService.cs"));
 
-        Assert.Contains("MediaEditorLauncher.OpenAsync", detailPage);
+        Assert.Contains("MediaEditorLauncher.BeginInline", detailPage);
+        Assert.Contains("SharedMediaEditorShell", detailPage);
         Assert.Contains("MediaEditorLauncher.OpenAsync", reviewTab);
-        Assert.Contains("MediaEditorLauncher.OpenAsync", bookDetail);
+        Assert.Contains("MediaEditorLauncher.BeginInline", bookDetail);
         Assert.Contains("SharedMediaEditorMode.Normal", detailPage);
         Assert.Contains("SharedMediaEditorMode.Review", reviewTab);
         Assert.Contains("SharedMediaEditorMode.Batch", launcher);

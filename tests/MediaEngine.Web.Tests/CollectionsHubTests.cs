@@ -144,11 +144,13 @@ public sealed class CollectionsHubTests
         Assert.Contains("GetCollectionSummaryAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionItemsAsync", source, StringComparison.Ordinal);
-        Assert.Contains("LookupCollectionMediaAsync", source, StringComparison.Ordinal);
-        Assert.Contains("AddCollectionItemAsync", source, StringComparison.Ordinal);
-        Assert.Contains("RemoveCollectionItemAsync", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionEditorLauncher.BeginInline", source, StringComparison.Ordinal);
+        Assert.Contains("<CollectionEditorShell", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LookupCollectionMediaAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddCollectionItemAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RemoveCollectionItemAsync", source, StringComparison.Ordinal);
         Assert.Contains("collection-detail-hero", source, StringComparison.Ordinal);
-        Assert.Contains("EDIT COLLECTION", source, StringComparison.Ordinal);
+        Assert.Contains("Edit collection", source, StringComparison.Ordinal);
         Assert.Contains("OVERVIEW", source, StringComparison.Ordinal);
         Assert.Contains("HeroArtworkStackItems", source, StringComparison.Ordinal);
         Assert.Contains("<TuvimaArtworkStack", source, StringComparison.Ordinal);
@@ -183,7 +185,16 @@ public sealed class CollectionsHubTests
         Assert.Contains("collection-detail-artwork-stack", css, StringComparison.Ordinal);
         Assert.Contains("collection-detail-hero__cascade", css, StringComparison.Ordinal);
         Assert.Contains("collection-detail-item-grid", css, StringComparison.Ordinal);
-        Assert.Contains("position: sticky", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("position: sticky", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CollectionEditor_UsesTypedTextareaForDescription()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionEditorShell.razor"));
+
+        Assert.Contains("<AppTextarea Value=\"_description\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppTextField T=\"string\"\r\n                          Value=\"_description\"", source, StringComparison.Ordinal);
     }
 
     [Fact]

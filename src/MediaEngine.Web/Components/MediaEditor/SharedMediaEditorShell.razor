@@ -9,8 +9,7 @@
 <NavigationLock ConfirmExternalNavigation="@IsDirty"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
-<AppDialog Class="sme-dialog">
-    <DialogContent>
+<MediaEditorSurface Inline="@Inline">
         <div class="sme-shell">
             <div class="sme-header">
                 <div class="sme-cover-cluster @(IsSingleItem ? "sme-cover-cluster--single" : "sme-cover-cluster--batch")">
@@ -50,7 +49,7 @@
                     {
                         <div class="sme-breadcrumb">@BreadcrumbText</div>
                     }
-                    <h2 class="sme-title">@HeaderTitle</h2>
+                    <h2 class="sme-title" tabindex="-1">@HeaderTitle</h2>
                     @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
                     {
                         <div class="sme-subtitle">@HeaderSubtitle</div>
@@ -63,7 +62,32 @@
                     }
                 </div>
 
-                @if (CanReclassifyMediaType)
+                @if (Inline)
+                {
+                    <div class="sme-inline-header-actions">
+                        @if (IsDirty)
+                        {
+                            <AppButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       Class="sme-inline-reset"
+                                       OnClick="ResetEditorChanges">
+                                Reset changes
+                            </AppButton>
+                        }
+                        <AppButton Variant="Variant.Outlined"
+                                   Color="Color.Inherit"
+                                   OnClick="HandleClose">
+                            Cancel
+                        </AppButton>
+                        <AppButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Disabled="@(!IsDirty || _saving)"
+                                   OnClick="SaveAsync">
+                            @(_saving ? "Saving..." : "Save Changes")
+                        </AppButton>
+                    </div>
+                }
+                else if (CanReclassifyMediaType)
                 {
                     <div class="sme-header-actions">
                         <AppMediaTypeSelect Value="@_selectedMediaType"
@@ -78,12 +102,15 @@
                     </div>
                 }
 
-                <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                               Size="Size.Small"
-                               Color="Color.Inherit"
-                               Class="sme-close"
-                               aria-label="Close media editor"
-                               OnClick="HandleClose" />
+                @if (!Inline)
+                {
+                    <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                                   Size="Size.Small"
+                                   Color="Color.Inherit"
+                                   Class="sme-close"
+                                   aria-label="Close media editor"
+                                   OnClick="HandleClose" />
+                }
             </div>
 
             @if (Request.Mode == SharedMediaEditorMode.Review)
@@ -95,6 +122,63 @@
                     <div class="sme-review-copy">
                         <div class="sme-review-title">Needs review <span class="sme-review-text">- @_reviewSummary</span></div>
                     </div>
+                </div>
+            }
+
+
+            @if (!string.IsNullOrWhiteSpace(_saveError))
+            {
+                <div class="sme-save-error" role="alert" tabindex="-1">
+                    <MudIcon Icon="@(_saveConflict ? Icons.Material.Outlined.SyncProblem : Icons.Material.Outlined.ErrorOutline)" />
+                    <div>
+                        <strong>@(_saveConflict ? "New library changes are available" : "Changes were not saved")</strong>
+                        <span>@_saveError</span>
+                    </div>
+                    @if (_saveConflict)
+                    {
+                        <AppButton Variant="Variant.Outlined"
+                                   Color="Color.Inherit"
+                                   OnClick="ReloadAfterSaveConflictAsync">
+                            Reload values
+                        </AppButton>
+                    }
+                </div>
+            }
+
+            @if (Inline && _confirmDiscard)
+            {
+                <div class="sme-inline-decision" role="alert">
+                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
+                    <div>
+                        <strong>Discard unsaved changes?</strong>
+                        <span>Your edits will be lost and the unchanged detail page will return.</span>
+                    </div>
+                    <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => _confirmDiscard = false)">
+                        Keep Editing
+                    </AppButton>
+                    <AppButton Variant="Variant.Filled" Color="Color.Error" OnClick="DiscardAndClose">
+                        Discard
+                    </AppButton>
+                </div>
+            }
+
+            @if (Inline && _pendingMembershipPreview is not null)
+            {
+                <div class="sme-inline-decision" role="status">
+                    <MudIcon Icon="@Icons.Material.Outlined.AccountTree" />
+                    <div>
+                        <strong>Confirm structural change</strong>
+                        <span>@_pendingMembershipPreview.Message</span>
+                    </div>
+                    <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => _pendingMembershipPreview = null)">
+                        Keep Editing
+                    </AppButton>
+                    <AppButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="@_saving"
+                               OnClick="ConfirmMembershipMoveAsync">
+                        Save and Move
+                    </AppButton>
                 </div>
             }
 
@@ -126,22 +210,22 @@
             }
 
             <div class="sme-workspace">
+                <nav class="sme-section-nav" aria-label="Editor sections">
+                    @for (var index = 0; index < Tabs.Count; index++)
+                    {
+                        var tabIndex = index;
+                        var tab = Tabs[index];
+                        <AppButton Variant="Variant.Text"
+                                   Color="Color.Inherit"
+                                   Class="@(tab.Id == _activeTab ? "sme-section-nav__item is-active" : "sme-section-nav__item")"
+                                   Disabled="@IsTabDisabled(tab.Id)"
+                                   OnClick="@(() => OnTabChanged(tabIndex))">
+                            <MudIcon Icon="@tab.Icon" Size="Size.Small" />
+                            <span>@tab.Label</span>
+                        </AppButton>
+                    }
+                </nav>
                 <div class="sme-main-pane">
-                    <div class="settings-admin-panel">
-                        <AppTabs ActivePanelIndex="@ActiveTabIndex"
-                                 ActivePanelIndexChanged="OnTabChanged"
-                                 Rounded="true"
-                                 Border="false"
-                                 Color="Color.Primary"
-                                 Elevation="0"
-                                 Class="settings-tab-strip sme-tabs">
-                            @foreach (var tab in Tabs)
-                            {
-                                <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" Disabled="@IsTabDisabled(tab.Id)" />
-                            }
-                        </AppTabs>
-                    </div>
-
                     @if (HasContainerReturnState)
                     {
                         <div class="sme-container-return">
@@ -175,16 +259,15 @@
                 }
                 else if (_activeTab == "details")
                 {
-                    <div class="sme-details sme-details--with-summary">
+                    <div class="sme-details sme-details--single">
                         <div class="sme-fields-pane sme-details-main">
-                            <MediaEditorPanel Title="Metadata" Description="Canonical metadata and library-specific fields live together here. Override a canonical field to use a local value.">
-                                <div class="sme-metadata-legend" aria-label="Metadata editing legend">
-                                    <span><MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" /> Locked uses canonical data</span>
-                                    <span><MudIcon Icon="@Icons.Material.Outlined.LockOpen" Size="Size.Small" Color="Color.Warning" Class="sme-metadata-legend-icon--unlock" /> Unlock edits a local value</span>
-                                    <span><MudIcon Icon="@Icons.Material.Outlined.Restore" Size="Size.Small" /> Revert removes an override</span>
-                                </div>
+                            <div class="sme-source-managed-note">
+                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                <span>Source-managed facts refresh when matching changes. Customize only the values that control how this item appears in your library.</span>
+                            </div>
 
-                                @foreach (var field in GetDetailsMetadataFields())
+                            <MediaEditorPanel Title="Appearance" Description="The title and copy shown across Tuvima Library.">
+                                @foreach (var field in GetAppearanceFields())
                                 {
                                     <AppFormFieldRow Label="@field.Label"
                                                      Value="@GetEditableValue(field.Key)"
@@ -208,49 +291,121 @@
                                                       OnCancelAction="@(() => CancelInlineFieldRevert(field.Key))" />
                                 }
                             </MediaEditorPanel>
-                        </div>
 
-                        <aside class="sme-details-sidebar">
-                            <MediaEditorPanel Class="sme-match-info-panel">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="sme-match-info-heading">
-                                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Color="Color.Secondary" />
-                                    <div class="sme-match-info-heading-copy">
-                                        <MudText Typo="Typo.subtitle1" Class="sme-match-info-title">Match Information</MudText>
-                                        <MudText Typo="Typo.body2" Color="Color.Secondary">Identity Summary</MudText>
+                            <MediaEditorPanel Title="My Library" Description="Private notes and local organization that provider refreshes will not replace.">
+                                @foreach (var field in GetLibraryFields())
+                                {
+                                    <AppFormFieldRow Label="@field.Label"
+                                                     Value="@GetEditableValue(field.Key)"
+                                                     ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                     Placeholder="@GetPlaceholder(field)"
+                                                     InputKind="@field.InputKind"
+                                                     Lines="@GetFieldLineCount(field)"
+                                                     HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
+                                }
+                                @if (Request.ActiveProfileId.HasValue)
+                                {
+                                    <div class="sme-profile-preferences">
+                                        <AppSwitchRow T="bool"
+                                                      Label="Hidden from this profile"
+                                                      Description="Keep this item out of normal browsing for the active profile."
+                                                      Value="@_isHidden"
+                                                      ValueChanged="OnHiddenChanged" />
+                                        <AppSwitchRow T="bool"
+                                                      Label="Use for recommendations"
+                                                      Description="Allow this item to influence suggestions for the active profile."
+                                                      Value="@_includeInRecommendations"
+                                                      ValueChanged="OnRecommendationsChanged" />
                                     </div>
-                                </MudStack>
+                                }
+                            </MediaEditorPanel>
 
-                                <div class="sme-match-info-list">
-                                    @foreach (var row in GetMatchInformationRows())
+                            @if (GetSourceFacts().Count > 0)
+                            {
+                                <MediaEditorPanel Title="Source facts" Description="These visible facts come from the matched source or physical media and are changed through Matching or ingestion.">
+                                    <dl class="sme-source-facts">
+                                        @foreach (var fact in GetSourceFacts())
+                                        {
+                                            <div>
+                                                <dt>@fact.Label</dt>
+                                                <dd>@fact.Value</dd>
+                                            </div>
+                                        }
+                                    </dl>
+                                </MediaEditorPanel>
+                            }
+                        </div>
+                    </div>
+                }
+                else if (_activeTab == "contents")
+                {
+                    <div class="sme-content-tab sme-audiobook-contents">
+                        <MediaEditorPanel Title="Chapters" Description="Rename chapter labels without changing file-derived timing or boundaries.">
+                            @if (AudiobookChapters.Count == 0)
+                            {
+                                <div class="sme-empty-panel">
+                                    <MudIcon Icon="@Icons.Material.Outlined.FormatListNumbered" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
+                                    <span>No embedded or file-derived chapters are available for this audiobook.</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="sme-audiobook-chapter-list">
+                                    @foreach (var chapter in AudiobookChapters)
                                     {
-                                        <div class="sme-match-info-row">
-                                            <span>@row.Label</span>
-                                            <strong>@row.Value</strong>
+                                        var chapterKey = BuildAudiobookChapterKey(chapter);
+                                        var isFocused = string.Equals(_focusedAudiobookChapterKey, chapterKey, StringComparison.OrdinalIgnoreCase);
+                                        <div class="sme-audiobook-chapter @(isFocused ? "is-editing" : string.Empty)">
+                                            <span class="sme-audiobook-chapter__number">@((chapter.ChapterIndex ?? 0) + 1)</span>
+                                            <div class="sme-audiobook-chapter__copy">
+                                                @if (isFocused)
+                                                {
+                                                    <AppTextField T="string"
+                                                                  Value="@GetAudiobookChapterTitle(chapter)"
+                                                                  ValueChanged="@((string? value) => OnAudiobookChapterTitleInput(chapter, value))"
+                                                                  Label="Chapter title"
+                                                                  Variant="Variant.Outlined"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true" />
+                                                }
+                                                else
+                                                {
+                                                    <strong>@GetAudiobookChapterTitle(chapter)</strong>
+                                                }
+                                                <span>@FormatAudiobookChapterRange(chapter)</span>
+                                                @if (_audiobookChapterResetKeys.Contains(chapterKey))
+                                                {
+                                                    <small>File-derived title will be restored when you save.</small>
+                                                }
+                                                else if (HasAudiobookChapterOverride(chapter))
+                                                {
+                                                    <small>Local title override</small>
+                                                }
+                                                else
+                                                {
+                                                    <small>File-derived chapter</small>
+                                                }
+                                            </div>
+                                            <div class="sme-audiobook-chapter__actions">
+                                                <AppIconButton Icon="@(isFocused ? Icons.Material.Outlined.Done : Icons.Material.Outlined.Edit)"
+                                                               Size="Size.Small"
+                                                               Color="Color.Inherit"
+                                                               OnClick="@(() => ToggleAudiobookChapterEditor(chapter))"
+                                                               aria-label="@(isFocused ? $"Finish editing chapter {(chapter.ChapterIndex ?? 0) + 1}" : $"Rename chapter {(chapter.ChapterIndex ?? 0) + 1}")" />
+                                                @if (HasAudiobookChapterOverride(chapter))
+                                                {
+                                                    <AppIconButton Icon="@Icons.Material.Outlined.Restore"
+                                                                   Size="Size.Small"
+                                                                   Color="Color.Inherit"
+                                                                   OnClick="@(() => QueueAudiobookChapterReset(chapter))"
+                                                                   aria-label="@($"Restore chapter {(chapter.ChapterIndex ?? 0) + 1} to its file-derived title")" />
+                                                }
+                                            </div>
                                         </div>
                                     }
                                 </div>
-
-                                @if (GetActiveOverrideLabels().Count > 0)
-                                {
-                                    <div class="sme-match-override-summary">
-                                        <div class="sme-match-override-kicker">Local overrides</div>
-                                        <div class="sme-match-override-count">@GetActiveOverrideLabels().Count</div>
-                                        <div class="sme-match-override-caption">fields overridden</div>
-                                        <div class="sme-match-override-list">
-                                            @foreach (var label in GetActiveOverrideLabels())
-                                            {
-                                                <span>@label</span>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-
-                                <MudDivider Class="sme-match-info-divider" />
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="sme-match-info-note">
-                                    @GetMatchInformationNote()
-                                </MudText>
-                            </MediaEditorPanel>
-                        </aside>
+                            }
+                        </MediaEditorPanel>
                     </div>
                 }
                 else if (_activeTab == "episodes" || _activeTab == "tracks")
@@ -368,6 +523,72 @@
                 else if (_activeTab == "links")
                 {
                     <div class="sme-match-tab">
+                        @if (GetParentPositionFields().Count > 0)
+                        {
+                            <MediaEditorPanel Title="Parent & position" Description="Structural changes are previewed before they are applied.">
+                                <div class="sme-parent-position-grid">
+                                    @foreach (var field in GetParentPositionFields())
+                                    {
+                                        <div class="sme-parent-position-field">
+                                            <AppFormFieldRow Label="@field.Label"
+                                                             Value="@GetEditableValue(field.Key)"
+                                                             ValueChanged="@((string? value) => OnMembershipFieldInputAsync(field.Key, value))"
+                                                             Placeholder="@field.Placeholder"
+                                                             InputKind="@field.InputKind"
+                                                             HelpText="@GetParentPositionHelp(field.Key)" />
+                                            @if (CanSearchRetailMembership(field.Key))
+                                            {
+                                                <AppButton Variant="Variant.Text"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-parent-position-search"
+                                                           OnClick="@(() => SearchRetailMembershipAsync(field.Key))">
+                                                    Search outside this parent
+                                                </AppButton>
+                                            }
+                                            @if (GetMembershipSuggestions(field.Key).Count > 0)
+                                            {
+                                                <div class="sme-membership-suggestions" role="listbox" aria-label="@($"Suggestions for {field.Label}")">
+                                                    @foreach (var suggestion in GetMembershipSuggestions(field.Key))
+                                                    {
+                                                        <AppButton Variant="Variant.Text"
+                                                                   Color="Color.Inherit"
+                                                                   FullWidth="true"
+                                                                   Class="sme-membership-suggestion"
+                                                                   OnClick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
+                                                            <span>
+                                                                <strong>@suggestion.Label</strong>
+                                                                @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
+                                                                {
+                                                                    <small>@suggestion.Subtitle</small>
+                                                                }
+                                                            </span>
+                                                            <small>@(suggestion.LocalExisting ? "In your library" : suggestion.ProviderName)</small>
+                                                        </AppButton>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </MediaEditorPanel>
+                        }
+
+                        @if (Inline && CanReclassifyMediaType)
+                        {
+                            <MediaEditorPanel Title="Media type" Description="Change how Tuvima identifies and processes this item.">
+                                <div class="sme-media-type-change">
+                                    <AppMediaTypeSelect Value="@_selectedMediaType"
+                                                        ValueChanged="OnSelectedMediaTypeChanged" />
+                                    <AppButton Variant="Variant.Filled"
+                                               Color="Color.Primary"
+                                               Disabled="@_reclassifying"
+                                               OnClick="ReclassifyMediaTypeAsync">
+                                        @(_reclassifying ? "Updating..." : "Change Type")
+                                    </AppButton>
+                                </div>
+                            </MediaEditorPanel>
+                        }
+
                         <section class="sme-match-status-strip" aria-label="Match and identity status">
                             @foreach (var row in GetMatchStatusStripRows())
                             {
@@ -1083,7 +1304,30 @@
                 else if (_activeTab == "file")
                 {
                     <div class="sme-file-tab">
-                        @if (!IsSingleItem || _detail is null)
+                        @if (IsContainerEditor)
+                        {
+                            <MediaEditorPanel Title="Attached files" Description="A reconciliation summary across the owned children in this container.">
+                                <div class="sme-container-file-summary">
+                                    <div><strong>@ContainerAttachedFileCount</strong><span>Attached</span></div>
+                                    <div><strong>@ContainerMissingFileCount</strong><span>Missing</span></div>
+                                    <div><strong>@ContainerQuarantineCount</strong><span>Unassigned or quarantined</span></div>
+                                </div>
+                                @if (ContainerTechnicalBadges.Count > 0)
+                                {
+                                    <div class="sme-container-file-badges" aria-label="File quality and format summary">
+                                        @foreach (var badge in ContainerTechnicalBadges)
+                                        {
+                                            <span>@badge.Label <strong>@badge.Count</strong></span>
+                                        }
+                                    </div>
+                                }
+                                <div class="sme-source-managed-note">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                    <span>Open a child from Contents to inspect its filename, path, and technical details.</span>
+                                </div>
+                            </MediaEditorPanel>
+                        }
+                        else if (!IsSingleItem || _detail is null)
                         {
                             <div class="sme-empty-panel">
                                 <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
@@ -1142,7 +1386,7 @@
                 </div>
             </div>
 
-            @if (ShouldShowEditorFooter)
+            @if (ShouldShowEditorFooter && !Inline)
             {
             <div class="sme-footer">
                 @if (_confirmDiscard)
@@ -1209,8 +1453,7 @@
             </div>
             }
         </div>
-    </DialogContent>
-</AppDialog>
+</MediaEditorSurface>
 
 @code {
     private RenderFragment RenderSuggestedFields(string candidateId, Dictionary<string, string> fields) => @<div>

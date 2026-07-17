@@ -452,6 +452,63 @@ public sealed class ItemCanonicalSearchRequestDto
     public int MaxCandidates { get; set; } = 6;
 }
 
+public sealed class ItemEditorPreferencesRequestDto
+{
+    [JsonPropertyName("expected_revision")]
+    public long ExpectedRevision { get; set; }
+
+    [JsonPropertyName("display_overrides")]
+    public Dictionary<string, string> DisplayOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("personal_notes")]
+    public string? PersonalNotes { get; set; }
+
+    [JsonPropertyName("local_tags")]
+    public List<string> LocalTags { get; set; } = [];
+
+    [JsonPropertyName("is_hidden")]
+    public bool IsHidden { get; set; }
+
+    [JsonPropertyName("include_in_recommendations")]
+    public bool IncludeInRecommendations { get; set; } = true;
+}
+
+public sealed class ItemEditorPreferencesDto
+{
+    [JsonPropertyName("profile_id")]
+    public Guid ProfileId { get; set; }
+
+    [JsonPropertyName("work_id")]
+    public Guid WorkId { get; set; }
+
+    [JsonPropertyName("personal_notes")]
+    public string? PersonalNotes { get; set; }
+
+    [JsonPropertyName("local_tags")]
+    public List<string> LocalTags { get; set; } = [];
+
+    [JsonPropertyName("is_hidden")]
+    public bool IsHidden { get; set; }
+
+    [JsonPropertyName("include_in_recommendations")]
+    public bool IncludeInRecommendations { get; set; } = true;
+
+    [JsonPropertyName("revision")]
+    public long Revision { get; set; }
+
+    [JsonPropertyName("updated_at")]
+    public DateTimeOffset? UpdatedAt { get; set; }
+
+    [JsonPropertyName("display_overrides")]
+    public Dictionary<string, string> DisplayOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed record ItemEditorPreferencesSaveResultDto(
+    bool Saved,
+    bool Conflict,
+    ItemEditorPreferencesDto? Preferences,
+    string? Error);
+
 public sealed class ItemCanonicalSearchResponseDto
 {
     [JsonPropertyName("entity_id")]
