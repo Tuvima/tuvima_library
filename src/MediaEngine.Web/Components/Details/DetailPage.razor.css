@@ -6898,7 +6898,8 @@
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row--genres {
-    margin-top: 0.08rem;
+    margin-top: 0;
+    padding-block: 0.08rem 0.16rem;
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-watch-metadata-row--facts {
@@ -7044,7 +7045,7 @@
 
 @media (min-width: 721px) {
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
-        align-items: flex-start;
+        align-items: center;
         padding: clamp(1.25rem, 3svh, 2.5rem) clamp(1.5rem, 5vw, 4rem) clamp(0.9rem, 2svh, 1.5rem);
     }
 
@@ -7062,8 +7063,10 @@
     }
 
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack {
-        height: 3rem;
+        min-height: 3rem;
+        height: auto;
         align-content: start;
+        row-gap: 0.35rem;
     }
 }
 
@@ -7144,12 +7147,21 @@
 }
 
 @media (max-height: 850px) and (min-width: 721px) {
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__identity {
+        height: clamp(5rem, 15svh, 8rem);
+        min-height: clamp(5rem, 15svh, 8rem);
+    }
+
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
+        max-height: clamp(4.75rem, 13svh, 7.25rem);
+    }
+
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis .tl-detail-hero__tagline {
         -webkit-line-clamp: 2;
     }
 
     ::deep .tl-detail-hero--watch .tl-detail-hero__copy {
-        gap: 0.45rem;
+        gap: 0.55rem;
     }
 
     ::deep .tl-detail-hero--watch .tl-detail-actions--watch {

@@ -186,6 +186,25 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
+    public void SharedHeroContent_CentersTheIdentityStackWithoutClippingMetadata()
+    {
+        var actionRow = Read(@"src\MediaEngine.Web\Components\Details\HeroActionRow.razor");
+        var sharedStyles = Read(@"src\MediaEngine.Web\Components\Details\DetailHeroContent.razor.css");
+        var detailStyles = Read(@"src\MediaEngine.Web\Components\Details\DetailPage.razor.css");
+
+        Assert.Contains("private bool IsPrimaryHeroActionRow => true", actionRow, StringComparison.Ordinal);
+        Assert.Contains("align-items: center", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("gap: clamp(0.65rem, 1.2svh, 0.9rem)", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("min-height: 3rem", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("height: auto", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("row-gap: 0.35rem", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("min-height: clamp(5rem, 15svh, 8rem)", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("max-height: clamp(4.75rem, 13svh, 7.25rem)", sharedStyles, StringComparison.Ordinal);
+        Assert.Contains("align-items: center", detailStyles, StringComparison.Ordinal);
+        Assert.Contains("padding-block: 0.08rem 0.16rem", detailStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DetailAndLanePages_UseTheSameSurfaceNavigationBar()
     {
         var detailTabs = Read(@"src\MediaEngine.Web\Components\Details\DetailTabs.razor");

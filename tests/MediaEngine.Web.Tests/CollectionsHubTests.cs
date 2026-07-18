@@ -180,6 +180,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("font-family: Georgia", css, StringComparison.Ordinal);
         Assert.Contains("height: 60svh", css, StringComparison.Ordinal);
         Assert.Contains("max-height: 60svh", css, StringComparison.Ordinal);
+        Assert.Contains(".collection-detail-page ::deep .collection-detail-hero", css, StringComparison.Ordinal);
         Assert.Contains("height: auto", css, StringComparison.Ordinal);
         Assert.Contains("max-height: none", css, StringComparison.Ordinal);
         Assert.Contains("align-items: center", css, StringComparison.Ordinal);

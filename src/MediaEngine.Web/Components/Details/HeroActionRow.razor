@@ -161,8 +161,10 @@
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
     [Parameter] public Func<DetailAction, IReadOnlyDictionary<string, object>?>? ActionAttributes { get; set; }
 
-    private bool IsWatchActionRow => PrimaryActions.Any(action => action.Key == "watch");
-    private bool IsPrimaryHeroActionRow => IsWatchActionRow || UsePrimaryHeroChrome;
+    // Every media detail uses the same compact hero action hierarchy. Keeping
+    // this shared prevents Read/Listen/group details from reverting to the
+    // older oversized two-row treatment that can overflow a 60svh hero.
+    private bool IsPrimaryHeroActionRow => true;
     private IReadOnlyList<DetailAction> VisibleSecondaryActions
         => (InlineEditAction is null ? SecondaryActions : SecondaryActions.Concat([InlineEditAction]))
             .DistinctBy(action => action.Key, StringComparer.OrdinalIgnoreCase)
