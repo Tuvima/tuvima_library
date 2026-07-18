@@ -27,7 +27,7 @@
     --hero-focus-x: 68%;
     --hero-focus-y: 42%;
     position: relative;
-    height: calc(80svh - var(--app-topbar-height, 65px) - 1rem);
+    height: calc(100svh - var(--app-topbar-height, 65px) - 4.25rem);
     min-height: 28rem;
     max-height: none;
     overflow: hidden;
@@ -7046,7 +7046,7 @@
 @media (min-width: 721px) {
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
         align-items: flex-start;
-        padding: 6rem 4rem 3rem;
+        padding: 4rem 4rem 3rem;
     }
 
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {

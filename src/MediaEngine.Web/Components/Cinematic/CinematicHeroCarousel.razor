@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Cinematic
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Components.Details
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ILogger<CinematicHeroCarousel> Logger
@@ -20,86 +21,31 @@
                                   Title="@ActiveHero.Title"
                                   Class="@HeroClass"
                                   Css="@HeroStyle">
-                <div class="tl-detail-hero__inner cinematic-hero__inner">
-                    <div class="tl-detail-hero__copy cinematic-hero__copy">
-                        <div class="cinematic-hero__section-identity">
-                            <span>@SectionTitle</span>
-                            @if (!string.IsNullOrWhiteSpace(SectionSubtitle))
-                            {
-                                <small>@SectionSubtitle</small>
-                            }
-                        </div>
+                <div class="cinematic-hero-carousel__context">@CarouselContextLabel</div>
 
-                        @if (!string.IsNullOrWhiteSpace(ActiveHero.Eyebrow))
-                        {
-                            <div class="tl-detail-hero__eyebrow cinematic-hero__eyebrow">@ActiveHero.Eyebrow</div>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(ActiveHero.LogoUrl) && UsesLandscapeArtwork)
-                        {
-                            <img class="tl-detail-hero__logo cinematic-hero__logo" src="@ActiveHero.LogoUrl" alt="@ActiveHero.Title" />
-                        }
-                        else
-                        {
-                            <h1>@ActiveHero.Title</h1>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(ActiveHero.Subtitle))
-                        {
-                            <p class="tl-detail-hero__subtitle cinematic-hero__subtitle">@ActiveHero.Subtitle</p>
-                        }
-
-                        @if (DisplayFacts.Count > 0)
-                        {
-                            <div class="cinematic-hero__facts" aria-label="Featured item facts">
-                                @foreach (var fact in DisplayFacts)
-                                {
-                                    <span>@fact</span>
-                                }
-                            </div>
-                        }
-
-                        <div class="cinematic-hero__actions">
-                            <AppButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
-                                       StartIcon="@PrimaryIcon"
-                                       Class="cinematic-hero__action cinematic-hero__action--primary"
-                                       OnClick="OpenPrimaryAsync">
-                                @ActiveHero.PrimaryActionLabel
-                            </AppButton>
-
-                            @if (!string.IsNullOrWhiteSpace(ActiveHero.SecondaryNavigationUrl))
-                            {
-                                <AppButton Variant="Variant.Outlined"
-                                           Color="Color.Default"
-                                           StartIcon="@Icons.Material.Outlined.Info"
-                                           Class="cinematic-hero__action"
-                                           OnClick="OpenSecondaryAsync">
-                                    @ActiveHero.SecondaryActionLabel
-                                </AppButton>
-                            }
-                        </div>
-
-                        @if (ActiveHero.ProgressPct is > 0)
-                        {
-                            <div class="cinematic-hero__progress" aria-label="@($"{ActiveHero.ProgressPct:F0}% complete")">
-                                <div class="cinematic-hero__progress-copy">
-                                    <span>@(ActiveHero.StatusText ?? "In progress")</span>
-                                    <span>@($"{ActiveHero.ProgressPct:F0}%")</span>
-                                </div>
-                                <div class="cinematic-hero__progress-track">
-                                    <AppCssElement Tag="div" Class="cinematic-hero__progress-fill" Css="@($"width: {Math.Clamp(ActiveHero.ProgressPct.Value, 0, 100):F0}%;")" />
-                                </div>
-                            </div>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(DisplaySummary))
-                        {
-                            <div class="tl-detail-hero__synopsis cinematic-hero__synopsis">
-                                <p>@DisplaySummary</p>
-                            </div>
-                        }
-
+                <DetailHeroContent Title="@ActiveHero.Title"
+                                   UseLogo="@UsesLogo"
+                                   LogoUrl="@ActiveHero.LogoUrl"
+                                   Subtitle="@DisplaySubtitle"
+                                   Synopsis="@DisplaySummary"
+                                   Class="cinematic-hero__content">
+                    <MetadataContent>
+                        <HeroMetadataPills Metadata="@LandingMetadata"
+                                           EntityType="@ActiveEntityType"
+                                           IdentityStatus="CanonicalIdentityStatus.Unknown"
+                                           IsWatchHero="@IsWatchHero"
+                                           UsePrimaryHeroChrome="true"
+                                           RenderHeroBrandInMetadata="false" />
+                    </MetadataContent>
+                    <ActionContent>
+                        <HeroActionRow PrimaryActions="@LandingPrimaryActions"
+                                       UsePrimaryHeroChrome="true"
+                                       OnActionSelected="OpenLandingActionAsync" />
+                    </ActionContent>
+                    <ProgressContent>
+                        <HeroProgressBlock Progress="@LandingProgress" />
+                    </ProgressContent>
+                    <SupplementalContent>
                         @if (Density == CinematicHeroDensity.CompactAudio && ActiveHero.PreviewItems.Count > 0)
                         {
                             <div class="cinematic-hero__track-preview" aria-label="Featured album tracks">
@@ -128,8 +74,8 @@
                                 </ol>
                             </div>
                         }
-                    </div>
-                </div>
+                    </SupplementalContent>
+                </DetailHeroContent>
             </CinematicHeroSurface>
         </div>
 
@@ -196,12 +142,49 @@
     private DiscoveryHeroViewModel ActiveHero => Slides[Math.Clamp(_activeIndex, 0, Slides.Count - 1)];
     private bool IsPaused => _prefersReducedMotion || _userPaused || _hoverPaused || _focusPaused || Slides.Count < 2;
     private bool UsesLandscapeArtwork => ActiveHero.SurfaceKind == MediaTileSurfaceKind.BannerLandscape;
+    private bool UsesLogo => UsesLandscapeArtwork && !string.IsNullOrWhiteSpace(ActiveHero.LogoUrl);
+    private bool IsWatchHero => ActiveEntityType is DetailEntityType.Movie or DetailEntityType.TvShow;
+    private bool IsContinuation => ActiveHero.ProgressPct is > 0
+        || ActiveHero.PrimaryActionLabel.Contains("resume", StringComparison.OrdinalIgnoreCase)
+        || ActiveHero.PrimaryActionLabel.Contains("continue", StringComparison.OrdinalIgnoreCase);
     private string? DisplaySummary => ActiveHero.Tldr ?? ActiveHero.Description;
-    private IReadOnlyList<string> DisplayFacts => ActiveHero.MetaPills
+    private string? DisplaySubtitle => IsWatchHero ? null : ActiveHero.Subtitle;
+    private string CarouselContextLabel => IsContinuation
+        ? ActiveEntityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.TvShow => "Continue Watching",
+            DetailEntityType.Book or DetailEntityType.ComicIssue => "Continue Reading",
+            _ => "Continue Listening",
+        }
+        : "Featured Content";
+
+    private IReadOnlyList<MetadataPill> LandingMetadata => ActiveHero.MetaPills
         .Where(value => !string.IsNullOrWhiteSpace(value))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .Take(5)
+        .Where(value => !value.StartsWith("New ", StringComparison.OrdinalIgnoreCase))
+        .Select(ToMetadataPill)
+        .Concat(ActiveHero.Genres
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => new MetadataPill { Kind = "genre", Label = value.Trim() }))
+        .Where(item => !string.IsNullOrWhiteSpace(item.Kind))
+        .DistinctBy(item => $"{item.Kind}:{item.Label}", StringComparer.OrdinalIgnoreCase)
         .ToList();
+
+    private IReadOnlyList<DetailAction> LandingPrimaryActions => [new DetailAction
+    {
+        Key = IsContinuation ? "resume" : IsOpenAction ? "open-feature" : PrimaryActionKey,
+        Label = ActiveHero.PrimaryActionLabel,
+        Icon = IsOpenAction ? null : PrimaryActionIcon,
+        Route = ActiveHero.PrimaryNavigationUrl,
+        IsPrimary = true,
+    }];
+
+    private ProgressViewModel? LandingProgress => ActiveHero.ProgressPct is > 0
+        ? new ProgressViewModel
+        {
+            Percent = ActiveHero.ProgressPct.Value,
+            Label = ActiveHero.StatusText ?? $"{ActiveHero.ProgressPct:F0}% complete",
+        }
+        : null;
 
     private string CarouselClass => $"cinematic-hero-carousel cinematic-hero-carousel--{Density.ToString().ToLowerInvariant()}";
     private string HeroClass => $"cinematic-hero cinematic-hero--landing cinematic-hero--{Density.ToString().ToLowerInvariant()} {HeroMediaClass}";
@@ -213,9 +196,19 @@
         _ => "tl-detail-hero--read",
     };
     private string HeroStyle => $"--cinematic-hero-accent: {ActiveHero.AccentColor};";
-    private string PrimaryIcon => ActiveEntityType is DetailEntityType.Book or DetailEntityType.ComicIssue
-        ? Icons.Material.Outlined.AutoStories
-        : Icons.Material.Filled.PlayArrow;
+    private bool IsOpenAction => ActiveHero.PrimaryActionLabel.StartsWith("Open", StringComparison.OrdinalIgnoreCase);
+    private string PrimaryActionKey => ActiveEntityType switch
+    {
+        DetailEntityType.Book or DetailEntityType.ComicIssue => "read",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        _ => "watch",
+    };
+    private string PrimaryActionIcon => ActiveEntityType switch
+    {
+        DetailEntityType.Book or DetailEntityType.ComicIssue => "auto_stories",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "headphones",
+        _ => "play_arrow",
+    };
     private string PauseButtonLabel => IsPaused ? "Resume featured item rotation" : "Pause featured item rotation";
     private string PauseButtonIcon => IsPaused ? Icons.Material.Filled.PlayArrow : Icons.Material.Filled.Pause;
 
@@ -346,8 +339,7 @@
         return Task.CompletedTask;
     }
 
-    private Task OpenPrimaryAsync() => OpenAsync(ActiveHero.PrimaryNavigationUrl);
-    private Task OpenSecondaryAsync() => OpenAsync(ActiveHero.SecondaryNavigationUrl);
+    private Task OpenLandingActionAsync(DetailAction action) => OpenAsync(action.Route);
 
     private Task OpenAsync(string? url)
     {
@@ -370,6 +362,50 @@
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static MetadataPill ToMetadataPill(string value)
+    {
+        var label = value.Trim();
+        var kind = MetadataKind(label);
+        if (kind == "rating")
+        {
+            label = label.TrimStart('★').Trim();
+        }
+
+        return new MetadataPill { Kind = kind, Label = label };
+    }
+
+    private static string? MetadataKind(string value)
+    {
+        if (value.StartsWith('★'))
+            return "rating";
+        if (value.Length == 4 && int.TryParse(value, out var year) && year is >= 1800 and <= 2200)
+            return "year";
+        if (value.Contains("episode", StringComparison.OrdinalIgnoreCase))
+            return "episode_count";
+        if (value.Contains("season", StringComparison.OrdinalIgnoreCase))
+            return "season_count";
+        if (value.Contains("page", StringComparison.OrdinalIgnoreCase))
+            return "page_count";
+        if (value.Contains("track", StringComparison.OrdinalIgnoreCase))
+            return "track_count";
+        if (value.Contains("min", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("hour", StringComparison.OrdinalIgnoreCase)
+            || value.EndsWith('h')
+            || value.Contains(':'))
+        {
+            return "duration";
+        }
+        if (value.StartsWith("TV-", StringComparison.OrdinalIgnoreCase)
+            || value is "G" or "PG" or "PG-13" or "R" or "NC-17")
+        {
+            return "content_rating";
+        }
+        if (value is "4K" or "UHD" or "HD" or "1080p" or "2160p")
+            return "quality";
+
+        return null;
+    }
 
     public async ValueTask DisposeAsync()
     {

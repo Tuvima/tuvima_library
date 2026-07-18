@@ -26,7 +26,7 @@ Non-TV series and collection containers render through the dedicated fixed-size 
 
 Within Watch, TV shows occupy their own `TV Shows` shelf. The separate `Series` shelf contains only dynamically aligned movie series and explains that automatic grouping in its subtitle. Do not combine those shelves or place TV show cards in the Series row.
 
-The five main landings reuse the detail-derived cinematic hero and filter primitives. Their backdrop stage keeps the full detail treatment: an uncropped foreground frame, a mask beginning at the image's true left edge, blurred atmosphere, and layered contrast fades. Watch landing TV slides always use root show artwork and fall back to the settled placeholder when it is absent; episode stills stay on episode-specific surfaces.
+The five main landings reuse the detail-derived cinematic hero. `DetailHero` and `CinematicHeroCarousel` both compose `DetailHeroContent`, sharing logo/title scale, facts, primary action, progress, and full-paragraph synopsis. The carousel adds a top-right Featured Content or lane-specific Continue context plus rotation controls. Lane filters and detail tabs both use `SurfaceNavigationBar`. Group-opening actions do not use play icons. Watch landing TV slides always use root show artwork and fall back to the settled placeholder when it is absent; episode stills stay on episode-specific surfaces.
 
 ---
 

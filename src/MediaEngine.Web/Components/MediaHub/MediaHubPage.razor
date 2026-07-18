@@ -15,33 +15,29 @@
                               AriaLabel="@($"{Title} featured media")" />
     }
 
-    <div class="media-hub__filter-shell">
-        <SurfaceTabBar Items="@FilterTabs"
-                       ActiveKey="@_activeMode"
-                       ActiveKeyChanged="SetModeAsync"
-                       AriaLabel="@($"Filter {Title}")"
-                       Class="media-hub__filter-bar"
-                       ItemClass="media-hub__filter-tab">
-            <TrailingContent>
-                @if (AvailableGenres.Count > 1)
-                {
-                    <AppSelect T="string"
-                               Value="@_activeGenre"
-                               ValueChanged="SetGenreAsync"
-                               Label="Genre"
-                               Variant="Variant.Outlined"
-                               Dense="true"
-                               Class="media-hub__genre-filter">
-                        <MudSelectItem T="string" Value="@("all")">All genres</MudSelectItem>
-                        @foreach (var genre in AvailableGenres)
-                        {
-                            <MudSelectItem T="string" Value="@genre">@genre</MudSelectItem>
-                        }
-                    </AppSelect>
-                }
-            </TrailingContent>
-        </SurfaceTabBar>
-    </div>
+    <SurfaceNavigationBar Items="@FilterTabs"
+                          ActiveKey="@_activeMode"
+                          ActiveKeyChanged="SetModeAsync"
+                          AriaLabel="@($"Filter {Title}")">
+        <TrailingContent>
+            @if (AvailableGenres.Count > 1)
+            {
+                <AppSelect T="string"
+                           Value="@_activeGenre"
+                           ValueChanged="SetGenreAsync"
+                           Label="Genre"
+                           Variant="Variant.Outlined"
+                           Dense="true"
+                           Class="media-hub__genre-filter">
+                    <MudSelectItem T="string" Value="@("all")">All genres</MudSelectItem>
+                    @foreach (var genre in AvailableGenres)
+                    {
+                        <MudSelectItem T="string" Value="@genre">@genre</MudSelectItem>
+                    }
+                </AppSelect>
+            }
+        </TrailingContent>
+    </SurfaceNavigationBar>
 
     <div class="media-hub__shelves">
         @if (VisibleShelves.Count == 0)

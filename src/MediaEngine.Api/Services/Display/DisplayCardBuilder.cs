@@ -229,7 +229,7 @@ public sealed class DisplayCardBuilder
             GroupingType: "tvSeries",
             Title: title,
             Subtitle: CollectionSubtitle("TV", works),
-            Facts: CollectionFacts("TV", works, representative.Genre, rating: representative.Rating),
+            Facts: TvShowFacts(title, works, representative),
             Artwork: artwork,
             PreferredShape: PreferredShape("TV", artwork.BackgroundUrl, artwork.BannerUrl, artwork.SquareUrl),
             Presentation: "tvSeries",
@@ -532,6 +532,31 @@ public sealed class DisplayCardBuilder
         AddFact(facts, DisplayFactBuilder.Build(mediaKind, string.Empty, rating: rating).FirstOrDefault());
         facts.AddRange(DisplayMediaRules.SplitValues(genre).Where(value => !string.Equals(value, mediaKind, StringComparison.OrdinalIgnoreCase)).Take(2));
         return facts;
+    }
+
+    private static IReadOnlyList<string> TvShowFacts(
+        string title,
+        IReadOnlyList<DisplayWorkRow> works,
+        DisplayWorkRow representative)
+    {
+        var facts = BuildFacts(
+                "TV",
+                title,
+                representative.Year,
+                representative.Author,
+                representative.Artist,
+                representative.ContentRating,
+                representative.Runtime,
+                representative.Duration,
+                representative.PageCount,
+                representative.Rating)
+            .ToList();
+        var episodeCount = works.Select(work => work.WorkId).Distinct().Count();
+        facts.Insert(Math.Min(2, facts.Count), CollectionCountLabel("TV", episodeCount));
+        facts.AddRange(DisplayMediaRules.SplitValues(representative.Genre)
+            .Where(value => !string.Equals(value, "TV", StringComparison.OrdinalIgnoreCase))
+            .Take(2));
+        return facts.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static IReadOnlyList<string> HomeCollectionFacts(DisplayHomeCollectionRow row)

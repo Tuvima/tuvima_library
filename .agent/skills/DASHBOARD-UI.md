@@ -16,7 +16,7 @@ Use this skill when changing Dashboard visual components, routed pages, navigati
 
 Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns.
 
-Home, Read, Watch, Listen, and Collections share `CinematicHeroCarousel`, `CinematicHeroSurface`, and `SurfaceTabBar` with detail presentation. The shared hero stage keeps the full detail hero's uncropped foreground backdrop, intrinsic left-edge mask, atmosphere, and layered fades. Watch landing TV slides use root show artwork only; never promote an episode still into the landing hero.
+Home, Read, Watch, Listen, and Collections share `CinematicHeroCarousel` and `CinematicHeroSurface` with detail presentation. Both landing and detail heroes compose `DetailHeroContent` for one logo/title, facts, action, progress, and synopsis implementation. `SurfaceNavigationBar` is the shared lower bar for lane filters and detail tabs. Put Featured Content or lane-specific Continue context at the carousel's top right, use Resume for progress, and do not put a play icon on group-opening actions. Watch landing TV slides use root show artwork only; never promote an episode still into the landing hero.
 
 The removed all-in-one management workflow must not be recreated. Do not add routes, navigation labels, implementation types, or an all-in-one media correction workbench for it.
 
@@ -32,7 +32,7 @@ Non-TV series and collection containers use `Components/MediaTiles/MediaGroupTil
 | `src/MediaEngine.Web/Components/Navigation/TopNavAccountMenu.razor` | Profile switching, permission-gated Needs Review, Settings, Help, and conditional sign-out. |
 | `src/MediaEngine.Web/Components/Navigation/SystemActivityIndicator.razor` | Busy/idle shell status for playback, ingestion, AI, enrichment, and durable Engine operations. |
 | `src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor` | Home/discovery page. |
-| `src/MediaEngine.Web/Components/Cinematic/` | Shared detail-derived landing hero stage, carousel, and filter tabs. |
+| `src/MediaEngine.Web/Components/Cinematic/` | Shared hero stage/carousel and `SurfaceNavigationBar` used by lane filters and detail tabs. |
 | `src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor` | Shared Read, Watch, and Listen browse behavior. |
 | `src/MediaEngine.Web/Components/Details/DetailPage.razor` | Detail-page surface and inline edit launcher. |
 | `src/MediaEngine.Web/Components/Universe/BookDetailContent.razor` | Read-detail surface for books. |

@@ -1,0 +1,65 @@
+@namespace MediaEngine.Web.Components.Details
+
+<div class="tl-detail-hero__inner @Class">
+    <div class="tl-detail-hero__copy">
+        <div class="tl-detail-hero__identity">
+            @IdentityBeforeTitle
+
+            @if (UseLogo && !string.IsNullOrWhiteSpace(LogoUrl))
+            {
+                <img class="tl-detail-hero__logo" src="@LogoUrl" alt="@Title" />
+            }
+            else
+            {
+                <h1>@Title</h1>
+            }
+
+            @IdentityAfterTitle
+
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
+            {
+                <p class="tl-detail-hero__subtitle">@Subtitle</p>
+            }
+        </div>
+
+        @MetadataContent
+        @CapabilityContent
+        @ActionContent
+        @ProgressContent
+
+        @if (!string.IsNullOrWhiteSpace(Synopsis))
+        {
+            <div class="tl-detail-hero__synopsis">
+                @if (!string.IsNullOrWhiteSpace(SynopsisHeading))
+                {
+                    <h2>@SynopsisHeading</h2>
+                }
+                <p class="@SynopsisClass"
+                   data-ai-summary-slot="tldr"
+                   aria-live="polite">@Synopsis</p>
+                @SynopsisTrailingContent
+            </div>
+        }
+
+        @SupplementalContent
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public bool UseLogo { get; set; }
+    [Parameter] public string? LogoUrl { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Synopsis { get; set; }
+    [Parameter] public string? SynopsisHeading { get; set; }
+    [Parameter] public string SynopsisClass { get; set; } = "tl-detail-hero__tagline tl-detail-hero__tagline--ai";
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? IdentityBeforeTitle { get; set; }
+    [Parameter] public RenderFragment? IdentityAfterTitle { get; set; }
+    [Parameter] public RenderFragment? MetadataContent { get; set; }
+    [Parameter] public RenderFragment? CapabilityContent { get; set; }
+    [Parameter] public RenderFragment? ActionContent { get; set; }
+    [Parameter] public RenderFragment? ProgressContent { get; set; }
+    [Parameter] public RenderFragment? SynopsisTrailingContent { get; set; }
+    [Parameter] public RenderFragment? SupplementalContent { get; set; }
+}

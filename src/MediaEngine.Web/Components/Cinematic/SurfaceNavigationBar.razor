@@ -1,0 +1,23 @@
+@namespace MediaEngine.Web.Components.Cinematic
+
+<div class="@RootClass">
+    <SurfaceTabBar Items="@Items"
+                   ActiveKey="@ActiveKey"
+                   ActiveKeyChanged="@ActiveKeyChanged"
+                   AriaLabel="@AriaLabel"
+                   Class="surface-navigation-bar__tabs"
+                   ItemClass="surface-navigation-bar__tab">
+        <TrailingContent>@TrailingContent</TrailingContent>
+    </SurfaceTabBar>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<SurfaceTabItem> Items { get; set; } = [];
+    [Parameter] public string ActiveKey { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ActiveKeyChanged { get; set; }
+    [Parameter] public string AriaLabel { get; set; } = "Sections";
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? TrailingContent { get; set; }
+
+    private string RootClass => $"surface-navigation-bar {Class}";
+}

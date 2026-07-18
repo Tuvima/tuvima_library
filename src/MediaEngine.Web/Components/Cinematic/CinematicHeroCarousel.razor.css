@@ -10,14 +10,31 @@
 
 ::deep .cinematic-hero--landing {
     position: relative;
-    height: calc(80svh - var(--app-topbar-height, 65px) - 1rem);
-    min-height: 28rem;
+    height: calc(100svh - var(--app-topbar-height, 65px) - 4.25rem);
+    min-height: 40rem;
     color: rgb(var(--hero-text-rgb));
+}
+
+.cinematic-hero-carousel__context {
+    position: absolute;
+    z-index: 8;
+    top: clamp(1.4rem, 3vw, 2.4rem);
+    right: clamp(1.5rem, 4vw, 4rem);
+    padding: 0.48rem 0.72rem;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 999px;
+    background: rgba(5, 7, 12, 0.46);
+    color: rgba(248, 250, 252, 0.82);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    backdrop-filter: blur(0.8rem);
 }
 
 .cinematic-hero-carousel--compactaudio ::deep .cinematic-hero--landing {
     height: auto;
-    min-height: clamp(21rem, 39svh, 27rem);
+    min-height: clamp(29rem, 52svh, 36rem);
 }
 
 .cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {
@@ -31,280 +48,173 @@
     aspect-ratio: 1;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__inner {
-    position: relative;
-    z-index: 4;
-    min-height: inherit;
-    display: flex;
-    align-items: center;
-    padding: clamp(3rem, 6vw, 6rem) clamp(1.5rem, 6vw, 7rem) clamp(5rem, 8vw, 7rem);
+.cinematic-hero-carousel--compactaudio ::deep .cinematic-hero__content {
+    padding-top: 2.25rem;
+    padding-bottom: 3.5rem;
 }
 
-.cinematic-hero-carousel--compactaudio ::deep .cinematic-hero__inner {
-    padding-top: 2rem;
-    padding-bottom: 4rem;
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__copy {
+.cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__copy {
     width: min(42rem, 54vw);
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.8rem;
+    gap: 0.55rem;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__section-identity {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    color: rgba(248, 250, 252, 0.98);
+.cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__identity {
+    min-height: 6.5rem;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__section-identity > span {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: clamp(1.7rem, 2.4vw, 2.8rem);
-    line-height: 1;
+.cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__logo {
+    max-height: 6.5rem;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__section-identity small {
-    color: rgba(203, 213, 225, 0.7);
-    font-size: 0.86rem;
+.cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__copy h1 {
+    font-size: clamp(2.15rem, 3.8vw, 4rem);
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__eyebrow {
-    color: color-mix(in srgb, var(--cinematic-hero-accent) 72%, white 18%);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+.cinematic-hero-carousel--compactaudio ::deep .tl-detail-metadata-stack {
+    min-height: 2.5rem;
 }
 
-::deep .cinematic-hero--landing h1 {
-    max-width: 15ch;
-    margin: 0;
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: clamp(2.6rem, 5vw, 5.5rem);
-    line-height: 0.92;
-    text-wrap: balance;
-    text-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.62);
-}
-
-.cinematic-hero-carousel--compactaudio ::deep .cinematic-hero--landing h1 {
-    font-size: clamp(2.1rem, 3.6vw, 4rem);
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__logo {
-    width: min(22rem, 72%);
-    max-height: 7rem;
-    object-fit: contain;
-    object-position: left center;
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__subtitle {
-    margin: 0;
-    color: rgba(226, 232, 240, 0.84);
+.cinematic-hero-carousel--compactaudio ::deep .tl-detail-actions--watch .tl-detail-action--primary {
+    min-height: 3.5rem;
     font-size: 1rem;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__facts {
+.cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__synopsis {
+    margin-top: 0.25rem;
+    padding-top: 0.8rem;
+}
+
+.cinematic-hero-carousel__controls {
+    position: absolute;
+    z-index: 9;
+    right: clamp(1.25rem, 4vw, 4rem);
+    bottom: 1rem;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-    color: rgba(226, 232, 240, 0.78);
-    font-size: 0.82rem;
-    font-weight: 600;
+    gap: 0.45rem;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__facts span:not(:last-child)::after {
-    content: "";
-    display: inline-block;
-    width: 0.25rem;
-    height: 0.25rem;
-    margin-left: 0.5rem;
-    border-radius: 999px;
-    background: rgba(226, 232, 240, 0.38);
-    vertical-align: middle;
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 0.35rem;
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__action {
-    min-height: 2.9rem;
-    padding-inline: 1.3rem;
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__progress {
-    width: min(25rem, 100%);
+.cinematic-hero-carousel__control {
+    width: 2.35rem;
+    height: 2.35rem;
     display: grid;
-    gap: 0.35rem;
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__progress-copy {
-    display: flex;
-    justify-content: space-between;
-    color: rgba(226, 232, 240, 0.72);
-    font-size: 0.76rem;
-}
-
-::deep .cinematic-hero--landing .cinematic-hero__progress-track {
-    height: 0.28rem;
-    overflow: hidden;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.14);
+    background: rgba(5, 7, 12, 0.58);
+    color: rgba(248, 250, 252, 0.9);
+    cursor: pointer;
+    backdrop-filter: blur(0.75rem);
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__progress-fill {
-    height: 100%;
-    border-radius: inherit;
-    background: var(--cinematic-hero-accent);
+.cinematic-hero-carousel__control:hover,
+.cinematic-hero-carousel__control:focus-visible {
+    border-color: rgba(255, 255, 255, 0.42);
+    background: rgba(20, 23, 31, 0.84);
+    color: #fff;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__synopsis {
-    max-width: 38rem;
-    color: rgba(226, 232, 240, 0.78);
+.cinematic-hero-carousel__counter {
+    min-width: 3rem;
+    color: rgba(226, 232, 240, 0.76);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
 }
 
-::deep .cinematic-hero--landing .cinematic-hero__synopsis p {
-    margin: 0;
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-height: 1.55;
-}
-
-.cinematic-hero__track-preview,
 ::deep .cinematic-hero__track-preview {
-    width: min(34rem, 100%);
+    order: 7;
+    width: min(32.5rem, 100%);
     margin-top: 0.2rem;
-    padding-top: 0.65rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 0.7rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.13);
 }
 
-.cinematic-hero__track-preview-heading,
 ::deep .cinematic-hero__track-preview-heading {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.35rem;
-    color: rgba(248, 250, 252, 0.88);
-    font-size: 0.72rem;
+    color: rgba(248, 250, 252, 0.9);
+    font-size: 0.8rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
 }
 
 ::deep .cinematic-hero__track-preview-heading small {
-    color: rgba(226, 232, 240, 0.55);
-    font: inherit;
-    font-weight: 500;
+    color: rgba(203, 213, 225, 0.58);
+    font-weight: 600;
 }
 
 ::deep .cinematic-hero__track-preview ol {
     display: grid;
     gap: 0.22rem;
-    margin: 0;
+    margin: 0.45rem 0 0;
     padding: 0;
     list-style: none;
 }
 
 ::deep .cinematic-hero__track-preview li {
+    min-width: 0;
     display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr);
+    grid-template-columns: 1.5rem minmax(0, 1fr);
     gap: 0.45rem;
-    color: rgba(203, 213, 225, 0.62);
-    font-size: 0.8rem;
+    color: rgba(226, 232, 240, 0.74);
+    font-size: 0.76rem;
 }
 
 ::deep .cinematic-hero__track-preview a,
 ::deep .cinematic-hero__track-title {
     overflow: hidden;
-    color: rgba(241, 245, 249, 0.86);
+    color: inherit;
     text-overflow: ellipsis;
+    text-decoration: none;
     white-space: nowrap;
 }
 
-.cinematic-hero-carousel__controls {
-    position: absolute;
-    z-index: 8;
-    right: clamp(1.5rem, 4vw, 4rem);
-    bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
+::deep .cinematic-hero__track-preview a:hover,
+::deep .cinematic-hero__track-preview a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
 }
 
-.cinematic-hero-carousel__control,
-::deep .cinematic-hero-carousel__control {
-    width: 2.4rem;
-    height: 2.4rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.13);
-    border-radius: 999px;
-    background: rgba(5, 7, 12, 0.64);
-    color: rgba(248, 250, 252, 0.92);
-    backdrop-filter: blur(0.8rem);
-}
-
-.cinematic-hero-carousel__counter {
-    min-width: 3.2rem;
-    color: rgba(226, 232, 240, 0.68);
-    font-size: 0.74rem;
-    text-align: center;
-}
-
-@media (max-width: 900px) {
-    ::deep .cinematic-hero--landing .cinematic-hero__copy {
-        width: min(42rem, 78vw);
-    }
-
-    ::deep .cinematic-hero--landing .tl-detail-media-stage__cover-wrap {
-        right: -2rem;
-        opacity: 0.54;
-    }
-}
-
-@media (max-width: 640px) {
+@media (max-width: 960px) {
     ::deep .cinematic-hero--landing {
-        min-height: 34rem;
+        min-height: 38rem;
     }
 
+    .cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {
+        opacity: 0.42;
+    }
+}
+
+@media (max-width: 720px) {
+    ::deep .cinematic-hero--landing,
     .cinematic-hero-carousel--compactaudio ::deep .cinematic-hero--landing {
-        min-height: 29rem;
+        height: auto;
+        min-height: 39rem;
     }
 
-    ::deep .cinematic-hero--landing .cinematic-hero__inner {
-        align-items: flex-end;
-        padding: 3rem 1.25rem 5.5rem;
+    .cinematic-hero-carousel__context {
+        top: 1rem;
+        right: 1rem;
     }
 
-    ::deep .cinematic-hero--landing .cinematic-hero__copy {
+    .cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__copy {
         width: 100%;
     }
 
-    ::deep .cinematic-hero--landing .tl-detail-media-stage__cover-wrap {
-        top: 38%;
-        right: 1rem;
-        opacity: 0.44;
+    .cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {
+        display: none;
     }
 
-    ::deep .cinematic-hero--landing .tl-detail-media-stage__foreground {
-        width: 12rem;
+    .cinematic-hero-carousel__controls {
+        right: 1rem;
+        bottom: 0.75rem;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .cinematic-hero-carousel *,
-    .cinematic-hero-carousel ::deep * {
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
+    .cinematic-hero-carousel__control {
+        transition: none;
     }
 }

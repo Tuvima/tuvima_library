@@ -75,98 +75,81 @@
     }
     else
     {
-        <div class="tl-detail-hero__inner">
-            <div class="tl-detail-hero__copy">
-            <div class="tl-detail-hero__identity">
-            @if (!(Presentation.IsWatchHero && HasHeroBrand) && !string.IsNullOrWhiteSpace(Presentation.Eyebrow))
-            {
-                <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
-            }
+        <DetailHeroContent Title="@Presentation.Title"
+                           UseLogo="@Presentation.UseLogo"
+                           LogoUrl="@Presentation.LogoUrl"
+                           Subtitle="@Presentation.Subtitle"
+                           Synopsis="@Presentation.HeroCopy"
+                           SynopsisHeading="@WatchEpisodeHeading"
+                           SynopsisClass="@HeroSummaryClass">
+            <IdentityBeforeTitle>
+                @if (!(Presentation.IsWatchHero && HasHeroBrand) && !string.IsNullOrWhiteSpace(Presentation.Eyebrow))
+                {
+                    <div class="tl-detail-hero__eyebrow">@Presentation.Eyebrow</div>
+                }
 
-            <p class="@SeriesContextClass" aria-hidden="@(SeriesContextLabel is null)">
-                <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
-                <span>@SeriesContextLabel</span>
-            </p>
-
-            @if (Presentation.UseLogo)
-            {
-                <img class="tl-detail-hero__logo" src="@Presentation.LogoUrl" alt="@Presentation.Title" />
-            }
-            else
-            {
-                <h1>@Presentation.Title</h1>
-            }
-
-            @if (HeroCreditLines.Count > 0)
-            {
-                <div class="@HeroCreditStackClass" aria-label="Primary credits">
-                    @foreach (var line in HeroCreditLines)
-                    {
-                        <div class="tl-detail-hero-credit-stack__line">
-                            <span class="tl-detail-hero-credit-stack__label">@line.Label</span>
-                            <span class="tl-detail-hero-credit-stack__value">@line.Value</span>
-                        </div>
-                    }
-                </div>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(Presentation.Subtitle))
-            {
-                <p class="tl-detail-hero__subtitle">@Presentation.Subtitle</p>
-            }
-            </div>
-
-            <HeroMetadataPills Metadata="Model.Metadata"
-                               EntityType="Model.EntityType"
-                               IdentityStatus="Model.IdentityStatus"
-                               IsWatchHero="Presentation.IsWatchHero"
+                <p class="@SeriesContextClass" aria-hidden="@(SeriesContextLabel is null)">
+                    <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
+                    <span>@SeriesContextLabel</span>
+                </p>
+            </IdentityBeforeTitle>
+            <IdentityAfterTitle>
+                @if (HeroCreditLines.Count > 0)
+                {
+                    <div class="@HeroCreditStackClass" aria-label="Primary credits">
+                        @foreach (var line in HeroCreditLines)
+                        {
+                            <div class="tl-detail-hero-credit-stack__line">
+                                <span class="tl-detail-hero-credit-stack__label">@line.Label</span>
+                                <span class="tl-detail-hero-credit-stack__value">@line.Value</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </IdentityAfterTitle>
+            <MetadataContent>
+                <HeroMetadataPills Metadata="Model.Metadata"
+                                   EntityType="Model.EntityType"
+                                   IdentityStatus="Model.IdentityStatus"
+                                   IsWatchHero="Presentation.IsWatchHero"
+                                   UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
+                                   HeroBrand="Model.HeroBrand"
+                                   RenderHeroBrandInMetadata="false"
+                                   IsAdminView="Model.IsAdminView" />
+            </MetadataContent>
+            <CapabilityContent>
+                @if (Presentation.CapabilityPills.Count > 0)
+                {
+                    <div class="tl-detail-capability-row" aria-label="Availability">
+                        @foreach (var pill in Presentation.CapabilityPills)
+                        {
+                            <span class="tl-detail-capability-pill">@pill.Label</span>
+                        }
+                    </div>
+                }
+            </CapabilityContent>
+            <ActionContent>
+                <HeroActionRow PrimaryActions="Model.PrimaryActions"
+                               SecondaryActions="Model.SecondaryActions"
+                               OverflowActions="Model.OverflowActions"
+                               InlineEditAction="InlineEditAction"
                                UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
-                               HeroBrand="Model.HeroBrand"
-                               RenderHeroBrandInMetadata="false"
-                               IsAdminView="Model.IsAdminView" />
-
-            @if (Presentation.CapabilityPills.Count > 0)
-            {
-                <div class="tl-detail-capability-row" aria-label="Availability">
-                    @foreach (var pill in Presentation.CapabilityPills)
-                    {
-                        <span class="tl-detail-capability-pill">@pill.Label</span>
-                    }
-                </div>
-            }
-
-            <HeroActionRow PrimaryActions="Model.PrimaryActions"
-                           SecondaryActions="Model.SecondaryActions"
-                           OverflowActions="Model.OverflowActions"
-                           InlineEditAction="InlineEditAction"
-                           UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
-                           ActionAttributes="ActionAttributes"
-                           OnActionSelected="OnActionSelected" />
-
-            <HeroProgressBlock Progress="Presentation.Progress" />
-
-            @if (!string.IsNullOrWhiteSpace(Presentation.HeroCopy))
-            {
-                <div class="tl-detail-hero__synopsis">
-                    @if (!string.IsNullOrWhiteSpace(WatchEpisodeHeading))
-                    {
-                        <h2>@WatchEpisodeHeading</h2>
-                    }
-                    <p class="@HeroSummaryClass"
-                       data-ai-summary-slot="tldr"
-                       aria-live="polite">@Presentation.HeroCopy</p>
-                    @if (Presentation.HeroCopyHasMore)
-                    {
-                        <a class="tl-detail-hero__overview-link"
-                           href="#overview"
-                           @onclick="OpenOverviewAsync"
-                           @onclick:preventDefault="true">(more in overview)</a>
-                    }
-                </div>
-            }
-
-            </div>
-        </div>
+                               ActionAttributes="ActionAttributes"
+                               OnActionSelected="OnActionSelected" />
+            </ActionContent>
+            <ProgressContent>
+                <HeroProgressBlock Progress="Presentation.Progress" />
+            </ProgressContent>
+            <SynopsisTrailingContent>
+                @if (Presentation.HeroCopyHasMore)
+                {
+                    <a class="tl-detail-hero__overview-link"
+                       href="#overview"
+                       @onclick="OpenOverviewAsync"
+                       @onclick:preventDefault="true">(more in overview)</a>
+                }
+            </SynopsisTrailingContent>
+        </DetailHeroContent>
     }
 </CinematicHeroSurface>
 

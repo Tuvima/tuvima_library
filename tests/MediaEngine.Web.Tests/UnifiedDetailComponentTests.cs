@@ -68,7 +68,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("background-size: cover", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork,", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork::after", styles);
-        Assert.Contains("height: calc(80svh - var(--app-topbar-height, 65px) - 1rem)", styles);
+        Assert.Contains("height: calc(100svh - var(--app-topbar-height, 65px) - 4.25rem)", styles);
         Assert.Contains("min-height: 28rem", styles);
         Assert.Contains("max-height: none", styles);
         Assert.Contains("rgba(0, 0, 0, 0.60) 14%", styles);
@@ -713,6 +713,7 @@ public sealed class UnifiedDetailComponentTests
     {
         var source = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
         var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var heroContent = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroContent.razor");
         var presentation = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroPresentation.cs");
         var genres = ReadSource("src/MediaEngine.Web/Components/Details/HeroGenreChips.razor");
 
@@ -720,12 +721,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("MetadataFieldConstants.ShortDescription", source);
         Assert.Contains("GetValue(canonicalValues, \"tldr\")", source);
         Assert.DoesNotContain("BuildFallbackHeroSummary", source);
-        Assert.Contains("data-ai-summary-slot=\"tldr\"", hero);
-        Assert.Contains("tl-detail-hero__tagline--ai", hero);
+        Assert.Contains("data-ai-summary-slot=\"tldr\"", heroContent);
+        Assert.Contains("tl-detail-hero__tagline--ai", heroContent);
         Assert.Contains("DetailEntityType.TvShow => model.Tagline", presentation);
         Assert.Contains("FirstNonBlank(model.Description, model.Tagline)", presentation);
         Assert.Contains("DetailEntityType.Movie => FirstNonBlank(model.Tagline, model.Description)", presentation);
-        Assert.Contains("tl-detail-hero__synopsis", hero);
+        Assert.Contains("tl-detail-hero__synopsis", heroContent);
         Assert.Contains("WatchEpisodeHeading", hero);
         Assert.Contains("EpisodePositionFromWatchAction", hero);
         Assert.Contains("$\"{position}: {episodeTitle.Trim()}\"", hero);
@@ -1392,19 +1393,27 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void LandingAndDetailSurfaces_ShareCinematicPrimitivesWithoutReplacingDetailComposition()
+    public void LandingAndDetailSurfaces_ShareDetailHeroContentAndLaneNavigation()
     {
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
         var detailHero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var detailHeroContent = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroContent.razor");
         var detailTabs = ReadSource("src/MediaEngine.Web/Components/Details/DetailTabs.razor");
         var landingHero = ReadSource("src/MediaEngine.Web/Components/Cinematic/CinematicHeroCarousel.razor");
+        var mediaHub = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaHubPage.razor");
+        var surfaceNavigation = ReadSource("src/MediaEngine.Web/Components/Cinematic/SurfaceNavigationBar.razor");
         var home = ReadSource("src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor");
 
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.Contains("<DetailTabs Tabs=\"VisibleTabs\"", detailPage);
         Assert.Contains("<CinematicHeroSurface", detailHero);
-        Assert.Contains("<SurfaceTabBar", detailTabs);
+        Assert.Contains("<DetailHeroContent", detailHero);
+        Assert.Contains("tl-detail-hero__identity", detailHeroContent);
         Assert.Contains("<CinematicHeroSurface", landingHero);
+        Assert.Contains("<DetailHeroContent", landingHero);
+        Assert.Contains("<SurfaceNavigationBar", detailTabs);
+        Assert.Contains("<SurfaceNavigationBar", mediaHub);
+        Assert.Contains("<SurfaceTabBar", surfaceNavigation);
         Assert.Contains("<CinematicHeroCarousel", home);
         Assert.Contains("<SurfaceTabBar", home);
     }

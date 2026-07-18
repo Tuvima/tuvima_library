@@ -229,6 +229,9 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("Breaking Bad", card.Title);
         Assert.Equal("1 season", card.Subtitle);
         Assert.Equal("tvSeries", card.Presentation);
+        Assert.Contains("2008", card.Facts);
+        Assert.Contains("2 episodes", card.Facts);
+        Assert.Contains("Crime", card.Facts);
         Assert.Equal("Open Show", card.Actions[0].Label);
         Assert.Equal($"/watch/tv/show/{showRootId:D}", card.Actions[0].WebUrl);
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Pilot");

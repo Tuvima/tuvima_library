@@ -157,6 +157,38 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.Contains("linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.94)", surfaceStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("tl-detail-media-stage__background", carouselStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("object-fit: cover", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: calc(100svh - var(--app-topbar-height, 65px) - 4.25rem)", carouselStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CinematicLandingHero_UsesDetailContentWithExplicitCarouselContext()
+    {
+        var carousel = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor");
+        var detail = Read(@"src\MediaEngine.Web\Components\Details\DetailHero.razor");
+        var content = Read(@"src\MediaEngine.Web\Components\Details\DetailHeroContent.razor");
+
+        Assert.Contains("<DetailHeroContent", carousel, StringComparison.Ordinal);
+        Assert.Contains("<DetailHeroContent", detail, StringComparison.Ordinal);
+        Assert.Contains("tl-detail-hero__synopsis", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("cinematic-hero__section-identity", carousel, StringComparison.Ordinal);
+        Assert.Contains("Featured Content", carousel, StringComparison.Ordinal);
+        Assert.Contains("Continue Watching", carousel, StringComparison.Ordinal);
+        Assert.Contains("Continue Reading", carousel, StringComparison.Ordinal);
+        Assert.Contains("Continue Listening", carousel, StringComparison.Ordinal);
+        Assert.Contains("Icon = IsOpenAction ? null : PrimaryActionIcon", carousel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DetailAndLanePages_UseTheSameSurfaceNavigationBar()
+    {
+        var detailTabs = Read(@"src\MediaEngine.Web\Components\Details\DetailTabs.razor");
+        var mediaHub = Read(@"src\MediaEngine.Web\Components\MediaHub\MediaHubPage.razor");
+        var navigationStyles = Read(@"src\MediaEngine.Web\Components\Cinematic\SurfaceNavigationBar.razor.css");
+
+        Assert.Contains("<SurfaceNavigationBar", detailTabs, StringComparison.Ordinal);
+        Assert.Contains("<SurfaceNavigationBar", mediaHub, StringComparison.Ordinal);
+        Assert.Contains("min-height: 4.25rem", navigationStyles, StringComparison.Ordinal);
+        Assert.Contains("border-bottom: 2px solid transparent", navigationStyles, StringComparison.Ordinal);
     }
 
     [Fact]
