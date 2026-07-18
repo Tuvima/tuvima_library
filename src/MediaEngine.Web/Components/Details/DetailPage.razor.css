@@ -24,12 +24,13 @@
     --hero-backdrop-top-rgb: var(--hero-bg-rgb);
     --hero-backdrop-middle-rgb: var(--hero-bg-rgb);
     --hero-backdrop-bottom-rgb: var(--hero-bg-rgb);
+    --hero-wash-accent: var(--cinematic-hero-accent, var(--tl-detail-accent, #8b5cf6));
     --hero-focus-x: 68%;
     --hero-focus-y: 42%;
     position: relative;
-    height: calc(100svh - var(--app-topbar-height, 65px) - 4.25rem);
-    min-height: 28rem;
-    max-height: none;
+    height: 60svh;
+    min-height: min(60svh, 28rem);
+    max-height: 60svh;
     overflow: hidden;
     isolation: isolate;
     background-color: rgb(var(--hero-shadow-rgb));
@@ -50,7 +51,11 @@
 
 ::deep .tl-detail-media-stage--background {
     background:
-        linear-gradient(to bottom, rgb(var(--hero-backdrop-top-rgb)), rgb(var(--hero-backdrop-middle-rgb)) 50%, rgb(var(--hero-backdrop-bottom-rgb)));
+        radial-gradient(ellipse at 76% 42%, color-mix(in srgb, var(--hero-wash-accent) 34%, transparent) 0%, transparent 58%),
+        linear-gradient(120deg,
+            color-mix(in srgb, var(--hero-wash-accent) 18%, rgb(var(--hero-backdrop-top-rgb))) 0%,
+            rgb(var(--hero-backdrop-middle-rgb)) 52%,
+            rgb(var(--hero-backdrop-bottom-rgb)) 100%);
 }
 
 .tl-detail-edit-stage {
@@ -118,17 +123,7 @@
 }
 
 ::deep .tl-detail-media-stage--background::before {
-    content: "";
-    position: absolute;
-    inset: -3%;
-    z-index: 0;
-    background-image: var(--hero-image);
-    background-repeat: no-repeat;
-    background-size: cover;
-    background-position: var(--hero-image-position, center);
-    filter: blur(28px) saturate(0.96);
-    opacity: 0.60;
-    transform: scale(1.06);
+    content: none;
 }
 
 ::deep .tl-detail-media-stage__background,
@@ -177,19 +172,18 @@
     background:
         linear-gradient(
             to right,
-            rgba(var(--hero-shadow-rgb), 0.96) 0%,
-            rgba(var(--hero-shadow-rgb), 0.88) 22%,
-            rgba(var(--hero-shadow-rgb), 0.62) 42%,
-            rgba(var(--hero-shadow-rgb), 0.28) 62%,
-            rgba(var(--hero-shadow-rgb), 0.08) 78%,
+            rgba(var(--hero-shadow-rgb), 0.86) 0%,
+            rgba(var(--hero-shadow-rgb), 0.74) 22%,
+            rgba(var(--hero-shadow-rgb), 0.50) 42%,
+            rgba(var(--hero-shadow-rgb), 0.22) 62%,
+            rgba(var(--hero-shadow-rgb), 0.06) 78%,
             transparent 100%
         ),
         radial-gradient(
             ellipse at 72% 42%,
-            rgba(var(--hero-accent-rgb), 0.28) 0%,
-            rgba(var(--hero-accent-rgb), 0.14) 24%,
-            rgba(var(--hero-accent-rgb), 0.04) 48%,
-            transparent 72%
+            color-mix(in srgb, var(--hero-wash-accent) 30%, transparent) 0%,
+            color-mix(in srgb, var(--hero-wash-accent) 14%, transparent) 28%,
+            transparent 70%
         ),
         linear-gradient(
             to bottom,
@@ -260,7 +254,7 @@
 }
 
 ::deep .tl-detail-hero--watch {
-    min-height: 28rem;
+    min-height: min(60svh, 28rem);
 }
 
 ::deep .tl-detail-hero--backdrop .tl-detail-media-stage__overlay,
@@ -274,20 +268,19 @@
     background:
         linear-gradient(
             to right,
-            rgba(var(--hero-bg-rgb), 0.94) 0%,
-            rgba(var(--hero-bg-rgb), 0.86) 14%,
-            rgba(var(--hero-bg-rgb), 0.68) 26%,
-            rgba(var(--hero-bg-rgb), 0.46) 38%,
-            rgba(var(--hero-bg-rgb), 0.26) 48%,
-            rgba(var(--hero-bg-rgb), 0.12) 58%,
-            rgba(var(--hero-bg-rgb), 0.04) 68%,
+            rgba(var(--hero-bg-rgb), 0.86) 0%,
+            rgba(var(--hero-bg-rgb), 0.76) 14%,
+            rgba(var(--hero-bg-rgb), 0.58) 26%,
+            rgba(var(--hero-bg-rgb), 0.38) 38%,
+            rgba(var(--hero-bg-rgb), 0.20) 48%,
+            rgba(var(--hero-bg-rgb), 0.09) 58%,
+            rgba(var(--hero-bg-rgb), 0.03) 68%,
             rgba(var(--hero-bg-rgb), 0) 78%
         ),
         radial-gradient(
             ellipse at 72% 42%,
-            rgba(var(--hero-accent-rgb), 0.10) 0%,
-            rgba(var(--hero-accent-rgb), 0.05) 26%,
-            rgba(var(--hero-accent-rgb), 0.02) 48%,
+            color-mix(in srgb, var(--hero-wash-accent) 26%, transparent) 0%,
+            color-mix(in srgb, var(--hero-wash-accent) 11%, transparent) 30%,
             transparent 72%
         ),
         linear-gradient(
@@ -309,10 +302,10 @@
     position: absolute;
     z-index: 2;
     right: clamp(3.5rem, 8vw, 8.75rem);
-    top: calc(50% - clamp(4rem, 9vh, 5.5rem));
+    top: 50%;
     width: fit-content;
     max-width: clamp(18rem, 30vw, 30rem);
-    height: min(42rem, 76vh);
+    height: min(32rem, 48svh);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -320,7 +313,7 @@
 }
 
 ::deep .tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch) {
-    min-height: 1000px;
+    min-height: min(60svh, 28rem);
 }
 
 ::deep .tl-detail-hero--read:not(.tl-detail-hero--watch),
@@ -369,7 +362,7 @@
 
 ::deep .tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch) .tl-detail-media-stage__cover-wrap {
     right: clamp(3rem, 8vw, 9rem);
-    height: min(46rem, 77vh);
+    height: min(32rem, 48svh);
     max-width: min(42vw, 40rem);
     overflow: visible;
 }
@@ -5153,9 +5146,9 @@
 
 @media (max-width: 760px) {
     ::deep .tl-detail-hero {
-        height: auto;
-        min-height: auto;
-        max-height: none;
+        height: 60svh;
+        min-height: 60svh;
+        max-height: 60svh;
     }
 
     ::deep .tl-detail-hero__inner {
@@ -5242,7 +5235,7 @@
     }
 
     ::deep .tl-detail-hero__inner {
-        padding: 7rem 1rem 2.5rem;
+        padding: 2rem 1rem 1.5rem;
     }
 
     ::deep .tl-detail-hero__copy {
@@ -5289,18 +5282,18 @@
     }
 
     ::deep .tl-detail-action--primary {
-        min-height: 4.1rem;
+        min-height: clamp(3.1rem, 6svh, 3.6rem);
         font-size: 1.24rem;
     }
 
     ::deep .tl-detail-secondary-actions {
-        gap: 1rem;
+        gap: 0.55rem;
     }
 
     ::deep .tl-detail-icon-action,
     ::deep .tl-detail-icon-button {
-        width: 3.85rem;
-        height: 3.85rem;
+        width: clamp(2.75rem, 6svh, 3.25rem);
+        height: clamp(2.75rem, 6svh, 3.25rem);
     }
 
     ::deep .tl-detail-media-stage {
@@ -5335,7 +5328,7 @@
     }
 
     ::deep .tl-detail-hero--cover-fallback {
-        min-height: 47.5rem;
+        min-height: 60svh;
     }
 
     ::deep .tl-detail-media-stage__cover-atmosphere {
@@ -5345,12 +5338,14 @@
     }
 
     ::deep .tl-detail-media-stage__cover-wrap {
-        position: relative;
-        right: auto;
-        top: auto;
-        width: min(62vw, 17.5rem);
-        margin: 5rem auto 2rem;
-        transform: none;
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        width: min(58vw, 17.5rem);
+        height: min(42svh, 23rem);
+        margin: 0;
+        opacity: 0.34;
+        transform: translateY(-50%);
     }
 
     ::deep .tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch) .tl-detail-media-stage__cover-wrap,
@@ -5513,7 +5508,7 @@
 @media (max-width: 760px) {
     ::deep .tl-detail-hero--artwork-fallback,
     ::deep .tl-detail-hero--cover-fallback {
-        min-height: 50rem;
+        min-height: 60svh;
     }
 
     ::deep .tl-detail-hero__eyebrow {
@@ -6947,7 +6942,7 @@
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-action--primary {
-    min-height: 4.8rem;
+    min-height: clamp(3.35rem, 6svh, 4rem);
     font-size: clamp(1.2rem, 1.5vw, 1.45rem);
 }
 
@@ -7003,8 +6998,8 @@
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis {
     order: 6;
     width: min(47.5rem, 100%);
-    margin-top: 0.55rem;
-    padding-top: 1.35rem;
+    margin-top: 0.25rem;
+    padding-top: 0.65rem;
     border-top: 1px solid rgba(255, 255, 255, 0.16);
 }
 
@@ -7019,12 +7014,16 @@
 }
 
 ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis .tl-detail-hero__tagline {
+    display: -webkit-box;
+    overflow: hidden;
     max-width: none;
     margin: 0;
     color: rgba(255, 255, 255, 0.72);
     font-size: clamp(0.94rem, 1.05vw, 1.08rem);
     font-weight: 400;
-    line-height: 1.62;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
 }
 
 ::deep .tl-detail-hero__overview-link {
@@ -7046,7 +7045,7 @@
 @media (min-width: 721px) {
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
         align-items: flex-start;
-        padding: 4rem 4rem 3rem;
+        padding: clamp(1.25rem, 3svh, 2.5rem) clamp(1.5rem, 5vw, 4rem) clamp(0.9rem, 2svh, 1.5rem);
     }
 
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
@@ -7055,15 +7054,15 @@
     }
 
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__identity {
-        height: 14rem;
+        height: clamp(6rem, 18svh, 12rem);
     }
 
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__logo {
-        max-height: 13rem;
+        max-height: clamp(5.5rem, 16svh, 11rem);
     }
 
     ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-metadata-stack {
-        height: 4.25rem;
+        height: 3rem;
         align-content: start;
     }
 }
@@ -7141,5 +7140,24 @@
 @media (max-width: 720px) {
     ::deep .tl-detail-hero--watch .tl-detail-hero__synopsis {
         width: 100%;
+    }
+}
+
+@media (max-height: 850px) and (min-width: 721px) {
+    ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__synopsis .tl-detail-hero__tagline {
+        -webkit-line-clamp: 2;
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-hero__copy {
+        gap: 0.45rem;
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-actions--watch {
+        gap: 0.35rem;
+    }
+
+    ::deep .tl-detail-hero--watch .tl-detail-hero__synopsis {
+        margin-top: 0;
+        padding-top: 0.45rem;
     }
 }

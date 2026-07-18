@@ -151,6 +151,13 @@
     min-height: 0;
     flex-direction: column;
     align-items: flex-start;
+    padding: 0.65rem 0.72rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.65rem;
+    background: rgba(3, 7, 18, 0.58);
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(8px) saturate(112%);
+    text-shadow: 0 0.12rem 0.45rem rgba(0, 0, 0, 0.76);
 }
 
 .media-group-tile__facts {

@@ -259,6 +259,7 @@ public sealed class MediaTileComposerService
         {
             Id = card.Id,
             WorkId = card.WorkId ?? (isTvSeries ? card.Id : null),
+            AssetId = card.AssetId,
             CollectionId = card.CollectionId,
             Title = card.Title,
             Subtitle = card.Subtitle,

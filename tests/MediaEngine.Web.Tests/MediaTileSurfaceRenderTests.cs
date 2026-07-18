@@ -51,6 +51,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Services.AddScoped<ActiveProfileSessionService>();
         Services.AddScoped<MediaReactionService>();
         Services.AddScoped<FavoriteService>();
+        Services.AddScoped(_ => new PlaybackSessionController(null!, api));
     }
 
     [Fact]
@@ -98,11 +99,13 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("592 pages", cut.Markup);
         Assert.Contains("4.3", cut.Find(".media-tile-rating-pill").TextContent);
         Assert.DoesNotContain(item.Description, cut.Markup);
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Not for me']"));
+        Assert.Single(cut.FindAll("button[aria-label='Not for me']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
         Assert.NotEmpty(cut.FindAll(".media-tile-reaction-menu button[aria-label='Rate this title']"));
+        Assert.Equal(3, cut.FindAll(".media-tile-reaction-tray button").Count);
+        Assert.Empty(cut.FindAll(".media-tile-visible-dislike-action"));
         Assert.Empty(cut.FindAll("button[aria-label='Add to collection']"));
         Assert.NotEmpty(cut.FindAll(".tl-media-action--compact"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-progress"));
@@ -482,6 +485,76 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.EndsWith(details, nav.Uri, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("Book", "/read/")]
+    [InlineData("Comic", "/read/")]
+    [InlineData("Movie", "/watch/player/")]
+    [InlineData("TV", "/watch/player/")]
+    public void MediaTile_PrimaryActionLaunchesOwnedAssetPlayer(string mediaKind, string expectedRoutePrefix)
+    {
+        var assetId = Guid.NewGuid();
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            WorkId = Guid.NewGuid(),
+            AssetId = assetId,
+            Title = "Playable title",
+            MediaKind = mediaKind,
+            Shape = mediaKind is "Movie" or "TV" ? MediaTileShape.Landscape : MediaTileShape.Portrait,
+            SurfaceKind = mediaKind is "Movie" or "TV" ? MediaTileSurfaceKind.BannerLandscape : MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = mediaKind is "Movie" or "TV" ? MediaTileHoverLayout.BannerPopover : MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/playable.jpg",
+            HoverImageUrl = "/art/playable.jpg",
+            NavigationUrl = "/details/work",
+            DetailsNavigationUrl = "/details/work",
+            PrimaryNavigationUrl = "/details/work",
+            PrimaryActionLabel = mediaKind is "Book" or "Comic" ? "Read" : "Play",
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        cut.Find($"button[aria-label='{item.PrimaryActionLabel}']").Click();
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        Assert.EndsWith($"{expectedRoutePrefix}{assetId:D}", nav.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MediaTile_MusicPrimaryActionStartsPersistentPlaybackWithoutNavigation()
+    {
+        var assetId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var item = new MediaTileViewModel
+        {
+            Id = workId,
+            WorkId = workId,
+            AssetId = assetId,
+            Title = "Playable song",
+            Subtitle = "Test Artist",
+            MediaKind = "Music",
+            Shape = MediaTileShape.Square,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/song.jpg",
+            HoverImageUrl = "/art/song.jpg",
+            NavigationUrl = "/listen/music/songs",
+            DetailsNavigationUrl = "/details/musictrack",
+            PrimaryNavigationUrl = "/listen/music/songs",
+            PrimaryActionLabel = "Play",
+        };
+        var originalUri = Services.GetRequiredService<NavigationManager>().Uri;
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        cut.Find("button[aria-label='Listen']").Click();
+
+        var playback = Services.GetRequiredService<PlaybackSessionController>();
+        Assert.Equal(originalUri, Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.Equal(workId, playback.CurrentItem?.WorkId);
+        Assert.Equal(assetId, playback.CurrentItem?.AssetId);
+    }
+
     [Fact]
     public void MediaTile_TvEpisodeKeepsSeasonEpisodeInResumeAction()
     {
@@ -557,8 +630,11 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains(".media-tile-book-pages", css);
         Assert.Contains("background: transparent", css);
         Assert.Contains(".media-tile-feedback-control:focus-within", css);
-        Assert.Contains("media-tile-visible-dislike-action", tileSource);
+        Assert.DoesNotContain("media-tile-visible-dislike-action", tileSource);
+        Assert.Contains("media-tile-reaction-trigger", tileSource);
+        Assert.Contains("media-tile-reaction-tray", tileSource);
         Assert.Contains("Icons.Material.Outlined.ThumbDownOffAlt", tileSource);
+        Assert.Contains("background: color-mix(in srgb, var(--art-bg-base-dark, #080c12) 72%, transparent)", css);
         Assert.Contains("width: 188px", css);
         Assert.Contains("--media-tile-hover-anchor-height", css);
         Assert.Contains("clamp(820px, 52vw, 980px)", css);

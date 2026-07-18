@@ -10,6 +10,7 @@
 @inject ActiveProfileSessionService ActiveProfileSession
 @inject MediaReactionService Reactions
 @inject FavoriteService Favorites
+@inject PlaybackSessionController Playback
 @implements IAsyncDisposable
 
 <AppCssElement Tag="div"
@@ -199,16 +200,9 @@
                                     </AppNativeButton>
                                 </div>
 
-                                <div class="media-tile-hover-action-unit">
-                                    <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-visible-dislike-action")" AriaLabel="Not for me" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
-                                        <span class="media-tile-visually-hidden">Not for me</span>
-                                    </AppNativeButton>
-                                </div>
-
                                 <div class="media-tile-hover-action-unit media-tile-reaction-menu" tabindex="0" aria-label="Rate this title">
-                                    <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-reaction-trigger" AriaLabel="Rate this title" Title="Rate this title" StopPropagation="true">
-                                        <MudIcon Icon="@ReactionTriggerIcon" />
+                                    <AppNativeButton Type="button" Class="@ReactionTriggerButtonClass" AriaLabel="Rate this title" Title="Rate this title" StopPropagation="true">
+                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
                                         <span class="media-tile-visually-hidden">Rate this title</span>
                                     </AppNativeButton>
                                     <div class="media-tile-reaction-tray">
@@ -1053,12 +1047,8 @@
     private string ReactionButtonClass(MediaReaction reaction, string roleClass) =>
         $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-reaction-action {roleClass} {(_reaction == reaction ? "is-selected" : string.Empty)}";
 
-    private string ReactionTriggerIcon => _reaction switch
-    {
-        MediaReaction.Dislike => Icons.Material.Outlined.ThumbDownOffAlt,
-        MediaReaction.Love => Icons.Material.Filled.Favorite,
-        _ => Icons.Material.Outlined.ThumbUpOffAlt
-    };
+    private string ReactionTriggerButtonClass =>
+        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-reaction-trigger {(_reaction is not MediaReaction.Neutral ? "is-selected" : string.Empty)}";
 
     private string MyListButtonClass =>
         $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-my-list-action {(_isInMyList ? "is-selected" : string.Empty)}";
@@ -1118,7 +1108,67 @@
             return;
         }
 
+        if (TryGetDirectAssetPlayerRoute(out var directPlayerRoute))
+        {
+            Nav.NavigateTo(directPlayerRoute);
+            return;
+        }
+
+        if (IsListenMedia && !Item.IsCollection && Item.WorkId.HasValue)
+        {
+            await Playback.PlayQueueItemAsync(new ListenQueueItem
+            {
+                WorkId = Item.WorkId.Value,
+                AssetId = Item.AssetId,
+                CollectionId = Item.CollectionId,
+                MediaType = Item.MediaKind,
+                Title = Item.Title,
+                Subtitle = Item.Subtitle,
+                Album = Item.Presentation == MediaTilePresentation.Album ? Item.Title : null,
+                CoverUrl = FirstNonBlank(Item.CoverUrl, Item.TileImageUrl),
+                StreamUrl = Item.AssetId.HasValue ? $"/media/assets/{Item.AssetId.Value:D}/stream" : null,
+            }, Item.Subtitle ?? Item.Title);
+            return;
+        }
+
         Nav.NavigateTo(Item.PrimaryNavigationUrl ?? Item.NavigationUrl);
+    }
+
+    private bool TryGetDirectAssetPlayerRoute(out string route)
+    {
+        route = string.Empty;
+        if (!Item.AssetId.HasValue || Item.IsCollection)
+        {
+            return false;
+        }
+
+        var mediaKind = Item.MediaKind.Trim().ToLowerInvariant();
+        if (mediaKind.Contains("book") || mediaKind.Contains("comic") || mediaKind.Contains("epub"))
+        {
+            route = $"/read/{Item.AssetId.Value:D}";
+            return true;
+        }
+
+        if (mediaKind.Contains("movie") || mediaKind.Contains("video") || mediaKind == "tv")
+        {
+            route = $"/watch/player/{Item.AssetId.Value:D}";
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsListenMedia
+    {
+        get
+        {
+            var mediaKind = Item.MediaKind.Trim().ToLowerInvariant();
+            return mediaKind.Contains("music")
+                   || mediaKind.Contains("audio")
+                   || mediaKind.Contains("m4a")
+                   || mediaKind.Contains("m4b")
+                   || mediaKind.Contains("mp3");
+        }
     }
 
     private void OpenCard()

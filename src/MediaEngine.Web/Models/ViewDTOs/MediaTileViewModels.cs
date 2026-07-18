@@ -66,6 +66,7 @@ public sealed class MediaTileViewModel
 {
     public Guid Id { get; init; }
     public Guid? WorkId { get; init; }
+    public Guid? AssetId { get; init; }
     public Guid? CollectionId { get; init; }
     public string Title { get; init; } = string.Empty;
     public string? Subtitle { get; init; }

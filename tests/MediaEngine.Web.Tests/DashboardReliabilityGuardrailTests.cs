@@ -154,10 +154,17 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.Contains(".cinematic-hero-surface-scope ::deep .cinematic-hero-surface", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("object-fit: contain", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("mask-image: linear-gradient(to right, transparent 0%", surfaceStyles, StringComparison.Ordinal);
-        Assert.Contains("linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.94)", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.86)", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("--hero-wash-accent", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("tl-detail-media-stage--background::before", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("content: none", surfaceStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("tl-detail-media-stage__background", carouselStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("object-fit: cover", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("height: calc(100svh - var(--app-topbar-height, 65px) - 4.25rem)", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 60svh", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("max-height: 60svh", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 60svh !important", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 720px), (max-height: 620px)", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("height: auto !important", surfaceStyles, StringComparison.Ordinal);
     }
 
     [Fact]

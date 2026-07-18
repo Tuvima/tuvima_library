@@ -72,6 +72,7 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s 320w, http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=m 960w", mapped.TileImageSrcSet);
         Assert.Equal("http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=m", mapped.HoverImageUrl);
         Assert.Equal("1965 science fiction novel", mapped.Description);
+        Assert.Equal(assetId, mapped.AssetId);
         Assert.Equal($"/read/{assetId}", mapped.PrimaryNavigationUrl);
         Assert.Equal("Continue Reading", mapped.PrimaryActionLabel);
     }

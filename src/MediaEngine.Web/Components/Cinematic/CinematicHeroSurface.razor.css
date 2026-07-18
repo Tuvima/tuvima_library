@@ -11,7 +11,11 @@
     --hero-backdrop-top-rgb: var(--hero-bg-rgb);
     --hero-backdrop-middle-rgb: var(--hero-bg-rgb);
     --hero-backdrop-bottom-rgb: var(--hero-bg-rgb);
+    --hero-wash-accent: var(--cinematic-hero-accent, var(--tl-detail-accent, #8b5cf6));
     position: relative;
+    height: 60svh !important;
+    min-height: min(60svh, 28rem) !important;
+    max-height: 60svh !important;
     overflow: hidden;
     isolation: isolate;
     background-color: rgb(var(--hero-shadow-rgb));
@@ -27,25 +31,16 @@
 }
 
 ::deep .tl-detail-media-stage--background {
-    background: linear-gradient(
-        to bottom,
-        rgb(var(--hero-backdrop-top-rgb)),
-        rgb(var(--hero-backdrop-middle-rgb)) 50%,
-        rgb(var(--hero-backdrop-bottom-rgb)));
+    background:
+        radial-gradient(ellipse at 76% 42%, color-mix(in srgb, var(--hero-wash-accent) 34%, transparent) 0%, transparent 58%),
+        linear-gradient(120deg,
+            color-mix(in srgb, var(--hero-wash-accent) 18%, rgb(var(--hero-backdrop-top-rgb))) 0%,
+            rgb(var(--hero-backdrop-middle-rgb)) 52%,
+            rgb(var(--hero-backdrop-bottom-rgb)) 100%);
 }
 
 ::deep .tl-detail-media-stage--background::before {
-    content: "";
-    position: absolute;
-    inset: -3%;
-    z-index: 0;
-    background-image: var(--hero-image);
-    background-repeat: no-repeat;
-    background-position: var(--hero-image-position, center);
-    background-size: cover;
-    filter: blur(28px) saturate(0.96);
-    opacity: 0.6;
-    transform: scale(1.06);
+    content: none;
 }
 
 ::deep .tl-detail-media-stage__background,
@@ -87,8 +82,8 @@
     z-index: 1;
     pointer-events: none;
     background:
-        linear-gradient(to right, rgba(var(--hero-shadow-rgb), 0.96) 0%, rgba(var(--hero-shadow-rgb), 0.88) 22%, rgba(var(--hero-shadow-rgb), 0.62) 42%, rgba(var(--hero-shadow-rgb), 0.28) 62%, rgba(var(--hero-shadow-rgb), 0.08) 78%, transparent 100%),
-        radial-gradient(ellipse at 72% 42%, rgba(var(--hero-accent-rgb), 0.28) 0%, rgba(var(--hero-accent-rgb), 0.14) 24%, rgba(var(--hero-accent-rgb), 0.04) 48%, transparent 72%),
+        linear-gradient(to right, rgba(var(--hero-shadow-rgb), 0.86) 0%, rgba(var(--hero-shadow-rgb), 0.74) 22%, rgba(var(--hero-shadow-rgb), 0.5) 42%, rgba(var(--hero-shadow-rgb), 0.22) 62%, rgba(var(--hero-shadow-rgb), 0.06) 78%, transparent 100%),
+        radial-gradient(ellipse at 72% 42%, color-mix(in srgb, var(--hero-wash-accent) 30%, transparent) 0%, color-mix(in srgb, var(--hero-wash-accent) 14%, transparent) 28%, transparent 70%),
         linear-gradient(to bottom, transparent 45%, rgba(var(--hero-shadow-rgb), 0.52) 76%, rgba(var(--hero-shadow-rgb), 0.95) 100%),
         radial-gradient(ellipse at center, transparent 42%, rgba(var(--hero-shadow-rgb), 0.28) 100%);
 }
@@ -96,8 +91,8 @@
 .cinematic-hero-surface-scope ::deep .cinematic-hero-surface.tl-detail-hero--watch .tl-detail-media-stage__overlay {
     z-index: 2;
     background:
-        linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.94) 0%, rgba(var(--hero-bg-rgb), 0.86) 14%, rgba(var(--hero-bg-rgb), 0.68) 26%, rgba(var(--hero-bg-rgb), 0.46) 38%, rgba(var(--hero-bg-rgb), 0.26) 48%, rgba(var(--hero-bg-rgb), 0.12) 58%, rgba(var(--hero-bg-rgb), 0.04) 68%, transparent 78%),
-        radial-gradient(ellipse at 72% 42%, rgba(var(--hero-accent-rgb), 0.1) 0%, rgba(var(--hero-accent-rgb), 0.05) 26%, rgba(var(--hero-accent-rgb), 0.02) 48%, transparent 72%),
+        linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.86) 0%, rgba(var(--hero-bg-rgb), 0.76) 14%, rgba(var(--hero-bg-rgb), 0.58) 26%, rgba(var(--hero-bg-rgb), 0.38) 38%, rgba(var(--hero-bg-rgb), 0.2) 48%, rgba(var(--hero-bg-rgb), 0.09) 58%, rgba(var(--hero-bg-rgb), 0.03) 68%, transparent 78%),
+        radial-gradient(ellipse at 72% 42%, color-mix(in srgb, var(--hero-wash-accent) 26%, transparent) 0%, color-mix(in srgb, var(--hero-wash-accent) 11%, transparent) 30%, transparent 72%),
         linear-gradient(to bottom, rgba(var(--hero-shadow-rgb), 0.24) 0%, rgba(var(--hero-shadow-rgb), 0.06) 42%, rgba(var(--hero-shadow-rgb), 0.58) 78%, rgba(var(--hero-shadow-rgb), 0.96) 100%),
         radial-gradient(ellipse at center, transparent 38%, rgba(var(--hero-shadow-rgb), 0.32) 100%);
 }
@@ -131,11 +126,11 @@
 ::deep .tl-detail-media-stage__cover-wrap {
     position: absolute;
     z-index: 2;
-    top: calc(50% - clamp(4rem, 9vh, 5.5rem));
+    top: 50%;
     right: clamp(3.5rem, 8vw, 8.75rem);
     width: fit-content;
     max-width: clamp(18rem, 30vw, 30rem);
-    height: min(42rem, 76vh);
+    height: min(32rem, 48svh);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -161,6 +156,14 @@
     border-radius: 0.75rem;
     object-fit: contain;
     box-shadow: 0 2.25rem 5.625rem rgba(0, 0, 0, 0.56);
+}
+
+/* Poster and book fallbacks must scale inside the shorter hero instead of
+   keeping their intrinsic height and being clipped by the surface boundary. */
+::deep .tl-detail-media-stage__foreground:not(.tl-detail-media-stage__foreground--album) .tl-detail-media-stage__cover {
+    width: auto;
+    height: auto;
+    max-height: min(32rem, 48svh) !important;
 }
 
 ::deep .tl-detail-media-stage__foreground--album {
@@ -200,5 +203,16 @@
         transform: translateX(50%);
         -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 52%, rgba(0, 0, 0, 0.72) 70%, transparent 100%);
         mask-image: linear-gradient(to bottom, #000 0%, #000 52%, rgba(0, 0, 0, 0.72) 70%, transparent 100%);
+    }
+}
+
+/* Sixty percent is the desktop target. On narrow or unusually short
+   viewports, let the content establish the height so the identity column is
+   never clipped by an arbitrary viewport cap. */
+@media (max-width: 720px), (max-height: 620px) {
+    .cinematic-hero-surface-scope ::deep .cinematic-hero-surface {
+        height: auto !important;
+        min-height: 60svh !important;
+        max-height: none !important;
     }
 }

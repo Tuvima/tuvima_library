@@ -32,7 +32,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-media-stage--background .tl-detail-media-stage__overlay", styles);
         Assert.Contains("tl-detail-media-stage--artwork-fallback .tl-detail-media-stage__overlay", styles);
         Assert.Contains("to right", styles);
-        Assert.Contains("rgba(var(--hero-shadow-rgb), 0.96) 0%", styles);
+        Assert.Contains("rgba(var(--hero-shadow-rgb), 0.86) 0%", styles);
         Assert.Contains("ellipse at 72% 42%", styles);
         Assert.Contains("to bottom", styles);
         Assert.Contains("transparent 45%", styles);
@@ -57,7 +57,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("tl-detail-media-stage__background-fill", styles);
         Assert.Contains("tl-detail-media-stage--background::before", styles);
         Assert.Contains("background-image: var(--hero-image)", styles);
-        Assert.Contains("background-repeat: no-repeat", styles);
+        Assert.Contains("--hero-wash-accent", styles);
         Assert.Contains("mask-image: linear-gradient(to right", styles);
         Assert.Contains("mask-image: linear-gradient(to bottom", styles);
         Assert.Contains("left: auto", styles);
@@ -68,9 +68,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("background-size: cover", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork,", styles);
         Assert.DoesNotContain("tl-detail-hero--watch .tl-detail-hero__artwork::after", styles);
-        Assert.Contains("height: calc(100svh - var(--app-topbar-height, 65px) - 4.25rem)", styles);
-        Assert.Contains("min-height: 28rem", styles);
-        Assert.Contains("max-height: none", styles);
+        Assert.Contains("height: 60svh", styles);
+        Assert.Contains("min-height: min(60svh, 28rem)", styles);
+        Assert.Contains("max-height: 60svh", styles);
+        Assert.DoesNotContain("min-height: 1000px", styles);
         Assert.Contains("rgba(0, 0, 0, 0.60) 14%", styles);
         Assert.Contains("rgba(0, 0, 0, 0.86) 23%", styles);
         Assert.Contains("#000 32%", styles);
@@ -128,8 +129,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("rgba(var(--hero-shadow-rgb), 0.24) 0%", styles);
         Assert.Contains("rgba(var(--hero-shadow-rgb), 0.06) 42%", styles);
         Assert.Contains("rgba(var(--hero-shadow-rgb), 0.96) 100%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.46) 38%", styles);
-        Assert.Contains("rgba(var(--hero-bg-rgb), 0.12) 58%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.38) 38%", styles);
+        Assert.Contains("rgba(var(--hero-bg-rgb), 0.09) 58%", styles);
         Assert.Contains("rgba(var(--hero-bg-rgb), 0) 78%", styles);
         Assert.DoesNotContain("rgba(0, 0, 0, 0.10) 36%", styles);
         Assert.Contains("tl-detail-hero--watch .tl-detail-genre-chip", styles);
@@ -1379,6 +1380,46 @@ public sealed class UnifiedDetailComponentTests
         var presentation = DetailHeroPresentation.From(model);
 
         Assert.Equal(firstParagraph, presentation.HeroCopy);
+        Assert.True(presentation.HeroCopyHasMore);
+    }
+
+    [Theory]
+    [InlineData("First paragraph.\\n\\nSecond paragraph.")]
+    [InlineData("First paragraph.\r\n \r\nSecond paragraph.")]
+    [InlineData("<p>First paragraph.</p><p>Second paragraph.</p>")]
+    public void ReadHero_ShowsOnlyTheFirstNormalizedDescriptionParagraph(string description)
+    {
+        var model = new DetailPageViewModel
+        {
+            EntityType = DetailEntityType.Book,
+            Title = "Example Book",
+            Description = description,
+        };
+
+        var presentation = DetailHeroPresentation.From(model);
+
+        Assert.Equal("First paragraph.", presentation.HeroCopy);
+        Assert.True(presentation.HeroCopyHasMore);
+    }
+
+    [Fact]
+    public void ReadHero_ShortensAnUnbrokenProviderDescriptionToOneHeroParagraph()
+    {
+        var description = string.Join(' ', Enumerable.Repeat(
+            "A complete sentence keeps the provider description readable on the hero.",
+            20));
+        var model = new DetailPageViewModel
+        {
+            EntityType = DetailEntityType.Book,
+            Title = "Example Book",
+            Description = description,
+        };
+
+        var presentation = DetailHeroPresentation.From(model);
+
+        Assert.NotNull(presentation.HeroCopy);
+        Assert.True(presentation.HeroCopy.Length <= 520);
+        Assert.EndsWith(".", presentation.HeroCopy, StringComparison.Ordinal);
         Assert.True(presentation.HeroCopyHasMore);
     }
 

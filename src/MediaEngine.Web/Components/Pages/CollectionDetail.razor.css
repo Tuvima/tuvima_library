@@ -64,14 +64,16 @@
     --collection-accent-rgb: 168, 116, 255;
     --collection-warm-rgb: 226, 171, 75;
     position: relative;
-    min-height: clamp(680px, 86vh, 920px);
+    height: 60svh;
+    min-height: min(60svh, 28rem);
+    max-height: 60svh;
     display: grid;
-    grid-template-columns: minmax(0, 48rem) minmax(34rem, 46rem);
+    grid-template-columns: minmax(0, 48rem) minmax(22rem, 36rem);
     align-items: center;
     justify-content: space-between;
     gap: clamp(1.4rem, 4vw, 3.2rem);
     overflow: hidden;
-    padding: clamp(7rem, 13vh, 9.5rem) clamp(1.25rem, 5vw, 5.5rem) clamp(5rem, 10vh, 8rem);
+    padding: clamp(1.75rem, 5svh, 3.5rem) clamp(1.25rem, 5vw, 5.5rem) clamp(1.5rem, 4svh, 3rem);
     isolation: isolate;
     background:
         radial-gradient(circle at 82% 38%, var(--art-bg-glow, rgba(var(--collection-accent-rgb), 0.32)), transparent 26rem),
@@ -131,11 +133,11 @@
 }
 
 .collection-detail-hero h1 {
-    margin: 0.65rem 0 1rem;
+    margin: 0.45rem 0 0.7rem;
     max-width: 16ch;
     color: #fff;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(4rem, 7.1vw, 7.8rem);
+    font-size: clamp(2.75rem, 5vw, 5.25rem);
     font-weight: 500;
     letter-spacing: 0;
     line-height: 0.92;
@@ -144,11 +146,15 @@
 }
 
 .collection-detail-hero p {
+    display: -webkit-box;
+    overflow: hidden;
     max-width: 43rem;
     margin: 0;
     color: rgba(245, 247, 255, 0.82);
     font-size: clamp(1rem, 1.25vw, 1.25rem);
     line-height: 1.65;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
 }
 
 .collection-detail-meta {
@@ -156,7 +162,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.8rem 1.15rem;
-    margin-top: 2.15rem;
+    margin-top: 1.2rem;
     color: rgba(255, 246, 220, 0.86);
     font-size: 0.82rem;
     font-weight: 700;
@@ -195,9 +201,10 @@
     position: relative;
     align-self: center;
     justify-self: end;
-    width: min(54vw, 58rem);
-    min-width: 42rem;
-    min-height: min(62rem, 86vh);
+    width: min(42vw, 46rem);
+    min-width: 26rem;
+    height: min(48svh, 32rem);
+    min-height: 0;
     border-radius: 1.25rem;
 }
 
@@ -343,22 +350,25 @@
     }
 
     .collection-detail-hero__cascade {
-        min-height: 25rem;
-        width: min(100%, 44rem);
-        min-width: 0;
-        max-width: 44rem;
+        display: none;
     }
 
 }
 
 @media (max-width: 720px) {
+    .collection-detail-hero {
+        height: auto;
+        min-height: 60svh;
+        max-height: none;
+    }
+
     .collection-detail-hero,
     .collection-detail-overview {
         padding-inline: 1rem;
     }
 
     .collection-detail-hero h1 {
-        font-size: clamp(2.8rem, 16vw, 4.8rem);
+        font-size: clamp(2.35rem, 12vw, 3.75rem);
     }
 
     .collection-detail-meta span:not(:last-child)::after {
@@ -367,6 +377,14 @@
 
     .collection-detail-item-grid {
         grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    }
+}
+
+@media (max-height: 620px) {
+    .collection-detail-hero {
+        height: auto;
+        min-height: 60svh;
+        max-height: none;
     }
 }
 

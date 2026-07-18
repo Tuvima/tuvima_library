@@ -1,5 +1,7 @@
 ﻿using MediaEngine.Contracts.Details;
 
+using System.Text.RegularExpressions;
+
 namespace MediaEngine.Web.Components.Details;
 
 public sealed class DetailHeroPresentation
@@ -70,14 +72,18 @@ public sealed class DetailHeroPresentation
         var firstParagraph = usesFullParagraphCopy
             ? FirstParagraph(copySource)
             : copySource;
+        var readParagraphWasShortened = usesReadOverviewCopy
+            && firstParagraph is not null
+            && firstParagraph.Length > ReadHeroParagraphMaxLength;
         var copy = !string.IsNullOrWhiteSpace(firstParagraph)
-            ? usesFullParagraphCopy
-                ? firstParagraph
-                : Truncate(firstParagraph, 320)
+            ? usesReadOverviewCopy
+                ? TruncateParagraph(firstParagraph, ReadHeroParagraphMaxLength)
+                : usesFullParagraphCopy
+                    ? firstParagraph
+                    : Truncate(firstParagraph, 320)
             : null;
         var copyHasMore = usesFullParagraphCopy
-            && !string.IsNullOrWhiteSpace(copySource)
-            && !string.Equals(copySource.Trim(), firstParagraph?.Trim(), StringComparison.Ordinal);
+            && (HasAdditionalParagraph(copySource) || readParagraphWasShortened);
 
         return new DetailHeroPresentation(
             BuildHeroClass(mode, model.EntityType, isWatchHero),
@@ -166,15 +172,47 @@ public sealed class DetailHeroPresentation
             or DetailEntityType.Work;
 
     private static string? FirstParagraph(string? value)
+        => NormalizeDescriptionParagraphs(value).FirstOrDefault();
+
+    private const int ReadHeroParagraphMaxLength = 520;
+
+    private static string TruncateParagraph(string value, int maxLength)
+    {
+        if (value.Length <= maxLength)
+            return value;
+
+        var candidate = value[..maxLength];
+        var sentenceEnd = candidate.LastIndexOfAny(['.', '!', '?']);
+        if (sentenceEnd >= maxLength / 2)
+            return candidate[..(sentenceEnd + 1)].TrimEnd();
+
+        var wordEnd = candidate.LastIndexOf(' ');
+        return $"{candidate[..Math.Max(wordEnd, 1)].TrimEnd()}…";
+    }
+
+    private static bool HasAdditionalParagraph(string? value)
+        => NormalizeDescriptionParagraphs(value).Count > 1;
+
+    private static IReadOnlyList<string> NormalizeDescriptionParagraphs(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return null;
+            return [];
 
-        var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
-        var paragraphEnd = normalized.IndexOf("\n\n", StringComparison.Ordinal);
-        return (paragraphEnd >= 0 ? normalized[..paragraphEnd] : normalized)
-            .Replace('\n', ' ')
-            .Trim();
+        var normalized = value
+            .Replace("\\r\\n", "\n", StringComparison.Ordinal)
+            .Replace("\\n", "\n", StringComparison.Ordinal)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Replace('\u2028', '\n')
+            .Replace("\u2029", "\n\n", StringComparison.Ordinal);
+        normalized = Regex.Replace(normalized, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"</p>\s*<p(?:\s[^>]*)?>", "\n\n", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"</?p(?:\s[^>]*)?>", string.Empty, RegexOptions.IgnoreCase);
+
+        return Regex.Split(normalized.Trim(), @"\n\s*\n")
+            .Select(paragraph => Regex.Replace(paragraph, @"\s+", " ").Trim())
+            .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
+            .ToList();
     }
 
     private static bool IsWatchEntity(DetailEntityType entityType)
