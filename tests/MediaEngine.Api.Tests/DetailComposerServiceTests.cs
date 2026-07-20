@@ -298,6 +298,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("var expectedTotal = AuthoritativeManifestTotal(manifest)", source);
         Assert.Contains("BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal)", source);
         Assert.Contains("BuildCollectionSequencePlacement", source);
+        Assert.Contains("ApplyManifestPlacement(linkedWork, item)", source);
+        Assert.Contains("SequenceLabel = FirstNonBlank(item.RawOrdinal", source);
+        Assert.Contains("PositionSort = positionSort", source);
+        Assert.DoesNotContain("?? index + 1", source);
         Assert.Contains("Guid.TryParse(selectedContainerId, out var showId)", source);
         Assert.Contains("workId))?.SequencePlacement", source);
         Assert.Contains(".Where(work => expectedTotal is > 0 || work.IsOwned)", source);
@@ -1160,6 +1164,14 @@ public sealed class DetailComposerServiceTests
         Assert.Equal("series", tabs[0].Key);
         Assert.Equal("overview", tabs[1].Key);
         Assert.DoesNotContain(tabs, tab => tab.Key == "sequence");
+    }
+
+    [Theory]
+    [InlineData("media", DetailEntityType.MovieSeries, "Films")]
+    [InlineData("works", DetailEntityType.BookSeries, "Books")]
+    public void BuildTabs_UsesContainerSpecificMediaLabels(string key, DetailEntityType entityType, string expected)
+    {
+        Assert.Equal(expected, InvokePrivateString("ToTabLabel", key, entityType));
     }
 
     private static string? InvokePrivateString(string methodName, params object?[] args)

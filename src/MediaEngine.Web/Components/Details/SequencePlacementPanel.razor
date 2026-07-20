@@ -207,25 +207,27 @@
                        Disabled="@(!CanPageLeft)"
                        OnClick="PageLeft" />
         <AppCssElement Tag="div" Class="tl-series-strip" Css="@SequenceGridStyle" aria-label="@($"{Placement.ContainerTitle} order")">
-            @foreach (var item in VisibleItems)
+            @for (var index = 0; index < VisibleItems.Count; index++)
             {
+                var item = VisibleItems[index];
+                var previousItem = index > 0 ? VisibleItems[index - 1] : null;
                 var route = SequenceItemRoute(item);
                 if (IsSeasonContainer)
                 {
                     <article class="@SequenceItemClass(item)">
-                        @SequenceItemContent(item)
+                        @SequenceItemContent(item, previousItem)
                     </article>
                 }
                 else if (route is not null)
                 {
                     <a class="@SequenceItemClass(item)" href="@route" aria-label="Open @SequenceItemTitle(item)">
-                        @SequenceItemContent(item)
+                        @SequenceItemContent(item, previousItem)
                     </a>
                 }
                 else
                 {
                     <article class="@SequenceItemClass(item)">
-                        @SequenceItemContent(item)
+                        @SequenceItemContent(item, previousItem)
                     </article>
                 }
             }
@@ -666,51 +668,73 @@
         return $"/details/{ToRouteEntityType(item.EntityType)}/{id:D}?context={ContextKey(item.EntityType)}";
     }
 
-    private RenderFragment SequenceItemContent(SequenceItemViewModel item) => @<text>
+    private RenderFragment SequenceItemContent(SequenceItemViewModel item, SequenceItemViewModel? previousItem) => @<text>
         @if (!IsSeasonContainer)
         {
             <div class="tl-series-item__position">
+                @if (previousItem is not null && AreCanonicallyAdjacent(previousItem, item))
+                {
+                    <span class="tl-series-item__connector" aria-hidden="true"></span>
+                }
                 <span class="tl-series-item__node">@SequenceNumber(item)</span>
             </div>
         }
 
-        <div class="tl-series-item__art">
-            @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-            {
-                <img src="@item.ArtworkUrl" alt="@item.Title" />
-            }
-            else
-            {
-                @if (item.IsOwned)
+        <div class="tl-series-item__frame">
+            <div class="tl-series-item__art">
+                @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
                 {
-                    <div class="tl-series-item__missing-art is-owned-placeholder" aria-label="Artwork unavailable">
-                        <MudIcon Icon="@MissingIcon" Size="Size.Large" />
-                        <span>Artwork unavailable</span>
-                    </div>
+                    <img src="@item.ArtworkUrl" alt="@item.Title" />
                 }
                 else
                 {
-                    <div class="tl-series-item__missing-art" aria-label="Missing from library">
-                        <MudIcon Icon="@MissingIcon" Size="Size.Large" />
-                        <span>Not in library</span>
-                    </div>
+                    @if (item.IsOwned)
+                    {
+                        <div class="tl-series-item__missing-art is-owned-placeholder" aria-label="Artwork unavailable">
+                            <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                            <span>Artwork unavailable</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="tl-series-item__missing-art" aria-label="Missing from library">
+                            <MudIcon Icon="@MissingIcon" Size="Size.Large" />
+                            <span>Not in library</span>
+                        </div>
+                    }
                 }
-            }
-            @if (item.IsCurrent && !Compact)
-            {
-                <div class="tl-series-item__current-badge">@CurrentItemBadge</div>
-            }
-            @if (IsSeasonContainer && item.IsOwned)
-            {
-                @if (SequenceItemRoute(item) is { } playRoute)
+                @if (!IsSeasonContainer && item.ProgressState == LibraryProgressState.Completed)
                 {
-                    <a class="tl-series-episode-play"
-                       href="@playRoute"
-                       aria-label="@EpisodeWatchLabel(item)"
-                       title="@EpisodeWatchLabel(item)">
-                        <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Large" />
-                    </a>
+                    <span class="tl-series-item__completed-badge" title="Completed">
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                        <span class="sr-only">Completed</span>
+                    </span>
                 }
+                @if (IsSeasonContainer && item.IsOwned)
+                {
+                    @if (SequenceItemRoute(item) is { } playRoute)
+                    {
+                        <a class="tl-series-episode-play"
+                           href="@playRoute"
+                           aria-label="@EpisodeWatchLabel(item)"
+                           title="@EpisodeWatchLabel(item)">
+                            <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Large" />
+                        </a>
+                    }
+                }
+            </div>
+            @if (!Compact && !IsSeasonContainer && (item.IsCurrent || IsNextSequenceItem(item)))
+            {
+                <div class="tl-series-item__state-row">
+                    @if (item.IsCurrent)
+                    {
+                        <span class="tl-series-item__current-badge">@CurrentItemBadge</span>
+                    }
+                    else
+                    {
+                        <span class="tl-series-item__next-badge">Up next</span>
+                    }
+                </div>
             }
         </div>
         @if (IsSeasonContainer)
@@ -754,6 +778,33 @@
             <div class="tl-series-item__date">@itemDate</div>
         }
     </text>;
+
+    private bool IsNextSequenceItem(SequenceItemViewModel item)
+    {
+        var currentIndex = ActiveItems.ToList().FindIndex(candidate => candidate.IsCurrent);
+        if (currentIndex < 0 || currentIndex + 1 >= ActiveItems.Count)
+            return false;
+
+        var next = ActiveItems[currentIndex + 1];
+        return string.Equals(next.Id, item.Id, StringComparison.OrdinalIgnoreCase)
+            && next.IsOwned
+            && AreCanonicallyAdjacent(ActiveItems[currentIndex], next);
+    }
+
+    private static bool AreCanonicallyAdjacent(SequenceItemViewModel left, SequenceItemViewModel right)
+    {
+        if (!string.Equals(left.GroupKey, right.GroupKey, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(left.MembershipScope, right.MembershipScope, StringComparison.OrdinalIgnoreCase)
+            || SequenceNumberOrNull(left) is null
+            || SequenceNumberOrNull(right) is null
+            || !left.PositionSort.HasValue
+            || !right.PositionSort.HasValue)
+        {
+            return false;
+        }
+
+        return Math.Abs((right.PositionSort.Value - left.PositionSort.Value) - 1d) < 0.0001d;
+    }
 
     private string SequenceItemDisplayTitle(SequenceItemViewModel item)
         => IsSeasonContainer

@@ -52,6 +52,12 @@
     }
     else
     {
+        @if (IsCanonicalSeriesContainer && Model.SequencePlacement is not null)
+        {
+            <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                    OnContainerSelected="OnContainerSelected" />
+        }
+
         <section class="tl-detail-panel tl-media-overview-card">
             @{
                 var paragraphs = OverviewParagraphs(Model.Description);
@@ -175,6 +181,10 @@
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
 
     private bool _creditsExpanded;
+
+    private bool IsCanonicalSeriesContainer => Model.EntityType is DetailEntityType.MovieSeries
+        or DetailEntityType.BookSeries
+        or DetailEntityType.ComicSeries;
 
     private sealed record OverviewCreditGroup(string Title, IReadOnlyList<EntityCreditViewModel> Credits, int TotalCount);
 

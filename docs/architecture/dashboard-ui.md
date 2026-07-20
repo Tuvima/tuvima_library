@@ -107,6 +107,11 @@ the Engine:
   detail tab and `Overview` as its second. The hero, Series tab, and hover card
   share concise placement copy such as `Book 1 in The Expanse` or
   `Movie 1 in The Lord of the Rings`; they do not append an `of N` total.
+- Canonical book, comic, and movie series containers reuse that sequence rail
+  directly on Overview. A source number is rendered above its cover, and a
+  connector is drawn only when the neighboring stored positions are genuinely
+  consecutive. Item details put `This book` or `This movie` inside the bordered
+  current-item frame; completion is represented independently with a check.
 - Structural shelf names remove a redundant trailing `Series` or `Collection`
   for presentation (`Dune Collection` becomes `Dune`). Curated collection
   names preserve those words because they are part of the collection identity.

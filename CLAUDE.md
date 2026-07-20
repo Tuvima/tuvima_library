@@ -224,6 +224,8 @@ Dark-mode-only cinematic design with an ambient gradient background. The Dashboa
 
 Real-time SignalR updates push pipeline progress into every surface. Theming is fixed dark with a purple chrome accent (`#8B5CF6`); EPUB reader highlight colors remain reader-specific.
 
+Canonical book, comic, and movie series containers show their sequence rail directly on Overview. Source numbering stays above each cover, connectors appear only between proven consecutive positions, and item details place `This book` or `This movie` inside the bordered current-item frame; completion remains a separate check state.
+
 `MainLayout` exposes My List as the active profile's saved shortlist and delegates account actions to `TopNavAccountMenu`. Needs Review lives inside that permission-aware menu rather than in a standalone bell. `SystemActivityIndicator` uses `ShellActivityState` to combine playback, ingestion, AI download/parsing, enrichment, and durable-operation activity into one circular progress surface, with an idle check icon when no work is active. Sign out is present only for OIDC/hybrid authentication.
 
 ### 3.5 — Brand Assets

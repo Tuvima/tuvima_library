@@ -121,6 +121,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("BuildArtworkBackground(parsedColors)", presentation);
         Assert.Contains("ResolveSubtitle(model, isWatchHero)", presentation);
         Assert.Contains("isWatchHero || UsesPrimaryHeroChrome(model.EntityType)", presentation);
+        Assert.Contains("Title=\"@Model.Title\"", hero);
         Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
         Assert.Contains("HeroCreditLines", hero);
         Assert.Contains("tl-detail-hero-credit-stack--audiobook", hero);
@@ -374,8 +375,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-media-overview-card__top", source);
         Assert.Contains("tl-media-overview-card__summary", source);
         Assert.Contains("tl-media-overview-card__credits", source);
-        Assert.DoesNotContain("SequencePlacementPanel", source);
-        Assert.DoesNotContain("SequencePlacementPanel Placement=", source);
+        Assert.Contains("IsCanonicalSeriesContainer", source);
+        Assert.Contains("SequencePlacementPanel Placement=\"Model.SequencePlacement\"", source);
+        Assert.Contains("OnContainerSelected=\"OnContainerSelected\"", source);
         Assert.Contains("MoreLikeThisItems", source);
         Assert.Contains("IsRecommendationGroup", source);
         Assert.Contains("IsRecommendationCandidate", source);
@@ -496,7 +498,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("display: flex", styles);
         Assert.Contains("flex: 0 0 2rem", styles);
         Assert.Contains("tl-series-placement--compact", source);
-        Assert.Contains("item.IsCurrent && !Compact", source);
+        Assert.Contains("item.IsCurrent || IsNextSequenceItem(item)", source);
         Assert.DoesNotContain("Part of", source);
         Assert.Contains("TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel)", source);
         Assert.Contains("VisibleItems", source);
@@ -566,13 +568,15 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SequenceItemDate", source);
         Assert.Contains("item.PublicationDate", source);
         Assert.DoesNotContain("tl-series-item__owned-badge", source);
-        Assert.DoesNotContain("Icons.Material.Filled.Check\" Size=\"Size.Small\"", source);
+        Assert.Contains("tl-series-item__completed-badge", source);
+        Assert.Contains("Icons.Material.Filled.Check\" Size=\"Size.Small\"", source);
         Assert.Contains("ItemNoun", source);
         Assert.Contains("grid-template-columns: repeat(var(--series-count, 6), minmax(5.8rem, 7.3rem))", styles);
         Assert.Contains("grid-template-columns: repeat(var(--series-count, 7), minmax(7.2rem, 9.2rem))", styles);
         Assert.Contains("scrollbar-width: none", styles);
-        Assert.Contains("tl-series-placement--long .tl-series-strip::before", styles);
-        Assert.Contains("content: none", styles);
+        Assert.Contains("AreCanonicallyAdjacent(previousItem, item)", source);
+        Assert.Contains("tl-series-item__connector", source);
+        Assert.DoesNotContain(".tl-series-strip::before", styles);
         Assert.Contains("min-width: clamp(5.8rem, 7.2vw, 7.3rem)", styles);
         Assert.Contains("tl-series-layout", styles);
         Assert.Contains("tl-series-content", styles);
@@ -586,7 +590,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-date-range", styles);
         Assert.Contains("tl-series-item__date", styles);
         Assert.Contains("repeat(var(--series-count, 6), clamp(10.25rem, 11vw, 13rem))", styles);
-        Assert.Contains("tl-series-placement:not(.tl-series-placement--compact) .tl-series-strip::before", styles);
+        Assert.Contains("tl-series-item__connector", styles);
         Assert.Contains("justify-content: start", styles);
         Assert.Contains("tl-series-source-link", source);
         Assert.Contains("https://www.wikidata.org/wiki/{qid}", source);
@@ -597,6 +601,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Placement.ContainerWikipediaUrl", source);
         Assert.DoesNotContain("tl-series-owned-chip\"", source);
         Assert.Contains("tl-series-item.is-current .tl-series-item__art", styles);
+        Assert.Contains("tl-series-item.is-current .tl-series-item__frame", styles);
+        Assert.Contains("tl-series-item__frame", source);
         Assert.Contains("tl-series-item__current-badge", styles);
         Assert.DoesNotContain("tl-series-item__owned-badge", styles);
         Assert.Contains("tl-series-owned-summary", styles);
@@ -1479,7 +1485,9 @@ public sealed class UnifiedDetailComponentTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
     }

@@ -9,8 +9,8 @@ using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -1677,7 +1677,9 @@ public sealed class DetailComposerService
         var sourceQid = IsWikidataQid(sourceContainerId) ? sourceContainerId : null;
 
         if (localId is null && containerQid is null && sourceQid is null)
+        {
             return null;
+        }
 
         using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<SequenceContainerMetadataDbRow>(new CommandDefinition(
@@ -1761,7 +1763,9 @@ public sealed class DetailComposerService
                 cancellationToken: ct));
 
             if (collectionTotal is > 0)
+            {
                 return collectionTotal;
+            }
         }
 
         if (!IsManifestBackedSequenceContainerId(normalized))
@@ -2219,20 +2223,20 @@ public sealed class DetailComposerService
         return null;
     }
 
-   private static string SeriesMediaFilter(DetailEntityType entityType, string mediaType)
-        => entityType switch
-        {
-            DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work when mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
-                || mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)
-                || mediaType.Equals("Books", StringComparison.OrdinalIgnoreCase)
-                || mediaType.Equals("Comics", StringComparison.OrdinalIgnoreCase) => "Read",
-            DetailEntityType.Audiobook => "Listen",
-            DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Watch",
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "Music",
-            _ when mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase) => "Listen",
-            _ when mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("TV", StringComparison.OrdinalIgnoreCase) => "Watch",
-            _ => "Other",
-        };
+    private static string SeriesMediaFilter(DetailEntityType entityType, string mediaType)
+         => entityType switch
+         {
+             DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work when mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
+                 || mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)
+                 || mediaType.Equals("Books", StringComparison.OrdinalIgnoreCase)
+                 || mediaType.Equals("Comics", StringComparison.OrdinalIgnoreCase) => "Read",
+             DetailEntityType.Audiobook => "Listen",
+             DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Watch",
+             DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "Music",
+             _ when mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase) => "Listen",
+             _ when mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("TV", StringComparison.OrdinalIgnoreCase) => "Watch",
+             _ => "Other",
+         };
 
     private async Task<List<SequenceContainerOptionViewModel>> ResolveLinkedManifestSequenceContainerOptionsAsync(
         Guid workId,
@@ -3109,18 +3113,26 @@ public sealed class DetailComposerService
     private static string BuildManifestMergeKey(SequenceItemViewModel item)
     {
         if (item.Id.StartsWith("missing-", StringComparison.OrdinalIgnoreCase))
+        {
             return $"qid:{item.Id["missing-".Length..]}";
+        }
 
         var title = NormalizeSeriesTitle(item.Title);
         var positionKey = SequencePositionKey(item.PositionSort ?? item.PositionNumber);
         if (!string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(positionKey))
+        {
             return $"title-position:{title}:{positionKey}";
+        }
 
         if (Guid.TryParse(item.Id, out var linkedWorkId))
+        {
             return $"work:{linkedWorkId:D}";
+        }
 
         if (!string.IsNullOrWhiteSpace(title))
+        {
             return $"title:{title}";
+        }
 
         return $"id:{item.Id}";
     }
@@ -4837,7 +4849,7 @@ public sealed class DetailComposerService
             keys = ["series", "overview", .. keys.Where(key => key is not "overview" and not "sequence" and not "series")];
         }
 
-        var tabs = keys.Select(key => new DetailTab { Key = key, Label = ToTabLabel(key) }).ToList();
+        var tabs = keys.Select(key => new DetailTab { Key = key, Label = ToTabLabel(key, entityType) }).ToList();
         if (isAdminView)
         {
             tabs.Add(new DetailTab { Key = "registry", Label = "Registry", IsAdminOnly = true });
@@ -5506,7 +5518,7 @@ public sealed class DetailComposerService
             {
                 if (consumed.Add(linkedWork.Id))
                 {
-                    result.Add(linkedWork);
+                    result.Add(ApplyManifestPlacement(linkedWork, item));
                 }
 
                 continue;
@@ -5515,7 +5527,7 @@ public sealed class DetailComposerService
             var titleKey = NormalizeSeriesTitle(item.ItemLabel);
             if (!string.IsNullOrWhiteSpace(titleKey) && byTitle.TryGetValue(titleKey, out var titledWork) && consumed.Add(titledWork.Id))
             {
-                result.Add(titledWork);
+                result.Add(ApplyManifestPlacement(titledWork, item));
                 continue;
             }
 
@@ -5528,6 +5540,18 @@ public sealed class DetailComposerService
 
     private static double ManifestItemSortOrder(SeriesManifestItemDto item) =>
         item.SortOrder ?? item.ParsedOrdinal ?? double.MaxValue;
+
+    private static CollectionWorkSummary ApplyManifestPlacement(CollectionWorkSummary work, SeriesManifestItemDto item)
+    {
+        var sequenceSort = item.ParsedOrdinal ?? item.SortOrder;
+        return work with
+        {
+            SequenceSort = sequenceSort,
+            SequenceLabel = FirstNonBlank(item.RawOrdinal, sequenceSort.HasValue ? FormatSequenceSort(sequenceSort) : null),
+            MembershipScope = item.MembershipScope,
+            Year = FirstNonBlank(work.Year, item.PublicationDate),
+        };
+    }
 
     private static CollectionWorkSummary CreateMissingManifestWork(DetailEntityType entityType, SeriesManifestItemDto item)
     {
@@ -5554,7 +5578,12 @@ public sealed class DetailComposerService
             "Missing",
             true,
             null,
-            null);
+            null)
+        {
+            SequenceSort = item.ParsedOrdinal ?? item.SortOrder,
+            SequenceLabel = FirstNonBlank(item.RawOrdinal, FormatSequenceSort(item.ParsedOrdinal ?? item.SortOrder)),
+            MembershipScope = item.MembershipScope,
+        };
     }
 
     private static string ManifestPlaceholderMediaType(DetailEntityType entityType, string? mediaType) =>
@@ -5601,7 +5630,7 @@ public sealed class DetailComposerService
                 .Where(work => expectedTotal is > 0 || work.IsOwned)
                 .ToList()
             : works
-                .OrderBy(work => work.Ordinal ?? int.MaxValue)
+                .OrderBy(work => work.SequenceSort ?? work.Ordinal ?? double.MaxValue)
                 .ThenBy(work => work.Year, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -5611,18 +5640,20 @@ public sealed class DetailComposerService
         }
 
         var labels = ResolveSequenceLabels(entityType);
-        var items = orderedWorks.Select((work, index) =>
+        var items = orderedWorks.Select(work =>
         {
             var itemType = InferMediaItemEntityType(work);
             var positionLabel = entityType == DetailEntityType.TvShow
-                ? FirstNonBlank(work.Episode, work.Ordinal?.ToString(CultureInfo.InvariantCulture))
-                : work.Ordinal?.ToString(CultureInfo.InvariantCulture);
-            var positionNumber = TryParseInt(positionLabel);
+                ? FirstNonBlank(work.Episode, work.SequenceLabel, work.Ordinal?.ToString(CultureInfo.InvariantCulture))
+                : FirstNonBlank(work.SequenceLabel, work.Ordinal?.ToString(CultureInfo.InvariantCulture));
+            var positionSort = work.SequenceSort ?? TryParseSeriesPositionSort(positionLabel) ?? work.Ordinal;
+            var positionNumber = ToDisplayPositionNumber(positionSort) ?? TryParseInt(positionLabel);
             var season = entityType == DetailEntityType.TvShow
                 ? FirstNonBlank(NormalizeEpisodeKey(work.Season), "1")
                 : null;
-            var groupKey = season is null ? null : $"season-{season}";
-            var groupTitle = season is null ? null : SeasonDisplayTitle(season);
+            var scopeGroup = ManifestScopeGroup(work.MembershipScope);
+            var groupKey = season is null ? scopeGroup.Key : $"season-{season}";
+            var groupTitle = season is null ? scopeGroup.Title : SeasonDisplayTitle(season);
 
             return new SequenceItemViewModel
             {
@@ -5637,18 +5668,18 @@ public sealed class DetailComposerService
                 Route = work.IsOwned ? BuildWorkRoute(work) : null,
                 PublicationDate = work.Year,
                 PositionNumber = positionNumber,
-                PositionSort = positionNumber ?? work.Ordinal ?? index + 1,
+                PositionSort = positionSort,
                 PositionLabel = positionLabel,
                 PositionText = entityType == DetailEntityType.TvShow && !string.IsNullOrWhiteSpace(positionLabel)
                     ? $"E{NormalizeSequenceOrdinal(positionLabel)}"
                     : positionLabel,
                 GroupKey = groupKey,
                 GroupTitle = groupTitle,
-                MembershipScope = SeriesMembershipScopeNames.MainSequence,
+                MembershipScope = FirstNonBlank(work.MembershipScope, SeriesMembershipScopeNames.MainSequence),
                 IsCurrent = currentWorkId.HasValue
                     && string.Equals(work.Id, currentWorkId.Value.ToString("D"), StringComparison.OrdinalIgnoreCase),
                 IsOwned = work.IsOwned,
-                ProgressState = work.IsOwned ? LibraryProgressState.Unstarted : LibraryProgressState.Missing,
+                ProgressState = ResolveLibraryProgressState(work),
             };
         }).ToList();
 
@@ -5735,6 +5766,21 @@ public sealed class DetailComposerService
             CurrentItem = representative,
             OrderedItems = items,
             Groups = groups,
+        };
+    }
+
+    private static LibraryProgressState ResolveLibraryProgressState(CollectionWorkSummary work)
+    {
+        if (!work.IsOwned)
+        {
+            return LibraryProgressState.Missing;
+        }
+
+        return work.ProgressPercent switch
+        {
+            >= 99.5 => LibraryProgressState.Completed,
+            > 0 => LibraryProgressState.InProgress,
+            _ => LibraryProgressState.Unstarted,
         };
     }
 
@@ -7529,13 +7575,15 @@ public sealed class DetailComposerService
         _ => entityType.ToString(),
     };
 
-    private static string ToTabLabel(string key) => key switch
+    private static string ToTabLabel(string key, DetailEntityType entityType) => (key, entityType) switch
     {
-            "people" => "Cast",
-            "media" => "Media in Library",
-            "sequence" => "Order",
-            "movies-tv" => "Movies & TV",
-        "appears-on" => "Appears On",
+        ("people", _) => "Cast",
+        ("media", DetailEntityType.MovieSeries) => "Films",
+        ("media", _) => "Media in Library",
+        ("works", DetailEntityType.BookSeries) => "Books",
+        ("sequence", _) => "Order",
+        ("movies-tv", _) => "Movies & TV",
+        ("appears-on", _) => "Appears On",
         _ => string.Join(" ", key.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpperInvariant(word[0]) + word[1..])),
     };
 
@@ -8016,6 +8064,10 @@ public sealed class DetailComposerService
 
     private sealed record CollectionWorkSummary(string Id, string MediaType, int? Ordinal, string Title, string? Description, string? Season, string? Episode, string? TrackNumber, string? Duration, string? Year, string? Artist, bool IsExplicit, string? Quality, double? ProgressPercent, bool HasAsset, string? Ownership, bool IsCatalogOnly, string? ArtworkUrl, string? BackgroundUrl)
     {
+        public double? SequenceSort { get; init; }
+        public string? SequenceLabel { get; init; }
+        public string? MembershipScope { get; init; }
+
         public bool IsOwned =>
             HasAsset
             && !IsCatalogOnly
