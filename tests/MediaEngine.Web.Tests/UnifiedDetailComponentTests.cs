@@ -1456,7 +1456,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<SurfaceNavigationBar", mediaHub);
         Assert.Contains("<SurfaceTabBar", surfaceNavigation);
         Assert.Contains("<CinematicHeroCarousel", home);
-        Assert.Contains("<SurfaceTabBar", home);
+        Assert.Contains("<SurfaceNavigationBar", home);
+        Assert.DoesNotContain("<SurfaceTabBar", home);
     }
 
     private static string ReadSource(string relativePath)

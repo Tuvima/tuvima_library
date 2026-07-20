@@ -205,16 +205,24 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
-    public void DetailAndLanePages_UseTheSameSurfaceNavigationBar()
+    public void HomeDetailAndLanePages_UseTheSameSurfaceNavigationBar()
     {
         var detailTabs = Read(@"src\MediaEngine.Web\Components\Details\DetailTabs.razor");
         var mediaHub = Read(@"src\MediaEngine.Web\Components\MediaHub\MediaHubPage.razor");
+        var home = Read(@"src\MediaEngine.Web\Components\Pages\LibraryBrowsePage.razor");
         var navigationStyles = Read(@"src\MediaEngine.Web\Components\Cinematic\SurfaceNavigationBar.razor.css");
+        var carouselStyles = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor.css");
 
         Assert.Contains("<SurfaceNavigationBar", detailTabs, StringComparison.Ordinal);
         Assert.Contains("<SurfaceNavigationBar", mediaHub, StringComparison.Ordinal);
+        Assert.Contains("<SurfaceNavigationBar", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SurfaceTabBar", home, StringComparison.Ordinal);
         Assert.Contains("min-height: 4.25rem", navigationStyles, StringComparison.Ordinal);
         Assert.Contains("border-bottom: 2px solid transparent", navigationStyles, StringComparison.Ordinal);
+        Assert.Contains(".cinematic-hero-carousel ::deep .cinematic-hero__content", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 100%", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("min-height: 100%", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("padding-block: clamp(1rem, 2.5svh, 1.75rem)", carouselStyles, StringComparison.Ordinal);
     }
 
     [Fact]

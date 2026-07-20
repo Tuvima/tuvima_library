@@ -102,16 +102,12 @@ else
                                   AriaLabel="Home featured media" />
         }
 
-        <div class="home-discovery-content-shell">
-            <div class="home-discovery-filter-shell">
-                <SurfaceTabBar Items="@HomeFilters"
-                               ActiveKey="@_activeLane"
-                               ActiveKeyChanged="SetActiveLaneAsync"
-                               AriaLabel="Filter Home"
-                               Class="home-discovery-filter-bar"
-                               ItemClass="home-discovery-filter-tab" />
-            </div>
+        <SurfaceNavigationBar Items="@HomeFilters"
+                              ActiveKey="@_activeLane"
+                              ActiveKeyChanged="SetActiveLaneAsync"
+                              AriaLabel="Filter Home" />
 
+        <div class="home-discovery-content-shell">
             <div class="home-discovery-shelves">
                 @foreach (var shelf in VisibleShelves)
                 {

@@ -29,17 +29,6 @@
     overflow: visible;
 }
 
-.home-discovery-filter-shell {
-    padding: 0 1.5rem;
-}
-
-::deep .home-discovery-filter-bar {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 0.75rem;
-    background: rgba(10, 14, 22, 0.94);
-    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.24);
-}
-
 .home-discovery-shelves {
     display: flex;
     flex-direction: column;
@@ -108,7 +97,6 @@
 }
 
 @media (min-width: 768px) {
-    .home-discovery-filter-shell,
     .home-discovery-shelves {
         padding: 0 4rem;
     }
