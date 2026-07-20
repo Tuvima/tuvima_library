@@ -782,19 +782,17 @@ public sealed class DisplayCardBuilder
         }
 
         var orderedItems = works
-            .Select(work => new
-            {
-                Work = work,
-                ImageUrl = SeriesPreviewImage(work),
-                SortPosition = PreviewSortPosition(mediaKind, work),
-                DisplayTitle = DisplayTitleFor(mediaKind, work.Title, work.Series, work.SeriesPosition),
-                DisplayPosition = mediaKind switch
+            .Select(work => new SeriesPreviewCandidate(
+                work,
+                SeriesPreviewImage(work),
+                PreviewSortPosition(mediaKind, work),
+                DisplayTitleFor(mediaKind, work.Title, work.Series, work.SeriesPosition),
+                mediaKind switch
                 {
                     "TV" => EpisodePosition(work.SeasonNumber, work.EpisodeNumber),
                     "Music" => work.TrackNumber,
                     _ => work.SeriesPosition,
-                },
-            })
+                }))
             .GroupBy(item => item.Work.WorkId)
             .Select(group => group.First())
             .OrderBy(item => item.SortPosition is null)
@@ -803,53 +801,80 @@ public sealed class DisplayCardBuilder
             .ThenBy(item => item.Work.CreatedAt)
             .ToList();
 
+        if (orderedItems.Count <= 4)
+        {
+            return ToPreviewItems(orderedItems, mediaKind, collectionId, tvShowRootId);
+        }
+
         var representativeWorkIds = new List<Guid>();
-        if (progressByWork is not null)
+        var hasProgressHistory = progressByWork is not null
+                                 && orderedItems.Any(item => progressByWork.ContainsKey(item.Work.WorkId));
+        if (hasProgressHistory)
         {
             var current = orderedItems
-                .Where(item => progressByWork.TryGetValue(item.Work.WorkId, out var progress)
+                .Where(item => progressByWork!.TryGetValue(item.Work.WorkId, out var progress)
                                && progress.ProgressPct is > 0 and < 99.5)
-                .OrderByDescending(item => progressByWork[item.Work.WorkId].LastAccessed)
+                .OrderByDescending(item => progressByWork![item.Work.WorkId].LastAccessed)
                 .FirstOrDefault();
             if (current is not null)
             {
                 representativeWorkIds.Add(current.Work.WorkId);
                 var currentIndex = orderedItems.IndexOf(current);
-                if (currentIndex >= 0 && currentIndex + 1 < orderedItems.Count)
+                if (currentIndex + 1 < orderedItems.Count)
                 {
                     representativeWorkIds.Add(orderedItems[currentIndex + 1].Work.WorkId);
                 }
             }
+            else
+            {
+                var next = orderedItems.FirstOrDefault(item => !progressByWork!.TryGetValue(item.Work.WorkId, out var progress)
+                                                               || progress.ProgressPct < 99.5);
+                if (next is not null)
+                {
+                    representativeWorkIds.Add(next.Work.WorkId);
+                }
+            }
 
+            representativeWorkIds.Add(orderedItems[0].Work.WorkId);
             representativeWorkIds.AddRange(orderedItems
-                .Where(item => progressByWork.TryGetValue(item.Work.WorkId, out var progress)
+                .Where(item => progressByWork!.TryGetValue(item.Work.WorkId, out var progress)
                                && progress.ProgressPct >= 99.5)
-                .OrderByDescending(item => progressByWork[item.Work.WorkId].LastAccessed)
+                .OrderByDescending(item => progressByWork![item.Work.WorkId].LastAccessed)
                 .Select(item => item.Work.WorkId));
-            representativeWorkIds.AddRange(orderedItems
-                .Where(item => progressByWork.ContainsKey(item.Work.WorkId))
-                .OrderByDescending(item => progressByWork[item.Work.WorkId].LastAccessed)
-                .Select(item => item.Work.WorkId));
-        }
-
-        if (orderedItems.Count <= 4)
-        {
-            representativeWorkIds.AddRange(orderedItems.Select(item => item.Work.WorkId));
         }
         else
         {
             representativeWorkIds.Add(orderedItems[0].Work.WorkId);
             representativeWorkIds.Add(orderedItems[1].Work.WorkId);
-            representativeWorkIds.Add(orderedItems[^2].Work.WorkId);
-            representativeWorkIds.Add(orderedItems[^1].Work.WorkId);
         }
+
+        representativeWorkIds.AddRange(orderedItems
+            .OrderByDescending(item => item.Work.CreatedAt)
+            .Select(item => item.Work.WorkId));
+        representativeWorkIds.Add(orderedItems[^1].Work.WorkId);
+        representativeWorkIds.AddRange(orderedItems.Select(item => item.Work.WorkId));
 
         var representativeItems = representativeWorkIds
             .Distinct()
             .Take(4)
             .Select(workId => orderedItems.First(item => item.Work.WorkId == workId))
             .ToList();
+        if (!hasProgressHistory)
+        {
+            representativeItems = representativeItems
+                .OrderBy(orderedItems.IndexOf)
+                .ToList();
+        }
 
+        return ToPreviewItems(representativeItems, mediaKind, collectionId, tvShowRootId);
+    }
+
+    private static IReadOnlyList<DisplayCardPreviewItemDto> ToPreviewItems(
+        IReadOnlyList<SeriesPreviewCandidate> representativeItems,
+        string mediaKind,
+        Guid? collectionId,
+        Guid? tvShowRootId)
+    {
         return representativeItems
             .Select(item => new DisplayCardPreviewItemDto(
                 item.Work.WorkId,
@@ -876,6 +901,13 @@ public sealed class DisplayCardBuilder
                     item.Work.Publisher)))
             .ToList();
     }
+
+    private sealed record SeriesPreviewCandidate(
+        DisplayWorkRow Work,
+        string? ImageUrl,
+        double? SortPosition,
+        string DisplayTitle,
+        string? DisplayPosition);
 
     private static string? SeriesPreviewImage(DisplayWorkRow work) =>
         FirstNonBlank(

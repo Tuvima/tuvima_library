@@ -76,7 +76,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             .BuildCollectionCards(works, "read", progressByWork: progressByWork)
             .Single();
 
-        Assert.Equal(["Book 3", "Book 4", "Book 2", "Book 1"], card.PreviewItems.Select(item => item.Title));
+        Assert.Equal(["Book 3", "Book 4", "Book 1", "Book 2"], card.PreviewItems.Select(item => item.Title));
         Assert.Equal(1, card.GroupSummary?.CompletedCount);
         Assert.Equal(1, card.GroupSummary?.InProgressCount);
         Assert.Equal("Books 1\u20136 owned", card.GroupSummary?.SequenceRange);

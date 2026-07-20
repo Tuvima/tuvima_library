@@ -147,6 +147,26 @@
             </div>
         </AppCard>
     </div>
+
+    <section class="design-system-preview__group-card-preview" aria-labelledby="group-card-preview-title">
+        <header>
+            <div>
+                <p class="design-system-preview__eyebrow">Visual QA Matrix</p>
+                <h2 id="group-card-preview-title">Series and collection cards</h2>
+            </div>
+            <p>Rest is artwork-only. Hover or focus keeps the same frame and reveals the compact identity overlay.</p>
+        </header>
+
+        <div class="design-system-preview__group-card-grid">
+            @foreach (var scenario in GroupCardScenarios)
+            {
+                <figure class="@($"design-system-preview__group-card-scenario{(scenario.Narrow ? " is-narrow" : string.Empty)}")" @key="scenario.Name">
+                    <figcaption>@scenario.Name</figcaption>
+                    <MediaGroupTile Item="@scenario.Item" />
+                </figure>
+            }
+        </div>
+    </section>
 </div>
 
 @code {
@@ -188,6 +208,8 @@
         new(3, "Enrichment"),
     ];
 
+    private static readonly IReadOnlyList<GroupCardPreviewScenario> GroupCardScenarios = BuildGroupCardScenarios();
+
     private static Task<IEnumerable<string>> SearchProvidersAsync(string? value, CancellationToken cancellationToken)
     {
         string[] providers = ["Apple API", "Comic Vine", "Fanart.tv", "MusicBrainz", "Open Library", "TMDB"];
@@ -197,4 +219,126 @@
 
         return Task.FromResult<IEnumerable<string>>(result);
     }
+
+    private static IReadOnlyList<GroupCardPreviewScenario> BuildGroupCardScenarios() =>
+    [
+        Scenario("01 · Two portrait movie posters", "Echoes of Orion", MediaTilePresentation.MovieSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait], 2),
+        Scenario("02 · Three portrait movie posters", "The Veil Trilogy", MediaTilePresentation.MovieSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 3),
+        Scenario("03 · Four portrait movie posters", "The Kai Chronicles", MediaTilePresentation.MovieSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 4),
+        Scenario("04 · Two portrait book covers", "The Hollow Crown Files", MediaTilePresentation.BookSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait], 2),
+        Scenario("05 · Three portrait book covers", "The Dune Saga", MediaTilePresentation.BookSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 3),
+        Scenario("06 · Four portrait book covers", "Fantasy Essentials", MediaTilePresentation.BookSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 4),
+        Scenario("07 · Two square albums", "Midnight Sessions", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Square], 2, relationship: "Curated collection"),
+        Scenario("08 · Three square albums", "Late Night Records", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Square, ArtworkShape.Square], 3, relationship: "Curated collection"),
+        Scenario("09 · Four square albums", "Listening Room", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Square, ArtworkShape.Square, ArtworkShape.Square], 4, relationship: "Curated collection"),
+        Scenario("10 · Portrait plus square", "Page and Sound", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Square], 2, mixedMedia: true),
+        Scenario("11 · Two portraits plus square", "Story Worlds", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Square], 3, mixedMedia: true),
+        Scenario("12 · Two squares plus portrait", "Sound and Story", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Square, ArtworkShape.Portrait], 3, mixedMedia: true),
+        Scenario("13 · Two portraits plus two squares", "Across Formats", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Square, ArtworkShape.Square], 4, mixedMedia: true),
+        Scenario("14 · Portrait, square, and landscape", "The Astral Archive", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Square, ArtworkShape.Wide], 3, mixedMedia: true),
+        Scenario("15 · Two-item collection", "Sci-Fi Favorites", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Portrait], 2, relationship: "Curated collection"),
+        Scenario("16 · Three-item collection", "The Desert Worlds", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 3, relationship: "Curated collection"),
+        Scenario("17 · More than four items", "Twelve Worlds", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Square, ArtworkShape.Wide], 12, mixedMedia: true),
+        Scenario("18 · Ordered collection", "The Orion Journey", MediaTilePresentation.Default, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 9, relationship: "Ordered collection"),
+        Scenario("19 · Automated collection", "Recently Enriched", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Portrait, ArtworkShape.Wide, ArtworkShape.Square], 14, relationship: "Smart collection", mixedMedia: true),
+        Scenario("20 · Long title", "The Remarkably Long Chronicle of Every Lantern Beyond the Last Known Sea", MediaTilePresentation.BookSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 7),
+        Scenario("21 · Light artwork", "The Pale Horizon", MediaTilePresentation.MovieSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 3, tone: "light"),
+        Scenario("22 · Dark artwork", "Nocturne Cycle", MediaTilePresentation.BookSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 3, tone: "dark"),
+        Scenario("23 · Low-resolution artwork", "Archive Transfers", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Square], 2, tone: "low"),
+        Scenario("24 · Missing artwork", "Recovered Editions", MediaTilePresentation.BookSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait, ArtworkShape.Portrait], 3, missingIndex: 1),
+        Scenario("25 · Keyboard focus", "Focus Ring Validation", MediaTilePresentation.MovieSeries, [ArtworkShape.Portrait, ArtworkShape.Portrait], 2),
+        Scenario("26 · Reduced motion", "Still Frames", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Portrait, ArtworkShape.Wide], 3, mixedMedia: true),
+        Scenario("27 · Narrowest supported size", "Compact Worlds", MediaTilePresentation.Default, [ArtworkShape.Square, ArtworkShape.Square, ArtworkShape.Square, ArtworkShape.Square], 8, relationship: "Curated collection", narrow: true),
+    ];
+
+    private static GroupCardPreviewScenario Scenario(
+        string name,
+        string title,
+        MediaTilePresentation presentation,
+        IReadOnlyList<ArtworkShape> shapes,
+        int totalCount,
+        string? relationship = null,
+        bool mixedMedia = false,
+        string tone = "normal",
+        int? missingIndex = null,
+        bool narrow = false)
+    {
+        var items = shapes.Select((shape, index) => new ArtworkStackItem
+        {
+            Id = $"{name}-{index}",
+            Title = $"Representative item {index + 1}",
+            ImageUrl = missingIndex == index ? string.Empty : PreviewArtwork(shape, index, tone),
+            MediaType = shape == ArtworkShape.Square ? "Music" : shape == ArtworkShape.Wide ? "Movie" : "Book",
+            Shape = shape,
+            Position = (index + 1).ToString(),
+        }).ToList();
+        var mediaCounts = mixedMedia
+            ? new[]
+            {
+                new MediaTileMediaCountViewModel(Icons.Material.Filled.Movie, "Watch", Math.Max(1, totalCount / 3)),
+                new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Read", Math.Max(1, totalCount / 3)),
+                new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Listen", Math.Max(1, totalCount / 3)),
+            }
+            : Array.Empty<MediaTileMediaCountViewModel>();
+
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = title,
+            MediaKind = presentation == MediaTilePresentation.MovieSeries ? "Movie" : presentation == MediaTilePresentation.BookSeries ? "Book" : "Collection",
+            Presentation = presentation,
+            Shape = MediaTileShape.Landscape,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverMode = MediaTileHoverMode.Expanded,
+            NavigationUrl = "/design-system/components#group-card-preview-title",
+            DetailsNavigationUrl = "/design-system/components#group-card-preview-title",
+            IsCollection = true,
+            UseLandscapeGroupTile = true,
+            PreviewTotalCount = totalCount,
+            ArtworkStackItems = items,
+            MediaCounts = mediaCounts,
+            GroupSummary = new MediaTileGroupSummaryViewModel
+            {
+                OwnedCount = totalCount,
+                KnownTotalCount = presentation is MediaTilePresentation.MovieSeries or MediaTilePresentation.BookSeries ? totalCount : null,
+                RelationshipLabel = relationship,
+            },
+            AccentColor = "#9d7cff",
+            SecondaryAccentColor = "#17132b",
+        };
+
+        return new GroupCardPreviewScenario(name, item, narrow);
+    }
+
+    private static string PreviewArtwork(ArtworkShape shape, int index, string tone)
+    {
+        var (width, height) = shape switch
+        {
+            ArtworkShape.Square => (600, 600),
+            ArtworkShape.Wide => (960, 540),
+            _ => (600, 900),
+        };
+        var palettes = tone switch
+        {
+            "light" => new[] { ("#f7e7c6", "#9ac5e8"), ("#fff6dd", "#d9a7cf"), ("#e7f5ff", "#c2b5e8") },
+            "dark" => new[] { ("#080b18", "#2a1746"), ("#06131c", "#193348"), ("#120915", "#3b153f") },
+            "low" => new[] { ("#40216a", "#14172d"), ("#184b55", "#101a2b"), ("#5b3921", "#17101d") },
+            _ => new[] { ("#9b5d32", "#201338"), ("#295477", "#15162e"), ("#5750a8", "#12223e"), ("#37634e", "#16182d") },
+        };
+        var palette = palettes[index % palettes.Length];
+        var label = shape == ArtworkShape.Wide ? "WIDE" : shape == ArtworkShape.Square ? "ALBUM" : "VOLUME";
+        var svg = $"""
+            <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 {width} {height}' width='{width}' height='{height}'>
+              <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='{palette.Item1}'/><stop offset='1' stop-color='{palette.Item2}'/></linearGradient></defs>
+              <rect width='100%' height='100%' fill='url(#g)'/>
+              <circle cx='{width * 0.7}' cy='{height * 0.28}' r='{Math.Min(width, height) * 0.18}' fill='none' stroke='#ffffff' stroke-opacity='.35' stroke-width='5'/>
+              <path d='M0 {height * 0.72} L{width * 0.28} {height * 0.5} L{width * 0.52} {height * 0.7} L{width * 0.76} {height * 0.42} L{width} {height * 0.68} V{height} H0Z' fill='#060914' fill-opacity='.7'/>
+              <text x='50%' y='84%' text-anchor='middle' fill='#fff' font-family='Arial, sans-serif' font-size='{Math.Max(30, width / 13)}' letter-spacing='8'>{label} {index + 1}</text>
+            </svg>
+            """;
+        return $"data:image/svg+xml;charset=utf-8,{Uri.EscapeDataString(svg)}";
+    }
+
+    private sealed record GroupCardPreviewScenario(string Name, MediaTileViewModel Item, bool Narrow);
 }

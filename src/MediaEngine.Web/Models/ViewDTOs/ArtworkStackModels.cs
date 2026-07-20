@@ -35,4 +35,5 @@ public enum MediaArtworkGroupPreviewLayout
 {
     Cluster,
     Strip,
+    Adaptive,
 }

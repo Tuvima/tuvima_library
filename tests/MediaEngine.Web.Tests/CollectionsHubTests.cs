@@ -48,10 +48,11 @@ public sealed class CollectionsHubTests
         Assert.Contains("UseLandscapeGroupTile = true", source, StringComparison.Ordinal);
         Assert.Contains("item.UseLandscapeGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("<MediaGroupTile", tileGridSource, StringComparison.Ordinal);
-        Assert.Contains("media-group-tile__summary-artwork", groupTileSource, StringComparison.Ordinal);
-        Assert.Contains("MediaArtworkGroupPreviewLayout.Strip", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__artwork", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("MediaArtworkGroupPreviewLayout.Adaptive", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaArtworkGroupPreviewLayout.Mosaic", groupTileSource, StringComparison.Ordinal);
-        Assert.Contains("At a glance", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__overlay", groupTileSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("At a glance", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("HighlightedItems", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("media-group-tile__highlights", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaArtworkCarousel", groupTileSource, StringComparison.Ordinal);

@@ -4,124 +4,42 @@
 
 <AppCssElement Tag="div" Css="@($"display: contents; {TileStyle}")">
     <article class="media-group-tile" aria-label="@Item.Title">
-        <div class="media-group-tile__frame">
-            <a class="media-group-tile__base"
-               href="@GroupNavigationUrl"
-               aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
-               @onclick="OpenGroupAsync"
-               @onclick:preventDefault="true">
-                <div class="media-group-tile__atmosphere" aria-hidden="true"></div>
+        <a class="media-group-tile__surface"
+           href="@GroupNavigationUrl"
+           aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
+           @onclick="OpenGroupAsync"
+           @onclick:preventDefault="true">
+            <div class="media-group-tile__atmosphere" aria-hidden="true"></div>
 
-                @if (RepresentativeItems.Count > 0)
-                {
-                    <div class="media-group-tile__base-artwork">
-                        <MediaArtworkGroupPreview Items="@RepresentativeItems"
-                                                  TotalCount="@ResolvedTotalCount"
-                                                  Layout="MediaArtworkGroupPreviewLayout.Strip"
-                                                  ShowOverflowCount="false"
-                                                  AriaLabel="@($"Artwork from {Item.Title}")" />
-                    </div>
-                }
-                else
-                {
-                    <div class="media-group-tile__fallback">
-                        <MudIcon Icon="@GroupKindIcon" />
-                    </div>
-                }
+            @if (RepresentativeItems.Count > 0)
+            {
+                <div class="media-group-tile__artwork">
+                    <MediaArtworkGroupPreview Items="@RepresentativeItems"
+                                              TotalCount="@ResolvedTotalCount"
+                                              Layout="MediaArtworkGroupPreviewLayout.Adaptive"
+                                              ShowOverflowCount="false"
+                                              AriaLabel="@($"Representative artwork from {Item.Title}")" />
+                </div>
+            }
+            else
+            {
+                <div class="media-group-tile__fallback" role="img" aria-label="@($"No artwork available for {Item.Title}")">
+                    <MudIcon Icon="@GroupKindIcon" />
+                </div>
+            }
 
-                <div class="media-group-tile__base-copy">
+            @if (ShowSummary)
+            {
+                <section class="media-group-tile__overlay" aria-hidden="true">
                     <span class="media-group-tile__kind">
                         <MudIcon Icon="@GroupKindIcon" />
                         <span>@GroupKindLabel</span>
                     </span>
-                    <strong>@Item.Title</strong>
-                    <span class="media-group-tile__base-summary">@GroupSummaryLabel</span>
-                    @if (Item.MediaCounts.Count > 0)
-                    {
-                        <div class="media-group-tile__base-counts">
-                            @foreach (var count in Item.MediaCounts.Take(4))
-                            {
-                                <span @key="count.Label">
-                                    <MudIcon Icon="@count.Icon" />
-                                    <span>@count.Count @count.Label</span>
-                                </span>
-                            }
-                        </div>
-                    }
-                </div>
-            </a>
-
-            @if (ShowSummary)
-            {
-                <a class="media-group-tile__hover"
-                   href="@GroupNavigationUrl"
-                   aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
-                   @onclick="OpenGroupAsync"
-                   @onclick:preventDefault="true">
-                    <div class="media-group-tile__hover-atmosphere" aria-hidden="true"></div>
-
-                    <div class="@SummaryArtworkClass">
-                        @if (RepresentativeItems.Count > 0)
-                        {
-                            <MediaArtworkGroupPreview Items="@RepresentativeItems"
-                                                      TotalCount="@ResolvedTotalCount"
-                                                      Layout="MediaArtworkGroupPreviewLayout.Strip"
-                                                      ShowOverflowCount="false"
-                                                      AriaLabel="@($"Representative artwork from {Item.Title}")" />
-                        }
-                        else
-                        {
-                            <div class="media-group-tile__fallback">
-                                <MudIcon Icon="@GroupKindIcon" />
-                            </div>
-                        }
-                    </div>
-
-                    <section class="media-group-tile__identity" aria-label="@($"About {Item.Title}")">
-                        <span class="media-group-tile__kind">
-                            <MudIcon Icon="@GroupKindIcon" />
-                            <span>@GroupKindLabel</span>
-                        </span>
-
-                        <h3>@Item.Title</h3>
-
-                        @if (!string.IsNullOrWhiteSpace(GroupDescription))
-                        {
-                            <p class="media-group-tile__description">@GroupDescription</p>
-                        }
-
-                        <p class="media-group-tile__summary-line" aria-label="@GroupSummaryLabel">
-                            <strong>@GroupSummaryLabel</strong>
-                            @if (!string.IsNullOrWhiteSpace(Item.GroupSummary?.RelationshipLabel))
-                            {
-                                <span>@Item.GroupSummary?.RelationshipLabel</span>
-                            }
-                        </p>
-
-                        @if (OverviewRows.Count > 0)
-                        {
-                            <div class="media-group-tile__overview">
-                                <span>At a glance</span>
-                                <ul>
-                                    @foreach (var row in OverviewRows)
-                                    {
-                                        <li @key="@($"{row.Label}:{row.Value}")">
-                                            <MudIcon Icon="@row.Icon" />
-                                            <span>@row.Label</span>
-                                            @if (!string.IsNullOrWhiteSpace(row.Value))
-                                            {
-                                                <strong>@row.Value</strong>
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                            </div>
-                        }
-
-                    </section>
-                </a>
+                    <h3>@Item.Title</h3>
+                    <p>@GroupStatusLabel</p>
+                </section>
             }
-        </div>
+        </a>
     </article>
 </AppCssElement>
 
@@ -133,13 +51,9 @@
     private bool ShowSummary => EffectiveHoverMode != MediaTileHoverMode.None;
     private int ResolvedTotalCount => Math.Max(Item.GroupSummary?.OwnedCount ?? Item.PreviewTotalCount ?? RepresentativeItems.Count, RepresentativeItems.Count);
 
-    private IReadOnlyList<ArtworkStackItem> RepresentativeItems => SelectRepresentativeItems(Item.ArtworkStackItems);
-
-    private IReadOnlyList<GroupOverviewRow> OverviewRows => BuildOverviewRows();
-
-    private string SummaryArtworkClass => RepresentativeItems.Count >= 3
-        ? "media-group-tile__summary-artwork is-dense"
-        : "media-group-tile__summary-artwork";
+    // The API orders series previews by progress and canonical position and already caps
+    // the result at four. Preserve that order here instead of applying a second selection pass.
+    private IReadOnlyList<ArtworkStackItem> RepresentativeItems => BuildRepresentativeItems();
 
     private bool IsSeries => Item.Presentation is MediaTilePresentation.MovieSeries
         or MediaTilePresentation.BookSeries
@@ -154,7 +68,7 @@
         get
         {
             var atmosphere = FirstNonBlank(
-                RepresentativeItems.FirstOrDefault()?.ImageUrl,
+                RepresentativeItems.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.ImageUrl))?.ImageUrl,
                 Item.HeroBackgroundImageUrl,
                 Item.BackgroundUrl,
                 Item.HoverImageUrl,
@@ -166,16 +80,44 @@
         }
     }
 
-    private string? GroupDescription => FirstNonBlank(Item.Description, Item.Tldr);
-
-    private string GroupKindLabel => Item.Presentation switch
+    private string GroupKindLabel
     {
-        MediaTilePresentation.MovieSeries => "Movie Series",
-        MediaTilePresentation.BookSeries => "Book Series",
-        MediaTilePresentation.ComicSeries => "Comic Series",
-        MediaTilePresentation.AudiobookSeries => "Audiobook Series",
-        _ => "Collection",
-    };
+        get
+        {
+            if (Item.Presentation == MediaTilePresentation.Default)
+            {
+                if (Item.GroupSummary?.RelationshipLabel?.Contains("Ordered", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    return "Ordered Collection";
+                }
+
+                if (string.Equals(Item.GroupSummary?.RelationshipLabel, "Smart collection", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Automated Collection";
+                }
+
+                if (Item.MediaCounts.Count > 1)
+                {
+                    return "Mixed-Media Collection";
+                }
+
+                if (string.Equals(Item.GroupSummary?.RelationshipLabel, "Curated collection", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Item.GroupSummary?.RelationshipLabel, "Curated list", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Curated Collection";
+                }
+            }
+
+            return Item.Presentation switch
+            {
+                MediaTilePresentation.MovieSeries => "Movie Series",
+                MediaTilePresentation.BookSeries => "Book Series",
+                MediaTilePresentation.ComicSeries => "Comic Series",
+                MediaTilePresentation.AudiobookSeries => "Audiobook Series",
+                _ => "Collection",
+            };
+        }
+    }
 
     private string GroupKindIcon => Item.Presentation switch
     {
@@ -184,6 +126,39 @@
         MediaTilePresentation.AudiobookSeries => Icons.Material.Outlined.Headphones,
         _ => Icons.Material.Outlined.CollectionsBookmark,
     };
+
+    private string GroupStatusLabel
+    {
+        get
+        {
+            var summary = Item.GroupSummary;
+            if (IsSeries && summary?.InProgressCount > 0)
+            {
+                var current = RepresentativeItems.FirstOrDefault();
+                if (current is not null && !string.IsNullOrWhiteSpace(current.Title))
+                {
+                    return $"Continue with {current.Title}";
+                }
+            }
+
+            if (summary?.KnownTotalCount is > 0 && summary.KnownTotalCount >= summary.OwnedCount)
+            {
+                return $"{summary.OwnedCount} of {summary.KnownTotalCount} owned";
+            }
+
+            if (IsSeries && summary is not null && summary.OwnedCount > 0 && summary.CompletedCount >= summary.OwnedCount)
+            {
+                return "Series complete";
+            }
+
+            if (!IsSeries && Item.MediaCounts.Count > 1)
+            {
+                return $"{ResolvedTotalCount} items · {Item.MediaCounts.Count} media types";
+            }
+
+            return $"{ResolvedTotalCount} {GroupCountNoun}";
+        }
+    }
 
     private string GroupCountNoun => Item.Presentation switch
     {
@@ -194,115 +169,43 @@
         _ => ResolvedTotalCount == 1 ? "item" : "items",
     };
 
-    private string GroupCountLabel => $"{ResolvedTotalCount} {GroupCountNoun}";
-
-    private string GroupSummaryLabel
+    private IReadOnlyList<ArtworkStackItem> BuildRepresentativeItems()
     {
-        get
+        var available = new List<ArtworkStackItem>();
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var imageUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in Item.ArtworkStackItems)
         {
-            var summary = Item.GroupSummary;
-            if (summary?.KnownTotalCount is > 0 && summary.KnownTotalCount >= summary.OwnedCount)
+            if (string.IsNullOrWhiteSpace(item.Id) || !ids.Add(item.Id))
             {
-                return $"{summary.OwnedCount} of {summary.KnownTotalCount} owned";
+                continue;
             }
 
-            if (!IsSeries && Item.MediaCounts.Count > 1)
+            if (!string.IsNullOrWhiteSpace(item.ImageUrl) && !imageUrls.Add(item.ImageUrl))
             {
-                return $"{ResolvedTotalCount} items across {Item.MediaCounts.Count} media types";
+                continue;
             }
 
-            return GroupCountLabel;
-        }
-    }
-
-    private IReadOnlyList<GroupOverviewRow> BuildOverviewRows()
-    {
-        var rows = new List<GroupOverviewRow>();
-        if (!IsSeries && Item.MediaCounts.Count > 0)
-        {
-            rows.AddRange(Item.MediaCounts
-                .Where(count => count.Count > 0)
-                .Take(4)
-                .Select(count => new GroupOverviewRow(count.Icon, count.Label, count.Count.ToString())));
-            return rows;
+            available.Add(item);
         }
 
-        if (!string.IsNullOrWhiteSpace(Item.GroupSummary?.SequenceRange))
+        if (available.Count <= 4 || IsSeries || Item.GroupSummary?.RelationshipLabel?.Contains("Ordered", StringComparison.OrdinalIgnoreCase) == true)
         {
-            rows.Add(new GroupOverviewRow(Icons.Material.Outlined.FormatListNumbered, Item.GroupSummary.SequenceRange, null));
+            return available.Take(4).ToList();
         }
 
-        var status = GroupProgressSummary;
-        if (!string.IsNullOrWhiteSpace(status))
+        if (Item.MediaCounts.Count > 1)
         {
-            rows.Add(new GroupOverviewRow(Icons.Material.Outlined.DonutLarge, "Library status", status));
-        }
-
-        if (rows.Count == 0 && Item.MediaCounts.Count == 1)
-        {
-            var count = Item.MediaCounts[0];
-            rows.Add(new GroupOverviewRow(count.Icon, count.Label, count.Count.ToString()));
-        }
-
-        return rows.Take(3).ToList();
-    }
-
-    private string? GroupProgressSummary
-    {
-        get
-        {
-            var summary = Item.GroupSummary;
-            if (summary is null || summary.CompletedCount == 0 && summary.InProgressCount == 0)
-            {
-                return null;
-            }
-
-            var values = new List<string>();
-            if (summary.CompletedCount > 0)
-            {
-                values.Add($"{summary.CompletedCount} complete");
-            }
-
-            if (summary.InProgressCount > 0)
-            {
-                values.Add($"{summary.InProgressCount} in progress");
-            }
-
-            return string.Join(" \u00b7 ", values);
-        }
-    }
-
-    private static IReadOnlyList<ArtworkStackItem> SelectRepresentativeItems(IReadOnlyList<ArtworkStackItem> items)
-    {
-        var available = items
-            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-            .DistinctBy(item => item.Id)
-            .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (available.Count <= 4)
-        {
-            return available;
-        }
-
-        var byMediaType = available
-            .GroupBy(item => item.MediaType, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .Take(4)
-            .ToList();
-        if (byMediaType.Count > 1)
-        {
-            return byMediaType
+            return available
+                .GroupBy(item => item.MediaType, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
                 .Concat(available)
                 .DistinctBy(item => item.Id)
                 .Take(4)
                 .ToList();
         }
 
-        return new[] { available[0], available[1], available[^2], available[^1] }
-            .DistinctBy(item => item.Id)
-            .Take(4)
-            .ToList();
+        return available.Take(4).ToList();
     }
 
     private Task OpenGroupAsync(MouseEventArgs _)
@@ -316,6 +219,4 @@
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-
-    private sealed record GroupOverviewRow(string Icon, string Label, string? Value);
 }

@@ -208,31 +208,30 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void MediaGroupTile_ShowsStaticSummaryWithoutChangingCardDimensions()
+    public void MediaGroupTile_IsOneArtworkLedLinkWithCompactHoverSummary()
     {
         var group = CreateGroupTile();
         var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
         var root = cut.Find("article.media-group-tile");
 
         Assert.Contains(root.Attributes, attribute => attribute.Name.StartsWith("b-", StringComparison.Ordinal));
-        Assert.Equal("Book Series", cut.Find(".media-group-tile__identity .media-group-tile__kind").TextContent.Trim());
-        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__identity h3").TextContent.Trim());
-        Assert.Contains("A classic science-fiction sequence", cut.Find(".media-group-tile__description").TextContent);
-        Assert.Contains("2 of 3 owned", cut.Find(".media-group-tile__summary-line").TextContent);
-        Assert.Contains("Ordered series", cut.Find(".media-group-tile__summary-line").TextContent);
-        Assert.Contains("Books 1\u20132 owned", cut.Find(".media-group-tile__overview").TextContent);
-        Assert.Contains("1 complete \u00b7 1 in progress", cut.Find(".media-group-tile__overview").TextContent);
-        Assert.DoesNotContain("Foundation and Empire", cut.Find(".media-group-tile__overview").TextContent);
-        Assert.Equal(2, cut.FindAll(".media-artwork-group-preview.is-strip-layout").Count);
+        Assert.Equal("Book Series", cut.Find(".media-group-tile__overlay .media-group-tile__kind").TextContent.Trim());
+        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__overlay h3").TextContent.Trim());
+        Assert.Equal("Continue with Foundation", cut.Find(".media-group-tile__overlay p").TextContent.Trim());
+        Assert.Single(cut.FindAll(".media-artwork-group-preview.is-adaptive-layout"));
+        Assert.Single(cut.FindAll("a.media-group-tile__surface"));
+        Assert.Empty(cut.FindAll(".media-group-tile__base-copy"));
+        Assert.Empty(cut.FindAll(".media-group-tile__description"));
+        Assert.Empty(cut.FindAll(".media-group-tile__overview"));
         Assert.Empty(cut.FindAll(".media-artwork-group-preview.is-mosaic-layout"));
         Assert.Empty(cut.FindAll(".media-tile"));
         Assert.Empty(cut.FindAll("button"));
-        Assert.Equal("/details/bookseries/foundation", cut.Find("a.media-group-tile__hover").GetAttribute("href"));
+        Assert.Equal("/details/bookseries/foundation", cut.Find("a.media-group-tile__surface").GetAttribute("href"));
         Assert.Empty(cut.FindAll(".media-group-tile__item-action"));
         Assert.Empty(cut.FindAll(".media-artwork-carousel"));
         Assert.Empty(cut.FindAll("button[aria-label^='Next']"));
 
-        cut.Find("a.media-group-tile__hover").Click();
+        cut.Find("a.media-group-tile__surface").Click();
         var nav = Services.GetRequiredService<NavigationManager>();
         Assert.EndsWith("/details/bookseries/foundation", nav.Uri, StringComparison.Ordinal);
 
@@ -240,13 +239,60 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor"));
         Assert.Contains("--media-group-tile-width: clamp(540px, 37vw, 680px)", css, StringComparison.Ordinal);
         Assert.Contains("--media-group-tile-height: clamp(270px, 18vw, 330px)", css, StringComparison.Ordinal);
-        Assert.Contains("height: 100%", css, StringComparison.Ordinal);
-        Assert.Contains("background: transparent", css, StringComparison.Ordinal);
-        Assert.Contains("RepresentativeItems.Count >= 3", source, StringComparison.Ordinal);
-        Assert.Contains("media-group-tile__summary-artwork is-dense", source, StringComparison.Ordinal);
-        Assert.Contains("margin-left: clamp(18px, 3.4cqw, 26px)", css, StringComparison.Ordinal);
+        Assert.Contains("inset: 0", css, StringComparison.Ordinal);
+        Assert.Contains("MediaArtworkGroupPreviewLayout.Adaptive", source, StringComparison.Ordinal);
+        Assert.Contains("The API orders series previews by progress", source, StringComparison.Ordinal);
+        Assert.Contains(".media-group-tile__surface:hover::after", css, StringComparison.Ordinal);
+        Assert.Contains(".media-group-tile__surface:focus-visible", css, StringComparison.Ordinal);
+        Assert.Contains("-webkit-line-clamp: 2", css, StringComparison.Ordinal);
+        Assert.Contains("@media (hover: none), (pointer: coarse)", css, StringComparison.Ordinal);
+        Assert.Contains("@media (prefers-reduced-motion: reduce)", css, StringComparison.Ordinal);
         Assert.DoesNotContain("media-group-tile__highlights", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".media-group-tile:hover {\n    transform:", css.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MediaGroupTile_MixedCollectionUsesRepresentativeMediaBreadthWithoutChangingSeriesOrder()
+    {
+        var collection = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "Cross-Media Archive",
+            MediaKind = "Collection",
+            Shape = MediaTileShape.Landscape,
+            Presentation = MediaTilePresentation.Default,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverMode = MediaTileHoverMode.Expanded,
+            NavigationUrl = "/collection/cross-media",
+            IsCollection = true,
+            UseLandscapeGroupTile = true,
+            PreviewTotalCount = 6,
+            GroupSummary = new MediaTileGroupSummaryViewModel { OwnedCount = 6, RelationshipLabel = "Smart collection" },
+            MediaCounts =
+            [
+                new MediaTileMediaCountViewModel(MudBlazor.Icons.Material.Filled.MenuBook, "Read", 4),
+                new MediaTileMediaCountViewModel(MudBlazor.Icons.Material.Filled.Headphones, "Listen", 1),
+                new MediaTileMediaCountViewModel(MudBlazor.Icons.Material.Filled.Movie, "Watch", 1),
+            ],
+            ArtworkStackItems =
+            [
+                new ArtworkStackItem { Id = "book-1", Title = "Book 1", ImageUrl = "/covers/book-1.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait },
+                new ArtworkStackItem { Id = "book-2", Title = "Book 2", ImageUrl = "/covers/book-2.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait },
+                new ArtworkStackItem { Id = "book-3", Title = "Book 3", ImageUrl = "/covers/book-3.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait },
+                new ArtworkStackItem { Id = "book-4", Title = "Book 4", ImageUrl = "/covers/book-4.jpg", MediaType = "Book", Shape = ArtworkShape.Portrait },
+                new ArtworkStackItem { Id = "album", Title = "Album", ImageUrl = "/covers/album.jpg", MediaType = "Music", Shape = ArtworkShape.Square },
+                new ArtworkStackItem { Id = "movie", Title = "Movie", ImageUrl = "/covers/movie.jpg", MediaType = "Movie", Shape = ArtworkShape.Portrait },
+            ],
+        };
+
+        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, collection));
+        var sources = cut.FindAll(".media-artwork-group-preview__artwork")
+            .Select(image => image.GetAttribute("src"))
+            .ToList();
+
+        Assert.Equal(["/covers/book-1.jpg", "/covers/album.jpg", "/covers/movie.jpg", "/covers/book-2.jpg"], sources);
+        Assert.Contains("Automated Collection", cut.Find(".media-group-tile__kind").TextContent);
     }
 
     [Fact]
@@ -480,6 +526,65 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("align-self: center", css, StringComparison.Ordinal);
         Assert.Contains("object-fit: contain", css, StringComparison.Ordinal);
         Assert.DoesNotContain("is-mosaic-layout", css, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(2, ArtworkShape.Portrait, "has-two", "is-portrait-cluster", "shape-p2-s0-w0")]
+    [InlineData(3, ArtworkShape.Portrait, "has-three", "is-portrait-cluster", "shape-p3-s0-w0")]
+    [InlineData(4, ArtworkShape.Portrait, "has-four", "is-portrait-cluster", "shape-p4-s0-w0")]
+    [InlineData(4, ArtworkShape.Square, "has-four", "is-square-cluster", "shape-p0-s4-w0")]
+    public void MediaArtworkGroupPreview_AdaptiveUsesApprovedCountAndShapeTemplates(
+        int itemCount,
+        ArtworkShape shape,
+        string countClass,
+        string clusterClass,
+        string signatureClass)
+    {
+        var items = Enumerable.Range(1, itemCount)
+            .Select(index => new ArtworkStackItem
+            {
+                Id = index.ToString(),
+                Title = $"Title {index}",
+                ImageUrl = $"/covers/{index}.jpg",
+                Shape = shape,
+            })
+            .ToList();
+
+        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
+            .Add(component => component.Items, items)
+            .Add(component => component.TotalCount, itemCount)
+            .Add(component => component.Layout, MediaArtworkGroupPreviewLayout.Adaptive)
+            .Add(component => component.ShowOverflowCount, false));
+
+        var root = cut.Find(".media-artwork-group-preview");
+        Assert.Contains("is-adaptive-layout", root.ClassList);
+        Assert.Contains(countClass, root.ClassList);
+        Assert.Contains(clusterClass, root.ClassList);
+        Assert.Contains(signatureClass, root.ClassList);
+        Assert.Equal(itemCount, cut.FindAll(".media-artwork-group-preview__slot").Count);
+        Assert.Equal(itemCount, cut.FindAll(".media-artwork-group-preview__artwork").Count);
+
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Shared/MediaArtworkGroupPreview.razor.css"));
+        Assert.Contains("approved count/shape matrix", css, StringComparison.Ordinal);
+        Assert.Contains("aspect-ratio: auto !important", css, StringComparison.Ordinal);
+        Assert.Contains("object-fit: contain", css, StringComparison.Ordinal);
+        Assert.Contains("@container (max-width: 420px)", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MediaArtworkGroupPreview_AdaptiveKeepsMissingArtworkAsShapeAwareFallback()
+    {
+        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
+            .Add(component => component.Items, new List<ArtworkStackItem>
+            {
+                new() { Id = "1", Title = "Missing book", ImageUrl = string.Empty, MediaType = "Book", Shape = ArtworkShape.Portrait },
+                new() { Id = "2", Title = "Album", ImageUrl = "/covers/album.jpg", MediaType = "Music", Shape = ArtworkShape.Square },
+            })
+            .Add(component => component.Layout, MediaArtworkGroupPreviewLayout.Adaptive));
+
+        Assert.Single(cut.FindAll(".media-artwork-group-preview__artwork-fallback"));
+        Assert.Single(cut.FindAll(".media-artwork-group-preview__artwork"));
+        Assert.Contains("shape-p1-s1-w0", cut.Find(".media-artwork-group-preview").ClassList);
     }
 
     [Fact]

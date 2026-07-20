@@ -6,12 +6,34 @@
     @for (var index = 0; index < VisibleItems.Count; index++)
     {
         var artwork = VisibleItems[index];
-        <img @key="artwork.Id"
-             class="@ArtworkClass(artwork, index)"
-             src="@artwork.ImageUrl"
-             alt=""
-             loading="lazy"
-             decoding="async" />
+        @if (Layout == MediaArtworkGroupPreviewLayout.Adaptive)
+        {
+            <div @key="artwork.Id" class="@SlotClass(artwork, index)">
+                @if (!string.IsNullOrWhiteSpace(artwork.ImageUrl))
+                {
+                    <img class="media-artwork-group-preview__artwork"
+                         src="@artwork.ImageUrl"
+                         alt=""
+                         loading="lazy"
+                         decoding="async" />
+                }
+                else
+                {
+                    <div class="media-artwork-group-preview__artwork-fallback" aria-hidden="true">
+                        <MudIcon Icon="@FallbackIcon(artwork.MediaType)" />
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <img @key="artwork.Id"
+                 class="@ArtworkClass(artwork, index)"
+                 src="@artwork.ImageUrl"
+                 alt=""
+                 loading="lazy"
+                 decoding="async" />
+        }
     }
 
     @if (ShowOverflowCount && OverflowCount > 0)
@@ -27,22 +49,18 @@
     [Parameter] public MediaArtworkGroupPreviewLayout Layout { get; set; } = MediaArtworkGroupPreviewLayout.Cluster;
     [Parameter] public bool ShowOverflowCount { get; set; } = true;
 
-    private IReadOnlyList<ArtworkStackItem> VisibleItems => Items
-        .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-        .DistinctBy(item => item.Id)
-        .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase)
-        .Take(4)
-        .ToList();
+    private IReadOnlyList<ArtworkStackItem> VisibleItems => BuildVisibleItems();
 
     private int ResolvedTotalCount => Math.Max(TotalCount ?? VisibleItems.Count, VisibleItems.Count);
     private int OverflowCount => Math.Max(0, ResolvedTotalCount - VisibleItems.Count);
 
     private string PreviewClass =>
-        $"media-artwork-group-preview {CountClass} {ShapeClusterClass} {LayoutClass}";
+        $"media-artwork-group-preview {CountClass} {ShapeClusterClass} {ShapeSignatureClass} {LayoutClass}";
 
     private string LayoutClass => Layout switch
     {
         MediaArtworkGroupPreviewLayout.Strip => "is-strip-layout",
+        MediaArtworkGroupPreviewLayout.Adaptive => "is-adaptive-layout",
         _ => "is-cluster-layout",
     };
 
@@ -89,13 +107,59 @@
         }
     }
 
+    private string ShapeSignatureClass =>
+        $"shape-p{VisibleItems.Count(item => item.Shape == ArtworkShape.Portrait)}-s{VisibleItems.Count(item => item.Shape == ArtworkShape.Square)}-w{VisibleItems.Count(item => item.Shape == ArtworkShape.Wide)}";
+
+    private IReadOnlyList<ArtworkStackItem> BuildVisibleItems()
+    {
+        var result = new List<ArtworkStackItem>(4);
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var imageUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in Items)
+        {
+            if (result.Count == 4 || string.IsNullOrWhiteSpace(item.Id) || !ids.Add(item.Id))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(item.ImageUrl))
+            {
+                if (Layout == MediaArtworkGroupPreviewLayout.Adaptive)
+                {
+                    result.Add(item);
+                }
+
+                continue;
+            }
+
+            if (imageUrls.Add(item.ImageUrl))
+            {
+                result.Add(item);
+            }
+        }
+
+        return result;
+    }
+
     private static string ArtworkClass(ArtworkStackItem item, int index) =>
         $"media-artwork-group-preview__artwork is-slot-{index + 1} {ShapeClass(item.Shape)}";
+
+    private static string SlotClass(ArtworkStackItem item, int index) =>
+        $"media-artwork-group-preview__slot is-slot-{index + 1} {ShapeClass(item.Shape)}";
 
     private static string ShapeClass(ArtworkShape shape) => shape switch
     {
         ArtworkShape.Square => "is-square-art",
         ArtworkShape.Wide => "is-wide-art",
         _ => "is-portrait-art",
+    };
+
+    private static string FallbackIcon(string? mediaType) => mediaType?.Trim().ToLowerInvariant() switch
+    {
+        "book" or "comic" => Icons.Material.Outlined.AutoStories,
+        "music" or "album" => Icons.Material.Outlined.Album,
+        "audiobook" => Icons.Material.Outlined.Headphones,
+        "movie" or "tv" => Icons.Material.Outlined.Movie,
+        _ => Icons.Material.Outlined.ImageNotSupported,
     };
 }

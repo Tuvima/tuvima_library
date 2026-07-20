@@ -341,6 +341,141 @@
     transform: none !important;
 }
 
+/* Fixed-card group compositions use a small, approved count/shape matrix. The
+   slots size the composition; each image keeps its intrinsic ratio within it. */
+.media-artwork-group-preview.is-adaptive-layout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 1.25cqw, 9px);
+}
+
+.media-artwork-group-preview.is-adaptive-layout .media-artwork-group-preview__slot {
+    position: relative;
+    inset: auto !important;
+    display: grid;
+    min-width: 0;
+    height: 100%;
+    max-height: 100%;
+    flex: 0 1 auto;
+    place-items: center;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .media-artwork-group-preview__slot.is-portrait-art {
+    flex-basis: 24%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .media-artwork-group-preview__slot.is-square-art {
+    flex-basis: 24%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .media-artwork-group-preview__slot.is-wide-art {
+    flex-basis: 31%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.has-two .media-artwork-group-preview__slot.is-portrait-art {
+    flex-basis: 34%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.has-two .media-artwork-group-preview__slot.is-square-art {
+    flex-basis: 43%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.has-two .media-artwork-group-preview__slot.is-wide-art {
+    flex-basis: 54%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.has-three .media-artwork-group-preview__slot.is-portrait-art {
+    flex-basis: 31%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.has-three .media-artwork-group-preview__slot.is-square-art {
+    flex-basis: 31%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.has-three .media-artwork-group-preview__slot.is-wide-art {
+    flex-basis: 38%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-three .media-artwork-group-preview__slot {
+    flex-basis: 31%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-four .media-artwork-group-preview__slot,
+.media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-more .media-artwork-group-preview__slot,
+.media-artwork-group-preview.is-adaptive-layout.is-portrait-cluster.has-four .media-artwork-group-preview__slot,
+.media-artwork-group-preview.is-adaptive-layout.is-portrait-cluster.has-more .media-artwork-group-preview__slot {
+    flex-basis: 24%;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .media-artwork-group-preview__slot .media-artwork-group-preview__artwork {
+    position: relative;
+    inset: auto !important;
+    z-index: 1;
+    width: 100% !important;
+    max-width: 100%;
+    height: auto !important;
+    max-height: 100%;
+    aspect-ratio: auto !important;
+    object-fit: contain;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .media-artwork-group-preview__artwork-fallback {
+    display: grid;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    place-items: center;
+    color: rgba(196, 181, 253, 0.82);
+    border: 1px dashed rgba(196, 181, 253, 0.34);
+    border-radius: 6px;
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(9, 13, 25, 0.98));
+    box-shadow: 0 13px 27px rgba(0, 0, 0, 0.38);
+}
+
+.media-artwork-group-preview.is-adaptive-layout .is-portrait-art .media-artwork-group-preview__artwork-fallback {
+    aspect-ratio: 2 / 3;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .is-square-art .media-artwork-group-preview__artwork-fallback {
+    aspect-ratio: 1;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .is-wide-art .media-artwork-group-preview__artwork-fallback {
+    aspect-ratio: 16 / 9;
+}
+
+.media-artwork-group-preview.is-adaptive-layout .media-artwork-group-preview__artwork-fallback :deep(.mud-icon-root) {
+    font-size: clamp(1.4rem, 7cqw, 2.4rem);
+}
+
+@container (max-width: 420px) {
+    .media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-four,
+    .media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-more {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+        gap: 5px;
+        padding-inline: 18%;
+    }
+
+    .media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-four .media-artwork-group-preview__slot,
+    .media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-more .media-artwork-group-preview__slot {
+        width: 100%;
+        height: 100%;
+    }
+
+    .media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-four .media-artwork-group-preview__artwork,
+    .media-artwork-group-preview.is-adaptive-layout.is-square-cluster.has-more .media-artwork-group-preview__artwork {
+        width: 100% !important;
+        height: auto !important;
+    }
+}
+
 .media-artwork-group-preview__overflow {
     position: absolute;
     right: 2.5%;
