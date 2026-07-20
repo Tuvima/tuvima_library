@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last updated: 2026-07-17
+> Last updated: 2026-07-20
 
 ---
 
@@ -21,6 +21,8 @@ Home, Read, Watch, Listen, and Collections share `CinematicHeroCarousel` and `Ci
 The removed all-in-one management workflow must not be recreated. Do not add routes, navigation labels, implementation types, or an all-in-one media correction workbench for it.
 
 Non-TV series and collection containers use `Components/MediaTiles/MediaGroupTile.razor`, a dedicated fixed-size landscape card. Rest shows only two to four representative artworks, arranged by approved count-and-shape templates from real portrait, square, or wide metadata. Hover or keyboard focus leaves that composition and the card dimensions untouched, adds the purple boundary/glow, and reveals only container type, title, and one status line in a compact top overlay. The card never contains buttons, rotates artwork, or navigates directly to a child. TV shows remain on `MediaTile`: show cover at rest, then the show-level cinematic background and rich identity on hover. Do not give TV shows the generic container summary merely because their storage identity is series-backed. Individual and Continue cards must retain their existing renderers and shelf geometry. Every card is one semantic link to details. Book and comic portrait cards keep their resting cover dimensions and add only a stronger purple glow, with no hover text or scrim. Square music and audiobook covers also preserve their geometry and may use a compact identity strip. Movie and TV cards may retain cinematic expansion but remain action-free; their left-aligned rating, classification, year, and runtime row uses a compact translucent backing that hugs the text.
+
+Media-specific browse results use wrapping tiled grids and must not become horizontally scrolling media rows. Series detail keeps proven-adjacency connectors behind the numbered nodes, uses a stronger purple frame glow as the only visible current-item state, and exposes current context through `aria-current`. Missing-item visibility inherits media defaults from `config/ui/library-preferences.json`; the database stores only explicit profile-and-series overrides, and reset deletes the override.
 
 ---
 

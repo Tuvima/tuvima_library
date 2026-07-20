@@ -1117,6 +1117,28 @@ public interface IEngineApiClient
     /// <summary>PUT /settings/ui/library-preferences - save library display preferences.</summary>
     Task SaveLibraryPreferencesAsync(LibraryPreferencesSettings settings);
 
+    /// <summary>GET the active profile's explicit missing-item override for one series. Null ShowMissing means inherit the media default.</summary>
+    Task<SeriesMissingItemPreferenceDto?> GetSeriesMissingItemPreferenceAsync(
+        Guid profileId,
+        string mediaType,
+        string containerKey,
+        CancellationToken ct = default);
+
+    /// <summary>PUT an explicit missing-item visibility override for one profile and series.</summary>
+    Task<SeriesMissingItemPreferenceDto?> SaveSeriesMissingItemPreferenceAsync(
+        Guid profileId,
+        string mediaType,
+        string containerKey,
+        bool showMissing,
+        CancellationToken ct = default);
+
+    /// <summary>DELETE a per-series override so the series inherits its media configuration default.</summary>
+    Task<SeriesMissingItemPreferenceDto?> ResetSeriesMissingItemPreferenceAsync(
+        Guid profileId,
+        string mediaType,
+        string containerKey,
+        CancellationToken ct = default);
+
     // ── Library Overview ──
 
     /// <summary>GET /library/overview - aggregated operational health summary.</summary>

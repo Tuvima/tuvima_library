@@ -130,15 +130,6 @@ else
                         <h1>@(IsDefaultEntry ? "Listen" : IsAudiobooksMode ? "Audiobooks" : "Music")</h1>
                     </div>
                 </div>
-
-                <div class="listen-mode-switch" role="tablist" aria-label="Listen mode">
-                    <AppNativeButton Type="button" role="tab" aria-selected="@IsMusicMode" Class='@($"listen-mode-switch__option {(IsMusicMode ? " is-active" : null)}")' OnClick="OpenMusicModeAsync">
-                        Music
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" role="tab" aria-selected="@IsAudiobooksMode" Class='@($"listen-mode-switch__option {(IsAudiobooksMode ? " is-active" : null)}")' OnClick="OpenAudiobooksModeAsync">
-                        Audiobooks
-                    </AppNativeButton>
-                </div>
             </header>
 
             @if (_loading)
@@ -159,45 +150,6 @@ else
                               Shelves="@ListenHubShelves"
                               SearchPlaceholder="Search music and audiobooks..."
                               RouteBase="/listen" />
-            }
-            else if (IsMusicHome)
-            {
-                <section class="listen-home">
-                    @if (_musicHomePage.Spotlights.Count > 0 || _musicHomePage.Hero is not null)
-                    {
-                        <div class="listen-home__hero">
-                            <CinematicHeroCarousel Items="@(_musicHomePage.Spotlights.Count > 0 ? _musicHomePage.Spotlights : [_musicHomePage.Hero!])"
-                                                  SectionTitle="Music"
-                                                  SectionSubtitle="Albums, artists, and playlists from your local library"
-                                                  Density="CinematicHeroDensity.CompactAudio"
-                                                  AriaLabel="Music featured albums" />
-                        </div>
-                    }
-
-                    <div class="listen-home__content">
-                        @foreach (var shelf in _musicHomePage.Shelves)
-                        {
-                            <MediaTileShelf Shelf="@shelf"
-                                            @key="shelf.Key" />
-                        }
-
-                        @if (HomePlaylistTiles.Count > 0)
-                        {
-                            <section class="listen-section">
-                                <div class="listen-section__header">
-                                    <div>
-                                        <div class="listen-kicker">Playlists</div>
-                                        <h2>Your playlists</h2>
-                                        <p class="listen-section__summary">Saved playlists created from your library.</p>
-                                    </div>
-                                </div>
-
-                                <MediaTileGrid Items="@HomePlaylistTiles"
-                                               Class="listen-card-grid" />
-                            </section>
-                        }
-                    </div>
-                </section>
             }
             else if (IsAlbumsView)
             {

@@ -563,7 +563,7 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".media-hub--listen"));
             Assert.Single(cut.FindAll("[data-media-hub='true']"));
             Assert.Contains(">Listen<", cut.Markup);
-            Assert.Contains(">All<", cut.Markup);
+            Assert.Contains(">Discover<", cut.Markup);
             Assert.Contains(">Music<", cut.Markup);
             Assert.Contains(">Audiobooks<", cut.Markup);
             Assert.Single(cut.FindAll(".media-hub__shelves"));
@@ -747,6 +747,27 @@ public sealed class UiShellRenderTests : TestContext
 
         Assert.Contains("<section class=\"@CarouselClass\"", source, StringComparison.Ordinal);
         Assert.Contains("<CinematicHeroSurface", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ListenPage_MusicEntryUsesDirectTiledAlbumBrowse()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen/music");
+
+        var cut = RenderListenPageWithProviders();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Search albums or artists", cut.Markup);
+            Assert.Empty(cut.FindAll(".listen-home"));
+            Assert.Empty(cut.FindAll(".media-tile-shelf-scroll"));
+            Assert.DoesNotContain("listen-mode-switch", cut.Markup);
+        });
+
+        var markup = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));
+        Assert.Contains("<MediaTileGrid Items=\"@AlbumTiles\"", markup, StringComparison.Ordinal);
+        Assert.Contains("Class=\"listen-card-grid listen-card-grid--albums\"", markup, StringComparison.Ordinal);
     }
 
     [Fact]

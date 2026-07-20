@@ -10,7 +10,7 @@ The audit focused on whether Tuvima Library can show named missing members for T
 
 The system has enough episode identity data to improve the owned TV card labels immediately, but it does not yet have consistently trustworthy ownership and completeness data for showing missing episodes across all current shows. Comics currently have series totals but almost no full issue-member datasets, so they cannot yet show named missing issues safely.
 
-The Dashboard now gates **Show Missing** on an authoritative total and defaults the option to checked. The control will not appear when the backend only has a partial list.
+The Dashboard gates **Show missing** on an authoritative total. Its initial state comes from the media policy in `config/ui/library-preferences.json`, then an explicit profile-and-series database override takes precedence. The control does not appear when the backend only has a partial list.
 
 ## Current TV coverage
 

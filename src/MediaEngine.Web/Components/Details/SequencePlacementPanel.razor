@@ -7,6 +7,7 @@
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject IJSRuntime Js
+@inject ISnackbar Snackbar
 
 <section class="tl-series-placement @PanelClass">
     <div class="tl-series-layout">
@@ -66,6 +67,29 @@
                            Class="tl-series-control tl-series-control--group"
                            PopoverClass="app-select__popover tl-series-select-popover"
                            aria-label="@GroupSelectorAriaLabel" />
+            }
+            @if (CanShowMissingToggle)
+            {
+                <div class="tl-series-missing-preference">
+                    <MudCheckBox T="bool"
+                                 Value="@_showMissing"
+                                 ValueChanged="ShowMissingChangedAsync"
+                                 Class="tl-series-show-missing"
+                                 Color="Color.Primary"
+                                 Dense="true"
+                                 Disabled="@_savingMissingPreference"
+                                 Label="Show missing" />
+                    @if (_hasMissingPreferenceOverride)
+                    {
+                        <AppIconButton Icon="@Icons.Material.Outlined.Restore"
+                                       Size="Size.Small"
+                                       Class="tl-series-missing-preference__reset"
+                                       AriaLabel="Use the configured media default"
+                                       Tooltip="Use media default"
+                                       Disabled="@_savingMissingPreference"
+                                       OnClick="ResetMissingPreferenceAsync" />
+                    }
+                </div>
             }
         </div>
         }
@@ -173,29 +197,17 @@
     </aside>
 
     <div class="tl-series-content">
-        @if (!Compact && (ShowJumpSelector || CanShowMissingToggle))
+        @if (!Compact && ShowJumpSelector)
         {
             <div class="tl-series-content__toolbar">
-                @if (ShowJumpSelector)
-                {
-                    <div class="tl-series-jump">
-                        <AppSelect Label="Jump to"
-                                   Value="@JumpSelectionValue"
-                                   ValueChanged="SelectJump"
-                                   Options="@JumpSelectOptions"
-                                   Class="tl-series-control tl-series-control--jump"
-                                   PopoverClass="app-select__popover tl-series-select-popover" />
-                    </div>
-                }
-                @if (CanShowMissingToggle)
-                {
-                    <MudCheckBox T="bool"
-                                 @bind-Value="_showMissing"
-                                 Class="tl-series-show-missing"
-                                 Color="Color.Primary"
-                                 Dense="true"
-                                 Label="Show Missing" />
-                }
+                <div class="tl-series-jump">
+                    <AppSelect Label="Jump to"
+                               Value="@JumpSelectionValue"
+                               ValueChanged="SelectJump"
+                               Options="@JumpSelectOptions"
+                               Class="tl-series-control tl-series-control--jump"
+                               PopoverClass="app-select__popover tl-series-select-popover" />
+                </div>
             </div>
         }
 
@@ -214,19 +226,26 @@
                 var route = SequenceItemRoute(item);
                 if (IsSeasonContainer)
                 {
-                    <article class="@SequenceItemClass(item)">
+                    <article class="@SequenceItemClass(item)"
+                             aria-current="@(item.IsCurrent ? "page" : null)"
+                             aria-label="@SequenceItemAccessibilityLabel(item)">
                         @SequenceItemContent(item, previousItem)
                     </article>
                 }
                 else if (route is not null)
                 {
-                    <a class="@SequenceItemClass(item)" href="@route" aria-label="Open @SequenceItemTitle(item)">
+                    <a class="@SequenceItemClass(item)"
+                       href="@route"
+                       aria-current="@(item.IsCurrent ? "page" : null)"
+                       aria-label="Open @SequenceItemTitle(item)">
                         @SequenceItemContent(item, previousItem)
                     </a>
                 }
                 else
                 {
-                    <article class="@SequenceItemClass(item)">
+                    <article class="@SequenceItemClass(item)"
+                             aria-current="@(item.IsCurrent ? "page" : null)"
+                             aria-label="@SequenceItemAccessibilityLabel(item)">
                         @SequenceItemContent(item, previousItem)
                     </article>
                 }
@@ -270,6 +289,10 @@
     private bool _hasExpandableSeriesDescription;
     private bool _needsSeriesDescriptionMeasurement = true;
     private bool _showMissing;
+    private bool _configuredShowMissingDefault;
+    private bool _hasMissingPreferenceOverride;
+    private bool _savingMissingPreference;
+    private Guid? _activeProfileId;
     private int _visibleMissingLimit;
     private MissingItemDisplayPolicy? _missingItemPolicy;
     private ElementReference _seriesDescriptionElement;
@@ -366,9 +389,6 @@
             : Placement.OrderedItems;
     private IReadOnlyList<SequenceItemViewModel> ActiveItems => ApplyMissingItemPolicy(GroupItems);
     private bool CanShowMissingToggle => _missingItemPolicy?.Enabled == true
-        && (Placement.Groups.Count > 0
-            ? ActiveGroup?.HasAuthoritativeTotal == true
-            : Placement.HasAuthoritativeTotal)
         && GroupItems.Any(item => !item.IsOwned);
     private bool UsesPagedMissingItems => string.Equals(
         _missingItemPolicy?.Presentation,
@@ -466,7 +486,6 @@
         _ => Icons.Material.Outlined.MenuBook,
     };
     private string ItemNoun => FirstNonBlank(Placement.ItemLabel, "Item")!;
-    private string CurrentItemBadge => $"This {ItemNoun.ToLowerInvariant()}";
     private string? SeriesDateRange
     {
         get
@@ -507,7 +526,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        var key = $"{Placement.ContainerId}:{Placement.CurrentItem.Id}:{Placement.OrderedItems.Count}:{Placement.Groups.Count}:{Placement.ContainerDescription}";
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        _activeProfileId = profile?.Id;
+        _canCurateSequence = profile?.Role is "Administrator" or "Curator";
+
+        var key = $"{Placement.ContainerId}:{Placement.SelectedContainerId}:{Placement.CurrentItem.Id}:{Placement.OrderedItems.Count}:{Placement.Groups.Count}:{Placement.ContainerDescription}:{_activeProfileId}";
         if (!string.Equals(key, _placementKey, StringComparison.Ordinal))
         {
             _placementKey = key;
@@ -520,16 +543,33 @@
                 && preferences.MissingItemDisplay.TryGetValue(ResolveMediaPolicyKey(), out var policy)
                     ? policy
                     : null;
-            _showMissing = string.Equals(
+            _configuredShowMissingDefault = string.Equals(
                 _missingItemPolicy?.DefaultVisibility,
                 "shown",
                 StringComparison.OrdinalIgnoreCase);
+            _showMissing = _configuredShowMissingDefault;
+            _hasMissingPreferenceOverride = false;
+
+            var preferenceContainerKey = ResolveSeriesPreferenceContainerKey();
+            var mediaType = ResolveMediaPolicyKey();
+            if (_activeProfileId is { } profileId
+                && !string.IsNullOrWhiteSpace(preferenceContainerKey)
+                && !string.IsNullOrWhiteSpace(mediaType))
+            {
+                var preference = await ApiClient.GetSeriesMissingItemPreferenceAsync(
+                    profileId,
+                    mediaType,
+                    preferenceContainerKey);
+                if (preference?.ShowMissing is { } showMissing)
+                {
+                    _showMissing = showMissing;
+                    _hasMissingPreferenceOverride = true;
+                }
+            }
+
             _visibleMissingLimit = _missingItemPolicy?.PageSize ?? 0;
             ResetWindowToCurrentItem();
         }
-
-        var profile = await Orchestrator.GetActiveProfileAsync();
-        _canCurateSequence = profile?.Role is "Administrator" or "Curator";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -564,6 +604,92 @@
         ResetWindowToCurrentItem();
     }
 
+    private async Task ShowMissingChangedAsync(bool value)
+    {
+        if (_savingMissingPreference)
+            return;
+
+        var previous = _showMissing;
+        _showMissing = value;
+        _visibleMissingLimit = _missingItemPolicy?.PageSize ?? 0;
+        ResetWindowToCurrentItem();
+
+        var containerKey = ResolveSeriesPreferenceContainerKey();
+        var mediaType = ResolveMediaPolicyKey();
+        if (_activeProfileId is not { } profileId
+            || string.IsNullOrWhiteSpace(containerKey)
+            || string.IsNullOrWhiteSpace(mediaType))
+        {
+            _showMissing = previous;
+            ResetWindowToCurrentItem();
+            Snackbar.Add("An active profile and stable series identity are required to remember this setting.", Severity.Warning);
+            return;
+        }
+
+        _savingMissingPreference = true;
+        try
+        {
+            var saved = await ApiClient.SaveSeriesMissingItemPreferenceAsync(
+                profileId,
+                mediaType,
+                containerKey,
+                value);
+            if (saved?.ShowMissing is not { } savedValue)
+            {
+                _showMissing = previous;
+                ResetWindowToCurrentItem();
+                Snackbar.Add("The series preference could not be saved.", Severity.Error);
+                return;
+            }
+
+            _showMissing = savedValue;
+            _hasMissingPreferenceOverride = true;
+            ResetWindowToCurrentItem();
+        }
+        finally
+        {
+            _savingMissingPreference = false;
+        }
+    }
+
+    private async Task ResetMissingPreferenceAsync()
+    {
+        if (_savingMissingPreference)
+            return;
+
+        var containerKey = ResolveSeriesPreferenceContainerKey();
+        var mediaType = ResolveMediaPolicyKey();
+        if (_activeProfileId is not { } profileId
+            || string.IsNullOrWhiteSpace(containerKey)
+            || string.IsNullOrWhiteSpace(mediaType))
+        {
+            return;
+        }
+
+        _savingMissingPreference = true;
+        try
+        {
+            var reset = await ApiClient.ResetSeriesMissingItemPreferenceAsync(
+                profileId,
+                mediaType,
+                containerKey);
+            if (reset is null)
+            {
+                Snackbar.Add("The series preference could not be reset.", Severity.Error);
+                return;
+            }
+
+            _hasMissingPreferenceOverride = false;
+            _showMissing = _configuredShowMissingDefault;
+            _visibleMissingLimit = _missingItemPolicy?.PageSize ?? 0;
+            ResetWindowToCurrentItem();
+        }
+        finally
+        {
+            _savingMissingPreference = false;
+        }
+    }
+
     private IReadOnlyList<SequenceItemViewModel> ApplyMissingItemPolicy(
         IReadOnlyList<SequenceItemViewModel> source)
     {
@@ -593,6 +719,17 @@
         DetailEntityType.Audiobook => "audiobooks",
         _ => string.Empty,
     };
+
+    private string? ResolveSeriesPreferenceContainerKey()
+    {
+        var selected = DistinctAvailableContainers.FirstOrDefault(option => option.IsSelected)
+            ?? DistinctAvailableContainers.FirstOrDefault(option => ContainerOptionMatches(option, Placement.SelectedContainerId));
+        return FirstNonBlank(
+            selected?.ContainerId,
+            Placement.SelectedContainerId,
+            Placement.ContainerId,
+            selected?.SourceContainerId);
+    }
 
     private void ResetWindowToCurrentItem()
     {
@@ -723,19 +860,6 @@
                     }
                 }
             </div>
-            @if (!Compact && !IsSeasonContainer && (item.IsCurrent || IsNextSequenceItem(item)))
-            {
-                <div class="tl-series-item__state-row">
-                    @if (item.IsCurrent)
-                    {
-                        <span class="tl-series-item__current-badge">@CurrentItemBadge</span>
-                    }
-                    else
-                    {
-                        <span class="tl-series-item__next-badge">Up next</span>
-                    }
-                </div>
-            }
         </div>
         @if (IsSeasonContainer)
         {
@@ -779,18 +903,6 @@
         }
     </text>;
 
-    private bool IsNextSequenceItem(SequenceItemViewModel item)
-    {
-        var currentIndex = ActiveItems.ToList().FindIndex(candidate => candidate.IsCurrent);
-        if (currentIndex < 0 || currentIndex + 1 >= ActiveItems.Count)
-            return false;
-
-        var next = ActiveItems[currentIndex + 1];
-        return string.Equals(next.Id, item.Id, StringComparison.OrdinalIgnoreCase)
-            && next.IsOwned
-            && AreCanonicallyAdjacent(ActiveItems[currentIndex], next);
-    }
-
     private static bool AreCanonicallyAdjacent(SequenceItemViewModel left, SequenceItemViewModel right)
     {
         if (!string.Equals(left.GroupKey, right.GroupKey, StringComparison.OrdinalIgnoreCase)
@@ -810,6 +922,9 @@
         => IsSeasonContainer
             ? $"{EpisodeNumberLabel(item)}: {SequenceItemTitle(item)}"
             : SequenceItemTitle(item);
+
+    private string? SequenceItemAccessibilityLabel(SequenceItemViewModel item)
+        => item.IsCurrent ? $"Current {ItemNoun.ToLowerInvariant()}: {SequenceItemTitle(item)}" : null;
 
     private static string EpisodeNumberLabel(SequenceItemViewModel item)
     {

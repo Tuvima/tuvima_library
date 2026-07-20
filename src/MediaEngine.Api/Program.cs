@@ -275,6 +275,7 @@ builder.Services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IProfileRepository, ProfileRepository>();
 builder.Services.AddSingleton<IProfileWorkPreferencesRepository, ProfileWorkPreferencesRepository>();
+builder.Services.AddSingleton<IProfileSequencePreferencesRepository, ProfileSequencePreferencesRepository>();
 builder.Services.AddSingleton<ITasteProfileRepository, TasteProfileRepository>();
 builder.Services.AddSingleton<IProfileService, ProfileService>();
 builder.Services.AddSingleton<IProfileExternalLoginRepository, ProfileExternalLoginRepository>();

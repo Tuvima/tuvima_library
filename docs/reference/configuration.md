@@ -374,7 +374,7 @@ Library display preferences used by browse and discovery surfaces.
 
 Each `lane_group_display` entry supports `enabled`, `shelf_key`, `title`, `subtitle`, and `see_all_route`.
 
-Each `missing_item_display` entry supports `enabled`, `default_visibility` (`shown` or `hidden`), `presentation` (`all` or `paged`), `page_size` (1-500), and `detail_hydration` (`owned_only`, `on_demand`, or `all`). Authoritative manifest completeness remains a data-integrity requirement and cannot be relaxed by configuration. Comic policy defaults are recorded in this file as hidden, paged, and owned-only detail hydration so large runs remain lightweight.
+Each `missing_item_display` entry supports `enabled`, `default_visibility` (`shown` or `hidden`), `presentation` (`all` or `paged`), `page_size` (1-500), and `detail_hydration` (`owned_only`, `on_demand`, or `all`). Authoritative manifest completeness remains a data-integrity requirement and cannot be relaxed by configuration. `default_visibility` is the sole media-level default: it is not copied into SQLite. When a profile explicitly changes **Show missing** for one stable series container, the Dashboard stores that exception in `profile_sequence_preferences`; removing the exception immediately restores inheritance from this file. Comic policy defaults are recorded here as hidden, paged, and owned-only detail hydration so large runs remain lightweight.
 
 ### config/ui/playback-client.json
 

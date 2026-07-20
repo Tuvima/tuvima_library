@@ -801,6 +801,12 @@
         transition-delay: .04s, 0s, 0s;
     }
 
+    /* Hidden preview panels remain in the tile DOM until interaction. Exclude them
+       from grid overflow so a wrapped browse surface never gains a phantom row scrollbar. */
+    .media-tile.is-grid-hover-tile.is-hover-js-enabled:not(.is-hover-active) .media-tile-hover-panel {
+        display: none;
+    }
+
     .media-tile.is-grid-overlay-anchor.is-hover-active:not(.is-hover-none),
     .media-tile.is-grid-overlay-anchor.is-expanded:not(.is-hover-none) {
         width: var(--media-tile-hover-anchor-width);

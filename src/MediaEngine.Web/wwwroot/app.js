@@ -896,6 +896,9 @@ window.registerMediaTileHover = function (cardEl) {
     if (!cardEl || cardEl.__mediaTileHoverRegistered) return;
 
     cardEl.classList.add('is-hover-js-enabled');
+    if (cardEl.closest('.media-tile-grid')) {
+        cardEl.classList.add('is-grid-hover-tile');
+    }
 
     // Cache the resting geometry so cinematic expansion can preserve the shelf layout.
     var restingFrame = cardEl.querySelector('.media-tile-frame') || cardEl;
@@ -1022,6 +1025,7 @@ window.unregisterMediaTileHover = function (cardEl) {
         window.clearTimeout(cardEl.__mediaTileShowTimer);
     }
     cardEl.classList.remove('is-hover-js-enabled');
+    cardEl.classList.remove('is-grid-hover-tile');
     window.clearMediaTileHover(cardEl);
 
     delete cardEl.__mediaTileHoverPanel;

@@ -111,8 +111,7 @@
 .listen-icon-button,
 .listen-table__sort,
 .listen-favorite,
-.listen-row-menu__action,
-.listen-mode-switch__option {
+.listen-row-menu__action {
     transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
 
@@ -388,8 +387,7 @@
 ::deep .listen-track-link,
 ::deep .listen-table__sort,
 ::deep .listen-favorite,
-::deep .listen-row-menu__action,
-::deep .listen-mode-switch__option {
+::deep .listen-row-menu__action {
     transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
 
@@ -417,8 +415,7 @@
 ::deep .listen-button:hover,
 ::deep .listen-card:hover,
 ::deep .listen-card__surface:hover,
-::deep .listen-list-item:hover,
-::deep .listen-mode-switch__option:hover {
+::deep .listen-list-item:hover {
     transform: translateY(-1px);
 }
 
@@ -575,34 +572,6 @@
     gap: 14px;
 }
 
-.listen-mode-switch {
-    display: none;
-    align-items: center;
-    gap: 6px;
-    padding: 6px;
-    border-radius: var(--app-radius-md);
-    border: 1px solid var(--tl-border-subtle);
-    background: rgba(255, 255, 255, 0.05);
-    flex-shrink: 0;
-}
-
-.listen-mode-switch__option {
-    min-width: 120px;
-    min-height: 40px;
-    padding: 0 18px;
-    border: 0;
-    border-radius: var(--app-radius-md);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.74);
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.listen-mode-switch__option.is-active {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--app-accent) 92%, white 4%), color-mix(in srgb, var(--app-accent) 70%, rgba(5, 8, 16, 0.18)));
-    color: #10151f;
-}
-
 .listen-button,
 .listen-icon-button {
     display: inline-flex;
@@ -627,8 +596,7 @@
 .listen-button:hover,
 .listen-card:hover,
 .listen-card__surface:hover,
-.listen-list-item:hover,
-.listen-mode-switch__option:hover {
+.listen-list-item:hover {
     transform: translateY(-1px);
 }
 
@@ -2073,14 +2041,6 @@
     .listen-topbar {
         flex-direction: column;
         align-items: stretch;
-    }
-
-    .listen-mode-switch {
-        width: 100%;
-    }
-
-    .listen-mode-switch__option {
-        flex: 1 1 0;
     }
 
     .listen-filter-input,

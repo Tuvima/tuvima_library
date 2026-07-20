@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 3.11 and Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last audited: 2026-07-17 | Auditor: Codex
+> Last audited: 2026-07-20 | Auditor: Codex
 
 ---
 
@@ -13,7 +13,7 @@ The Dashboard is the user-facing surface for a local-first story library. It is 
 - **Home** (`/`) gives a discovery overview and recent library activity.
 - **Read** (`/read`) is for books and comics.
 - **Watch** (`/watch`) is for movies and TV.
-- **Listen** (`/listen`) is for music, albums, artists, tracks, and audiobooks.
+- **Listen** uses `/listen` for Discover, `/listen/music` for tiled album browsing, and `/listen/audiobooks` for tiled audiobook browsing; its permanent rail provides Albums, Songs, and Artists shortcuts.
 - **Collections** (`/collections`) is for broader rollups where multiple shelves share a series, franchise, or universe relationship.
 - **Search** (`/search`) searches across the library.
 - **My List** (`/my-list`) shows the active profile's saved shortlist.
@@ -63,6 +63,8 @@ The five main landings reuse the detail-derived cinematic hero. `DetailHero` and
 | No removed management workflow | Do not recreate all-in-one management routes, implementation types, navigation labels, or media correction workbenches. |
 | Playback controller boundary | Listen playback UI reads the session controller and uses shared transport controls; browser mechanics stay behind the Web audio host and `listenPlayback` bridge. |
 | Group tile isolation | Artwork-only series/collection rest and compact top overlay behavior belong in `MediaGroupTile`; do not add group navigation controls to `MediaTile` or change individual-card geometry. |
+| Tiled media browse | Media-specific browse result sets wrap vertically and never use horizontally scrolling media rows. |
+| Series preference inheritance | `config/ui/library-preferences.json` owns media defaults; SQLite stores only explicit profile-and-series missing-item overrides, and reset deletes the override. |
 
 ---
 

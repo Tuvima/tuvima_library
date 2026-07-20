@@ -52,7 +52,7 @@ Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` br
 - `/` is Home/discovery, rendered by `LibraryBrowsePage` with a rotating cinematic hero and Read/Watch/Listen/Collections filters.
 - `/read` is the cinematic reading lane landing page with Books, Comics, and genre filters. `/read/books` and `/read/comics` render detailed browse tabs.
 - `/watch` is the cinematic movie and TV lane landing page with Movies, TV Shows, Series, and genre filters. `/watch/movies` and `/watch/tv` render detailed browse tabs.
-- `/listen` keeps the permanent Listen rail and renders a compact square-art cinematic hero with Music, Audiobooks, and genre filters. Music shelves are album-first; individual tracks appear in album preview/detail content rather than as landing cards.
+- `/listen` keeps the permanent Listen rail and is the compact, row-based Discover surface. `/listen/music` opens the filterable, vertically wrapping album grid, and `/listen/audiobooks` opens the filterable audiobook grid. The rail supplies Albums, Songs, and Artists shortcuts; individual tracks do not appear as cards on the Music browse entry.
 - `/collections` uses the same rotating hero and shared filter bar for broader rollups, personal collections, and playlists.
 
 The landing carousel composes the same `DetailHeroContent` as item details, so the logo/title scale, structured facts, primary action, progress, and full-paragraph synopsis are identical. It adds only rotation controls and a top-right context label: **Featured Content** normally, or lane-specific Continue wording with Resume when progress exists. Group-opening actions such as **Open Show** use an open affordance rather than a play icon. The complete-frame backdrop remains uncropped, its true left edge is masked into the copy area, and Watch TV slides use the root show's managed background rather than an episode still.
@@ -109,9 +109,15 @@ the Engine:
   `Movie 1 in The Lord of the Rings`; they do not append an `of N` total.
 - Canonical book, comic, and movie series containers reuse that sequence rail
   directly on Overview. A source number is rendered above its cover, and a
-  connector is drawn only when the neighboring stored positions are genuinely
-  consecutive. Item details put `This book` or `This movie` inside the bordered
-  current-item frame; completion is represented independently with a check.
+  connector is drawn behind the number nodes only when the neighboring stored
+  positions are genuinely consecutive. A stronger purple frame glow is the
+  current item's only visual state; `This book`, `This movie`, and `Up next`
+  labels are not rendered. Completion is represented independently with a check,
+  while `aria-current` provides non-visual current-item context.
+- Missing-item visibility defaults are media-level configuration in
+  `config/ui/library-preferences.json`. The database stores only explicit
+  per-profile, per-series overrides. Removing an override makes that series
+  inherit the current configuration value again.
 - Structural shelf names remove a redundant trailing `Series` or `Collection`
   for presentation (`Dune Collection` becomes `Dune`). Curated collection
   names preserve those words because they are part of the collection identity.

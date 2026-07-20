@@ -864,12 +864,15 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("window.keepMediaTileHoverInRowViewport", appJs);
         Assert.Contains("window.mountMediaTileHover(cardEl);", appJs);
         Assert.Contains("cardEl.closest('.media-tile-grid')", appJs);
+        Assert.Contains("cardEl.classList.add('is-grid-hover-tile')", appJs);
         Assert.Contains("panel.classList.add('is-grid-overlay')", appJs);
         Assert.Contains("window.restoreMediaTileHover(cardEl);", appJs);
         Assert.DoesNotContain("window.registerMediaTileCollages", appJs);
         Assert.Contains("prefers-reduced-motion: reduce", appJs);
         Assert.DoesNotContain("window.lockMediaTileHoverRowScroll(cardEl);", appJs);
         Assert.Contains(".media-tile-hover-panel.is-grid-overlay.is-inline-expanded", css);
+        Assert.Contains(".media-tile.is-grid-hover-tile.is-hover-js-enabled:not(.is-hover-active)", css);
+        Assert.Contains("display: none", css);
         Assert.Contains("position: fixed !important", css);
         Assert.DoesNotContain("media-tile-hover-host", layout);
     }

@@ -3,6 +3,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -146,6 +147,105 @@ public static class ProfileEndpoints
         .WithName("UpdateProfilePlaybackSettings")
         .WithSummary("Save user playback and reading settings for a profile.")
         .Produces<UserPlaybackSettingsDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{id:guid}/sequence-preferences/missing-items", async (
+            Guid id,
+            string mediaType,
+            string containerKey,
+            IProfileService profileService,
+            IProfileSequencePreferencesRepository preferences,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(mediaType) || string.IsNullOrWhiteSpace(containerKey))
+            {
+                return Results.BadRequest(new { error = "mediaType and containerKey are required." });
+            }
+
+            if (await profileService.GetProfileAsync(id, ct) is null)
+            {
+                return Results.NotFound(new { error = $"Profile '{id}' not found." });
+            }
+
+            var preference = await preferences.GetAsync(id, mediaType, containerKey, ct);
+            return Results.Ok(ToSeriesMissingItemPreferenceDto(
+                id,
+                mediaType,
+                containerKey,
+                preference));
+        })
+        .WithName("GetProfileSeriesMissingItemPreference")
+        .WithSummary("Get an explicit per-series missing-item visibility override. A null value inherits the media configuration default.")
+        .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapPut("/{id:guid}/sequence-preferences/missing-items", async (
+            Guid id,
+            SaveSeriesMissingItemPreferenceRequest request,
+            IProfileSequencePreferencesRepository preferences,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.MediaType) || string.IsNullOrWhiteSpace(request.ContainerKey))
+            {
+                return Results.BadRequest(new { error = "media_type and container_key are required." });
+            }
+
+            var saved = await preferences.SaveAsync(
+                id,
+                request.MediaType,
+                request.ContainerKey,
+                request.ShowMissing,
+                ct);
+            if (!saved.ProfileExists || saved.Preference is null)
+            {
+                return Results.NotFound(new { error = $"Profile '{id}' not found." });
+            }
+
+            return Results.Ok(ToSeriesMissingItemPreferenceDto(
+                id,
+                request.MediaType,
+                request.ContainerKey,
+                saved.Preference));
+        })
+        .WithName("SetProfileSeriesMissingItemPreference")
+        .WithSummary("Save an explicit per-series missing-item visibility override for a profile.")
+        .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapDelete("/{id:guid}/sequence-preferences/missing-items", async (
+            Guid id,
+            string mediaType,
+            string containerKey,
+            IProfileService profileService,
+            IProfileSequencePreferencesRepository preferences,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(mediaType) || string.IsNullOrWhiteSpace(containerKey))
+            {
+                return Results.BadRequest(new { error = "mediaType and containerKey are required." });
+            }
+
+            if (await profileService.GetProfileAsync(id, ct) is null)
+            {
+                return Results.NotFound(new { error = $"Profile '{id}' not found." });
+            }
+
+            await preferences.DeleteAsync(id, mediaType, containerKey, ct);
+            return Results.Ok(ToSeriesMissingItemPreferenceDto(
+                id,
+                mediaType,
+                containerKey,
+                preference: null));
+        })
+        .WithName("ResetProfileSeriesMissingItemPreference")
+        .WithSummary("Remove a per-series override so the series inherits its media configuration default.")
+        .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
@@ -379,6 +479,19 @@ public static class ProfileEndpoints
 
         return app;
     }
+
+    private static SeriesMissingItemPreferenceDto ToSeriesMissingItemPreferenceDto(
+        Guid profileId,
+        string mediaType,
+        string containerKey,
+        ProfileSequencePreference? preference) => new()
+    {
+        ProfileId = profileId,
+        MediaType = preference?.MediaType ?? mediaType.Trim().ToLowerInvariant(),
+        ContainerKey = preference?.ContainerKey ?? containerKey.Trim().ToLowerInvariant(),
+        ShowMissing = preference?.ShowMissing,
+        UpdatedAt = preference?.UpdatedAt,
+    };
 
     internal static async Task<IResult> UploadProfileAvatarAsync(
         Guid id,

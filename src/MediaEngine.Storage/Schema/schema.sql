@@ -1112,6 +1112,20 @@ CREATE TABLE IF NOT EXISTS profile_work_preferences (
 CREATE INDEX IF NOT EXISTS idx_profile_work_preferences_work
     ON profile_work_preferences(work_id, profile_id);
 
+-- Explicit profile-and-series overrides only. Media-level defaults remain in
+-- config/ui/library-preferences.json and are inherited when no row exists.
+CREATE TABLE IF NOT EXISTS profile_sequence_preferences (
+    profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    media_type    TEXT NOT NULL,
+    container_key TEXT NOT NULL,
+    show_missing  INTEGER NOT NULL,
+    updated_at    TEXT NOT NULL,
+    PRIMARY KEY (profile_id, media_type, container_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_profile_sequence_preferences_container
+    ON profile_sequence_preferences(media_type, container_key, profile_id);
+
 CREATE TABLE IF NOT EXISTS user_states (
     user_id             BLOB NOT NULL,
     asset_id            BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,

@@ -72,7 +72,6 @@ public partial class ListenPage
     private CollectionGroupDetailViewModel? _artistDetail;
     private DetailPageViewModel? _audioDetail;
     private DiscoveryPageViewModel _listenHubPage = new() { Key = "listen" };
-    private DiscoveryPageViewModel _musicHomePage = new() { Key = "listen-music" };
     private ProfileViewModel? _activeProfile;
     private Guid? _activeProfileId;
     private HashSet<Guid> _favoriteWorkIds = [];
@@ -155,10 +154,12 @@ public partial class ListenPage
     private bool IsAudiobookDetail => WorkId.HasValue && CurrentPath.StartsWith("/listen/audiobook/", StringComparison.OrdinalIgnoreCase);
     private bool IsAudiobooksMode => IsAudiobooksView || IsAudiobookDetail;
     private bool IsMusicMode => !IsAudiobooksMode;
-    private bool IsMusicHome => IsMusicMode
+    private bool IsMusicBrowseEntry => IsMusicMode
         && !IsListenHub
         && string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase);
-    private bool IsAlbumsView => IsMusicMode && !CollectionId.HasValue && string.Equals(NormalizedSection, "albums", StringComparison.OrdinalIgnoreCase);
+    private bool IsAlbumsView => IsMusicMode
+        && !CollectionId.HasValue
+        && (IsMusicBrowseEntry || string.Equals(NormalizedSection, "albums", StringComparison.OrdinalIgnoreCase));
     private bool IsAlbumDetail => IsMusicMode
         && (CollectionId.HasValue || !string.IsNullOrWhiteSpace(AlbumKey))
         && CurrentPath.StartsWith("/listen/music/albums/", StringComparison.OrdinalIgnoreCase);
@@ -179,7 +180,7 @@ public partial class ListenPage
                 ? $"{SelectedArtistName} - Listen"
                 : IsDefaultEntry
                     ? "Listen - Tuvima"
-                : IsMusicHome
+                : IsMusicBrowseEntry
                     ? "Music - Listen"
                 : IsAudiobooksMode
                     ? "Audiobooks - Listen"
@@ -305,7 +306,7 @@ public partial class ListenPage
 
     private static readonly IReadOnlyList<MediaHubModeViewModel> ListenHubModes =
     [
-        new("all", "All", "/listen"),
+        new("all", "Discover", "/listen"),
         new("music", "Music", MusicHomeRoute),
         new("audiobooks", "Audiobooks", AudiobooksRoute),
     ];
@@ -373,8 +374,7 @@ public partial class ListenPage
 
     private IReadOnlyList<ListenNavigationItem> ListenLibraryItems =>
     [
-        new("Home", "/listen", Icons.Material.Outlined.Home, null),
-        new("Explore", "/listen/music", Icons.Material.Outlined.Explore, null),
+        new("Discover", "/listen", Icons.Material.Outlined.Explore, null),
     ];
 
     private IReadOnlyList<ListenNavigationItem> ListenFormatItems =>
@@ -455,7 +455,6 @@ public partial class ListenPage
 
             var shouldLoadListenHub = IsListenHub;
             var shouldLoadMusicBrowseData = IsMusicMode && !shouldLoadListenHub;
-            var shouldLoadMusicHome = IsMusicHome;
             var shouldLoadJourney = shouldLoadListenHub || IsMusicMode || IsAudiobooksMode;
             var worksTask = Orchestrator.GetLibraryWorksAsync(ct);
             var journeyTask = shouldLoadJourney
@@ -475,15 +474,6 @@ public partial class ListenPage
             var artistGroupsTask = shouldLoadMusicBrowseData
                 ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist", ct: ct)
                 : Task.FromResult(new List<ContentGroupViewModel>());
-            var musicHomeTask = shouldLoadMusicHome
-                ? ApiClient.GetDisplayBrowseAsync(
-                    lane: "listen",
-                    mediaType: "Music",
-                    grouping: "home",
-                    includeCatalog: false,
-                    profileId: _activeProfileId,
-                    ct: ct)
-                : Task.FromResult<DisplayPageDto?>(null);
             var audiobookBrowseTask = IsAudiobooksMode
                 ? ApiClient.GetDisplayBrowseAsync(
                     mediaType: "Audiobooks",
@@ -500,7 +490,7 @@ public partial class ListenPage
                 ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value, ct)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
 
-            await Task.WhenAll(worksTask, journeyTask, listenHubTask, albumGroupsTask, artistGroupsTask, musicHomeTask, audiobookBrowseTask, audiobookSeriesGroupsTask, collectionsTask);
+            await Task.WhenAll(worksTask, journeyTask, listenHubTask, albumGroupsTask, artistGroupsTask, audiobookBrowseTask, audiobookSeriesGroupsTask, collectionsTask);
             if (!IsCurrentLoad(loadVersion))
             {
                 return;
@@ -558,12 +548,6 @@ public partial class ListenPage
             if (!IsCurrentLoad(loadVersion))
             {
                 return;
-            }
-
-            if (shouldLoadMusicHome)
-            {
-                _musicHomePage = MediaTileComposerService.FromDisplayPage(
-                    musicHomeTask.Result ?? throw new InvalidOperationException("Display API did not return the music home page."));
             }
 
             if (shouldLoadListenHub)
@@ -1440,39 +1424,6 @@ public partial class ListenPage
 
         var query = queryParts.Count == 0 ? string.Empty : "?" + string.Join("&", queryParts);
         return $"/listen/music/albums/by-name/{Uri.EscapeDataString(albumName)}{query}";
-    }
-
-    private async Task OpenMusicModeAsync()
-    {
-        NavigateTo(MusicHomeRoute);
-        await PersistModePreferenceAsync("music");
-    }
-
-    private async Task OpenAudiobooksModeAsync()
-    {
-        NavigateTo(AudiobooksRoute);
-        await PersistModePreferenceAsync("audiobooks");
-    }
-
-    private string ResolveConfiguredEntryRoute()
-        => ListenNavigation.ResolveEntryRoute(_lastPersistedMode ?? _restoredMode, null);
-
-    private async Task PersistModePreferenceAsync(string mode)
-    {
-        if (!_uiStateLoaded)
-        {
-            return;
-        }
-
-        try
-        {
-            await JS.InvokeVoidAsync("listenUi.setMode", mode);
-            _lastPersistedMode = mode;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Could not persist listen mode {Mode}.", mode);
-        }
     }
 
     private bool IsRouteActive(string route)
