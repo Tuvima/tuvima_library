@@ -67,6 +67,7 @@ public sealed record DisplayCardDto(
     public IReadOnlyList<DisplayCardBadgeDto> Badges { get; init; } = [];
     public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; init; } = [];
     public int? PreviewTotalCount { get; init; }
+    public DisplayGroupSummaryDto? GroupSummary { get; init; }
 }
 
 public sealed record DisplayCardBadgeDto(
@@ -84,6 +85,21 @@ public sealed record DisplayCardPreviewItemDto(
     string? WebUrl = null,
     string? Description = null,
     IReadOnlyList<string>? Facts = null);
+
+public sealed record DisplayGroupSummaryDto
+{
+    public int OwnedCount { get; init; }
+    public int? KnownTotalCount { get; init; }
+    public int CompletedCount { get; init; }
+    public int InProgressCount { get; init; }
+    public string? SequenceRange { get; init; }
+    public string? RelationshipLabel { get; init; }
+    public IReadOnlyList<DisplayGroupMediaCountDto> MediaCounts { get; init; } = [];
+}
+
+public sealed record DisplayGroupMediaCountDto(
+    string MediaType,
+    int Count);
 
 public sealed record DisplayArtworkDto(
     string? CoverUrl,

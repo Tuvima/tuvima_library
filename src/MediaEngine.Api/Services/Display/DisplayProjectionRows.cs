@@ -58,8 +58,11 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? Series { get; set; }
     public string? SeriesPosition { get; set; }
     public string? CollectionTitle { get; set; }
+    public string? CollectionDescription { get; set; }
+    public string? CollectionType { get; set; }
     public int CollectionManifestTotalCount { get; set; }
     public string? Narrator { get; set; }
+    public string? Publisher { get; set; }
     public string? Director { get; set; }
     public string? Network { get; set; }
     public string? Source { get; set; }
@@ -213,6 +216,7 @@ public sealed class DisplayHomeCollectionRow : IDisplayArtworkRow
     public int WatchCount { get; set; }
     public int ReadCount { get; set; }
     public int ListenCount { get; set; }
+    public int OtherCount { get; set; }
     public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
     public string? CoverUrl { get; set; }

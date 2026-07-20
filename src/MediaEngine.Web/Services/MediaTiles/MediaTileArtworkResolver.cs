@@ -49,7 +49,8 @@ public sealed record MediaTileSurfaceSelection(
     string? PreviewImageUrl,
     MediaTileImageFitMode TileImageFitMode,
     MediaTileImageFitMode HoverImageFitMode,
-    MediaTileShape Shape);
+    MediaTileShape Shape,
+    MediaTileShape HoverArtworkShape);
 
 public static class MediaTileArtworkResolver
 {
@@ -94,7 +95,8 @@ public static class MediaTileArtworkResolver
             HoverImageFitMode: hoverVariant is not null && IsCinematic(hoverVariant)
                 ? MediaTileImageFitMode.Fill
                 : MediaTileImageFitMode.Contain,
-            Shape: shape);
+            Shape: shape,
+            HoverArtworkShape: hoverVariant?.Shape ?? shape);
     }
 
     public static MediaTileShape ShapeFor(MediaTileArtworkVariant variant)
@@ -103,9 +105,15 @@ public static class MediaTileArtworkResolver
         {
             var ratio = (double)variant.WidthPx.Value / variant.HeightPx.Value;
             if (ratio >= 1.32)
+            {
                 return MediaTileShape.Landscape;
+            }
+
             if (ratio >= 0.86)
+            {
                 return MediaTileShape.Square;
+            }
+
             return MediaTileShape.Portrait;
         }
 
@@ -178,7 +186,9 @@ public static class MediaTileArtworkResolver
         {
             var match = variants.FirstOrDefault(variant => variant.Role == role && variant.HasUrl);
             if (match is not null)
+            {
                 return match;
+            }
         }
 
         return null;

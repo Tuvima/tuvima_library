@@ -275,11 +275,14 @@ public sealed class MediaTileComposerService
             QualityBadge = BadgeLabel(card.Badges, "quality"),
             SourceBadgeLabel = BadgeLabel(card.Badges, "source"),
             SourceLogoUrl = SourceLogos.ResolveLogoPath(BadgeLabel(card.Badges, "source")),
+            MediaCounts = card.GroupSummary?.MediaCounts.Select(ToMediaCount).ToList() ?? [],
+            GroupSummary = ToGroupSummary(card.GroupSummary),
             HoverFacts = card.Facts,
             Genres = card.Genres,
             MediaKind = card.MediaType,
             AccentColor = card.Artwork.AccentColor ?? AccentForBucket(bucket),
             Shape = tileShape,
+            HoverArtworkShape = surface.HoverArtworkShape,
             Presentation = presentation,
             SurfaceKind = surfaceKind,
             HoverLayout = hoverLayout,
@@ -367,6 +370,32 @@ public sealed class MediaTileComposerService
         _ => "var(--tl-accent-primary)",
     };
 
+    private static MediaTileGroupSummaryViewModel? ToGroupSummary(DisplayGroupSummaryDto? summary) => summary is null
+        ? null
+        : new MediaTileGroupSummaryViewModel
+        {
+            OwnedCount = summary.OwnedCount,
+            KnownTotalCount = summary.KnownTotalCount,
+            CompletedCount = summary.CompletedCount,
+            InProgressCount = summary.InProgressCount,
+            SequenceRange = summary.SequenceRange,
+            RelationshipLabel = summary.RelationshipLabel,
+        };
+
+    private static MediaTileMediaCountViewModel ToMediaCount(DisplayGroupMediaCountDto count) => count.MediaType switch
+    {
+        "Movie" => new(MudBlazor.Icons.Material.Filled.Movie, "Movies", count.Count),
+        "TV" => new(MudBlazor.Icons.Material.Filled.LiveTv, "TV", count.Count),
+        "Book" => new(MudBlazor.Icons.Material.Filled.MenuBook, "Books", count.Count),
+        "Comic" => new(MudBlazor.Icons.Material.Filled.AutoStories, "Comics", count.Count),
+        "Music" => new(MudBlazor.Icons.Material.Filled.MusicNote, "Music", count.Count),
+        "Audiobook" => new(MudBlazor.Icons.Material.Filled.Headphones, "Audiobooks", count.Count),
+        "Watch" => new(MudBlazor.Icons.Material.Filled.PlayArrow, "Watch", count.Count),
+        "Read" => new(MudBlazor.Icons.Material.Filled.MenuBook, "Read", count.Count),
+        "Listen" => new(MudBlazor.Icons.Material.Filled.Headphones, "Listen", count.Count),
+        _ => new(MudBlazor.Icons.Material.Filled.MoreHoriz, "Other", count.Count),
+    };
+
     private static bool SupportsExpandedHover(MediaTileBucket bucket, bool isTypedGroup) =>
         isTypedGroup
         || bucket is MediaTileBucket.Movie
@@ -442,7 +471,6 @@ public sealed class MediaTileComposerService
 
     private static IReadOnlyList<ArtworkStackItem> BuildArtworkStackItems(DisplayCardDto card) =>
         card.PreviewItems
-            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
             .Select(item => ToArtworkStackItem(item, card.MediaType))
             .ToList();
 

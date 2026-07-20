@@ -1,6 +1,6 @@
 using System.Globalization;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Api.Services.Details;
+using MediaEngine.Contracts.Display;
 
 namespace MediaEngine.Api.Services.Display;
 
@@ -21,7 +21,7 @@ public sealed class DisplayCardBuilder
             GroupingType: "work",
             Title: title,
             Subtitle: SubtitleFor(mediaKind, CreatorFor(row), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
-            Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating, row.Narrator, row.Publisher),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -56,7 +56,7 @@ public sealed class DisplayCardBuilder
                 ? ContinueEpisodeSubtitle(row.SeasonNumber, row.EpisodeNumber)
                     ?? SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber)
                 : SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
-            Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating),
+            Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating, row.Narrator),
             Artwork: ArtworkFor(row),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
@@ -73,31 +73,40 @@ public sealed class DisplayCardBuilder
         };
     }
 
-    public IReadOnlyList<DisplayCardDto> BuildCollectionCards(IReadOnlyList<DisplayWorkRow> works, string lane, int minimumSeriesItems = 2) =>
+    public IReadOnlyList<DisplayCardDto> BuildCollectionCards(
+        IReadOnlyList<DisplayWorkRow> works,
+        string lane,
+        int minimumSeriesItems = 2,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow>? progressByWork = null) =>
         works
             .Where(work => work.CollectionId.HasValue)
             .GroupBy(work => work.CollectionId!.Value)
-            .Select(group => ToCollectionCard(group.Key, group.ToList(), lane, minimumSeriesItems))
+            .Select(group => ToCollectionCard(group.Key, group.ToList(), lane, minimumSeriesItems, progressByWork))
             .Where(card => card is not null)
             .Cast<DisplayCardDto>()
             .OrderByDescending(card => card.SortTimestamp)
             .ToList();
 
-    public IReadOnlyList<DisplayCardDto> BuildMovieSeriesCards(IReadOnlyList<DisplayWorkRow> works, int minimumSeriesItems = 2) =>
+    public IReadOnlyList<DisplayCardDto> BuildMovieSeriesCards(
+        IReadOnlyList<DisplayWorkRow> works,
+        int minimumSeriesItems = 2,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow>? progressByWork = null) =>
         works
             .Where(work => work.CollectionId.HasValue && DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Movie")
             .GroupBy(work => work.CollectionId!.Value)
-            .Select(group => ToCollectionCard(group.Key, group.ToList(), "watch", minimumSeriesItems))
+            .Select(group => ToCollectionCard(group.Key, group.ToList(), "watch", minimumSeriesItems, progressByWork))
             .Where(card => card is not null)
             .Cast<DisplayCardDto>()
             .OrderByDescending(card => card.SortTimestamp)
             .ToList();
 
-    public IReadOnlyList<DisplayCardDto> BuildTvShowCards(IReadOnlyList<DisplayWorkRow> works) =>
+    public IReadOnlyList<DisplayCardDto> BuildTvShowCards(
+        IReadOnlyList<DisplayWorkRow> works,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow>? progressByWork = null) =>
         works
             .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "TV")
             .GroupBy(TvShowGroupId)
-            .Select(group => ToTvShowCard(group.Key, group.ToList()))
+            .Select(group => ToTvShowCard(group.Key, group.ToList(), progressByWork))
             .Where(card => card is not null)
             .Cast<DisplayCardDto>()
             .OrderByDescending(card => card.SortTimestamp)
@@ -141,12 +150,19 @@ public sealed class DisplayCardBuilder
             Flags: new DisplayCardFlagsDto(false, false, false, true, false),
             SortTimestamp: row.CreatedAt)
         {
+            Description = row.Subtitle,
             PreviewItems = row.PreviewItems,
             PreviewTotalCount = row.ItemCount,
+            GroupSummary = BuildHomeCollectionSummary(row),
         };
     }
 
-    private DisplayCardDto? ToCollectionCard(Guid collectionId, IReadOnlyList<DisplayWorkRow> works, string lane, int minimumSeriesItems)
+    private DisplayCardDto? ToCollectionCard(
+        Guid collectionId,
+        IReadOnlyList<DisplayWorkRow> works,
+        string lane,
+        int minimumSeriesItems,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow>? progressByWork)
     {
         if (works.Count == 0)
         {
@@ -172,7 +188,7 @@ public sealed class DisplayCardBuilder
         var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind, title));
         var artwork = CollectionArtworkFor(representative);
         var presentation = CollectionPresentation(lane, mediaKind);
-        var previewItems = BuildSeriesPreviewItems(mediaKind, works, collectionId);
+        var previewItems = BuildSeriesPreviewItems(mediaKind, works, collectionId, progressByWork: progressByWork);
         var ownedCount = DistinctOwnedSeriesMemberCount(works);
 
         return new DisplayCardDto(
@@ -195,14 +211,18 @@ public sealed class DisplayCardBuilder
             Flags: FlagsFor(representative.MediaType, isCollection: true),
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
-            Description = representative.Description,
+            Description = representative.CollectionDescription,
             Genres = DisplayMediaRules.SplitValues(representative.Genre).ToList(),
             PreviewItems = previewItems,
             PreviewTotalCount = previewItems.Count > 0 ? ownedCount : null,
+            GroupSummary = BuildGroupSummary(mediaKind, works, ownedCount, progressByWork, representative.CollectionType),
         };
     }
 
-    private DisplayCardDto? ToTvShowCard(Guid showRootWorkId, IReadOnlyList<DisplayWorkRow> works)
+    private DisplayCardDto? ToTvShowCard(
+        Guid showRootWorkId,
+        IReadOnlyList<DisplayWorkRow> works,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow>? progressByWork)
     {
         if (works.Count == 0)
         {
@@ -218,7 +238,7 @@ public sealed class DisplayCardBuilder
         var artwork = RootArtworkFor(representative);
         var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Title, representative.CollectionTitle) ?? "TV Show";
         var action = new DisplayActionDto("openShow", "Open Show", showRootWorkId, null, null, $"/watch/tv/show/{showRootWorkId:D}");
-        var previewItems = BuildSeriesPreviewItems("TV", works, tvShowRootId: showRootWorkId);
+        var previewItems = BuildSeriesPreviewItems("TV", works, tvShowRootId: showRootWorkId, progressByWork: progressByWork);
 
         return new DisplayCardDto(
             Id: showRootWorkId,
@@ -261,6 +281,7 @@ public sealed class DisplayCardBuilder
         string? episodeNumber)
     {
         var isContinue = progressPct is > 0 and < 99.5;
+        var isComplete = progressPct is >= 99.5;
         if (mediaKind is "Book" or "Comic")
         {
             return new DisplayActionDto("readWork", isContinue ? "Continue Reading" : "Read", workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
@@ -269,13 +290,18 @@ public sealed class DisplayCardBuilder
         if (mediaKind == "TV")
         {
             var position = EpisodePosition(seasonNumber, episodeNumber);
-            var label = $"{(isContinue ? "Resume" : "Watch")}{(position is null ? string.Empty : $" {position}")}";
+            var label = $"{(isContinue ? "Resume" : isComplete ? "Play Again" : "Watch")}{(position is null ? string.Empty : $" {position}")}";
             return new DisplayActionDto("playAsset", label, workId, assetId, collectionId, $"/watch/player/resolve?workId={workId:D}");
         }
 
         if (mediaKind is "Movie" or "Music" or "Audiobook")
         {
-            return new DisplayActionDto("playAsset", isContinue ? ContinueLabel(mediaKind) : "Play", workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
+            var label = isContinue
+                ? ContinueLabel(mediaKind)
+                : isComplete && mediaKind == "Movie"
+                    ? "Play Again"
+                    : "Play";
+            return new DisplayActionDto("playAsset", label, workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
         }
 
         return new DisplayActionDto("openWork", "Open", workId, assetId, collectionId, WebUrlFor(workId, collectionId, mediaKind));
@@ -446,13 +472,17 @@ public sealed class DisplayCardBuilder
         string? runtime,
         string? duration,
         string? pageCount,
-        string? starRating)
+        string? starRating,
+        string? narrator = null,
+        string? publisher = null)
         => DisplayFactBuilder.Build(
             mediaKind,
             title,
             year: year,
             author: author,
             artist: artist,
+            narrator: narrator,
+            publisher: publisher,
             contentRating: contentRating,
             runtime: runtime,
             duration: duration,
@@ -583,6 +613,149 @@ public sealed class DisplayCardBuilder
         return facts;
     }
 
+    private static DisplayGroupSummaryDto BuildHomeCollectionSummary(DisplayHomeCollectionRow row)
+    {
+        var mediaCounts = new List<DisplayGroupMediaCountDto>();
+        AddMediaCount(mediaCounts, "Watch", row.WatchCount);
+        AddMediaCount(mediaCounts, "Read", row.ReadCount);
+        AddMediaCount(mediaCounts, "Listen", row.ListenCount);
+        AddMediaCount(mediaCounts, "Other", row.OtherCount);
+
+        return new DisplayGroupSummaryDto
+        {
+            OwnedCount = row.ItemCount,
+            RelationshipLabel = RelationshipLabel(row.CollectionType),
+            MediaCounts = mediaCounts,
+        };
+    }
+
+    private static DisplayGroupSummaryDto BuildGroupSummary(
+        string mediaKind,
+        IReadOnlyList<DisplayWorkRow> works,
+        int ownedCount,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow>? progressByWork,
+        string? collectionType)
+    {
+        var members = works
+            .GroupBy(
+                work => NormalizeSeriesMemberKey(FirstNonBlank(work.IdentityQid, work.Title)),
+                StringComparer.OrdinalIgnoreCase)
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToList();
+        var completedCount = 0;
+        var inProgressCount = 0;
+        if (progressByWork is not null)
+        {
+            foreach (var member in members)
+            {
+                var progress = member
+                    .Where(work => progressByWork.ContainsKey(work.WorkId))
+                    .Select(work => progressByWork[work.WorkId].ProgressPct)
+                    .ToList();
+                if (progress.Any(percent => percent >= 99.5))
+                {
+                    completedCount++;
+                }
+                else if (progress.Any(percent => percent is > 0 and < 99.5))
+                {
+                    inProgressCount++;
+                }
+            }
+        }
+
+        var knownTotal = mediaKind == "Comic"
+            ? null
+            : works
+                .Select(work => work.CollectionManifestTotalCount)
+                .Where(total => total >= ownedCount && total > 0)
+                .Cast<int?>()
+                .Max();
+
+        var mediaCounts = works
+            .GroupBy(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new DisplayGroupMediaCountDto(
+                group.Key,
+                group.Select(work => work.WorkId).Distinct().Count()))
+            .Where(count => count.Count > 0)
+            .OrderBy(count => MediaCountOrder(count.MediaType))
+            .ThenBy(count => count.MediaType, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new DisplayGroupSummaryDto
+        {
+            OwnedCount = ownedCount,
+            KnownTotalCount = knownTotal,
+            CompletedCount = completedCount,
+            InProgressCount = inProgressCount,
+            SequenceRange = OwnedSequenceRange(mediaKind, works),
+            RelationshipLabel = mediaKind is "Book" or "Comic" or "Movie" or "Audiobook"
+                ? works.Any(work => !string.IsNullOrWhiteSpace(work.SeriesPosition)) ? "Ordered series" : "Series grouping"
+                : RelationshipLabel(collectionType),
+            MediaCounts = mediaCounts,
+        };
+    }
+
+    private static string? OwnedSequenceRange(string mediaKind, IReadOnlyList<DisplayWorkRow> works)
+    {
+        var positions = works
+            .Select(work => work.SeriesPosition?.Trim())
+            .Where(position => !string.IsNullOrWhiteSpace(position))
+            .Select(position => new
+            {
+                Label = position!,
+                Sort = ParseSeriesPosition(position),
+            })
+            .Where(position => position.Sort.HasValue)
+            .GroupBy(position => position.Sort!.Value)
+            .Select(group => group.First())
+            .OrderBy(position => position.Sort)
+            .ToList();
+        if (positions.Count == 0)
+        {
+            return null;
+        }
+
+        var noun = mediaKind switch
+        {
+            "Comic" => positions.Count == 1 ? "Issue" : "Issues",
+            "Audiobook" => positions.Count == 1 ? "Volume" : "Volumes",
+            "Movie" => positions.Count == 1 ? "Entry" : "Entries",
+            _ => positions.Count == 1 ? "Book" : "Books",
+        };
+        var range = positions.Count == 1
+            ? positions[0].Label
+            : $"{positions[0].Label}\u2013{positions[^1].Label}";
+        return $"{noun} {range} owned";
+    }
+
+    private static string? RelationshipLabel(string? collectionType) => collectionType?.Trim() switch
+    {
+        "Universe" => "Shared universe",
+        "Franchise" => "Franchise collection",
+        "Series" => "Series grouping",
+        "ContentGroup" => "Related works",
+        "Playlist" or "PlaylistFolder" => "Curated list",
+        "Smart" => "Smart collection",
+        "Manual" => "Curated collection",
+        _ => null,
+    };
+
+    private static void AddMediaCount(List<DisplayGroupMediaCountDto> counts, string mediaType, int count)
+    {
+        if (count > 0)
+        {
+            counts.Add(new DisplayGroupMediaCountDto(mediaType, count));
+        }
+    }
+
+    private static int MediaCountOrder(string mediaType) => mediaType switch
+    {
+        "Movie" or "TV" or "Watch" => 0,
+        "Book" or "Comic" or "Read" => 1,
+        "Music" or "Audiobook" or "Listen" => 2,
+        _ => 3,
+    };
+
     private static string CollectionCountLabel(string mediaKind, int count)
     {
         var noun = mediaKind switch
@@ -600,14 +773,15 @@ public sealed class DisplayCardBuilder
         string mediaKind,
         IReadOnlyList<DisplayWorkRow> works,
         Guid? collectionId = null,
-        Guid? tvShowRootId = null)
+        Guid? tvShowRootId = null,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow>? progressByWork = null)
     {
         if (mediaKind is not ("Book" or "Comic" or "Movie" or "TV" or "Audiobook" or "Music"))
         {
             return [];
         }
 
-        return works
+        var orderedItems = works
             .Select(work => new
             {
                 Work = work,
@@ -621,19 +795,67 @@ public sealed class DisplayCardBuilder
                     _ => work.SeriesPosition,
                 },
             })
-            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
             .GroupBy(item => item.Work.WorkId)
             .Select(group => group.First())
             .OrderBy(item => item.SortPosition is null)
             .ThenBy(item => item.SortPosition ?? double.MaxValue)
             .ThenBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Work.CreatedAt)
-            .Take(12)
+            .ToList();
+
+        var representativeWorkIds = new List<Guid>();
+        if (progressByWork is not null)
+        {
+            var current = orderedItems
+                .Where(item => progressByWork.TryGetValue(item.Work.WorkId, out var progress)
+                               && progress.ProgressPct is > 0 and < 99.5)
+                .OrderByDescending(item => progressByWork[item.Work.WorkId].LastAccessed)
+                .FirstOrDefault();
+            if (current is not null)
+            {
+                representativeWorkIds.Add(current.Work.WorkId);
+                var currentIndex = orderedItems.IndexOf(current);
+                if (currentIndex >= 0 && currentIndex + 1 < orderedItems.Count)
+                {
+                    representativeWorkIds.Add(orderedItems[currentIndex + 1].Work.WorkId);
+                }
+            }
+
+            representativeWorkIds.AddRange(orderedItems
+                .Where(item => progressByWork.TryGetValue(item.Work.WorkId, out var progress)
+                               && progress.ProgressPct >= 99.5)
+                .OrderByDescending(item => progressByWork[item.Work.WorkId].LastAccessed)
+                .Select(item => item.Work.WorkId));
+            representativeWorkIds.AddRange(orderedItems
+                .Where(item => progressByWork.ContainsKey(item.Work.WorkId))
+                .OrderByDescending(item => progressByWork[item.Work.WorkId].LastAccessed)
+                .Select(item => item.Work.WorkId));
+        }
+
+        if (orderedItems.Count <= 4)
+        {
+            representativeWorkIds.AddRange(orderedItems.Select(item => item.Work.WorkId));
+        }
+        else
+        {
+            representativeWorkIds.Add(orderedItems[0].Work.WorkId);
+            representativeWorkIds.Add(orderedItems[1].Work.WorkId);
+            representativeWorkIds.Add(orderedItems[^2].Work.WorkId);
+            representativeWorkIds.Add(orderedItems[^1].Work.WorkId);
+        }
+
+        var representativeItems = representativeWorkIds
+            .Distinct()
+            .Take(4)
+            .Select(workId => orderedItems.First(item => item.Work.WorkId == workId))
+            .ToList();
+
+        return representativeItems
             .Select(item => new DisplayCardPreviewItemDto(
                 item.Work.WorkId,
                 item.Work.AssetId,
                 item.DisplayTitle,
-                item.ImageUrl!,
+                item.ImageUrl ?? string.Empty,
                 SeriesPreviewShape(item.Work, item.ImageUrl),
                 item.DisplayPosition,
                 mediaKind,
@@ -649,7 +871,9 @@ public sealed class DisplayCardBuilder
                     item.Work.Runtime,
                     item.Work.Duration,
                     item.Work.PageCount,
-                    item.Work.Rating)))
+                    item.Work.Rating,
+                    item.Work.Narrator,
+                    item.Work.Publisher)))
             .ToList();
     }
 
@@ -1101,7 +1325,9 @@ public sealed class DisplayCardBuilder
     private static bool IsGeneratedComicTitle(string? title, string? series, string? issueNumber)
     {
         if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(issueNumber))
+        {
             return false;
+        }
 
         var normalizedTitle = NormalizeOrdinalTitle(title);
         var normalizedSeries = NormalizeOrdinalTitle(series);

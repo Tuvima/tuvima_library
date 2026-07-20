@@ -28,7 +28,7 @@ public sealed class DisplayComposerService
         var journey = (await journeyTask).Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId)).ToList();
         var homeCollections = await homeCollectionsTask;
         var progressByWork = LatestProgressByWork(journey);
-        var tvShowCards = _cards.BuildTvShowCards(works);
+        var tvShowCards = _cards.BuildTvShowCards(works, progressByWork);
 
         var musicAlbumCards = BuildMusicAlbumCards(works
             .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
@@ -197,7 +197,7 @@ public sealed class DisplayComposerService
 
         if (ShouldReturnTvShowGroups(normalizedLane, mediaType, grouping))
         {
-            var showCards = _cards.BuildTvShowCards(filteredWorks);
+            var showCards = _cards.BuildTvShowCards(filteredWorks, progressByWork);
             if (showCards.Count > 0)
             {
                 var pagedShowCards = showCards
@@ -399,7 +399,7 @@ public sealed class DisplayComposerService
             .ToList();
 
         var tvShowCards = string.Equals(lane, "watch", StringComparison.OrdinalIgnoreCase)
-            ? _cards.BuildTvShowCards(laneWorks)
+            ? _cards.BuildTvShowCards(laneWorks, progressByWork)
             : [];
 
         var shelves = lane switch
@@ -632,7 +632,7 @@ public sealed class DisplayComposerService
                 .ToList(),
             "/listen/audiobooks");
         DisplayShelfBuilder.AddShelf(shelves, "audiobook-series", "Audiobook series", "Grouped audiobook runs from your library",
-            _cards.BuildCollectionCards(audiobookWorks, "listen").Take(take).ToList(), null);
+            _cards.BuildCollectionCards(audiobookWorks, "listen", progressByWork: progressByWork).Take(take).ToList(), null);
         return shelves;
     }
 
@@ -671,7 +671,7 @@ public sealed class DisplayComposerService
         var route = representative.CollectionId.HasValue
             ? $"/listen/music/albums/{representative.CollectionId.Value:D}"
             : $"/listen/music/albums/by-name/{Uri.EscapeDataString(title)}{(string.IsNullOrWhiteSpace(artist) ? string.Empty : $"?artist={Uri.EscapeDataString(artist)}")}";
-        var action = new DisplayActionDto("openCollection", "Browse album", representative.WorkId, representative.AssetId, representative.CollectionId, route);
+        var action = new DisplayActionDto("playAlbum", "Play Album", representative.WorkId, representative.AssetId, representative.CollectionId, route);
 
         return new DisplayCardDto(
             Id: representative.CollectionId ?? representative.WorkId,
@@ -881,14 +881,49 @@ public sealed class DisplayComposerService
         var facts = new List<string>();
         AddFact(facts, artist);
         AddFact(facts, year);
-        AddFact(facts, DisplayFactBuilder.Build("Music", string.Empty, rating: rating).FirstOrDefault());
         AddFact(facts, $"{works.Count} tracks");
+        AddFact(facts, TotalMusicDuration(works));
+        AddFact(facts, DisplayFactBuilder.Build("Music", string.Empty, rating: rating).FirstOrDefault());
         foreach (var item in DisplayMediaRules.SplitValues(genre).Take(2))
         {
             AddFact(facts, item);
         }
 
         return facts;
+    }
+
+    private static string? TotalMusicDuration(IReadOnlyList<DisplayWorkRow> works)
+    {
+        var total = TimeSpan.Zero;
+        var found = false;
+        foreach (var duration in works.Select(work => work.Duration).Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            if (double.TryParse(duration, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var milliseconds))
+            {
+                total += TimeSpan.FromMilliseconds(milliseconds);
+                found = true;
+                continue;
+            }
+
+            if (TimeSpan.TryParse(duration, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            {
+                total += parsed;
+                found = true;
+            }
+        }
+
+        if (!found)
+        {
+            return null;
+        }
+
+        if (total.TotalHours >= 1)
+        {
+            var hours = (int)Math.Floor(total.TotalHours);
+            return total.Minutes > 0 ? $"{hours}h {total.Minutes}m" : $"{hours}h";
+        }
+
+        return $"{Math.Max(1, (int)Math.Round(total.TotalMinutes))} min";
     }
 
     private static IReadOnlyList<string> ArtistFacts(int albumCount, int trackCount, string? genre)

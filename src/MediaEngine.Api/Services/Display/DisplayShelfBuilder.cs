@@ -53,7 +53,7 @@ public sealed class DisplayShelfBuilder
         var take = Math.Max(1, shelfLimit);
         var shelves = new List<DisplayShelfDto>();
         var groupShelf = _groupPolicy.GetShelf("watch");
-        var tvShowCards = _cards.BuildTvShowCards(works);
+        var tvShowCards = _cards.BuildTvShowCards(works, progressByWork);
         AddShelf(shelves, "continue-watching", "Continue watching", "Movies and shows already in progress",
             journey.Take(take).Select(item => _cards.FromJourney(item, "watch")).ToList(), "/watch/movies");
 
@@ -63,7 +63,7 @@ public sealed class DisplayShelfBuilder
         if (groupShelf.Enabled)
         {
             AddShelf(shelves, groupShelf.Key, groupShelf.Title, groupShelf.Subtitle,
-                _cards.BuildMovieSeriesCards(works, groupShelf.MinimumSeriesItems).Take(take).ToList(), groupShelf.SeeAllRoute);
+                _cards.BuildMovieSeriesCards(works, groupShelf.MinimumSeriesItems, progressByWork).Take(take).ToList(), groupShelf.SeeAllRoute);
         }
 
         AddShelf(shelves, "movies", "Movies in your library", "Feature films ready to play",

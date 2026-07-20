@@ -22,7 +22,7 @@ The Dashboard is the user-facing surface for a local-first story library. It is 
 
 Lane-level shelves stay in their lane. A single book series, film series, album, or audio series should not duplicate itself as a top-level Collections tile unless it connects to a broader cross-shelf relationship.
 
-Non-TV series and collection containers render through the dedicated fixed-size landscape `MediaGroupTile`. It composes owned child artwork at rest and reveals an in-place child carousel on hover or keyboard focus. The resting surface opens the group, while the carousel opens the selected owned child. TV shows render through `MediaTile`, using the show cover at rest and the show-level cinematic backdrop and rich identity on hover. Individual and Continue cards keep their existing renderers.
+Non-TV series and collection containers render through the dedicated fixed-size landscape `MediaGroupTile`. Its text column stays fixed on the left while two to four representative owned covers remain side by side on the right and shrink as the count grows. Hover or keyboard focus adds media-count, sequence, and progress context without a nested text panel or repeated child-title list. Both surfaces open the group; there is no rotating artwork, carousel, or child-level action. TV shows render through `MediaTile`, using the show cover at rest and the show-level cinematic backdrop and rich identity on hover. Individual and Continue cards keep their existing renderers.
 
 Within Watch, TV shows occupy their own `TV Shows` shelf. The separate `Series` shelf contains only dynamically aligned movie series and explains that automatic grouping in its subtitle. Do not combine those shelves or place TV show cards in the Series row.
 
@@ -62,7 +62,7 @@ The five main landings reuse the detail-derived cinematic hero. `DetailHero` and
 | Settings/Admin scope | Settings/Admin is for folders, providers, profiles, roles, ingestion, health, logs, diagnostics, plugins, AI, and review. |
 | No removed management workflow | Do not recreate all-in-one management routes, implementation types, navigation labels, or media correction workbenches. |
 | Playback controller boundary | Listen playback UI reads the session controller and uses shared transport controls; browser mechanics stay behind the Web audio host and `listenPlayback` bridge. |
-| Group tile isolation | Series/collection carousel behavior belongs in `MediaGroupTile`; do not add it to `MediaTile` or change individual-card geometry. |
+| Group tile isolation | Static series/collection summary behavior belongs in `MediaGroupTile`; do not add group navigation controls to `MediaTile` or change individual-card geometry. |
 
 ---
 

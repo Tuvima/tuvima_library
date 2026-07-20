@@ -14,7 +14,7 @@
              decoding="async" />
     }
 
-    @if (OverflowCount > 0)
+    @if (ShowOverflowCount && OverflowCount > 0)
     {
         <span class="media-artwork-group-preview__overflow" aria-hidden="true">+@OverflowCount</span>
     }
@@ -24,10 +24,13 @@
     [Parameter] public IReadOnlyList<ArtworkStackItem> Items { get; set; } = [];
     [Parameter] public int? TotalCount { get; set; }
     [Parameter] public string AriaLabel { get; set; } = "Group artwork preview";
+    [Parameter] public MediaArtworkGroupPreviewLayout Layout { get; set; } = MediaArtworkGroupPreviewLayout.Cluster;
+    [Parameter] public bool ShowOverflowCount { get; set; } = true;
 
     private IReadOnlyList<ArtworkStackItem> VisibleItems => Items
         .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
         .DistinctBy(item => item.Id)
+        .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase)
         .Take(4)
         .ToList();
 
@@ -35,7 +38,13 @@
     private int OverflowCount => Math.Max(0, ResolvedTotalCount - VisibleItems.Count);
 
     private string PreviewClass =>
-        $"media-artwork-group-preview {CountClass} {ShapeClusterClass}";
+        $"media-artwork-group-preview {CountClass} {ShapeClusterClass} {LayoutClass}";
+
+    private string LayoutClass => Layout switch
+    {
+        MediaArtworkGroupPreviewLayout.Strip => "is-strip-layout",
+        _ => "is-cluster-layout",
+    };
 
     private string CountClass
     {

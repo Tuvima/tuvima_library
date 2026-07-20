@@ -430,94 +430,6 @@ window.unregisterMediaTileShelfScrollGuard = function (el) {
     el.__swimlaneAllowScroll = false;
 };
 
-// -- Media tile rotating collages ------------------------------------
-
-window.registerMediaTileCollages = function (root) {
-    if (!root) return;
-
-    root.querySelectorAll('[data-media-tile-collage]').forEach(function (collage) {
-        if (collage.__mediaTileCollageRegistered) return;
-
-        var cells = Array.from(collage.querySelectorAll('[data-collage-cell]'));
-        if (!cells.some(function (cell) { return cell.querySelectorAll('[data-collage-image]').length > 1; })) {
-            collage.__mediaTileCollageRegistered = true;
-            return;
-        }
-
-        var seed = parseInt(collage.getAttribute('data-seed') || '0', 10) || 0;
-        var cellCursor = seed % Math.max(cells.length, 1);
-        var visible = true;
-        var motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-
-        var clearTimer = function () {
-            if (collage.__mediaTileCollageTimer) {
-                window.clearTimeout(collage.__mediaTileCollageTimer);
-                collage.__mediaTileCollageTimer = null;
-            }
-        };
-
-        var schedule = function () {
-            clearTimer();
-            if (!visible || document.hidden || (motionQuery && motionQuery.matches)) return;
-            collage.__mediaTileCollageTimer = window.setTimeout(rotate, 3000 + (seed % 1200));
-        };
-
-        var rotate = function () {
-            var attempts = 0;
-            while (attempts < cells.length) {
-                var cell = cells[cellCursor % cells.length];
-                cellCursor = (cellCursor + 1) % cells.length;
-                attempts++;
-                var images = Array.from(cell.querySelectorAll('[data-collage-image]'));
-                if (images.length < 2) continue;
-
-                var activeIndex = Math.max(0, images.findIndex(function (image) { return image.classList.contains('is-active'); }));
-                images[activeIndex].classList.remove('is-active');
-                images[(activeIndex + 1) % images.length].classList.add('is-active');
-                break;
-            }
-            schedule();
-        };
-
-        var handleVisibility = function () { schedule(); };
-        document.addEventListener('visibilitychange', handleVisibility);
-        if (motionQuery && motionQuery.addEventListener) {
-            motionQuery.addEventListener('change', handleVisibility);
-        }
-
-        if ('IntersectionObserver' in window) {
-            collage.__mediaTileCollageObserver = new IntersectionObserver(function (entries) {
-                visible = entries.some(function (entry) { return entry.isIntersecting; });
-                schedule();
-            }, { rootMargin: '120px' });
-            collage.__mediaTileCollageObserver.observe(collage);
-        }
-
-        collage.__mediaTileCollageClearTimer = clearTimer;
-        collage.__mediaTileCollageVisibility = handleVisibility;
-        collage.__mediaTileCollageMotionQuery = motionQuery;
-        collage.__mediaTileCollageRegistered = true;
-        schedule();
-    });
-};
-
-window.unregisterMediaTileCollages = function (root) {
-    if (!root) return;
-
-    root.querySelectorAll('[data-media-tile-collage]').forEach(function (collage) {
-        if (collage.__mediaTileCollageClearTimer) collage.__mediaTileCollageClearTimer();
-        if (collage.__mediaTileCollageObserver) collage.__mediaTileCollageObserver.disconnect();
-        if (collage.__mediaTileCollageVisibility) {
-            document.removeEventListener('visibilitychange', collage.__mediaTileCollageVisibility);
-            var motionQuery = collage.__mediaTileCollageMotionQuery;
-            if (motionQuery && motionQuery.removeEventListener) {
-                motionQuery.removeEventListener('change', collage.__mediaTileCollageVisibility);
-            }
-        }
-        delete collage.__mediaTileCollageRegistered;
-    });
-};
-
 // -- Media tile hover positioning ------------------------------------
 
 window.getMediaTileHoverHost = function () {
@@ -879,13 +791,20 @@ window.showMediaTileHover = function (cardEl) {
 
     var frame = cardEl.querySelector('.media-tile-frame') || cardEl;
     var frameRect = frame.getBoundingClientRect();
+    var storedAnchorWidth = parseFloat(cardEl.style.getPropertyValue('--media-tile-hover-anchor-width'));
+    var storedAnchorHeight = parseFloat(cardEl.style.getPropertyValue('--media-tile-hover-anchor-height'));
+    var anchorWidth = frameRect.width > 16 ? frameRect.width : storedAnchorWidth;
+    var anchorHeight = frameRect.height > 16 ? frameRect.height : storedAnchorHeight;
+    if (!Number.isFinite(anchorWidth) || anchorWidth <= 16 || !Number.isFinite(anchorHeight) || anchorHeight <= 16) {
+        return;
+    }
     var rowRect = rowContainer ? rowContainer.getBoundingClientRect() : document.documentElement.getBoundingClientRect();
     var expandedWidth = Math.min(
-        Math.max(frameRect.width * 2.15, 520),
-        Math.max(frameRect.width, rowRect.width - 16),
+        Math.max(anchorWidth * 2.15, 520),
+        Math.max(anchorWidth, rowRect.width - 16),
         720);
-    cardEl.style.setProperty('--media-tile-hover-anchor-width', Math.round(frameRect.width) + 'px');
-    cardEl.style.setProperty('--media-tile-hover-anchor-height', Math.round(frameRect.height) + 'px');
+    cardEl.style.setProperty('--media-tile-hover-anchor-width', Math.round(anchorWidth) + 'px');
+    cardEl.style.setProperty('--media-tile-hover-anchor-height', Math.round(anchorHeight) + 'px');
     cardEl.style.setProperty('--media-tile-expanded-width', Math.round(expandedWidth) + 'px');
     if (rowContainer) {
         rowContainer.classList.add('has-active-in-row-hover');
@@ -953,8 +872,12 @@ window.clearMediaTileHover = function (cardEl) {
             return;
         }
 
-        cardEl.style.removeProperty('--media-tile-hover-anchor-width');
-        cardEl.style.removeProperty('--media-tile-hover-anchor-height');
+        var restingFrame = cardEl.querySelector('.media-tile-frame') || cardEl;
+        var restingFrameRect = restingFrame.getBoundingClientRect();
+        if (restingFrameRect.width > 16 && restingFrameRect.height > 16) {
+            cardEl.style.setProperty('--media-tile-hover-anchor-width', Math.round(restingFrameRect.width) + 'px');
+            cardEl.style.setProperty('--media-tile-hover-anchor-height', Math.round(restingFrameRect.height) + 'px');
+        }
         cardEl.style.removeProperty('--media-tile-expanded-width');
         if (wasGridOverlay) {
             panel.classList.remove('is-grid-overlay');
@@ -986,6 +909,16 @@ window.registerMediaTileHover = function (cardEl) {
     if (!cardEl || cardEl.__mediaTileHoverRegistered) return;
 
     cardEl.classList.add('is-hover-js-enabled');
+
+    // Cache the resting geometry before keyboard expansion changes the card layout.
+    // Mouse activation remeasures the same frame; keyboard activation can safely
+    // fall back to these dimensions instead of collapsing to an empty frame.
+    var restingFrame = cardEl.querySelector('.media-tile-frame') || cardEl;
+    var restingFrameRect = restingFrame.getBoundingClientRect();
+    if (restingFrameRect.width > 16 && restingFrameRect.height > 16) {
+        cardEl.style.setProperty('--media-tile-hover-anchor-width', Math.round(restingFrameRect.width) + 'px');
+        cardEl.style.setProperty('--media-tile-hover-anchor-height', Math.round(restingFrameRect.height) + 'px');
+    }
 
     var show = function () {
         if (cardEl.__mediaTileHideTimer) {

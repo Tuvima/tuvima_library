@@ -132,6 +132,8 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'series_position' LIMIT 1)
                 ) AS SeriesPosition,
                 (SELECT display_name FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionTitle,
+                (SELECT description FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionDescription,
+                (SELECT collection_type FROM collections WHERE id = CollectionId LIMIT 1) AS CollectionType,
                 COALESCE(
                     (SELECT CAST(value AS INTEGER)
                      FROM canonical_values
@@ -155,6 +157,11 @@ public sealed class DisplayWorkProjectionReader
                     )
                 ) AS CollectionManifestTotalCount,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'narrator' LIMIT 1) AS Narrator,
+                COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('publisher', 'imprint') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('publisher', 'imprint') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('publisher', 'imprint') LIMIT 1)
+                ) AS Publisher,
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),

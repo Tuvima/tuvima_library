@@ -766,6 +766,7 @@ public sealed class CollectionCatalogReadService(
                    COALESCE(NULLIF(title_work.value, ''), NULLIF(episode_title.value, ''), NULLIF(show_name.value, ''), NULLIF(series_item.item_label, ''), 'Untitled') AS Title,
                    w.media_type AS MediaType,
                    preferred_cover.id AS CoverAssetId,
+                   preferred_cover.asset_type AS ArtworkType,
                    COALESCE(NULLIF(cover_asset.value, ''), NULLIF(cover_work.value, ''), CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END) AS CoverUrl,
                    COALESCE(
                        (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'short_description' LIMIT 1),
@@ -796,7 +797,15 @@ public sealed class CollectionCatalogReadService(
                 WHERE ea.entity_id = w.id
                   AND ea.entity_type = 'Work'
                   AND ea.asset_type IN ('CoverArt', 'SquareArt', 'Background', 'Banner')
-                ORDER BY ea.is_preferred DESC, ea.created_at DESC, ea.id
+                ORDER BY CASE ea.asset_type
+                             WHEN 'CoverArt' THEN 0
+                             WHEN 'SquareArt' THEN 1
+                             WHEN 'Background' THEN 2
+                             ELSE 3
+                         END,
+                         ea.is_preferred DESC,
+                         ea.created_at DESC,
+                         ea.id
                 LIMIT 1
             )
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
@@ -822,7 +831,7 @@ public sealed class CollectionCatalogReadService(
             .GroupBy(row => row.WorkId)
             .ToDictionary(grouping => grouping.Key, grouping => grouping.First());
 
-        return workIds
+        var artworkItems = workIds
             .Where(rowById.ContainsKey)
             .Select(id =>
             {
@@ -850,11 +859,13 @@ public sealed class CollectionCatalogReadService(
                     PrimaryColor = row.PrimaryColor,
                     SecondaryColor = row.SecondaryColor,
                     AccentColor = row.AccentColor,
-                    ArtworkShape = ArtworkShapeForMediaType(row.MediaType),
+                    ArtworkShape = ArtworkShapeFor(row.ArtworkType, row.MediaType),
                     LocalImagePath = row.LocalImagePath,
                 };
             })
             .ToList();
+
+        return SelectCollectionArtworkItems(artworkItems, maximum: 4);
     }
 
     private static bool IsWatchMediaType(string? mediaType) =>
@@ -875,14 +886,51 @@ public sealed class CollectionCatalogReadService(
         || string.Equals(mediaType, "Comics", StringComparison.OrdinalIgnoreCase)
         || string.Equals(mediaType, "Comic", StringComparison.OrdinalIgnoreCase);
 
-    private static string ArtworkShapeForMediaType(string? mediaType)
+    private static string ArtworkShapeFor(string? artworkType, string? mediaType)
     {
+        if (artworkType?.Contains("Square", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "square";
+        }
+
+        if (artworkType?.Contains("Background", StringComparison.OrdinalIgnoreCase) == true
+            || artworkType?.Contains("Banner", StringComparison.OrdinalIgnoreCase) == true
+            || artworkType?.Contains("Still", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "wide";
+        }
+
         if (IsReadMediaType(mediaType) || IsWatchMediaType(mediaType))
         {
             return "portrait";
         }
 
         return "square";
+    }
+
+    private static IReadOnlyList<CollectionArtworkItemDto> SelectCollectionArtworkItems(
+        IReadOnlyList<CollectionArtworkItemDto> items,
+        int maximum)
+    {
+        var available = items
+            .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
+            .DistinctBy(item => item.WorkId)
+            .DistinctBy(item => item.CoverUrl, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (available.Count <= maximum)
+        {
+            return available;
+        }
+
+        // Collections first communicate their cross-media breadth, then fill any
+        // remaining slots in the collection's stable display order.
+        return available
+            .GroupBy(item => DisplayMediaRules.NormalizeDisplayKind(item.MediaType), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Concat(available)
+            .DistinctBy(item => item.WorkId)
+            .Take(maximum)
+            .ToList();
     }
 
     private static MediaType? TryParseMediaType(string? mediaType) =>
@@ -912,6 +960,7 @@ public sealed class CollectionCatalogReadService(
         public string? Title { get; init; }
         public string? MediaType { get; init; }
         public Guid? CoverAssetId { get; init; }
+        public string? ArtworkType { get; init; }
         public string? CoverUrl { get; init; }
         public string? Description { get; init; }
         public string? Year { get; init; }

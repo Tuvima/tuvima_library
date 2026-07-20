@@ -62,6 +62,16 @@ public enum MediaTileHoverMode
 
 public sealed record MediaTileMediaCountViewModel(string Icon, string Label, int Count);
 
+public sealed record MediaTileGroupSummaryViewModel
+{
+    public int OwnedCount { get; init; }
+    public int? KnownTotalCount { get; init; }
+    public int CompletedCount { get; init; }
+    public int InProgressCount { get; init; }
+    public string? SequenceRange { get; init; }
+    public string? RelationshipLabel { get; init; }
+}
+
 public sealed class MediaTileViewModel
 {
     public Guid Id { get; init; }
@@ -85,6 +95,7 @@ public sealed class MediaTileViewModel
     public string? SourceBadgeLabel { get; init; }
     public string? SourceLogoUrl { get; init; }
     public IReadOnlyList<MediaTileMediaCountViewModel> MediaCounts { get; init; } = [];
+    public MediaTileGroupSummaryViewModel? GroupSummary { get; init; }
     public IReadOnlyList<string> ContextLines { get; init; } = [];
     public IReadOnlyList<string> HoverFacts { get; init; } = [];
     public string? Tldr { get; init; }
@@ -94,6 +105,7 @@ public sealed class MediaTileViewModel
     public string SecondaryAccentColor { get; init; } = "#111827";
     public ArtworkPalette? ArtworkPalette { get; init; }
     public MediaTileShape Shape { get; init; } = MediaTileShape.Portrait;
+    public MediaTileShape? HoverArtworkShape { get; init; }
     public MediaTilePresentation Presentation { get; init; } = MediaTilePresentation.Default;
     public MediaTileSurfaceKind SurfaceKind { get; init; } = MediaTileSurfaceKind.CoverPortrait;
     public MediaTileHoverLayout HoverLayout { get; init; } = MediaTileHoverLayout.ArtOnlyPopover;

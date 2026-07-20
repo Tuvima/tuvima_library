@@ -48,6 +48,7 @@ public sealed class MediaTileArtworkResolverTests
         Assert.Equal(MediaTileShape.Square, surface.Shape);
         Assert.Equal(MediaTileSurfaceKind.CoverSquare, surface.SurfaceKind);
         Assert.Equal(MediaTileImageFitMode.Fill, surface.TileImageFitMode);
+        Assert.Equal(MediaTileShape.Portrait, surface.HoverArtworkShape);
     }
 
     [Fact]
@@ -77,5 +78,19 @@ public sealed class MediaTileArtworkResolverTests
 
         Assert.Equal(MediaTileHoverLayout.ArtOnlyPopover, surface.HoverLayout);
         Assert.Equal("/art/book-m.jpg", surface.HoverImageUrl);
+    }
+
+    [Fact]
+    public void Resolve_PosterOnlyMovieUsesContainedCoverLedHover()
+    {
+        var surface = MediaTileArtworkResolver.Resolve(
+            MediaTileBucket.Movie,
+            MediaTilePresentation.Default,
+            [new MediaTileArtworkVariant(ArtworkRole.Cover, "/art/poster-s.jpg", "/art/poster-m.jpg", "/art/poster-l.jpg", 600, 900)]);
+
+        Assert.Equal(MediaTileHoverLayout.ArtOnlyPopover, surface.HoverLayout);
+        Assert.Equal(MediaTileShape.Portrait, surface.HoverArtworkShape);
+        Assert.Equal(MediaTileImageFitMode.Contain, surface.HoverImageFitMode);
+        Assert.Equal("/art/poster-m.jpg", surface.HoverImageUrl);
     }
 }

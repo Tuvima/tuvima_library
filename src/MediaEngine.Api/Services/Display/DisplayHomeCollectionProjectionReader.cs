@@ -1,6 +1,6 @@
 using MediaEngine.Api.Models;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
@@ -77,6 +77,7 @@ public sealed class DisplayHomeCollectionProjectionReader
             WatchCount = collection.WatchCount,
             ReadCount = collection.ReadCount,
             ListenCount = collection.ListenCount,
+            OtherCount = collection.OtherCount,
             PreviewItems = collection.ArtworkItems
                 .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
                 .Select(item => new DisplayCardPreviewItemDto(

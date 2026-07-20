@@ -99,16 +99,18 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("592 pages", cut.Markup);
         Assert.Contains("4.3", cut.Find(".media-tile-rating-pill").TextContent);
         Assert.DoesNotContain(item.Description, cut.Markup);
-        Assert.Single(cut.FindAll("button[aria-label='Not for me']"));
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
+        Assert.Single(cut.FindAll("button[aria-label='Like']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
-        Assert.NotEmpty(cut.FindAll(".media-tile-reaction-menu button[aria-label='Rate this title']"));
-        Assert.Equal(3, cut.FindAll(".media-tile-reaction-tray button").Count);
+        Assert.Single(cut.FindAll(".media-tile-reaction-swap button"));
+        Assert.Empty(cut.FindAll(".media-tile-reaction-tray"));
         Assert.Empty(cut.FindAll(".media-tile-visible-dislike-action"));
         Assert.Empty(cut.FindAll("button[aria-label='Add to collection']"));
         Assert.NotEmpty(cut.FindAll(".tl-media-action--compact"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-progress"));
+
+        cut.Find(".media-tile-reaction-swap").TriggerEvent("onmouseenter", new MouseEventArgs());
+        Assert.Single(cut.FindAll("button[aria-label='Not for me']"));
+        Assert.Empty(cut.FindAll("button[aria-label='Like']"));
 
         cut.Find(".media-tile").TriggerEvent("onkeydown", new KeyboardEventArgs { Key = "ArrowDown" });
         Assert.Contains("is-expanded", cut.Find(".media-tile").ClassList);
@@ -196,46 +198,39 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void MediaGroupTile_ChangesSelectedItemWithoutChangingCardDimensions()
+    public void MediaGroupTile_ShowsStaticSummaryWithoutChangingCardDimensions()
     {
         var group = CreateGroupTile();
         var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
         var root = cut.Find("article.media-group-tile");
 
         Assert.Contains(root.Attributes, attribute => attribute.Name.StartsWith("b-", StringComparison.Ordinal));
-        Assert.Contains("Foundation", cut.Find(".media-artwork-carousel__caption").TextContent);
-        Assert.Equal("Book Series: Foundation Series", cut.Find(".media-group-tile__identity .media-group-tile__kind").TextContent.Trim());
-        Assert.Equal("Foundation", cut.Find(".media-group-tile__identity h3").TextContent.Trim());
-        Assert.Equal("The first Foundation novel.", cut.Find(".media-group-tile__description").TextContent.Trim());
-        Assert.Contains("1951", cut.Find(".media-group-tile__facts").TextContent);
-        Assert.Contains("4.4", cut.Find(".media-group-tile__rating").TextContent);
-        Assert.DoesNotContain("2 books", cut.Find(".media-group-tile__facts").TextContent, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("owned titles", cut.Find(".media-group-tile__facts").TextContent, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Book 1", cut.Find(".media-artwork-carousel__caption").TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Book Series", cut.Find(".media-group-tile__identity .media-group-tile__kind").TextContent.Trim());
+        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__identity h3").TextContent.Trim());
+        Assert.Contains("A classic science-fiction sequence", cut.Find(".media-group-tile__description").TextContent);
+        Assert.Contains("2 of 3 owned", cut.Find(".media-group-tile__summary-line").TextContent);
+        Assert.Contains("Ordered series", cut.Find(".media-group-tile__summary-line").TextContent);
+        Assert.Contains("Books 1\u20132 owned", cut.Find(".media-group-tile__overview").TextContent);
+        Assert.Contains("1 complete \u00b7 1 in progress", cut.Find(".media-group-tile__overview").TextContent);
+        Assert.DoesNotContain("Foundation and Empire", cut.Find(".media-group-tile__overview").TextContent);
+        Assert.Equal(2, cut.FindAll(".media-artwork-group-preview.is-strip-layout").Count);
+        Assert.Empty(cut.FindAll(".media-artwork-group-preview.is-mosaic-layout"));
         Assert.Empty(cut.FindAll(".media-tile"));
         Assert.Contains("Open Series", cut.Find(".media-group-tile__group-action").TextContent);
-        Assert.Contains("Open Book", cut.Find(".media-group-tile__item-action").TextContent);
+        Assert.Empty(cut.FindAll(".media-group-tile__item-action"));
+        Assert.Empty(cut.FindAll(".media-artwork-carousel"));
+        Assert.Empty(cut.FindAll("button[aria-label^='Next']"));
 
         cut.Find("a.media-group-tile__base").Click();
         var nav = Services.GetRequiredService<NavigationManager>();
         Assert.EndsWith("/details/bookseries/foundation", nav.Uri, StringComparison.Ordinal);
 
-        cut.Find("button[aria-label='Next book']").Click();
-
-        Assert.Contains("Foundation and Empire", cut.Find(".media-artwork-carousel__caption").TextContent);
-        Assert.Equal("Foundation and Empire", cut.Find(".media-group-tile__identity h3").TextContent.Trim());
-        Assert.Equal("The second Foundation novel.", cut.Find(".media-group-tile__description").TextContent.Trim());
-        Assert.Contains("1952", cut.Find(".media-group-tile__facts").TextContent);
-        Assert.Contains("2 of 2", cut.Find(".media-artwork-carousel__pagination").TextContent);
-        Assert.DoesNotContain("Book 2", cut.Find(".media-artwork-carousel__caption").TextContent, StringComparison.OrdinalIgnoreCase);
-        cut.Find("button[aria-label='Open Foundation and Empire']").Click();
-
-        Assert.EndsWith("/book/2?mode=read", nav.Uri, StringComparison.Ordinal);
-
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
-        Assert.Contains("--media-group-tile-width: clamp(364px, 26.6vw, 504px)", css, StringComparison.Ordinal);
-        Assert.Contains("--media-group-tile-height: clamp(280px, 17.5vw, 350px)", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-width: clamp(540px, 37vw, 680px)", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-height: clamp(270px, 18vw, 330px)", css, StringComparison.Ordinal);
         Assert.Contains("height: 100%", css, StringComparison.Ordinal);
+        Assert.Contains("background: transparent", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("media-group-tile__highlights", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".media-group-tile:hover {\n    transform:", css.ReplaceLineEndings("\n"), StringComparison.Ordinal);
     }
 
@@ -319,10 +314,21 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         NavigationUrl = "/details/bookseries/foundation",
         PrimaryNavigationUrl = "/details/bookseries/foundation",
         PrimaryActionLabel = "Open Series",
+        Description = "A classic science-fiction sequence about civilization and change.",
         IsCollection = true,
         UseLandscapeGroupTile = true,
         PreviewTotalCount = 2,
         HoverFacts = ["2 owned titles"],
+        GroupSummary = new MediaTileGroupSummaryViewModel
+        {
+            OwnedCount = 2,
+            KnownTotalCount = 3,
+            CompletedCount = 1,
+            InProgressCount = 1,
+            SequenceRange = "Books 1\u20132 owned",
+            RelationshipLabel = "Ordered series",
+        },
+        MediaCounts = [new MediaTileMediaCountViewModel(MudBlazor.Icons.Material.Filled.MenuBook, "Books", 2)],
         ArtworkStackItems =
         [
             new ArtworkStackItem
@@ -355,7 +361,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     };
 
     [Fact]
-    public void MediaTile_PortraitSeriesUsesFourCellCollageWithTwoItemsDiagonal()
+    public void MediaTile_PortraitSeriesUsesStaticShapeAwarePreview()
     {
         var item = new MediaTileViewModel
         {
@@ -384,13 +390,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.NotEmpty(cut.FindAll(".media-tile.is-portrait.is-ordered-series-card"));
-        var restingCells = cut.Find(".media-tile-media").QuerySelectorAll(".media-tile-collage__cell");
-        Assert.Equal(4, restingCells.Length);
-        Assert.Single(restingCells[0].QuerySelectorAll("img"));
-        Assert.Empty(restingCells[1].QuerySelectorAll("img"));
-        Assert.Empty(restingCells[2].QuerySelectorAll("img"));
-        Assert.Single(restingCells[3].QuerySelectorAll("img"));
-        Assert.Equal(4, cut.Find(".media-tile-hover-art").QuerySelectorAll(".media-tile-collage__cell").Length);
+        Assert.Equal(2, cut.Find(".media-tile-media").QuerySelectorAll(".media-artwork-group-preview__artwork").Length);
+        Assert.Equal(2, cut.Find(".media-tile-hover-art").QuerySelectorAll(".media-artwork-group-preview__artwork").Length);
         Assert.Empty(cut.FindAll(".media-tile-collection-copy"));
         Assert.Empty(cut.FindAll(".media-tile-caption"));
         Assert.Contains("Book Series", cut.Find(".media-tile-group-kind").TextContent);
@@ -398,25 +399,59 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void MediaTileCollage_WithThreeItemsLeavesOnlyLastCellBlank()
+    public void MediaArtworkGroupPreview_CapsArtworkAtFourAndShowsOverflow()
     {
         var items = new List<ArtworkStackItem>
         {
             new() { Id = "1", Title = "One", ImageUrl = "/covers/1.jpg" },
             new() { Id = "2", Title = "Two", ImageUrl = "/covers/2.jpg" },
             new() { Id = "3", Title = "Three", ImageUrl = "/covers/3.jpg" },
+            new() { Id = "4", Title = "Four", ImageUrl = "/covers/4.jpg" },
+            new() { Id = "5", Title = "Five", ImageUrl = "/covers/5.jpg" },
         };
 
-        var cut = RenderComponent<MediaTileCollage>(parameters => parameters
+        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
             .Add(component => component.Items, items)
-            .Add(component => component.PreserveOrder, true));
+            .Add(component => component.TotalCount, 7));
 
-        var cells = cut.FindAll(".media-tile-collage__cell");
-        Assert.Equal(4, cells.Count);
-        Assert.Single(cells[0].QuerySelectorAll("img"));
-        Assert.Single(cells[1].QuerySelectorAll("img"));
-        Assert.Single(cells[2].QuerySelectorAll("img"));
-        Assert.Empty(cells[3].QuerySelectorAll("img"));
+        Assert.Equal(4, cut.FindAll(".media-artwork-group-preview__artwork").Count);
+        Assert.Equal("+3", cut.Find(".media-artwork-group-preview__overflow").TextContent);
+    }
+
+    [Theory]
+    [InlineData(2, "has-two")]
+    [InlineData(3, "has-three")]
+    [InlineData(4, "has-four")]
+    public void MediaArtworkGroupPreview_StripKeepsTwoToFourCoversInOneStaticRow(
+        int itemCount,
+        string countClass)
+    {
+        var items = Enumerable.Range(1, itemCount)
+            .Select(index => new ArtworkStackItem
+            {
+                Id = index.ToString(),
+                Title = $"Title {index}",
+                ImageUrl = $"/covers/{index}.jpg",
+                Shape = ArtworkShape.Portrait,
+            })
+            .ToList();
+
+        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
+            .Add(component => component.Items, items)
+            .Add(component => component.TotalCount, itemCount)
+            .Add(component => component.Layout, MediaArtworkGroupPreviewLayout.Strip)
+            .Add(component => component.ShowOverflowCount, false));
+
+        var root = cut.Find(".media-artwork-group-preview");
+        Assert.Contains("is-strip-layout", root.ClassList);
+        Assert.Contains(countClass, root.ClassList);
+        Assert.Equal(itemCount, cut.FindAll(".media-artwork-group-preview__artwork").Count);
+        Assert.Empty(cut.FindAll(".media-artwork-group-preview__overflow"));
+
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Shared/MediaArtworkGroupPreview.razor.css"));
+        Assert.Contains($".media-artwork-group-preview.is-strip-layout.{countClass}", css, StringComparison.Ordinal);
+        Assert.Contains("object-fit: fill", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("is-mosaic-layout", css, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -444,7 +479,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.Contains("TV Show", cut.Find(".media-tile-group-kind").TextContent);
         Assert.Equal("12 episodes owned", cut.Find(".media-tile-group-count").GetAttribute("aria-label"));
-        Assert.Empty(cut.FindAll(".media-tile-collage"));
+        Assert.Empty(cut.FindAll(".media-artwork-group-preview"));
         Assert.DoesNotContain("is-collection-card", cut.Find("article.media-tile").ClassList);
         Assert.DoesNotContain("is-collection-hover", cut.Find(".media-tile-hover-panel").ClassList);
         Assert.Contains("is-banner-popover", cut.Find(".media-tile-hover-panel").ClassList);
@@ -611,10 +646,60 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll("button[aria-label='Listen']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Not for me']"));
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Like']"));
-        Assert.NotEmpty(cut.FindAll("button[aria-label='Love']"));
+        Assert.Single(cut.FindAll("button[aria-label='Like']"));
+        cut.Find(".media-tile-reaction-swap").TriggerEvent("onmouseenter", new MouseEventArgs());
+        Assert.Single(cut.FindAll("button[aria-label='Not for me']"));
         Assert.Empty(cut.FindAll("button[aria-label='Add to collection']"));
+    }
+
+    [Fact]
+    public void MediaTile_AlbumUsesSquareCoverLedArtAndThreeTrackPreview()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            WorkId = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "Midnight Echo",
+            Subtitle = "Nova Vale",
+            MediaKind = "Music",
+            Shape = MediaTileShape.Square,
+            HoverArtworkShape = MediaTileShape.Square,
+            Presentation = MediaTilePresentation.Album,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/midnight-echo.jpg",
+            HoverImageUrl = "/art/midnight-echo.jpg",
+            NavigationUrl = "/listen/music/albums/midnight-echo",
+            PrimaryNavigationUrl = "/listen/music/albums/midnight-echo",
+            PrimaryActionLabel = "Play Album",
+            IsCollection = true,
+            HoverFacts = ["2026", "12 tracks", "43 min"],
+            ArtworkStackItems = Enumerable.Range(1, 4)
+                .Select(index => new ArtworkStackItem
+                {
+                    Id = index.ToString(),
+                    WorkId = Guid.NewGuid(),
+                    AssetId = Guid.NewGuid(),
+                    Title = $"Track {index}",
+                    ImageUrl = "/art/midnight-echo.jpg",
+                    MediaType = "Music",
+                    Shape = ArtworkShape.Square,
+                    Position = index.ToString(),
+                    Facts = [$"{index + 2}:00"],
+                })
+                .ToList(),
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+
+        Assert.Contains("is-cover-led", cut.Find(".media-tile-hover-panel").ClassList);
+        Assert.Contains("has-hover-square-art", cut.Find(".media-tile-hover-panel").ClassList);
+        Assert.Equal(3, cut.FindAll(".media-tile-hover-context li").Count);
+        Assert.Contains("Track preview", cut.Find(".media-tile-hover-context").TextContent);
+        Assert.Contains("43 min", cut.Find(".media-tile-hover-facts").TextContent);
+        Assert.Single(cut.FindAll("button[aria-label='Play Album']"));
     }
 
     [Fact]
@@ -629,13 +714,14 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("--media-tile-media-height: clamp(400px, 25vw, 500px)", css);
         Assert.Contains(".media-tile-book-pages", css);
         Assert.Contains("background: transparent", css);
-        Assert.Contains(".media-tile-feedback-control:focus-within", css);
         Assert.DoesNotContain("media-tile-visible-dislike-action", tileSource);
         Assert.Contains("media-tile-reaction-trigger", tileSource);
-        Assert.Contains("media-tile-reaction-tray", tileSource);
+        Assert.Contains("media-tile-reaction-swap", tileSource);
+        Assert.DoesNotContain("media-tile-reaction-tray", tileSource);
         Assert.Contains("Icons.Material.Outlined.ThumbDownOffAlt", tileSource);
-        Assert.Contains("background: color-mix(in srgb, var(--art-bg-base-dark, #080c12) 72%, transparent)", css);
-        Assert.Contains("width: 188px", css);
+        Assert.Contains(".media-tile-hover-context,", css);
+        Assert.Contains("border-top: 1px solid rgba(148, 163, 184, 0.2)", css);
+        Assert.Contains(".media-tile-reaction-swap:hover", css);
         Assert.Contains("--media-tile-hover-anchor-height", css);
         Assert.Contains("clamp(820px, 52vw, 980px)", css);
         Assert.Contains("object-fit: contain", css);
@@ -662,6 +748,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("panel.classList.add('is-inline-expanded')", appJs);
         Assert.Contains("cardEl.style.setProperty('--media-tile-hover-anchor-width'", appJs);
         Assert.Contains("cardEl.style.setProperty('--media-tile-hover-anchor-height'", appJs);
+        Assert.Contains("var storedAnchorHeight = parseFloat", appJs);
+        Assert.Contains("var restingFrameRect = restingFrame.getBoundingClientRect()", appJs);
+        Assert.Contains("Number.isFinite(anchorHeight)", appJs);
         Assert.Contains("cardEl.style.setProperty('--media-tile-expanded-width'", appJs);
         Assert.Contains("window.keepMediaTileHoverInRowViewport", appJs);
         Assert.Contains("row.scrollTo({ left: row.scrollLeft + delta, behavior: 'smooth' })", appJs);
@@ -675,7 +764,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("cardEl.closest('.media-tile-grid')", appJs);
         Assert.Contains("panel.classList.add('is-grid-overlay')", appJs);
         Assert.Contains("window.restoreMediaTileHover(cardEl);", appJs);
-        Assert.Contains("window.registerMediaTileCollages", appJs);
+        Assert.DoesNotContain("window.registerMediaTileCollages", appJs);
         Assert.Contains("prefers-reduced-motion: reduce", appJs);
         Assert.Contains(".media-tile.is-square", css);
         Assert.Contains("--media-tile-media-height: clamp(400px, 25vw, 500px)", css);

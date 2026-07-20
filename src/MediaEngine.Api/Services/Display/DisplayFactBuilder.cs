@@ -12,6 +12,7 @@ public static class DisplayFactBuilder
         string? author = null,
         string? artist = null,
         string? narrator = null,
+        string? publisher = null,
         string? series = null,
         string? seriesPosition = null,
         string? showName = null,
@@ -39,6 +40,10 @@ public static class DisplayFactBuilder
             case "Book":
             case "Comic":
                 AddFact(facts, author, title);
+                if (mediaKind == "Comic")
+                {
+                    AddFact(facts, publisher, title);
+                }
                 AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
                 AddFact(facts, FormatPageCount(pageCount), title);
@@ -46,6 +51,7 @@ public static class DisplayFactBuilder
                 break;
             case "Audiobook":
                 AddFact(facts, author, title);
+                AddFact(facts, string.IsNullOrWhiteSpace(narrator) ? null : $"Narrated by {narrator.Trim()}", title);
                 AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
                 AddFact(facts, FormatDuration(FirstNonBlank(duration, runtime), mediaKind), title);

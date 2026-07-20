@@ -492,6 +492,7 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   Badges: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardBadgeDto> | nullability=not-null | accessors=get,init
   PreviewItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardPreviewItemDto> | nullability=not-null | accessors=get,init
   PreviewTotalCount: System.Int32? | nullability=nullable | accessors=get,init
+  GroupSummary: MediaEngine.Contracts.Display.DisplayGroupSummaryDto | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   IsPlayable: System.Boolean | nullability=not-null | accessors=get,init
@@ -511,6 +512,19 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardPreviewIt
   WebUrl: System.String | nullability=nullable | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
   Facts: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayGroupMediaCountDto
+  MediaType: System.String | nullability=not-null | accessors=get,init
+  Count: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayGroupSummaryDto
+  OwnedCount: System.Int32 | nullability=not-null | accessors=get,init
+  KnownTotalCount: System.Int32? | nullability=nullable | accessors=get,init
+  CompletedCount: System.Int32 | nullability=not-null | accessors=get,init
+  InProgressCount: System.Int32 | nullability=not-null | accessors=get,init
+  SequenceRange: System.String | nullability=nullable | accessors=get,init
+  RelationshipLabel: System.String | nullability=nullable | accessors=get,init
+  MediaCounts: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayGroupMediaCountDto> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayHeroDto
   Title: System.String | nullability=not-null | accessors=get,init

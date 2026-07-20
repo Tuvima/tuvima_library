@@ -6,9 +6,10 @@
 
 .media-artwork-group-preview__artwork {
     position: absolute;
-    object-fit: cover;
+    object-fit: contain;
     border: 1px solid rgba(255, 255, 255, 0.24);
     border-radius: 6px;
+    background: rgba(3, 7, 18, 0.86);
     box-shadow: 0 13px 27px rgba(0, 0, 0, 0.58);
     transition: filter 180ms ease, opacity 180ms ease, transform 180ms ease;
 }
@@ -307,6 +308,35 @@
     z-index: 2;
     opacity: 0.62;
     transform: translateY(5%);
+}
+
+.media-artwork-group-preview.is-strip-layout {
+    display: grid;
+    gap: 5px;
+}
+
+.media-artwork-group-preview.is-strip-layout {
+    grid-template-rows: minmax(0, 1fr);
+}
+
+.media-artwork-group-preview.is-strip-layout.has-one { grid-template-columns: minmax(0, 1fr); }
+.media-artwork-group-preview.is-strip-layout.has-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.media-artwork-group-preview.is-strip-layout.has-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.media-artwork-group-preview.is-strip-layout.has-four,
+.media-artwork-group-preview.is-strip-layout.has-more { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.media-artwork-group-preview.is-strip-layout .media-artwork-group-preview__artwork {
+    position: relative;
+    inset: auto !important;
+    z-index: 1;
+    width: 100% !important;
+    max-width: 100%;
+    height: 100% !important;
+    max-height: 100%;
+    aspect-ratio: auto !important;
+    object-fit: fill;
+    opacity: 1 !important;
+    transform: none !important;
 }
 
 .media-artwork-group-preview__overflow {

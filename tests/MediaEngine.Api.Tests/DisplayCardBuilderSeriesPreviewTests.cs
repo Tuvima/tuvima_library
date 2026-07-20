@@ -22,6 +22,12 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         works[3].Year = "1951";
         works[3].PageCount = "255";
         works[3].Rating = "4.4";
+        foreach (var work in works)
+        {
+            work.CollectionDescription = "A science-fiction series about the fall and rebuilding of a galactic civilization.";
+            work.CollectionType = "Series";
+            work.CollectionManifestTotalCount = 7;
+        }
 
         var card = new DisplayCardBuilder()
             .BuildCollectionCards(works, "read", minimumSeriesItems: 2)
@@ -31,13 +37,67 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("5 owned titles", card.Subtitle);
         Assert.Equal(["5 owned titles"], card.Facts);
         Assert.Equal(5, card.PreviewTotalCount);
-        Assert.Equal(["Book One", "Book Two", "Book Three", "Book Four", "Book Five"], card.PreviewItems.Select(item => item.Title));
-        Assert.Equal(["1", "2", "3", "4", "5"], card.PreviewItems.Select(item => item.Position));
-        Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg", "/covers/5-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
+        Assert.Equal(["Book One", "Book Two", "Book Four", "Book Five"], card.PreviewItems.Select(item => item.Title));
+        Assert.Equal(["1", "2", "4", "5"], card.PreviewItems.Select(item => item.Position));
+        Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/4-s.jpg", "/covers/5-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
         Assert.All(card.PreviewItems, item => Assert.Equal("Book", item.MediaType));
         Assert.All(card.PreviewItems, item => Assert.StartsWith("/book/", item.WebUrl, StringComparison.Ordinal));
         Assert.Equal("The first book in the sequence.", card.PreviewItems[0].Description);
+        Assert.Equal("A science-fiction series about the fall and rebuilding of a galactic civilization.", card.Description);
+        Assert.Equal(5, card.GroupSummary?.OwnedCount);
+        Assert.Equal(7, card.GroupSummary?.KnownTotalCount);
+        Assert.Equal("Books 1\u20135 owned", card.GroupSummary?.SequenceRange);
+        Assert.Equal("Ordered series", card.GroupSummary?.RelationshipLabel);
+        Assert.Equal("Book", Assert.Single(card.GroupSummary!.MediaCounts).MediaType);
         Assert.Equal(["Example Author", "1951", "255 pages", "★ 4.4"], card.PreviewItems[0].Facts);
+    }
+
+    [Fact]
+    public void BuildCollectionCards_PrioritizesCurrentNextAndRecentlyCompletedMembers()
+    {
+        var collectionId = Guid.Parse("12111111-2222-3333-4444-555555555555");
+        var createdAt = DateTimeOffset.Parse("2026-06-01T12:00:00Z");
+        var works = Enumerable.Range(1, 6)
+            .Select(position => CreateWork(
+                collectionId,
+                "Book",
+                $"Book {position}",
+                position.ToString(),
+                $"/covers/{position}-s.jpg",
+                createdAt.AddMinutes(position)))
+            .ToArray();
+        var progressByWork = new Dictionary<Guid, DisplayJourneyRow>
+        {
+            [works[2].WorkId] = new() { WorkId = works[2].WorkId, ProgressPct = 42, LastAccessed = createdAt.AddDays(3) },
+            [works[1].WorkId] = new() { WorkId = works[1].WorkId, ProgressPct = 100, LastAccessed = createdAt.AddDays(2) },
+        };
+
+        var card = new DisplayCardBuilder()
+            .BuildCollectionCards(works, "read", progressByWork: progressByWork)
+            .Single();
+
+        Assert.Equal(["Book 3", "Book 4", "Book 2", "Book 1"], card.PreviewItems.Select(item => item.Title));
+        Assert.Equal(1, card.GroupSummary?.CompletedCount);
+        Assert.Equal(1, card.GroupSummary?.InProgressCount);
+        Assert.Equal("Books 1\u20136 owned", card.GroupSummary?.SequenceRange);
+    }
+
+    [Fact]
+    public void BuildCollectionCards_KeepsStructuralRepresentativesWhenArtworkIsMissing()
+    {
+        var collectionId = Guid.Parse("13111111-2222-3333-4444-555555555555");
+        var createdAt = DateTimeOffset.Parse("2026-06-01T12:00:00Z");
+        var works = new[]
+        {
+            CreateWork(collectionId, "Book", "Book One", "1", string.Empty, createdAt),
+            CreateWork(collectionId, "Book", "Book Two", "2", string.Empty, createdAt.AddMinutes(1)),
+        };
+
+        var card = new DisplayCardBuilder().BuildCollectionCards(works, "read").Single();
+
+        Assert.Equal(["Book One", "Book Two"], card.PreviewItems.Select(item => item.Title));
+        Assert.All(card.PreviewItems, item => Assert.Equal(string.Empty, item.ImageUrl));
+        Assert.Equal(2, card.PreviewTotalCount);
     }
 
     [Fact]
@@ -59,6 +119,8 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("2 owned issues", card.Subtitle);
         Assert.Equal(["2 owned issues"], card.Facts);
         Assert.Equal(2, card.PreviewTotalCount);
+        Assert.Null(card.GroupSummary?.KnownTotalCount);
+        Assert.Equal("Issues 1\u20132 owned", card.GroupSummary?.SequenceRange);
     }
 
     [Fact]
@@ -79,6 +141,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("2 owned titles", card.Subtitle);
         Assert.Equal(["2 owned titles"], card.Facts);
         Assert.Equal(2, card.PreviewTotalCount);
+        Assert.Equal(8, card.GroupSummary?.KnownTotalCount);
     }
 
     [Fact]
@@ -120,7 +183,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
     }
 
     [Fact]
-    public void BuildTvShowCards_UsesRootShowArtworkWithOwnedEpisodeCarousel()
+    public void BuildTvShowCards_UsesRootShowArtworkWithOwnedEpisodePreview()
     {
         var rootWorkId = Guid.Parse("33333333-2222-3333-4444-555555555555");
         var works = new[]

@@ -27,10 +27,11 @@
            @onclick:preventDefault="true">
             @if (ShowGroupCollage)
             {
-                <MediaTileCollage Items="@GroupCollageItems"
-                                  Seed="@CollectionStackSeed"
-                                  PreserveOrder="@UsesOrderedSeriesStack"
-                                  IsDecorative="true" />
+                <div class="media-tile-static-group-preview" aria-hidden="true">
+                    <MediaArtworkGroupPreview Items="@GroupCollageItems"
+                                              TotalCount="@Item.PreviewTotalCount"
+                                              AriaLabel="@($"Artwork from {Item.Title}")" />
+                </div>
             }
             else if (ShowCollectionBanner)
             {
@@ -117,12 +118,11 @@
                      @onclick:stopPropagation="true">
                     @if (ShowGroupCollage)
                     {
-                        <MediaTileCollage Items="@GroupCollageItems"
-                                          Seed="@CollectionStackSeed"
-                                          PreserveOrder="@UsesOrderedSeriesStack"
-                                          IsDecorative="false"
-                                          AriaLabel="@($"{Item.Title} item preview")"
-                                          Class="media-tile-hover-collage" />
+                        <div class="media-tile-static-group-preview">
+                            <MediaArtworkGroupPreview Items="@GroupCollageItems"
+                                                      TotalCount="@Item.PreviewTotalCount"
+                                                      AriaLabel="@($"Representative artwork from {Item.Title}")" />
+                        </div>
                     }
                     else if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
                     {
@@ -200,22 +200,20 @@
                                     </AppNativeButton>
                                 </div>
 
-                                <div class="media-tile-hover-action-unit media-tile-reaction-menu" tabindex="0" aria-label="Rate this title">
-                                    <AppNativeButton Type="button" Class="@ReactionTriggerButtonClass" AriaLabel="Rate this title" Title="Rate this title" StopPropagation="true">
-                                        <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
-                                        <span class="media-tile-visually-hidden">Rate this title</span>
+                                <div class="media-tile-hover-action-unit media-tile-reaction-swap"
+                                     @onmouseenter="BeginDislikeIntent"
+                                     @onmouseleave="EndDislikeIntent"
+                                     @onfocusin="BeginDislikeIntent"
+                                     @onfocusout="EndDislikeIntent">
+                                    <AppNativeButton Type="button"
+                                                     Class="@ReactionTriggerButtonClass"
+                                                     AriaLabel="@DisplayedReactionLabel"
+                                                     Title="@DisplayedReactionLabel"
+                                                     StopPropagation="true"
+                                                     OnClick="ToggleDisplayedReactionAsync">
+                                        <MudIcon Icon="@DisplayedReactionIcon" />
+                                        <span class="media-tile-visually-hidden">@DisplayedReactionLabel</span>
                                     </AppNativeButton>
-                                    <div class="media-tile-reaction-tray">
-                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Dislike, "media-tile-dislike-action")" AriaLabel="Not for me" Title="Not for me" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Dislike))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbDownOffAlt" />
-                                        </AppNativeButton>
-                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Like, "media-tile-like-action")" AriaLabel="Like" Title="Like" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Like))">
-                                            <MudIcon Icon="@Icons.Material.Outlined.ThumbUpOffAlt" />
-                                        </AppNativeButton>
-                                        <AppNativeButton Type="button" Class="@ReactionButtonClass(MediaReaction.Love, "media-tile-love-action")" AriaLabel="Love" Title="Love" StopPropagation="true" OnClick="@(() => SetReactionAsync(MediaReaction.Love))">
-                                            <MudIcon Icon="@(_reaction == MediaReaction.Love ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
-                                        </AppNativeButton>
-                                    </div>
                                 </div>
                             </div>
 
@@ -230,6 +228,13 @@
                         @if (ShowHoverProgressRow)
                         {
                             <div class="media-tile-hover-progress" aria-label="@ProgressCompleteLabel">
+                                @if (IsCoverLedHover)
+                                {
+                                    <div class="media-tile-hover-section-label">
+                                        <MudIcon Icon="@ProgressSectionIcon" />
+                                        <span>@ProgressSectionLabel</span>
+                                    </div>
+                                }
                                 <progress class="media-tile-hover-progress-track"
                                           value="@ProgressValue"
                                           max="100"></progress>
@@ -269,6 +274,43 @@
                             </div>
                         }
 
+                        @if (IsCoverLedHover && HoverPreviewItems.Count > 0)
+                        {
+                            <section class="media-tile-hover-context" aria-label="@HoverPreviewLabel">
+                                <div class="media-tile-hover-section-label">
+                                    <MudIcon Icon="@HoverPreviewIcon" />
+                                    <span>@HoverPreviewLabel</span>
+                                </div>
+                                <ol>
+                                    @foreach (var preview in HoverPreviewItems)
+                                    {
+                                        <li @key="preview.Id">
+                                            @if (!string.IsNullOrWhiteSpace(preview.Position))
+                                            {
+                                                <span class="media-tile-hover-context-position">@preview.Position</span>
+                                            }
+                                            <strong>@preview.Title</strong>
+                                            @if (!string.IsNullOrWhiteSpace(PreviewDuration(preview)))
+                                            {
+                                                <span class="media-tile-hover-context-duration">@PreviewDuration(preview)</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            </section>
+                        }
+
+                        @if (IsCoverLedHover && ShowHoverDescription)
+                        {
+                            <section class="media-tile-hover-description-block">
+                                <div class="media-tile-hover-section-label">
+                                    <MudIcon Icon="@DescriptionIcon" />
+                                    <span>@DescriptionLabel</span>
+                                </div>
+                                <p class="media-tile-hover-description">@DisplaySummary</p>
+                            </section>
+                        }
+
                     </div>
                 }
         </div>
@@ -286,12 +328,12 @@
 
     private bool _expanded;
     private bool _hoverRegistered;
-    private bool _collageRegistered;
     private bool _lastExpandedState;
     private bool _dismissedFromContinue;
     private int _hoverImageIndex;
     private bool _reactionLoaded;
     private MediaReaction _reaction;
+    private bool _showDislikeIntent;
     private bool _myListLoaded;
     private bool _isInMyList;
     private ElementReference _cardRef;
@@ -319,7 +361,18 @@
         _ => "is-hover-expanded",
     };
 
-    private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
+    private string HoverPanelClass => $"media-tile-hover-panel {ShapeClass} {HoverArtworkShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {HoverPresentationClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-hover" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-hover" : "")}";
+
+    private bool IsCoverLedHover => Item.HoverLayout == MediaTileHoverLayout.ArtOnlyPopover && !UsesCollectionVisualTreatment;
+
+    private string HoverPresentationClass => IsCoverLedHover ? "is-cover-led" : "is-cinematic";
+
+    private string HoverArtworkShapeClass => (Item.HoverArtworkShape ?? Item.Shape) switch
+    {
+        MediaTileShape.Landscape => "has-hover-landscape-art",
+        MediaTileShape.Square => "has-hover-square-art",
+        _ => "has-hover-portrait-art",
+    };
 
     private bool UsesCollectionVisualTreatment =>
         Item.IsCollection && Item.Presentation is not (MediaTilePresentation.TvSeries or MediaTilePresentation.Album);
@@ -416,8 +469,9 @@
 
     private IReadOnlyList<ArtworkStackItem> GroupCollageItems => CollectionArtworkStackItems
         .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+        .DistinctBy(item => item.Id)
         .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase)
-        .Take(12)
+        .Take(4)
         .ToList();
 
     private bool ShowGroupCollage =>
@@ -620,9 +674,69 @@
 
     private bool ShowHoverContextLines => EffectiveHoverMode == MediaTileHoverMode.Expanded && Item.ContextLines.Count > 0;
 
-    private bool ShowHoverDescription => EffectiveHoverMode == MediaTileHoverMode.Expanded && !string.IsNullOrWhiteSpace(DisplaySummary);
+    private bool ShowHoverDescription => EffectiveHoverMode == MediaTileHoverMode.Expanded
+        && !string.IsNullOrWhiteSpace(DisplaySummary)
+        && (Item.ProgressPct is not > 0 || Item.MediaKind is "Movie" or "TV");
+
+    private IReadOnlyList<ArtworkStackItem> HoverPreviewItems => Item.Presentation switch
+    {
+        MediaTilePresentation.Album => Item.ArtworkStackItems.Take(3).ToList(),
+        MediaTilePresentation.TvSeries => Item.ArtworkStackItems.Take(2).ToList(),
+        _ => [],
+    };
+
+    private string HoverPreviewLabel => Item.Presentation switch
+    {
+        MediaTilePresentation.Album => "Track preview",
+        MediaTilePresentation.TvSeries => "Owned episodes",
+        _ => "Preview",
+    };
+
+    private string HoverPreviewIcon => Item.Presentation switch
+    {
+        MediaTilePresentation.Album => Icons.Material.Outlined.GraphicEq,
+        MediaTilePresentation.TvSeries => Icons.Material.Outlined.LiveTv,
+        _ => Icons.Material.Outlined.List,
+    };
+
+    private string DescriptionLabel => Item.MediaKind switch
+    {
+        "Book" or "Comic" => "Preview",
+        "Music" => "Album description",
+        "TV" when Item.Presentation == MediaTilePresentation.TvSeries => "Series description",
+        _ => "Overview",
+    };
+
+    private string DescriptionIcon => Item.MediaKind switch
+    {
+        "Book" or "Comic" => Icons.Material.Outlined.AutoStories,
+        "Music" or "Audiobook" => Icons.Material.Outlined.Headphones,
+        "Movie" or "TV" => Icons.Material.Outlined.Movie,
+        _ => Icons.Material.Outlined.Info,
+    };
+
+    private static string? PreviewDuration(ArtworkStackItem item) => item.Facts
+        .FirstOrDefault(fact => fact.Contains(':', StringComparison.Ordinal)
+                                || fact.Contains(" min", StringComparison.OrdinalIgnoreCase)
+                                || fact.Contains(" hr", StringComparison.OrdinalIgnoreCase));
 
     private bool ShowHoverProgressRow => Item.ProgressPct is > 0;
+
+    private string ProgressSectionLabel => Item.MediaKind switch
+    {
+        "Book" or "Comic" => "Reading status",
+        "Music" or "Audiobook" => "Listening status",
+        "Movie" or "TV" => "Watching status",
+        _ => "Progress",
+    };
+
+    private string ProgressSectionIcon => Item.MediaKind switch
+    {
+        "Book" or "Comic" => Icons.Material.Outlined.AutoStories,
+        "Music" or "Audiobook" => Icons.Material.Outlined.Headphones,
+        "Movie" or "TV" => Icons.Material.Outlined.PlayCircle,
+        _ => Icons.Material.Outlined.Timeline,
+    };
 
     private bool CanRemoveFromContinue => Item.ProgressPct is > 0 && !Item.IsCollection;
 
@@ -727,7 +841,9 @@
         return value;
     }
 
-    private string PrimaryMudIcon => Item.MediaKind switch
+    private string PrimaryMudIcon => Item.Presentation == MediaTilePresentation.Album
+        ? Icons.Material.Filled.PlayArrow
+        : Item.MediaKind switch
     {
         "Movie" or "TV" => Icons.Material.Filled.PlayArrow,
         "Music" or "Audiobook" => Icons.Material.Outlined.Headphones,
@@ -750,6 +866,11 @@
                 return Item.MediaKind is "Book" or "Comic" ? "Read" : "Resume";
             }
 
+            if (label.Contains("Play Again", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Play Again";
+            }
+
             if (label.Contains("Reading", StringComparison.OrdinalIgnoreCase)
                 || label.Contains("Read", StringComparison.OrdinalIgnoreCase))
             {
@@ -758,6 +879,11 @@
 
             if (label.Contains("Play", StringComparison.OrdinalIgnoreCase))
             {
+                if (Item.Presentation == MediaTilePresentation.Album)
+                {
+                    return "Play Album";
+                }
+
                 return Item.MediaKind is "Music" or "Audiobook" ? "Listen" : "Play";
             }
 
@@ -954,19 +1080,6 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_collageRegistered && ShowGroupCollage)
-        {
-            try
-            {
-                await JS.InvokeVoidAsync("registerMediaTileCollages", CardElement);
-                _collageRegistered = true;
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Could not register media tile collage behavior.");
-            }
-        }
-
         if (!IsHoverEnabled)
         {
             return;
@@ -1044,11 +1157,24 @@
         }
     }
 
-    private string ReactionButtonClass(MediaReaction reaction, string roleClass) =>
-        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-reaction-action {roleClass} {(_reaction == reaction ? "is-selected" : string.Empty)}";
-
     private string ReactionTriggerButtonClass =>
-        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-reaction-trigger {(_reaction is not MediaReaction.Neutral ? "is-selected" : string.Empty)}";
+        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-reaction-trigger {(_reaction == DisplayedReaction ? "is-selected" : string.Empty)}";
+
+    private MediaReaction DisplayedReaction => _showDislikeIntent || _reaction == MediaReaction.Dislike
+        ? MediaReaction.Dislike
+        : MediaReaction.Like;
+
+    private string DisplayedReactionLabel => DisplayedReaction == MediaReaction.Dislike ? "Not for me" : "Like";
+
+    private string DisplayedReactionIcon => DisplayedReaction == MediaReaction.Dislike
+        ? Icons.Material.Outlined.ThumbDownOffAlt
+        : Icons.Material.Outlined.ThumbUpOffAlt;
+
+    private void BeginDislikeIntent() => _showDislikeIntent = true;
+
+    private void EndDislikeIntent() => _showDislikeIntent = false;
+
+    private Task ToggleDisplayedReactionAsync() => SetReactionAsync(DisplayedReaction);
 
     private string MyListButtonClass =>
         $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-my-list-action {(_isInMyList ? "is-selected" : string.Empty)}";
@@ -1112,6 +1238,31 @@
         {
             Nav.NavigateTo(directPlayerRoute);
             return;
+        }
+
+        if (Item.Presentation == MediaTilePresentation.Album)
+        {
+            var tracks = Item.ArtworkStackItems
+                .Where(track => track.WorkId.HasValue)
+                .Select(track => new ListenQueueItem
+                {
+                    WorkId = track.WorkId!.Value,
+                    AssetId = track.AssetId,
+                    CollectionId = Item.CollectionId,
+                    MediaType = "Music",
+                    Title = track.Title,
+                    Subtitle = Item.Subtitle,
+                    Album = Item.Title,
+                    CoverUrl = FirstNonBlank(Item.CoverUrl, Item.TileImageUrl, track.ImageUrl),
+                    Duration = PreviewDuration(track),
+                    StreamUrl = track.AssetId.HasValue ? $"/media/assets/{track.AssetId.Value:D}/stream" : null,
+                })
+                .ToList();
+            if (tracks.Count > 0)
+            {
+                await Playback.ReplaceQueueItemsAsync(tracks, 0, Item.Title, shuffle: false);
+                return;
+            }
         }
 
         if (IsListenMedia && !Item.IsCollection && Item.WorkId.HasValue)
@@ -1245,18 +1396,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (_collageRegistered)
-        {
-            try
-            {
-                await JS.InvokeVoidAsync("unregisterMediaTileCollages", CardElement);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Could not unregister media tile collage behavior.");
-            }
-        }
-
         if (_hoverRegistered)
         {
             try

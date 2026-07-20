@@ -31,8 +31,8 @@ public enum ArtworkStackVariant
     Dense,
 }
 
-public enum MediaArtworkCarouselDensity
+public enum MediaArtworkGroupPreviewLayout
 {
-    Tile,
-    Detail,
+    Cluster,
+    Strip,
 }

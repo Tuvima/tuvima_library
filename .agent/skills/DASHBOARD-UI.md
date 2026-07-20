@@ -20,7 +20,7 @@ Home, Read, Watch, Listen, and Collections share `CinematicHeroCarousel` and `Ci
 
 The removed all-in-one management workflow must not be recreated. Do not add routes, navigation labels, implementation types, or an all-in-one media correction workbench for it.
 
-Non-TV series and collection containers use `Components/MediaTiles/MediaGroupTile.razor`, a dedicated fixed-size landscape card. It shows owned child artwork at rest, reveals an in-place child carousel on hover or keyboard focus, opens the group from the resting surface, and opens the selected child from the carousel. TV shows remain on `MediaTile`: show cover at rest, then the show-level cinematic background and rich identity/actions on hover. Do not give TV shows the generic collection carousel merely because their storage identity is series-backed. Individual and Continue cards must retain their existing renderers and shelf geometry.
+Non-TV series and collection containers use `Components/MediaTiles/MediaGroupTile.razor`, a dedicated fixed-size landscape card. Its left text column stays aligned between states, while two to four representative owned covers remain in one side-by-side row on the right and shrink as count increases. Hover or keyboard focus adds truthful media-count, sequence, and progress context without a nested text panel or repeated child titles. Both states open the group; the card never rotates artwork or navigates directly to a child. TV shows remain on `MediaTile`: show cover at rest, then the show-level cinematic background and rich identity/actions on hover. Do not give TV shows the generic container summary merely because their storage identity is series-backed. Individual and Continue cards must retain their existing renderers and shelf geometry.
 
 ---
 
@@ -40,7 +40,7 @@ Non-TV series and collection containers use `Components/MediaTiles/MediaGroupTil
 | `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor` | Review Queue exception workflow. |
 | `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor` | Ingestion operations dashboard. |
 | `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor` | Normal, Review, and Batch media editing shell. |
-| `src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor` | Fixed-size landscape series/collection card and owned-child carousel. |
+| `src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor` | Fixed-size landscape series/collection card with a static representative-art summary. |
 | `src/MediaEngine.Web/Components/Listen/ListenTransportControls.razor` | Shared Listen transport controls for bottom bar, side panel, and popup. |
 | `src/MediaEngine.Web/Services/Editing/MediaEditorLauncherService.cs` | Central editor launch and return path. |
 | `src/MediaEngine.Web/Services/Playback/PlaybackSessionController.cs` | Listen playback session controller, command dispatch, queue/session state, and transport command boundary. |

@@ -301,6 +301,11 @@
             StatusText = collection.StatusLabel,
             MetaText = null,
             MediaCounts = BuildMediaCounts(collection),
+            GroupSummary = new MediaTileGroupSummaryViewModel
+            {
+                OwnedCount = collection.ItemCount,
+                RelationshipLabel = CollectionRelationshipLabel(collection.CollectionType),
+            },
             ContextLines = BuildContextLines(collection),
             HoverFacts = BuildHoverFacts(collection),
             MediaKind = "Collection",
@@ -354,6 +359,32 @@
 
     private static IReadOnlyList<MediaTileMediaCountViewModel> BuildMediaCounts(CollectionManagementCatalogViewModel collection)
     {
+        var aggregateCounts = new List<MediaTileMediaCountViewModel>();
+        if (collection.WatchCount > 0)
+        {
+            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.PlayArrow, "Watch", collection.WatchCount));
+        }
+
+        if (collection.ReadCount > 0)
+        {
+            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Read", collection.ReadCount));
+        }
+
+        if (collection.ListenCount > 0)
+        {
+            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Listen", collection.ListenCount));
+        }
+
+        if (collection.OtherCount > 0)
+        {
+            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
+        }
+
+        if (aggregateCounts.Count > 0)
+        {
+            return aggregateCounts;
+        }
+
         var artworkCounts = collection.ArtworkItems
             .GroupBy(item => NormalizeMediaType(item.MediaType), StringComparer.OrdinalIgnoreCase)
             .Where(group => !string.IsNullOrWhiteSpace(group.Key))
@@ -368,29 +399,20 @@
                 .ToList();
         }
 
-        var counts = new List<MediaTileMediaCountViewModel>();
-        if (collection.WatchCount > 0)
-        {
-            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.PlayArrow, "Video", collection.WatchCount));
-        }
-
-        if (collection.ListenCount > 0)
-        {
-            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Audio", collection.ListenCount));
-        }
-
-        if (collection.ReadCount > 0)
-        {
-            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", collection.ReadCount));
-        }
-
-        if (collection.OtherCount > 0)
-        {
-            counts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
-        }
-
-        return counts;
+        return [];
     }
+
+    private static string? CollectionRelationshipLabel(string? collectionType) => collectionType?.Trim() switch
+    {
+        "Universe" => "Shared universe",
+        "Franchise" => "Franchise collection",
+        "Series" => "Series grouping",
+        "ContentGroup" => "Related works",
+        "Playlist" or "PlaylistFolder" => "Curated list",
+        "Smart" => "Smart collection",
+        "Manual" => "Curated collection",
+        _ => null,
+    };
 
     private static IReadOnlyList<string> BuildMediaCountLabels(CollectionManagementCatalogViewModel collection) =>
         BuildMediaCounts(collection)

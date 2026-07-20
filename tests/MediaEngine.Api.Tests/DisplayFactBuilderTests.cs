@@ -48,7 +48,21 @@ public sealed class DisplayFactBuilderTests
     }
 
     [Fact]
-    public void AudiobookFacts_UseAuthorYearDurationAndScoreWithoutNarratorOrGenre()
+    public void ComicFacts_IncludePublisherWhenAvailable()
+    {
+        var facts = DisplayFactBuilder.Build(
+            "Comic",
+            "Saga #1",
+            year: "2012",
+            author: "Brian K. Vaughan",
+            publisher: "Image Comics",
+            pageCount: "44");
+
+        Assert.Equal(["Brian K. Vaughan", "Image Comics", "2012", "44 pages"], facts);
+    }
+
+    [Fact]
+    public void AudiobookFacts_UseAuthorNarratorYearDurationAndScore()
     {
         var facts = DisplayFactBuilder.Build(
             "Audiobook",
@@ -60,7 +74,7 @@ public sealed class DisplayFactBuilderTests
             duration: "16h 10m",
             starRating: "4.8");
 
-        Assert.Equal(["Andy Weir", "2021", "16h 10m", "★ 4.8"], facts);
+        Assert.Equal(["Andy Weir", "Narrated by Ray Porter", "2021", "16h 10m", "★ 4.8"], facts);
     }
 
     [Fact]

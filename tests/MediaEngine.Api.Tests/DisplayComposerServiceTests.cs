@@ -384,7 +384,11 @@ public sealed class DisplayComposerServiceTests
         {
             CollectionId = Guid.NewGuid(),
             Title = "Weekend Watchlist",
+            CollectionType = "Playlist",
             ItemCount = 7,
+            WatchCount = 4,
+            ReadCount = 2,
+            ListenCount = 1,
             PreviewItems =
             [
                 new MediaEngine.Contracts.Display.DisplayCardPreviewItemDto(workId, null, "Arrival", "/art/arrival.jpg", "portrait", null),
@@ -394,6 +398,8 @@ public sealed class DisplayComposerServiceTests
 
         Assert.Equal(7, card.PreviewTotalCount);
         Assert.Equal(workId, Assert.Single(card.PreviewItems).WorkId);
+        Assert.Equal("Curated list", card.GroupSummary?.RelationshipLabel);
+        Assert.Equal(["Watch", "Read", "Listen"], card.GroupSummary?.MediaCounts.Select(count => count.MediaType));
     }
 
     [Fact]
@@ -638,8 +644,8 @@ public sealed class DisplayComposerServiceTests
         var profileId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         var repository = new StubDisplayProjectionRepository(
             [
-                Work(firstTrack, "Music", "Static", artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "1", collectionId: albumId),
-                Work(secondTrack, "Music", "Signals", artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "2", collectionId: albumId),
+                Work(firstTrack, "Music", "Static", artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "1", collectionId: albumId, duration: "180000"),
+                Work(secondTrack, "Music", "Signals", artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "2", collectionId: albumId, duration: "240000"),
             ],
             [
                 Journey(secondTrack, "Music", "Signals", progressPct: 44, artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "2", collectionId: albumId),
@@ -666,6 +672,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("album", albumCard.Presentation);
         Assert.Equal("square", albumCard.PreferredShape);
         Assert.Equal(2, albumCard.PreviewItems.Count);
+        Assert.Contains("7 min", albumCard.Facts);
         Assert.Equal($"/listen/music/albums/{albumId:D}", albumCard.Actions[0].WebUrl);
 
         Assert.NotNull(page.Hero);
@@ -705,7 +712,8 @@ public sealed class DisplayComposerServiceTests
         string? collectionBackgroundUrl = null,
         string? coverUrl = null,
         string? rootCoverUrl = null,
-        Guid? rootWorkId = null)
+        Guid? rootWorkId = null,
+        string? duration = null)
     {
         return new DisplayWorkRow
         {
@@ -722,6 +730,7 @@ public sealed class DisplayComposerServiceTests
             Album = album,
             Year = year,
             Genre = genre,
+            Duration = duration,
             Series = series,
             SeriesPosition = seriesPosition,
             CollectionTitle = collectionTitle,
