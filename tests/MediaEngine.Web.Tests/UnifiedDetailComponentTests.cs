@@ -28,6 +28,15 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("DetailEntityType.Book or DetailEntityType.Work => HeroForegroundTreatment.Book", source);
         Assert.Contains("DetailEntityType.Audiobook => HeroForegroundTreatment.Cover", source);
         Assert.Contains("DetailEntityType.Audiobook => \"tl-detail-media-stage--audiobook\"", source);
+        Assert.Contains("grid-template-columns: minmax(0, auto) clamp(1rem, 2.2vw, 1.65rem)", styles);
+        Assert.Contains("grid-column: 2", styles);
+        Assert.Contains("align-self: stretch", styles);
+        Assert.Contains("transform: translateX(-0.12rem)", styles);
+        Assert.Contains("height: min(47rem, 55svh)", styles);
+        Assert.Contains("max-height: min(47rem, 55svh) !important", styles);
+        Assert.Contains("width: min(45vw, 42rem)", styles);
+        Assert.Contains("justify-content: flex-end", styles);
+        Assert.DoesNotContain("right: 0.12rem", styles);
 
         Assert.Contains("tl-detail-media-stage--background .tl-detail-media-stage__overlay", styles);
         Assert.Contains("tl-detail-media-stage--artwork-fallback .tl-detail-media-stage__overlay", styles);
@@ -277,9 +286,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("letter-spacing: 0.03em", styles);
         Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", styles);
         Assert.Contains("overflow: visible", styles);
-        Assert.Contains("height: min(47rem, 78vh)", styles);
-        Assert.Contains("height: 100%", styles);
-        Assert.Contains("max-height: min(47rem, 78vh)", styles);
+        Assert.Contains("height: min(50rem, 82vh)", styles);
+        Assert.Contains("height: auto", styles);
+        Assert.Contains("max-height: min(47rem, 55svh) !important", styles);
         Assert.DoesNotContain("SupportsWatchParty", composer);
     }
 

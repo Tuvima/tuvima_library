@@ -101,16 +101,14 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.DoesNotContain(item.Description, cut.Markup);
         Assert.Single(cut.FindAll("button[aria-label='Like']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
-        Assert.Single(cut.FindAll(".media-tile-reaction-swap button"));
-        Assert.Empty(cut.FindAll(".media-tile-reaction-tray"));
+        Assert.Equal(4, cut.FindAll(".media-tile-reaction-menu button").Count);
+        Assert.Single(cut.FindAll(".media-tile-reaction-tray"));
         Assert.Empty(cut.FindAll(".media-tile-visible-dislike-action"));
         Assert.Empty(cut.FindAll("button[aria-label='Add to collection']"));
         Assert.NotEmpty(cut.FindAll(".tl-media-action--compact"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-progress"));
-
-        cut.Find(".media-tile-reaction-swap").TriggerEvent("onmouseenter", new MouseEventArgs());
         Assert.Single(cut.FindAll("button[aria-label='Not for me']"));
-        Assert.Empty(cut.FindAll("button[aria-label='Like']"));
+        Assert.Single(cut.FindAll("button[aria-label='Love']"));
 
         cut.Find(".media-tile").TriggerEvent("onkeydown", new KeyboardEventArgs { Key = "ArrowDown" });
         Assert.Contains("is-expanded", cut.Find(".media-tile").ClassList);
@@ -226,10 +224,14 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.EndsWith("/details/bookseries/foundation", nav.Uri, StringComparison.Ordinal);
 
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor"));
         Assert.Contains("--media-group-tile-width: clamp(540px, 37vw, 680px)", css, StringComparison.Ordinal);
         Assert.Contains("--media-group-tile-height: clamp(270px, 18vw, 330px)", css, StringComparison.Ordinal);
         Assert.Contains("height: 100%", css, StringComparison.Ordinal);
         Assert.Contains("background: transparent", css, StringComparison.Ordinal);
+        Assert.Contains("RepresentativeItems.Count >= 3", source, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__summary-artwork is-dense", source, StringComparison.Ordinal);
+        Assert.Contains("margin-left: clamp(18px, 3.4cqw, 26px)", css, StringComparison.Ordinal);
         Assert.DoesNotContain("media-group-tile__highlights", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".media-group-tile:hover {\n    transform:", css.ReplaceLineEndings("\n"), StringComparison.Ordinal);
     }
@@ -634,6 +636,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             Title = "Long Audiobook",
             MediaKind = "Audiobook",
             Shape = MediaTileShape.Square,
+            HoverArtworkShape = MediaTileShape.Portrait,
             SurfaceKind = MediaTileSurfaceKind.CoverSquare,
             HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
             HoverMode = MediaTileHoverMode.Expanded,
@@ -648,9 +651,11 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll("button[aria-label='Listen']"));
         Assert.NotEmpty(cut.FindAll("button[aria-label='Add to My List']"));
-        Assert.Single(cut.FindAll("button[aria-label='Like']"));
-        cut.Find(".media-tile-reaction-swap").TriggerEvent("onmouseenter", new MouseEventArgs());
+        Assert.Single(cut.FindAll("button[aria-label='Rate this title']"));
         Assert.Single(cut.FindAll("button[aria-label='Not for me']"));
+        Assert.Single(cut.FindAll("button[aria-label='Like']"));
+        Assert.Single(cut.FindAll("button[aria-label='Love']"));
+        Assert.Contains("has-hover-portrait-art", cut.Find(".media-tile-hover-panel").ClassList);
         Assert.Empty(cut.FindAll("button[aria-label='Add to collection']"));
     }
 
@@ -709,6 +714,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     {
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor.css"));
         var tileSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaTile.razor"));
+        var listenSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Pages/ListenPage.razor.cs"));
         var appJs = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/wwwroot/app.js"));
         var layout = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Shared/MainLayout.razor"));
 
@@ -718,12 +724,23 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("background: transparent", css);
         Assert.DoesNotContain("media-tile-visible-dislike-action", tileSource);
         Assert.Contains("media-tile-reaction-trigger", tileSource);
-        Assert.Contains("media-tile-reaction-swap", tileSource);
-        Assert.DoesNotContain("media-tile-reaction-tray", tileSource);
-        Assert.Contains("Icons.Material.Outlined.ThumbDownOffAlt", tileSource);
+        Assert.DoesNotContain("media-tile-reaction-swap", tileSource);
+        Assert.Contains("media-tile-reaction-menu", tileSource);
+        Assert.Contains("media-tile-reaction-tray", tileSource);
+        Assert.Contains("[MediaReaction.Dislike, MediaReaction.Like, MediaReaction.Love]", tileSource);
+        Assert.Contains("Icons.Material.Outlined.ThumbDown", tileSource);
+        Assert.Contains("Icons.Material.Outlined.ThumbUp", tileSource);
+        Assert.Contains("Icons.Material.Filled.Favorite", tileSource);
+        Assert.Contains("Icons.Material.Outlined.FavoriteBorder", tileSource);
         Assert.Contains(".media-tile-hover-context,", css);
         Assert.Contains("border-top: 1px solid rgba(148, 163, 184, 0.2)", css);
-        Assert.Contains(".media-tile-reaction-swap:hover", css);
+        Assert.Contains(".media-tile-reaction-menu:hover .media-tile-reaction-tray", css);
+        Assert.Contains("place-items: center", css);
+        Assert.Contains("is-cover-led.is-media-audio", css);
+        Assert.Contains("grid-template-columns: minmax(0, .68fr) minmax(0, 1fr)", css);
+        Assert.Contains("padding: 10px 10px 10px clamp(20px, 2.4vw, 28px)", css);
+        Assert.Contains("HoverArtworkShape = string.IsNullOrWhiteSpace(backgroundMedium)", listenSource);
+        Assert.Contains("? MediaTileShape.Portrait", listenSource);
         Assert.Contains("--media-tile-hover-anchor-height", css);
         Assert.Contains("clamp(820px, 52vw, 980px)", css);
         Assert.Contains("object-fit: contain", css);

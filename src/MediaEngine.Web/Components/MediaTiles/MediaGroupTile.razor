@@ -56,7 +56,7 @@
                 <div class="media-group-tile__hover">
                     <div class="media-group-tile__hover-atmosphere" aria-hidden="true"></div>
 
-                    <div class="media-group-tile__summary-artwork">
+                    <div class="@SummaryArtworkClass">
                         @if (RepresentativeItems.Count > 0)
                         {
                             <MediaArtworkGroupPreview Items="@RepresentativeItems"
@@ -143,6 +143,10 @@
     private IReadOnlyList<ArtworkStackItem> RepresentativeItems => SelectRepresentativeItems(Item.ArtworkStackItems);
 
     private IReadOnlyList<GroupOverviewRow> OverviewRows => BuildOverviewRows();
+
+    private string SummaryArtworkClass => RepresentativeItems.Count >= 3
+        ? "media-group-tile__summary-artwork is-dense"
+        : "media-group-tile__summary-artwork";
 
     private bool IsSeries => Item.Presentation is MediaTilePresentation.MovieSeries
         or MediaTilePresentation.BookSeries

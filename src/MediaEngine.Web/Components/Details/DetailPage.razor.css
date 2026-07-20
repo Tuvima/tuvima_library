@@ -379,10 +379,15 @@
 }
 
 ::deep .tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback .tl-detail-media-stage__cover-wrap {
-    width: auto;
-    max-width: min(41vw, 38rem);
-    height: min(47rem, 78vh);
+    width: min(45vw, 42rem);
+    max-width: min(45vw, 42rem);
+    height: min(50rem, 82vh);
+    justify-content: flex-end;
     overflow: visible;
+}
+
+::deep .tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch) .tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback .tl-detail-media-stage__cover-wrap {
+    height: min(47rem, 55svh);
 }
 
 ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
@@ -4524,27 +4529,33 @@
 }
 
 ::deep .tl-detail-media-stage__foreground--book {
-    padding-right: clamp(0.9rem, 1.8vw, 1.45rem);
+    grid-template-columns: minmax(0, auto) clamp(1rem, 2.2vw, 1.65rem);
+    grid-template-rows: auto;
+    padding-right: 0;
     transform: perspective(70rem) rotateY(-5deg) rotateX(1deg);
     transform-origin: center right;
-    width: auto;
-    height: min(47rem, 78vh);
+    width: fit-content;
+    height: auto;
     max-height: 100%;
     max-width: 100%;
-    place-items: center;
+    place-items: stretch;
     overflow: visible;
     aspect-ratio: auto;
 }
 
-::deep .tl-detail-media-stage__foreground--book .tl-detail-media-stage__cover {
+::deep .tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback .tl-detail-media-stage__foreground--book .tl-detail-media-stage__cover {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    justify-self: end;
     width: auto;
-    height: 100%;
-    max-width: min(34vw, 32rem);
-    max-height: min(47rem, 78vh);
+    height: min(47rem, 55svh);
+    max-width: min(38vw, 36rem);
+    max-height: min(47rem, 55svh) !important;
     object-fit: contain;
 }
 
-::deep .tl-detail-media-stage__foreground--book .tl-detail-media-stage__cover {
+::deep .tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback .tl-detail-media-stage__foreground--book .tl-detail-media-stage__cover {
     border-radius: 0.38rem 0.22rem 0.22rem 0.38rem;
     box-shadow:
         inset 0.7rem 0 1.1rem rgba(0,0,0,0.26),
@@ -4552,12 +4563,15 @@
 }
 
 ::deep .tl-detail-media-stage__book-pages {
-    position: absolute;
+    position: relative;
     z-index: 1;
-    right: 0.12rem;
-    top: 2.3%;
-    bottom: 2.3%;
-    width: clamp(1rem, 2.2vw, 1.65rem);
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    height: auto;
+    margin-block: 2.3%;
+    align-self: stretch;
+    transform: translateX(-0.12rem);
     border-radius: 0 0.32rem 0.32rem 0;
     background:
         repeating-linear-gradient(90deg, #f4efe2 0 2px, #d9d0bd 2px 4px),
@@ -4566,11 +4580,12 @@
 }
 
 ::deep .tl-detail-media-stage__book-spine {
-    position: absolute;
+    position: relative;
     z-index: 4;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: stretch;
+    justify-self: start;
     width: 9%;
     border-radius: 0.38rem 0 0 0.38rem;
     background: linear-gradient(90deg, rgba(0,0,0,0.36), transparent);
@@ -5356,9 +5371,13 @@
         overflow: visible;
     }
 
-    ::deep .tl-detail-media-stage__foreground--book .tl-detail-media-stage__cover {
+    ::deep .tl-detail-hero--fallback-generated:not(.tl-detail-hero--watch) .tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback .tl-detail-media-stage__cover-wrap {
+        height: min(42vh, 23rem);
+    }
+
+    ::deep .tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback .tl-detail-media-stage__foreground--book .tl-detail-media-stage__cover {
         max-width: min(66vw, 20rem);
-        max-height: min(42vh, 23rem);
+        max-height: min(42vh, 23rem) !important;
     }
 
     ::deep .tl-detail-media-stage--cover-fallback .tl-detail-media-stage__overlay {
@@ -5531,13 +5550,14 @@
     }
 
     ::deep .tl-detail-media-stage__foreground--book {
-        padding-right: 0.7rem;
+        grid-template-columns: minmax(0, auto) 0.85rem;
+        padding-right: 0;
         transform: none;
         overflow: visible;
     }
 
     ::deep .tl-detail-media-stage__book-pages {
-        width: 0.85rem;
+        width: 100%;
     }
 
     ::deep .tl-detail-media-stage__foreground--album {

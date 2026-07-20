@@ -3001,6 +3001,9 @@ public partial class ListenPage
             HoverFacts = facts,
             MediaKind = "Audiobook",
             Shape = MediaTileShape.Square,
+            HoverArtworkShape = string.IsNullOrWhiteSpace(backgroundMedium)
+                ? MediaTileShape.Portrait
+                : MediaTileShape.Landscape,
             Presentation = MediaTilePresentation.Default,
             SurfaceKind = MediaTileSurfaceKind.CoverSquare,
             HoverLayout = string.IsNullOrWhiteSpace(backgroundMedium)
@@ -3093,6 +3096,9 @@ public partial class ListenPage
             HoverFacts = facts ?? [],
             MediaKind = "Music",
             Shape = MediaTileShape.Square,
+            HoverArtworkShape = !string.IsNullOrWhiteSpace(backgroundMedium) || !string.IsNullOrWhiteSpace(bannerMedium)
+                ? MediaTileShape.Landscape
+                : MediaTileShape.Square,
             Presentation = presentation,
             SurfaceKind = MediaTileSurfaceKind.CoverSquare,
             HoverLayout = !string.IsNullOrWhiteSpace(backgroundMedium) || !string.IsNullOrWhiteSpace(bannerMedium)
