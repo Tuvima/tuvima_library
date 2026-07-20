@@ -892,27 +892,12 @@ window.clearMediaTileHover = function (cardEl) {
     }, 380);
 };
 
-window.setMediaTileHoverExpanded = function (cardEl, expanded) {
-    if (!cardEl) return;
-
-    cardEl.__mediaTilePinned = !!expanded;
-
-    if (expanded) {
-        window.showMediaTileHover(cardEl);
-        return;
-    }
-
-    window.clearMediaTileHover(cardEl);
-};
-
 window.registerMediaTileHover = function (cardEl) {
     if (!cardEl || cardEl.__mediaTileHoverRegistered) return;
 
     cardEl.classList.add('is-hover-js-enabled');
 
-    // Cache the resting geometry before keyboard expansion changes the card layout.
-    // Mouse activation remeasures the same frame; keyboard activation can safely
-    // fall back to these dimensions instead of collapsing to an empty frame.
+    // Cache the resting geometry so cinematic expansion can preserve the shelf layout.
     var restingFrame = cardEl.querySelector('.media-tile-frame') || cardEl;
     var restingFrameRect = restingFrame.getBoundingClientRect();
     if (restingFrameRect.width > 16 && restingFrameRect.height > 16) {
@@ -957,7 +942,6 @@ window.registerMediaTileHover = function (cardEl) {
     };
 
     var scheduleHide = function (event) {
-        if (cardEl.__mediaTilePinned) return;
         if (event && isWithinHoverSurface(event.relatedTarget)) return;
 
         if (cardEl.__mediaTileShowTimer) {
@@ -1037,7 +1021,6 @@ window.unregisterMediaTileHover = function (cardEl) {
     if (cardEl.__mediaTileShowTimer) {
         window.clearTimeout(cardEl.__mediaTileShowTimer);
     }
-    cardEl.__mediaTilePinned = false;
     cardEl.classList.remove('is-hover-js-enabled');
     window.clearMediaTileHover(cardEl);
 
@@ -1047,7 +1030,6 @@ window.unregisterMediaTileHover = function (cardEl) {
     delete cardEl.__mediaTileHoverKeepOpen;
     delete cardEl.__mediaTileShowTimer;
     delete cardEl.__mediaTileHideTimer;
-    delete cardEl.__mediaTilePinned;
     delete cardEl.__mediaTileHoverRegistered;
 };
 // -- Alphabetical Grid scroll-to-letter ---------------------------------

@@ -53,7 +53,11 @@
 
             @if (ShowSummary)
             {
-                <div class="media-group-tile__hover">
+                <a class="media-group-tile__hover"
+                   href="@GroupNavigationUrl"
+                   aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
+                   @onclick="OpenGroupAsync"
+                   @onclick:preventDefault="true">
                     <div class="media-group-tile__hover-atmosphere" aria-hidden="true"></div>
 
                     <div class="@SummaryArtworkClass">
@@ -114,19 +118,8 @@
                             </div>
                         }
 
-                        <div class="media-group-tile__actions">
-                            <AppNativeButton Type="button"
-                                             Class="tl-media-action tl-media-action--primary tl-media-action--compact media-group-tile__group-action"
-                                             AriaLabel="@($"Open {GroupKindLabel} {Item.Title}")"
-                                             Title="@($"Open {GroupKindLabel} {Item.Title}")"
-                                             StopPropagation="true"
-                                             OnClick="OpenGroupAsync">
-                                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" />
-                                <span>Open @ShortGroupKindLabel</span>
-                            </AppNativeButton>
-                        </div>
                     </section>
-                </div>
+                </a>
             }
         </div>
     </article>
@@ -154,7 +147,7 @@
         or MediaTilePresentation.AudiobookSeries;
 
     private string GroupNavigationUrl =>
-        FirstNonBlank(Item.PrimaryNavigationUrl, Item.NavigationUrl, Item.DetailsNavigationUrl) ?? "/";
+        FirstNonBlank(Item.DetailsNavigationUrl, Item.NavigationUrl, Item.PrimaryNavigationUrl) ?? "/";
 
     private string TileStyle
     {
@@ -183,8 +176,6 @@
         MediaTilePresentation.AudiobookSeries => "Audiobook Series",
         _ => "Collection",
     };
-
-    private string ShortGroupKindLabel => IsSeries ? "Series" : "Collection";
 
     private string GroupKindIcon => Item.Presentation switch
     {

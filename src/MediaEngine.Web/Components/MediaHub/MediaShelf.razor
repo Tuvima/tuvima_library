@@ -17,7 +17,6 @@ else
                         HoverMode="@HoverMode"
                         HideSourceBadges="@HideSourceBadges"
                         ShowHeader="false"
-                        OnPrimaryClicked="@OnPrimaryClicked"
                         UseContinueWatchingOrListeningTiles="@UseContinueWatchingOrListeningTiles" />
     </section>
 }
@@ -26,7 +25,6 @@ else
     [Parameter, EditorRequired] public MediaHubShelfViewModel Shelf { get; set; } = default!;
     [Parameter, EditorRequired] public MediaHubSectionType SectionType { get; set; }
     [Parameter] public bool HideSourceBadges { get; set; }
-    [Parameter] public EventCallback<MediaTileViewModel> OnPrimaryClicked { get; set; }
 
     private string RootClass => $"media-hub-shelf media-hub-shelf--{SectionType.ToString().ToLowerInvariant()} {(Shelf.IsContinueShelf ? "media-hub-shelf--continue" : null)}";
 

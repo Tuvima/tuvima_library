@@ -3,7 +3,6 @@
 
 <MediaTile Item="@Item"
            HoverMode="@HoverMode"
-           OnPrimaryClicked="@OnPrimaryClicked"
            HideMediaKindBadge="@HideMediaKindBadge"
            HideSourceBadge="@HideSourceBadge" />
 
@@ -12,5 +11,4 @@
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
     [Parameter] public bool HideMediaKindBadge { get; set; }
     [Parameter] public bool HideSourceBadge { get; set; }
-    [Parameter] public EventCallback<MediaTileViewModel> OnPrimaryClicked { get; set; }
 }

@@ -1,24 +1,16 @@
 @namespace MediaEngine.Web.Components.MediaTiles
 @using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Models.ViewDTOs
-@using MediaEngine.Web.Services.Integration
-@using MediaEngine.Web.Services.Playback
 @inject NavigationManager Nav
-@inject IDialogService DialogService
 @inject IJSRuntime JS
 @inject ILogger<MediaTile> Logger
-@inject ActiveProfileSessionService ActiveProfileSession
-@inject MediaReactionService Reactions
-@inject FavoriteService Favorites
-@inject PlaybackSessionController Playback
 @implements IAsyncDisposable
 
 <AppCssElement Tag="div"
                Css="@PaletteScopeStyle">
-<article class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(_expanded ? "is-expanded" : "")} {(_dismissedFromContinue ? "is-dismissed" : "")}")'
+<article class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(UsesStaticCoverHover ? "is-static-cover-hover" : "")} {(UsesCinematicHover ? "is-cinematic-hover" : "")}")'
          @ref="_cardRef"
-         aria-label="@Item.Title"
-         @onkeydown="HandleCardKeyDown">
+         aria-label="@Item.Title">
     <div class="media-tile-frame">
         <a class="media-tile-media @(HasArtworkSurface ? "has-artwork-surface" : null)"
            href="@DetailsNavigationUrl"
@@ -106,9 +98,21 @@
                 </div>
             }
         </a>
+
+        @if (ShowsStaticCoverIdentity)
+        {
+            <div class="media-tile-static-hover" aria-hidden="true">
+                <div class="media-tile-hover-identity-strip">
+                    @foreach (var part in HoverIdentityParts)
+                    {
+                        <span @key="part">@part</span>
+                    }
+                </div>
+            </div>
+        }
     </div>
 
-    @if (IsHoverEnabled)
+    @if (UsesCinematicHover)
     {
         <div class="@HoverPanelClass"
                  @onclick="OpenDetails"
@@ -154,6 +158,27 @@
                         <img src="@Item.LogoUrl" alt="@Item.Title" class="media-tile-hover-logo" />
                     }
 
+                    @if (UseCompactHover || ShowRichHoverFacts)
+                    {
+                        <div class="media-tile-hover-facts is-cinematic-top-facts">
+                            @if (!string.IsNullOrWhiteSpace(RatingFact))
+                            {
+                                <span class="media-tile-rating-pill">
+                                    <MudIcon Icon="@Icons.Material.Filled.Star" />
+                                    <span>@RatingFactDisplay</span>
+                                </span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(HoverKindFact))
+                            {
+                                <span class="media-tile-hover-fact media-tile-hover-kind">@HoverKindFact</span>
+                            }
+                            @foreach (var fact in DisplayHoverFacts)
+                            {
+                                <span class="@HoverFactClass(fact)">@fact</span>
+                            }
+                        </div>
+                    }
+
                     @if (ShowHoverSeriesStack)
                     {
                         <TuvimaArtworkStack Items="@CollectionArtworkStackItems"
@@ -167,77 +192,11 @@
                                             Class="media-tile-hover-series-stack" />
                     }
 
-                    @if (CanRemoveFromContinue)
-                    {
-                        <AppNativeButton Type="button"
-                                         Class="media-tile-hover-remove-corner media-tile-hover-control"
-                                         AriaLabel="Remove from continue row"
-                                         Title="Remove from continue row"
-                                         OnClick="DismissFromContinue"
-                                         StopPropagation="true">
-                            <MudIcon Icon="@Icons.Material.Outlined.Close" />
-                            <span class="media-tile-visually-hidden">Remove from continue row</span>
-                        </AppNativeButton>
-                    }
                 </div>
 
                 @if (ShowExpandedHoverBody)
                 {
                     <div class="media-tile-hover-body">
-                        <div class="media-tile-hover-actions">
-                            <div class="media-tile-hover-actions-left">
-                                <div class="media-tile-hover-action-unit media-tile-hover-action-unit-primary">
-                                    <AppNativeButton Type="button" Class="tl-media-action tl-media-action--primary tl-media-action--compact media-tile-hover-control media-tile-hover-control-primary" AriaLabel="@PrimaryActionDisplayLabel" Title="@PrimaryActionDisplayLabel" OnClick="OpenPrimary" StopPropagation="true">
-                                        <MudIcon Icon="@PrimaryMudIcon" />
-                                        <span>@PrimaryActionShortLabel</span>
-                                    </AppNativeButton>
-                                </div>
-
-                                <div class="media-tile-hover-action-unit">
-                                    <AppNativeButton Type="button" Class="@MyListButtonClass" AriaLabel="@MyListActionLabel" Title="@MyListActionLabel" Disabled="@(!Item.WorkId.HasValue)" OnClick="ToggleMyListAsync" StopPropagation="true">
-                                        <MudIcon Icon="@(_isInMyList ? Icons.Material.Outlined.Check : Icons.Material.Outlined.Add)" />
-                                        <span class="media-tile-visually-hidden">@MyListActionLabel</span>
-                                    </AppNativeButton>
-                                </div>
-
-                                <div class="media-tile-hover-action-unit">
-                                    <div class="media-tile-reaction-menu"
-                                         tabindex="0"
-                                         aria-label="Rate this title"
-                                         @onclick:stopPropagation="true">
-                                        <AppNativeButton Type="button"
-                                                         Class="@ReactionTriggerButtonClass"
-                                                         AriaLabel="Rate this title"
-                                                         Title="Rate this title"
-                                                         StopPropagation="true">
-                                            <MudIcon Icon="@ReactionTriggerIcon" />
-                                            <span class="media-tile-visually-hidden">Rate this title</span>
-                                        </AppNativeButton>
-                                        <div class="media-tile-reaction-tray" aria-label="Reaction choices">
-                                            @foreach (var reaction in ReactionChoices)
-                                            {
-                                                <AppNativeButton Type="button"
-                                                                 Class="@ReactionChoiceButtonClass(reaction)"
-                                                                 AriaLabel="@ReactionLabel(reaction)"
-                                                                 Title="@ReactionLabel(reaction)"
-                                                                 StopPropagation="true"
-                                                                 OnClick="@(() => SetReactionAsync(reaction))">
-                                                    <MudIcon Icon="@ReactionChoiceIcon(reaction)" />
-                                                </AppNativeButton>
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="media-tile-hover-action-unit media-tile-hover-action-unit-details">
-                                <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-details-action" AriaLabel="Details" Title="Details" OnClick="OpenDetails" StopPropagation="true">
-                                    <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
-                                    <span class="media-tile-visually-hidden">Details</span>
-                                </AppNativeButton>
-                            </div>
-                        </div>
-
                         @if (ShowHoverProgressRow)
                         {
                             <div class="media-tile-hover-progress" aria-label="@ProgressCompleteLabel">
@@ -262,27 +221,6 @@
                                 @if (ShowHoverSubtitle)
                                 {
                                     <div class="media-tile-hover-subtitle">@DisplaySubtitle</div>
-                                }
-                            </div>
-                        }
-
-                        @if (UseCompactHover || ShowRichHoverFacts)
-                        {
-                            <div class="media-tile-hover-facts">
-                                @if (!string.IsNullOrWhiteSpace(RatingFact))
-                                {
-                                    <span class="media-tile-rating-pill">
-                                        <MudIcon Icon="@Icons.Material.Filled.Star" />
-                                        <span>@RatingFactDisplay</span>
-                                    </span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(HoverKindFact))
-                                {
-                                    <span class="media-tile-hover-fact media-tile-hover-kind">@HoverKindFact</span>
-                                }
-                                @foreach (var fact in DisplayHoverFacts)
-                                {
-                                    <span class="@HoverFactClass(fact)">@fact</span>
                                 }
                             </div>
                         }
@@ -333,27 +271,138 @@
 
 @code {
     [Parameter, EditorRequired] public MediaTileViewModel Item { get; set; } = default!;
-    [Parameter] public EventCallback<MediaTileViewModel> OnEditClicked { get; set; }
-    [Parameter] public EventCallback<MediaTileViewModel> OnPrimaryClicked { get; set; }
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
     [Parameter] public bool HideMediaKindBadge { get; set; }
     [Parameter] public bool HideSourceBadge { get; set; }
 
-    private bool _expanded;
     private bool _hoverRegistered;
-    private bool _lastExpandedState;
-    private bool _dismissedFromContinue;
     private int _hoverImageIndex;
-    private bool _reactionLoaded;
-    private MediaReaction _reaction;
-    private bool _myListLoaded;
-    private bool _isInMyList;
     private ElementReference _cardRef;
     private ElementReference CardElement => _cardRef;
 
     private MediaTileHoverMode EffectiveHoverMode => HoverMode ?? Item.HoverMode;
 
     private bool IsHoverEnabled => EffectiveHoverMode != MediaTileHoverMode.None;
+
+    private bool UsesCinematicHover =>
+        IsHoverEnabled
+        && MediaKindLabel is "Movie" or "TV";
+
+    private bool UsesStaticCoverHover => IsHoverEnabled && !UsesCinematicHover;
+
+    private bool ShowsStaticCoverIdentity => UsesStaticCoverHover && Item.Shape != MediaTileShape.Portrait;
+
+    private IReadOnlyList<string> HoverIdentityParts => BuildHoverIdentityParts();
+
+    private IReadOnlyList<string> BuildHoverIdentityParts()
+    {
+        var parts = new List<string>();
+        if (MediaKindLabel == "Comic")
+        {
+            AddIdentityPart(parts, ComicIdentityContext);
+            AddIdentityPart(parts, Item.Title);
+            AddIdentityPart(parts, HoverIdentityYear);
+            AddIdentityPart(parts, DisplaySubtitle);
+            return parts.Take(3).ToList();
+        }
+
+        AddIdentityPart(parts, Item.Title);
+        AddIdentityPart(parts, DisplaySubtitle);
+        AddIdentityPart(parts, HoverIdentityYear);
+
+        return parts.Take(3).ToList();
+    }
+
+    private string? ComicIdentityContext =>
+        FirstNonBlank(
+            ExtractSeriesName(DisplaySubtitle),
+            Item.ContextLines.FirstOrDefault(value => IsMeaningfulIdentityFact(value)),
+            IsMeaningfulIdentityFact(DisplaySubtitle) ? DisplaySubtitle : null,
+            Item.HoverFacts.FirstOrDefault(value => IsMeaningfulIdentityFact(value)));
+
+    private bool IsMeaningfulIdentityFact(string? value) =>
+            !string.IsNullOrWhiteSpace(value)
+            && !string.Equals(value, Item.Title, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(value, DisplaySubtitle, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(value, MediaKindLabel, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(value, "Image", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(value, "Artwork", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(value, "Cover", StringComparison.OrdinalIgnoreCase)
+            && !IsRatingFact(value)
+            && !IsCompactMetricFact(value)
+            && !ContainsFourDigitYear(value);
+
+    private static string? ExtractSeriesName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var separatorIndex = value.LastIndexOf(" in ", StringComparison.OrdinalIgnoreCase);
+        return separatorIndex >= 0 && separatorIndex + 4 < value.Length
+            ? value[(separatorIndex + 4)..].Trim()
+            : null;
+    }
+
+    private static bool IsCompactMetricFact(string value) =>
+        value.Contains("page", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("track", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("minute", StringComparison.OrdinalIgnoreCase)
+        || value.Contains(" min", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("hour", StringComparison.OrdinalIgnoreCase)
+        || value.Contains(" hr", StringComparison.OrdinalIgnoreCase)
+        || value.Contains(':', StringComparison.Ordinal);
+
+    private string? HoverIdentityYear
+    {
+        get
+        {
+            if (Item.SortYear is >= 1800 and <= 2200)
+            {
+                return Item.SortYear.ToString();
+            }
+
+            return Item.HoverFacts
+                .Concat(Item.ContextLines)
+                .Select(FindFourDigitYear)
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+        }
+    }
+
+    private static void AddIdentityPart(ICollection<string> parts, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || parts.Contains(value.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        parts.Add(value.Trim());
+    }
+
+    private static bool ContainsFourDigitYear(string value) => !string.IsNullOrWhiteSpace(FindFourDigitYear(value));
+
+    private static string? FindFourDigitYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        foreach (var token in value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var candidate = token.Trim(',', '.', '(', ')', '[', ']', '\u00b7', '/', '-');
+            if (candidate.Length == 4
+                && int.TryParse(candidate, out var year)
+                && year is >= 1800 and <= 2200)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
 
     private bool SupportsRichGroupHover =>
         Item.IsCollection
@@ -750,33 +799,6 @@
         _ => Icons.Material.Outlined.Timeline,
     };
 
-    private bool CanRemoveFromContinue => Item.ProgressPct is > 0 && !Item.IsCollection;
-
-    private string? HoverStatusLabel
-    {
-        get
-        {
-            if (Item.ProgressPct is > 0)
-            {
-                if (Item.MediaKind == "TV" && HasEpisodeActionLabel)
-                {
-                    return PrimaryActionDisplayLabel;
-                }
-
-                return Item.MediaKind switch
-                {
-                    "Book" or "Comic" => "Continue Reading",
-                    "Music" or "Audiobook" => "Resume Listening",
-                    "TV" => "Resume Episode",
-                    "Movie" => "Resume",
-                    _ => "Continue",
-                };
-            }
-
-            return Item.StatusText;
-        }
-    }
-
     private bool ShowCaption => false;
 
     private bool ShowHoverHeading => !ShowHoverLogo;
@@ -853,139 +875,6 @@
         return value;
     }
 
-    private string PrimaryMudIcon => Item.Presentation == MediaTilePresentation.Album
-        ? Icons.Material.Filled.PlayArrow
-        : Item.MediaKind switch
-    {
-        "Movie" or "TV" => Icons.Material.Filled.PlayArrow,
-        "Music" or "Audiobook" => Icons.Material.Outlined.Headphones,
-        "Comic" or "Book" => Icons.Material.Filled.MenuBook,
-        _ => Icons.Material.Filled.PlayArrow,
-    };
-
-    private string PrimaryActionShortLabel
-    {
-        get
-        {
-            var label = PrimaryActionDisplayLabel;
-            if (label.Contains("Resume", StringComparison.OrdinalIgnoreCase))
-            {
-                return Item.MediaKind == "TV" && HasEpisodeActionLabel ? label : "Resume";
-            }
-
-            if (label.Contains("Continue", StringComparison.OrdinalIgnoreCase))
-            {
-                return Item.MediaKind is "Book" or "Comic" ? "Read" : "Resume";
-            }
-
-            if (label.Contains("Play Again", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Play Again";
-            }
-
-            if (label.Contains("Reading", StringComparison.OrdinalIgnoreCase)
-                || label.Contains("Read", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Read";
-            }
-
-            if (label.Contains("Play", StringComparison.OrdinalIgnoreCase))
-            {
-                if (Item.Presentation == MediaTilePresentation.Album)
-                {
-                    return "Play Album";
-                }
-
-                return Item.MediaKind is "Music" or "Audiobook" ? "Listen" : "Play";
-            }
-
-            if (Item.MediaKind == "TV"
-                && label.StartsWith("Watch ", StringComparison.OrdinalIgnoreCase)
-                && HasEpisodeActionLabel)
-            {
-                return label;
-            }
-
-            return label.Length <= 12 ? label : "Open";
-        }
-    }
-
-    private string PrimaryActionDisplayLabel
-    {
-        get
-        {
-            var label = Item.PrimaryActionLabel?.Trim();
-            if (string.IsNullOrWhiteSpace(label))
-            {
-                return Item.MediaKind switch
-                {
-                    "Book" or "Comic" => "Read",
-                    "Movie" or "TV" => "Play",
-                    "Music" or "Audiobook" => "Listen",
-                    _ => "Open",
-                };
-            }
-
-            if (label.Contains("Resume", StringComparison.OrdinalIgnoreCase))
-            {
-                return Item.MediaKind == "TV" && HasEpisodeActionLabel ? label : "Resume";
-            }
-
-            if (label.Contains("Continue", StringComparison.OrdinalIgnoreCase))
-            {
-                return Item.MediaKind switch
-                {
-                    "Book" or "Comic" => "Continue Reading",
-                    "Movie" or "TV" or "Music" or "Audiobook" => "Resume",
-                    _ => "Continue",
-                };
-            }
-
-            if (label.Equals("Open Show", StringComparison.OrdinalIgnoreCase)
-                || label.Equals("Open Movie", StringComparison.OrdinalIgnoreCase)
-                || label.Equals("Watch", StringComparison.OrdinalIgnoreCase))
-            {
-                return Item.MediaKind is "Movie" or "TV" ? "Play" : label;
-            }
-
-            if (label.Equals("Listen", StringComparison.OrdinalIgnoreCase))
-            {
-                return label;
-            }
-
-            if (label.Equals("Play", StringComparison.OrdinalIgnoreCase)
-                && Item.MediaKind is "Music" or "Audiobook")
-            {
-                return "Listen";
-            }
-
-            if (label.Equals("Open Book", StringComparison.OrdinalIgnoreCase)
-                || label.Equals("Open Comic", StringComparison.OrdinalIgnoreCase))
-            {
-                return "Read";
-            }
-
-            if (label.Equals("Open", StringComparison.OrdinalIgnoreCase))
-            {
-                return Item.MediaKind switch
-                {
-                    "Book" or "Comic" => "Read",
-                    "Movie" or "TV" => "Play",
-                    "Music" or "Audiobook" => "Listen",
-                    _ => label,
-                };
-            }
-
-            return label;
-        }
-    }
-
-    private bool HasEpisodeActionLabel =>
-        Item.PrimaryActionLabel.StartsWith("Watch S", StringComparison.OrdinalIgnoreCase)
-        || Item.PrimaryActionLabel.StartsWith("Watch E", StringComparison.OrdinalIgnoreCase)
-        || Item.PrimaryActionLabel.StartsWith("Resume S", StringComparison.OrdinalIgnoreCase)
-        || Item.PrimaryActionLabel.StartsWith("Resume E", StringComparison.OrdinalIgnoreCase);
-
     private string FallbackIcon => Item.Presentation switch
     {
         MediaTilePresentation.Album => Icons.Material.Filled.Album,
@@ -1025,8 +914,6 @@
     };
 
     private string DisplaySubtitle => Item.Subtitle ?? Item.Creator ?? string.Empty;
-
-    private bool CanEdit => OnEditClicked.HasDelegate && Item.WorkId.HasValue && !Item.IsCollection;
 
     private string HoverMetaDisplay
     {
@@ -1092,7 +979,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!IsHoverEnabled)
+        if (!UsesCinematicHover)
         {
             return;
         }
@@ -1109,299 +996,15 @@
                 Logger.LogDebug(ex, "Could not register media tile hover behavior.");
             }
         }
-
-        if (_expanded != _lastExpandedState)
-        {
-            _lastExpandedState = _expanded;
-            await JS.InvokeVoidAsync("setMediaTileHoverExpanded", CardElement, _expanded);
-        }
-
-        if (!_reactionLoaded && Item.WorkId.HasValue)
-        {
-            _reactionLoaded = true;
-            await LoadReactionAsync();
-        }
-
-        if (!_myListLoaded && Item.WorkId.HasValue)
-        {
-            _myListLoaded = true;
-            await LoadMyListAsync();
-        }
     }
-
-    private async Task LoadReactionAsync()
-    {
-        if (!Item.WorkId.HasValue)
-        {
-            return;
-        }
-
-        try
-        {
-            var profile = await ActiveProfileSession.GetActiveProfileAsync();
-            _reaction = await Reactions.GetReactionAsync(Item.WorkId.Value, profile?.Id);
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Could not load media reaction for {WorkId}.", Item.WorkId);
-        }
-    }
-
-    private async Task SetReactionAsync(MediaReaction reaction)
-    {
-        if (!Item.WorkId.HasValue)
-        {
-            return;
-        }
-
-        try
-        {
-            var profile = await ActiveProfileSession.GetActiveProfileAsync();
-            var next = _reaction == reaction ? MediaReaction.Neutral : reaction;
-            await Reactions.SetReactionAsync(Item.WorkId.Value, next, profile?.Id);
-            _reaction = next;
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Could not save media reaction for {WorkId}.", Item.WorkId);
-        }
-    }
-
-    private string ReactionTriggerButtonClass =>
-        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-reaction-trigger {(_reaction != MediaReaction.Neutral ? "is-selected" : string.Empty)}";
-
-    private static readonly IReadOnlyList<MediaReaction> ReactionChoices =
-        [MediaReaction.Dislike, MediaReaction.Like, MediaReaction.Love];
-
-    private string ReactionTriggerIcon => ReactionIcon(
-        _reaction == MediaReaction.Neutral ? MediaReaction.Like : _reaction,
-        _reaction != MediaReaction.Neutral);
-
-    private string ReactionChoiceIcon(MediaReaction reaction) => ReactionIcon(reaction, _reaction == reaction);
-
-    private string ReactionChoiceButtonClass(MediaReaction reaction) =>
-        $"media-tile-reaction-choice {(_reaction == reaction ? "is-selected" : string.Empty)}";
-
-    private static string ReactionLabel(MediaReaction reaction) => reaction switch
-    {
-        MediaReaction.Dislike => "Not for me",
-        MediaReaction.Love => "Love",
-        _ => "Like",
-    };
-
-    private static string ReactionIcon(MediaReaction reaction, bool isSelected) => reaction switch
-    {
-        MediaReaction.Dislike => Icons.Material.Outlined.ThumbDown,
-        MediaReaction.Love when isSelected => Icons.Material.Filled.Favorite,
-        MediaReaction.Love => Icons.Material.Outlined.FavoriteBorder,
-        _ => Icons.Material.Outlined.ThumbUp,
-    };
-
-    private string MyListButtonClass =>
-        $"tl-media-action tl-media-action--flat tl-media-action--compact media-tile-hover-control media-tile-hover-control-secondary media-tile-my-list-action {(_isInMyList ? "is-selected" : string.Empty)}";
-
-    private string MyListActionLabel => _isInMyList ? "Remove from My List" : "Add to My List";
 
     private string DetailsNavigationUrl => Item.DetailsNavigationUrl ?? Item.NavigationUrl;
 
     private string DetailsActionAriaLabel => $"View details for {Item.Title}";
 
-    private async Task LoadMyListAsync()
-    {
-        if (!Item.WorkId.HasValue)
-        {
-            return;
-        }
-
-        try
-        {
-            var profile = await ActiveProfileSession.GetActiveProfileAsync();
-            var membership = await Favorites.GetMembershipAsync(Item.WorkId.Value, profile?.Id);
-            _isInMyList = membership?.IsFavorite == true;
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Could not load My List state for {WorkId}.", Item.WorkId);
-        }
-    }
-
-    private async Task ToggleMyListAsync()
-    {
-        if (!Item.WorkId.HasValue)
-        {
-            return;
-        }
-
-        try
-        {
-            var profile = await ActiveProfileSession.GetActiveProfileAsync();
-            var membership = await Favorites.ToggleAsync(Item.WorkId.Value, profile?.Id);
-            _isInMyList = membership?.IsFavorite == true;
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Could not update My List for {WorkId}.", Item.WorkId);
-        }
-    }
-
-    private async Task OpenPrimary()
-    {
-        _expanded = false;
-        if (OnPrimaryClicked.HasDelegate)
-        {
-            await OnPrimaryClicked.InvokeAsync(Item);
-            return;
-        }
-
-        if (TryGetDirectAssetPlayerRoute(out var directPlayerRoute))
-        {
-            Nav.NavigateTo(directPlayerRoute);
-            return;
-        }
-
-        if (Item.Presentation == MediaTilePresentation.Album)
-        {
-            var tracks = Item.ArtworkStackItems
-                .Where(track => track.WorkId.HasValue)
-                .Select(track => new ListenQueueItem
-                {
-                    WorkId = track.WorkId!.Value,
-                    AssetId = track.AssetId,
-                    CollectionId = Item.CollectionId,
-                    MediaType = "Music",
-                    Title = track.Title,
-                    Subtitle = Item.Subtitle,
-                    Album = Item.Title,
-                    CoverUrl = FirstNonBlank(Item.CoverUrl, Item.TileImageUrl, track.ImageUrl),
-                    Duration = PreviewDuration(track),
-                    StreamUrl = track.AssetId.HasValue ? $"/media/assets/{track.AssetId.Value:D}/stream" : null,
-                })
-                .ToList();
-            if (tracks.Count > 0)
-            {
-                await Playback.ReplaceQueueItemsAsync(tracks, 0, Item.Title, shuffle: false);
-                return;
-            }
-        }
-
-        if (IsListenMedia && !Item.IsCollection && Item.WorkId.HasValue)
-        {
-            await Playback.PlayQueueItemAsync(new ListenQueueItem
-            {
-                WorkId = Item.WorkId.Value,
-                AssetId = Item.AssetId,
-                CollectionId = Item.CollectionId,
-                MediaType = Item.MediaKind,
-                Title = Item.Title,
-                Subtitle = Item.Subtitle,
-                Album = Item.Presentation == MediaTilePresentation.Album ? Item.Title : null,
-                CoverUrl = FirstNonBlank(Item.CoverUrl, Item.TileImageUrl),
-                StreamUrl = Item.AssetId.HasValue ? $"/media/assets/{Item.AssetId.Value:D}/stream" : null,
-            }, Item.Subtitle ?? Item.Title);
-            return;
-        }
-
-        Nav.NavigateTo(Item.PrimaryNavigationUrl ?? Item.NavigationUrl);
-    }
-
-    private bool TryGetDirectAssetPlayerRoute(out string route)
-    {
-        route = string.Empty;
-        if (!Item.AssetId.HasValue || Item.IsCollection)
-        {
-            return false;
-        }
-
-        var mediaKind = Item.MediaKind.Trim().ToLowerInvariant();
-        if (mediaKind.Contains("book") || mediaKind.Contains("comic") || mediaKind.Contains("epub"))
-        {
-            route = $"/read/{Item.AssetId.Value:D}";
-            return true;
-        }
-
-        if (mediaKind.Contains("movie") || mediaKind.Contains("video") || mediaKind == "tv")
-        {
-            route = $"/watch/player/{Item.AssetId.Value:D}";
-            return true;
-        }
-
-        return false;
-    }
-
-    private bool IsListenMedia
-    {
-        get
-        {
-            var mediaKind = Item.MediaKind.Trim().ToLowerInvariant();
-            return mediaKind.Contains("music")
-                   || mediaKind.Contains("audio")
-                   || mediaKind.Contains("m4a")
-                   || mediaKind.Contains("m4b")
-                   || mediaKind.Contains("mp3");
-        }
-    }
-
-    private void OpenCard()
-    {
-        OpenDetails();
-    }
-
     private void OpenDetails()
     {
-        _expanded = false;
         Nav.NavigateTo(Item.DetailsNavigationUrl ?? Item.NavigationUrl);
-    }
-
-    private void DismissFromContinue()
-    {
-        _expanded = false;
-        _dismissedFromContinue = true;
-    }
-
-    private async Task OpenAddToCollectionAsync()
-    {
-        if (Item.WorkId is null)
-        {
-            return;
-        }
-
-        var parameters = new DialogParameters
-        {
-            { nameof(AddToCollectionDialog.WorkId), Item.WorkId.Value },
-            { nameof(AddToCollectionDialog.WorkTitle), Item.Title }
-        };
-
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, BackdropClick = true, CloseButton = true, CloseOnEscapeKey = true };
-        var dialog = await DialogService.ShowAsync<AddToCollectionDialog>("Add to collection", parameters, options);
-        await dialog.Result;
-        _expanded = false;
-    }
-
-    private async Task OpenEditorAsync()
-    {
-        if (!CanEdit)
-        {
-            return;
-        }
-
-        _expanded = false;
-        await OnEditClicked.InvokeAsync(Item);
-    }
-
-    private void HandleCardKeyDown(KeyboardEventArgs args)
-    {
-        if (args.Key == "ArrowDown" && IsHoverEnabled)
-        {
-            _expanded = true;
-        }
-        else if (args.Key == "Escape")
-        {
-            _expanded = false;
-        }
     }
 
     private static string GetStackImageClass(int index) => $"media-tile-stack-image media-tile-stack-image-{Math.Min(index, 2)}";

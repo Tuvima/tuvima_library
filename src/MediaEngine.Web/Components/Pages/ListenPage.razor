@@ -158,7 +158,6 @@ else
                               HeroItems="@_listenHubPage.Spotlights"
                               Shelves="@ListenHubShelves"
                               SearchPlaceholder="Search music and audiobooks..."
-                              OnPrimaryClicked="HandleListenTilePrimaryAsync"
                               RouteBase="/listen" />
             }
             else if (IsMusicHome)
@@ -179,7 +178,6 @@ else
                         @foreach (var shelf in _musicHomePage.Shelves)
                         {
                             <MediaTileShelf Shelf="@shelf"
-                                            OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                             @key="shelf.Key" />
                         }
 
@@ -195,7 +193,6 @@ else
                                 </div>
 
                                 <MediaTileGrid Items="@HomePlaylistTiles"
-                                               OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                                Class="listen-card-grid" />
                             </section>
                         }
@@ -258,7 +255,6 @@ else
                     else
                     {
                         <MediaTileGrid Items="@AlbumTiles"
-                                       OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                        Class="listen-card-grid listen-card-grid--albums" />
                     }
                 </section>
@@ -457,7 +453,6 @@ else
                                         </div>
                                     </div>
                                     <MediaTileGrid Items="@ArtistAlbumTiles"
-                                                   OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                                    Class="listen-card-grid listen-card-grid--albums" />
                                 </section>
                             }
@@ -575,7 +570,6 @@ else
                     else
                     {
                         <MediaTileGrid Items="@PlaylistTiles"
-                                       OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                        Class="listen-card-grid" />
                     }
                 </section>
@@ -963,7 +957,6 @@ else
                             @if (_audiobookLayout == LibraryLayoutMode.Card)
                             {
                                 <MediaTileGrid Items="@AudiobookBrowseTiles"
-                                               OnPrimaryClicked="HandleListenTilePrimaryAsync"
                                                Class="listen-card-grid listen-card-grid--audiobooks" />
                             }
                             else

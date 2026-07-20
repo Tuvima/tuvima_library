@@ -34,7 +34,7 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
-    public void BrowseRowAndCard_EditActionsLaunchSharedEditor()
+    public void BrowseRowEditActionUsesSharedEditorWhileCardsOpenDetails()
     {
         var browse = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
         var table = ReadSource("src/MediaEngine.Web/Components/Library/LibraryConfigurableTable.razor");
@@ -42,11 +42,12 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("MediaEditorLauncherService MediaEditorLauncher", browse, StringComparison.Ordinal);
         Assert.Contains("OnEditClicked=\"OpenItemEditorAsync\"", browse, StringComparison.Ordinal);
-        Assert.Contains("OnEditClicked=\"OpenCardEditorAsync\"", browse, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnEditClicked=\"OpenCardEditorAsync\"", browse, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaGroupPage", browse, StringComparison.Ordinal);
         Assert.Contains("MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest", browse, StringComparison.Ordinal);
         Assert.Contains("OnEditClicked.InvokeAsync(item.EntityId)", table, StringComparison.Ordinal);
-        Assert.Contains("OnEditClicked.InvokeAsync(Item)", card, StringComparison.Ordinal);
+        Assert.Contains("href=\"@DetailsNavigationUrl\"", card, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnEditClicked", card, StringComparison.Ordinal);
     }
 
     [Fact]

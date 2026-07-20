@@ -1497,31 +1497,6 @@ public partial class ListenPage
         Snackbar.Add($"{work.Title} added to the queue", Severity.Success);
     }
 
-    private async Task HandleListenTilePrimaryAsync(MediaTileViewModel item)
-    {
-        if (item.Presentation == MediaTilePresentation.Album && item.CollectionId.HasValue)
-        {
-            var album = _albumGroups.FirstOrDefault(group => group.CollectionId == item.CollectionId.Value);
-            if (album is not null)
-            {
-                await PlayTracksAsync(AlbumWorksFor(album), null, album.DisplayName);
-                return;
-            }
-        }
-
-        if (item.WorkId.HasValue)
-        {
-            var work = _musicWorks.Concat(_audiobookWorks).FirstOrDefault(candidate => candidate.Id == item.WorkId.Value);
-            if (work is not null)
-            {
-                await PlaySingleWorkAsync(work, item.MediaKind == "Audiobook" ? "Audiobooks" : "Listen");
-                return;
-            }
-        }
-
-        NavigateTo(item.PrimaryNavigationUrl ?? item.NavigationUrl);
-    }
-
     private async Task PlayTracksAsync(IReadOnlyList<WorkViewModel> works, Guid? startWorkId, string? sourceLabel, bool shuffle = false)
     {
         if (works.Count == 0)

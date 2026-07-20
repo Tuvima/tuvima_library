@@ -50,7 +50,6 @@
             {
                 <MediaShelf Shelf="@shelf"
                             SectionType="@SectionType"
-                            OnPrimaryClicked="@OnPrimaryClicked"
                             HideSourceBadges="@(SectionType == MediaHubSectionType.Watch)"
                             @key="shelf.Key" />
             }
@@ -71,7 +70,6 @@
     [Parameter] public string RouteBase { get; set; } = "/";
     [Parameter] public bool SupportsHero { get; set; } = true;
     [Parameter] public bool SupportsContinueRow { get; set; } = true;
-    [Parameter] public EventCallback<MediaTileViewModel> OnPrimaryClicked { get; set; }
 
     private string _activeMode = "all";
     private string _activeGenre = "all";

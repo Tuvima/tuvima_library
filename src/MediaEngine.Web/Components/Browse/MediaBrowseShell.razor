@@ -184,7 +184,6 @@
     {
         <MediaTileGrid Items="@_cards"
                        HoverMode="@GridHoverMode"
-                       OnEditClicked="OpenCardEditorAsync"
                        HideMediaKindBadges="true"
                        HideSourceBadges="true"
                        Class="browse-shell__grid" />
@@ -795,18 +794,6 @@
             ? MediaNavigation.ForLibraryItem(displayItem)
             : $"/book/{entityId}");
         return Task.CompletedTask;
-    }
-
-    private Task OpenCardEditorAsync(MediaTileViewModel card)
-    {
-        var item = _items.FirstOrDefault(candidate => candidate.EntityId == card.WorkId);
-        return OpenEditorAsync(
-            card.WorkId ?? card.Id,
-            card.Title,
-            card.Subtitle,
-            card.CoverUrl,
-            item?.MediaType ?? card.MediaKind,
-            reloadOrigin: true);
     }
 
     private async Task OpenItemEditorAsync(Guid entityId)
