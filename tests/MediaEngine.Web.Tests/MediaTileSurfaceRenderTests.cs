@@ -450,7 +450,9 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Shared/MediaArtworkGroupPreview.razor.css"));
         Assert.Contains($".media-artwork-group-preview.is-strip-layout.{countClass}", css, StringComparison.Ordinal);
-        Assert.Contains("object-fit: fill", css, StringComparison.Ordinal);
+        Assert.Contains("height: auto !important", css, StringComparison.Ordinal);
+        Assert.Contains("align-self: center", css, StringComparison.Ordinal);
+        Assert.Contains("object-fit: contain", css, StringComparison.Ordinal);
         Assert.DoesNotContain("is-mosaic-layout", css, StringComparison.Ordinal);
     }
 
