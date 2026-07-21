@@ -124,13 +124,15 @@ else
         </aside>
 
         <main class="listen-content">
-            <header class="listen-topbar">
-                <div class="listen-topbar__identity">
-                    <div>
-                        <h1>@(IsDefaultEntry ? "Listen" : IsAudiobooksMode ? "Audiobooks" : "Music")</h1>
-                    </div>
+            @if (!IsAudioDetailSurface)
+            {
+                <div class="listen-lane-header">
+                    <MediaLaneHeader Title="Listen"
+                                     Subtitle="Music and audiobooks from your local library"
+                                     Modes="@ListenHubModes"
+                                     ActiveMode="@ActiveListenMode" />
                 </div>
-            </header>
+            }
 
             @if (_loading)
             {
@@ -145,11 +147,12 @@ else
                               Subtitle="Music and audiobooks from your local library"
                               SelectedMode="all"
                               AvailableModes="@ListenHubModes"
-                              HeroItem="@_listenHubPage.Hero"
-                              HeroItems="@_listenHubPage.Spotlights"
                               Shelves="@ListenHubShelves"
                               SearchPlaceholder="Search music and audiobooks..."
-                              RouteBase="/listen" />
+                              RouteBase="/listen"
+                              SupportsHero="false"
+                              SupportsHeader="false"
+                              SupportsNavigation="false" />
             }
             else if (IsAlbumsView)
             {

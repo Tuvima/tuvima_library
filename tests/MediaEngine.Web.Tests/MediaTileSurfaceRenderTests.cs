@@ -218,7 +218,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Equal("Book Series", cut.Find(".media-group-tile__overlay .media-group-tile__kind").TextContent.Trim());
         Assert.Equal("Foundation Series", cut.Find(".media-group-tile__overlay h3").TextContent.Trim());
         Assert.Equal("Continue with Foundation", cut.Find(".media-group-tile__overlay p").TextContent.Trim());
-        Assert.Single(cut.FindAll(".media-artwork-group-preview.is-adaptive-layout"));
+        Assert.Single(cut.FindAll(".media-artwork-group-preview.is-cluster-layout"));
         Assert.Single(cut.FindAll("a.media-group-tile__surface"));
         Assert.Empty(cut.FindAll(".media-group-tile__base-copy"));
         Assert.Empty(cut.FindAll(".media-group-tile__description"));
@@ -237,10 +237,10 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor"));
-        Assert.Contains("--media-group-tile-width: clamp(540px, 37vw, 680px)", css, StringComparison.Ordinal);
-        Assert.Contains("--media-group-tile-height: clamp(270px, 18vw, 330px)", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-width: clamp(560px, 40vw, 740px)", css, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-height: clamp(300px, 20vw, 365px)", css, StringComparison.Ordinal);
         Assert.Contains("inset: 0", css, StringComparison.Ordinal);
-        Assert.Contains("MediaArtworkGroupPreviewLayout.Adaptive", source, StringComparison.Ordinal);
+        Assert.Contains("MediaArtworkGroupPreviewLayout.Cluster", source, StringComparison.Ordinal);
         Assert.Contains("The API orders series previews by progress", source, StringComparison.Ordinal);
         Assert.Contains(".media-group-tile__surface:hover::after", css, StringComparison.Ordinal);
         Assert.Contains(".media-group-tile__surface:focus-visible", css, StringComparison.Ordinal);

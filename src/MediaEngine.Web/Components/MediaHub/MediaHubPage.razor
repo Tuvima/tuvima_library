@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
+@inject NavigationManager Nav
 
 <GlobalBackground Color="#05070C" />
 
@@ -14,30 +15,25 @@
                               Density="@HeroDensity"
                               AriaLabel="@($"{Title} featured media")" />
     }
-
-    <SurfaceNavigationBar Items="@FilterTabs"
-                          ActiveKey="@_activeMode"
-                          ActiveKeyChanged="SetModeAsync"
-                          AriaLabel="@($"Filter {Title}")">
-        <TrailingContent>
-            @if (AvailableGenres.Count > 1)
+    else if (!SupportsHero && SupportsHeader)
+    {
+        <header class="media-hub__header">
+            <span>Your library</span>
+            <h1>@Title</h1>
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
             {
-                <AppSelect T="string"
-                           Value="@_activeGenre"
-                           ValueChanged="SetGenreAsync"
-                           Label="Genre"
-                           Variant="Variant.Outlined"
-                           Dense="true"
-                           Class="media-hub__genre-filter">
-                    <MudSelectItem T="string" Value="@("all")">All genres</MudSelectItem>
-                    @foreach (var genre in AvailableGenres)
-                    {
-                        <MudSelectItem T="string" Value="@genre">@genre</MudSelectItem>
-                    }
-                </AppSelect>
+                <p>@Subtitle</p>
             }
-        </TrailingContent>
-    </SurfaceNavigationBar>
+        </header>
+    }
+
+    @if (SupportsNavigation && FilterTabs.Count > 0)
+    {
+        <SurfaceNavigationBar Items="@FilterTabs"
+                              ActiveKey="@_activeMode"
+                              ActiveKeyChanged="SetModeAsync"
+                              AriaLabel="@($"Browse {Title}")" />
+    }
 
     <div class="media-hub__shelves">
         @if (VisibleShelves.Count == 0)
@@ -69,6 +65,8 @@
     [Parameter] public string? SearchPlaceholder { get; set; }
     [Parameter] public string RouteBase { get; set; } = "/";
     [Parameter] public bool SupportsHero { get; set; } = true;
+    [Parameter] public bool SupportsHeader { get; set; } = true;
+    [Parameter] public bool SupportsNavigation { get; set; } = true;
     [Parameter] public bool SupportsContinueRow { get; set; } = true;
 
     private string _activeMode = "all";
@@ -151,7 +149,13 @@
 
     private Task SetModeAsync(string mode)
     {
-        _activeMode = mode;
+        var target = AvailableModes.FirstOrDefault(item => string.Equals(item.Id, mode, StringComparison.OrdinalIgnoreCase));
+        if (target is not null)
+        {
+            _activeMode = mode;
+            Nav.NavigateTo(target.Route);
+        }
+
         return Task.CompletedTask;
     }
 

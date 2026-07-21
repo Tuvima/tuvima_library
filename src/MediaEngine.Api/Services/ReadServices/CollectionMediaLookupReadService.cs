@@ -240,9 +240,9 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var rows = (await conn.QueryAsync<ResolvedCollectionItemRow>(new CommandDefinition(
             $"""
-            WITH requested(ItemId, SourceWorkId, SortOrder) AS (
-                SELECT value ->> 'id',
-                       value ->> 'work_id',
+            WITH requested(ItemId, SourceWorkHex, SortOrder) AS (
+                SELECT CAST(value ->> 'id' AS TEXT),
+                       UPPER(CAST(value ->> 'work_id_hex' AS TEXT)),
                        CAST(value ->> 'sort_order' AS INTEGER)
                 FROM json_each(@ItemsJson)
             ),
@@ -255,7 +255,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                            ELSE w.id
                        END AS WorkId
                 FROM requested
-                INNER JOIN works w ON w.id = requested.SourceWorkId
+                INNER JOIN works w ON hex(w.id) = requested.SourceWorkHex
                 LEFT JOIN works p ON p.id = w.parent_work_id
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
             ),
@@ -278,13 +278,14 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                 WHERE {visibleAssetPredicate}
                 GROUP BY work_tree.RootWorkId
             )
-            SELECT display_work.ItemId,
+            SELECT CAST(display_work.ItemId AS TEXT) AS ItemId,
                    display_work.WorkId,
-                   COALESCE(NULLIF(title_work.value, ''), NULLIF(show_name.value, ''), NULLIF(series_item.item_label, ''), 'Untitled') AS Title,
-                   COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_work.value, '')) AS Creator,
+                   CAST(COALESCE(NULLIF(title_work.value, ''), NULLIF(show_name.value, ''), NULLIF(series_item.item_label, ''), 'Untitled') AS TEXT) AS Title,
+                   CAST(COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_work.value, '')) AS TEXT) AS Creator,
                    w.media_type AS MediaType,
-                   COALESCE(NULLIF(cover_work.value, ''), CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END) AS CoverUrl,
-                   display_work.SortOrder
+                   CAST(NULLIF(cover_work.value, '') AS TEXT) AS CoverUrl,
+                   ra.AssetId,
+                   CAST(display_work.SortOrder AS INTEGER) AS SortOrder
             FROM display_work
             INNER JOIN works w ON w.id = display_work.WorkId
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
@@ -299,11 +300,11 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             """,
             new
             {
-                CollectionId = collectionId.ToString("D"),
+                CollectionId = collectionId,
                 ItemsJson = System.Text.Json.JsonSerializer.Serialize(items.Select(item => new
                 {
                     id = item.Id.ToString("D"),
-                    work_id = item.WorkId.ToString("D"),
+                    work_id_hex = item.WorkId.ToString("N"),
                     sort_order = item.SortOrder,
                 })),
             },
@@ -314,12 +315,14 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             .Select(group => group.OrderBy(row => row.SortOrder).First())
             .Select(row => new CollectionItemDto
         {
-            Id = row.ItemId,
+            Id = Guid.ParseExact(row.ItemId, "D"),
             WorkId = row.WorkId,
             Title = row.Title,
             Creator = row.Creator,
             MediaType = row.MediaType,
-            CoverUrl = row.CoverUrl,
+            CoverUrl = !string.IsNullOrWhiteSpace(row.CoverUrl)
+                ? row.CoverUrl
+                : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
             SortOrder = row.SortOrder,
         }).ToList();
     }
@@ -459,14 +462,17 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         string? Album,
         string? Artist);
 
-    private sealed record ResolvedCollectionItemRow(
-        Guid ItemId,
-        Guid WorkId,
-        string Title,
-        string? Creator,
-        string MediaType,
-        string? CoverUrl,
-        int SortOrder);
+    private sealed class ResolvedCollectionItemRow
+    {
+        public string ItemId { get; init; } = string.Empty;
+        public Guid WorkId { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public string? Creator { get; init; }
+        public string MediaType { get; init; } = string.Empty;
+        public string? CoverUrl { get; init; }
+        public Guid? AssetId { get; init; }
+        public int SortOrder { get; init; }
+    }
 
     private sealed class ResolvedMetadataRow
     {

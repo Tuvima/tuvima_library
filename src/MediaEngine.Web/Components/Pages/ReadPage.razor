@@ -10,39 +10,49 @@
 
 <PageTitle>Read - Tuvima</PageTitle>
 
-@if (string.IsNullOrWhiteSpace(Tab))
-{
-    @if (_loading)
+<MediaSectionShell Title="Read" NavigationGroups="@ReadNavigationGroups">
+    <MediaLaneHeader Title="Read"
+                     Subtitle="Books and comics from your local library"
+                     Modes="@ReadModes"
+                     ActiveMode="@ActiveReadMode" />
+
+    @if (string.IsNullOrWhiteSpace(Tab))
     {
-        <div class="browse-shell__loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
-        </div>
+        @if (_loading)
+        {
+            <div class="browse-shell__loading">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
+            </div>
+        }
+        else if (_loadFailed)
+        {
+            <AppErrorState Title="Read failed to load"
+                           Message="The Dashboard could not load the Read landing from the Engine."
+                           Retry="LoadLandingAsync" />
+        }
+        else if (_landingPage is not null)
+        {
+            <MediaHubPage SectionType="MediaHubSectionType.Read"
+                          Title="Read"
+                          Subtitle="Books and comics from your local library"
+                          SelectedMode="all"
+                          AvailableModes="@ReadModes"
+                          Shelves="@ReadHubShelves"
+                          SearchPlaceholder="Search books and comics..."
+                          RouteBase="/read"
+                          SupportsHero="false"
+                          SupportsHeader="false"
+                          SupportsNavigation="false" />
+        }
     }
-    else if (_loadFailed)
+    else
     {
-        <AppErrorState Title="Read failed to load"
-                       Message="The Dashboard could not load the Read landing from the Engine."
-                       Retry="LoadLandingAsync" />
+        <MediaBrowseShell Tab="@Tab"
+                          Preset="@Preset"
+                          ShowTitleBlock="false"
+                          ShowTabNavigation="false" />
     }
-    else if (_landingPage is not null)
-    {
-        <MediaHubPage SectionType="MediaHubSectionType.Read"
-                      Title="Read"
-                      Subtitle="Books and comics from your local library"
-                      SelectedMode="all"
-                      AvailableModes="@ReadModes"
-                      HeroItem="@_landingPage.Hero"
-                      HeroItems="@_landingPage.Spotlights"
-                      Shelves="@ReadHubShelves"
-                      SearchPlaceholder="Search books and comics..."
-                      RouteBase="/read" />
-    }
-}
-else
-{
-    <MediaBrowseShell Tab="@Tab"
-                      Preset="@Preset" />
-}
+</MediaSectionShell>
 
 @code {
     [Parameter] public string? Tab { get; set; }
@@ -51,15 +61,37 @@ else
     private bool _loading = true;
     private bool _loadFailed;
 
+    private string ActiveReadMode => Tab?.Trim().ToLowerInvariant() switch
+    {
+        "books" => "books",
+        "comics" => "comics",
+        _ => "all",
+    };
+
     private static readonly IReadOnlyList<MediaHubModeViewModel> ReadModes =
     [
-        new("all", "All", "/read"),
+        new("all", "Discover", "/read"),
         new("books", "Books", "/read/books"),
         new("comics", "Comics", "/read/comics"),
     ];
 
+    private static readonly IReadOnlyList<MediaSectionNavigationGroup> ReadNavigationGroups =
+    [
+        new("Library",
+        [
+            new("Discover", "/read", Icons.Material.Outlined.Explore, Exact: true),
+            new("Books", "/read/books", Icons.Material.Outlined.MenuBook),
+            new("Comics", "/read/comics", Icons.Material.Outlined.AutoStories),
+        ]),
+        new("Browse",
+        [
+            new("Book Series", "/read/books?grouping=series", Icons.Material.Outlined.CollectionsBookmark, Exact: true),
+            new("Comic Runs", "/read/comics?grouping=series", Icons.Material.Outlined.ViewAgenda, Exact: true),
+            new("In Progress", "/read/books?status=in-progress", Icons.Material.Outlined.Timelapse, Exact: true),
+        ]),
+    ];
+
     private IReadOnlyList<MediaHubShelfViewModel> ReadHubShelves => _landingPage?.Shelves
-        .Where(shelf => shelf.Kind != MediaTileShelfKind.ReadSeries)
         .Select(shelf => MediaHubShelfViewModel.FromShelf(shelf))
         .ToList() ?? [];
 
@@ -121,10 +153,10 @@ else
                 MediaType = "Comics",
                 GroupingOptions =
                 [
-                    new("series", "Volumes", Icons.Material.Outlined.CollectionsBookmark),
                     new("all", "Issues", Icons.Material.Outlined.ViewAgenda),
+                    new("series", "Volumes", Icons.Material.Outlined.CollectionsBookmark),
                 ],
-                DefaultGrouping = "series",
+                DefaultGrouping = "all",
                 DefaultLayout = LibraryLayoutMode.Card,
             },
         ],

@@ -35,8 +35,11 @@ public sealed class DisplayJourneyProjectionReader
                 ) AS Description,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('author', 'creator') LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
                     cv_author_w.value,
-                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('author', 'creator') LIMIT 1)
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('author', 'creator') LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1)
                 ) AS Author,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'artist' LIMIT 1),
@@ -75,9 +78,9 @@ public sealed class DisplayJourneyProjectionReader
                 ) AS PageCount,
                 COALESCE(cv_rating_w.value, cv_rating_item.value, cv_rating_a.value) AS Rating,
                 COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'genre' LIMIT 1),
-                    cv_genre_w.value,
-                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'genre' LIMIT 1)
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key = 'genre' ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'genre' ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key = 'genre' ORDER BY ordinal))
                 ) AS Genre,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'series' LIMIT 1),

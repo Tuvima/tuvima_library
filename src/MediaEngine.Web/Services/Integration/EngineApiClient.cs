@@ -1355,7 +1355,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
         int? limit = null,
         bool? includeCatalog = null,
         Guid? profileId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? genres = null,
+        string? creator = null,
+        string? status = null,
+        string? year = null)
     {
         const string endpoint = "GET /api/v1/display/browse";
         try
@@ -1365,6 +1369,10 @@ public sealed partial class EngineApiClient : IEngineApiClient
             AddQuery(query, "mediaType", mediaType);
             AddQuery(query, "grouping", grouping);
             AddQuery(query, "search", search);
+            AddQuery(query, "genres", genres);
+            AddQuery(query, "creator", creator);
+            AddQuery(query, "status", status);
+            AddQuery(query, "year", year);
             AddQuery(query, "offset", offset?.ToString(System.Globalization.CultureInfo.InvariantCulture));
             AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
             AddQuery(query, "includeCatalog", includeCatalog?.ToString().ToLowerInvariant());
@@ -1473,6 +1481,43 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "PUT /api/details/{EntityType}/{Id}/sequence-default failed", entityType, id);
             return false;
+        }
+    }
+
+    public async Task<DisplayPageDto?> GetDisplayContinueAsync(
+        string? lane = null,
+        string? mediaType = null,
+        int? limit = null,
+        CancellationToken ct = default)
+    {
+        const string endpoint = "GET /api/v1/display/continue";
+        try
+        {
+            var query = new List<string>();
+            AddQuery(query, "lane", lane);
+            AddQuery(query, "mediaType", mediaType);
+            AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var url = "/api/v1/display/continue" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
+            var response = await _http.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpoint, response, ct);
+                return null;
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<DisplayPageDto>(cancellationToken: ct);
+            ClearFailure(endpoint);
+            return NormalizeDisplayPage(page);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /api/v1/display/continue failed");
+            RecordExceptionFailure(endpoint, ex);
+            return null;
         }
     }
 

@@ -428,7 +428,7 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.Empty(cut.FindAll(".mud-table"));
             Assert.NotEmpty(cut.FindAll(".browse-shell"));
-            Assert.NotEmpty(cut.FindAll(".cinematic-hero-carousel"));
+            Assert.Empty(cut.FindAll(".cinematic-hero-carousel"));
             Assert.NotEmpty(cut.FindAll(".surface-tab-bar"));
             Assert.NotEmpty(cut.FindAll(".browse-shell__search"));
             Assert.NotEmpty(cut.FindAll(".browse-shell__sort"));

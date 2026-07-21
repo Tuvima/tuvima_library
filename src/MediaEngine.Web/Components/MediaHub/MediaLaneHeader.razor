@@ -1,0 +1,53 @@
+@namespace MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+@inject NavigationManager Nav
+
+<header class="media-lane-header">
+    <div class="media-lane-header__identity">
+        <span>Your library</span>
+        <h1>@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p>@Subtitle</p>
+        }
+    </div>
+
+    @if (Modes.Count > 0)
+    {
+        <SurfaceNavigationBar Items="@NavigationItems"
+                              ActiveKey="@ActiveMode"
+                              ActiveKeyChanged="NavigateAsync"
+                              AriaLabel="@($"Browse {Title}")"
+                              Class="media-lane-header__navigation" />
+    }
+</header>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string ActiveMode { get; set; } = "all";
+    [Parameter] public IReadOnlyList<MediaHubModeViewModel> Modes { get; set; } = [];
+
+    private IReadOnlyList<SurfaceTabItem> NavigationItems => Modes
+        .Select(mode => new SurfaceTabItem(mode.Id, mode.Label))
+        .ToList();
+
+    private Task NavigateAsync(string mode)
+    {
+        var target = Modes.FirstOrDefault(item => string.Equals(item.Id, mode, StringComparison.OrdinalIgnoreCase));
+        if (target is not null && !string.Equals(CurrentPathAndQuery, PathAndQuery(target.Route), StringComparison.OrdinalIgnoreCase))
+        {
+            Nav.NavigateTo(target.Route);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private string CurrentPathAndQuery => PathAndQuery(Nav.Uri);
+
+    private string PathAndQuery(string route)
+    {
+        var uri = Nav.ToAbsoluteUri(route);
+        return $"{uri.AbsolutePath.TrimEnd('/')}{uri.Query}";
+    }
+}

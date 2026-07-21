@@ -125,7 +125,11 @@ public sealed class DisplayComposerService
         int limit,
         bool includeCatalog = true,
         Guid? profileId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? genres = null,
+        string? creator = null,
+        string? status = null,
+        string? year = null)
     {
         var normalizedLane = DisplayMediaRules.NormalizeLane(lane);
         if (normalizedLane is not null &&
@@ -185,6 +189,42 @@ public sealed class DisplayComposerService
                 Contains(work.Network, search));
         }
 
+        var facetSource = filtered.ToList();
+        var facets = BuildBrowseFacets(facetSource);
+        var requestedGenres = DisplayMediaRules.SplitValues(genres);
+        if (requestedGenres.Count > 0)
+        {
+            filtered = filtered.Where(work =>
+            {
+                var workGenres = DisplayMediaRules.SplitValues(work.Genre);
+                return requestedGenres.Any(requested => workGenres.Contains(requested, StringComparer.OrdinalIgnoreCase));
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(creator))
+        {
+            filtered = filtered.Where(work =>
+                string.Equals(work.Author, creator, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(work.Artist, creator, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(work.Director, creator, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(year))
+        {
+            filtered = filtered.Where(work => string.Equals(work.Year, year, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (string.Equals(status, "in-progress", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(work => progressByWork.TryGetValue(work.WorkId, out var progress)
+                                               && progress.ProgressPct is > 0 and < 100);
+        }
+        else if (string.Equals(status, "not-started", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(work => !progressByWork.TryGetValue(work.WorkId, out var progress)
+                                               || progress.ProgressPct <= 0);
+        }
+
         if (string.Equals(normalizedLane, "read", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(mediaType))
         {
@@ -194,6 +234,7 @@ public sealed class DisplayComposerService
         var filteredWorks = filtered
             .OrderByDescending(work => work.CreatedAt)
             .ToList();
+        var totalCount = filteredWorks.Count;
 
         if (ShouldReturnTvShowGroups(normalizedLane, mediaType, grouping))
         {
@@ -211,7 +252,11 @@ public sealed class DisplayComposerService
                     Subtitle: "Shows grouped by title",
                     Hero: pagedShowCards.FirstOrDefault() is { } showHero ? DisplayCardBuilder.ToHero(showHero, "TV Shows") : null,
                     Shelves: includeCatalog ? [] : [new DisplayShelfDto("results", "TV Shows", null, pagedShowCards, null)],
-                    Catalog: includeCatalog ? pagedShowCards : []);
+                    Catalog: includeCatalog ? pagedShowCards : [])
+                {
+                    TotalCount = showCards.Count,
+                    Facets = facets,
+                };
             }
         }
 
@@ -228,14 +273,28 @@ public sealed class DisplayComposerService
             Subtitle: null,
             Hero: cards.FirstOrDefault() is { } hero ? DisplayCardBuilder.ToHero(hero, "From your library") : null,
             Shelves: includeCatalog ? [] : [new DisplayShelfDto("results", "Results", null, cards, null)],
-            Catalog: includeCatalog ? cards : []);
+            Catalog: includeCatalog ? cards : [])
+        {
+            TotalCount = totalCount,
+            Facets = facets,
+        };
     }
 
-    public async Task<DisplayPageDto> BuildContinueAsync(string? lane, int limit, bool includeCatalog = true, CancellationToken ct = default)
+    public async Task<DisplayPageDto> BuildContinueAsync(
+        string? lane,
+        int limit,
+        bool includeCatalog = true,
+        CancellationToken ct = default,
+        string? mediaType = null)
     {
         var normalizedLane = DisplayMediaRules.NormalizeLane(lane);
         var journey = await _repository.LoadJourneyAsync(normalizedLane, ct);
         var cards = journey
+            .Where(item => string.IsNullOrWhiteSpace(mediaType)
+                           || string.Equals(
+                               DisplayMediaRules.NormalizeMediaType(item.MediaType),
+                               DisplayMediaRules.NormalizeMediaType(mediaType),
+                               StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(item => item.LastAccessed)
             .Take(Math.Clamp(limit <= 0 ? 24 : limit, 1, 100))
             .Select(item => _cards.FromJourney(item, normalizedLane ?? "continue"))
@@ -757,6 +816,34 @@ public sealed class DisplayComposerService
                 .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
         };
+    }
+
+    private static DisplayBrowseFacetsDto BuildBrowseFacets(IEnumerable<DisplayWorkRow> works)
+    {
+        var source = works.ToList();
+        var genres = source
+            .SelectMany(work => DisplayMediaRules.SplitValues(work.Genre))
+            .GroupBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Key)
+            .ToList();
+        var creators = source
+            .SelectMany(work => new[] { work.Author, work.Artist, work.Director })
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var years = source
+            .Select(work => work.Year)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new DisplayBrowseFacetsDto(genres, creators, years);
     }
 
     private static IReadOnlyDictionary<Guid, DisplayJourneyRow> LatestProgressByWork(IReadOnlyList<DisplayJourneyRow> journey) =>

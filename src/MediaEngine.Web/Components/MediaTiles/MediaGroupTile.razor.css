@@ -1,8 +1,8 @@
 .media-group-tile {
     --media-group-accent: var(--tl-accent-primary);
     --media-group-secondary: #111827;
-    --media-group-tile-width: clamp(540px, 37vw, 680px);
-    --media-group-tile-height: clamp(270px, 18vw, 330px);
+    --media-group-tile-width: clamp(560px, 40vw, 740px);
+    --media-group-tile-height: clamp(300px, 20vw, 365px);
     position: relative;
     width: min(calc(100vw - 22px), var(--media-group-tile-width));
     height: var(--media-group-tile-height);
@@ -36,7 +36,7 @@
     inset: 0;
     z-index: 4;
     pointer-events: none;
-    background: linear-gradient(180deg, rgba(2, 5, 14, 0.94) 0%, rgba(2, 5, 14, 0.74) 31%, rgba(2, 5, 14, 0.2) 58%, transparent 76%);
+    background: linear-gradient(180deg, rgba(2, 5, 14, 0.86) 0%, rgba(2, 5, 14, 0.46) 35%, transparent 66%);
     content: "";
     opacity: 0;
     transition: opacity 170ms ease;
@@ -58,7 +58,7 @@
     position: absolute;
     inset: clamp(12px, 2.4cqw, 18px);
     z-index: 2;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .media-group-tile__fallback {
@@ -189,7 +189,7 @@
 @media (max-width: 720px) {
     .media-group-tile {
         --media-group-tile-width: min(88vw, 520px);
-        --media-group-tile-height: clamp(216px, 46vw, 270px);
+        --media-group-tile-height: clamp(228px, 49vw, 286px);
     }
 }
 

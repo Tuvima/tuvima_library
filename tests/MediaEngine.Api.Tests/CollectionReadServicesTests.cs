@@ -1,5 +1,6 @@
 using Dapper;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -81,6 +82,61 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionItems_ResolveGuidBlobMembershipAndManagedArtwork()
+    {
+        var seeded = await SeedMusicHierarchyAsync();
+        var collectionId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var results = await _lookup.ResolveItemsAsync(
+            collectionId,
+            [new CollectionItem
+            {
+                Id = itemId,
+                CollectionId = collectionId,
+                WorkId = seeded.TrackWorkId,
+                SortOrder = 3,
+            }],
+            CancellationToken.None);
+
+        var item = Assert.Single(results);
+        Assert.Equal(itemId, item.Id);
+        Assert.Equal(seeded.AlbumWorkId, item.WorkId);
+        Assert.Equal("The Album", item.Title);
+        Assert.Equal("The Artist", item.Creator);
+        Assert.Equal("Music", item.MediaType);
+        Assert.Equal($"/stream/{seeded.AssetId:D}/cover", item.CoverUrl);
+        Assert.Equal(3, item.SortOrder);
+    }
+
+    [Fact]
+    public async Task SystemViewGroups_ReturnOrderedArtworkPreviewsAndNullableSqliteDimensions()
+    {
+        var first = await SeedBookSeriesMemberAsync("First Book", "1", 1649, "book-series-first");
+        var second = await SeedBookSeriesMemberAsync("Second Book", "2", 1800, "book-series-second");
+
+        var groups = await _browse.GetSystemViewGroupsAsync("Books", "series", CancellationToken.None);
+
+        var group = Assert.Single(groups);
+        Assert.Equal("The Test Series", group.DisplayName);
+        Assert.Equal(2, group.WorkCount);
+        Assert.Contains(group.CoverWidthPx, new int?[] { 1649, 1800 });
+        Assert.Collection(
+            group.PreviewItems,
+            item =>
+            {
+                Assert.Equal(first.WorkId, item.WorkId);
+                Assert.Equal($"/stream/{first.AssetId:D}/cover", item.ImageUrl);
+                Assert.Equal("1", item.Position);
+            },
+            item =>
+            {
+                Assert.Equal(second.WorkId, item.WorkId);
+                Assert.Equal("2", item.Position);
+            });
+    }
+
+    [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();
@@ -139,6 +195,46 @@ public sealed class CollectionReadServicesTests : IDisposable
         return new SeededMusic(albumWorkId, trackWorkId, assetId);
     }
 
+    private async Task<SeededBook> SeedBookSeriesMemberAsync(
+        string title,
+        string position,
+        int coverWidth,
+        string contentHash)
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        using var connection = _database.CreateConnection();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO works (id, media_type, work_kind) VALUES (@WorkId, 'Books', 'standalone');
+            INSERT INTO editions (id, work_id, format_label) VALUES (@EditionId, @WorkId, 'EPUB');
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+            VALUES (@AssetId, @EditionId, @ContentHash, @FilePath);
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
+                (@AssetId, 'title', @Title, @Now),
+                (@AssetId, 'series', 'The Test Series', @Now),
+                (@AssetId, 'series_index', @Position, @Now),
+                (@AssetId, 'cover_width_px', @CoverWidth, @Now),
+                (@AssetId, 'cover_height_px', '2400', @Now);
+            """,
+            new
+            {
+                WorkId = workId,
+                EditionId = editionId,
+                AssetId = assetId,
+                ContentHash = contentHash,
+                FilePath = $"C:/library/{assetId:N}.epub",
+                Title = title,
+                Position = position,
+                CoverWidth = coverWidth.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Now = now,
+            });
+
+        return new SeededBook(workId, assetId);
+    }
+
     public void Dispose()
     {
         try { _database.Dispose(); } catch { }
@@ -146,4 +242,5 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     private sealed record SeededMusic(Guid AlbumWorkId, Guid TrackWorkId, Guid AssetId);
+    private sealed record SeededBook(Guid WorkId, Guid AssetId);
 }

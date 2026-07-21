@@ -523,6 +523,10 @@
     overflow-y: auto;
 }
 
+.listen-lane-header {
+    margin: -30px -42px 0;
+}
+
 .listen-home {
     display: flex;
     flex-direction: column;
@@ -1437,6 +1441,10 @@
     padding: 32px 36px 42px;
 }
 
+.listen-page--audiobooks .listen-lane-header {
+    margin: -32px -36px 0;
+}
+
 .listen-page--audiobooks .listen-topbar {
     margin-bottom: 12px;
 }
@@ -2028,6 +2036,11 @@
 
     .listen-content {
         padding: 20px 18px 22px;
+    }
+
+    .listen-lane-header,
+    .listen-page--audiobooks .listen-lane-header {
+        margin: -20px -18px 0;
     }
 }
 

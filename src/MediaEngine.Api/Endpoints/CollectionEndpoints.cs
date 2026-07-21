@@ -3612,6 +3612,11 @@ public static class CollectionEndpoints
                         .Select(item => item.DistinctTitleCount!.Value)
                         .DefaultIfEmpty(group.Items.Max(item => item.WorkCount))
                         .Max(),
+                    PreviewItems = group.Items
+                        .SelectMany(item => item.PreviewItems)
+                        .DistinctBy(item => item.WorkId)
+                        .Take(4)
+                        .ToList(),
                     CoverUrl = preferred.CoverUrl,
                     BackgroundUrl = preferred.BackgroundUrl,
                     BannerUrl = preferred.BannerUrl,

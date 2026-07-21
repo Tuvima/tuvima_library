@@ -13,14 +13,6 @@
 <BrowseShellStyles />
 
 <div class="browse-shell collections-browse">
-    @if (CollectionHeroes.Count > 0)
-    {
-        <CinematicHeroCarousel Items="@CollectionHeroes"
-                              SectionTitle="Collections"
-                              SectionSubtitle="Broader rollups, curated lists, and playlists"
-                              AriaLabel="Featured collections" />
-    }
-
     <div class="browse-shell__toolbar-anchor">
         <div class="browse-shell__toolbar-panel">
             <div class="browse-shell__tab-row">
@@ -118,13 +110,6 @@
     private IReadOnlyList<CollectionManagementCatalogViewModel> FilteredCollections =>
         Sort(FilterBySearch(FilterByCollectionType(_collections)));
 
-    private IReadOnlyList<DiscoveryHeroViewModel> CollectionHeroes =>
-        FilteredCollections
-            .OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt)
-            .Take(5)
-            .Select(ToCollectionHero)
-            .ToList();
-
     private IReadOnlyList<MediaTileViewModel> CollectionCards =>
         FilteredCollections
             .Select(ToMediaTile)
@@ -203,38 +188,6 @@
     {
         _activeFilter = filter;
         return Task.CompletedTask;
-    }
-
-    private static DiscoveryHeroViewModel ToCollectionHero(CollectionManagementCatalogViewModel collection)
-    {
-        var previewItems = collection.ArtworkItems
-            .Select(ToArtworkStackItem)
-            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-            .ToList();
-        var paletteArtwork = PaletteArtwork(collection);
-
-        return new DiscoveryHeroViewModel
-        {
-            Eyebrow = collection.TypeLabel,
-            Title = collection.Name,
-            Subtitle = CollectionSubtitle(collection),
-            Description = collection.Description,
-            BackgroundImageUrl = HeroBackground(collection),
-            HeroBackgroundImageUrl = HeroBackground(collection),
-            PreviewImageUrl = PrimaryArtwork(collection),
-            PreviewSurfaceKind = MediaTileSurfaceKind.BannerLandscape,
-            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
-            AccentColor = FirstNonBlank(paletteArtwork?.AccentColor, paletteArtwork?.PrimaryColor, "var(--tl-accent-primary)")!,
-            MetaPills = [collection.TypeLabel, .. BuildMediaCountLabels(collection)],
-            RepresentativeEntityId = collection.Id,
-            CollectionId = collection.Id,
-            MediaKind = "Collection",
-            Presentation = "default",
-            PreviewItems = previewItems,
-            PreviewTotalCount = collection.ItemCount,
-            PrimaryActionLabel = "Open collection",
-            PrimaryNavigationUrl = $"/collection/{collection.Id:D}",
-        };
     }
 
     private Task OpenCollection(CollectionManagementCatalogViewModel collection)

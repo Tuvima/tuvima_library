@@ -73,8 +73,11 @@ public sealed class DisplayWorkProjectionReader
                 ) AS Description,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('author', 'creator') LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('author', 'creator') LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('author', 'creator') LIMIT 1)
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('author', 'creator') LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1)
                 ) AS Author,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'artist' LIMIT 1),
@@ -117,9 +120,9 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'rating' LIMIT 1)
                 ) AS Rating,
                 COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'genre' LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'genre' LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'genre' LIMIT 1)
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key = 'genre' ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key = 'genre' ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key = 'genre' ORDER BY ordinal))
                 ) AS Genre,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'series' LIMIT 1),

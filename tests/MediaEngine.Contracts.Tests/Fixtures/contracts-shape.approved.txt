@@ -464,6 +464,11 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayArtworkDto
   BackgroundHeightPx: System.Int32? | nullability=nullable | accessors=get,init
   AccentColor: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayBrowseFacetsDto
+  Genres: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Creators: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Years: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardBadgeDto
   Kind: System.String | nullability=not-null | accessors=get,init
   Label: System.String | nullability=not-null | accessors=get,init
@@ -551,6 +556,8 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayPageDto
   Hero: MediaEngine.Contracts.Display.DisplayHeroDto | nullability=nullable | accessors=get,init
   Shelves: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayShelfDto> | nullability=not-null | accessors=get,init
   Catalog: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardDto> | nullability=not-null | accessors=get,init
+  TotalCount: System.Int32 | nullability=not-null | accessors=get,init
+  Facets: MediaEngine.Contracts.Display.DisplayBrowseFacetsDto | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayProgressDto
   Percent: System.Double | nullability=not-null | accessors=get,init

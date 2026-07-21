@@ -10,39 +10,49 @@
 
 <PageTitle>Watch - Tuvima</PageTitle>
 
-@if (string.IsNullOrWhiteSpace(Tab))
-{
-    @if (_loading)
+<MediaSectionShell Title="Watch" NavigationGroups="@WatchNavigationGroups">
+    <MediaLaneHeader Title="Watch"
+                     Subtitle="Movies and shows from your local library"
+                     Modes="@WatchModes"
+                     ActiveMode="@ActiveWatchMode" />
+
+    @if (string.IsNullOrWhiteSpace(Tab))
     {
-        <div class="browse-shell__loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
-        </div>
+        @if (_loading)
+        {
+            <div class="browse-shell__loading">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
+            </div>
+        }
+        else if (_loadFailed)
+        {
+            <AppErrorState Title="Watch failed to load"
+                           Message="The Dashboard could not load the Watch landing from the Engine."
+                           Retry="LoadLandingAsync" />
+        }
+        else if (_landingPage is not null)
+        {
+            <MediaHubPage SectionType="MediaHubSectionType.Watch"
+                          Title="Watch"
+                          Subtitle="Movies and shows from your local library"
+                          SelectedMode="all"
+                          AvailableModes="@WatchModes"
+                          Shelves="@WatchHubShelves"
+                          SearchPlaceholder="Search movies and TV..."
+                          RouteBase="/watch"
+                          SupportsHero="false"
+                          SupportsHeader="false"
+                          SupportsNavigation="false" />
+        }
     }
-    else if (_loadFailed)
+    else
     {
-        <AppErrorState Title="Watch failed to load"
-                       Message="The Dashboard could not load the Watch landing from the Engine."
-                       Retry="LoadLandingAsync" />
+        <MediaBrowseShell Tab="@Tab"
+                          Preset="@Preset"
+                          ShowTitleBlock="false"
+                          ShowTabNavigation="false" />
     }
-    else if (_landingPage is not null)
-    {
-        <MediaHubPage SectionType="MediaHubSectionType.Watch"
-                      Title="Watch"
-                      Subtitle="Movies and shows from your local library"
-                      SelectedMode="all"
-                      AvailableModes="@WatchModes"
-                      HeroItem="@_landingPage.Hero"
-                      HeroItems="@_landingPage.Spotlights"
-                      Shelves="@WatchHubShelves"
-                      SearchPlaceholder="Search movies and TV..."
-                      RouteBase="/watch" />
-    }
-}
-else
-{
-    <MediaBrowseShell Tab="@Tab"
-                      Preset="@Preset" />
-}
+</MediaSectionShell>
 
 @code {
     [Parameter] public string? Tab { get; set; }
@@ -51,12 +61,36 @@ else
     private bool _loading = true;
     private bool _loadFailed;
 
+    private string ActiveWatchMode => Tab?.Trim().ToLowerInvariant() switch
+    {
+        "movies" => "movies",
+        "tv" => "tv",
+        "series" => "series",
+        _ => "all",
+    };
+
     private static readonly IReadOnlyList<MediaHubModeViewModel> WatchModes =
     [
-        new("all", "All", "/watch"),
+        new("all", "Discover", "/watch"),
         new("movies", "Movies", "/watch/movies"),
         new("tv", "TV Shows", "/watch/tv"),
-        new("series", "Series", "/watch/movies"),
+        new("series", "Series", "/watch/series"),
+    ];
+
+    private static readonly IReadOnlyList<MediaSectionNavigationGroup> WatchNavigationGroups =
+    [
+        new("Library",
+        [
+            new("Discover", "/watch", Icons.Material.Outlined.Explore, Exact: true),
+            new("Movies", "/watch/movies", Icons.Material.Outlined.LocalMovies),
+            new("TV Shows", "/watch/tv", Icons.Material.Outlined.LiveTv),
+            new("Movie Series", "/watch/series", Icons.Material.Outlined.Collections),
+        ]),
+        new("Watch next",
+        [
+            new("Continue Watching", "/watch/movies?status=in-progress", Icons.Material.Outlined.PlayCircle, Exact: true),
+            new("Recently Added", "/watch/movies?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
+        ]),
     ];
 
     private IReadOnlyList<MediaHubShelfViewModel> WatchHubShelves => _landingPage?.Shelves
@@ -107,10 +141,7 @@ else
                 Label = "Movies",
                 MediaType = "Movies",
                 GroupingOptions =
-                [
-                    new("all", "All Movies", Icons.Material.Outlined.LocalMovies),
-                    new("series", "Series", Icons.Material.Outlined.Collections),
-                ],
+                [new("all", "All Movies", Icons.Material.Outlined.LocalMovies)],
                 DefaultGrouping = "all",
                 DefaultLayout = LibraryLayoutMode.Card,
             },
@@ -121,6 +152,15 @@ else
                 MediaType = "TV",
                 GroupingOptions = [new("shows", "Shows", Icons.Material.Outlined.LiveTv)],
                 DefaultGrouping = "shows",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+            new BrowseTabPreset
+            {
+                Id = "series",
+                Label = "Series",
+                MediaType = "Movies",
+                GroupingOptions = [new("series", "Movie Series", Icons.Material.Outlined.Collections)],
+                DefaultGrouping = "series",
                 DefaultLayout = LibraryLayoutMode.Card,
             },
         ],

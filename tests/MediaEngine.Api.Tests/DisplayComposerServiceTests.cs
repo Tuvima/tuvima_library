@@ -5,6 +5,42 @@ namespace MediaEngine.Api.Tests;
 public sealed class DisplayComposerServiceTests
 {
     [Fact]
+    public async Task Browse_AppliesUrlFiltersBeforePagingAndReturnsFullScopeFacets()
+    {
+        var matchingId = Guid.NewGuid();
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(matchingId, "Book", "The Lantern", author: "A. Writer", year: "2024", genre: "Fantasy; Mystery"),
+                Work(Guid.NewGuid(), "Book", "A History", author: "B. Writer", year: "2022", genre: "History"),
+                Work(Guid.NewGuid(), "Book", "Another Fantasy", author: "C. Writer", year: "2024", genre: "Fantasy"),
+            ],
+            [Journey(matchingId, "Book", "The Lantern", progressPct: 40, author: "A. Writer", year: "2024", genre: "Fantasy; Mystery")]);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync(
+            "read",
+            "Books",
+            "all",
+            null,
+            0,
+            48,
+            ct: default,
+            genres: "Fantasy",
+            creator: "A. Writer",
+            status: "in-progress",
+            year: "2024");
+
+        var card = Assert.Single(page.Catalog);
+        Assert.Equal(matchingId, card.WorkId);
+        Assert.Equal(1, page.TotalCount);
+        Assert.NotNull(page.Facets);
+        Assert.Contains("Fantasy", page.Facets.Genres);
+        Assert.Contains("History", page.Facets.Genres);
+        Assert.Contains("A. Writer", page.Facets.Creators);
+        Assert.Contains("2022", page.Facets.Years);
+    }
+
+    [Fact]
     public async Task Browse_HidesProfileExcludedWorksFromCatalogAndJourneyShelves()
     {
         var visibleId = Guid.NewGuid();

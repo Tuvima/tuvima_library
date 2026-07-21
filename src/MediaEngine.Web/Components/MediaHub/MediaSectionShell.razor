@@ -1,0 +1,76 @@
+@namespace MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+@inject NavigationManager Nav
+
+<div class="media-section-shell">
+    <aside class="media-section-shell__rail" aria-label="@($"{Title} navigation")">
+        <div class="media-section-shell__rail-title">@Title</div>
+        @foreach (var group in NavigationGroups)
+        {
+            <section class="media-section-shell__rail-group" aria-labelledby="@GroupId(group)">
+                <div id="@GroupId(group)" class="media-section-shell__rail-label">@group.Label</div>
+                @foreach (var item in group.Items)
+                {
+                    var active = IsActive(item);
+                    <a @key="item.Route"
+                       href="@item.Route"
+                       class="media-section-shell__rail-item @(active ? "is-active" : null)"
+                       aria-current="@(active ? "page" : null)">
+                        <MudIcon Icon="@item.Icon" />
+                        <span>@item.Label</span>
+                        @if (!string.IsNullOrWhiteSpace(item.Meta))
+                        {
+                            <span class="media-section-shell__rail-meta">@item.Meta</span>
+                        }
+                    </a>
+                }
+            </section>
+        }
+    </aside>
+
+    <main class="media-section-shell__content">
+        @ChildContent
+    </main>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups { get; set; } = [];
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+
+    private Uri CurrentUri => Nav.ToAbsoluteUri(Nav.Uri);
+
+    private bool IsActive(MediaSectionNavigationItem item)
+    {
+        var itemUri = Nav.ToAbsoluteUri(item.Route);
+        if (item.Exact)
+        {
+            return string.Equals(NormalizePathAndQuery(CurrentUri), NormalizePathAndQuery(itemUri), StringComparison.OrdinalIgnoreCase);
+        }
+
+        var hasExactShortcut = NavigationGroups
+            .SelectMany(group => group.Items)
+            .Where(candidate => candidate.Exact)
+            .Select(candidate => Nav.ToAbsoluteUri(candidate.Route))
+            .Any(candidate => string.Equals(
+                NormalizePathAndQuery(CurrentUri),
+                NormalizePathAndQuery(candidate),
+                StringComparison.OrdinalIgnoreCase));
+        if (hasExactShortcut)
+        {
+            return false;
+        }
+
+        var currentPath = NormalizePath(CurrentUri);
+        var itemPath = NormalizePath(itemUri);
+        return string.Equals(currentPath, itemPath, StringComparison.OrdinalIgnoreCase)
+               || currentPath.StartsWith($"{itemPath}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePathAndQuery(Uri uri) => $"{NormalizePath(uri)}{uri.Query}";
+
+    private static string NormalizePath(Uri uri) => uri.AbsolutePath.TrimEnd('/');
+
+    private static string GroupId(MediaSectionNavigationGroup group) =>
+        $"media-section-{new string(group.Label.ToLowerInvariant().Select(character => char.IsLetterOrDigit(character) ? character : '-').ToArray()).Trim('-')}";
+}

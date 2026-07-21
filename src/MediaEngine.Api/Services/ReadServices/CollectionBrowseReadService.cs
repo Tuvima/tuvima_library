@@ -109,15 +109,24 @@ public sealed class CollectionSystemViewGroupReadModel
     public string? SquareAspectClass { get; init; }
     public string? BackgroundAspectClass { get; init; }
     public string? BannerAspectClass { get; init; }
-    public int? CoverWidthPx { get; init; }
-    public int? CoverHeightPx { get; init; }
-    public int? SquareWidthPx { get; init; }
-    public int? SquareHeightPx { get; init; }
-    public int? BackgroundWidthPx { get; init; }
-    public int? BackgroundHeightPx { get; init; }
-    public int? BannerWidthPx { get; init; }
-    public int? BannerHeightPx { get; init; }
-    public int? SeasonCount { get; init; }
+    public long? CoverWidthPx { get; init; }
+    public long? CoverHeightPx { get; init; }
+    public long? SquareWidthPx { get; init; }
+    public long? SquareHeightPx { get; init; }
+    public long? BackgroundWidthPx { get; init; }
+    public long? BackgroundHeightPx { get; init; }
+    public long? BannerWidthPx { get; init; }
+    public long? BannerHeightPx { get; init; }
+    public long? SeasonCount { get; init; }
+}
+
+public sealed class CollectionSystemViewPreviewReadModel
+{
+    public string GroupName { get; init; } = string.Empty;
+    public Guid WorkId { get; init; }
+    public Guid? AssetId { get; init; }
+    public string? Title { get; init; }
+    public string? Position { get; init; }
 }
 
 public sealed class CollectionBrowseReadService(
@@ -540,7 +549,9 @@ public sealed class CollectionBrowseReadService(
                 ?.Value ?? "Unknown";
             var rows = await QuerySystemViewGroupsAsync(workIds, collection.GroupByField, primaryMediaType, ct)
                 .ConfigureAwait(false);
-            await AddSystemViewRowsAsync(result, rows, collection, primaryMediaType, collection.GroupByField, ct)
+            var previews = await QuerySystemViewPreviewsAsync(workIds, collection.GroupByField, primaryMediaType, ct)
+                .ConfigureAwait(false);
+            await AddSystemViewRowsAsync(result, rows, previews, collection, primaryMediaType, collection.GroupByField, ct)
                 .ConfigureAwait(false);
         }
 
@@ -564,7 +575,9 @@ public sealed class CollectionBrowseReadService(
                 cancellationToken: ct)).ConfigureAwait(false)).AsList();
             var fallbackRows = await QuerySystemViewGroupsAsync(musicWorkIds, groupField!, "Music", ct)
                 .ConfigureAwait(false);
-            await AddSystemViewRowsAsync(result, fallbackRows, definitions[0], "Music", groupField!, ct)
+            var fallbackPreviews = await QuerySystemViewPreviewsAsync(musicWorkIds, groupField!, "Music", ct)
+                .ConfigureAwait(false);
+            await AddSystemViewRowsAsync(result, fallbackRows, fallbackPreviews, definitions[0], "Music", groupField!, ct)
                 .ConfigureAwait(false);
         }
 
@@ -701,9 +714,90 @@ public sealed class CollectionBrowseReadService(
         return rows.AsList();
     }
 
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<ContentGroupPreviewItemDto>>> QuerySystemViewPreviewsAsync(
+        IReadOnlyList<Guid> workIds,
+        string groupField,
+        string primaryMediaType,
+        CancellationToken ct)
+    {
+        if (workIds.Count == 0)
+        {
+            return new Dictionary<string, IReadOnlyList<ContentGroupPreviewItemDto>>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var isMusicAlbumGroup = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<CollectionSystemViewPreviewReadModel>(new CommandDefinition(
+            $"""
+            WITH work_assets AS (
+                SELECT w.id AS WorkId,
+                       MIN(ma.id) AS AssetId,
+                       COALESCE(gp.id, p.id, w.id) AS RootWorkId
+                FROM works w
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                WHERE w.id IN @WorkIds
+                  AND {visibleAssetPredicate}
+                GROUP BY w.id, COALESCE(gp.id, p.id, w.id)
+            )
+            SELECT CASE WHEN @IsMusicAlbumGroup = 1 THEN COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'album' LIMIT 1))
+                   ELSE COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = @GroupField LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = @GroupField LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = @GroupField LIMIT 1))
+                   END AS GroupName,
+                   wa.WorkId,
+                   wa.AssetId,
+                   COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key IN ('episode_title', 'title') ORDER BY key = 'episode_title' DESC LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'title' LIMIT 1),
+                       'Untitled') AS Title,
+                   COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key IN ('series_index', 'episode_number', 'track_number') ORDER BY CASE key WHEN 'series_index' THEN 1 WHEN 'episode_number' THEN 2 ELSE 3 END LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'series_index' LIMIT 1)) AS Position
+            FROM work_assets wa
+            """,
+            new
+            {
+                WorkIds = workIds.Select(GuidSql.ToBlob).ToArray(),
+                GroupField = groupField,
+                IsMusicAlbumGroup = isMusicAlbumGroup ? 1 : 0,
+            },
+            cancellationToken: ct)).ConfigureAwait(false);
+
+        var previewShape = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            ? "square"
+            : "portrait";
+        return rows
+            .Where(row => !string.IsNullOrWhiteSpace(row.GroupName) && row.AssetId.HasValue)
+            .GroupBy(row => row.GroupName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<ContentGroupPreviewItemDto>)group
+                    .OrderBy(row => ParseSequencePosition(row.Position))
+                    .ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
+                    .Take(4)
+                    .Select(row => new ContentGroupPreviewItemDto(
+                        row.WorkId,
+                        row.Title ?? "Untitled",
+                        $"/stream/{row.AssetId!.Value:D}/cover",
+                        previewShape,
+                        row.Position))
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
     private async Task AddSystemViewRowsAsync(
         List<ContentGroupDto> result,
         IReadOnlyList<CollectionSystemViewGroupReadModel> rows,
+        IReadOnlyDictionary<string, IReadOnlyList<ContentGroupPreviewItemDto>> previews,
         Collection collection,
         string primaryMediaType,
         string groupByField,
@@ -744,6 +838,7 @@ public sealed class CollectionBrowseReadService(
                 PrimaryMediaType = primaryMediaType,
                 WorkCount = row.WorkCount,
                 DistinctTitleCount = row.DistinctTitleCount,
+                PreviewItems = previews.GetValueOrDefault(row.GroupName) ?? [],
                 CoverUrl = assetRoute is null ? null : $"/stream/{assetRoute}/cover",
                 BackgroundUrl = assetRoute is null ? null : $"/stream/{assetRoute}/background",
                 BannerUrl = assetRoute is null ? null : $"/stream/{assetRoute}/banner",
@@ -752,14 +847,14 @@ public sealed class CollectionBrowseReadService(
                 SquareAspectClass = row.SquareAspectClass,
                 BackgroundAspectClass = row.BackgroundAspectClass,
                 BannerAspectClass = row.BannerAspectClass,
-                CoverWidthPx = row.CoverWidthPx,
-                CoverHeightPx = row.CoverHeightPx,
-                SquareWidthPx = row.SquareWidthPx,
-                SquareHeightPx = row.SquareHeightPx,
-                BackgroundWidthPx = row.BackgroundWidthPx,
-                BackgroundHeightPx = row.BackgroundHeightPx,
-                BannerWidthPx = row.BannerWidthPx,
-                BannerHeightPx = row.BannerHeightPx,
+                CoverWidthPx = ToInt32(row.CoverWidthPx),
+                CoverHeightPx = ToInt32(row.CoverHeightPx),
+                SquareWidthPx = ToInt32(row.SquareWidthPx),
+                SquareHeightPx = ToInt32(row.SquareHeightPx),
+                BackgroundWidthPx = ToInt32(row.BackgroundWidthPx),
+                BackgroundHeightPx = ToInt32(row.BackgroundHeightPx),
+                BannerWidthPx = ToInt32(row.BannerWidthPx),
+                BannerHeightPx = ToInt32(row.BannerHeightPx),
                 Description = row.Description,
                 Tagline = row.Tagline,
                 Creator = row.Creator,
@@ -769,11 +864,19 @@ public sealed class CollectionBrowseReadService(
                 ArtistPersonId = artistPersonId,
                 Network = row.Network,
                 Year = row.Year,
-                SeasonCount = row.SeasonCount is > 0 ? row.SeasonCount : null,
+                SeasonCount = row.SeasonCount is > 0 ? ToInt32(row.SeasonCount) : null,
                 AlbumCount = row.AlbumCount > 0 ? row.AlbumCount : null,
             });
         }
     }
+
+    private static int? ToInt32(long? value) =>
+        value is >= int.MinValue and <= int.MaxValue ? (int)value.Value : null;
+
+    private static decimal ParseSequencePosition(string? value) =>
+        decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var position)
+            ? position
+            : decimal.MaxValue;
 
     private sealed record PrimaryAssetReadRow(Guid WorkId, Guid? AssetId);
 }

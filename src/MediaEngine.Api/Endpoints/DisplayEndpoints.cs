@@ -23,13 +23,30 @@ public static class DisplayEndpoints
             string? mediaType,
             string? grouping,
             string? search,
+            string? genres,
+            string? creator,
+            string? status,
+            string? year,
             int? offset,
             int? limit,
             bool? includeCatalog,
             Guid? profileId,
             DisplayComposerService display,
             CancellationToken ct) =>
-            Results.Ok(await display.BuildBrowseAsync(lane, mediaType, grouping, search, offset ?? 0, limit ?? 48, includeCatalog ?? true, profileId, ct)))
+            Results.Ok(await display.BuildBrowseAsync(
+                lane,
+                mediaType,
+                grouping,
+                search,
+                offset ?? 0,
+                limit ?? 48,
+                includeCatalog ?? true,
+                profileId,
+                ct,
+                genres,
+                creator,
+                status,
+                year)))
             .WithName("GetDisplayBrowse")
             .WithSummary("Returns cross-platform display cards for a media lane or browse query.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
@@ -37,11 +54,12 @@ public static class DisplayEndpoints
 
         group.MapGet("/continue", async (
             string? lane,
+            string? mediaType,
             int? limit,
             bool? includeCatalog,
             DisplayComposerService display,
             CancellationToken ct) =>
-            Results.Ok(await display.BuildContinueAsync(lane, limit ?? 24, includeCatalog ?? true, ct)))
+            Results.Ok(await display.BuildContinueAsync(lane, limit ?? 24, includeCatalog ?? true, ct, mediaType)))
             .WithName("GetDisplayContinue")
             .WithSummary("Returns cross-platform continue cards with progress.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)

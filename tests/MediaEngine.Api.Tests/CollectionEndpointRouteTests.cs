@@ -31,6 +31,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType", source, StringComparison.Ordinal);
         Assert.Contains("UpdateCollectionSquareArtworkAsync(id, null, null", source, StringComparison.Ordinal);
         Assert.Contains("GetSystemViewGroupsAsync", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("PreviewItems = group.Items", source, StringComparison.Ordinal);
         Assert.Contains("w.media_type = 'Music'", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("AlbumCount = row.AlbumCount > 0 ? row.AlbumCount : null", browseReadServiceSource, StringComparison.Ordinal);
 

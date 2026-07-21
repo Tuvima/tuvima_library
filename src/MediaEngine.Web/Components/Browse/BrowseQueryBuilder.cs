@@ -24,7 +24,11 @@ public static class BrowseQueryBuilder
             grouping,
             query["search"] ?? string.Empty,
             sortBy,
-            layout);
+            layout,
+            ParseList(query["genres"]),
+            query["creator"] ?? string.Empty,
+            query["status"] ?? string.Empty,
+            query["year"] ?? string.Empty);
     }
 
     public static string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab)
@@ -78,5 +82,12 @@ public static class BrowseQueryBuilder
         ("audiobooks", "series") => "series",
         _ => null,
     };
+
+    private static IReadOnlyList<string> ParseList(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
 }

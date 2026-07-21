@@ -16,7 +16,7 @@
                 <div class="media-group-tile__artwork">
                     <MediaArtworkGroupPreview Items="@RepresentativeItems"
                                               TotalCount="@ResolvedTotalCount"
-                                              Layout="MediaArtworkGroupPreviewLayout.Adaptive"
+                                              Layout="MediaArtworkGroupPreviewLayout.Cluster"
                                               ShowOverflowCount="false"
                                               AriaLabel="@($"Representative artwork from {Item.Title}")" />
                 </div>
@@ -176,7 +176,9 @@
         var imageUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in Item.ArtworkStackItems)
         {
-            if (string.IsNullOrWhiteSpace(item.Id) || !ids.Add(item.Id))
+            if (string.IsNullOrWhiteSpace(item.Id)
+                || string.IsNullOrWhiteSpace(item.ImageUrl)
+                || !ids.Add(item.Id))
             {
                 continue;
             }

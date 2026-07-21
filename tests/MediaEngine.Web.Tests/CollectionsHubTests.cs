@@ -31,7 +31,7 @@ public sealed class CollectionsHubTests
         var groupTileStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaGroupTile.razor.css"));
 
         Assert.Contains("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionHeroes", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CollectionHeroes", source, StringComparison.Ordinal);
         Assert.Contains("Presentation = MediaTilePresentation.Default", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ResolvePresentation", source, StringComparison.Ordinal);
         Assert.Contains("<BrowseShellStyles", source, StringComparison.Ordinal);
@@ -40,7 +40,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("display: flex", browseShellStylesSource, StringComparison.Ordinal);
         Assert.Contains("flex-wrap: wrap", browseShellStylesSource, StringComparison.Ordinal);
         Assert.Contains("browse-shell collections-browse", source, StringComparison.Ordinal);
-        Assert.Contains("<CinematicHeroCarousel", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<CinematicHeroCarousel", source, StringComparison.Ordinal);
         Assert.Contains("<SurfaceTabBar", source, StringComparison.Ordinal);
         Assert.Contains("<MediaTileGrid", source, StringComparison.Ordinal);
         Assert.Contains("Shape = MediaTileShape.Landscape", source, StringComparison.Ordinal);
@@ -49,15 +49,15 @@ public sealed class CollectionsHubTests
         Assert.Contains("item.UseLandscapeGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("<MediaGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("media-group-tile__artwork", groupTileSource, StringComparison.Ordinal);
-        Assert.Contains("MediaArtworkGroupPreviewLayout.Adaptive", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("MediaArtworkGroupPreviewLayout.Cluster", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaArtworkGroupPreviewLayout.Mosaic", groupTileSource, StringComparison.Ordinal);
         Assert.Contains("media-group-tile__overlay", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("At a glance", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("HighlightedItems", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("media-group-tile__highlights", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaArtworkCarousel", groupTileSource, StringComparison.Ordinal);
-        Assert.Contains("--media-group-tile-width: clamp(540px, 37vw, 680px)", groupTileStylesSource, StringComparison.Ordinal);
-        Assert.Contains("--media-group-tile-height: clamp(270px, 18vw, 330px)", groupTileStylesSource, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-width: clamp(560px, 40vw, 740px)", groupTileStylesSource, StringComparison.Ordinal);
+        Assert.Contains("--media-group-tile-height: clamp(300px, 20vw, 365px)", groupTileStylesSource, StringComparison.Ordinal);
         Assert.Contains("PreviewTotalCount = collection.ItemCount", source, StringComparison.Ordinal);
         Assert.Contains("TileTextMode = MediaTileTextMode.CoverOnly", source, StringComparison.Ordinal);
         Assert.Contains("Take(5)", source, StringComparison.Ordinal);

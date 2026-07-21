@@ -1,0 +1,90 @@
+.media-section-shell {
+    display: grid;
+    grid-template-columns: 256px minmax(0, 1fr);
+    min-height: calc(100dvh - var(--app-topbar-height, 65px));
+    background:
+        radial-gradient(circle at 52% 0%, rgba(91, 33, 182, 0.1), transparent 30%),
+        linear-gradient(180deg, #070b14 0%, #05070c 100%);
+}
+
+.media-section-shell__rail {
+    position: sticky;
+    top: var(--app-topbar-height, 65px);
+    align-self: start;
+    height: calc(100dvh - var(--app-topbar-height, 65px));
+    padding: 26px 15px;
+    overflow-y: auto;
+    border-right: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(7, 12, 23, 0.86);
+}
+
+.media-section-shell__rail-title {
+    margin: 0 12px 24px;
+    color: rgba(248, 250, 252, 0.98);
+    font-family: var(--font-display, var(--font-ui));
+    font-size: 1.45rem;
+    font-weight: 700;
+}
+
+.media-section-shell__rail-group + .media-section-shell__rail-group {
+    margin-top: 24px;
+}
+
+.media-section-shell__rail-label {
+    margin: 0 12px 9px;
+    color: rgba(203, 213, 225, 0.48);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.media-section-shell__rail-item {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    min-height: 42px;
+    padding: 9px 12px;
+    color: rgba(226, 232, 240, 0.74);
+    border: 1px solid transparent;
+    border-radius: var(--tl-radius-md);
+    text-decoration: none;
+    transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.media-section-shell__rail-item :deep(.mud-icon-root) {
+    font-size: 1.15rem;
+}
+
+.media-section-shell__rail-item:hover,
+.media-section-shell__rail-item:focus-visible,
+.media-section-shell__rail-item.is-active {
+    color: rgba(255, 255, 255, 0.98);
+    border-color: rgba(167, 139, 250, 0.22);
+    background: rgba(124, 58, 237, 0.16);
+    outline: none;
+}
+
+.media-section-shell__rail-item.is-active {
+    box-shadow: inset 3px 0 0 var(--tl-accent-primary);
+}
+
+.media-section-shell__rail-meta {
+    color: rgba(203, 213, 225, 0.48);
+    font-size: 0.72rem;
+}
+
+.media-section-shell__content {
+    min-width: 0;
+}
+
+@media (max-width: 840px) {
+    .media-section-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .media-section-shell__rail {
+        display: none;
+    }
+}

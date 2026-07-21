@@ -65,7 +65,37 @@
                               OnDebounceIntervalElapsed="OnSearchChanged"
                               Class="browse-shell__search" />
 
-                @if (CurrentTab.GroupingOptions.Count > 1)
+                @if (GenreFacets.Count > 0 && !IsContainerGrouping)
+                {
+                    <div class="browse-shell__genres" aria-label="Filter by genre">
+                        <span class="browse-shell__filter-label">Genres</span>
+                        @foreach (var genre in GenreFacets.Take(8))
+                        {
+                            <AppNativeButton Type="button"
+                                             @key="genre"
+                                             Class="@GenreChipClass(genre)"
+                                             aria-pressed="@(_selectedGenres.Contains(genre) ? "true" : "false")"
+                                             OnClick="@(() => ToggleGenreAsync(genre))">
+                                @genre
+                                @if (_selectedGenres.Contains(genre))
+                                {
+                                    <MudIcon Icon="@Icons.Material.Outlined.Close" />
+                                }
+                            </AppNativeButton>
+                        }
+                    </div>
+                }
+
+                @if (HasSeriesToggle)
+                {
+                    <label class="browse-shell__filter-toggle">
+                        <AppNativeInput Type="checkbox"
+                                        Checked="@IsSeriesOnly"
+                                        OnChange="OnSeriesOnlyChanged" />
+                        <span>Series only</span>
+                    </label>
+                }
+                else if (CurrentTab.GroupingOptions.Count > 1)
                 {
                     <div class="browse-shell__groupings" role="group" aria-label="@($"{CurrentTab.Label} grouping")">
                         @foreach (var option in CurrentTab.GroupingOptions)
@@ -133,8 +163,84 @@
                     }
                 </div>
             </div>
+
+            @if (ShowFacetControls)
+            {
+                <div class="browse-shell__facet-row">
+                    @if (CreatorFacets.Count > 1)
+                    {
+                        <AppSelect T="string"
+                                   Value="@_creator"
+                                   ValueChanged="OnCreatorChanged"
+                                   Label="@CreatorFilterLabel"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="browse-shell__facet-select">
+                            <MudSelectItem T="string" Value="@(string.Empty)">All</MudSelectItem>
+                            @foreach (var creator in CreatorFacets)
+                            {
+                                <MudSelectItem T="string" @key="creator" Value="@creator">@creator</MudSelectItem>
+                            }
+                        </AppSelect>
+                    }
+
+                    @if (YearFacets.Count > 1)
+                    {
+                        <AppSelect T="string"
+                                   Value="@_year"
+                                   ValueChanged="OnYearChanged"
+                                   Label="Year"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="browse-shell__facet-select browse-shell__facet-select--year">
+                            <MudSelectItem T="string" Value="@(string.Empty)">All years</MudSelectItem>
+                            @foreach (var year in YearFacets)
+                            {
+                                <MudSelectItem T="string" @key="year" Value="@year">@year</MudSelectItem>
+                            }
+                        </AppSelect>
+                    }
+
+                    <label class="browse-shell__filter-toggle">
+                        <AppNativeInput Type="checkbox"
+                                        Checked="@IsInProgressOnly"
+                                        OnChange="OnInProgressChanged" />
+                        <span>In progress</span>
+                    </label>
+
+                    @if (HasActiveFilters)
+                    {
+                        <AppNativeButton Type="button"
+                                         Class="browse-shell__clear-filters"
+                                         OnClick="ClearFiltersAsync">
+                            Clear all
+                        </AppNativeButton>
+                    }
+                </div>
+            }
         </div>
     </div>
+
+    @if (!_loading || _hasLoadedOnce)
+    {
+        <div class="browse-shell__result-summary">
+            <div>
+                <h2>@CurrentTab.Label</h2>
+                <span>@ResultCountLabel</span>
+            </div>
+            @if (HasActiveFilters)
+            {
+                <div class="browse-shell__active-filters" aria-label="Active filters">
+                    @foreach (var filter in ActiveFilterLabels)
+                    {
+                        <span>@filter</span>
+                    }
+                </div>
+            }
+        </div>
+
+        <CompactContinueStrip Title="@ContinueTitle" Items="@_continueCards" />
+    }
 
     @if (_loading && !_hasLoadedOnce)
     {
@@ -207,6 +313,7 @@
     [Parameter, EditorRequired] public LibraryBrowsePreset Preset { get; set; } = default!;
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public bool ShowTitleBlock { get; set; } = true;
+    [Parameter] public bool ShowTabNavigation { get; set; } = true;
 
     private const int PageSize = 72;
 
@@ -217,6 +324,13 @@
     private string _grouping = "all";
     private string _searchText = string.Empty;
     private string _sortBy = "newest";
+    private readonly HashSet<string> _selectedGenres = new(StringComparer.OrdinalIgnoreCase);
+    private string _creator = string.Empty;
+    private string _status = string.Empty;
+    private string _year = string.Empty;
+    private DisplayBrowseFacetsDto? _facets;
+    private int _totalCount;
+    private readonly List<MediaTileViewModel> _continueCards = [];
     private LibraryLayoutMode _layout = LibraryLayoutMode.Card;
     private bool _loading;
     private bool _hasLoadedOnce;
@@ -234,7 +348,7 @@
 
     private string RootClass =>
         $"browse-shell {(Embedded ? "browse-shell--embedded" : string.Empty)}".Trim();
-    private bool ShowTabs => Preset.Tabs.Count > 1;
+    private bool ShowTabs => ShowTabNavigation && Preset.Tabs.Count > 1;
     private bool ShowHeaderRow => ShowTitleBlock || ShowTabs;
     private string ToolbarClass =>
         ShowHeaderRow ? "browse-shell__toolbar" : "browse-shell__toolbar browse-shell__toolbar--standalone";
@@ -246,6 +360,41 @@
         && string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
+    private bool HasSeriesToggle => CurrentTab.GroupingOptions.Any(option => option.Value == "series")
+                                    && CurrentTab.GroupingOptions.Any(option => option.Value == "all");
+    private bool IsSeriesOnly => string.Equals(_grouping, "series", StringComparison.OrdinalIgnoreCase);
+    private bool IsInProgressOnly => string.Equals(_status, "in-progress", StringComparison.OrdinalIgnoreCase);
+    private IReadOnlyList<string> GenreFacets => _facets?.Genres ?? [];
+    private IReadOnlyList<string> CreatorFacets => _facets?.Creators ?? [];
+    private IReadOnlyList<string> YearFacets => _facets?.Years ?? [];
+    private bool ShowFacetControls => !IsContainerGrouping && (CreatorFacets.Count > 1 || YearFacets.Count > 1 || HasActiveFilters);
+    private bool HasActiveFilters => !string.IsNullOrWhiteSpace(_searchText)
+                                     || _selectedGenres.Count > 0
+                                     || !string.IsNullOrWhiteSpace(_creator)
+                                     || !string.IsNullOrWhiteSpace(_status)
+                                     || !string.IsNullOrWhiteSpace(_year)
+                                     || IsSeriesOnly;
+    private string CreatorFilterLabel => CurrentTab.MediaType switch
+    {
+        "Books" or "Comics" => "Author / creator",
+        "Music" or "Audiobooks" => "Artist / author",
+        _ => "Director / creator",
+    };
+    private string ContinueTitle => Preset.HeroVariant switch
+    {
+        BrowseHeroVariant.Read => "Continue Reading",
+        BrowseHeroVariant.Listen => "Continue Listening",
+        _ => "Continue Watching",
+    };
+    private string ResultCountLabel => _totalCount == 1 ? "1 item" : $"{_totalCount} items";
+    private IReadOnlyList<string> ActiveFilterLabels =>
+        [
+            .. _selectedGenres.OrderBy(value => value, StringComparer.OrdinalIgnoreCase),
+            .. string.IsNullOrWhiteSpace(_creator) ? [] : new[] { _creator },
+            .. string.IsNullOrWhiteSpace(_year) ? [] : new[] { _year },
+            .. IsInProgressOnly ? new[] { "In progress" } : [],
+            .. IsSeriesOnly ? new[] { "Series only" } : [],
+        ];
     private MediaTileHoverMode? GridHoverMode => null;
     private string EmptyStateTitle =>
         !string.IsNullOrWhiteSpace(_searchText)
@@ -334,6 +483,11 @@
         _layout = state.Layout;
         _searchText = state.SearchText;
         _sortBy = state.SortBy;
+        _selectedGenres.Clear();
+        _selectedGenres.UnionWith(state.Genres);
+        _creator = state.Creator;
+        _status = state.Status;
+        _year = state.Year;
 
         ClearActiveGroupState();
     }
@@ -420,7 +574,11 @@
             grouping: _grouping,
             search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
             offset: requestedOffset,
-            limit: PageSize);
+            limit: PageSize,
+            genres: _selectedGenres.Count == 0 ? null : string.Join(',', _selectedGenres),
+            creator: string.IsNullOrWhiteSpace(_creator) ? null : _creator,
+            status: string.IsNullOrWhiteSpace(_status) ? null : _status,
+            year: string.IsNullOrWhiteSpace(_year) ? null : _year);
 
         if (page is null)
         {
@@ -439,6 +597,9 @@
         {
             _cards.Clear();
             _cards.AddRange(incoming);
+            _facets = page.Facets;
+            _totalCount = page.TotalCount > 0 ? page.TotalCount : page.Catalog.Count;
+            await LoadContinueAsync();
         }
 
         _items = [];
@@ -474,9 +635,28 @@
         else
         {
             _items = incoming;
+            _totalCount = response?.TotalCount ?? incoming.Count;
+            await LoadContinueAsync();
         }
 
         _hasMore = response?.HasMore ?? false;
+    }
+
+    private async Task LoadContinueAsync()
+    {
+        var page = await ApiClient.GetDisplayContinueAsync(
+            lane: Preset.Title.ToLowerInvariant(),
+            mediaType: CurrentTab.MediaType,
+            limit: 3);
+
+        _continueCards.Clear();
+        if (page is not null)
+        {
+            _continueCards.AddRange(page.Catalog
+                .Select(MediaTileComposerService.FromDisplayCard)
+                .Where(item => item.ProgressPct is > 0 and < 100)
+                .Take(3));
+        }
     }
 
     private async Task LoadGroupsAsync()
@@ -511,6 +691,9 @@
         }
 
         _groups = SortGroups(groups);
+        _totalCount = _groups.Count;
+        _facets = null;
+        await LoadContinueAsync();
         _hasMore = false;
     }
 
@@ -561,6 +744,7 @@
         {
             ("tv", "shows") => "tvSeries",
             ("movies", "series") => "movieSeries",
+            ("series", "series") => "movieSeries",
             ("books", "series") => "bookSeries",
             ("comics", "series") => "comicSeries",
             ("audiobooks", "series") => "audiobookSeries",
@@ -702,6 +886,10 @@
         _layout = ResolveLayout(null, tab, _grouping);
         _sortBy = ResolveSort(null);
         _searchText = string.Empty;
+        _selectedGenres.Clear();
+        _creator = string.Empty;
+        _status = string.Empty;
+        _year = string.Empty;
         ClearActiveGroupState();
         await NavigateAndReloadAsync();
     }
@@ -741,6 +929,55 @@
     private async Task OnSortChanged(string value)
     {
         _sortBy = value;
+        await NavigateAndReloadAsync();
+    }
+
+    private string GenreChipClass(string genre) =>
+        $"browse-shell__genre-chip {(_selectedGenres.Contains(genre) ? "is-active" : string.Empty)}";
+
+    private async Task ToggleGenreAsync(string genre)
+    {
+        if (!_selectedGenres.Add(genre))
+        {
+            _selectedGenres.Remove(genre);
+        }
+
+        await NavigateAndReloadAsync();
+    }
+
+    private Task OnSeriesOnlyChanged(ChangeEventArgs args) =>
+        SwitchGroupingAsync(args.Value is true ? "series" : "all");
+
+    private async Task OnCreatorChanged(string value)
+    {
+        _creator = value;
+        await NavigateAndReloadAsync();
+    }
+
+    private async Task OnYearChanged(string value)
+    {
+        _year = value;
+        await NavigateAndReloadAsync();
+    }
+
+    private async Task OnInProgressChanged(ChangeEventArgs args)
+    {
+        _status = args.Value is true ? "in-progress" : string.Empty;
+        await NavigateAndReloadAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _searchText = string.Empty;
+        _selectedGenres.Clear();
+        _creator = string.Empty;
+        _status = string.Empty;
+        _year = string.Empty;
+        if (HasSeriesToggle)
+        {
+            _grouping = "all";
+        }
+
         await NavigateAndReloadAsync();
     }
 
@@ -952,6 +1189,26 @@
             queryParts.Add($"search={Uri.EscapeDataString(_searchText)}");
         }
 
+        if (_selectedGenres.Count > 0)
+        {
+            queryParts.Add($"genres={Uri.EscapeDataString(string.Join(',', _selectedGenres.OrderBy(value => value, StringComparer.OrdinalIgnoreCase)))}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_creator))
+        {
+            queryParts.Add($"creator={Uri.EscapeDataString(_creator)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_status))
+        {
+            queryParts.Add($"status={Uri.EscapeDataString(_status)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_year))
+        {
+            queryParts.Add($"year={Uri.EscapeDataString(_year)}");
+        }
+
         if (!string.Equals(_sortBy, ResolveSort(null), StringComparison.OrdinalIgnoreCase))
         {
             queryParts.Add($"sort={Uri.EscapeDataString(_sortBy)}");
@@ -966,6 +1223,7 @@
         {
             ("tv", "shows") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
             ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
+            ("series", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
             ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("comics", "series") => $"/details/comicseries/{group.CollectionId:D}?context=comics",
@@ -1066,6 +1324,7 @@
         SortYear = sortYear,
         SortTimestamp = card.SortTimestamp,
         IsCollection = card.IsCollection,
+        UseLandscapeGroupTile = card.UseLandscapeGroupTile,
     };
 
     private static bool IsReadMedia(string? mediaType)

@@ -7,4 +7,8 @@ public sealed record BrowseState(
     string Grouping,
     string SearchText,
     string SortBy,
-    LibraryLayoutMode Layout);
+    LibraryLayoutMode Layout,
+    IReadOnlyList<string> Genres,
+    string Creator,
+    string Status,
+    string Year);

@@ -311,6 +311,12 @@ public partial class ListenPage
         new("audiobooks", "Audiobooks", AudiobooksRoute),
     ];
 
+    private string ActiveListenMode => IsListenHub
+        ? "all"
+        : IsAudiobooksMode
+            ? "audiobooks"
+            : "music";
+
     private IReadOnlyList<MediaHubShelfViewModel> ListenHubShelves
     {
         get

@@ -132,6 +132,17 @@ public interface IEngineApiClient
         int? limit = null,
         bool? includeCatalog = null,
         Guid? profileId = null,
+        CancellationToken ct = default,
+        string? genres = null,
+        string? creator = null,
+        string? status = null,
+        string? year = null);
+
+    /// <summary>GET /api/v1/display/continue - compact in-progress cards for one lane and optional media type.</summary>
+    Task<DisplayPageDto?> GetDisplayContinueAsync(
+        string? lane = null,
+        string? mediaType = null,
+        int? limit = null,
         CancellationToken ct = default);
 
     /// <summary>GET /api/v1/display/shelves/{shelfKey} - paged display shelf for native and TV clients.</summary>

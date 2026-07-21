@@ -6,7 +6,16 @@ public sealed record DisplayPageDto(
     string? Subtitle,
     DisplayHeroDto? Hero,
     IReadOnlyList<DisplayShelfDto> Shelves,
-    IReadOnlyList<DisplayCardDto> Catalog);
+    IReadOnlyList<DisplayCardDto> Catalog)
+{
+    public int TotalCount { get; init; }
+    public DisplayBrowseFacetsDto? Facets { get; init; }
+}
+
+public sealed record DisplayBrowseFacetsDto(
+    IReadOnlyList<string> Genres,
+    IReadOnlyList<string> Creators,
+    IReadOnlyList<string> Years);
 
 public sealed record DisplayHeroDto(
     string Title,
