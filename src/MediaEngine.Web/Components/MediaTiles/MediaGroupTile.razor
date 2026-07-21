@@ -3,7 +3,7 @@
 @inject NavigationManager Nav
 
 <AppCssElement Tag="div" Css="@($"display: contents; {TileStyle}")">
-    <article class="media-group-tile" aria-label="@Item.Title">
+    <article class="media-group-tile @(UsesGlowOnlyHover ? "is-glow-only" : null)" aria-label="@Item.Title">
         <a class="media-group-tile__surface"
            href="@GroupNavigationUrl"
            aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
@@ -48,7 +48,8 @@
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
 
     private MediaTileHoverMode EffectiveHoverMode => HoverMode ?? Item.HoverMode;
-    private bool ShowSummary => EffectiveHoverMode != MediaTileHoverMode.None;
+    private bool UsesGlowOnlyHover => EffectiveHoverMode == MediaTileHoverMode.GlowOnly;
+    private bool ShowSummary => EffectiveHoverMode is not (MediaTileHoverMode.None or MediaTileHoverMode.GlowOnly);
     private int ResolvedTotalCount => Math.Max(Item.GroupSummary?.OwnedCount ?? Item.PreviewTotalCount ?? RepresentativeItems.Count, RepresentativeItems.Count);
 
     // The API orders series previews by progress and canonical position and already caps

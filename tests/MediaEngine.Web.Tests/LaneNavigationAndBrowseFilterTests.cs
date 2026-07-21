@@ -49,6 +49,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var collections = ReadSource("src/MediaEngine.Web/Components/Collections/CollectionsPage.razor");
         var hub = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaHubPage.razor");
         var laneHeader = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaLaneHeader.razor");
+        var browseShell = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
+        var mediaShelf = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaShelf.razor");
 
         Assert.Contains("<MediaSectionShell", read, StringComparison.Ordinal);
         Assert.Contains("<MediaSectionShell", watch, StringComparison.Ordinal);
@@ -70,6 +72,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("ShowTitleBlock=\"false\"", watch, StringComparison.Ordinal);
         Assert.Contains("ShowTabNavigation=\"false\"", read, StringComparison.Ordinal);
         Assert.Contains("ShowTabNavigation=\"false\"", watch, StringComparison.Ordinal);
+        Assert.Contains("GridHoverMode => MediaTileHoverMode.GlowOnly", browseShell, StringComparison.Ordinal);
+        Assert.Contains("HoverMode => MediaTileHoverMode.Expanded", mediaShelf, StringComparison.Ordinal);
         Assert.DoesNotContain("<CinematicHeroCarousel", collections, StringComparison.Ordinal);
         Assert.Contains("Nav.NavigateTo(target.Route)", hub, StringComparison.Ordinal);
     }

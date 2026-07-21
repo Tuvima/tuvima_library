@@ -101,6 +101,40 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTileGrid_DefaultsMovieAndTvCardsToCoverOnlyGlow()
+    {
+        var movie = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            WorkId = Guid.NewGuid(),
+            Title = "The Shining",
+            Description = "This cinematic copy belongs on Home, Discover, and details.",
+            MediaKind = "Movie",
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            HoverLayout = MediaTileHoverLayout.BannerPopover,
+            HoverMode = MediaTileHoverMode.Expanded,
+            TileImageUrl = "/art/the-shining-cover.jpg",
+            HoverImageUrl = "/art/the-shining-background.jpg",
+            HeroBackgroundImageUrl = "/art/the-shining-background.jpg",
+            NavigationUrl = "/watch/movie/the-shining",
+            DetailsNavigationUrl = "/watch/movie/the-shining",
+        };
+
+        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(component => component.Items, [movie]));
+        var tile = cut.FindComponent<MediaTile>();
+
+        Assert.Equal(MediaTileHoverMode.GlowOnly, tile.Instance.HoverMode);
+        Assert.Contains("is-hover-glow-only", cut.Find("article.media-tile").ClassList);
+        Assert.Contains("is-static-cover-hover", cut.Find("article.media-tile").ClassList);
+        Assert.Empty(cut.FindAll(".media-tile-hover-panel"));
+        Assert.Empty(cut.FindAll(".media-tile-static-hover"));
+        Assert.Empty(cut.FindAll(".media-tile-hover-identity-strip"));
+        Assert.DoesNotContain(movie.Description, cut.Markup);
+        Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "registerMediaTileHover");
+    }
+
+    [Fact]
     public void MediaTile_DetailsSurfaceIsSemanticLinkWithVisibleKeyboardFocus()
     {
         const string details = "/book/semantic-card";
@@ -205,6 +239,18 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Same(ordinary, renderedOrdinary.Instance.Item);
         Assert.Single(cut.FindAll(".media-group-tile"));
         Assert.Single(cut.FindAll(".media-tile"));
+    }
+
+    [Fact]
+    public void MediaTileGrid_DefaultsGroupTilesToGlowWithoutSummaryShading()
+    {
+        var group = CreateGroupTile();
+        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(component => component.Items, [group]));
+        var renderedGroup = cut.FindComponent<MediaGroupTile>();
+
+        Assert.Equal(MediaTileHoverMode.GlowOnly, renderedGroup.Instance.HoverMode);
+        Assert.Contains("is-glow-only", cut.Find("article.media-group-tile").ClassList);
+        Assert.Empty(cut.FindAll(".media-group-tile__overlay"));
     }
 
     [Fact]

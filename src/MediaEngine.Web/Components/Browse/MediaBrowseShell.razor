@@ -395,7 +395,7 @@
             .. IsInProgressOnly ? new[] { "In progress" } : [],
             .. IsSeriesOnly ? new[] { "Series only" } : [],
         ];
-    private MediaTileHoverMode? GridHoverMode => null;
+    private MediaTileHoverMode GridHoverMode => MediaTileHoverMode.GlowOnly;
     private string EmptyStateTitle =>
         !string.IsNullOrWhiteSpace(_searchText)
             ? "No matches found"

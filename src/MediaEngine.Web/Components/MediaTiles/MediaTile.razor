@@ -284,13 +284,19 @@
 
     private bool IsHoverEnabled => EffectiveHoverMode != MediaTileHoverMode.None;
 
+    private bool UsesGlowOnlyHover => EffectiveHoverMode == MediaTileHoverMode.GlowOnly;
+
     private bool UsesCinematicHover =>
         IsHoverEnabled
+        && !UsesGlowOnlyHover
         && MediaKindLabel is "Movie" or "TV";
 
     private bool UsesStaticCoverHover => IsHoverEnabled && !UsesCinematicHover;
 
-    private bool ShowsStaticCoverIdentity => UsesStaticCoverHover && Item.Shape != MediaTileShape.Portrait;
+    private bool ShowsStaticCoverIdentity =>
+        UsesStaticCoverHover
+        && !UsesGlowOnlyHover
+        && Item.Shape != MediaTileShape.Portrait;
 
     private IReadOnlyList<string> HoverIdentityParts => BuildHoverIdentityParts();
 
@@ -418,6 +424,7 @@
     private string HoverModeClass => EffectiveHoverMode switch
     {
         MediaTileHoverMode.None => "is-hover-none",
+        MediaTileHoverMode.GlowOnly => "is-hover-glow-only",
         MediaTileHoverMode.Preview => "is-hover-preview",
         _ => "is-hover-expanded",
     };

@@ -56,6 +56,7 @@ public enum MediaTilePreviewPlacement
 public enum MediaTileHoverMode
 {
     None,
+    GlowOnly,
     Preview,
     Expanded,
 }

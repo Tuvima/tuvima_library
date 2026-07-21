@@ -165,6 +165,11 @@
     transform: translateY(0);
 }
 
+.media-group-tile.is-glow-only .media-group-tile__surface:hover::after,
+.media-group-tile.is-glow-only .media-group-tile__surface:focus-visible::after {
+    opacity: 0;
+}
+
 @container (max-width: 500px) {
     .media-group-tile__overlay {
         padding: 14px 16px 30px;
