@@ -135,6 +135,36 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTileGrid_CanRenderCompactCaptionAndAspectSafeUserSizing()
+    {
+        var movie = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            WorkId = Guid.NewGuid(),
+            Title = "All of Us Strangers",
+            SortYear = 2023,
+            MediaKind = "Movie",
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            TileImageUrl = "/art/all-of-us-strangers.jpg",
+            NavigationUrl = "/watch/movie/all-of-us-strangers",
+            DetailsNavigationUrl = "/watch/movie/all-of-us-strangers",
+        };
+
+        var cut = RenderComponent<MediaTileGrid>(parameters => parameters
+            .Add(component => component.Items, [movie])
+            .Add(component => component.ShowCompactCaptions, true)
+            .Add(component => component.TileSizePx, 168));
+
+        var grid = cut.Find(".media-tile-grid");
+        Assert.Contains("is-size-controlled", grid.ClassList);
+        Assert.Contains("--media-grid-tile-size: 168px", grid.GetAttribute("style"), StringComparison.Ordinal);
+        Assert.Equal("All of Us Strangers", cut.Find(".media-tile-caption__title").TextContent);
+        Assert.Equal("2023", cut.Find(".media-tile-caption__year").TextContent);
+        Assert.True(cut.FindComponent<MediaTile>().Instance.ShowCompactCaption);
+    }
+
+    [Fact]
     public void MediaTile_DetailsSurfaceIsSemanticLinkWithVisibleKeyboardFocus()
     {
         const string details = "/book/semantic-card";

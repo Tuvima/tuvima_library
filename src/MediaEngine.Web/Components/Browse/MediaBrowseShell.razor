@@ -138,6 +138,21 @@
                         }
                     </AppSelect>
 
+                    @if (!UseListLayout)
+                    {
+                        <label class="browse-shell__tile-size" title="Adjust tile size">
+                            <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectSmall" />
+                            <span>Tile size</span>
+                            <AppNativeInput Type="range"
+                                            Value="@TileSizePx"
+                                            Min="@TileSizeMinPx"
+                                            Max="@TileSizeMaxPx"
+                                            Step="8"
+                                            AriaLabel="Tile size"
+                                            OnInput="OnTileSizeChanged" />
+                        </label>
+                    }
+
                     @if (SupportsLayoutToggle)
                     {
                         <div class="browse-shell__layout-toggle" role="group" aria-label="View mode">
@@ -292,6 +307,8 @@
                        HoverMode="@GridHoverMode"
                        HideMediaKindBadges="true"
                        HideSourceBadges="true"
+                       ShowCompactCaptions="true"
+                       TileSizePx="@TileSizePx"
                        Class="browse-shell__grid" />
     }
 
@@ -319,6 +336,7 @@
 
     private readonly HashSet<Guid> _selectedItems = [];
     private readonly List<MediaTileViewModel> _cards = [];
+    private readonly Dictionary<string, int> _tileSizes = new(StringComparer.OrdinalIgnoreCase);
 
     private string _activeTabId = string.Empty;
     private string _grouping = "all";
@@ -396,6 +414,16 @@
             .. IsSeriesOnly ? new[] { "Series only" } : [],
         ];
     private MediaTileHoverMode GridHoverMode => MediaTileHoverMode.GlowOnly;
+    private int TileSizePx => _tileSizes.TryGetValue(_activeTabId, out var size) ? size : DefaultTileSizePx;
+    private int TileSizeMinPx => string.Equals(CurrentTab.MediaType, "Music", StringComparison.OrdinalIgnoreCase) ? 96 : 128;
+    private int TileSizeMaxPx => string.Equals(CurrentTab.MediaType, "Music", StringComparison.OrdinalIgnoreCase) ? 208 : 248;
+    private int DefaultTileSizePx => CurrentTab.MediaType switch
+    {
+        "Music" => 136,
+        "Audiobooks" => 160,
+        "Books" or "Comics" => 168,
+        _ => 176,
+    };
     private string EmptyStateTitle =>
         !string.IsNullOrWhiteSpace(_searchText)
             ? "No matches found"
@@ -918,6 +946,14 @@
         _layout = layout;
         _selectedItems.Clear();
         await NavigateAndReloadAsync(reloadData: true);
+    }
+
+    private void OnTileSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var requestedSize))
+        {
+            _tileSizes[_activeTabId] = Math.Clamp(requestedSize, TileSizeMinPx, TileSizeMaxPx);
+        }
     }
 
     private async Task OnSearchChanged(string _)

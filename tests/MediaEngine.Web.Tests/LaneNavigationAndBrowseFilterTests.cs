@@ -49,6 +49,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var collections = ReadSource("src/MediaEngine.Web/Components/Collections/CollectionsPage.razor");
         var hub = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaHubPage.razor");
         var laneHeader = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaLaneHeader.razor");
+        var sectionShell = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor");
+        var sectionShellStyles = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor.css");
         var browseShell = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
         var mediaShelf = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaShelf.razor");
 
@@ -58,6 +60,12 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("<MediaLaneHeader Title=\"Watch\"", watch, StringComparison.Ordinal);
         Assert.Contains("<MediaLaneHeader Title=\"Listen\"", listen, StringComparison.Ordinal);
         Assert.Contains("<SurfaceNavigationBar", laneHeader, StringComparison.Ordinal);
+        Assert.DoesNotContain("media-lane-header__identity", laneHeader, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Parameter] public string? Subtitle", laneHeader, StringComparison.Ordinal);
+        Assert.DoesNotContain("media-section-shell__rail-title", sectionShell, StringComparison.Ordinal);
+        Assert.Contains("height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem)", sectionShellStyles, StringComparison.Ordinal);
+        Assert.Contains(".media-section-shell__content", sectionShellStyles, StringComparison.Ordinal);
+        Assert.Contains("overflow-y: auto", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains("/watch/series", watch, StringComparison.Ordinal);
         Assert.Contains("SupportsHero=\"false\"", read, StringComparison.Ordinal);
         Assert.Contains("SupportsHero=\"false\"", watch, StringComparison.Ordinal);
@@ -73,6 +81,9 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("ShowTabNavigation=\"false\"", read, StringComparison.Ordinal);
         Assert.Contains("ShowTabNavigation=\"false\"", watch, StringComparison.Ordinal);
         Assert.Contains("GridHoverMode => MediaTileHoverMode.GlowOnly", browseShell, StringComparison.Ordinal);
+        Assert.Contains("ShowCompactCaptions=\"true\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__tile-size", browseShell, StringComparison.Ordinal);
+        Assert.Contains("TileSizePx", browseShell, StringComparison.Ordinal);
         Assert.Contains("HoverMode => MediaTileHoverMode.Expanded", mediaShelf, StringComparison.Ordinal);
         Assert.DoesNotContain("<CinematicHeroCarousel", collections, StringComparison.Ordinal);
         Assert.Contains("Nav.NavigateTo(target.Route)", hub, StringComparison.Ordinal);

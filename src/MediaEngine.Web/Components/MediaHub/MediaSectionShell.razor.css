@@ -1,29 +1,23 @@
 .media-section-shell {
     display: grid;
     grid-template-columns: 256px minmax(0, 1fr);
-    min-height: calc(100dvh - var(--app-topbar-height, 65px));
+    height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem);
+    min-height: 0;
+    overflow: hidden;
     background:
         radial-gradient(circle at 52% 0%, rgba(91, 33, 182, 0.1), transparent 30%),
         linear-gradient(180deg, #070b14 0%, #05070c 100%);
 }
 
 .media-section-shell__rail {
-    position: sticky;
-    top: var(--app-topbar-height, 65px);
+    position: relative;
     align-self: start;
-    height: calc(100dvh - var(--app-topbar-height, 65px));
-    padding: 26px 15px;
+    height: 100%;
+    padding: 18px 15px 26px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     border-right: 1px solid rgba(148, 163, 184, 0.14);
     background: rgba(7, 12, 23, 0.86);
-}
-
-.media-section-shell__rail-title {
-    margin: 0 12px 24px;
-    color: rgba(248, 250, 252, 0.98);
-    font-family: var(--font-display, var(--font-ui));
-    font-size: 1.45rem;
-    font-weight: 700;
 }
 
 .media-section-shell__rail-group + .media-section-shell__rail-group {
@@ -77,6 +71,9 @@
 
 .media-section-shell__content {
     min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 @media (max-width: 840px) {

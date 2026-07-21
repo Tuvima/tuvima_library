@@ -1,7 +1,7 @@
 .listen-page {
     display: grid;
     grid-template-columns: 284px minmax(0, 1fr) 360px;
-    height: calc(100dvh - var(--app-topbar-height, 65px));
+    height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem);
     min-height: 0;
     padding-bottom: 0;
     background:
@@ -17,6 +17,7 @@
     background: rgba(9, 15, 27, 0.88);
     padding: 24px 14px;
     overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .listen-state {
@@ -691,6 +692,34 @@
 
 .listen-filter-toggle input {
     accent-color: var(--app-accent);
+}
+
+.listen-tile-size {
+    display: grid;
+    min-height: 42px;
+    grid-template-columns: auto auto minmax(72px, 104px);
+    align-items: center;
+    gap: 7px;
+    padding: 0 12px;
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--app-radius-md);
+    background: var(--tl-divider);
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.listen-tile-size ::deep .mud-icon-root {
+    font-size: 1rem;
+}
+
+.listen-tile-size ::deep input[type="range"],
+.audiobooks-tile-size ::deep input[type="range"] {
+    width: 100%;
+    min-width: 68px;
+    accent-color: var(--tl-accent-primary);
+    cursor: ew-resize;
 }
 
 .listen-actions,
@@ -1463,7 +1492,7 @@
 
 .audiobooks-toolbar {
     display: grid;
-    grid-template-columns: minmax(220px, 1.15fr) minmax(250px, 1.3fr) minmax(250px, 1.2fr) minmax(170px, 0.8fr) minmax(172px, 0.8fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
     align-items: end;
     gap: 16px;
 }
@@ -1507,6 +1536,35 @@
     border: 1px solid rgba(120, 139, 171, 0.26);
     border-radius: 8px;
     background: rgba(8, 15, 28, 0.74);
+}
+
+.audiobooks-view-controls {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.audiobooks-tile-size {
+    display: grid;
+    min-width: 134px;
+    grid-template-rows: auto auto;
+    align-content: center;
+    gap: 2px;
+    padding: 4px 10px;
+    border: 1px solid rgba(120, 139, 171, 0.26);
+    border-radius: 8px;
+    background: rgba(8, 15, 28, 0.74);
+    color: rgba(203, 213, 225, 0.74);
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex: 1 1 134px;
+}
+
+.audiobooks-view-controls .audiobooks-layout-toggle {
+    min-width: 172px;
+    flex: 1 1 auto;
 }
 
 .audiobooks-segmented {
@@ -1983,12 +2041,9 @@
         padding: 26px 28px 34px;
     }
 
-    .audiobooks-toolbar {
-        grid-template-columns: minmax(260px, 1fr) minmax(300px, 1fr);
-    }
-
     .audiobooks-filters,
     .audiobooks-sort,
+    .audiobooks-view-controls,
     .audiobooks-layout-toggle {
         align-self: stretch;
     }
@@ -2088,6 +2143,7 @@
     .audiobooks-segmented,
     .audiobooks-filters,
     .audiobooks-sort,
+    .audiobooks-view-controls,
     .audiobooks-layout-toggle {
         grid-column: 1 / -1;
     }

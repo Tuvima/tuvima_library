@@ -8,7 +8,7 @@
 
 <AppCssElement Tag="div"
                Css="@PaletteScopeStyle">
-<article class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(UsesStaticCoverHover ? "is-static-cover-hover" : "")} {(UsesCinematicHover ? "is-cinematic-hover" : "")}")'
+<article class='@($"media-tile tl-card-hover--media {ShapeClass} {MediaKindClass} {PresentationClass} {HoverLayoutClass} {SurfaceClass} {HoverPlacementClass} {HoverModeClass} {(UsesCollectionVisualTreatment ? "is-collection-card" : "")} {(UsesOrderedSeriesStack ? "is-ordered-series-card" : "")} {(UsesStaticCoverHover ? "is-static-cover-hover" : "")} {(UsesCinematicHover ? "is-cinematic-hover" : "")} {(ShowCompactCaption ? "has-compact-caption" : "")}")'
          @ref="_cardRef"
          aria-label="@Item.Title">
     <div class="media-tile-frame">
@@ -111,6 +111,17 @@
             </div>
         }
     </div>
+
+    @if (ShowCompactCaption)
+    {
+        <div class="media-tile-caption" aria-hidden="true">
+            <span class="media-tile-caption__title" title="@Item.Title">@Item.Title</span>
+            @if (!string.IsNullOrWhiteSpace(HoverIdentityYear))
+            {
+                <span class="media-tile-caption__year">@HoverIdentityYear</span>
+            }
+        </div>
+    }
 
     @if (UsesCinematicHover)
     {
@@ -274,6 +285,7 @@
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
     [Parameter] public bool HideMediaKindBadge { get; set; }
     [Parameter] public bool HideSourceBadge { get; set; }
+    [Parameter] public bool ShowCompactCaption { get; set; }
 
     private bool _hoverRegistered;
     private int _hoverImageIndex;

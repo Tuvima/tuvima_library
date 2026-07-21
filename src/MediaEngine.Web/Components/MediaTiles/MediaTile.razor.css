@@ -1,4 +1,5 @@
 .media-tile { --media-tile-accent:#38bdf8; --media-tile-secondary-accent:#111827; --media-tile-action-accent:var(--tl-accent-primary,#8b5cf6); --media-tile-progress-accent:var(--tl-accent-primary,#8b5cf6); --media-tile-hover-lift:clamp(8px,1.2vw,12px); --media-tile-media-height:clamp(192px,18.4vw,232px); --media-tile-media-aspect:2 / 3; --media-tile-hover-panel-width:clamp(320px,28vw,440px); display:flex; flex:0 0 auto; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index var(--tl-motion-duration-fast) var(--tl-motion-ease-standard), transform var(--tl-motion-duration-medium) var(--tl-motion-ease-emphasized), box-shadow var(--tl-motion-duration-medium) var(--tl-motion-ease-standard); }
+    .media-tile.has-compact-caption { gap:8px; }
     .media-tile.is-media-book, .media-tile.is-book-series { --media-tile-accent:var(--tl-media-book); }
     .media-tile.is-media-comic, .media-tile.is-comic-series { --media-tile-accent:var(--tl-media-comic); }
     .media-tile.is-media-audio, .media-tile.is-audiobook-series, .media-tile.is-album, .media-tile.is-artist { --media-tile-accent:var(--tl-media-audio); }
@@ -182,8 +183,13 @@
     .media-tile-hover-panel.is-placement-bottom .media-tile-hover-subtitle { font-size:.76rem; line-height:1.35; }
     .media-tile-hover-panel.is-placement-bottom .media-tile-hover-facts { gap:5px; }
     .media-tile-hover-panel.is-placement-bottom .media-tile-hover-fact { font-size:.7rem; }
-    .media-tile-caption { padding:0 2px; transition:opacity .18s ease,transform .18s ease; }
+    .media-tile-caption { display:flex; min-width:0; flex-direction:column; gap:3px; padding:0 3px; font-family:var(--font-ui); transition:opacity .18s ease,transform .18s ease; }
+    .media-tile-caption__title { overflow:hidden; color:rgba(248,250,252,.92); font-size:.78rem; font-weight:600; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+    .media-tile-caption__year { color:rgba(148,163,184,.72); font-size:.72rem; font-weight:500; line-height:1.3; }
     .media-tile:focus-within .media-tile-caption, .media-tile.is-expanded .media-tile-caption, .media-tile.is-hover-active .media-tile-caption { opacity:0; transform:translateY(-12px); pointer-events:none; }
+    .media-tile.is-hover-glow-only:focus-within .media-tile-caption,
+    .media-tile.is-hover-glow-only.is-expanded .media-tile-caption,
+    .media-tile.is-hover-glow-only.is-hover-active .media-tile-caption { opacity:1; transform:none; pointer-events:none; }
     .media-tile-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     @media (hover:none), (max-width:640px) {
         .media-tile-hover-panel {

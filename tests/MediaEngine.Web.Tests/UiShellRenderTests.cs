@@ -562,7 +562,7 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.Single(cut.FindAll(".media-hub--listen"));
             Assert.Single(cut.FindAll("[data-media-hub='true']"));
-            Assert.Contains(">Listen<", cut.Markup);
+            Assert.Empty(cut.FindAll(".media-lane-header__identity"));
             Assert.Contains(">Discover<", cut.Markup);
             Assert.Contains(">Music<", cut.Markup);
             Assert.Contains(">Audiobooks<", cut.Markup);
@@ -768,6 +768,10 @@ public sealed class UiShellRenderTests : TestContext
         var markup = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));
         Assert.Contains("<MediaTileGrid Items=\"@AlbumTiles\"", markup, StringComparison.Ordinal);
         Assert.Contains("Class=\"listen-card-grid listen-card-grid--albums\"", markup, StringComparison.Ordinal);
+        Assert.Contains("ShowCompactCaptions=\"true\"", markup, StringComparison.Ordinal);
+        Assert.Contains("TileSizePx=\"@_albumTileSizePx\"", markup, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Album tile size\"", markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowAllAudiobooks", markup, StringComparison.Ordinal);
     }
 
     [Fact]

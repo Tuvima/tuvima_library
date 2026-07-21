@@ -21,7 +21,6 @@ namespace MediaEngine.Web.Components.Pages;
 
 public partial class ListenPage
 {
-    private const int AudiobookBrowsePreviewLimit = 12;
     private const string MusicHomeRoute = ListenNavigation.MusicHomeRoute;
     private const string AlbumsRoute = ListenNavigation.AlbumsRoute;
     private const string ArtistsRoute = ListenNavigation.ArtistsRoute;
@@ -90,6 +89,7 @@ public partial class ListenPage
     private string _albumGenreFilter = "all";
     private bool _albumFavoriteOnly;
     private bool _albumArtOnly;
+    private int _albumTileSizePx = 136;
     private string _artistSearch = string.Empty;
     private string _artistSort = "name";
     private string _audiobookSearch = string.Empty;
@@ -98,8 +98,8 @@ public partial class ListenPage
     private string _audiobookLengthFilter = "all";
     private bool _audiobookInProgressOnly;
     private bool _audiobookUnreadOnly;
-    private bool _audiobookShowAll;
     private LibraryLayoutMode _audiobookLayout = LibraryLayoutMode.Card;
+    private int _audiobookTileSizePx = 160;
     private string? _audiobookSeriesFocus;
     private string? _lastHandledTrackContext;
     private string? _audioDetailTab;
@@ -238,16 +238,6 @@ public partial class ListenPage
     private string AudiobookBooksLayoutClass => _audiobookLayout == LibraryLayoutMode.List
         ? "audiobooks-books audiobooks-books--list"
         : "audiobooks-books";
-    private bool ShouldPreviewAudiobookBrowse => !_audiobookShowAll
-        && _audiobookView == "all"
-        && _audiobookLayout == LibraryLayoutMode.Card
-        && string.IsNullOrWhiteSpace(_audiobookSearch)
-        && !_audiobookInProgressOnly
-        && !_audiobookUnreadOnly
-        && string.Equals(_audiobookLengthFilter, "all", StringComparison.OrdinalIgnoreCase)
-        && string.IsNullOrWhiteSpace(_audiobookSeriesFocus);
-    private bool IsAudiobookBrowsePreviewTruncated => ShouldPreviewAudiobookBrowse
-        && FilteredAudiobookItems.Count > AudiobookBrowsePreviewLimit;
     private IReadOnlyList<string> PlaylistCoverUrls => ActivePlaylistTracks.Select(track => track.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Distinct().Cast<string>().Take(4).ToList();
     private IReadOnlyList<ManagedCollectionViewModel> PlaylistCollections => _managedCollections
         .Where(IsUserVisiblePlaylist)
@@ -2450,12 +2440,7 @@ public partial class ListenPage
             : null;
 
     private IReadOnlyList<AudiobookDisplayItem> BuildAudiobookBrowseItems()
-    {
-        var items = FilteredAudiobookItems;
-        return ShouldPreviewAudiobookBrowse
-            ? items.Take(AudiobookBrowsePreviewLimit).ToList()
-            : items;
-    }
+        => FilteredAudiobookItems;
 
     private IReadOnlyList<AudiobookDisplayItem> ApplyAudiobookFilters()
     {
@@ -2776,13 +2761,27 @@ public partial class ListenPage
     {
         _audiobookView = view;
         _audiobookSeriesFocus = null;
-        _audiobookShowAll = false;
     }
 
     private void UpdateAudiobookSearch(ChangeEventArgs args)
     {
         _audiobookSearch = args.Value?.ToString() ?? string.Empty;
-        _audiobookShowAll = false;
+    }
+
+    private void UpdateAlbumTileSize(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var requestedSize))
+        {
+            _albumTileSizePx = Math.Clamp(requestedSize, 96, 208);
+        }
+    }
+
+    private void UpdateAudiobookTileSize(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var requestedSize))
+        {
+            _audiobookTileSizePx = Math.Clamp(requestedSize, 128, 248);
+        }
     }
 
     private void ToggleAudiobookInProgress()
@@ -2811,17 +2810,11 @@ public partial class ListenPage
         _audiobookView = "all";
         _audiobookSearch = author.Name;
         _audiobookSeriesFocus = null;
-        _audiobookShowAll = false;
     }
 
     private void ClearAudiobookSeriesFocus()
     {
         _audiobookSeriesFocus = null;
-    }
-
-    private void ShowAllAudiobooks()
-    {
-        _audiobookShowAll = true;
     }
 
     private Task PlayAudiobookItemAsync(AudiobookDisplayItem item)

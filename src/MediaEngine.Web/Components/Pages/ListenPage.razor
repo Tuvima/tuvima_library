@@ -128,7 +128,6 @@ else
             {
                 <div class="listen-lane-header">
                     <MediaLaneHeader Title="Listen"
-                                     Subtitle="Music and audiobooks from your local library"
                                      Modes="@ListenHubModes"
                                      ActiveMode="@ActiveListenMode" />
                 </div>
@@ -196,6 +195,17 @@ else
                             <AppNativeInput Type="checkbox" Checked="@_albumArtOnly" OnChange="@((ChangeEventArgs args) => _albumArtOnly = args.Value is true)" />
                             <span>With art</span>
                         </label>
+                        <label class="listen-tile-size" title="Adjust album tile size">
+                            <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectSmall" />
+                            <span>Tile size</span>
+                            <AppNativeInput Type="range"
+                                            Value="@_albumTileSizePx"
+                                            Min="96"
+                                            Max="208"
+                                            Step="8"
+                                            AriaLabel="Album tile size"
+                                            OnInput="UpdateAlbumTileSize" />
+                        </label>
                     </div>
 
                     @if (FilteredAlbumGroups.Count == 0)
@@ -210,6 +220,8 @@ else
                     else
                     {
                         <MediaTileGrid Items="@AlbumTiles"
+                                       ShowCompactCaptions="true"
+                                       TileSizePx="@_albumTileSizePx"
                                        Class="listen-card-grid listen-card-grid--albums" />
                     }
                 </section>
@@ -408,6 +420,8 @@ else
                                         </div>
                                     </div>
                                     <MediaTileGrid Items="@ArtistAlbumTiles"
+                                                   ShowCompactCaptions="true"
+                                                   TileSizePx="@_albumTileSizePx"
                                                    Class="listen-card-grid listen-card-grid--albums" />
                                 </section>
                             }
@@ -525,6 +539,8 @@ else
                     else
                     {
                         <MediaTileGrid Items="@PlaylistTiles"
+                                       ShowCompactCaptions="true"
+                                       TileSizePx="@_albumTileSizePx"
                                        Class="listen-card-grid" />
                     }
                 </section>
@@ -755,13 +771,28 @@ else
                             </AppNativeSelect>
                         </label>
 
-                        <div class="audiobooks-layout-toggle" role="group" aria-label="Audiobook layout">
-                            <AppNativeButton Type="button" Class="@AudiobookLayoutToggleClass(LibraryLayoutMode.Card)" aria-pressed="@(_audiobookLayout == LibraryLayoutMode.Card ? "true" : "false")" OnClick="@(() => _audiobookLayout = LibraryLayoutMode.Card)">
-                                <span>Cards</span>
-                            </AppNativeButton>
-                            <AppNativeButton Type="button" Class="@AudiobookLayoutToggleClass(LibraryLayoutMode.List)" aria-pressed="@(_audiobookLayout == LibraryLayoutMode.List ? "true" : "false")" OnClick="@(() => _audiobookLayout = LibraryLayoutMode.List)">
-                                <span>List</span>
-                            </AppNativeButton>
+                        <div class="audiobooks-view-controls">
+                            @if (_audiobookLayout == LibraryLayoutMode.Card)
+                            {
+                                <label class="audiobooks-tile-size" title="Adjust audiobook tile size">
+                                    <span>Tile size</span>
+                                    <AppNativeInput Type="range"
+                                                    Value="@_audiobookTileSizePx"
+                                                    Min="128"
+                                                    Max="248"
+                                                    Step="8"
+                                                    AriaLabel="Audiobook tile size"
+                                                    OnInput="UpdateAudiobookTileSize" />
+                                </label>
+                            }
+                            <div class="audiobooks-layout-toggle" role="group" aria-label="Audiobook layout">
+                                <AppNativeButton Type="button" Class="@AudiobookLayoutToggleClass(LibraryLayoutMode.Card)" aria-pressed="@(_audiobookLayout == LibraryLayoutMode.Card ? "true" : "false")" OnClick="@(() => _audiobookLayout = LibraryLayoutMode.Card)">
+                                    <span>Cards</span>
+                                </AppNativeButton>
+                                <AppNativeButton Type="button" Class="@AudiobookLayoutToggleClass(LibraryLayoutMode.List)" aria-pressed="@(_audiobookLayout == LibraryLayoutMode.List ? "true" : "false")" OnClick="@(() => _audiobookLayout = LibraryLayoutMode.List)">
+                                    <span>List</span>
+                                </AppNativeButton>
+                            </div>
                         </div>
                     </div>
 
@@ -828,10 +859,6 @@ else
                                 <h2>@AudiobookBrowseTitle</h2>
                                 <p>@AudiobookBrowseSummary</p>
                             </div>
-                            @if (IsAudiobookBrowsePreviewTruncated)
-                            {
-                                <AppNativeButton Type="button" Class="audiobooks-link-action" OnClick="ShowAllAudiobooks">View all</AppNativeButton>
-                            }
                         </div>
 
                         @if (_audiobookView == "series")
@@ -912,6 +939,8 @@ else
                             @if (_audiobookLayout == LibraryLayoutMode.Card)
                             {
                                 <MediaTileGrid Items="@AudiobookBrowseTiles"
+                                               ShowCompactCaptions="true"
+                                               TileSizePx="@_audiobookTileSizePx"
                                                Class="listen-card-grid listen-card-grid--audiobooks" />
                             }
                             else

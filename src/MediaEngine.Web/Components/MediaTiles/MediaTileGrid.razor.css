@@ -6,3 +6,19 @@
     gap: clamp(18px, 2vw, 28px);
     overflow: visible;
 }
+
+.media-tile-grid.is-size-controlled ::deep .media-tile.is-portrait,
+.media-tile-grid.is-size-controlled ::deep .media-tile.is-square,
+.media-tile-grid.is-size-controlled ::deep .media-tile.is-landscape {
+    width: min(calc(100vw - 22px), var(--media-grid-tile-size));
+}
+
+.media-tile-grid.is-size-controlled ::deep .media-tile.is-collection-card.is-landscape,
+.media-tile-grid.is-size-controlled ::deep .media-tile.is-ordered-series-card.is-landscape {
+    width: min(calc(100vw - 22px), var(--media-grid-tile-size));
+}
+
+.media-tile-grid.is-size-controlled ::deep .media-group-tile {
+    --media-group-tile-width: var(--media-grid-group-width);
+    --media-group-tile-height: var(--media-grid-group-height);
+}

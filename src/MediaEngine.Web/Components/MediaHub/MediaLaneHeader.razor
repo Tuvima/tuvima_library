@@ -3,15 +3,6 @@
 @inject NavigationManager Nav
 
 <header class="media-lane-header">
-    <div class="media-lane-header__identity">
-        <span>Your library</span>
-        <h1>@Title</h1>
-        @if (!string.IsNullOrWhiteSpace(Subtitle))
-        {
-            <p>@Subtitle</p>
-        }
-    </div>
-
     @if (Modes.Count > 0)
     {
         <SurfaceNavigationBar Items="@NavigationItems"
@@ -24,7 +15,6 @@
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
-    [Parameter] public string? Subtitle { get; set; }
     [Parameter] public string ActiveMode { get; set; } = "all";
     [Parameter] public IReadOnlyList<MediaHubModeViewModel> Modes { get; set; } = [];
 
