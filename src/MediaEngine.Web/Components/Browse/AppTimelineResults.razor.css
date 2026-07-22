@@ -1,100 +1,354 @@
 .app-timeline {
-    position: relative;
+    --timeline-artwork-size: 88px;
     display: grid;
-    gap: 22px;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: clamp(142px, 12vw, 184px) minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(22px, 2.2vw, 34px);
     padding: 18px 0 30px;
 }
 
-.app-timeline__header {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 16px;
+.app-timeline--art-72 { --timeline-artwork-size: 72px; }
+.app-timeline--art-76 { --timeline-artwork-size: 76px; }
+.app-timeline--art-80 { --timeline-artwork-size: 80px; }
+.app-timeline--art-84 { --timeline-artwork-size: 84px; }
+.app-timeline--art-88 { --timeline-artwork-size: 88px; }
+.app-timeline--art-92 { --timeline-artwork-size: 92px; }
+.app-timeline--art-96 { --timeline-artwork-size: 96px; }
+.app-timeline--art-100 { --timeline-artwork-size: 100px; }
+.app-timeline--art-104 { --timeline-artwork-size: 104px; }
+
+.app-timeline__navigator {
+    position: sticky;
+    top: 12px;
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 17px;
+    max-height: calc(100dvh - 120px);
+    padding: 8px 20px 20px 2px;
+    overflow-y: auto;
+    border-right: 1px solid rgba(128, 146, 180, 0.2);
+    scrollbar-color: color-mix(in srgb, var(--tl-accent-primary) 40%, rgba(89, 105, 134, 0.56)) transparent;
+    scrollbar-width: thin;
 }
 
-.app-timeline__header > div:first-child {
+.app-timeline__navigator::-webkit-scrollbar {
+    width: 6px;
+}
+
+.app-timeline__navigator::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.app-timeline__navigator::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tl-accent-primary) 40%, rgba(89, 105, 134, 0.56));
+}
+
+.app-timeline__decade {
+    min-width: 0;
+}
+
+.app-timeline__decade summary {
+    display: flex;
+    min-height: 30px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: color-mix(in srgb, var(--tl-accent-primary) 72%, white);
+    font-size: 0.9rem;
+    font-weight: 800;
+    list-style: none;
+    cursor: pointer;
+}
+
+.app-timeline__decade summary::-webkit-details-marker {
+    display: none;
+}
+
+.app-timeline__decade summary ::deep .mud-icon-root {
+    font-size: 1rem;
+    transition: transform 160ms ease;
+}
+
+.app-timeline__decade:not([open]) summary ::deep .mud-icon-root {
+    transform: rotate(-90deg);
+}
+
+.app-timeline__year-links {
+    position: relative;
     display: grid;
-    gap: 4px;
+    gap: 0;
+    margin-top: 2px;
+    padding-left: 2px;
+}
+
+.app-timeline__year-links::before {
+    position: absolute;
+    top: 15px;
+    bottom: 15px;
+    left: 6px;
+    width: 1px;
+    background: rgba(94, 113, 146, 0.42);
+    content: "";
+}
+
+.app-timeline__year-link {
+    position: relative;
+    display: grid;
+    min-height: 29px;
+    grid-template-columns: 14px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    padding: 2px 6px 2px 0;
+    color: rgba(167, 182, 207, 0.78);
+    border-radius: 7px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+}
+
+a.app-timeline__year-link:hover,
+a.app-timeline__year-link:focus-visible {
+    color: rgba(231, 226, 255, 0.98);
+    outline: none;
+}
+
+.app-timeline__year-link.is-selected {
+    color: color-mix(in srgb, var(--tl-accent-primary) 70%, white);
+    font-weight: 800;
+}
+
+.app-timeline__year-link.is-disabled {
+    color: rgba(134, 151, 180, 0.48);
+    cursor: default;
+}
+
+.app-timeline__year-dot {
+    position: relative;
+    z-index: 1;
+    width: 6px;
+    height: 6px;
+    justify-self: center;
+    border-radius: 50%;
+    background: #3d4d69;
+}
+
+.app-timeline__year-link.is-selected .app-timeline__year-dot {
+    width: 15px;
+    height: 15px;
+    border: 3px solid color-mix(in srgb, var(--tl-accent-primary) 82%, white);
+    background: rgba(29, 22, 62, 0.98);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--tl-accent-primary) 52%, transparent);
+}
+
+.app-timeline__content {
+    display: grid;
+    min-width: 0;
+    gap: 12px;
+}
+
+.app-timeline__header {
+    display: grid;
+    gap: 5px;
+    padding: 3px 4px 17px;
+    border-bottom: 1px solid color-mix(in srgb, var(--tl-accent-primary) 35%, rgba(128, 146, 180, 0.16));
 }
 
 .app-timeline__header span {
-    color: #c4b5fd;
-    font-size: 0.78rem;
-    font-weight: 700;
+    color: color-mix(in srgb, var(--tl-accent-primary) 64%, white);
+    font-size: 0.82rem;
+    font-weight: 800;
     letter-spacing: 0.09em;
     text-transform: uppercase;
 }
 
 .app-timeline__header small {
     color: var(--tl-text-muted);
-}
-
-.app-timeline__grouping {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    padding: 8px 11px;
-    border: 1px solid rgba(128, 146, 180, 0.2);
-    border-radius: 8px;
-    background: rgba(8, 16, 31, 0.5);
-}
-
-.app-timeline__grouping strong {
-    color: var(--tl-text-primary);
     font-size: 0.84rem;
-}
-
-.app-timeline__rail {
-    height: 2px;
-    margin: 0 10px;
-    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.64) 8%, rgba(139, 92, 246, 0.64) 92%, transparent);
-    box-shadow: 0 0 10px rgba(139, 92, 246, 0.22);
 }
 
 .app-timeline__groups {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: clamp(240px, 20vw, 300px);
-    gap: 12px;
-    overflow-x: auto;
-    padding: 0 0 10px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: thin;
+    min-width: 0;
+    gap: 7px;
 }
 
 .app-timeline__year {
     display: grid;
-    min-height: 280px;
-    align-content: start;
-    gap: 12px;
-    padding: 15px;
-    border: 1px solid rgba(128, 146, 180, 0.14);
+    min-width: 0;
+    min-height: 118px;
+    grid-template-columns: minmax(132px, 170px) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(16px, 2vw, 28px);
+    padding: 10px clamp(14px, 1.5vw, 22px);
+    border: 1px solid rgba(128, 146, 180, 0.19);
     border-radius: 12px;
-    background: linear-gradient(145deg, rgba(15, 25, 42, 0.72), rgba(8, 15, 28, 0.4));
-    scroll-snap-align: start;
+    background: linear-gradient(145deg, rgba(15, 25, 42, 0.74), rgba(8, 15, 28, 0.46));
+    scroll-margin-top: 20px;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.app-timeline__year header {
+.app-timeline__year:target,
+.app-timeline__year.is-selected {
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 42%, rgba(128, 146, 180, 0.19));
+}
+
+.app-timeline__year:target {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--tl-accent-primary) 24%, transparent),
+                0 0 22px color-mix(in srgb, var(--tl-accent-primary) 13%, transparent);
+}
+
+.app-timeline__year-heading {
     display: flex;
     align-items: baseline;
     gap: 12px;
 }
 
-.app-timeline__year h3 {
+.app-timeline__year-heading h3 {
     margin: 0;
-    color: #c4b5fd;
+    color: rgba(248, 250, 252, 0.98);
     font-family: var(--font-display, var(--font-ui));
-    font-size: 1.22rem;
+    font-size: clamp(1.35rem, 2vw, 1.7rem);
+    line-height: 1;
 }
 
-.app-timeline__year header span {
+.app-timeline__year-heading span {
     color: var(--tl-text-muted);
     font-size: 0.78rem;
+    white-space: nowrap;
 }
 
-@media (max-width: 720px) {
-    .app-timeline__header {
+.app-timeline__items {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: clamp(12px, 1.35vw, 18px);
+    overflow-x: auto;
+    padding: 0 4px 2px 0;
+    scrollbar-width: thin;
+}
+
+.app-timeline__item {
+    display: inline-grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(72px, 150px);
+    align-items: center;
+    gap: 11px;
+    color: rgba(242, 245, 251, 0.94);
+    border-radius: 9px;
+    text-decoration: none;
+}
+
+.app-timeline__item:hover,
+.app-timeline__item:focus-visible {
+    color: white;
+    outline: none;
+}
+
+.app-timeline__artwork {
+    position: relative;
+    display: grid;
+    width: var(--timeline-artwork-size);
+    max-height: calc(var(--timeline-artwork-size) * 1.1);
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    border-radius: 7px;
+    background: rgba(6, 13, 26, 0.76);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.app-timeline__artwork.is-portrait {
+    width: calc(var(--timeline-artwork-size) * 0.73);
+    aspect-ratio: 2 / 3;
+}
+
+.app-timeline__artwork.is-square {
+    width: var(--timeline-artwork-size);
+    aspect-ratio: 1;
+}
+
+.app-timeline__artwork.is-landscape {
+    width: calc(var(--timeline-artwork-size) * 1.18);
+    aspect-ratio: 16 / 9;
+}
+
+.app-timeline__artwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.app-timeline__artwork ::deep .mud-icon-root {
+    color: rgba(167, 182, 207, 0.54);
+    font-size: 1.7rem;
+}
+
+.app-timeline__item:hover .app-timeline__artwork,
+.app-timeline__item:focus-visible .app-timeline__artwork {
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 58%, rgba(148, 163, 184, 0.26));
+    box-shadow: 0 0 16px color-mix(in srgb, var(--tl-accent-primary) 22%, transparent);
+}
+
+.app-timeline__item-title {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.28;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+@media (max-width: 900px) {
+    .app-timeline {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+
+    .app-timeline__navigator {
+        position: static;
+        display: flex;
+        max-height: none;
+        align-items: flex-start;
+        gap: 18px;
+        padding: 0 0 13px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: 0;
+        border-bottom: 1px solid rgba(128, 146, 180, 0.2);
+    }
+
+    .app-timeline__decade {
+        min-width: 108px;
+    }
+}
+
+@media (max-width: 620px) {
+    .app-timeline__year {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .app-timeline__items {
+        align-items: flex-start;
+    }
+
+    .app-timeline__item {
+        grid-template-columns: minmax(0, 1fr);
         align-items: start;
-        flex-direction: column;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-timeline__decade summary ::deep .mud-icon-root,
+    .app-timeline__year,
+    .app-timeline__artwork {
+        transition: none;
     }
 }

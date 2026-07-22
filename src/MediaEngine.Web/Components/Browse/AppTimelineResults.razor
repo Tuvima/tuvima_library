@@ -1,39 +1,102 @@
-@using MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Browse
+@inject NavigationManager Nav
 
-<section class="app-timeline" aria-label="Timeline results">
-    <div class="app-timeline__header">
-        <div>
+<section class="@RootClass" aria-label="Timeline results">
+    <aside class="app-timeline__navigator" aria-label="Timeline quick navigation">
+        @foreach (var decade in Decades)
+        {
+            <details class="app-timeline__decade" open @key="decade.StartYear">
+                <summary>
+                    <span>@DecadeLabel(decade.StartYear)</span>
+                    <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
+                </summary>
+
+                <div class="app-timeline__year-links">
+                    @foreach (var year in decade.Years)
+                    {
+                        var hasItems = AvailableYears.Contains(year);
+                        if (hasItems)
+                        {
+                            <a class="@YearLinkClass(year)"
+                               href="@YearNavigationUrl(year)"
+                               aria-current="@(year == _selectedYear ? "location" : null)"
+                               @onclick="() => SelectYear(year)">
+                                <span class="app-timeline__year-dot" aria-hidden="true"></span>
+                                <span>@year</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="app-timeline__year-link is-disabled" aria-disabled="true">
+                                <span class="app-timeline__year-dot" aria-hidden="true"></span>
+                                <span>@year</span>
+                            </span>
+                        }
+                    }
+                </div>
+            </details>
+        }
+
+        @if (HasUnknownYear)
+        {
+            <a class="@YearLinkClass(0)"
+               href="@YearNavigationUrl(0)"
+               aria-current="@(_selectedYear == 0 ? "location" : null)"
+               @onclick="() => SelectYear(0)">
+                <span class="app-timeline__year-dot" aria-hidden="true"></span>
+                <span>Unknown year</span>
+            </a>
+        }
+    </aside>
+
+    <div class="app-timeline__content">
+        <header class="app-timeline__header">
             <span>Timeline view</span>
             <small>@YearSemantic</small>
-        </div>
-        <div class="app-timeline__grouping" aria-label="Timeline grouping">
-            <span>Group by</span>
-            <strong>Year</strong>
-        </div>
-    </div>
+        </header>
 
-    <div class="app-timeline__rail" aria-hidden="true"></div>
+        <div class="app-timeline__groups">
+            @foreach (var group in Groups)
+            {
+                <section id="@YearAnchor(group.Key)"
+                         class="@YearGroupClass(group.Key)"
+                         aria-labelledby="@($"timeline-heading-{group.Key}")"
+                         @key="group.Key">
+                    <header class="app-timeline__year-heading">
+                        <h3 id="@($"timeline-heading-{group.Key}")">@DisplayYear(group.Key)</h3>
+                        <span>@CountLabel(group.Count())</span>
+                    </header>
 
-    <div class="app-timeline__groups">
-        @foreach (var group in Groups)
-        {
-            <section class="app-timeline__year" aria-labelledby="@($"timeline-{group.Key}")">
-                <header>
-                    <h3 id="@($"timeline-{group.Key}")">@DisplayYear(group.Key)</h3>
-                    <span>@CountLabel(group.Count())</span>
-                </header>
-                <MediaTileGrid Items="@group.ToList()"
-                               HoverMode="MediaTileHoverMode.GlowOnly"
-                               HideMediaKindBadges="true"
-                               HideSourceBadges="true"
-                               HideGroupIndicators="true"
-                               ShowCompactCaptions="true"
-                               TileSizePx="@TimelineTileSizePx"
-                               Class="app-timeline__grid" />
-            </section>
-        }
+                    <div class="app-timeline__items">
+                        @foreach (var item in group)
+                        {
+                            <a class="app-timeline__item"
+                               href="@ItemNavigationUrl(item)"
+                               aria-label="@($"Open {item.Title}")"
+                               @key="item.Id">
+                                <span class="app-timeline__artwork @ArtworkShapeClass(item.Shape)">
+                                    @if (!string.IsNullOrWhiteSpace(ItemArtworkUrl(item)))
+                                    {
+                                        <img src="@ItemArtworkUrl(item)"
+                                             srcset="@item.TileImageSrcSet"
+                                             sizes="96px"
+                                             alt=""
+                                             loading="lazy"
+                                             decoding="async" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" />
+                                    }
+                                </span>
+                                <span class="app-timeline__item-title" title="@item.Title">@item.Title</span>
+                            </a>
+                        }
+                    </div>
+                </section>
+            }
+        </div>
     </div>
 </section>
 
@@ -42,12 +105,72 @@
     [Parameter] public int TileSizePx { get; set; } = 168;
     [Parameter] public string YearSemantic { get; set; } = "Release / publication year";
 
-    private int TimelineTileSizePx => Math.Clamp((int)Math.Round(TileSizePx * 0.64), 92, 128);
+    private int? _selectedYear;
+    private int TimelineArtworkSizePx => Math.Clamp(
+        (int)Math.Round(TileSizePx * 0.55 / 4, MidpointRounding.AwayFromZero) * 4,
+        72,
+        104);
 
-    private IEnumerable<IGrouping<int, MediaTileViewModel>> Groups => Items
+    private string RootClass => $"app-timeline app-timeline--art-{TimelineArtworkSizePx}";
+
+    private IReadOnlyList<IGrouping<int, MediaTileViewModel>> Groups => Items
         .GroupBy(item => item.SortYear)
-        .OrderBy(group => group.Key == 0 ? int.MaxValue : group.Key);
+        .OrderBy(group => group.Key == 0 ? int.MaxValue : group.Key)
+        .ToList();
 
+    private HashSet<int> AvailableYears => Groups
+        .Where(group => group.Key > 0)
+        .Select(group => group.Key)
+        .ToHashSet();
+
+    private IReadOnlyList<TimelineDecade> Decades => AvailableYears
+        .GroupBy(year => year / 10 * 10)
+        .OrderBy(group => group.Key)
+        .Select(group => new TimelineDecade(group.Key, Enumerable.Range(group.Key, 10).ToList()))
+        .ToList();
+
+    private bool HasUnknownYear => Groups.Any(group => group.Key == 0);
+
+    protected override void OnParametersSet()
+    {
+        var years = Groups.Select(group => group.Key).ToHashSet();
+        if (!_selectedYear.HasValue || !years.Contains(_selectedYear.Value))
+        {
+            _selectedYear = Groups.FirstOrDefault()?.Key;
+        }
+    }
+
+    private void SelectYear(int year) => _selectedYear = year;
+
+    private string YearLinkClass(int year) =>
+        $"app-timeline__year-link {(year == _selectedYear ? "is-selected" : string.Empty)}";
+
+    private string YearGroupClass(int year) =>
+        $"app-timeline__year {(year == _selectedYear ? "is-selected" : string.Empty)}";
+
+    private string YearNavigationUrl(int year) =>
+        $"{new Uri(Nav.Uri).PathAndQuery}#{YearAnchor(year)}";
+
+    private static string YearAnchor(int year) => year > 0 ? $"timeline-year-{year}" : "timeline-year-unknown";
     private static string DisplayYear(int year) => year > 0 ? year.ToString() : "Unknown year";
+    private static string DecadeLabel(int startYear) => $"{startYear}s";
     private static string CountLabel(int count) => count == 1 ? "1 item" : $"{count} items";
+
+    private static string ItemNavigationUrl(MediaTileViewModel item) =>
+        FirstNonBlank(item.DetailsNavigationUrl, item.NavigationUrl, item.PrimaryNavigationUrl) ?? "/";
+
+    private static string? ItemArtworkUrl(MediaTileViewModel item) =>
+        FirstNonBlank(item.TileImageUrl, item.CoverUrl, item.PreviewImageUrl);
+
+    private static string ArtworkShapeClass(MediaTileShape shape) => shape switch
+    {
+        MediaTileShape.Landscape => "is-landscape",
+        MediaTileShape.Square => "is-square",
+        _ => "is-portrait",
+    };
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private sealed record TimelineDecade(int StartYear, IReadOnlyList<int> Years);
 }
