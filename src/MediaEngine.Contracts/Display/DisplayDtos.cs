@@ -102,6 +102,8 @@ public sealed record DisplayGroupSummaryDto
     public int? KnownTotalCount { get; init; }
     public int CompletedCount { get; init; }
     public int InProgressCount { get; init; }
+    public int? EarliestYear { get; init; }
+    public int? LatestYear { get; init; }
     public string? SequenceRange { get; init; }
     public string? RelationshipLabel { get; init; }
     public IReadOnlyList<DisplayGroupMediaCountDto> MediaCounts { get; init; } = [];

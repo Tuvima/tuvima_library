@@ -3,11 +3,10 @@
 <div class="@GridClass">
     @foreach (var item in Items)
     {
-        @if (item.UseLandscapeGroupTile)
+        @if (item.RenderAsLandscapeGroupTile)
         {
             <MediaGroupTile Item="@item"
                             HoverMode="@HoverMode"
-                            ShowCompactCaption="@ShowCompactCaptions"
                             @key="item.Id" />
         }
         else

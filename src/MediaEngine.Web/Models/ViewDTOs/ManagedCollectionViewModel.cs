@@ -121,6 +121,12 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("year")]
     public string? Year { get; set; }
 
+    [JsonPropertyName("earliest_year")]
+    public int? EarliestYear { get; set; }
+
+    [JsonPropertyName("latest_year")]
+    public int? LatestYear { get; set; }
+
     [JsonPropertyName("season_count")]
     public int? SeasonCount { get; set; }
 
@@ -392,6 +398,30 @@ public sealed class CollectionManagementCatalogViewModel
 
     [JsonPropertyName("other_count")]
     public int OtherCount { get; set; }
+
+    [JsonPropertyName("movie_count")]
+    public int MovieCount { get; set; }
+
+    [JsonPropertyName("tv_count")]
+    public int TvCount { get; set; }
+
+    [JsonPropertyName("book_count")]
+    public int BookCount { get; set; }
+
+    [JsonPropertyName("comic_count")]
+    public int ComicCount { get; set; }
+
+    [JsonPropertyName("music_count")]
+    public int MusicCount { get; set; }
+
+    [JsonPropertyName("audiobook_count")]
+    public int AudiobookCount { get; set; }
+
+    [JsonPropertyName("earliest_year")]
+    public int? EarliestYear { get; set; }
+
+    [JsonPropertyName("latest_year")]
+    public int? LatestYear { get; set; }
 
     [JsonPropertyName("can_delete")]
     public bool CanDelete { get; set; }

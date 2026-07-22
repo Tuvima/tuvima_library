@@ -34,6 +34,10 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("PreviewItems = group.Items", source, StringComparison.Ordinal);
         Assert.Contains("w.media_type = 'Music'", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("AlbumCount = row.AlbumCount > 0 ? row.AlbumCount : null", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("EarliestYear = row.EarliestYear", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("LatestYear = row.LatestYear", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("AS EarliestYear", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("AS LatestYear", browseReadServiceSource, StringComparison.Ordinal);
 
         var accessPolicySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionAccessPolicy.cs"));
         Assert.Contains("Smart", accessPolicySource, StringComparison.Ordinal);
@@ -136,6 +140,15 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ClassifyCollectionForCatalog", source, StringComparison.Ordinal);
         Assert.Contains("GetSystemCollectionKey", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionMediaCountsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("movie_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("tv_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("book_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("comic_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("music_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("audiobook_count", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("earliest_year", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("latest_year", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("ParseCatalogYear(row.Year)", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionArtworkItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("preferred_cover.id AS CoverAssetId", source, StringComparison.Ordinal);
         Assert.Contains("WHEN 'CoverArt' THEN 0", source, StringComparison.Ordinal);

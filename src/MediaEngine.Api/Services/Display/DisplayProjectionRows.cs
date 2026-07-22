@@ -217,6 +217,8 @@ public sealed class DisplayHomeCollectionRow : IDisplayArtworkRow
     public int ReadCount { get; set; }
     public int ListenCount { get; set; }
     public int OtherCount { get; set; }
+    public int? EarliestYear { get; set; }
+    public int? LatestYear { get; set; }
     public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
     public string? CoverUrl { get; set; }

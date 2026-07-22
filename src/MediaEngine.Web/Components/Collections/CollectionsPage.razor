@@ -224,7 +224,7 @@
             .Where(url => !string.IsNullOrWhiteSpace(url))
             .Cast<string>()
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(5)
+            .Take(4)
             .ToList();
         var artworkStackItems = collection.ArtworkItems
             .Select(ToArtworkStackItem)
@@ -257,6 +257,8 @@
             GroupSummary = new MediaTileGroupSummaryViewModel
             {
                 OwnedCount = collection.ItemCount,
+                EarliestYear = collection.EarliestYear,
+                LatestYear = collection.LatestYear,
                 RelationshipLabel = CollectionRelationshipLabel(collection.CollectionType),
             },
             ContextLines = BuildContextLines(collection),
@@ -282,6 +284,7 @@
             Creator = null,
             CollectionKey = collection.CollectionType,
             PreviewTotalCount = collection.ItemCount,
+            SortYear = collection.LatestYear ?? collection.EarliestYear ?? 0,
             SortTimestamp = collection.ModifiedAt ?? collection.CreatedAt,
             IsCollection = true,
             UseLandscapeGroupTile = true,
@@ -312,6 +315,29 @@
 
     private static IReadOnlyList<MediaTileMediaCountViewModel> BuildMediaCounts(CollectionManagementCatalogViewModel collection)
     {
+        var mediaTypeCounts = new[]
+        {
+            ToMediaCount("Movies", collection.MovieCount),
+            ToMediaCount("TV", collection.TvCount),
+            ToMediaCount("Books", collection.BookCount),
+            ToMediaCount("Comics", collection.ComicCount),
+            ToMediaCount("Music", collection.MusicCount),
+            ToMediaCount("Audiobooks", collection.AudiobookCount),
+        }
+            .Where(count => count.Count > 0)
+            .ToList();
+        if (mediaTypeCounts.Count > 0)
+        {
+            if (collection.OtherCount > 0)
+            {
+                mediaTypeCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
+            }
+
+            return mediaTypeCounts;
+        }
+
+        // Unclassified media still has a truthful lane total even when it cannot be
+        // expressed as one of the six media-specific icon counts above.
         var aggregateCounts = new List<MediaTileMediaCountViewModel>();
         if (collection.WatchCount > 0)
         {

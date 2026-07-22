@@ -112,14 +112,16 @@ public sealed class CollectionReadServicesTests : IDisposable
     [Fact]
     public async Task SystemViewGroups_ReturnOrderedArtworkPreviewsAndNullableSqliteDimensions()
     {
-        var first = await SeedBookSeriesMemberAsync("First Book", "1", 1649, "book-series-first");
-        var second = await SeedBookSeriesMemberAsync("Second Book", "2", 1800, "book-series-second");
+        var first = await SeedBookSeriesMemberAsync("First Book", "1", 1649, "book-series-first", 1997);
+        var second = await SeedBookSeriesMemberAsync("Second Book", "2", 1800, "book-series-second", 2024);
 
         var groups = await _browse.GetSystemViewGroupsAsync("Books", "series", CancellationToken.None);
 
         var group = Assert.Single(groups);
         Assert.Equal("The Test Series", group.DisplayName);
         Assert.Equal(2, group.WorkCount);
+        Assert.Equal(1997, group.EarliestYear);
+        Assert.Equal(2024, group.LatestYear);
         Assert.Contains(group.CoverWidthPx, new int?[] { 1649, 1800 });
         Assert.Collection(
             group.PreviewItems,
@@ -218,7 +220,8 @@ public sealed class CollectionReadServicesTests : IDisposable
         string title,
         string position,
         int coverWidth,
-        string contentHash)
+        string contentHash,
+        int year)
     {
         var workId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
@@ -235,6 +238,7 @@ public sealed class CollectionReadServicesTests : IDisposable
                 (@AssetId, 'title', @Title, @Now),
                 (@AssetId, 'series', 'The Test Series', @Now),
                 (@AssetId, 'series_index', @Position, @Now),
+                (@AssetId, 'release_year', @Year, @Now),
                 (@AssetId, 'cover_width_px', @CoverWidth, @Now),
                 (@AssetId, 'cover_height_px', '2400', @Now);
             """,
@@ -247,6 +251,7 @@ public sealed class CollectionReadServicesTests : IDisposable
                 FilePath = $"C:/library/{assetId:N}.epub",
                 Title = title,
                 Position = position,
+                Year = year.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 CoverWidth = coverWidth.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 Now = now,
             });

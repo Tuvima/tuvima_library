@@ -1294,6 +1294,13 @@ public static class CollectionEndpoints
                         item.Description,
                         item.Facts))
                     .ToList();
+                var contentYears = h.Works
+                    .Select(work => ParseDisplayYear(
+                        GetCanonical(WorkDto.FromDomain(work), "release_year")
+                        ?? GetCanonical(WorkDto.FromDomain(work), "year")))
+                    .Where(year => year.HasValue)
+                    .Select(year => year!.Value)
+                    .ToList();
 
                 return new ContentGroupDto
                 {
@@ -1333,6 +1340,8 @@ public static class CollectionEndpoints
                     CreatedAt = h.CreatedAt,
                     Network = GetCanonical(firstDto, "network"),
                     Year = GetCanonical(firstDto, "release_year") ?? GetCanonical(firstDto, "year"),
+                    EarliestYear = contentYears.Count > 0 ? contentYears.Min() : null,
+                    LatestYear = contentYears.Count > 0 ? contentYears.Max() : null,
                     SeasonCount = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
                         ? h.Works
                             .Select(work => GetCanonical(WorkDto.FromDomain(work), "season_number"))
@@ -2643,6 +2652,21 @@ public static class CollectionEndpoints
             : value;
     }
 
+    private static int? ParseDisplayYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        var prefixLength = Math.Min(4, trimmed.Length);
+        return int.TryParse(trimmed.AsSpan(0, prefixLength), NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+               && year is >= 1000 and <= 9999
+            ? year
+            : null;
+    }
+
     private static int? ParseNullableInt(string? value) =>
         int.TryParse(value, out var parsed) ? parsed : null;
 
@@ -3599,6 +3623,16 @@ public static class CollectionEndpoints
                     .Select(item => item.AlbumCount!.Value)
                     .ToList();
 
+                var earliestYears = group.Items
+                    .Where(item => item.EarliestYear.HasValue)
+                    .Select(item => item.EarliestYear!.Value)
+                    .ToList();
+
+                var latestYears = group.Items
+                    .Where(item => item.LatestYear.HasValue)
+                    .Select(item => item.LatestYear!.Value)
+                    .ToList();
+
                 return new ContentGroupDto
                 {
                     CollectionId = SystemViewGroupIdentity.CreateId(preferred, mediaType, groupField),
@@ -3646,6 +3680,8 @@ public static class CollectionEndpoints
                     ArtistPersonId = preferred.ArtistPersonId,
                     Network = preferred.Network,
                     Year = preferred.Year,
+                    EarliestYear = earliestYears.Count == 0 ? null : earliestYears.Min(),
+                    LatestYear = latestYears.Count == 0 ? null : latestYears.Max(),
                     SeasonCount = seasonCounts.Count == 0 ? null : seasonCounts.Max(),
                     AlbumCount = albumCounts.Count == 0 ? null : albumCounts.Max(),
                 };

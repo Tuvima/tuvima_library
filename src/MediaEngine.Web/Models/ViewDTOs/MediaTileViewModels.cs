@@ -69,6 +69,8 @@ public sealed record MediaTileGroupSummaryViewModel
     public int? KnownTotalCount { get; init; }
     public int CompletedCount { get; init; }
     public int InProgressCount { get; init; }
+    public int? EarliestYear { get; init; }
+    public int? LatestYear { get; init; }
     public string? SequenceRange { get; init; }
     public string? RelationshipLabel { get; init; }
 }
@@ -137,6 +139,13 @@ public sealed class MediaTileViewModel
     public DateTimeOffset SortTimestamp { get; init; }
     public bool IsCollection { get; init; }
     public bool UseLandscapeGroupTile { get; init; }
+
+    public bool RenderAsLandscapeGroupTile =>
+        UseLandscapeGroupTile
+        || (IsCollection
+            && Presentation is not (MediaTilePresentation.TvSeries
+                or MediaTilePresentation.Album
+                or MediaTilePresentation.Artist));
 
     public bool CanAddToCollection => WorkId.HasValue && !IsCollection;
 }

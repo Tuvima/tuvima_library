@@ -365,6 +365,12 @@ public sealed class ContentGroupDto
     /// <summary>Number of distinct albums â€” populated for Music artist groups.</summary>
     [JsonPropertyName("album_count")]
     public int? AlbumCount { get; init; }
+
+    [JsonPropertyName("earliest_year")]
+    public int? EarliestYear { get; init; }
+
+    [JsonPropertyName("latest_year")]
+    public int? LatestYear { get; init; }
 }
 
 public sealed record ContentGroupPreviewItemDto(

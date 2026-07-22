@@ -162,6 +162,30 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
     [JsonPropertyName("other_count")]
     public int OtherCount { get; init; }
 
+    [JsonPropertyName("movie_count")]
+    public int MovieCount { get; init; }
+
+    [JsonPropertyName("tv_count")]
+    public int TvCount { get; init; }
+
+    [JsonPropertyName("book_count")]
+    public int BookCount { get; init; }
+
+    [JsonPropertyName("comic_count")]
+    public int ComicCount { get; init; }
+
+    [JsonPropertyName("music_count")]
+    public int MusicCount { get; init; }
+
+    [JsonPropertyName("audiobook_count")]
+    public int AudiobookCount { get; init; }
+
+    [JsonPropertyName("earliest_year")]
+    public int? EarliestYear { get; init; }
+
+    [JsonPropertyName("latest_year")]
+    public int? LatestYear { get; init; }
+
     [JsonPropertyName("can_delete")]
     public bool CanDelete { get; init; }
 
@@ -230,6 +254,14 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
             ListenCount = mediaCounts.ListenCount,
             ReadCount = mediaCounts.ReadCount,
             OtherCount = mediaCounts.OtherCount,
+            MovieCount = mediaCounts.MovieCount,
+            TvCount = mediaCounts.TvCount,
+            BookCount = mediaCounts.BookCount,
+            ComicCount = mediaCounts.ComicCount,
+            MusicCount = mediaCounts.MusicCount,
+            AudiobookCount = mediaCounts.AudiobookCount,
+            EarliestYear = mediaCounts.EarliestYear,
+            LatestYear = mediaCounts.LatestYear,
             CanDelete = canEdit && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
             CanRename = canEdit && !classification.IsSystem,
             CanToggleGlobal = canManageGlobal && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
@@ -287,7 +319,14 @@ public sealed record CollectionMediaCounts(
     int ListenCount,
     int ReadCount,
     int OtherCount,
-    int TvCount = 0)
+    int TvCount = 0,
+    int MovieCount = 0,
+    int BookCount = 0,
+    int ComicCount = 0,
+    int MusicCount = 0,
+    int AudiobookCount = 0,
+    int? EarliestYear = null,
+    int? LatestYear = null)
 {
     public int TotalCount => WatchCount + ListenCount + ReadCount + OtherCount;
 

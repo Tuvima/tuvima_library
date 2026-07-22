@@ -174,6 +174,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             Title = "The Expanse",
             MediaKind = "TV",
             Shape = MediaTileShape.Portrait,
+            Presentation = MediaTilePresentation.TvSeries,
             SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
             IsCollection = true,
             TileImageUrl = "/art/the-expanse.jpg",
@@ -296,28 +297,61 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void MediaTileGrid_DefaultsGroupTilesToGlowWithoutSummaryShading()
+    public void MediaTileGrid_RoutesEveryNonTvCollectionToTheDedicatedGroupTile()
+    {
+        var collection = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "Cross-media universe",
+            IsCollection = true,
+            Presentation = MediaTilePresentation.Default,
+            NavigationUrl = "/collection/cross-media",
+        };
+        var tvShow = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Owned TV show",
+            IsCollection = true,
+            Presentation = MediaTilePresentation.TvSeries,
+            NavigationUrl = "/watch/tv/show/owned",
+        };
+
+        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(
+            component => component.Items,
+            [collection, tvShow]));
+
+        Assert.Single(cut.FindComponents<MediaGroupTile>());
+        Assert.Single(cut.FindComponents<MediaTile>());
+        Assert.Equal("Cross-media universe", cut.FindComponent<MediaGroupTile>().Instance.Item.Title);
+        Assert.Equal("Owned TV show", cut.FindComponent<MediaTile>().Instance.Item.Title);
+    }
+
+    [Fact]
+    public void MediaTileGrid_UsesTheUnifiedRestedIdentityForGroupTiles()
     {
         var group = CreateGroupTile();
         var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(component => component.Items, [group]));
         var renderedGroup = cut.FindComponent<MediaGroupTile>();
 
         Assert.Equal(MediaTileHoverMode.GlowOnly, renderedGroup.Instance.HoverMode);
-        Assert.Contains("is-glow-only", cut.Find("article.media-group-tile").ClassList);
+        Assert.Contains("is-interactive", cut.Find("article.media-group-tile").ClassList);
+        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__headline h3").TextContent.Trim());
         Assert.Empty(cut.FindAll(".media-group-tile__overlay"));
     }
 
     [Fact]
-    public void MediaGroupTile_CompactBrowseIdentityStaysInsideTheGlowOnlyCard()
+    public void MediaGroupTile_RestedIdentityShowsYearSpanAndIconCounts()
     {
         var group = CreateGroupTile();
         var cut = RenderComponent<MediaGroupTile>(parameters => parameters
             .Add(component => component.Item, group)
-            .Add(component => component.HoverMode, MediaTileHoverMode.GlowOnly)
-            .Add(component => component.ShowCompactCaption, true));
+            .Add(component => component.HoverMode, MediaTileHoverMode.GlowOnly));
 
-        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__embedded-identity h3").TextContent.Trim());
-        Assert.Contains("books", cut.Find(".media-group-tile__embedded-count").TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__headline h3").TextContent.Trim());
+        Assert.Equal("1951\u20131952", cut.Find(".media-group-tile__year").TextContent.Trim());
+        Assert.Equal("2 books", cut.Find(".media-group-tile__media-count").GetAttribute("title"));
+        Assert.Equal("A classic science-fiction sequence about civilization and change.", cut.Find(".media-group-tile__description").TextContent.Trim());
         Assert.Single(cut.FindAll(".media-group-tile__open-cue"));
         Assert.Empty(cut.FindAll(".media-group-tile__overlay"));
         Assert.Empty(cut.FindAll(".media-group-tile__kind"));
@@ -328,20 +362,19 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
-    public void MediaGroupTile_IsOneArtworkLedLinkWithCompactHoverSummary()
+    public void MediaGroupTile_IsOneArtworkLedLinkWithAStableHoverCue()
     {
         var group = CreateGroupTile();
         var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
         var root = cut.Find("article.media-group-tile");
 
         Assert.Contains(root.Attributes, attribute => attribute.Name.StartsWith("b-", StringComparison.Ordinal));
-        Assert.Equal("Book Series", cut.Find(".media-group-tile__overlay .media-group-tile__kind").TextContent.Trim());
-        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__overlay h3").TextContent.Trim());
-        Assert.Equal("Continue with Foundation", cut.Find(".media-group-tile__overlay p").TextContent.Trim());
+        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__headline h3").TextContent.Trim());
+        Assert.Equal("Open Series", cut.Find(".media-group-tile__open-cue").TextContent.Trim());
         Assert.Single(cut.FindAll(".media-artwork-group-preview.is-cluster-layout"));
         Assert.Single(cut.FindAll("a.media-group-tile__surface"));
         Assert.Empty(cut.FindAll(".media-group-tile__base-copy"));
-        Assert.Empty(cut.FindAll(".media-group-tile__description"));
+        Assert.Single(cut.FindAll(".media-group-tile__description"));
         Assert.Empty(cut.FindAll(".media-group-tile__overview"));
         Assert.Empty(cut.FindAll(".media-artwork-group-preview.is-mosaic-layout"));
         Assert.Empty(cut.FindAll(".media-tile"));
@@ -362,7 +395,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("inset: 0", css, StringComparison.Ordinal);
         Assert.Contains("MediaArtworkGroupPreviewLayout.Cluster", source, StringComparison.Ordinal);
         Assert.Contains("The API orders series previews by progress", source, StringComparison.Ordinal);
-        Assert.Contains(".media-group-tile__surface:hover::after", css, StringComparison.Ordinal);
+        Assert.Contains(".media-group-tile.is-interactive .media-group-tile__surface:hover", css, StringComparison.Ordinal);
         Assert.Contains(".media-group-tile__surface:focus-visible", css, StringComparison.Ordinal);
         Assert.Contains("-webkit-line-clamp: 2", css, StringComparison.Ordinal);
         Assert.Contains("@media (hover: none), (pointer: coarse)", css, StringComparison.Ordinal);
@@ -412,7 +445,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             .ToList();
 
         Assert.Equal(["/covers/book-1.jpg", "/covers/album.jpg", "/covers/movie.jpg", "/covers/book-2.jpg"], sources);
-        Assert.Contains("Automated Collection", cut.Find(".media-group-tile__kind").TextContent);
+        Assert.Equal(["4 read", "1 listen", "1 watch"], cut.FindAll(".media-group-tile__media-count").Select(node => node.GetAttribute("title")));
+        Assert.Empty(cut.FindAll(".media-group-tile__kind"));
     }
 
     [Fact]
@@ -516,6 +550,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             KnownTotalCount = 3,
             CompletedCount = 1,
             InProgressCount = 1,
+            EarliestYear = 1951,
+            LatestYear = 1952,
             SequenceRange = "Books 1\u20132 owned",
             RelationshipLabel = "Ordered series",
         },

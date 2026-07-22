@@ -46,12 +46,15 @@ public sealed class CollectionsHubTests
         Assert.Contains("Shape = MediaTileShape.Landscape", source, StringComparison.Ordinal);
         Assert.Contains("SurfaceKind = MediaTileSurfaceKind.BannerLandscape", source, StringComparison.Ordinal);
         Assert.Contains("UseLandscapeGroupTile = true", source, StringComparison.Ordinal);
-        Assert.Contains("item.UseLandscapeGroupTile", tileGridSource, StringComparison.Ordinal);
+        Assert.Contains("item.RenderAsLandscapeGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("<MediaGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("media-group-tile__artwork", groupTileSource, StringComparison.Ordinal);
         Assert.Contains("MediaArtworkGroupPreviewLayout.Cluster", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaArtworkGroupPreviewLayout.Mosaic", groupTileSource, StringComparison.Ordinal);
-        Assert.Contains("media-group-tile__overlay", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__identity", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__year", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__media-count", groupTileSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("media-group-tile__kind", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("At a glance", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("HighlightedItems", groupTileSource, StringComparison.Ordinal);
         Assert.DoesNotContain("media-group-tile__highlights", groupTileSource, StringComparison.Ordinal);
@@ -60,7 +63,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("--media-group-tile-height: clamp(300px, 20vw, 365px)", groupTileStylesSource, StringComparison.Ordinal);
         Assert.Contains("PreviewTotalCount = collection.ItemCount", source, StringComparison.Ordinal);
         Assert.Contains("TileTextMode = MediaTileTextMode.CoverOnly", source, StringComparison.Ordinal);
-        Assert.Contains("Take(5)", source, StringComparison.Ordinal);
+        Assert.Contains("Take(4)", source, StringComparison.Ordinal);
         Assert.Contains("browse-shell__search", source, StringComparison.Ordinal);
         Assert.Contains("browse-shell__sort", source, StringComparison.Ordinal);
         Assert.Contains("Search collections", source, StringComparison.Ordinal);
@@ -96,6 +99,10 @@ public sealed class CollectionsHubTests
         Assert.Contains("\"Watch\", collection.WatchCount", source, StringComparison.Ordinal);
         Assert.Contains("\"Listen\", collection.ListenCount", source, StringComparison.Ordinal);
         Assert.Contains("\"Read\", collection.ReadCount", source, StringComparison.Ordinal);
+        Assert.Contains("\"Movies\", collection.MovieCount", source, StringComparison.Ordinal);
+        Assert.Contains("\"TV\", collection.TvCount", source, StringComparison.Ordinal);
+        Assert.Contains("EarliestYear = collection.EarliestYear", source, StringComparison.Ordinal);
+        Assert.Contains("LatestYear = collection.LatestYear", source, StringComparison.Ordinal);
         Assert.Contains("PrimaryNavigationUrl = $\"/collection/{collection.Id:D}\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("READ COLLECTIONS", source, StringComparison.Ordinal);
         Assert.DoesNotContain("LISTEN COLLECTIONS", source, StringComparison.Ordinal);

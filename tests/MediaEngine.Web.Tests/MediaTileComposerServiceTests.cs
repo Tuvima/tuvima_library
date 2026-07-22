@@ -407,6 +407,13 @@ public sealed class MediaTileComposerServiceTests
                 new DisplayCardPreviewItemDto(Guid.NewGuid(), null, "Foundation's Edge", "/covers/4-s.jpg", "portrait", "4"),
             ],
             PreviewTotalCount = 6,
+            GroupSummary = new DisplayGroupSummaryDto
+            {
+                OwnedCount = 6,
+                EarliestYear = 1951,
+                LatestYear = 1993,
+                MediaCounts = [new DisplayGroupMediaCountDto("Books", 6)],
+            },
         };
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -418,6 +425,9 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal(MediaTileHoverLayout.BannerPopover, mapped.HoverLayout);
         Assert.Null(mapped.TileImageUrl);
         Assert.Equal(6, mapped.PreviewTotalCount);
+        Assert.Equal(1951, mapped.GroupSummary?.EarliestYear);
+        Assert.Equal(1993, mapped.GroupSummary?.LatestYear);
+        Assert.Equal("Books", Assert.Single(mapped.MediaCounts).Label);
         Assert.Equal(["1", "2", "3", "4"], mapped.ArtworkStackItems.Select(item => item.Position));
         Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/3-s.jpg", "/covers/4-s.jpg"], mapped.ArtworkStackItems.Select(item => item.ImageUrl));
         Assert.Equal("The first novel.", mapped.ArtworkStackItems[0].Description);

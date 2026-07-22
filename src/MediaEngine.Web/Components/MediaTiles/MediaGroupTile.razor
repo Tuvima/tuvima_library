@@ -3,10 +3,10 @@
 @inject NavigationManager Nav
 
 <AppCssElement Tag="div" Css="@($"display: contents; {TileStyle}")">
-    <article class="media-group-tile @(UsesGlowOnlyHover ? "is-glow-only" : null) @(ShowCompactCaption ? "has-compact-caption" : null)" aria-label="@Item.Title">
+    <article class="media-group-tile @(AllowsHoverPresentation ? "is-interactive" : "is-static")" aria-label="@Item.Title">
         <a class="media-group-tile__surface"
            href="@GroupNavigationUrl"
-           aria-label="@($"Open {GroupKindLabel} {Item.Title}")"
+           aria-label="@AccessibleLabel"
            @onclick="OpenGroupAsync"
            @onclick:preventDefault="true">
             <div class="media-group-tile__atmosphere" aria-hidden="true"></div>
@@ -28,38 +28,52 @@
                 </div>
             }
 
-            @if (ShowSummary)
-            {
-                <section class="media-group-tile__overlay" aria-hidden="true">
-                    <span class="media-group-tile__kind">
-                        <MudIcon Icon="@GroupKindIcon" />
-                        <span>@GroupKindLabel</span>
-                    </span>
-                    <h3>@Item.Title</h3>
-                    <p>@GroupStatusLabel</p>
-                </section>
-            }
-
-            @if (ShowCompactCaption)
-            {
-                <section class="media-group-tile__embedded-identity" aria-hidden="true">
-                    <div>
+            <section class="media-group-tile__identity" aria-hidden="true">
+                <div class="media-group-tile__copy">
+                    <div class="media-group-tile__headline">
+                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Class="media-group-tile__mark" />
                         <h3>@Item.Title</h3>
-                        @if (Item.SortYear is >= 1800 and <= 2200)
-                        {
-                            <span class="media-group-tile__embedded-year">@Item.SortYear</span>
-                        }
-                        <span class="media-group-tile__embedded-count">
-                            <MudIcon Icon="@GroupKindIcon" />
-                            <span>@($"{ResolvedTotalCount} {GroupCountNoun}")</span>
-                        </span>
                     </div>
-                    <span class="media-group-tile__open-cue">
-                        <span>Open @GroupActionNoun</span>
-                        <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
-                    </span>
-                </section>
-            }
+
+                    <p class="media-group-tile__description @(string.IsNullOrWhiteSpace(HoverSummary) ? "is-empty" : null)">
+                        @HoverSummary
+                    </p>
+
+                    <div class="media-group-tile__metadata">
+                        @if (!string.IsNullOrWhiteSpace(YearLabel))
+                        {
+                            <span class="media-group-tile__year">@YearLabel</span>
+                        }
+
+                        @if (VisibleMediaCounts.Count > 0)
+                        {
+                            @foreach (var count in VisibleMediaCounts)
+                            {
+                                <span class="media-group-tile__media-count"
+                                      title="@MediaCountAccessibleLabel(count)">
+                                    <MudIcon Icon="@count.Icon" />
+                                    <span aria-hidden="true">@count.Count</span>
+                                    <span class="media-group-tile__visually-hidden">@MediaCountAccessibleLabel(count)</span>
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="media-group-tile__media-count"
+                                  title="@($"{ResolvedTotalCount} {GroupCountNoun}")">
+                                <MudIcon Icon="@GroupKindIcon" />
+                                <span aria-hidden="true">@ResolvedTotalCount</span>
+                                <span class="media-group-tile__visually-hidden">@($"{ResolvedTotalCount} {GroupCountNoun}")</span>
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                <span class="media-group-tile__open-cue">
+                    <span>Open @GroupActionNoun</span>
+                    <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
+                </span>
+            </section>
         </a>
     </article>
 </AppCssElement>
@@ -67,16 +81,18 @@
 @code {
     [Parameter, EditorRequired] public MediaTileViewModel Item { get; set; } = default!;
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
-    [Parameter] public bool ShowCompactCaption { get; set; }
 
     private MediaTileHoverMode EffectiveHoverMode => HoverMode ?? Item.HoverMode;
-    private bool UsesGlowOnlyHover => EffectiveHoverMode == MediaTileHoverMode.GlowOnly;
-    private bool ShowSummary => EffectiveHoverMode is not (MediaTileHoverMode.None or MediaTileHoverMode.GlowOnly);
+    private bool AllowsHoverPresentation => EffectiveHoverMode != MediaTileHoverMode.None;
     private int ResolvedTotalCount => Math.Max(Item.GroupSummary?.OwnedCount ?? Item.PreviewTotalCount ?? RepresentativeItems.Count, RepresentativeItems.Count);
 
     // The API orders series previews by progress and canonical position and already caps
     // the result at four. Preserve that order here instead of applying a second selection pass.
     private IReadOnlyList<ArtworkStackItem> RepresentativeItems => BuildRepresentativeItems();
+
+    private IReadOnlyList<MediaTileMediaCountViewModel> VisibleMediaCounts => Item.MediaCounts
+        .Where(count => count.Count > 0)
+        .ToList();
 
     private bool IsSeries => Item.Presentation is MediaTilePresentation.MovieSeries
         or MediaTilePresentation.BookSeries
@@ -85,6 +101,29 @@
 
     private string GroupNavigationUrl =>
         FirstNonBlank(Item.DetailsNavigationUrl, Item.NavigationUrl, Item.PrimaryNavigationUrl) ?? "/";
+
+    private string AccessibleLabel
+    {
+        get
+        {
+            var details = new List<string> { $"Open {Item.Title}" };
+            if (!string.IsNullOrWhiteSpace(YearLabel))
+            {
+                details.Add(YearLabel);
+            }
+
+            if (VisibleMediaCounts.Count > 0)
+            {
+                details.AddRange(VisibleMediaCounts.Select(MediaCountAccessibleLabel));
+            }
+            else
+            {
+                details.Add($"{ResolvedTotalCount} {GroupCountNoun}");
+            }
+
+            return string.Join(", ", details);
+        }
+    }
 
     private string TileStyle
     {
@@ -103,45 +142,6 @@
         }
     }
 
-    private string GroupKindLabel
-    {
-        get
-        {
-            if (Item.Presentation == MediaTilePresentation.Default)
-            {
-                if (Item.GroupSummary?.RelationshipLabel?.Contains("Ordered", StringComparison.OrdinalIgnoreCase) == true)
-                {
-                    return "Ordered Collection";
-                }
-
-                if (string.Equals(Item.GroupSummary?.RelationshipLabel, "Smart collection", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Automated Collection";
-                }
-
-                if (Item.MediaCounts.Count > 1)
-                {
-                    return "Mixed-Media Collection";
-                }
-
-                if (string.Equals(Item.GroupSummary?.RelationshipLabel, "Curated collection", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(Item.GroupSummary?.RelationshipLabel, "Curated list", StringComparison.OrdinalIgnoreCase))
-                {
-                    return "Curated Collection";
-                }
-            }
-
-            return Item.Presentation switch
-            {
-                MediaTilePresentation.MovieSeries => "Movie Series",
-                MediaTilePresentation.BookSeries => "Book Series",
-                MediaTilePresentation.ComicSeries => "Comic Series",
-                MediaTilePresentation.AudiobookSeries => "Audiobook Series",
-                _ => "Collection",
-            };
-        }
-    }
-
     private string GroupKindIcon => Item.Presentation switch
     {
         MediaTilePresentation.BookSeries or MediaTilePresentation.ComicSeries => Icons.Material.Outlined.AutoStories,
@@ -150,38 +150,22 @@
         _ => Icons.Material.Outlined.CollectionsBookmark,
     };
 
-    private string GroupStatusLabel
+    private string? YearLabel
     {
         get
         {
-            var summary = Item.GroupSummary;
-            if (IsSeries && summary?.InProgressCount > 0)
+            var earliest = ValidYear(Item.GroupSummary?.EarliestYear);
+            var latest = ValidYear(Item.GroupSummary?.LatestYear);
+            if (earliest.HasValue && latest.HasValue)
             {
-                var current = RepresentativeItems.FirstOrDefault();
-                if (current is not null && !string.IsNullOrWhiteSpace(current.Title))
-                {
-                    return $"Continue with {current.Title}";
-                }
+                return earliest == latest ? earliest.Value.ToString() : $"{earliest}–{latest}";
             }
 
-            if (summary?.KnownTotalCount is > 0 && summary.KnownTotalCount >= summary.OwnedCount)
-            {
-                return $"{summary.OwnedCount} of {summary.KnownTotalCount} owned";
-            }
-
-            if (IsSeries && summary is not null && summary.OwnedCount > 0 && summary.CompletedCount >= summary.OwnedCount)
-            {
-                return "Series complete";
-            }
-
-            if (!IsSeries && Item.MediaCounts.Count > 1)
-            {
-                return $"{ResolvedTotalCount} items · {Item.MediaCounts.Count} media types";
-            }
-
-            return $"{ResolvedTotalCount} {GroupCountNoun}";
+            return (earliest ?? latest ?? ValidYear(Item.SortYear))?.ToString();
         }
     }
+
+    private string? HoverSummary => NormalizeDescription(Item.Description);
 
     private string GroupCountNoun => Item.Presentation switch
     {
@@ -208,7 +192,7 @@
                 continue;
             }
 
-            if (!string.IsNullOrWhiteSpace(item.ImageUrl) && !imageUrls.Add(item.ImageUrl))
+            if (!imageUrls.Add(item.ImageUrl))
             {
                 continue;
             }
@@ -239,6 +223,42 @@
     {
         Nav.NavigateTo(GroupNavigationUrl);
         return Task.CompletedTask;
+    }
+
+    private static string MediaCountAccessibleLabel(MediaTileMediaCountViewModel count)
+    {
+        var label = count.Count == 1
+            ? count.Label switch
+            {
+                "Movies" => "movie",
+                "Books" => "book",
+                "Comics" => "comic",
+                "Audiobooks" => "audiobook",
+                _ => count.Label.ToLowerInvariant(),
+            }
+            : count.Label.ToLowerInvariant();
+        return $"{count.Count} {label}";
+    }
+
+    private static int? ValidYear(int? year) => year is >= 1000 and <= 9999 ? year : null;
+
+    private static string? NormalizeDescription(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return null;
+        }
+
+        var words = description.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var summary = string.Join(' ', words.Take(24));
+        if (summary.Length > 150)
+        {
+            summary = summary[..150].TrimEnd();
+        }
+
+        return words.Length > 24 || summary.Length < string.Join(' ', words).Length
+            ? $"{summary}…"
+            : summary;
     }
 
     private static string EscapeCssString(string value) =>

@@ -418,12 +418,20 @@ public sealed class CollectionCatalogReadService(
         }
 
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string MediaType, int Count)>(new CommandDefinition(
+        var rows = await conn.QueryAsync<CollectionMediaMetadataRow>(new CommandDefinition(
             """
-            SELECT media_type AS MediaType, COUNT(*) AS Count
-            FROM works
-            WHERE id IN @WorkIds
-            GROUP BY media_type
+            SELECT w.media_type AS MediaType,
+                   COALESCE(
+                       (SELECT NULLIF(cv.value, '')
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = w.id AND cv.key = 'release_year'
+                        LIMIT 1),
+                       (SELECT NULLIF(cv.value, '')
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = w.id AND cv.key = 'year'
+                        LIMIT 1)) AS Year
+            FROM works w
+            WHERE w.id IN @WorkIds
             """,
             new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
             cancellationToken: ct)).ConfigureAwait(false);
@@ -433,32 +441,99 @@ public sealed class CollectionCatalogReadService(
         var read = 0;
         var other = 0;
         var tv = 0;
+        var movies = 0;
+        var books = 0;
+        var comics = 0;
+        var music = 0;
+        var audiobooks = 0;
+        var years = new List<int>();
         foreach (var row in rows)
         {
             if (string.Equals(row.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
             {
-                tv += row.Count;
+                tv++;
+            }
+            else if (string.Equals(row.MediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "Movie", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "Video", StringComparison.OrdinalIgnoreCase))
+            {
+                movies++;
+            }
+            else if (string.Equals(row.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "Audiobook", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "M4B", StringComparison.OrdinalIgnoreCase))
+            {
+                audiobooks++;
+            }
+            else if (string.Equals(row.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "Song", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "Album", StringComparison.OrdinalIgnoreCase))
+            {
+                music++;
+            }
+            else if (string.Equals(row.MediaType, "Comics", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "Comic", StringComparison.OrdinalIgnoreCase))
+            {
+                comics++;
+            }
+            else if (string.Equals(row.MediaType, "Books", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "Book", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(row.MediaType, "EPUB", StringComparison.OrdinalIgnoreCase))
+            {
+                books++;
             }
 
             if (IsWatchMediaType(row.MediaType))
             {
-                watch += row.Count;
+                watch++;
             }
             else if (IsListenMediaType(row.MediaType))
             {
-                listen += row.Count;
+                listen++;
             }
             else if (IsReadMediaType(row.MediaType))
             {
-                read += row.Count;
+                read++;
             }
             else
             {
-                other += row.Count;
+                other++;
+            }
+
+            if (ParseCatalogYear(row.Year) is { } year)
+            {
+                years.Add(year);
             }
         }
 
-        return new CollectionMediaCounts(watch, listen, read, other, tv);
+        return new CollectionMediaCounts(
+            watch,
+            listen,
+            read,
+            other,
+            tv,
+            movies,
+            books,
+            comics,
+            music,
+            audiobooks,
+            years.Count > 0 ? years.Min() : null,
+            years.Count > 0 ? years.Max() : null);
+    }
+
+    private static int? ParseCatalogYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        var prefixLength = Math.Min(4, trimmed.Length);
+        return int.TryParse(trimmed.AsSpan(0, prefixLength), NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+               && year is >= 1000 and <= 9999
+            ? year
+            : null;
     }
 
     private async Task<IReadOnlyList<Guid>> GetCollectionWorkIdsAsync(Collection collection, CancellationToken ct)
@@ -975,6 +1050,12 @@ public sealed class CollectionCatalogReadService(
         public string? SecondaryColor { get; init; }
         public string? AccentColor { get; init; }
         public string? LocalImagePath { get; init; }
+    }
+
+    private sealed class CollectionMediaMetadataRow
+    {
+        public string MediaType { get; init; } = string.Empty;
+        public string? Year { get; init; }
     }
 
     private sealed class GeneratedCollectionItemRow

@@ -379,21 +379,23 @@ public sealed class MediaTileComposerService
             KnownTotalCount = summary.KnownTotalCount,
             CompletedCount = summary.CompletedCount,
             InProgressCount = summary.InProgressCount,
+            EarliestYear = summary.EarliestYear,
+            LatestYear = summary.LatestYear,
             SequenceRange = summary.SequenceRange,
             RelationshipLabel = summary.RelationshipLabel,
         };
 
-    private static MediaTileMediaCountViewModel ToMediaCount(DisplayGroupMediaCountDto count) => count.MediaType switch
+    private static MediaTileMediaCountViewModel ToMediaCount(DisplayGroupMediaCountDto count) => count.MediaType.Trim().ToLowerInvariant() switch
     {
-        "Movie" => new(MudBlazor.Icons.Material.Filled.Movie, "Movies", count.Count),
-        "TV" => new(MudBlazor.Icons.Material.Filled.LiveTv, "TV", count.Count),
-        "Book" => new(MudBlazor.Icons.Material.Filled.MenuBook, "Books", count.Count),
-        "Comic" => new(MudBlazor.Icons.Material.Filled.AutoStories, "Comics", count.Count),
-        "Music" => new(MudBlazor.Icons.Material.Filled.MusicNote, "Music", count.Count),
-        "Audiobook" => new(MudBlazor.Icons.Material.Filled.Headphones, "Audiobooks", count.Count),
-        "Watch" => new(MudBlazor.Icons.Material.Filled.PlayArrow, "Watch", count.Count),
-        "Read" => new(MudBlazor.Icons.Material.Filled.MenuBook, "Read", count.Count),
-        "Listen" => new(MudBlazor.Icons.Material.Filled.Headphones, "Listen", count.Count),
+        "movie" or "movies" => new(MudBlazor.Icons.Material.Filled.Movie, "Movies", count.Count),
+        "tv" or "tv series" or "tv show" or "tv shows" => new(MudBlazor.Icons.Material.Filled.LiveTv, "TV", count.Count),
+        "book" or "books" => new(MudBlazor.Icons.Material.Filled.MenuBook, "Books", count.Count),
+        "comic" or "comics" => new(MudBlazor.Icons.Material.Filled.AutoStories, "Comics", count.Count),
+        "music" => new(MudBlazor.Icons.Material.Filled.MusicNote, "Music", count.Count),
+        "audiobook" or "audiobooks" => new(MudBlazor.Icons.Material.Filled.Headphones, "Audiobooks", count.Count),
+        "watch" => new(MudBlazor.Icons.Material.Filled.PlayArrow, "Watch", count.Count),
+        "read" => new(MudBlazor.Icons.Material.Filled.MenuBook, "Read", count.Count),
+        "listen" => new(MudBlazor.Icons.Material.Filled.Headphones, "Listen", count.Count),
         _ => new(MudBlazor.Icons.Material.Filled.MoreHoriz, "Other", count.Count),
     };
 

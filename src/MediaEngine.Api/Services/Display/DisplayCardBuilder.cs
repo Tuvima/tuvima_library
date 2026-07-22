@@ -156,6 +156,7 @@ public sealed class DisplayCardBuilder
             PreviewItems = row.PreviewItems,
             PreviewTotalCount = row.ItemCount,
             GroupSummary = BuildHomeCollectionSummary(row),
+            SortYear = row.LatestYear ?? row.EarliestYear ?? 0,
         };
     }
 
@@ -218,6 +219,7 @@ public sealed class DisplayCardBuilder
             PreviewItems = previewItems,
             PreviewTotalCount = previewItems.Count > 0 ? ownedCount : null,
             GroupSummary = BuildGroupSummary(mediaKind, works, ownedCount, progressByWork, representative.CollectionType),
+            SortYear = works.Select(work => ParseSortYear(work.Year)).DefaultIfEmpty(0).Max(),
         };
     }
 
@@ -626,6 +628,8 @@ public sealed class DisplayCardBuilder
         return new DisplayGroupSummaryDto
         {
             OwnedCount = row.ItemCount,
+            EarliestYear = row.EarliestYear,
+            LatestYear = row.LatestYear,
             RelationshipLabel = RelationshipLabel(row.CollectionType),
             MediaCounts = mediaCounts,
         };
@@ -682,6 +686,12 @@ public sealed class DisplayCardBuilder
             .OrderBy(count => MediaCountOrder(count.MediaType))
             .ThenBy(count => count.MediaType, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        var years = works
+            .Select(work => ParseSortYear(work.Year))
+            .Where(year => year > 0)
+            .Distinct()
+            .Order()
+            .ToList();
 
         return new DisplayGroupSummaryDto
         {
@@ -689,6 +699,8 @@ public sealed class DisplayCardBuilder
             KnownTotalCount = knownTotal,
             CompletedCount = completedCount,
             InProgressCount = inProgressCount,
+            EarliestYear = years.Count > 0 ? years[0] : null,
+            LatestYear = years.Count > 0 ? years[^1] : null,
             SequenceRange = OwnedSequenceRange(mediaKind, works),
             RelationshipLabel = mediaKind is "Book" or "Comic" or "Movie" or "Audiobook"
                 ? works.Any(work => !string.IsNullOrWhiteSpace(work.SeriesPosition)) ? "Ordered series" : "Series grouping"

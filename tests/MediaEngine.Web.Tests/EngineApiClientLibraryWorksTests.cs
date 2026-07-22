@@ -349,6 +349,8 @@ public sealed class EngineApiClientLibraryWorksTests
                 "release_date": "2026-04-14",
                 "network": "Netflix",
                 "year": "2026",
+                "earliest_year": 2024,
+                "latest_year": 2026,
                 "season_count": 2,
                 "created_at": "2026-04-10T12:00:00Z"
               }
@@ -383,6 +385,8 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("2026-04-14", group.ReleaseDate);
         Assert.Equal("Netflix", group.Network);
         Assert.Equal("2026", group.Year);
+        Assert.Equal(2024, group.EarliestYear);
+        Assert.Equal(2026, group.LatestYear);
         Assert.Equal(2, group.SeasonCount);
         Assert.Equal(4, group.DistinctTitleCount);
         Assert.Equal("http://localhost:61495/stream/preview", Assert.Single(group.PreviewItems).ImageUrl);
@@ -405,6 +409,8 @@ public sealed class EngineApiClientLibraryWorksTests
                 "tagline": "Fresh in your library",
                 "creator": "boygenius",
                 "year": "2023",
+                "earliest_year": 2021,
+                "latest_year": 2023,
                 "created_at": "2026-04-10T12:00:00Z"
               }
             ]
@@ -433,6 +439,8 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("http://localhost:61495/stream/album-cover", group.CoverUrl);
         Assert.Equal("http://localhost:61495/stream/album-logo", group.LogoUrl);
         Assert.Equal("Album group", group.Description);
+        Assert.Equal(2021, group.EarliestYear);
+        Assert.Equal(2023, group.LatestYear);
         Assert.Equal("Fresh in your library", group.Tagline);
     }
 

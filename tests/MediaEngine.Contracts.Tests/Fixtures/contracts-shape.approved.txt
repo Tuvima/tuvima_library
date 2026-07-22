@@ -528,6 +528,8 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayGroupSummaryD
   KnownTotalCount: System.Int32? | nullability=nullable | accessors=get,init
   CompletedCount: System.Int32 | nullability=not-null | accessors=get,init
   InProgressCount: System.Int32 | nullability=not-null | accessors=get,init
+  EarliestYear: System.Int32? | nullability=nullable | accessors=get,init
+  LatestYear: System.Int32? | nullability=nullable | accessors=get,init
   SequenceRange: System.String | nullability=nullable | accessors=get,init
   RelationshipLabel: System.String | nullability=nullable | accessors=get,init
   MediaCounts: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayGroupMediaCountDto> | nullability=not-null | accessors=get,init

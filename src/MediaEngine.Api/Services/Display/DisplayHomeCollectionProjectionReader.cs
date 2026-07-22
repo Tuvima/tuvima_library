@@ -78,6 +78,8 @@ public sealed class DisplayHomeCollectionProjectionReader
             ReadCount = collection.ReadCount,
             ListenCount = collection.ListenCount,
             OtherCount = collection.OtherCount,
+            EarliestYear = collection.EarliestYear,
+            LatestYear = collection.LatestYear,
             PreviewItems = collection.ArtworkItems
                 .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
                 .Select(item => new DisplayCardPreviewItemDto(

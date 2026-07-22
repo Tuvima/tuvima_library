@@ -142,6 +142,10 @@ public sealed class DisplayComposerServiceTests
         var seriesCard = page.Shelves.Single(shelf => shelf.Key == "series").Items.Single();
         Assert.Equal("Dune", seriesCard.Title);
         Assert.Equal("movieSeries", seriesCard.Presentation);
+        Assert.Equal(2021, seriesCard.GroupSummary?.EarliestYear);
+        Assert.Equal(2024, seriesCard.GroupSummary?.LatestYear);
+        Assert.Equal("Movie", Assert.Single(seriesCard.GroupSummary!.MediaCounts).MediaType);
+        Assert.Equal(2, seriesCard.GroupSummary.MediaCounts[0].Count);
         Assert.DoesNotContain(page.Shelves.Single(shelf => shelf.Key == "series").Items, card => card.MediaType == "TV");
     }
 
@@ -456,6 +460,8 @@ public sealed class DisplayComposerServiceTests
             WatchCount = 4,
             ReadCount = 2,
             ListenCount = 1,
+            EarliestYear = 1982,
+            LatestYear = 2024,
             PreviewItems =
             [
                 new MediaEngine.Contracts.Display.DisplayCardPreviewItemDto(workId, null, "Arrival", "/art/arrival.jpg", "portrait", null),
@@ -467,6 +473,9 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal(workId, Assert.Single(card.PreviewItems).WorkId);
         Assert.Equal("Curated list", card.GroupSummary?.RelationshipLabel);
         Assert.Equal(["Watch", "Read", "Listen"], card.GroupSummary?.MediaCounts.Select(count => count.MediaType));
+        Assert.Equal(1982, card.GroupSummary?.EarliestYear);
+        Assert.Equal(2024, card.GroupSummary?.LatestYear);
+        Assert.Equal(2024, card.SortYear);
     }
 
     [Fact]

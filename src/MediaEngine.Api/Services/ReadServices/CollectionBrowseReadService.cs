@@ -103,6 +103,8 @@ public sealed class CollectionSystemViewGroupReadModel
     public string? Creator { get; init; }
     public string? Network { get; init; }
     public string? Year { get; init; }
+    public int? EarliestYear { get; init; }
+    public int? LatestYear { get; init; }
     public string? Description { get; init; }
     public string? Tagline { get; init; }
     public string? CoverAspectClass { get; init; }
@@ -641,7 +643,14 @@ public sealed class CollectionBrowseReadService(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'title' LIMIT 1)) AS WorkTitle,
                        COALESCE(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'album' LIMIT 1)) AS AlbumName
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'album' LIMIT 1)) AS AlbumName,
+                       COALESCE(
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'release_year' LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'year' LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'release_year' LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'year' LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'release_year' LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'year' LIMIT 1)) AS WorkYear
                 FROM work_assets wa
             ),
             grouped AS (
@@ -649,6 +658,14 @@ public sealed class CollectionBrowseReadService(
                        COUNT(DISTINCT WorkId) AS WorkCount,
                        COUNT(DISTINCT COALESCE(NULLIF(WorkTitle, ''), hex(WorkId))) AS DistinctTitleCount,
                        COUNT(DISTINCT COALESCE(NULLIF(AlbumName, ''), hex(WorkId))) AS AlbumCount,
+                       MIN(CASE
+                           WHEN CAST(SUBSTR(WorkYear, 1, 4) AS INTEGER) BETWEEN 1000 AND 9999
+                           THEN CAST(SUBSTR(WorkYear, 1, 4) AS INTEGER)
+                       END) AS EarliestYear,
+                       MAX(CASE
+                           WHEN CAST(SUBSTR(WorkYear, 1, 4) AS INTEGER) BETWEEN 1000 AND 9999
+                           THEN CAST(SUBSTR(WorkYear, 1, 4) AS INTEGER)
+                       END) AS LatestYear,
                        MIN(AssetId) AS FirstAssetId,
                        MIN(RootWorkId) AS RootWorkId
                 FROM resolved
@@ -688,6 +705,8 @@ public sealed class CollectionBrowseReadService(
                    COALESCE(root.Artist, root.Author, asset.Artist, asset.Author) AS Creator,
                    COALESCE(root.Network, asset.Network) AS Network,
                    COALESCE(root.Year, asset.Year) AS Year,
+                   g.EarliestYear,
+                   g.LatestYear,
                    COALESCE(root.Description, asset.Description) AS Description,
                    COALESCE(root.Tagline, asset.Tagline) AS Tagline,
                    COALESCE(root.CoverAspectClass, asset.CoverAspectClass) AS CoverAspectClass,
@@ -879,6 +898,8 @@ public sealed class CollectionBrowseReadService(
                 ArtistPersonId = artistPersonId,
                 Network = row.Network,
                 Year = row.Year,
+                EarliestYear = row.EarliestYear,
+                LatestYear = row.LatestYear,
                 SeasonCount = row.SeasonCount is > 0 ? ToInt32(row.SeasonCount) : null,
                 AlbumCount = row.AlbumCount > 0 ? row.AlbumCount : null,
             });
