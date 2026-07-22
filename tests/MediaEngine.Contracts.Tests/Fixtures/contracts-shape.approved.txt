@@ -498,6 +498,7 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   PreviewItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.DisplayCardPreviewItemDto> | nullability=not-null | accessors=get,init
   PreviewTotalCount: System.Int32? | nullability=nullable | accessors=get,init
   GroupSummary: MediaEngine.Contracts.Display.DisplayGroupSummaryDto | nullability=nullable | accessors=get,init
+  SortYear: System.Int32 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   IsPlayable: System.Boolean | nullability=not-null | accessors=get,init
@@ -578,6 +579,43 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayShelfPageDto
   Offset: System.Int32 | nullability=not-null | accessors=get,init
   Limit: System.Int32 | nullability=not-null | accessors=get,init
   HasMore: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.UniversalSearchPreviewItemDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  ArtworkUrl: System.String | nullability=nullable | accessors=get,init
+  DetailRoute: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.UniversalSearchResponseDto
+  Query: System.String | nullability=not-null | accessors=get,init
+  TopResult: MediaEngine.Contracts.Display.UniversalSearchResultDto | nullability=nullable | accessors=get,init
+  Sections: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.UniversalSearchSectionDto> | nullability=not-null | accessors=get,init
+  TotalCount: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.UniversalSearchResultDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  EntityType: System.String | nullability=not-null | accessors=get,init
+  MediaType: System.String | nullability=nullable | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Subtitle: System.String | nullability=nullable | accessors=get,init
+  Creator: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  ArtworkUrl: System.String | nullability=nullable | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  DetailRoute: System.String | nullability=not-null | accessors=get,init
+  PrimaryActionLabel: System.String | nullability=not-null | accessors=get,init
+  MatchReason: System.String | nullability=not-null | accessors=get,init
+  Relevance: System.Double | nullability=not-null | accessors=get,init
+  Facts: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  PreviewItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.UniversalSearchPreviewItemDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.UniversalSearchSectionDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  Results: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Display.UniversalSearchResultDto> | nullability=not-null | accessors=get,init
+  TotalCount: System.Int32 | nullability=not-null | accessors=get,init
+  SeeAllRoute: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Paging.MediaEngine.Contracts.Paging.PagedRequest
   Offset: System.Int32 | nullability=not-null | accessors=get,init

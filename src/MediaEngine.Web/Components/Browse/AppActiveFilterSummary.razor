@@ -1,0 +1,29 @@
+@namespace MediaEngine.Web.Components.Browse
+
+@if (Items.Count > 0)
+{
+    <div class="app-active-filter-summary" aria-label="Active filters">
+        @foreach (var item in Items)
+        {
+            <AppNativeButton Type="button"
+                             @key="item.Key"
+                             Class="app-active-filter-summary__chip"
+                             AriaLabel="@($"Remove {item.Label} filter")"
+                             OnClick="@(() => Remove.InvokeAsync(item.Key))">
+                <span>@item.Label</span>
+                <MudIcon Icon="@Icons.Material.Outlined.Close" />
+            </AppNativeButton>
+        }
+        <AppNativeButton Type="button"
+                         Class="app-active-filter-summary__clear"
+                         OnClick="@(() => ClearAll.InvokeAsync())">
+            Clear all
+        </AppNativeButton>
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<ActiveFilterChip> Items { get; set; } = [];
+    [Parameter] public EventCallback<string> Remove { get; set; }
+    [Parameter] public EventCallback ClearAll { get; set; }
+}

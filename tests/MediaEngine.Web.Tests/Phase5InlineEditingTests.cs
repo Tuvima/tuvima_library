@@ -51,14 +51,14 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
-    public void SearchResult_EditActionLaunchesSharedEditorAndRefreshesSearch()
+    public void SearchResults_StayNavigationFirstAndLeaveEditingToDetailPages()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Pages/SearchPage.razor");
 
-        Assert.Contains("MediaEditorLauncherService MediaEditorLauncher", source, StringComparison.Ordinal);
-        Assert.Contains("OpenSearchResultEditorAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Mode = SharedMediaEditorMode.Normal", source, StringComparison.Ordinal);
-        Assert.Contains("await SearchAsync();", source, StringComparison.Ordinal);
+        Assert.Contains("<UniversalSearchResults", source, StringComparison.Ordinal);
+        Assert.Contains("GetUniversalSearchAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MediaEditorLauncherService", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("OpenSearchResultEditorAsync", source, StringComparison.Ordinal);
     }
 
     [Fact]

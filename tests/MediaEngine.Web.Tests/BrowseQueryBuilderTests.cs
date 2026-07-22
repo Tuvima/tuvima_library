@@ -13,7 +13,7 @@ public sealed class BrowseQueryBuilderTests
         var state = BrowseQueryBuilder.Read(
             preset,
             "music",
-            "http://localhost/listen/music?grouping=albums&layout=list&sort=title&search=dune&group=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa&groupType=album&groupName=Dune%20OST&groupField=album&groupMediaType=Music");
+            "http://localhost/listen/music?browse=albums&view=list&sort=title&q=dune");
 
         Assert.Equal("music", state.ActiveTabId);
         Assert.Equal("albums", state.Grouping);
@@ -30,7 +30,7 @@ public sealed class BrowseQueryBuilderTests
         var state = BrowseQueryBuilder.Read(
             preset,
             "missing",
-            "http://localhost/listen?grouping=bad&layout=bad&sort=bad");
+            "http://localhost/listen?browse=bad&view=bad&sort=bad");
 
         Assert.Equal("books", state.ActiveTabId);
         Assert.Equal("all", state.Grouping);
@@ -42,6 +42,9 @@ public sealed class BrowseQueryBuilderTests
     [InlineData("books", "series", "series")]
     [InlineData("audiobooks", "series", "series")]
     [InlineData("comics", "series", null)]
+    [InlineData("books", "authors", "author")]
+    [InlineData("movies", "directors", "director")]
+    [InlineData("tv", "networks", "network")]
     public void GetSystemViewGroupField_UsesProviderBackedContentGroupsForComicRuns(
         string activeTabId,
         string grouping,

@@ -60,6 +60,7 @@ public sealed class MediaTileComposerServiceTests
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
         {
             Description = "1965 science fiction novel",
+            SortYear = 1965,
         };
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -75,6 +76,7 @@ public sealed class MediaTileComposerServiceTests
         Assert.Equal(assetId, mapped.AssetId);
         Assert.Equal($"/read/{assetId}", mapped.PrimaryNavigationUrl);
         Assert.Equal("Continue Reading", mapped.PrimaryActionLabel);
+        Assert.Equal(1965, mapped.SortYear);
     }
 
     [Fact]

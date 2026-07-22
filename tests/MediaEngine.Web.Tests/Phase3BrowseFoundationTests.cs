@@ -29,38 +29,49 @@ public sealed class Phase3BrowseFoundationTests : TestContext
     {
         Services.AddSingleton<IEngineApiClient>(EngineApiClientStub.Create(stub =>
         {
-            stub.SetHandler(nameof(IEngineApiClient.SearchWorksAsync), args =>
+            stub.SetHandler(nameof(IEngineApiClient.GetUniversalSearchAsync), args =>
             {
                 var query = args?[0]?.ToString();
-                return Task.FromResult(string.Equals(query, "dune", StringComparison.OrdinalIgnoreCase)
-                    ? new List<SearchResultViewModel>
-                    {
-                        new()
-                        {
-                            WorkId = Guid.Parse("31000000-0000-0000-0000-000000000001"),
-                            Title = "Dune",
-                            Author = "Frank Herbert",
-                            MediaType = "Book",
-                            CollectionDisplayName = "Dune",
-                        },
-                    }
-                    : []);
+                var result = new UniversalSearchResultDto(
+                    Guid.Parse("31000000-0000-0000-0000-000000000001"),
+                    "book",
+                    "Book",
+                    "Dune",
+                    "Frank Herbert",
+                    "Frank Herbert",
+                    "1965",
+                    null,
+                    "A science fiction classic.",
+                    "/book/31000000-0000-0000-0000-000000000001",
+                    "Read",
+                    "Exact title match",
+                    1);
+                return Task.FromResult<UniversalSearchResponseDto?>(string.Equals(query, "dune", StringComparison.OrdinalIgnoreCase)
+                    ? new UniversalSearchResponseDto("dune", result,
+                    [new UniversalSearchSectionDto("books", "Books", [result], 1, "/read/books?q=dune")], 1)
+                    : new UniversalSearchResponseDto(query ?? string.Empty, null, [], 0));
             });
         }));
 
         var navigation = Services.GetRequiredService<NavigationManager>();
         navigation.NavigateTo(navigation.GetUriWithQueryParameter("q", "dune"));
 
-        var cut = RenderComponent<SearchPage>();
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudBlazor.MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<SearchPage>(1);
+            builder.CloseComponent();
+        });
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Dune", cut.Markup);
             Assert.Contains("Frank Herbert", cut.Markup);
-            Assert.Single(cut.FindAll(".search-result-row"));
+            Assert.Single(cut.FindAll(".universal-results__card"));
         });
 
         navigation.NavigateTo(navigation.GetUriWithQueryParameter("q", "missing"));
-        cut.WaitForAssertion(() => Assert.Contains("No results found", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("No results match this search", cut.Markup));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<button type="@Type"
+<button @ref="_element"
+        type="@Type"
         class="@Class"
         disabled="@Disabled"
         title="@Title"
@@ -14,6 +15,8 @@
 </button>
 
 @code {
+    private ElementReference _element;
+
     [Parameter] public string? Type { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public bool Disabled { get; set; }
@@ -28,4 +31,6 @@
     [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string? ResolvedStyle => !string.IsNullOrWhiteSpace(Css) ? Css : InlineStyle;
+
+    public ValueTask FocusAsync() => _element.FocusAsync();
 }

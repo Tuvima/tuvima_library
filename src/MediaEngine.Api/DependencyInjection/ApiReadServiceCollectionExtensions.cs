@@ -23,6 +23,7 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<IMetadataClaimHistoryReadService, MetadataClaimHistoryReadService>();
         services.AddSingleton<ICollectionBrowseReadService, CollectionBrowseReadService>();
         services.AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>();
+        services.AddSingleton<IUniversalSearchReadService, UniversalSearchReadService>();
         services.AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>();
         services.AddSingleton<CollectionCatalogReadService>();
         services.AddSingleton<IReviewQueueReadService, ReviewQueueReadService>();

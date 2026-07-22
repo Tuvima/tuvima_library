@@ -1,6 +1,7 @@
 using MediaEngine.Contracts.Display;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
+using MediaEngine.Api.Services.ReadServices;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -68,13 +69,12 @@ public static class DisplayEndpoints
         group.MapGet("/search", async (
             string? q,
             int? limit,
-            bool? includeCatalog,
-            DisplayComposerService display,
+            IUniversalSearchReadService search,
             CancellationToken ct) =>
-            Results.Ok(await display.BuildSearchAsync(q, limit ?? 48, includeCatalog ?? true, ct)))
+            Results.Ok(await search.SearchAsync(q, limit ?? 48, ct)))
             .WithName("GetDisplaySearch")
-            .WithSummary("Returns consumer search results as display cards.")
-            .Produces<DisplayPageDto>(StatusCodes.Status200OK)
+            .WithSummary("Returns ranked local media, people, series, collections, and playlists for universal search.")
+            .Produces<UniversalSearchResponseDto>(StatusCodes.Status200OK)
             .RequireAnyRole();
 
         group.MapGet("/shelves/{shelfKey}", async (

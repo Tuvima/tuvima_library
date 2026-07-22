@@ -74,7 +74,7 @@
         new("comics", "Comics", "/read/comics"),
     ];
 
-    private static readonly IReadOnlyList<MediaSectionNavigationGroup> ReadNavigationGroups =
+    private static IReadOnlyList<MediaSectionNavigationGroup> ReadNavigationGroups =>
     [
         new("Library",
         [
@@ -82,10 +82,9 @@
             new("Books", "/read/books", Icons.Material.Outlined.MenuBook),
             new("Comics", "/read/comics", Icons.Material.Outlined.AutoStories),
         ]),
-        new("Browse",
+        MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset),
+        new("Reading",
         [
-            new("Book Series", "/read/books?grouping=series", Icons.Material.Outlined.CollectionsBookmark, Exact: true),
-            new("Comic Runs", "/read/comics?grouping=series", Icons.Material.Outlined.ViewAgenda, Exact: true),
             new("In Progress", "/read/books?status=in-progress", Icons.Material.Outlined.Timelapse, Exact: true),
         ]),
     ];
@@ -139,11 +138,14 @@
                 MediaType = "Books",
                 GroupingOptions =
                 [
-                    new("all", "All Books", Icons.Material.Outlined.AutoStories),
+                    new("all", "Books", Icons.Material.Outlined.AutoStories),
+                    new("authors", "Authors", Icons.Material.Outlined.PersonOutline),
                     new("series", "Series", Icons.Material.Outlined.CollectionsBookmark),
+                    new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
                 ],
                 DefaultGrouping = "all",
                 DefaultLayout = LibraryLayoutMode.Card,
+                YearSemantic = "Original publication year",
             },
             new BrowseTabPreset
             {
@@ -152,11 +154,15 @@
                 MediaType = "Comics",
                 GroupingOptions =
                 [
-                    new("all", "Issues", Icons.Material.Outlined.ViewAgenda),
                     new("series", "Volumes", Icons.Material.Outlined.CollectionsBookmark),
+                    new("all", "Issues", Icons.Material.Outlined.ViewAgenda),
+                    new("creators", "Creators", Icons.Material.Outlined.PeopleOutline),
+                    new("publishers", "Publishers", Icons.Material.Outlined.Business),
+                    new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
                 ],
-                DefaultGrouping = "all",
+                DefaultGrouping = "series",
                 DefaultLayout = LibraryLayoutMode.Card,
+                YearSemantic = "Issue publication year",
             },
         ],
     };

@@ -32,7 +32,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var state = BrowseQueryBuilder.Read(
             preset,
             "books",
-            "http://localhost/read/books?genres=Fantasy%2CMystery&creator=Silas%20Northwood%2CAda%20Vale&status=in-progress&year=2024%2C2023");
+            "http://localhost/read/books?genre=Fantasy&genre=Mystery&person=Silas%20Northwood&person=Ada%20Vale&status=in-progress&year=2024&year=2023");
 
         Assert.Equal(["Fantasy", "Mystery"], state.Genres);
         Assert.Equal(["Silas Northwood", "Ada Vale"], state.Creators);
@@ -64,6 +64,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.DoesNotContain("media-lane-header__identity", laneHeader, StringComparison.Ordinal);
         Assert.DoesNotContain("[Parameter] public string? Subtitle", laneHeader, StringComparison.Ordinal);
         Assert.DoesNotContain("media-section-shell__rail-title", sectionShell, StringComparison.Ordinal);
+        Assert.Contains("Nav.LocationChanged += OnLocationChanged", sectionShell, StringComparison.Ordinal);
+        Assert.Contains("Nav.LocationChanged -= OnLocationChanged", sectionShell, StringComparison.Ordinal);
         Assert.Contains("height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem)", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains(".media-section-shell__content", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains("overflow-y: auto", sectionShellStyles, StringComparison.Ordinal);
@@ -88,7 +90,13 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("Search years...", browseShell, StringComparison.Ordinal);
         Assert.Contains("SelectedValuesChanged=\"OnCreatorsChanged\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("SelectedValuesChanged=\"OnYearsChanged\"", browseShell, StringComparison.Ordinal);
-        Assert.Contains("SupportsFacetFilters => HasSeriesToggle || !IsContainerGrouping", browseShell, StringComparison.Ordinal);
+        Assert.Contains("SupportsFacetFilters => true", browseShell, StringComparison.Ordinal);
+        Assert.Contains("<AppBrowseModeSelector", browseShell, StringComparison.Ordinal);
+        Assert.Contains("<AppQuickFilterToggle", browseShell, StringComparison.Ordinal);
+        Assert.Contains("<AppActiveFilterSummary", browseShell, StringComparison.Ordinal);
+        Assert.Contains("<AppTimelineResults", browseShell, StringComparison.Ordinal);
+        Assert.Contains("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", read, StringComparison.Ordinal);
+        Assert.Contains("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", watch, StringComparison.Ordinal);
         Assert.Contains("browse-multi-select__option", multiSelect, StringComparison.Ordinal);
         Assert.DoesNotContain(".. IsSeriesOnly ? new[] { \"Series only\" }", browseShell, StringComparison.Ordinal);
         Assert.Contains("ShowCompactCaptions=\"true\"", browseShell, StringComparison.Ordinal);

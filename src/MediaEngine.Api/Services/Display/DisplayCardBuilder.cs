@@ -35,6 +35,7 @@ public sealed class DisplayCardBuilder
             Description = row.Description,
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
+            SortYear = ParseSortYear(row.Year),
         };
     }
 
@@ -70,6 +71,7 @@ public sealed class DisplayCardBuilder
             Description = row.Description,
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
+            SortYear = ParseSortYear(row.Year),
         };
     }
 
@@ -1387,6 +1389,21 @@ public sealed class DisplayCardBuilder
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static int ParseSortYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 0;
+        }
+
+        var trimmed = value.Trim();
+        var prefixLength = Math.Min(4, trimmed.Length);
+        return int.TryParse(trimmed.AsSpan(0, prefixLength), NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+            && year is >= 1000 and <= 9999
+                ? year
+                : 0;
+    }
 
     private static bool MatchesAny(string? value, params string?[] candidates) =>
         !string.IsNullOrWhiteSpace(value)

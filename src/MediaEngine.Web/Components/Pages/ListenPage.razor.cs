@@ -9,6 +9,7 @@ using Microsoft.JSInterop;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
+using MediaEngine.Web.Components.Browse;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
@@ -51,7 +52,7 @@ public partial class ListenPage
     [SupplyParameterFromQuery(Name = "track")] public Guid? Track { get; set; }
     [SupplyParameterFromQuery(Name = "edit")] public bool Edit { get; set; }
     [SupplyParameterFromQuery(Name = "artist")] public string? AlbumArtist { get; set; }
-    [SupplyParameterFromQuery(Name = "view")] public string? AudiobookViewQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "browse")] public string? BrowseQuery { get; set; }
 
     private readonly List<WorkViewModel> _allWorks = [];
     private readonly List<WorkViewModel> _musicWorks = [];
@@ -154,10 +155,14 @@ public partial class ListenPage
     private bool IsAudiobookDetail => WorkId.HasValue && CurrentPath.StartsWith("/listen/audiobook/", StringComparison.OrdinalIgnoreCase);
     private bool IsAudiobooksMode => IsAudiobooksView || IsAudiobookDetail;
     private bool IsMusicMode => !IsAudiobooksMode;
+    private bool IsMusicTimelineView => IsMusicMode
+        && string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(BrowseQuery, "timeline", StringComparison.OrdinalIgnoreCase);
     private bool IsMusicBrowseEntry => IsMusicMode
         && !IsListenHub
         && string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase);
     private bool IsAlbumsView => IsMusicMode
+        && !IsMusicTimelineView
         && !CollectionId.HasValue
         && (IsMusicBrowseEntry || string.Equals(NormalizedSection, "albums", StringComparison.OrdinalIgnoreCase));
     private bool IsAlbumDetail => IsMusicMode
@@ -222,10 +227,14 @@ public partial class ListenPage
         .Take(3)
         .ToList();
     private IReadOnlyList<AudiobookAuthorGroup> AudiobookAuthorGroups => BuildAudiobookAuthorGroups(FilteredAudiobookItems);
+    private IReadOnlyList<AudiobookAuthorGroup> AudiobookNarratorGroups => BuildAudiobookNarratorGroups(FilteredAudiobookItems);
+    private IReadOnlyList<MediaTileViewModel> MusicTimelineTiles => AlbumTiles;
     private string AudiobookBrowseTitle => _audiobookView switch
     {
         "series" => "Series",
         "authors" => "Authors",
+        "narrators" => "Narrators",
+        "timeline" => "Timeline",
         _ when !string.IsNullOrWhiteSpace(_audiobookSeriesFocus) => _audiobookSeriesFocus,
         _ => "Browse All",
     };
@@ -233,6 +242,8 @@ public partial class ListenPage
     {
         "series" => AudiobookSeriesGroups.Count == 1 ? "1 series" : $"{AudiobookSeriesGroups.Count} series",
         "authors" => Pluralize(AudiobookAuthorGroups.Count, "author"),
+        "narrators" => Pluralize(AudiobookNarratorGroups.Count, "narrator"),
+        "timeline" => Pluralize(FilteredAudiobookItems.Count, "audiobook"),
         _ => Pluralize(FilteredAudiobookItems.Count, "audiobook"),
     };
     private string AudiobookBooksLayoutClass => _audiobookLayout == LibraryLayoutMode.List
@@ -300,6 +311,33 @@ public partial class ListenPage
         new("music", "Music", MusicHomeRoute),
         new("audiobooks", "Audiobooks", AudiobooksRoute),
     ];
+
+    private static readonly IReadOnlyList<BrowseGroupingOption> MusicBrowseOptions =
+    [
+        new("albums", "Albums", Icons.Material.Outlined.Album),
+        new("artists", "Artists", Icons.Material.Outlined.PersonOutline),
+        new("songs", "Songs", Icons.Material.Outlined.MusicNote),
+        new("playlists", "Playlists", Icons.Material.Outlined.QueueMusic),
+        new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
+    ];
+
+    private static readonly IReadOnlyList<BrowseGroupingOption> AudiobookBrowseOptions =
+    [
+        new("all", "Audiobooks", Icons.Material.Outlined.Headphones),
+        new("authors", "Authors", Icons.Material.Outlined.PersonOutline),
+        new("series", "Series", Icons.Material.Outlined.CollectionsBookmark),
+        new("narrators", "Narrators", Icons.Material.Outlined.RecordVoiceOver),
+        new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
+    ];
+
+    private string MusicBrowseMode => IsMusicTimelineView
+        ? "timeline"
+        : IsArtistsSurface ? "artists"
+        : IsSongsView ? "songs"
+        : IsPlaylistsView || IsPlaylistSurface ? "playlists"
+        : "albums";
+
+    private bool IsMusicBrowseNavigationVisible => IsMusicMode && !IsAudioDetailSurface && !IsAlbumDetail;
 
     private string ActiveListenMode => IsListenHub
         ? "all"
@@ -380,12 +418,23 @@ public partial class ListenPage
     ];
 
     private IReadOnlyList<ListenNavigationItem> ListenYourLibraryItems =>
-    [
-        new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Albums", AlbumsRoute, Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Songs", SongsRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
-    ];
+        new[]
+        {
+            new ListenNavigationItem("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
+        }
+        .Concat(MusicBrowseOptions.Select(option => new ListenNavigationItem(
+            option.Label,
+            MusicBrowseRoute(option.Value),
+            option.Icon,
+            MusicBrowseCount(option.Value))))
+        .ToList();
+
+    private IReadOnlyList<ListenNavigationItem> ListenAudiobookBrowseItems =>
+        AudiobookBrowseOptions.Where(option => option.Value != "all").Select(option => new ListenNavigationItem(
+            option.Label,
+            AudiobookBrowseRoute(option.Value),
+            option.Icon,
+            AudiobookBrowseCount(option.Value))).ToList();
 
     private IReadOnlyList<ListenNavigationItem> ListenPinnedPlaylistItems =>
     [
@@ -1429,8 +1478,22 @@ public partial class ListenPage
             return IsDefaultEntry;
         }
 
-        return string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase)
-               || CurrentPath.StartsWith(route + "/", StringComparison.OrdinalIgnoreCase);
+        var routeUri = Nav.ToAbsoluteUri(route);
+        var currentUri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (!string.IsNullOrWhiteSpace(routeUri.Query))
+        {
+            return string.Equals(CurrentPath, routeUri.AbsolutePath, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(currentUri.Query, routeUri.Query, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!string.IsNullOrWhiteSpace(BrowseQuery)
+            && string.Equals(CurrentPath, routeUri.AbsolutePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return string.Equals(CurrentPath, routeUri.AbsolutePath, StringComparison.OrdinalIgnoreCase)
+               || CurrentPath.StartsWith(routeUri.AbsolutePath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool IsRouteActiveExact(string route)
@@ -2328,13 +2391,20 @@ public partial class ListenPage
 
     private void ApplyAudiobookQueryState()
     {
-        if (!IsAudiobooksView || string.IsNullOrWhiteSpace(AudiobookViewQuery))
+        if (!IsAudiobooksView)
         {
             return;
         }
 
-        var requestedView = AudiobookViewQuery.Trim().ToLowerInvariant();
-        if (requestedView is "all" or "series" or "authors")
+        if (string.IsNullOrWhiteSpace(BrowseQuery))
+        {
+            _audiobookView = "all";
+            _audiobookSeriesFocus = null;
+            return;
+        }
+
+        var requestedView = BrowseQuery.Trim().ToLowerInvariant();
+        if (requestedView is "all" or "series" or "authors" or "narrators" or "timeline")
         {
             _audiobookView = requestedView;
             _audiobookSeriesFocus = null;
@@ -2565,6 +2635,18 @@ public partial class ListenPage
             : [creator];
     }
 
+    private static IReadOnlyList<AudiobookAuthorGroup> BuildAudiobookNarratorGroups(IEnumerable<AudiobookDisplayItem> items)
+        => items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Work?.Narrator))
+            .GroupBy(item => item.Work!.Narrator!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new AudiobookAuthorGroup(
+                group.Key,
+                group.OrderByDescending(AudiobookSortTimestamp)
+                    .ThenBy(AudiobookTitle, StringComparer.OrdinalIgnoreCase)
+                    .ToList()))
+            .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     private JourneyItemViewModel? AudiobookJourneyFor(AudiobookDisplayItem item)
     {
         var workId = AudiobookWorkId(item);
@@ -2761,7 +2843,41 @@ public partial class ListenPage
     {
         _audiobookView = view;
         _audiobookSeriesFocus = null;
+        Nav.NavigateTo(AudiobookBrowseRoute(view));
     }
+
+    private void SetMusicBrowseMode(string view) => Nav.NavigateTo(MusicBrowseRoute(view));
+
+    private static string MusicBrowseRoute(string view) => view switch
+    {
+        "artists" => ArtistsRoute,
+        "songs" => SongsRoute,
+        "playlists" => PlaylistsRoute,
+        "timeline" => $"{MusicHomeRoute}?browse=timeline",
+        _ => AlbumsRoute,
+    };
+
+    private static string AudiobookBrowseRoute(string view) => view == "all"
+        ? AudiobooksRoute
+        : $"{AudiobooksRoute}?browse={Uri.EscapeDataString(view)}";
+
+    private string? MusicBrowseCount(string view) => view switch
+    {
+        "albums" => _albumGroups.Count.ToString(CultureInfo.InvariantCulture),
+        "artists" => _artistGroups.Count.ToString(CultureInfo.InvariantCulture),
+        "songs" => _musicWorks.Count.ToString(CultureInfo.InvariantCulture),
+        "playlists" => PlaylistCollections.Count.ToString(CultureInfo.InvariantCulture),
+        _ => null,
+    };
+
+    private string? AudiobookBrowseCount(string view) => view switch
+    {
+        "all" => _audiobookWorks.Count.ToString(CultureInfo.InvariantCulture),
+        "authors" => AudiobookAuthorGroups.Count.ToString(CultureInfo.InvariantCulture),
+        "series" => _audiobookSeriesGroups.Count.ToString(CultureInfo.InvariantCulture),
+        "narrators" => AudiobookNarratorGroups.Count.ToString(CultureInfo.InvariantCulture),
+        _ => null,
+    };
 
     private void UpdateAudiobookSearch(ChangeEventArgs args)
     {
@@ -2810,6 +2926,14 @@ public partial class ListenPage
         _audiobookView = "all";
         _audiobookSearch = author.Name;
         _audiobookSeriesFocus = null;
+    }
+
+    private void ViewAudiobookNarrator(AudiobookAuthorGroup narrator)
+    {
+        _audiobookView = "all";
+        _audiobookSearch = narrator.Name;
+        _audiobookSeriesFocus = null;
+        Nav.NavigateTo(AudiobooksRoute);
     }
 
     private void ClearAudiobookSeriesFocus()
@@ -2952,6 +3076,7 @@ public partial class ListenPage
             ProgressLabel = AudiobookProgressLabel(item),
             AccentColor = "var(--tl-media-audio)",
             SortTimestamp = AudiobookSortTimestamp(item),
+            SortYear = int.TryParse(work?.Year, out var audiobookYear) ? audiobookYear : 0,
         };
     }
 
@@ -2968,7 +3093,8 @@ public partial class ListenPage
             facts: string.IsNullOrWhiteSpace(album.Year) ? [] : [album.Year],
             route: BuildAlbumDetailRoute(album.DisplayName, album.Creator),
             presentation: MediaTilePresentation.Album,
-            primaryActionLabel: "Open");
+            primaryActionLabel: "Open",
+            sortYear: int.TryParse(album.Year, out var albumYear) ? albumYear : 0);
 
     private MediaTileViewModel ToArtistAlbumTile(CollectionGroupSeasonViewModel album)
     {
@@ -2999,7 +3125,8 @@ public partial class ListenPage
         string? bannerUrl = null,
         string? logoUrl = null,
         string? description = null,
-        IReadOnlyList<string>? facts = null)
+        IReadOnlyList<string>? facts = null,
+        int sortYear = 0)
     {
         var small = MediaTileArtworkUrl.Sized(imageUrl, "s");
         var medium = MediaTileArtworkUrl.Sized(imageUrl, "m");
@@ -3045,6 +3172,7 @@ public partial class ListenPage
             PrimaryActionLabel = primaryActionLabel,
             AccentColor = "var(--tl-media-audio)",
             SortTimestamp = DateTimeOffset.UtcNow,
+            SortYear = sortYear,
         };
     }
 

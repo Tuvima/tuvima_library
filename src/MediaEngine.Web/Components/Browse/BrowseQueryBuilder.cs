@@ -15,20 +15,21 @@ public static class BrowseQueryBuilder
             string.Equals(tab.Id, normalizedTab, StringComparison.OrdinalIgnoreCase)) ?? fallbackTab;
 
         var query = System.Web.HttpUtility.ParseQueryString(new Uri(absoluteUri).Query);
-        var grouping = ResolveGrouping(query["grouping"], resolvedTab);
-        var layout = ResolveLayout(query["layout"], resolvedTab, grouping);
+        var grouping = ResolveGrouping(query["browse"], resolvedTab);
+        var layout = ResolveLayout(query["view"], resolvedTab, grouping);
         var sortBy = ResolveSort(query["sort"], resolvedTab.Id, grouping);
 
         return new BrowseState(
             resolvedTab.Id,
             grouping,
-            query["search"] ?? string.Empty,
+            query["q"] ?? string.Empty,
             sortBy,
             layout,
-            ParseList(query["genres"]),
-            ParseList(query["creator"]),
+            ParseList(query.GetValues("genre")),
+            ParseList(query.GetValues("person")),
             query["status"] ?? string.Empty,
-            ParseList(query["year"]));
+            ParseList(query.GetValues("year")),
+            int.TryParse(query["tile"], out var tileSize) ? tileSize : null);
     }
 
     public static string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab)
@@ -63,30 +64,41 @@ public static class BrowseQueryBuilder
             return requestedSort;
         }
 
-        return IsContainerGrouping(grouping) ? "featured" : "newest";
+        return grouping == "timeline" ? "oldest" : IsContainerGrouping(grouping) ? "featured" : "newest";
     }
 
     public static IReadOnlyList<(string Value, string Label)> GetSortOptions(string activeTabId, string grouping) =>
-        IsContainerGrouping(grouping)
+        grouping == "timeline"
+            ? [("oldest", "Oldest first"), ("newest", "Newest first"), ("title", "Title A-Z")]
+            : IsContainerGrouping(grouping)
             ? [("featured", "Featured"), ("title", "A-Z"), ("newest", "Newest")]
             : [("newest", "Newest"), ("title", "A-Z"), ("oldest", "Oldest"), ("creator", "Creator"), ("year", "Year")];
 
     public static bool IsContainerGrouping(string grouping) =>
-        grouping is "series" or "shows" or "albums" or "artists";
+        grouping is "series" or "shows" or "albums" or "artists" or "authors" or "creators"
+            or "publishers" or "collections" or "directors" or "networks" or "playlists" or "narrators";
 
     public static string? GetSystemViewGroupField(string activeTabId, string grouping) => (activeTabId, grouping) switch
     {
         ("music", "artists") => "artist",
         ("music", "albums") => "album",
+        ("music", "playlists") => "playlist",
         ("books", "series") => "series",
+        ("books", "authors") => "author",
         ("audiobooks", "series") => "series",
+        ("audiobooks", "authors") => "author",
+        ("audiobooks", "narrators") => "narrator",
+        ("comics", "creators") => "author",
+        ("comics", "publishers") => "publisher",
+        ("movies", "directors") => "director",
+        ("tv", "networks") => "network",
         _ => null,
     };
 
-    private static IReadOnlyList<string> ParseList(string? value) =>
-        string.IsNullOrWhiteSpace(value)
+    private static IReadOnlyList<string> ParseList(string[]? values) =>
+        values is null
             ? []
-            : value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            : values.SelectMany(value => value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 

@@ -11,4 +11,5 @@ public sealed record BrowseState(
     IReadOnlyList<string> Genres,
     IReadOnlyList<string> Creators,
     string Status,
-    IReadOnlyList<string> Years);
+    IReadOnlyList<string> Years,
+    int? TileSize);

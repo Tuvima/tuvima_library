@@ -243,6 +243,26 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(card.Actions[0], card.Progress?.ResumeAction);
     }
 
+    [Fact]
+    public void FromWork_MapsCanonicalYearForTimelineGrouping()
+    {
+        var row = new DisplayWorkRow
+        {
+            WorkId = Guid.NewGuid(),
+            AssetId = Guid.NewGuid(),
+            RootWorkId = Guid.NewGuid(),
+            MediaType = "Books",
+            Title = "Dune",
+            Author = "Frank Herbert",
+            Year = "1965",
+            CreatedAt = DateTimeOffset.Parse("2026-07-14T12:00:00Z"),
+        };
+
+        var card = new DisplayCardBuilder().FromWork(row, "read", progress: null);
+
+        Assert.Equal(1965, card.SortYear);
+    }
+
     private static DisplayWorkRow CreateWork(
         Guid collectionId,
         string mediaType,

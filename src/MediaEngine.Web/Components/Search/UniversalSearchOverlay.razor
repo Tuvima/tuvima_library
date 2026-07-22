@@ -1,0 +1,290 @@
+@using MediaEngine.Contracts.Display
+@using MediaEngine.Web.Services.Integration
+@implements IDisposable
+@namespace MediaEngine.Web.Components.Search
+@inject IEngineApiClient ApiClient
+@inject NavigationManager Nav
+
+@if (_open)
+{
+    <div class="universal-search-overlay"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="universal-search-title"
+         @onkeydown="HandleOverlayKeyDown">
+        <AppNativeButton Type="button"
+                         Class="universal-search-overlay__backdrop"
+                         AriaLabel="Close search"
+                         OnClick="CloseAsync" />
+        <MudFocusTrap DefaultFocus="DefaultFocus.None">
+        <div class="universal-search-overlay__surface">
+            <header class="universal-search-overlay__header">
+                <div class="universal-search-overlay__title-row">
+                    <div>
+                        <h1 id="universal-search-title">Search</h1>
+                        <span><MudIcon Icon="@Icons.Material.Outlined.Bolt" /> Results update instantly as you type</span>
+                    </div>
+                    <AppNativeButton Type="button"
+                                     Class="universal-search-overlay__close"
+                                     AriaLabel="Close search"
+                                     OnClick="CloseAsync">
+                        <MudIcon Icon="@Icons.Material.Outlined.Close" />
+                    </AppNativeButton>
+                </div>
+
+                <label class="universal-search-overlay__input-shell">
+                    <MudIcon Icon="@Icons.Material.Outlined.Search" />
+                    <AppNativeInput @ref="_input"
+                                    Value="@_query"
+                                    OnInput="OnInput"
+                                    OnKeyDown="HandleInputKeyDown"
+                                    Placeholder="Search titles, people, series, playlists, or collections…"
+                                    AriaLabel="Search the entire library"
+                                    autocomplete="off" />
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_query))
+                    {
+                        <AppNativeButton Type="button"
+                                         Class="universal-search-overlay__clear"
+                                         AriaLabel="Clear search"
+                                         OnClick="ClearAsync">
+                            <MudIcon Icon="@Icons.Material.Outlined.Close" />
+                        </AppNativeButton>
+                    }
+                </label>
+            </header>
+
+            <div class="universal-search-overlay__body" aria-live="polite">
+                @if (string.IsNullOrWhiteSpace(_query))
+                {
+                    <div class="universal-search-overlay__empty">
+                        <MudIcon Icon="@Icons.Material.Outlined.Search" />
+                        <h2>Search your library</h2>
+                        <p>Find books, movies, shows, albums, audiobooks, people, series, collections, and playlists.</p>
+                        @if (_recentSearches.Count > 0)
+                        {
+                            <section>
+                                <span>Recent searches</span>
+                                <div>
+                                    @foreach (var recent in _recentSearches)
+                                    {
+                                        <AppNativeButton Type="button" OnClick="@(() => UseRecentAsync(recent))">@recent</AppNativeButton>
+                                    }
+                                </div>
+                            </section>
+                        }
+                        <div class="universal-search-overlay__shortcuts">
+                            <span><kbd>Enter</kbd> view all results</span>
+                            <span><kbd>Esc</kbd> close</span>
+                        </div>
+                    </div>
+                }
+                else if (_query.Trim().Length < MinimumQueryLength)
+                {
+                    <div class="universal-search-overlay__empty universal-search-overlay__empty--small">
+                        <MudIcon Icon="@Icons.Material.Outlined.ManageSearch" />
+                        <h2>Keep typing</h2>
+                        <p>Use at least two characters to search across your library.</p>
+                    </div>
+                }
+                else if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <div class="universal-search-overlay__empty universal-search-overlay__empty--small">
+                        <MudIcon Icon="@Icons.Material.Outlined.CloudOff" />
+                        <h2>Search could not be completed</h2>
+                        <p>Try again. Your query has been preserved.</p>
+                    </div>
+                }
+                else if (_response is not null && _response.TotalCount == 0 && !_loading)
+                {
+                    <div class="universal-search-overlay__empty universal-search-overlay__empty--small">
+                        <MudIcon Icon="@Icons.Material.Outlined.SearchOff" />
+                        <h2>No results for “@_query”</h2>
+                        <p>Check the spelling or try a title, creator, person, series, or collection.</p>
+                    </div>
+                }
+                else if (_response is not null)
+                {
+                    <UniversalSearchResults Response="@_response"
+                                            SelectedResult="@_selected"
+                                            SelectedResultChanged="OnSelectedChanged" />
+                    <div class="universal-search-overlay__view-all">
+                        <AppButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   EndIcon="@Icons.Material.Outlined.ArrowForward"
+                                   OnClick="ViewAllAsync">
+                            View all results for “@_query”
+                        </AppButton>
+                    </div>
+                }
+            </div>
+        </div>
+        </MudFocusTrap>
+    </div>
+}
+
+@code {
+    private const int MinimumQueryLength = 2;
+    private readonly List<string> _recentSearches = [];
+    private CancellationTokenSource? _searchCts;
+    private AppNativeInput _input = default!;
+    private UniversalSearchResponseDto? _response;
+    private UniversalSearchResultDto? _selected;
+    private string _query = string.Empty;
+    private string? _error;
+    private bool _loading;
+    private bool _open;
+    private bool _focusInput;
+
+    [Parameter] public EventCallback Closed { get; set; }
+
+    public void Open()
+    {
+        _open = true;
+        _focusInput = true;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_open && _focusInput)
+        {
+            _focusInput = false;
+            await _input.FocusAsync();
+        }
+    }
+
+    private void OnInput(ChangeEventArgs args)
+    {
+        _query = args.Value?.ToString() ?? string.Empty;
+        _ = DebouncedSearchAsync(_query);
+    }
+
+    private async Task DebouncedSearchAsync(string query)
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = new CancellationTokenSource();
+        var ct = _searchCts.Token;
+
+        if (query.Trim().Length < MinimumQueryLength)
+        {
+            _response = null;
+            _selected = null;
+            _error = null;
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Task.Delay(180, ct);
+            var response = await ApiClient.GetUniversalSearchAsync(query.Trim(), 36, ct);
+            if (ct.IsCancellationRequested)
+                return;
+
+            _response = response;
+            _selected = response?.TopResult;
+            _error = response is null ? ApiClient.LastError ?? "Search unavailable" : null;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _loading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async Task HandleOverlayKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            await CloseAsync();
+    }
+
+    private async Task HandleInputKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && _query.Trim().Length >= MinimumQueryLength)
+            await ViewAllAsync();
+        else if (args.Key == "Escape")
+            await CloseAsync();
+    }
+
+    private Task OnSelectedChanged(UniversalSearchResultDto? result)
+    {
+        _selected = result;
+        return Task.CompletedTask;
+    }
+
+    private Task ClearAsync()
+    {
+        _query = string.Empty;
+        _response = null;
+        _selected = null;
+        _error = null;
+        _searchCts?.Cancel();
+        _focusInput = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UseRecentAsync(string query)
+    {
+        _query = query;
+        _focusInput = true;
+        await DebouncedSearchAsync(query);
+    }
+
+    private Task ViewAllAsync()
+    {
+        RememberQuery();
+        var query = Uri.EscapeDataString(_query.Trim());
+        _open = false;
+        Nav.NavigateTo($"/search?q={query}");
+        return Task.CompletedTask;
+    }
+
+    private Task CloseAsync()
+    {
+        RememberQuery();
+        _open = false;
+        _searchCts?.Cancel();
+        return CloseAndRestoreAsync();
+    }
+
+    private async Task CloseAndRestoreAsync()
+    {
+        await InvokeAsync(StateHasChanged);
+        await Closed.InvokeAsync();
+    }
+
+    private void RememberQuery()
+    {
+        var query = _query.Trim();
+        if (query.Length < MinimumQueryLength)
+            return;
+
+        _recentSearches.RemoveAll(value => string.Equals(value, query, StringComparison.OrdinalIgnoreCase));
+        _recentSearches.Insert(0, query);
+        if (_recentSearches.Count > 5)
+            _recentSearches.RemoveRange(5, _recentSearches.Count - 5);
+    }
+
+    public void Dispose()
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+    }
+}

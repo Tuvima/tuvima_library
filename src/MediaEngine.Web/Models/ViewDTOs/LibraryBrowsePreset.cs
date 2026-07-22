@@ -13,7 +13,12 @@ public enum BrowseHeroVariant
     Listen,
 }
 
-public sealed record BrowseGroupingOption(string Value, string Label, string Icon);
+public sealed record BrowseGroupingOption(
+    string Value,
+    string Label,
+    string Icon,
+    bool Disabled = false,
+    string? Description = null);
 
 public sealed record BrowseTabPreset
 {
@@ -23,6 +28,7 @@ public sealed record BrowseTabPreset
     public IReadOnlyList<BrowseGroupingOption> GroupingOptions { get; init; } = [];
     public string DefaultGrouping { get; init; } = "all";
     public LibraryLayoutMode DefaultLayout { get; init; } = LibraryLayoutMode.Card;
+    public string YearSemantic { get; init; } = "Release / publication year";
 }
 
 public sealed record LibraryBrowsePreset

@@ -1484,6 +1484,44 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<UniversalSearchResponseDto?> GetUniversalSearchAsync(
+        string query,
+        int? limit = null,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+        {
+            return new UniversalSearchResponseDto(string.Empty, null, [], 0);
+        }
+
+        try
+        {
+            var values = new List<string>
+            {
+                $"q={Uri.EscapeDataString(query.Trim())}",
+            };
+            if (limit is > 0)
+            {
+                values.Add($"limit={Math.Clamp(limit.Value, 6, 80)}");
+            }
+
+            LastError = null;
+            return await _http.GetFromJsonAsync<UniversalSearchResponseDto>(
+                $"/api/v1/display/search?{string.Join("&", values)}",
+                ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "GET /api/v1/display/search failed");
+            return null;
+        }
+    }
+
     public async Task<DisplayPageDto?> GetDisplayContinueAsync(
         string? lane = null,
         string? mediaType = null,

@@ -1,0 +1,53 @@
+@using MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Browse
+
+<section class="app-timeline" aria-label="Timeline results">
+    <div class="app-timeline__header">
+        <div>
+            <span>Timeline view</span>
+            <small>@YearSemantic</small>
+        </div>
+        <div class="app-timeline__grouping" aria-label="Timeline grouping">
+            <span>Group by</span>
+            <strong>Year</strong>
+        </div>
+    </div>
+
+    <div class="app-timeline__rail" aria-hidden="true"></div>
+
+    <div class="app-timeline__groups">
+        @foreach (var group in Groups)
+        {
+            <section class="app-timeline__year" aria-labelledby="@($"timeline-{group.Key}")">
+                <header>
+                    <h3 id="@($"timeline-{group.Key}")">@DisplayYear(group.Key)</h3>
+                    <span>@CountLabel(group.Count())</span>
+                </header>
+                <MediaTileGrid Items="@group.ToList()"
+                               HoverMode="MediaTileHoverMode.GlowOnly"
+                               HideMediaKindBadges="true"
+                               HideSourceBadges="true"
+                               HideGroupIndicators="true"
+                               ShowCompactCaptions="true"
+                               TileSizePx="@TimelineTileSizePx"
+                               Class="app-timeline__grid" />
+            </section>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MediaTileViewModel> Items { get; set; } = [];
+    [Parameter] public int TileSizePx { get; set; } = 168;
+    [Parameter] public string YearSemantic { get; set; } = "Release / publication year";
+
+    private int TimelineTileSizePx => Math.Clamp((int)Math.Round(TileSizePx * 0.64), 92, 128);
+
+    private IEnumerable<IGrouping<int, MediaTileViewModel>> Groups => Items
+        .GroupBy(item => item.SortYear)
+        .OrderBy(group => group.Key == 0 ? int.MaxValue : group.Key);
+
+    private static string DisplayYear(int year) => year > 0 ? year.ToString() : "Unknown year";
+    private static string CountLabel(int count) => count == 1 ? "1 item" : $"{count} items";
+}

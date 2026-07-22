@@ -1,0 +1,32 @@
+@namespace MediaEngine.Web.Components.Browse
+
+<span class="app-quick-filter-host">
+    <AppNativeButton Type="button"
+                     Class="@RootClass"
+                     aria-pressed="@(Selected ? "true" : "false")"
+                     AriaLabel="@Label"
+                     OnClick="ToggleAsync">
+        <span class="app-quick-filter__indicator" aria-hidden="true"></span>
+        @if (!string.IsNullOrWhiteSpace(Icon))
+        {
+            <MudIcon Icon="@Icon" />
+        }
+        <span>@Label</span>
+        @if (Count is not null)
+        {
+            <span class="app-quick-filter__count">@Count</span>
+        }
+    </AppNativeButton>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public int? Count { get; set; }
+    [Parameter] public EventCallback<bool> SelectedChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private Task ToggleAsync() => SelectedChanged.InvokeAsync(!Selected);
+    private string RootClass => $"app-quick-filter {(Selected ? "is-selected" : string.Empty)} {Class}".Trim();
+}

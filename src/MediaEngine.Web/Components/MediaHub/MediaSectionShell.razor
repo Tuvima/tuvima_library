@@ -1,5 +1,7 @@
 @namespace MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
+@using Microsoft.AspNetCore.Components.Routing
+@implements IDisposable
 @inject NavigationManager Nav
 
 <div class="media-section-shell">
@@ -37,6 +39,14 @@
     [Parameter, EditorRequired] public IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups { get; set; } = [];
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
 
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) =>
+        _ = InvokeAsync(StateHasChanged);
+
     private Uri CurrentUri => Nav.ToAbsoluteUri(Nav.Uri);
 
     private bool IsActive(MediaSectionNavigationItem item)
@@ -72,4 +82,9 @@
 
     private static string GroupId(MediaSectionNavigationGroup group) =>
         $"media-section-{new string(group.Label.ToLowerInvariant().Select(character => char.IsLetterOrDigit(character) ? character : '-').ToArray()).Trim('-')}";
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
 }

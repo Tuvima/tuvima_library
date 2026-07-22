@@ -1,0 +1,178 @@
+@using MediaEngine.Contracts.Display
+@namespace MediaEngine.Web.Components.Search
+
+@if (Response is not null && Response.TopResult is not null)
+{
+    <div class="universal-results @(Compact ? "universal-results--compact" : null)">
+        <div class="universal-results__content">
+            <section class="universal-results__top" aria-labelledby="universal-top-result">
+                <span id="universal-top-result" class="universal-results__eyebrow">Top result</span>
+                <article class="universal-results__top-card"
+                         @onmouseenter="@(() => SelectAsync(Response.TopResult))">
+                    <a href="@Response.TopResult.DetailRoute"
+                       class="universal-results__top-art"
+                       @onfocus="@(() => SelectAsync(Response.TopResult))">
+                        @if (!string.IsNullOrWhiteSpace(Response.TopResult.ArtworkUrl))
+                        {
+                            <img src="@Response.TopResult.ArtworkUrl" alt="" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@IconFor(Response.TopResult)" />
+                        }
+                    </a>
+                    <div class="universal-results__top-copy">
+                        <span class="universal-results__type">@TypeLabel(Response.TopResult)</span>
+                        <h2>@Response.TopResult.Title</h2>
+                        @if (!string.IsNullOrWhiteSpace(Response.TopResult.Subtitle))
+                        {
+                            <p class="universal-results__creator">@Response.TopResult.Subtitle</p>
+                        }
+                        <div class="universal-results__facts">@FactLine(Response.TopResult)</div>
+                        @if (!Compact && !string.IsNullOrWhiteSpace(Response.TopResult.Description))
+                        {
+                            <p class="universal-results__description">@Response.TopResult.Description</p>
+                        }
+                    </div>
+                    <div class="universal-results__top-actions">
+                        <AppButton Href="@Response.TopResult.DetailRoute"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@PrimaryIcon(Response.TopResult)">
+                            @Response.TopResult.PrimaryActionLabel
+                        </AppButton>
+                        <AppButton Href="@Response.TopResult.DetailRoute"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Default">
+                            Open details
+                        </AppButton>
+                    </div>
+                </article>
+            </section>
+
+            @foreach (var resultSection in Response.Sections)
+            {
+                <section class="universal-results__section" aria-labelledby="@SectionId(resultSection)">
+                    <header>
+                        <h2 id="@SectionId(resultSection)">@resultSection.Title</h2>
+                        <a href="@resultSection.SeeAllRoute">See all</a>
+                    </header>
+                    <div class="universal-results__grid">
+                        @foreach (var result in resultSection.Results)
+                        {
+                            <a @key="@($"{result.EntityType}:{result.Id}")"
+                               href="@result.DetailRoute"
+                               class="universal-results__card @(IsSelected(result) ? "is-selected" : null)"
+                               @onfocus="@(() => SelectAsync(result))"
+                               @onmouseenter="@(() => SelectAsync(result))">
+                                <span class="universal-results__card-art">
+                                    @if (!string.IsNullOrWhiteSpace(result.ArtworkUrl))
+                                    {
+                                        <img src="@result.ArtworkUrl" alt="" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@IconFor(result)" />
+                                    }
+                                    <span class="universal-results__type">@TypeLabel(result)</span>
+                                </span>
+                                <strong>@result.Title</strong>
+                                @if (!string.IsNullOrWhiteSpace(result.Subtitle))
+                                {
+                                    <small>@result.Subtitle</small>
+                                }
+                            </a>
+                        }
+                    </div>
+                </section>
+            }
+        </div>
+
+        @if (!Compact && ActiveResult is not null)
+        {
+            <aside class="universal-results__preview" aria-label="Search result preview">
+                <AppNativeButton Type="button"
+                                 Class="universal-results__preview-close"
+                                 AriaLabel="Close preview"
+                                 OnClick="@(() => ClearSelectionAsync())">
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" />
+                </AppNativeButton>
+                <div class="universal-results__preview-art">
+                    @if (!string.IsNullOrWhiteSpace(ActiveResult.ArtworkUrl))
+                    {
+                        <img src="@ActiveResult.ArtworkUrl" alt="" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@IconFor(ActiveResult)" />
+                    }
+                </div>
+                <span class="universal-results__type">@TypeLabel(ActiveResult)</span>
+                <h2>@ActiveResult.Title</h2>
+                @if (!string.IsNullOrWhiteSpace(ActiveResult.Subtitle))
+                {
+                    <a class="universal-results__preview-creator" href="@ActiveResult.DetailRoute">@ActiveResult.Subtitle</a>
+                }
+                <div class="universal-results__facts">@FactLine(ActiveResult)</div>
+                <AppButton Href="@ActiveResult.DetailRoute"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           StartIcon="@PrimaryIcon(ActiveResult)">
+                    @ActiveResult.PrimaryActionLabel
+                </AppButton>
+                <AppButton Href="@ActiveResult.DetailRoute"
+                           Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           FullWidth="true">
+                    Open details
+                </AppButton>
+                @if (!string.IsNullOrWhiteSpace(ActiveResult.Description))
+                {
+                    <p class="universal-results__preview-description">@ActiveResult.Description</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(ActiveResult.MatchReason))
+                {
+                    <div class="universal-results__match">
+                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+                        <span>@ActiveResult.MatchReason</span>
+                    </div>
+                }
+            </aside>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public UniversalSearchResponseDto? Response { get; set; }
+    [Parameter] public UniversalSearchResultDto? SelectedResult { get; set; }
+    [Parameter] public EventCallback<UniversalSearchResultDto?> SelectedResultChanged { get; set; }
+    [Parameter] public bool Compact { get; set; }
+
+    private UniversalSearchResultDto? ActiveResult => SelectedResult ?? Response?.TopResult;
+
+    private Task SelectAsync(UniversalSearchResultDto result) => SelectedResultChanged.InvokeAsync(result);
+    private Task ClearSelectionAsync() => SelectedResultChanged.InvokeAsync(null);
+    private static string SectionId(UniversalSearchSectionDto item) => $"search-section-{item.Key}";
+    private bool IsSelected(UniversalSearchResultDto result) => ActiveResult?.Id == result.Id && ActiveResult.EntityType == result.EntityType;
+
+    private static string TypeLabel(UniversalSearchResultDto result) => result.EntityType.Replace('-', ' ').ToUpperInvariant();
+    private static string FactLine(UniversalSearchResultDto result) => string.Join("  •  ", result.Facts.Prepend(result.Year).Where(value => !string.IsNullOrWhiteSpace(value)));
+    private static string IconFor(UniversalSearchResultDto result) => result.MediaType switch
+    {
+        "Movie" => Icons.Material.Outlined.LocalMovies,
+        "TV" => Icons.Material.Outlined.LiveTv,
+        "Music" => Icons.Material.Outlined.Album,
+        "Audiobook" => Icons.Material.Outlined.Headphones,
+        "Comic" => Icons.Material.Outlined.AutoStories,
+        "Book" => Icons.Material.Outlined.MenuBook,
+        _ when result.EntityType == "person" => Icons.Material.Outlined.Person,
+        _ => Icons.Material.Outlined.CollectionsBookmark,
+    };
+    private static string PrimaryIcon(UniversalSearchResultDto result) => result.PrimaryActionLabel switch
+    {
+        "Play" or "Watch" or "Listen" => Icons.Material.Filled.PlayArrow,
+        "Read" => Icons.Material.Outlined.MenuBook,
+        _ => Icons.Material.Outlined.OpenInNew,
+    };
+}

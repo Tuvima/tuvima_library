@@ -76,7 +76,7 @@
         new("series", "Series", "/watch/series"),
     ];
 
-    private static readonly IReadOnlyList<MediaSectionNavigationGroup> WatchNavigationGroups =
+    private static IReadOnlyList<MediaSectionNavigationGroup> WatchNavigationGroups =>
     [
         new("Library",
         [
@@ -85,6 +85,7 @@
             new("TV Shows", "/watch/tv", Icons.Material.Outlined.LiveTv),
             new("Movie Series", "/watch/series", Icons.Material.Outlined.Collections),
         ]),
+        MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset),
         new("Watch next",
         [
             new("Continue Watching", "/watch/movies?status=in-progress", Icons.Material.Outlined.PlayCircle, Exact: true),
@@ -140,18 +141,30 @@
                 Label = "Movies",
                 MediaType = "Movies",
                 GroupingOptions =
-                [new("all", "All Movies", Icons.Material.Outlined.LocalMovies)],
+                [
+                    new("all", "Movies", Icons.Material.Outlined.LocalMovies),
+                    new("collections", "Collections", Icons.Material.Outlined.Collections),
+                    new("directors", "Directors", Icons.Material.Outlined.MovieFilter),
+                    new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
+                ],
                 DefaultGrouping = "all",
                 DefaultLayout = LibraryLayoutMode.Card,
+                YearSemantic = "Original release year",
             },
             new BrowseTabPreset
             {
                 Id = "tv",
                 Label = "TV",
                 MediaType = "TV",
-                GroupingOptions = [new("shows", "Shows", Icons.Material.Outlined.LiveTv)],
+                GroupingOptions =
+                [
+                    new("shows", "Shows", Icons.Material.Outlined.LiveTv),
+                    new("networks", "Networks", Icons.Material.Outlined.Podcasts),
+                    new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
+                ],
                 DefaultGrouping = "shows",
                 DefaultLayout = LibraryLayoutMode.Card,
+                YearSemantic = "Show premiere year",
             },
             new BrowseTabPreset
             {

@@ -1,0 +1,100 @@
+.app-timeline {
+    position: relative;
+    display: grid;
+    gap: 22px;
+    padding: 18px 0 30px;
+}
+
+.app-timeline__header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.app-timeline__header > div:first-child {
+    display: grid;
+    gap: 4px;
+}
+
+.app-timeline__header span {
+    color: #c4b5fd;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.app-timeline__header small {
+    color: var(--tl-text-muted);
+}
+
+.app-timeline__grouping {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 11px;
+    border: 1px solid rgba(128, 146, 180, 0.2);
+    border-radius: 8px;
+    background: rgba(8, 16, 31, 0.5);
+}
+
+.app-timeline__grouping strong {
+    color: var(--tl-text-primary);
+    font-size: 0.84rem;
+}
+
+.app-timeline__rail {
+    height: 2px;
+    margin: 0 10px;
+    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.64) 8%, rgba(139, 92, 246, 0.64) 92%, transparent);
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.22);
+}
+
+.app-timeline__groups {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: clamp(240px, 20vw, 300px);
+    gap: 12px;
+    overflow-x: auto;
+    padding: 0 0 10px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+}
+
+.app-timeline__year {
+    display: grid;
+    min-height: 280px;
+    align-content: start;
+    gap: 12px;
+    padding: 15px;
+    border: 1px solid rgba(128, 146, 180, 0.14);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(15, 25, 42, 0.72), rgba(8, 15, 28, 0.4));
+    scroll-snap-align: start;
+}
+
+.app-timeline__year header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.app-timeline__year h3 {
+    margin: 0;
+    color: #c4b5fd;
+    font-family: var(--font-display, var(--font-ui));
+    font-size: 1.22rem;
+}
+
+.app-timeline__year header span {
+    color: var(--tl-text-muted);
+    font-size: 0.78rem;
+}
+
+@media (max-width: 720px) {
+    .app-timeline__header {
+        align-items: start;
+        flex-direction: column;
+    }
+}

@@ -158,6 +158,15 @@ public sealed class SearchResultDto
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("rating")]
+    public string? Rating { get; init; }
 }
 
 

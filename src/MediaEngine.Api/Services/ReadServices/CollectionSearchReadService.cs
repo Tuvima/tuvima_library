@@ -51,7 +51,7 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                     COALESCE(
                         c.display_name,
                         collection_title.value,
-                        substr(COALESCE(w.collection_id, w.id), 1, 8)
+                        substr(lower(hex(COALESCE(w.collection_id, w.id))), 1, 8)
                     ) AS CollectionDisplayName,
                     COALESCE(
                         series_asset.value,
@@ -81,6 +81,18 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                         cover_work.value,
                         cover_url_work.value
                     ) AS CoverUrl,
+                    COALESCE(
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('original_publication_year','publication_year','release_year','premiere_year','album_release_year','year') ORDER BY CASE key WHEN 'original_publication_year' THEN 0 WHEN 'release_year' THEN 1 WHEN 'premiere_year' THEN 2 WHEN 'album_release_year' THEN 3 ELSE 4 END LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('original_publication_year','publication_year','release_year','premiere_year','album_release_year','year') ORDER BY CASE key WHEN 'original_publication_year' THEN 0 WHEN 'release_year' THEN 1 WHEN 'premiere_year' THEN 2 WHEN 'album_release_year' THEN 3 ELSE 4 END LIMIT 1)
+                    ) AS Year,
+                    COALESCE(
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'description' LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key = 'description' LIMIT 1)
+                    ) AS Description,
+                    COALESCE(
+                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'rating' LIMIT 1),
+                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'rating' LIMIT 1)
+                    ) AS Rating,
                     ROW_NUMBER() OVER (
                         PARTITION BY w.id
                         ORDER BY
@@ -149,7 +161,10 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                    ShowName,
                    SeasonNumber,
                    EpisodeNumber,
-                   CoverUrl
+                   CoverUrl,
+                   Year,
+                   Description,
+                   Rating
             FROM matched
             WHERE RowNumber = 1
             ORDER BY Title COLLATE NOCASE
@@ -170,20 +185,28 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
             SeasonNumber = row.SeasonNumber,
             EpisodeNumber = row.EpisodeNumber,
             CoverUrl = row.CoverUrl,
+            Year = row.Year,
+            Description = row.Description,
+            Rating = row.Rating,
         }).ToList();
     }
 
-    private sealed record CollectionSearchRow(
-        Guid WorkId,
-        Guid? CollectionId,
-        string? MediaType,
-        string Title,
-        string? Author,
-        string? CollectionDisplayName,
-        string? Series,
-        string? SeriesPosition,
-        string? ShowName,
-        string? SeasonNumber,
-        string? EpisodeNumber,
-        string? CoverUrl);
+    private sealed class CollectionSearchRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid? CollectionId { get; init; }
+        public string? MediaType { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public string? Author { get; init; }
+        public string? CollectionDisplayName { get; init; }
+        public string? Series { get; init; }
+        public string? SeriesPosition { get; init; }
+        public string? ShowName { get; init; }
+        public string? SeasonNumber { get; init; }
+        public string? EpisodeNumber { get; init; }
+        public string? CoverUrl { get; init; }
+        public string? Year { get; init; }
+        public string? Description { get; init; }
+        public string? Rating { get; init; }
+    }
 }

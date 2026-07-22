@@ -1,0 +1,31 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Browse
+
+<div class="app-browse-mode" role="tablist" aria-label="@AriaLabel">
+    @foreach (var option in Options)
+    {
+        var selected = string.Equals(Value, option.Value, StringComparison.OrdinalIgnoreCase);
+        <AppNativeButton Type="button"
+                         @key="option.Value"
+                         Class="@OptionClass(selected)"
+                         Disabled="@option.Disabled"
+                         role="tab"
+                         aria-selected="@(selected ? "true" : "false")"
+                         AriaLabel="@option.Label"
+                         Title="@option.Description"
+                         OnClick="@(() => SelectAsync(option.Value))">
+            <MudIcon Icon="@option.Icon" />
+            <span>@option.Label</span>
+        </AppNativeButton>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<BrowseGroupingOption> Options { get; set; } = [];
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string AriaLabel { get; set; } = "Browse as";
+
+    private Task SelectAsync(string value) => ValueChanged.InvokeAsync(value);
+    private static string OptionClass(bool selected) => $"app-browse-mode__option {(selected ? "is-selected" : string.Empty)}";
+}

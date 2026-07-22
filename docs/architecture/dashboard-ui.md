@@ -21,12 +21,12 @@ The Dashboard is organized around discovery and media use, not a separate media 
 - MudBlazor providers.
 - Brand/logo placement.
 - Primary navigation.
-- A global Search icon in the top-right action group that opens the dedicated cross-library search page.
+- A global Search icon in the top-right action group that opens the instant cross-library search overlay without navigating away.
 - A profile-aware **My List** bookmark route backed by the saved/favorites collection.
 - A unified circular activity indicator for playback, ingestion, AI work, enrichment, and other durable operations; it becomes an idle check icon when no work is active.
 - The account menu, including profile switching, Settings, Help, conditional sign-out, and permission-gated Needs Review count.
 - Engine connection/degraded-state messaging.
-- Command palette host.
+- Universal search overlay host, including Ctrl+K, focus trapping, and focus restoration.
 - Persistent Listen now-playing bar.
 - Device context initialization.
 - Keyboard shortcut registration and unregister on disposal.
@@ -63,7 +63,15 @@ The landing carousel composes the same `DetailHeroContent` as item details, so t
 - `/settings/review` is the Review Queue.
 - `/settings` and `/settings/{Section}` are Settings/Admin.
 
-`LibraryBrowsePage` is the only landing page that composes `CinematicHeroCarousel`. `CinematicHeroSurface` remains the outer renderer for both the Home carousel and `DetailHero`, and both render identity/content through `DetailHeroContent`. `MediaLaneHeader` owns only the compact persistent `SurfaceNavigationBar` at the top of Read, Watch, and Listen browse surfaces; it does not repeat a lane title or description already expressed by global navigation. Read and Watch rails likewise begin directly with navigation groups instead of a redundant lane-name block. Desktop lane shells occupy the remaining viewport below global navigation, keep the rail anchored, and scroll only the adjacent content pane. `MediaHubPage` supplies the compact row-based Discover content beneath the lane menu, while `MediaBrowseShell` supplies the complete URL-backed filters beneath that navigation on direct scope routes. Search, searchable multi-select genres, creator/year facets, boolean filters, sorting, tile size, and layout share one elevated responsive surface with larger control typography; media types omit only controls that do not apply. Listen album and audiobook filters use the same visual contract with their lane-specific facets. Those scope tabs resolve real routes rather than filtering a subset of loaded shelves in memory. Collections is browse-first and does not render a hero.
+`LibraryBrowsePage` is the only landing page that composes `CinematicHeroCarousel`. `CinematicHeroSurface` remains the outer renderer for both the Home carousel and `DetailHero`, and both render identity/content through `DetailHeroContent`. `MediaLaneHeader` owns only the compact persistent `SurfaceNavigationBar` at the top of Read, Watch, and Listen browse surfaces; it does not repeat a lane title or description already expressed by global navigation. Read and Watch rails likewise begin directly with navigation groups instead of a redundant lane-name block. Desktop lane shells occupy the remaining viewport below global navigation, keep the rail anchored, and scroll only the adjacent content pane. `MediaHubPage` supplies the compact row-based Discover content beneath the lane menu, while `MediaBrowseShell` supplies the complete URL-backed filters beneath that navigation on direct scope routes. Scoped search occupies its own row. `AppBrowseModeSelector`, shared searchable multi-selects, `AppQuickFilterToggle`, `AppActiveFilterSummary`, and the right-aligned Display controls provide the same interaction hierarchy across lanes. `LibraryBrowsePreset` is the source for both toolbar modes and persistent-rail Browse as links. Query state is readable and URL-backed, and qualifying media are filtered before grouped author, series, collection, network, or timeline results are composed. Listen album and audiobook filters use the same visual contract with their lane-specific facets. Those scope tabs resolve real routes rather than filtering a subset of loaded shelves in memory. Collections is browse-first and does not render a hero.
+
+## Universal search
+
+The app shell owns `UniversalSearchOverlay`. Search and Ctrl+K open it over the existing route, with the page dimmed underneath. The overlay focuses its search field, traps focus, closes on Escape, and returns focus to the shell Search button. Each debounced query cancels the previous request, so an older response cannot replace newer text. Empty search shows recent local queries; Enter and **View all results** navigate to `/search?q=...`.
+
+`GET /api/v1/display/search` is the normalized, lightweight query boundary. `UniversalSearchReadService` combines the existing SQL-backed owned-work search with focused person and collection/playlist queries, ranks exact and prefix matches first, and returns `UniversalSearchResultDto` rather than full detail models. The contract carries stable identity, entity/media type, title, creator/subtitle, artwork, canonical year, description summary, action label, detail route, match reason, relevance, and compact preview facts. The UI renders the same `UniversalSearchResults` component in the overlay and dedicated page.
+
+The dedicated `/search` route keeps `q`, repeated `media`, `type`, `yearFrom`, `yearTo`, and `sort` in the URL. All-media results stay separated into relevance-ordered sections with a top result and right preview; selecting one media type produces a single scoped section. Section **See all** links transfer the query into the corresponding Read, Watch, or Listen route. Search is navigation-first and does not add a parallel editing workspace.
 
 Desktop individual-item `MediaTile` previews expand the tile's flex item inside its existing shelf row. The resting cover is replaced at the same vertical position, neighboring cards shift horizontally, and leaving the preview restores the row. Media previews must not be portaled into a fixed overlay host or drawn over cards in another shelf.
 

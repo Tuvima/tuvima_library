@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<input type="@Type"
+<input @ref="_element"
+       type="@Type"
        class="@Class"
        value="@Value"
        checked="@Checked"
@@ -17,6 +18,8 @@
        @attributes="AdditionalAttributes" />
 
 @code {
+    private ElementReference _element;
+
     [Parameter] public string? Type { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public object? Value { get; set; }
@@ -51,4 +54,6 @@
         if (ValueChanged.HasDelegate)
             await ValueChanged.InvokeAsync(args.Value);
     }
+
+    public ValueTask FocusAsync() => _element.FocusAsync();
 }

@@ -1,0 +1,47 @@
+.app-active-filter-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 0 0 2px;
+}
+
+.app-active-filter-summary ::deep .app-active-filter-summary__chip {
+    display: inline-flex;
+    min-height: 34px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 7px;
+    padding: 0 10px;
+    border: 1px solid rgba(139, 92, 246, 0.48);
+    border-radius: 8px;
+    background: rgba(91, 33, 182, 0.18);
+    color: rgba(231, 223, 255, 0.96);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.app-active-filter-summary ::deep .app-active-filter-summary__chip:hover,
+.app-active-filter-summary ::deep .app-active-filter-summary__chip:focus-visible {
+    border-color: rgba(196, 181, 253, 0.82);
+    background: rgba(109, 40, 217, 0.28);
+    outline: none;
+}
+
+.app-active-filter-summary ::deep .app-active-filter-summary__chip .mud-icon-root {
+    font-size: 0.95rem;
+}
+
+.app-active-filter-summary ::deep .app-active-filter-summary__clear {
+    min-height: 34px;
+    flex: 0 0 auto;
+    padding: 0 7px;
+    border: 0;
+    background: transparent;
+    color: #bda7ff;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}

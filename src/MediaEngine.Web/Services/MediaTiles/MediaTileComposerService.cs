@@ -311,6 +311,7 @@ public sealed class MediaTileComposerService
             ProgressPct = card.Progress?.Percent,
             ProgressLabel = card.Progress?.Label,
             Creator = card.Subtitle,
+            SortYear = card.SortYear,
             SortTimestamp = card.SortTimestamp,
             IsCollection = card.Flags.IsCollection,
             UseLandscapeGroupTile = useLandscapeGroupTile,

@@ -138,6 +138,12 @@ public interface IEngineApiClient
         string? status = null,
         string? year = null);
 
+    /// <summary>GET /api/v1/display/search - ranked universal search across local media and entities.</summary>
+    Task<UniversalSearchResponseDto?> GetUniversalSearchAsync(
+        string query,
+        int? limit = null,
+        CancellationToken ct = default);
+
     /// <summary>GET /api/v1/display/continue - compact in-progress cards for one lane and optional media type.</summary>
     Task<DisplayPageDto?> GetDisplayContinueAsync(
         string? lane = null,

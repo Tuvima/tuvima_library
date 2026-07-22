@@ -628,9 +628,11 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".audiobooks-toolbar"));
             Assert.Empty(cut.FindAll(".browse-shell--embedded"));
             Assert.Contains("Search audiobooks", cut.Markup);
-            Assert.Contains("All Audiobooks", cut.Markup);
+            Assert.Contains(">Audiobooks<", cut.Markup);
             Assert.Contains("Series", cut.Markup);
             Assert.Contains("Authors", cut.Markup);
+            Assert.Contains("Narrators", cut.Markup);
+            Assert.Contains("Timeline", cut.Markup);
             Assert.Contains("In Progress", cut.Markup);
             Assert.Contains("Unread", cut.Markup);
             Assert.Contains("Length", cut.Markup);
@@ -662,13 +664,13 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Series", cut.Markup);
         });
 
-        var seriesButton = cut.FindAll(".audiobooks-tab")
+        var seriesButton = cut.FindAll(".app-browse-mode__option")
             .Single(button => button.TextContent.Contains("Series", StringComparison.OrdinalIgnoreCase));
         seriesButton.Click();
 
         cut.WaitForAssertion(() =>
         {
-            Assert.EndsWith("/listen/audiobooks", navigationManager.Uri, StringComparison.OrdinalIgnoreCase);
+            Assert.EndsWith("/listen/audiobooks?browse=series", navigationManager.Uri, StringComparison.OrdinalIgnoreCase);
             Assert.Contains(">Series<", cut.Markup);
             Assert.Contains("No audiobook series match these filters.", cut.Markup);
         });
@@ -944,32 +946,46 @@ public sealed class UiShellRenderTests : TestContext
     {
         Services.AddSingleton<IEngineApiClient>(EngineApiClientStub.Create(stub =>
         {
-            stub.SetHandler(nameof(IEngineApiClient.SearchWorksAsync), _ => Task.FromResult(new List<SearchResultViewModel>
+            stub.SetHandler(nameof(IEngineApiClient.GetUniversalSearchAsync), _ =>
             {
-                new()
-                {
-                    WorkId = Guid.Parse("30000000-0000-0000-0000-000000000101"),
-                    CollectionId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
-                    Title = "Dune",
-                    Author = "Frank Herbert",
-                    MediaType = "Book",
-                    CollectionDisplayName = "Dune",
-                },
-            }));
+                var result = new MediaEngine.Contracts.Display.UniversalSearchResultDto(
+                    Guid.Parse("30000000-0000-0000-0000-000000000101"),
+                    "book",
+                    "Book",
+                    "Dune",
+                    "Frank Herbert",
+                    "Frank Herbert",
+                    "1965",
+                    null,
+                    null,
+                    "/book/30000000-0000-0000-0000-000000000101",
+                    "Read",
+                    "Exact title match",
+                    1);
+                return Task.FromResult<MediaEngine.Contracts.Display.UniversalSearchResponseDto?>(
+                    new("dune", result,
+                    [new("books", "Books", [result], 1, "/read/books?q=dune")], 1));
+            });
         }));
 
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter("q", "dune"));
 
-        var cut = RenderComponent<SearchPage>();
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<SearchPage>(1);
+            builder.CloseComponent();
+        });
 
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Dune", cut.Markup);
             Assert.Contains("Frank Herbert", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".search-results-list"));
-            Assert.NotEmpty(cut.FindAll(".search-result-row"));
-            Assert.NotEmpty(cut.FindAll(".mud-link"));
+            Assert.NotEmpty(cut.FindAll(".universal-results"));
+            Assert.NotEmpty(cut.FindAll(".universal-results__card"));
+            Assert.NotEmpty(cut.FindAll(".universal-results__preview"));
         });
     }
 

@@ -12,6 +12,7 @@
 @implements IAsyncDisposable
 
 @using MediaEngine.Web.Components.Listen
+@using MediaEngine.Web.Components.Search
 @using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Resources
@@ -24,7 +25,7 @@
 
 @if (!DeviceContext.IsFeatureDisabled("command_palette"))
 {
-    <CommandPalette @ref="_palette" />
+    <UniversalSearchOverlay @ref="_searchOverlay" Closed="RestoreSearchFocusAsync" />
 }
 
 <a class="skip-to-content" href="#main-content">@L["Layout_SkipToContent"]</a>
@@ -59,6 +60,7 @@
             <span class="layout-shell__search-action-slot">
                 <MudTooltip Text="@L["Nav_Search"]" Placement="Placement.Bottom">
                     <AppNativeButton Type="button"
+                                     @ref="_searchButton"
                                      Class="layout-shell__search-action"
                                      AriaLabel="@L["Nav_Search"]"
                                      OnClick="@(_ => OpenSearch())">
@@ -120,7 +122,8 @@
 <ListenNowPlayingBar />
 
 @code {
-    private CommandPalette? _palette;
+    private UniversalSearchOverlay? _searchOverlay;
+    private AppNativeButton? _searchButton;
     private string _avatarColor = "var(--tl-accent-primary)";
     private string? _avatarImageUrl;
     private string _avatarInitial = "?";
@@ -194,7 +197,7 @@
     }
 
     [JSInvokable]
-    public void OpenPalette() => _palette?.Open();
+    public void OpenPalette() => _searchOverlay?.Open();
 
     private void OnDeviceContextChanged()
     {
@@ -225,7 +228,13 @@
 
     private void OpenMyList() => Nav.NavigateTo("/my-list");
 
-    private void OpenSearch() => Nav.NavigateTo("/search");
+    private void OpenSearch() => _searchOverlay?.Open();
+
+    private async Task RestoreSearchFocusAsync()
+    {
+        if (_searchButton is not null)
+            await _searchButton.FocusAsync();
+    }
 
     private string GetNavLinkClass(string path) =>
         IsNavActive(path)

@@ -77,6 +77,7 @@ public sealed record DisplayCardDto(
     public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; init; } = [];
     public int? PreviewTotalCount { get; init; }
     public DisplayGroupSummaryDto? GroupSummary { get; init; }
+    public int SortYear { get; init; }
 }
 
 public sealed record DisplayCardBadgeDto(
