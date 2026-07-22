@@ -39,17 +39,28 @@
                     <p>@GroupStatusLabel</p>
                 </section>
             }
+
+            @if (ShowCompactCaption)
+            {
+                <section class="media-group-tile__embedded-identity" aria-hidden="true">
+                    <div>
+                        <h3>@Item.Title</h3>
+                        @if (Item.SortYear is >= 1800 and <= 2200)
+                        {
+                            <span class="media-group-tile__embedded-year">@Item.SortYear</span>
+                        }
+                        <span class="media-group-tile__embedded-count">
+                            <MudIcon Icon="@GroupKindIcon" />
+                            <span>@($"{ResolvedTotalCount} {GroupCountNoun}")</span>
+                        </span>
+                    </div>
+                    <span class="media-group-tile__open-cue">
+                        <span>Open @GroupActionNoun</span>
+                        <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
+                    </span>
+                </section>
+            }
         </a>
-        @if (ShowCompactCaption)
-        {
-            <div class="media-group-tile__caption" aria-hidden="true">
-                <span class="media-group-tile__caption-title" title="@Item.Title">@Item.Title</span>
-                @if (Item.SortYear is >= 1800 and <= 2200)
-                {
-                    <span class="media-group-tile__caption-year">@Item.SortYear</span>
-                }
-            </div>
-        }
     </article>
 </AppCssElement>
 
@@ -180,6 +191,8 @@
         MediaTilePresentation.AudiobookSeries => ResolvedTotalCount == 1 ? "audiobook" : "audiobooks",
         _ => ResolvedTotalCount == 1 ? "item" : "items",
     };
+
+    private string GroupActionNoun => IsSeries ? "Series" : "Collection";
 
     private IReadOnlyList<ArtworkStackItem> BuildRepresentativeItems()
     {

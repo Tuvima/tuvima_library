@@ -783,7 +783,6 @@ public sealed class CollectionBrowseReadService(
                 group => (IReadOnlyList<ContentGroupPreviewItemDto>)group
                     .OrderBy(row => ParseSequencePosition(row.Position))
                     .ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
-                    .Take(4)
                     .Select(row => new ContentGroupPreviewItemDto(
                         row.WorkId,
                         row.Title ?? "Untitled",

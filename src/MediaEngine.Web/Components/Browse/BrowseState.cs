@@ -9,6 +9,6 @@ public sealed record BrowseState(
     string SortBy,
     LibraryLayoutMode Layout,
     IReadOnlyList<string> Genres,
-    string Creator,
+    IReadOnlyList<string> Creators,
     string Status,
-    string Year);
+    IReadOnlyList<string> Years);

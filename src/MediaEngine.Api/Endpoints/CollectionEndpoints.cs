@@ -3601,7 +3601,7 @@ public static class CollectionEndpoints
 
                 return new ContentGroupDto
                 {
-                    CollectionId = CreateDeterministicSystemViewGroupId($"{mediaType}|{groupField}|{group.Key}"),
+                    CollectionId = SystemViewGroupIdentity.CreateId(preferred, mediaType, groupField),
                     RootWorkId = preferred.RootWorkId,
                     DisplayName = preferred.DisplayName.Trim(),
                     WikidataQid = preferred.WikidataQid,

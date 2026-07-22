@@ -41,6 +41,37 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
+    public async Task Browse_MatchesAnySelectedCreatorAndYear()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(first, "Book", "First", author: "A. Writer", year: "2024"),
+                Work(second, "Book", "Second", author: "B. Writer", year: "2022"),
+                Work(Guid.NewGuid(), "Book", "Third", author: "C. Writer", year: "2020"),
+            ],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync(
+            "read",
+            "Books",
+            "all",
+            null,
+            0,
+            48,
+            ct: default,
+            creator: "A. Writer,B. Writer",
+            year: "2024,2022");
+
+        Assert.Equal(2, page.TotalCount);
+        Assert.Contains(page.Catalog, card => card.WorkId == first);
+        Assert.Contains(page.Catalog, card => card.WorkId == second);
+        Assert.DoesNotContain(page.Catalog, card => card.Title == "Third");
+    }
+
+    [Fact]
     public async Task Browse_HidesProfileExcludedWorksFromCatalogAndJourneyShelves()
     {
         var visibleId = Guid.NewGuid();

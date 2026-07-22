@@ -34,6 +34,7 @@ public sealed class DetailComposerService
     private readonly DetailRecommendationService _recommendations;
     private readonly PlaybackCapabilitiesService? _playback;
     private readonly ILogger<DetailComposerService>? _logger;
+    private readonly ICollectionBrowseReadService? _collectionBrowse;
 
     public DetailComposerService(
         IDatabaseConnection db,
@@ -45,7 +46,8 @@ public sealed class DetailComposerService
         IPersonCreditReadService personCredits,
         DetailRecommendationService recommendations,
         PlaybackCapabilitiesService? playback = null,
-        ILogger<DetailComposerService>? logger = null)
+        ILogger<DetailComposerService>? logger = null,
+        ICollectionBrowseReadService? collectionBrowse = null)
     {
         _db = db;
         _libraryItems = libraryItems;
@@ -57,6 +59,7 @@ public sealed class DetailComposerService
         _recommendations = recommendations;
         _playback = playback;
         _logger = logger;
+        _collectionBrowse = collectionBrowse;
     }
 
     public async Task<DetailPageViewModel?> BuildAsync(
@@ -73,7 +76,8 @@ public sealed class DetailComposerService
         return entityType switch
         {
             DetailEntityType.Person or DetailEntityType.MusicArtist => await BuildPersonAsync(id, entityType, context, isAdminView, ct),
-            DetailEntityType.Collection or DetailEntityType.TvShow or DetailEntityType.MovieSeries or DetailEntityType.BookSeries
+            DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, favoriteWorkIds, profileId, ct),
+            DetailEntityType.Collection or DetailEntityType.TvShow or DetailEntityType.MovieSeries
                 or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(id, entityType, context, isAdminView, favoriteWorkIds, ct),
             DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, ct),
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, ct),
@@ -283,6 +287,150 @@ public sealed class DetailComposerService
             MediaGroups = mediaGroups,
             IdentityStatus = ResolveIdentityStatus(detail.WikidataQid, detail.Status, detail.Confidence),
             LibraryStatus = LibraryStatus.Owned,
+            IsAdminView = isAdminView,
+        };
+    }
+
+    private async Task<DetailPageViewModel?> BuildBookSeriesAsync(
+        Guid seriesId,
+        DetailPresentationContext context,
+        bool isAdminView,
+        IReadOnlySet<Guid> favoriteWorkIds,
+        Guid? profileId,
+        CancellationToken ct)
+    {
+        var canonicalSeries = await BuildCollectionAsync(
+            seriesId,
+            DetailEntityType.BookSeries,
+            context,
+            isAdminView,
+            favoriteWorkIds,
+            ct);
+        if (canonicalSeries is not null || _collectionBrowse is null)
+        {
+            return canonicalSeries;
+        }
+
+        var groups = await _collectionBrowse.GetSystemViewGroupsAsync("Books", "series", ct).ConfigureAwait(false);
+        var group = groups.FirstOrDefault(candidate =>
+            SystemViewGroupIdentity.CreateId(candidate, "Books", "series") == seriesId);
+        if (group is null || group.PreviewItems.Count == 0)
+        {
+            return null;
+        }
+
+        DetailPageViewModel? seedDetail = null;
+        foreach (var preview in group.PreviewItems)
+        {
+            seedDetail = await BuildWorkAsync(
+                preview.WorkId,
+                DetailEntityType.Book,
+                context,
+                isAdminView,
+                selectedContainerId: null,
+                favoriteWorkIds: favoriteWorkIds,
+                profileId: profileId,
+                ct: ct);
+            if (seedDetail is not null)
+            {
+                break;
+            }
+        }
+
+        if (seedDetail is null)
+        {
+            return null;
+        }
+
+        var placement = seedDetail.SequencePlacement;
+        var seriesTitle = FormatSequenceContainerTitle(placement?.ContainerTitle)
+            ?? FormatSequenceContainerTitle(group.DisplayName)
+            ?? group.DisplayName;
+        var ownedItems = group.PreviewItems
+            .DistinctBy(item => item.WorkId)
+            .Select(item => new MediaGroupingItemViewModel
+            {
+                Id = item.WorkId.ToString("D"),
+                EntityType = DetailEntityType.Book,
+                Title = item.Title,
+                ArtworkUrl = item.ImageUrl,
+                IsOwned = true,
+                Actions =
+                [
+                    new DetailAction
+                    {
+                        Key = "open",
+                        Label = "Open",
+                        Route = $"/book/{item.WorkId:D}?mode=read",
+                    },
+                ],
+            })
+            .ToList();
+        var knownItems = placement?.OrderedItems.Count ?? ownedItems.Count;
+        var hasMissingItems = placement?.OrderedItems.Any(item => !item.IsOwned) == true;
+        var description = placement?.ContainerDescription;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            description = ownedItems.Count == 1
+                ? $"1 book from {seriesTitle} is in your library."
+                : $"{ownedItems.Count} books from {seriesTitle} are in your library.";
+        }
+
+        return new DetailPageViewModel
+        {
+            Id = seriesId.ToString("D"),
+            EntityType = DetailEntityType.BookSeries,
+            PresentationContext = context,
+            Title = seriesTitle,
+            Subtitle = group.Creator ?? seedDetail.Facts?.Authors.FirstOrDefault(),
+            Tagline = knownItems > ownedItems.Count
+                ? $"{ownedItems.Count} of {knownItems} known entries owned"
+                : $"{ownedItems.Count} owned {(ownedItems.Count == 1 ? "book" : "books")}",
+            Description = description,
+            Facts = new DetailFactsViewModel
+            {
+                MediaKind = "Book Series",
+                Year = group.Year,
+                Genres = seedDetail.Facts?.Genres ?? [],
+                Authors = seedDetail.Facts?.Authors ?? [],
+                Series = seriesTitle,
+            },
+            Artwork = seedDetail.Artwork,
+            HeroBrand = seedDetail.HeroBrand,
+            SequencePlacement = placement,
+            Metadata =
+            [
+                new MetadataPill
+                {
+                    Label = $"{ownedItems.Count} owned",
+                    Kind = "count",
+                },
+            ],
+            PrimaryActions = seedDetail.PrimaryActions,
+            ContributorGroups = seedDetail.ContributorGroups,
+            PreviewContributors = seedDetail.PreviewContributors,
+            Tabs = BuildTabs(
+                DetailEntityType.BookSeries,
+                context,
+                isAdminView,
+                placement is not null,
+                hasUniverse: false,
+                hasChapters: false),
+            MediaGroups =
+            [
+                new MediaGroupingViewModel
+                {
+                    Key = "owned-books",
+                    Title = "Books in your library",
+                    Items = ownedItems,
+                    OwnedCount = ownedItems.Count,
+                    TotalCount = Math.Max(knownItems, ownedItems.Count),
+                    MissingCount = Math.Max(0, knownItems - ownedItems.Count),
+                    CompletionPercent = knownItems <= 0 ? 0 : ownedItems.Count * 100d / knownItems,
+                },
+            ],
+            IdentityStatus = seedDetail.IdentityStatus,
+            LibraryStatus = hasMissingItems ? LibraryStatus.PartiallyOwned : LibraryStatus.Owned,
             IsAdminView = isAdminView,
         };
     }

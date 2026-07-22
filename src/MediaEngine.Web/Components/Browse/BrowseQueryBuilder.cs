@@ -26,9 +26,9 @@ public static class BrowseQueryBuilder
             sortBy,
             layout,
             ParseList(query["genres"]),
-            query["creator"] ?? string.Empty,
+            ParseList(query["creator"]),
             query["status"] ?? string.Empty,
-            query["year"] ?? string.Empty);
+            ParseList(query["year"]));
     }
 
     public static string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab)

@@ -32,12 +32,12 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var state = BrowseQueryBuilder.Read(
             preset,
             "books",
-            "http://localhost/read/books?genres=Fantasy%2CMystery&creator=Silas%20Northwood&status=in-progress&year=2024");
+            "http://localhost/read/books?genres=Fantasy%2CMystery&creator=Silas%20Northwood%2CAda%20Vale&status=in-progress&year=2024%2C2023");
 
         Assert.Equal(["Fantasy", "Mystery"], state.Genres);
-        Assert.Equal("Silas Northwood", state.Creator);
+        Assert.Equal(["Silas Northwood", "Ada Vale"], state.Creators);
         Assert.Equal("in-progress", state.Status);
-        Assert.Equal("2024", state.Year);
+        Assert.Equal(["2024", "2023"], state.Years);
     }
 
     [Fact]
@@ -52,6 +52,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var sectionShell = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor");
         var sectionShellStyles = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor.css");
         var browseShell = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
+        var multiSelect = ReadSource("src/MediaEngine.Web/Components/Browse/BrowseMultiSelect.razor");
         var mediaShelf = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaShelf.razor");
 
         Assert.Contains("<MediaSectionShell", read, StringComparison.Ordinal);
@@ -82,10 +83,14 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("ShowTabNavigation=\"false\"", watch, StringComparison.Ordinal);
         Assert.Contains("GridHoverMode => MediaTileHoverMode.GlowOnly", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__filter-surface", browseShell, StringComparison.Ordinal);
-        Assert.Contains("browse-shell__genre-panel", browseShell, StringComparison.Ordinal);
+        Assert.Contains("<BrowseMultiSelect Label=\"Filters\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("Search genres...", browseShell, StringComparison.Ordinal);
-        Assert.Contains("All genres", browseShell, StringComparison.Ordinal);
-        Assert.Contains("SupportsFacetFilters => !IsContainerGrouping || (IsTvShowsGrouping && !UseListLayout)", browseShell, StringComparison.Ordinal);
+        Assert.Contains("Search years...", browseShell, StringComparison.Ordinal);
+        Assert.Contains("SelectedValuesChanged=\"OnCreatorsChanged\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("SelectedValuesChanged=\"OnYearsChanged\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("SupportsFacetFilters => HasSeriesToggle || !IsContainerGrouping", browseShell, StringComparison.Ordinal);
+        Assert.Contains("browse-multi-select__option", multiSelect, StringComparison.Ordinal);
+        Assert.DoesNotContain(".. IsSeriesOnly ? new[] { \"Series only\" }", browseShell, StringComparison.Ordinal);
         Assert.Contains("ShowCompactCaptions=\"true\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("HideGroupIndicators=\"true\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__tile-size", browseShell, StringComparison.Ordinal);

@@ -181,25 +181,41 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 14px 16px;
-    border: 1px solid rgba(116, 136, 173, 0.2);
-    border-radius: 12px;
-    background:
-        radial-gradient(circle at 16% 0%, rgba(79, 70, 229, 0.07), transparent 34%),
-        linear-gradient(180deg, rgba(12, 21, 39, 0.9), rgba(8, 15, 29, 0.88));
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.015);
+    gap: 16px;
+    padding: 4px 0 16px;
+    border-bottom: 1px solid rgba(128, 146, 180, 0.16);
 }
 
-.browse-shell__filter-grid {
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
-    flex-wrap: wrap;
+.browse-shell__filter-search-row {
     min-width: 0;
 }
 
-.browse-shell__filter-grid ::deep .app-field__label {
+.browse-shell__filter-lower-row {
+    display: flex;
+    align-items: stretch;
+    gap: clamp(18px, 2vw, 30px);
+    min-width: 0;
+    padding-top: 15px;
+    border-top: 1px solid rgba(128, 146, 180, 0.14);
+}
+
+.browse-shell__filter-controls {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 13px;
+}
+
+.browse-shell__filter-selects {
+    display: flex;
+    min-width: 0;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.browse-shell__filter-selects ::deep .app-field__label {
     margin: 0 0 5px 2px;
     color: rgba(215, 224, 240, 0.78);
     font-size: 0.88rem;
@@ -208,9 +224,9 @@
 }
 
 .browse-shell__search {
-    flex: 2 1 300px;
-    min-width: min(100%, 260px);
-    max-width: 390px;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
     margin: 0;
 }
 
@@ -223,9 +239,13 @@
 .browse-shell__search ::deep .mud-input-outlined,
 .browse-shell__facet-select ::deep .mud-input-outlined,
 .browse-shell__sort ::deep .mud-input-outlined {
-    min-height: 3.5rem;
-    border-radius: 9px;
-    background: rgba(8, 16, 31, 0.8);
+    min-height: 48px;
+    border-radius: 10px;
+    background: rgba(8, 16, 31, 0.68);
+}
+
+.browse-shell__search ::deep .mud-input-outlined {
+    min-height: 56px;
 }
 
 .browse-shell__search ::deep .mud-input-outlined-border,
@@ -250,6 +270,26 @@
 
 .browse-shell__search ::deep .mud-icon-root {
     font-size: 1.42rem;
+}
+
+.browse-shell__multi-select {
+    flex: 1 1 156px;
+    min-width: 140px;
+    max-width: 210px;
+}
+
+.browse-shell__multi-select--genres {
+    flex-basis: 150px;
+}
+
+.browse-shell__multi-select--creator {
+    flex-basis: 180px;
+    max-width: 230px;
+}
+
+.browse-shell__multi-select--year {
+    flex-basis: 132px;
+    max-width: 160px;
 }
 
 .browse-shell__genre-control {
@@ -441,11 +481,23 @@
     flex: 0 0 auto;
 }
 
+.browse-shell__toggle-row {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .browse-shell__filter-toggle {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 20px;
+    min-height: 42px;
+    padding: 0 14px;
+    border: 1px solid rgba(128, 146, 180, 0.25);
+    border-radius: 10px;
+    background: rgba(8, 16, 31, 0.5);
     color: rgba(234, 239, 248, 0.9);
     font-family: var(--font-ui);
     font-size: 0.92rem;
@@ -461,8 +513,13 @@
     accent-color: var(--tl-accent-primary);
 }
 
+.browse-shell__filter-toggle:has(input:checked) {
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 62%, rgba(128, 146, 180, 0.25));
+    background: color-mix(in srgb, var(--tl-accent-primary) 10%, rgba(8, 16, 31, 0.5));
+}
+
 .browse-shell__clear-filters {
-    align-self: flex-end;
+    align-self: center;
     min-height: 28px;
     padding: 0 3px;
     color: color-mix(in srgb, var(--tl-accent-primary) 68%, white);
@@ -472,6 +529,31 @@
     font-size: 0.87rem;
     font-weight: 600;
     cursor: pointer;
+}
+
+.browse-shell__display-controls {
+    display: grid;
+    min-width: 330px;
+    grid-template-columns: minmax(150px, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-content: start;
+    align-items: end;
+    gap: 10px 14px;
+    padding-left: clamp(18px, 2vw, 28px);
+    border-left: 1px solid rgba(128, 146, 180, 0.18);
+    flex: 0 1 390px;
+    margin-left: auto;
+}
+
+.browse-shell__display-label {
+    grid-column: 1 / -1;
+    color: rgba(215, 224, 240, 0.78);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
 }
 
 .browse-shell__result-summary {
@@ -747,6 +829,21 @@
     }
 }
 
+@media (max-width: 1180px) {
+    .browse-shell__filter-lower-row {
+        flex-wrap: wrap;
+    }
+
+    .browse-shell__display-controls {
+        width: min(100%, 430px);
+        min-width: 0;
+        padding: 14px 0 0;
+        border-top: 1px solid rgba(128, 146, 180, 0.14);
+        border-left: 0;
+        flex-basis: 100%;
+    }
+}
+
 @media (max-width: 900px) {
     .browse-shell {
         padding: 8px 12px 48px;
@@ -760,7 +857,7 @@
     }
 
     .browse-shell__filter-surface {
-        padding: 12px;
+        padding: 2px 0 14px;
     }
 
     .browse-shell__search {
@@ -769,11 +866,7 @@
         max-width: none;
     }
 
-    .browse-shell__genre-control {
-        flex: 1 1 136px;
-    }
-
-    .browse-shell__facet-select,
+    .browse-shell__multi-select,
     .browse-shell__sort {
         flex: 1 1 150px;
         min-width: 136px;
@@ -823,13 +916,11 @@
 }
 
 @media (max-width: 620px) {
-    .browse-shell__filter-grid {
+    .browse-shell__filter-selects {
         gap: 9px;
     }
 
-    .browse-shell__genre-control,
-    .browse-shell__facet-select,
-    .browse-shell__facet-select--year,
+    .browse-shell__multi-select,
     .browse-shell__sort,
     .browse-shell__tile-size,
     .browse-shell__layout-toggle {
@@ -838,12 +929,19 @@
         max-width: none;
     }
 
-    .browse-shell__toggle-stack {
+    .browse-shell__toggle-row {
         width: 100%;
-        grid-template-columns: repeat(2, minmax(0, max-content));
         justify-content: start;
         gap: 10px 18px;
         padding: 4px 2px;
+    }
+
+    .browse-shell__display-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .browse-shell__display-label {
+        grid-column: 1;
     }
 
     .browse-shell__layout-toggle ::deep .browse-shell__layout-button {

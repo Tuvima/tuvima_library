@@ -201,17 +201,21 @@ public sealed class DisplayComposerService
             });
         }
 
-        if (!string.IsNullOrWhiteSpace(creator))
+        var requestedCreators = DisplayMediaRules.SplitValues(creator);
+        if (requestedCreators.Count > 0)
         {
             filtered = filtered.Where(work =>
-                string.Equals(work.Author, creator, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(work.Artist, creator, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(work.Director, creator, StringComparison.OrdinalIgnoreCase));
+                requestedCreators.Any(requested =>
+                    string.Equals(work.Author, requested, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(work.Artist, requested, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(work.Director, requested, StringComparison.OrdinalIgnoreCase)));
         }
 
-        if (!string.IsNullOrWhiteSpace(year))
+        var requestedYears = DisplayMediaRules.SplitValues(year);
+        if (requestedYears.Count > 0)
         {
-            filtered = filtered.Where(work => string.Equals(work.Year, year, StringComparison.OrdinalIgnoreCase));
+            filtered = filtered.Where(work => requestedYears.Any(requested =>
+                string.Equals(work.Year, requested, StringComparison.OrdinalIgnoreCase)));
         }
 
         if (string.Equals(status, "in-progress", StringComparison.OrdinalIgnoreCase))

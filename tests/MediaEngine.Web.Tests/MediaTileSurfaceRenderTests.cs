@@ -308,6 +308,26 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaGroupTile_CompactBrowseIdentityStaysInsideTheGlowOnlyCard()
+    {
+        var group = CreateGroupTile();
+        var cut = RenderComponent<MediaGroupTile>(parameters => parameters
+            .Add(component => component.Item, group)
+            .Add(component => component.HoverMode, MediaTileHoverMode.GlowOnly)
+            .Add(component => component.ShowCompactCaption, true));
+
+        Assert.Equal("Foundation Series", cut.Find(".media-group-tile__embedded-identity h3").TextContent.Trim());
+        Assert.Contains("books", cut.Find(".media-group-tile__embedded-count").TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(cut.FindAll(".media-group-tile__open-cue"));
+        Assert.Empty(cut.FindAll(".media-group-tile__overlay"));
+        Assert.Empty(cut.FindAll(".media-group-tile__kind"));
+        Assert.Empty(cut.FindAll(".media-group-tile__caption"));
+
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
+        Assert.Contains("text-transform: uppercase", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MediaGroupTile_IsOneArtworkLedLinkWithCompactHoverSummary()
     {
         var group = CreateGroupTile();
