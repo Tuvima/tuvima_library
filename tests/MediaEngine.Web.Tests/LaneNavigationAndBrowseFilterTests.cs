@@ -95,9 +95,14 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("<AppQuickFilterToggle", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppActiveFilterSummary", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppTimelineResults", browseShell, StringComparison.Ordinal);
-        Assert.Contains("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", read, StringComparison.Ordinal);
-        Assert.Contains("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", watch, StringComparison.Ordinal);
+        Assert.DoesNotContain("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", read, StringComparison.Ordinal);
+        Assert.DoesNotContain("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", watch, StringComparison.Ordinal);
+        Assert.Contains("new(\"My List\", \"/my-list\"", read, StringComparison.Ordinal);
+        Assert.Contains("new(\"My List\", \"/my-list\"", watch, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Browse audiobooks\"", listen, StringComparison.Ordinal);
         Assert.Contains("browse-multi-select__option", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("ShowLabel=\"false\"", browseShell, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnClick=\"@context.ToggleAsync\"", multiSelect, StringComparison.Ordinal);
         Assert.DoesNotContain(".. IsSeriesOnly ? new[] { \"Series only\" }", browseShell, StringComparison.Ordinal);
         Assert.Contains("ShowCompactCaptions=\"true\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("HideGroupIndicators=\"true\"", browseShell, StringComparison.Ordinal);

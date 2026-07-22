@@ -961,7 +961,10 @@ public sealed class UiShellRenderTests : TestContext
                     "/book/30000000-0000-0000-0000-000000000101",
                     "Read",
                     "Exact title match",
-                    1);
+                    1)
+                {
+                    Facts = ["4.500000", "Dune Chronicles"],
+                };
                 return Task.FromResult<MediaEngine.Contracts.Display.UniversalSearchResponseDto?>(
                     new("dune", result,
                     [new("books", "Books", [result], 1, "/read/books?q=dune")], 1));
@@ -986,6 +989,10 @@ public sealed class UiShellRenderTests : TestContext
             Assert.NotEmpty(cut.FindAll(".universal-results"));
             Assert.NotEmpty(cut.FindAll(".universal-results__card"));
             Assert.NotEmpty(cut.FindAll(".universal-results__preview"));
+            Assert.NotEmpty(cut.FindAll(".universal-results__card-art.is-portrait"));
+            Assert.NotEmpty(cut.FindAll(".universal-results__preview-details"));
+            Assert.Contains("★ 4.5", cut.Markup);
+            Assert.Empty(cut.FindAll(".universal-results__preview-description"));
         });
     }
 

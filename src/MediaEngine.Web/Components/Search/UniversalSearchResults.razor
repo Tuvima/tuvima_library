@@ -10,7 +10,7 @@
                 <article class="universal-results__top-card"
                          @onmouseenter="@(() => SelectAsync(Response.TopResult))">
                     <a href="@Response.TopResult.DetailRoute"
-                       class="universal-results__top-art"
+                       class="@ArtworkClass("universal-results__top-art", Response.TopResult)"
                        @onfocus="@(() => SelectAsync(Response.TopResult))">
                         @if (!string.IsNullOrWhiteSpace(Response.TopResult.ArtworkUrl))
                         {
@@ -28,7 +28,7 @@
                         {
                             <p class="universal-results__creator">@Response.TopResult.Subtitle</p>
                         }
-                        <div class="universal-results__facts">@FactLine(Response.TopResult)</div>
+                        <div class="universal-results__facts">@FormattedFactLine(Response.TopResult)</div>
                         @if (!Compact && !string.IsNullOrWhiteSpace(Response.TopResult.Description))
                         {
                             <p class="universal-results__description">@Response.TopResult.Description</p>
@@ -65,7 +65,7 @@
                                class="universal-results__card @(IsSelected(result) ? "is-selected" : null)"
                                @onfocus="@(() => SelectAsync(result))"
                                @onmouseenter="@(() => SelectAsync(result))">
-                                <span class="universal-results__card-art">
+                                <span class="@ArtworkClass("universal-results__card-art", result)">
                                     @if (!string.IsNullOrWhiteSpace(result.ArtworkUrl))
                                     {
                                         <img src="@result.ArtworkUrl" alt="" loading="lazy" />
@@ -97,7 +97,7 @@
                                  OnClick="@(() => ClearSelectionAsync())">
                     <MudIcon Icon="@Icons.Material.Outlined.Close" />
                 </AppNativeButton>
-                <div class="universal-results__preview-art">
+                <div class="@ArtworkClass("universal-results__preview-art", ActiveResult)">
                     @if (!string.IsNullOrWhiteSpace(ActiveResult.ArtworkUrl))
                     {
                         <img src="@ActiveResult.ArtworkUrl" alt="" />
@@ -109,11 +109,20 @@
                 </div>
                 <span class="universal-results__type">@TypeLabel(ActiveResult)</span>
                 <h2>@ActiveResult.Title</h2>
-                @if (!string.IsNullOrWhiteSpace(ActiveResult.Subtitle))
+                @if (!string.IsNullOrWhiteSpace(ActiveResult.Subtitle)
+                    && !SameText(ActiveResult.Subtitle, ActiveResult.Creator))
                 {
                     <a class="universal-results__preview-creator" href="@ActiveResult.DetailRoute">@ActiveResult.Subtitle</a>
                 }
-                <div class="universal-results__facts">@FactLine(ActiveResult)</div>
+                <dl class="universal-results__preview-details">
+                    @foreach (var detail in PreviewDetails(ActiveResult))
+                    {
+                        <div>
+                            <dt>@detail.Label</dt>
+                            <dd>@detail.Value</dd>
+                        </div>
+                    }
+                </dl>
                 <AppButton Href="@ActiveResult.DetailRoute"
                            Variant="Variant.Filled"
                            Color="Color.Primary"
@@ -127,10 +136,6 @@
                            FullWidth="true">
                     Open details
                 </AppButton>
-                @if (!string.IsNullOrWhiteSpace(ActiveResult.Description))
-                {
-                    <p class="universal-results__preview-description">@ActiveResult.Description</p>
-                }
                 @if (!string.IsNullOrWhiteSpace(ActiveResult.MatchReason))
                 {
                     <div class="universal-results__match">
@@ -157,7 +162,96 @@
     private bool IsSelected(UniversalSearchResultDto result) => ActiveResult?.Id == result.Id && ActiveResult.EntityType == result.EntityType;
 
     private static string TypeLabel(UniversalSearchResultDto result) => result.EntityType.Replace('-', ' ').ToUpperInvariant();
-    private static string FactLine(UniversalSearchResultDto result) => string.Join("  •  ", result.Facts.Prepend(result.Year).Where(value => !string.IsNullOrWhiteSpace(value)));
+    private static string FormattedFactLine(UniversalSearchResultDto result) => string.Join(
+        "  •  ",
+        result.Facts
+            .Select(FormatFact)
+            .Prepend(result.Year)
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string ArtworkClass(string baseClass, UniversalSearchResultDto result) =>
+        $"{baseClass} {ArtworkShapeClass(result)}";
+
+    private static string ArtworkShapeClass(UniversalSearchResultDto result)
+    {
+        if (string.Equals(result.EntityType, "person", StringComparison.OrdinalIgnoreCase))
+        {
+            return "is-person";
+        }
+
+        return result.MediaType is "Book" or "Comic" or "Movie" or "TV" or "Audiobook"
+            ? "is-portrait"
+            : "is-square";
+    }
+
+    private static IReadOnlyList<PreviewDetail> PreviewDetails(UniversalSearchResultDto result)
+    {
+        var details = new List<PreviewDetail>();
+        AddDetail(details, "Year", result.Year);
+        AddDetail(details, CreatorLabel(result), result.Creator);
+
+        var rating = result.Facts.FirstOrDefault(value => TryParseRating(value, out _));
+        if (TryParseRating(rating, out var ratingValue))
+        {
+            AddDetail(details, "Rating", $"★ {ratingValue:0.#}");
+        }
+
+        foreach (var fact in result.Facts
+                     .Where(value => !TryParseRating(value, out _))
+                     .Where(value => !SameText(value, result.Year)
+                                     && !SameText(value, result.Creator)
+                                     && !SameText(value, result.Subtitle))
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .Take(2))
+        {
+            AddDetail(details, SupportingFactLabel(result), fact);
+        }
+
+        if (details.Count == 0 && !string.IsNullOrWhiteSpace(result.Subtitle))
+        {
+            AddDetail(details, "Details", result.Subtitle);
+        }
+
+        return details;
+    }
+
+    private static void AddDetail(ICollection<PreviewDetail> details, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            details.Add(new PreviewDetail(label, value.Trim()));
+        }
+    }
+
+    private static string CreatorLabel(UniversalSearchResultDto result) => result.MediaType switch
+    {
+        "Book" or "Comic" or "Audiobook" => "Author",
+        "Movie" => "Director",
+        "TV" => "Creator",
+        "Music" => "Artist",
+        _ => "Creator",
+    };
+
+    private static string SupportingFactLabel(UniversalSearchResultDto result) => result.EntityType switch
+    {
+        "person" => "Role",
+        "series" or "collection" or "playlist" => "Details",
+        _ => "Series",
+    };
+
+    private static string FormatFact(string value) =>
+        TryParseRating(value, out var rating) ? $"★ {rating:0.#}" : value;
+
+    private static bool TryParseRating(string? value, out double rating) =>
+        double.TryParse(
+            value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out rating)
+        && rating is > 0 and <= 10;
+
+    private static bool SameText(string? left, string? right) =>
+        string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
     private static string IconFor(UniversalSearchResultDto result) => result.MediaType switch
     {
         "Movie" => Icons.Material.Outlined.LocalMovies,
@@ -175,4 +269,6 @@
         "Read" => Icons.Material.Outlined.MenuBook,
         _ => Icons.Material.Outlined.OpenInNew,
     };
+
+    private sealed record PreviewDetail(string Label, string Value);
 }

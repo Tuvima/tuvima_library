@@ -82,10 +82,12 @@
             new("Books", "/read/books", Icons.Material.Outlined.MenuBook),
             new("Comics", "/read/comics", Icons.Material.Outlined.AutoStories),
         ]),
-        MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset),
         new("Reading",
         [
+            new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
             new("In Progress", "/read/books?status=in-progress", Icons.Material.Outlined.Timelapse, Exact: true),
+            new("Unread", "/read/books?status=not-started", Icons.Material.Outlined.MarkEmailUnread, Exact: true),
+            new("Recently Added", "/read/books?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
         ]),
     ];
 

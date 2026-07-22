@@ -123,11 +123,12 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task OwnedWorkSearch_MaterializesCanonicalSearchFactsFromGuidBlobStorage()
+    public async Task OwnedWorkSearch_MaterializesCanonicalFactsAndNormalizedCreatorFromGuidBlobStorage()
     {
         var workId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
         var assetId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
         using (var conn = _db.CreateConnection())
         using (var cmd = conn.CreateCommand())
         {
@@ -144,19 +145,25 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
                 INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
                 VALUES
                     ($assetId, 'title', 'Dune', $now),
-                    ($assetId, 'author', 'Frank Herbert', $now),
                     ($assetId, 'original_publication_year', '1965', $now),
                     ($assetId, 'description', 'A desert world and a dangerous inheritance.', $now),
                     ($assetId, 'rating', '4.8', $now);
+
+                INSERT INTO persons (id, name, created_at)
+                VALUES ($personId, 'Frank Herbert', $now);
+
+                INSERT INTO person_media_links (media_asset_id, person_id, role)
+                VALUES ($assetId, $personId, 'Author');
                 """;
             cmd.Parameters.AddWithValue("$workId", GuidSql.ToBlob(workId));
             cmd.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
             cmd.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            cmd.Parameters.AddWithValue("$personId", GuidSql.ToBlob(personId));
             cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
             cmd.ExecuteNonQuery();
         }
 
-        var results = await new CollectionSearchReadService(_db).SearchAsync("Dune", CancellationToken.None);
+        var results = await new CollectionSearchReadService(_db).SearchAsync("Frank Herbert", CancellationToken.None);
 
         var result = Assert.Single(results);
         Assert.Equal(workId, result.WorkId);

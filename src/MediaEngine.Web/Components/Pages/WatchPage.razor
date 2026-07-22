@@ -85,10 +85,11 @@
             new("TV Shows", "/watch/tv", Icons.Material.Outlined.LiveTv),
             new("Movie Series", "/watch/series", Icons.Material.Outlined.Collections),
         ]),
-        MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset),
         new("Watch next",
         [
+            new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
             new("Continue Watching", "/watch/movies?status=in-progress", Icons.Material.Outlined.PlayCircle, Exact: true),
+            new("Unwatched", "/watch/movies?status=not-started", Icons.Material.Outlined.VisibilityOff, Exact: true),
             new("Recently Added", "/watch/movies?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
         ]),
     ];

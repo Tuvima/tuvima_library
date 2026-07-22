@@ -136,6 +136,25 @@ public sealed class CollectionReadServicesTests : IDisposable
             });
     }
 
+    [Theory]
+    [InlineData("Books", "author", "Author", "Ursula K. Le Guin")]
+    [InlineData("Movies", "director", "Director", "Denis Villeneuve")]
+    public async Task SystemViewGroups_ResolveNormalizedPersonCredits(
+        string mediaType,
+        string groupField,
+        string role,
+        string personName)
+    {
+        var seeded = await SeedCreditedWorkAsync(mediaType, role, personName);
+
+        var groups = await _browse.GetSystemViewGroupsAsync(mediaType, groupField, CancellationToken.None);
+
+        var group = Assert.Single(groups);
+        Assert.Equal(personName, group.DisplayName);
+        Assert.Equal(personName, group.Creator);
+        Assert.Equal(seeded.WorkId, Assert.Single(group.PreviewItems).WorkId);
+    }
+
     [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
@@ -229,6 +248,45 @@ public sealed class CollectionReadServicesTests : IDisposable
                 Title = title,
                 Position = position,
                 CoverWidth = coverWidth.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Now = now,
+            });
+
+        return new SeededBook(workId, assetId);
+    }
+
+    private async Task<SeededBook> SeedCreditedWorkAsync(string mediaType, string role, string personName)
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        using var connection = _database.CreateConnection();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO works (id, media_type, work_kind) VALUES (@WorkId, @MediaType, 'standalone');
+            INSERT INTO editions (id, work_id, format_label) VALUES (@EditionId, @WorkId, 'Digital');
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+            VALUES (@AssetId, @EditionId, @ContentHash, @FilePath);
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
+                (@AssetId, 'title', @Title, @Now),
+                (@AssetId, 'year', '2026', @Now);
+            INSERT INTO persons (id, name, created_at) VALUES (@PersonId, @PersonName, @Now);
+            INSERT INTO person_media_links (media_asset_id, person_id, role)
+            VALUES (@AssetId, @PersonId, @Role);
+            """,
+            new
+            {
+                WorkId = workId,
+                MediaType = mediaType,
+                EditionId = editionId,
+                AssetId = assetId,
+                ContentHash = $"credit-{assetId:N}",
+                FilePath = $"C:/library/{assetId:N}.media",
+                Title = $"A {role} Credit",
+                PersonId = personId,
+                PersonName = personName,
+                Role = role,
                 Now = now,
             });
 

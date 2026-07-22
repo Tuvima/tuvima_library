@@ -41,6 +41,24 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                         'Work ' || substr(w.id, 1, 8)
                     ) AS Title,
                     COALESCE(
+                        (SELECT credited.name
+                         FROM person_media_links credit
+                         INNER JOIN persons credited ON credited.id = credit.person_id
+                         WHERE credit.media_asset_id = ma.id
+                           AND (
+                               (w.media_type IN ('Books', 'Book', 'Comics', 'Comic') AND lower(credit.role) = 'author')
+                               OR (w.media_type IN ('Movies', 'Movie', 'TV', 'Television') AND lower(credit.role) = 'director')
+                               OR (w.media_type IN ('Music', 'Audio') AND lower(credit.role) = 'performer')
+                               OR (w.media_type IN ('Audiobooks', 'Audiobook') AND lower(credit.role) IN ('author', 'narrator'))
+                           )
+                         ORDER BY CASE lower(credit.role)
+                                      WHEN 'author' THEN 0
+                                      WHEN 'director' THEN 0
+                                      WHEN 'performer' THEN 0
+                                      ELSE 1
+                                  END,
+                                  credited.name COLLATE NOCASE
+                         LIMIT 1),
                         author_asset.value,
                         artist_asset.value,
                         director_asset.value,
@@ -147,6 +165,13 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                           FROM canonical_values cv
                           WHERE cv.entity_id IN (ma.id, w.id, w.collection_id)
                             AND cv.value LIKE @like COLLATE NOCASE
+                      )
+                      OR EXISTS (
+                          SELECT 1
+                          FROM person_media_links credit
+                          INNER JOIN persons credited ON credited.id = credit.person_id
+                          WHERE credit.media_asset_id = ma.id
+                            AND credited.name LIKE @like COLLATE NOCASE
                       )
                   )
             )

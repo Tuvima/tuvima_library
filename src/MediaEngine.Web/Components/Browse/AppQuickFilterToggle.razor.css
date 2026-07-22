@@ -7,10 +7,10 @@
     min-height: 42px;
     align-items: center;
     gap: 8px;
-    padding: 0 13px;
-    border: 1px solid rgba(128, 146, 180, 0.25);
-    border-radius: 999px;
-    background: rgba(8, 16, 31, 0.52);
+    padding: 0 7px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
     color: rgba(234, 239, 248, 0.88);
     font: inherit;
     font-size: 0.88rem;
@@ -30,23 +30,43 @@
 }
 
 .app-quick-filter-host ::deep .app-quick-filter.is-selected {
-    border-color: rgba(167, 139, 250, 0.72);
-    background: rgba(91, 33, 182, 0.28);
+    border-color: rgba(167, 139, 250, 0.22);
+    background: rgba(91, 33, 182, 0.12);
     color: #f5f0ff;
 }
 
 .app-quick-filter__indicator {
+    position: relative;
+    width: 30px;
+    height: 17px;
+    flex: 0 0 30px;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    border-radius: 999px;
+    background: rgba(71, 85, 105, 0.5);
+    transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.app-quick-filter__indicator::after {
+    position: absolute;
+    top: 2px;
+    left: 2px;
     width: 11px;
     height: 11px;
-    border: 1px solid rgba(226, 232, 240, 0.72);
     border-radius: 50%;
-    background: transparent;
+    background: #f8fafc;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.34);
+    content: "";
+    transition: transform 140ms ease;
 }
 
 .app-quick-filter-host ::deep .app-quick-filter.is-selected .app-quick-filter__indicator {
     border-color: #c4b5fd;
     background: var(--tl-accent-primary);
     box-shadow: 0 0 8px rgba(139, 92, 246, 0.58);
+}
+
+.app-quick-filter-host ::deep .app-quick-filter.is-selected .app-quick-filter__indicator::after {
+    transform: translateX(13px);
 }
 
 .app-quick-filter__count {

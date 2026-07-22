@@ -71,7 +71,7 @@ public static class BrowseQueryBuilder
         grouping == "timeline"
             ? [("oldest", "Oldest first"), ("newest", "Newest first"), ("title", "Title A-Z")]
             : IsContainerGrouping(grouping)
-            ? [("featured", "Featured"), ("title", "A-Z"), ("newest", "Newest")]
+            ? [("featured", "Top"), ("title", "A-Z"), ("newest", "Newest")]
             : [("newest", "Newest"), ("title", "A-Z"), ("oldest", "Oldest"), ("creator", "Creator"), ("year", "Year")];
 
     public static bool IsContainerGrouping(string grouping) =>

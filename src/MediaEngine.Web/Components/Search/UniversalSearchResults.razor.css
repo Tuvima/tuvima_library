@@ -56,6 +56,19 @@
     border-radius: 9px;
 }
 
+.universal-results__top-art.is-portrait,
+.universal-results__card-art.is-portrait,
+.universal-results__preview-art.is-portrait {
+    aspect-ratio: 2 / 3;
+}
+
+.universal-results__top-art.is-person,
+.universal-results__card-art.is-person,
+.universal-results__preview-art.is-person {
+    aspect-ratio: 1;
+    border-radius: 50%;
+}
+
 .universal-results img {
     width: 100%;
     height: 100%;
@@ -80,8 +93,7 @@
 
 .universal-results__creator,
 .universal-results__facts,
-.universal-results__description,
-.universal-results__preview-description {
+.universal-results__description {
     color: var(--tl-text-secondary);
     font-size: 0.84rem;
 }
@@ -226,6 +238,11 @@
     border-radius: 9px;
 }
 
+.universal-results__preview-art.is-portrait {
+    width: min(100%, 238px);
+    justify-self: center;
+}
+
 .universal-results__preview h2 {
     font-size: 1.7rem;
 }
@@ -235,8 +252,38 @@
     text-decoration: none;
 }
 
-.universal-results__preview-description {
-    line-height: 1.65;
+.universal-results__preview-details {
+    display: grid;
+    gap: 0;
+    margin: 1px 0 2px;
+    border-top: 1px solid rgba(128, 146, 180, 0.16);
+    border-bottom: 1px solid rgba(128, 146, 180, 0.16);
+}
+
+.universal-results__preview-details > div {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.universal-results__preview-details > div + div {
+    border-top: 1px solid rgba(128, 146, 180, 0.1);
+}
+
+.universal-results__preview-details dt,
+.universal-results__preview-details dd {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.universal-results__preview-details dt {
+    color: var(--tl-text-muted);
+}
+
+.universal-results__preview-details dd {
+    color: var(--tl-text-secondary);
 }
 
 .universal-results__match {

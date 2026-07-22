@@ -418,23 +418,9 @@ public partial class ListenPage
     ];
 
     private IReadOnlyList<ListenNavigationItem> ListenYourLibraryItems =>
-        new[]
-        {
-            new ListenNavigationItem("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
-        }
-        .Concat(MusicBrowseOptions.Select(option => new ListenNavigationItem(
-            option.Label,
-            MusicBrowseRoute(option.Value),
-            option.Icon,
-            MusicBrowseCount(option.Value))))
-        .ToList();
-
-    private IReadOnlyList<ListenNavigationItem> ListenAudiobookBrowseItems =>
-        AudiobookBrowseOptions.Where(option => option.Value != "all").Select(option => new ListenNavigationItem(
-            option.Label,
-            AudiobookBrowseRoute(option.Value),
-            option.Icon,
-            AudiobookBrowseCount(option.Value))).ToList();
+    [
+        new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
+    ];
 
     private IReadOnlyList<ListenNavigationItem> ListenPinnedPlaylistItems =>
     [
@@ -2831,9 +2817,6 @@ public partial class ListenPage
             ? "audiobooks-tab is-active"
             : "audiobooks-tab";
 
-    private static string AudiobookFilterClass(bool active)
-        => active ? "audiobooks-filter is-active" : "audiobooks-filter";
-
     private string AudiobookLayoutToggleClass(LibraryLayoutMode mode)
         => _audiobookLayout == mode
             ? "audiobooks-layout-toggle__button is-active"
@@ -2900,18 +2883,18 @@ public partial class ListenPage
         }
     }
 
-    private void ToggleAudiobookInProgress()
+    private void SetAudiobookInProgress(bool selected)
     {
-        _audiobookInProgressOnly = !_audiobookInProgressOnly;
+        _audiobookInProgressOnly = selected;
         if (_audiobookInProgressOnly)
         {
             _audiobookUnreadOnly = false;
         }
     }
 
-    private void ToggleAudiobookUnread()
+    private void SetAudiobookUnread(bool selected)
     {
-        _audiobookUnreadOnly = !_audiobookUnreadOnly;
+        _audiobookUnreadOnly = selected;
         if (_audiobookUnreadOnly)
         {
             _audiobookInProgressOnly = false;

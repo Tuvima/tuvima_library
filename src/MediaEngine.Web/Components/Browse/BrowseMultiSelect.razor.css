@@ -6,6 +6,10 @@
     font-family: var(--font-ui);
 }
 
+.browse-multi-select--label-hidden {
+    grid-template-rows: 48px;
+}
+
 .browse-multi-select__label {
     margin-left: 2px;
     color: rgba(215, 224, 240, 0.78);
@@ -16,6 +20,13 @@
 
 ::deep .browse-multi-select__menu {
     width: 100%;
+}
+
+::deep .browse-multi-select__menu.mud-menu-activator {
+    display: block;
+    width: 100%;
+    border-radius: 10px;
+    outline: none;
 }
 
 ::deep .browse-multi-select__trigger {
@@ -38,8 +49,14 @@
 }
 
 ::deep .browse-multi-select__trigger:hover,
-::deep .browse-multi-select__trigger:focus-visible,
 ::deep .browse-multi-select__trigger.is-active {
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 68%, rgba(128, 146, 180, 0.3));
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.12);
+}
+
+::deep .browse-multi-select__menu.mud-menu-activator:hover .browse-multi-select__trigger,
+::deep .browse-multi-select__menu.mud-menu-activator:focus-visible .browse-multi-select__trigger {
     border-color: color-mix(in srgb, var(--tl-accent-primary) 68%, rgba(128, 146, 180, 0.3));
     outline: none;
     box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.12);

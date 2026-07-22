@@ -1,7 +1,10 @@
 @namespace MediaEngine.Web.Components.Browse
 
-<div class="browse-multi-select @Class">
-    <span class="browse-multi-select__label">@Label</span>
+<div class="@RootClass">
+    @if (ShowLabel)
+    {
+        <span class="browse-multi-select__label">@Label</span>
+    }
     <MudMenu Dense="true"
              Open="@_open"
              OpenChanged="OnOpenChanged"
@@ -10,16 +13,11 @@
              Class="browse-multi-select__menu"
              PopoverClass="browse-multi-select__popover">
         <ActivatorContent>
-            <AppNativeButton Type="button"
-                             Class="@TriggerClass"
-                             AriaLabel="@ResolvedAriaLabel"
-                             aria-haspopup="dialog"
-                             aria-expanded="@(_open ? "true" : "false")"
-                             OnClick="@context.ToggleAsync">
+            <span class="@TriggerClass" @onclick="@context.ToggleAsync">
                 <MudIcon Icon="@Icon" />
                 <span>@ButtonLabel</span>
                 <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="browse-multi-select__chevron" />
-            </AppNativeButton>
+            </span>
         </ActivatorContent>
         <ChildContent>
             <div class="browse-multi-select__panel"
@@ -83,8 +81,8 @@
     [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string ButtonLabel { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Icon { get; set; } = Icons.Material.Outlined.FilterList;
-    [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public bool ShowLabel { get; set; } = true;
     [Parameter] public bool Searchable { get; set; } = true;
     [Parameter] public string SearchPlaceholder { get; set; } = "Search...";
     [Parameter] public string AllLabel { get; set; } = "All";
@@ -106,15 +104,20 @@
     private string TriggerClass =>
         $"browse-multi-select__trigger {(SelectedValues.Count > 0 ? "is-active" : string.Empty)}";
 
-    private string ResolvedAriaLabel => AriaLabel
-        ?? (SelectedValues.Count == 0
-            ? ButtonLabel
-            : $"{ButtonLabel}, {SelectedValues.Count} selected");
+    private string RootClass =>
+        $"browse-multi-select {(ShowLabel ? string.Empty : "browse-multi-select--label-hidden")} {Class}".Trim();
 
     private static string OptionClass(bool selected) =>
         $"browse-multi-select__option {(selected ? "is-selected" : string.Empty)}";
 
-    private void OnOpenChanged(bool open) => _open = open;
+    private void OnOpenChanged(bool open)
+    {
+        _open = open;
+        if (!open)
+        {
+            _searchText = string.Empty;
+        }
+    }
 
     private void OnSearchChanged(ChangeEventArgs args) =>
         _searchText = args.Value?.ToString() ?? string.Empty;
@@ -130,7 +133,7 @@
         await SelectedValuesChanged.InvokeAsync(selected
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToList());
-        _open = true;
+        _open = false;
     }
 
     private async Task ClearAsync()
@@ -140,6 +143,6 @@
             await SelectedValuesChanged.InvokeAsync([]);
         }
 
-        _open = true;
+        _open = false;
     }
 }
