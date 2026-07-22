@@ -104,10 +104,10 @@
     gap: clamp(7px, 1.5cqw, 11px);
 }
 
-.media-group-tile__mark {
+.media-group-tile__headline ::deep .media-group-tile__mark {
     flex: 0 0 auto;
-    color: color-mix(in srgb, var(--media-group-accent) 78%, white);
-    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--media-group-accent) 55%, transparent));
+    color: color-mix(in srgb, var(--tl-status-warning) 82%, white);
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--tl-status-warning) 42%, transparent));
 }
 
 .media-group-tile__headline :deep(.mud-icon-root) {
@@ -129,24 +129,6 @@
     text-transform: uppercase;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
-}
-
-.media-group-tile__description {
-    min-height: 1.25em;
-    max-width: min(76cqw, 36rem);
-    margin: clamp(3px, 0.8cqw, 6px) 0 0 clamp(1.1rem, 3cqw, 1.55rem);
-    overflow: hidden;
-    color: rgba(205, 199, 235, 0.9);
-    font-size: clamp(0.66rem, 1.7cqw, 0.82rem);
-    line-height: 1.25;
-    opacity: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    transition: opacity 170ms ease;
-}
-
-.media-group-tile__description.is-empty {
-    visibility: hidden;
 }
 
 .media-group-tile__metadata {
@@ -225,8 +207,6 @@
     filter: brightness(1.02);
 }
 
-.media-group-tile.is-interactive .media-group-tile__surface:hover .media-group-tile__description,
-.media-group-tile.is-interactive .media-group-tile__surface:focus-visible .media-group-tile__description,
 .media-group-tile.is-interactive .media-group-tile__surface:hover .media-group-tile__open-cue,
 .media-group-tile.is-interactive .media-group-tile__surface:focus-visible .media-group-tile__open-cue {
     opacity: 1;
@@ -246,17 +226,12 @@
 }
 
 @container (max-width: 500px) {
-    .media-group-tile__description {
-        max-width: 70cqw;
-    }
-
     .media-group-tile__open-cue span:first-child {
         display: none;
     }
 }
 
 @container (max-width: 400px) {
-    .media-group-tile__description,
     .media-group-tile__open-cue {
         display: none;
     }
@@ -275,7 +250,6 @@
 }
 
 @media (hover: none), (pointer: coarse) {
-    .media-group-tile__description,
     .media-group-tile__open-cue {
         display: none;
     }
@@ -283,7 +257,6 @@
 
 @media (prefers-reduced-motion: reduce) {
     .media-group-tile__surface,
-    .media-group-tile__description,
     .media-group-tile__open-cue {
         transition: none;
     }

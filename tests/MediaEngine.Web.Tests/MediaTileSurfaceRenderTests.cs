@@ -351,7 +351,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Equal("Foundation Series", cut.Find(".media-group-tile__headline h3").TextContent.Trim());
         Assert.Equal("1951\u20131952", cut.Find(".media-group-tile__year").TextContent.Trim());
         Assert.Equal("2 books", cut.Find(".media-group-tile__media-count").GetAttribute("title"));
-        Assert.Equal("A classic science-fiction sequence about civilization and change.", cut.Find(".media-group-tile__description").TextContent.Trim());
+        Assert.DoesNotContain("A classic science-fiction sequence about civilization and change.", cut.Markup, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll(".media-group-tile__description"));
         Assert.Single(cut.FindAll(".media-group-tile__open-cue"));
         Assert.Empty(cut.FindAll(".media-group-tile__overlay"));
         Assert.Empty(cut.FindAll(".media-group-tile__kind"));
@@ -359,6 +360,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
         Assert.Contains("text-transform: uppercase", css, StringComparison.Ordinal);
+        Assert.Contains(".media-group-tile__headline ::deep .media-group-tile__mark", css, StringComparison.Ordinal);
+        Assert.Contains("var(--tl-status-warning)", css, StringComparison.Ordinal);
         Assert.Contains(".media-group-tile__artwork", css, StringComparison.Ordinal);
         Assert.Contains("inset: clamp(12px, 2.4cqw, 18px);", css, StringComparison.Ordinal);
     }
@@ -376,7 +379,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Single(cut.FindAll(".media-artwork-group-preview.is-cluster-layout"));
         Assert.Single(cut.FindAll("a.media-group-tile__surface"));
         Assert.Empty(cut.FindAll(".media-group-tile__base-copy"));
-        Assert.Single(cut.FindAll(".media-group-tile__description"));
+        Assert.Empty(cut.FindAll(".media-group-tile__description"));
         Assert.Empty(cut.FindAll(".media-group-tile__overview"));
         Assert.Empty(cut.FindAll(".media-artwork-group-preview.is-mosaic-layout"));
         Assert.Empty(cut.FindAll(".media-tile"));

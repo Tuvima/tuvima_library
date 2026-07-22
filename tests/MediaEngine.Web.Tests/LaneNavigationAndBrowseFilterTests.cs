@@ -52,7 +52,9 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var sectionShell = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor");
         var sectionShellStyles = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor.css");
         var browseShell = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
+        var browseShellStyles = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor.css");
         var multiSelect = ReadSource("src/MediaEngine.Web/Components/Browse/BrowseMultiSelect.razor");
+        var multiSelectStyles = ReadSource("src/MediaEngine.Web/Components/Browse/BrowseMultiSelect.razor.css");
         var mediaShelf = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaShelf.razor");
 
         Assert.Contains("<MediaSectionShell", read, StringComparison.Ordinal);
@@ -69,7 +71,10 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem)", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains(".media-section-shell__content", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains("overflow-y: auto", sectionShellStyles, StringComparison.Ordinal);
-        Assert.Contains("/watch/series", watch, StringComparison.Ordinal);
+        Assert.DoesNotContain("/watch/series", watch, StringComparison.Ordinal);
+        Assert.Contains("new(\"series\", \"Movie Series\"", watch, StringComparison.Ordinal);
+        Assert.DoesNotContain("new(\"collections\", \"Collections\"", watch, StringComparison.Ordinal);
+        Assert.DoesNotContain("new(\"Movie Series\",", watch, StringComparison.Ordinal);
         Assert.Contains("SupportsHero=\"false\"", read, StringComparison.Ordinal);
         Assert.Contains("SupportsHero=\"false\"", watch, StringComparison.Ordinal);
         Assert.Contains("SupportsHero=\"false\"", listen, StringComparison.Ordinal);
@@ -85,6 +90,12 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("ShowTabNavigation=\"false\"", watch, StringComparison.Ordinal);
         Assert.Contains("GridHoverMode => MediaTileHoverMode.GlowOnly", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__filter-surface", browseShell, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: max-content minmax(0, 1fr) max-content", browseShellStyles, StringComparison.Ordinal);
+        Assert.Contains(".browse-shell__control-group--filters", browseShellStyles, StringComparison.Ordinal);
+        Assert.Contains("border-left: 1px solid rgba(128, 146, 180, 0.2)", browseShellStyles, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 1680px)", browseShellStyles, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 1400px)", browseShellStyles, StringComparison.Ordinal);
+        Assert.Contains("font-size: 0.88rem", browseShellStyles, StringComparison.Ordinal);
         Assert.Contains("<BrowseMultiSelect Label=\"Filters\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("Search genres...", browseShell, StringComparison.Ordinal);
         Assert.Contains("Search years...", browseShell, StringComparison.Ordinal);
@@ -101,6 +112,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("new(\"My List\", \"/my-list\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Browse audiobooks\"", listen, StringComparison.Ordinal);
         Assert.Contains("browse-multi-select__option", multiSelect, StringComparison.Ordinal);
+        Assert.Contains(".browse-multi-select ::deep .mud-menu-activator", multiSelectStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 48px", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("ShowLabel=\"false\"", browseShell, StringComparison.Ordinal);
         Assert.DoesNotContain("OnClick=\"@context.ToggleAsync\"", multiSelect, StringComparison.Ordinal);
         Assert.DoesNotContain(".. IsSeriesOnly ? new[] { \"Series only\" }", browseShell, StringComparison.Ordinal);

@@ -35,10 +35,6 @@
                         <h3>@Item.Title</h3>
                     </div>
 
-                    <p class="media-group-tile__description @(string.IsNullOrWhiteSpace(HoverSummary) ? "is-empty" : null)">
-                        @HoverSummary
-                    </p>
-
                     <div class="media-group-tile__metadata">
                         @if (!string.IsNullOrWhiteSpace(YearLabel))
                         {
@@ -165,8 +161,6 @@
         }
     }
 
-    private string? HoverSummary => NormalizeDescription(Item.Description);
-
     private string GroupCountNoun => Item.Presentation switch
     {
         MediaTilePresentation.BookSeries => ResolvedTotalCount == 1 ? "book" : "books",
@@ -241,25 +235,6 @@
     }
 
     private static int? ValidYear(int? year) => year is >= 1000 and <= 9999 ? year : null;
-
-    private static string? NormalizeDescription(string? description)
-    {
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            return null;
-        }
-
-        var words = description.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        var summary = string.Join(' ', words.Take(24));
-        if (summary.Length > 150)
-        {
-            summary = summary[..150].TrimEnd();
-        }
-
-        return words.Length > 24 || summary.Length < string.Join(' ', words).Length
-            ? $"{summary}…"
-            : summary;
-    }
 
     private static string EscapeCssString(string value) =>
         value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);

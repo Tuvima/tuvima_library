@@ -64,7 +64,6 @@
     {
         "movies" => "movies",
         "tv" => "tv",
-        "series" => "series",
         _ => "all",
     };
 
@@ -73,7 +72,6 @@
         new("all", "Discover", "/watch"),
         new("movies", "Movies", "/watch/movies"),
         new("tv", "TV Shows", "/watch/tv"),
-        new("series", "Series", "/watch/series"),
     ];
 
     private static IReadOnlyList<MediaSectionNavigationGroup> WatchNavigationGroups =>
@@ -83,7 +81,6 @@
             new("Discover", "/watch", Icons.Material.Outlined.Explore, Exact: true),
             new("Movies", "/watch/movies", Icons.Material.Outlined.LocalMovies),
             new("TV Shows", "/watch/tv", Icons.Material.Outlined.LiveTv),
-            new("Movie Series", "/watch/series", Icons.Material.Outlined.Collections),
         ]),
         new("Watch next",
         [
@@ -144,7 +141,7 @@
                 GroupingOptions =
                 [
                     new("all", "Movies", Icons.Material.Outlined.LocalMovies),
-                    new("collections", "Collections", Icons.Material.Outlined.Collections),
+                    new("series", "Movie Series", Icons.Material.Outlined.Collections),
                     new("directors", "Directors", Icons.Material.Outlined.MovieFilter),
                     new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
                 ],
@@ -166,15 +163,6 @@
                 DefaultGrouping = "shows",
                 DefaultLayout = LibraryLayoutMode.Card,
                 YearSemantic = "Show premiere year",
-            },
-            new BrowseTabPreset
-            {
-                Id = "series",
-                Label = "Series",
-                MediaType = "Movies",
-                GroupingOptions = [new("series", "Movie Series", Icons.Material.Outlined.Collections)],
-                DefaultGrouping = "series",
-                DefaultLayout = LibraryLayoutMode.Card,
             },
         ],
     };

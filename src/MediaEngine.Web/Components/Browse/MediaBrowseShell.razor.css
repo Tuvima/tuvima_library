@@ -180,6 +180,10 @@
 .browse-shell__filter-surface {
     position: relative;
     display: flex;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     flex-direction: column;
     gap: 16px;
     padding: 4px 0 16px;
@@ -191,59 +195,66 @@
 }
 
 .browse-shell__filter-lower-row {
-    display: flex;
-    align-items: start;
-    gap: clamp(18px, 2vw, 30px);
+    display: grid;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    align-items: stretch;
+    gap: 0;
     padding-top: 15px;
     border-top: 1px solid rgba(128, 146, 180, 0.14);
-}
-
-.browse-shell__filter-controls {
-    display: flex;
-    min-width: 0;
-    flex: 1 1 auto;
-    align-items: start;
-    gap: clamp(14px, 1.4vw, 22px);
 }
 
 .browse-shell__control-group {
     display: grid;
     min-width: 0;
-    gap: 8px;
+    align-content: start;
+    gap: 10px;
+    padding: 0 clamp(18px, 1.45vw, 26px);
 }
 
 .browse-shell__control-group--browse {
-    flex: 0 1 220px;
+    min-width: max-content;
+    padding-left: 0;
 }
 
 .browse-shell__control-group--filters {
-    flex: 1 1 450px;
+    border-left: 1px solid rgba(128, 146, 180, 0.2);
+}
+
+.browse-shell__control-group--browse ::deep .app-browse-mode {
+    width: max-content;
+    max-width: none;
+    overflow: visible;
 }
 
 .browse-shell__control-group--browse ::deep .app-browse-mode__option {
-    gap: 0;
+    gap: 7px;
     min-height: 48px;
-    padding-inline: 6px;
-    font-size: 0.76rem;
+    padding-inline: 12px;
+    font-size: 0.88rem;
 }
 
 .browse-shell__control-group--browse ::deep .app-browse-mode__option .mud-icon-root {
-    display: none;
+    display: inline-block;
+    font-size: 1.05rem;
 }
 
 .browse-shell__filter-row {
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: clamp(14px, 1.2vw, 22px);
 }
 
 .browse-shell__control-label {
     color: rgba(215, 224, 240, 0.72);
-    font-size: 0.74rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.08em;
+    line-height: 1;
     text-transform: uppercase;
 }
 
@@ -251,8 +262,8 @@
     display: flex;
     min-width: 0;
     align-items: flex-end;
-    gap: 10px;
-    flex: 1 1 auto;
+    gap: 12px;
+    flex: 0 1 auto;
     flex-wrap: nowrap;
 }
 
@@ -314,25 +325,29 @@
 }
 
 .browse-shell__multi-select {
-    flex: 1 1 96px;
-    min-width: 76px;
-    max-width: 136px;
+    width: 140px;
+    min-width: 124px;
+    max-width: 168px;
+    flex: 1 1 140px;
 }
 
 .browse-shell__multi-select--genres {
-    flex-basis: 84px;
+    width: 132px;
+    flex-basis: 132px;
 }
 
 .browse-shell__multi-select--creator {
-    flex-basis: 108px;
-    min-width: 96px;
-    max-width: 146px;
+    width: 158px;
+    flex-basis: 158px;
+    min-width: 144px;
+    max-width: 184px;
 }
 
 .browse-shell__multi-select--year {
-    flex-basis: 88px;
-    min-width: 82px;
-    max-width: 110px;
+    width: 124px;
+    flex-basis: 124px;
+    min-width: 116px;
+    max-width: 142px;
 }
 
 .browse-shell__filter-selects ::deep .browse-multi-select__trigger > .mud-icon-root:first-child {
@@ -341,9 +356,9 @@
 
 .browse-shell__filter-selects ::deep .browse-multi-select__trigger {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 5px;
-    padding-inline: 9px;
-    font-size: 0.84rem;
+    gap: 7px;
+    padding-inline: 12px;
+    font-size: 0.92rem;
 }
 
 .browse-shell__genre-control {
@@ -537,22 +552,24 @@
 
 .browse-shell__toggle-row {
     display: flex;
-    min-height: 42px;
+    min-height: 48px;
     align-items: center;
-    gap: 3px;
+    justify-content: flex-end;
+    gap: 8px;
     flex: 0 0 auto;
     flex-wrap: nowrap;
 }
 
 .browse-shell__toggle-row ::deep .app-quick-filter {
-    gap: 6px;
-    padding-inline: 4px;
-    font-size: 0.78rem;
+    min-height: 48px;
+    gap: 8px;
+    padding-inline: 8px;
+    font-size: 0.9rem;
 }
 
 .browse-shell__toggle-row ::deep .app-quick-filter__indicator {
-    width: 28px;
-    flex-basis: 28px;
+    width: 32px;
+    flex-basis: 32px;
 }
 
 .browse-shell__filter-toggle {
@@ -599,24 +616,23 @@
 
 .browse-shell__display-controls {
     display: grid;
-    min-width: 300px;
-    grid-template-columns: minmax(128px, 1fr) 78px minmax(108px, 118px);
+    min-width: 416px;
+    grid-template-columns: minmax(148px, 164px) minmax(108px, 120px) minmax(128px, 140px);
     grid-template-rows: auto 48px;
     align-content: start;
     align-items: end;
     gap: 8px;
-    padding-left: clamp(18px, 2vw, 28px);
-    border-left: 1px solid rgba(128, 146, 180, 0.18);
-    flex: 0 1 318px;
-    margin-left: auto;
+    padding-left: clamp(18px, 1.45vw, 26px);
+    border-left: 1px solid rgba(128, 146, 180, 0.2);
+    justify-content: end;
 }
 
 .browse-shell__sort-label,
 .browse-shell__display-label {
     color: rgba(215, 224, 240, 0.78);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-size: 0.8rem;
+    font-weight: 700;
     letter-spacing: 0.08em;
     line-height: 1;
     text-transform: uppercase;
@@ -672,9 +688,8 @@
 }
 
 .browse-shell__sort {
-    width: auto;
-    min-width: 142px;
-    flex: 1 1 145px;
+    width: 100%;
+    min-width: 148px;
     max-width: none;
     margin: 0;
     grid-column: 1;
@@ -690,8 +705,8 @@
 
 .browse-shell__sort ::deep .mud-select-input {
     padding-right: 30px !important;
-    padding-left: 10px !important;
-    font-size: 0.8rem !important;
+    padding-left: 12px !important;
+    font-size: 0.9rem !important;
 }
 
 .browse-shell__sort ::deep .app-select .mud-input-control-input-container::after {
@@ -714,7 +729,7 @@
     padding: 0 3px;
     color: rgba(215, 224, 240, 0.78);
     font-family: var(--font-ui);
-    font-size: 0.86rem;
+    font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
     flex: 1 1 170px;
@@ -797,15 +812,15 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-width: 50px;
+    min-width: 58px;
     min-height: 42px;
-    padding: 0 0.4rem;
+    padding: 0 0.55rem;
     border: 0;
     border-radius: calc(var(--tl-radius-md) - 3px);
     background: transparent;
     color: var(--tl-text-secondary);
     font: inherit;
-    font-size: 0.76rem;
+    font-size: 0.84rem;
     font-weight: 700;
     cursor: pointer;
 }
@@ -922,18 +937,57 @@
     }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1680px) {
     .browse-shell__filter-lower-row {
-        flex-wrap: wrap;
+        grid-template-columns: max-content minmax(0, 1fr);
+    }
+
+    .browse-shell__filter-row {
+        align-items: flex-start;
+    }
+
+    .browse-shell__toggle-row {
+        justify-content: flex-start;
     }
 
     .browse-shell__display-controls {
-        width: min(100%, 430px);
+        width: 100%;
         min-width: 0;
+        grid-column: 1 / -1;
+        grid-template-columns: minmax(148px, 200px) minmax(140px, 1fr) minmax(128px, 140px);
+        justify-content: stretch;
         padding: 14px 0 0;
         border-top: 1px solid rgba(128, 146, 180, 0.14);
         border-left: 0;
-        flex-basis: 100%;
+    }
+}
+
+@media (max-width: 1400px) {
+    .browse-shell__filter-lower-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .browse-shell__control-group--browse {
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .browse-shell__control-group--browse ::deep .app-browse-mode {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    .browse-shell__control-group--filters {
+        margin-top: 14px;
+        padding: 14px 0 0;
+        border-top: 1px solid rgba(128, 146, 180, 0.14);
+        border-left: 0;
+    }
+}
+
+@media (max-width: 1180px) {
+    .browse-shell__filter-row {
+        flex-wrap: wrap;
     }
 }
 
@@ -951,15 +1005,6 @@
 
     .browse-shell__filter-surface {
         padding: 2px 0 14px;
-    }
-
-    .browse-shell__filter-controls {
-        flex-wrap: wrap;
-    }
-
-    .browse-shell__control-group--browse,
-    .browse-shell__control-group--filters {
-        flex-basis: 100%;
     }
 
     .browse-shell__search {
@@ -1046,10 +1091,32 @@
 
     .browse-shell__display-controls {
         grid-template-columns: 1fr;
+        grid-template-rows: auto 48px auto 48px 48px;
+    }
+
+    .browse-shell__sort-label {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .browse-shell__sort {
+        grid-column: 1;
+        grid-row: 2;
     }
 
     .browse-shell__display-label {
         grid-column: 1;
+        grid-row: 3;
+    }
+
+    .browse-shell__tile-size {
+        grid-column: 1;
+        grid-row: 4;
+    }
+
+    .browse-shell__layout-toggle {
+        grid-column: 1;
+        grid-row: 5;
     }
 
     .browse-shell__layout-toggle ::deep .browse-shell__layout-button {

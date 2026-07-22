@@ -68,78 +68,76 @@
                 </div>
 
                 <div class="browse-shell__filter-lower-row">
-                    <div class="browse-shell__filter-controls">
-                        <div class="browse-shell__control-group browse-shell__control-group--browse">
-                            <span class="browse-shell__control-label">Browse as</span>
-                            <AppBrowseModeSelector Options="@CurrentTab.GroupingOptions"
-                                                   Value="@_grouping"
-                                                   ValueChanged="SwitchGroupingAsync"
-                                                   AriaLabel="@($"Browse {CurrentTab.Label} as")" />
-                        </div>
+                    <div class="browse-shell__control-group browse-shell__control-group--browse">
+                        <span class="browse-shell__control-label">Browse as</span>
+                        <AppBrowseModeSelector Options="@CurrentTab.GroupingOptions"
+                                               Value="@_grouping"
+                                               ValueChanged="SwitchGroupingAsync"
+                                               AriaLabel="@($"Browse {CurrentTab.Label} as")" />
+                    </div>
 
-                        <div class="browse-shell__control-group browse-shell__control-group--filters">
-                            <span class="browse-shell__control-label">Filter by</span>
-                            <div class="browse-shell__filter-row">
-                                <div class="browse-shell__filter-selects">
-                                    @if (GenreFacets.Count > 0 && SupportsFacetFilters)
-                                    {
-                                        <BrowseMultiSelect Label="Filters"
-                                                           ButtonLabel="Genres"
-                                                           Icon="@Icons.Material.Outlined.LocalOffer"
-                                                           Options="GenreFacets"
-                                                           SelectedValues="SelectedGenres"
-                                                           SelectedValuesChanged="OnGenresChanged"
-                                                           SearchPlaceholder="Search genres..."
-                                                           AllLabel="All genres"
-                                                           AllHelpText="No genre filter applied"
-                                                           EmptyText="No matching genres"
-                                                           HelpText="Select one or more genres to filter results."
-                                                           ShowLabel="false"
-                                                           Class="browse-shell__multi-select browse-shell__multi-select--genres" />
-                                    }
-
-                                    @if (SupportsFacetFilters)
-                                    {
-                                        <BrowseMultiSelect Label="@CreatorFilterLabel"
-                                                           ButtonLabel="@AllCreatorLabel"
-                                                           Icon="@Icons.Material.Outlined.PersonOutline"
-                                                           Options="CreatorFacets"
-                                                           SelectedValues="SelectedCreators"
-                                                           SelectedValuesChanged="OnCreatorsChanged"
-                                                           SearchPlaceholder="@CreatorSearchPlaceholder"
-                                                           AllLabel="@AllCreatorLabel"
-                                                           AllHelpText="No creator filter applied"
-                                                           EmptyText="No matching creators"
-                                                           ShowLabel="false"
-                                                           Class="browse-shell__multi-select browse-shell__multi-select--creator" />
-
-                                        <BrowseMultiSelect Label="Year"
-                                                           ButtonLabel="All years"
-                                                           Icon="@Icons.Material.Outlined.CalendarMonth"
-                                                           Options="YearFacets"
-                                                           SelectedValues="SelectedYears"
-                                                           SelectedValuesChanged="OnYearsChanged"
-                                                           SearchPlaceholder="Search years..."
-                                                           AllLabel="All years"
-                                                           AllHelpText="No year filter applied"
-                                                           EmptyText="No matching years"
-                                                           ShowLabel="false"
-                                                           Class="browse-shell__multi-select browse-shell__multi-select--year" />
-                                    }
-                                </div>
+                    <div class="browse-shell__control-group browse-shell__control-group--filters">
+                        <span class="browse-shell__control-label">Filter by</span>
+                        <div class="browse-shell__filter-row">
+                            <div class="browse-shell__filter-selects">
+                                @if (GenreFacets.Count > 0 && SupportsFacetFilters)
+                                {
+                                    <BrowseMultiSelect Label="Filters"
+                                                       ButtonLabel="Genres"
+                                                       Icon="@Icons.Material.Outlined.LocalOffer"
+                                                       Options="GenreFacets"
+                                                       SelectedValues="SelectedGenres"
+                                                       SelectedValuesChanged="OnGenresChanged"
+                                                       SearchPlaceholder="Search genres..."
+                                                       AllLabel="All genres"
+                                                       AllHelpText="No genre filter applied"
+                                                       EmptyText="No matching genres"
+                                                       HelpText="Select one or more genres to filter results."
+                                                       ShowLabel="false"
+                                                       Class="browse-shell__multi-select browse-shell__multi-select--genres" />
+                                }
 
                                 @if (SupportsFacetFilters)
                                 {
-                                    <div class="browse-shell__toggle-row">
-                                        <AppQuickFilterToggle Label="In progress"
-                                                              Selected="@IsInProgressOnly"
-                                                              SelectedChanged="OnInProgressChanged" />
-                                        <AppQuickFilterToggle Label="@SecondaryQuickFilterLabel"
-                                                              Selected="@IsSecondaryQuickFilterSelected"
-                                                              SelectedChanged="OnSecondaryQuickFilterChanged" />
-                                    </div>
+                                    <BrowseMultiSelect Label="@CreatorFilterLabel"
+                                                       ButtonLabel="@AllCreatorLabel"
+                                                       Icon="@Icons.Material.Outlined.PersonOutline"
+                                                       Options="CreatorFacets"
+                                                       SelectedValues="SelectedCreators"
+                                                       SelectedValuesChanged="OnCreatorsChanged"
+                                                       SearchPlaceholder="@CreatorSearchPlaceholder"
+                                                       AllLabel="@AllCreatorLabel"
+                                                       AllHelpText="No creator filter applied"
+                                                       EmptyText="No matching creators"
+                                                       ShowLabel="false"
+                                                       Class="browse-shell__multi-select browse-shell__multi-select--creator" />
+
+                                    <BrowseMultiSelect Label="Year"
+                                                       ButtonLabel="All years"
+                                                       Icon="@Icons.Material.Outlined.CalendarMonth"
+                                                       Options="YearFacets"
+                                                       SelectedValues="SelectedYears"
+                                                       SelectedValuesChanged="OnYearsChanged"
+                                                       SearchPlaceholder="Search years..."
+                                                       AllLabel="All years"
+                                                       AllHelpText="No year filter applied"
+                                                       EmptyText="No matching years"
+                                                       ShowLabel="false"
+                                                       Class="browse-shell__multi-select browse-shell__multi-select--year" />
                                 }
                             </div>
+
+                            @if (SupportsFacetFilters)
+                            {
+                                <div class="browse-shell__toggle-row">
+                                    <AppQuickFilterToggle Label="In progress"
+                                                          Selected="@IsInProgressOnly"
+                                                          SelectedChanged="OnInProgressChanged" />
+                                    <AppQuickFilterToggle Label="@SecondaryQuickFilterLabel"
+                                                          Selected="@IsSecondaryQuickFilterSelected"
+                                                          SelectedChanged="OnSecondaryQuickFilterChanged" />
+                                </div>
+                            }
                         </div>
                     </div>
 
@@ -885,7 +883,6 @@
         {
             ("tv", "shows") => "tvSeries",
             ("movies", "series") => "movieSeries",
-            ("series", "series") => "movieSeries",
             ("books", "series") => "bookSeries",
             ("comics", "series") => "comicSeries",
             ("audiobooks", "series") => "audiobookSeries",
@@ -1397,7 +1394,6 @@
             ("tv", "shows") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
             ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
             ("movies", "collections") => $"/collection/{group.CollectionId:D}",
-            ("series", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
             ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("comics", "series") => $"/details/comicseries/{group.CollectionId:D}?context=comics",
