@@ -54,7 +54,7 @@
 
 .media-group-tile__artwork {
     position: absolute;
-    inset: clamp(12px, 2.4cqw, 18px) clamp(12px, 2.4cqw, 18px) clamp(108px, 20cqw, 132px);
+    inset: clamp(12px, 2.4cqw, 18px);
     z-index: 2;
     overflow: visible;
 }

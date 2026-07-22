@@ -359,6 +359,8 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/MediaTiles/MediaGroupTile.razor.css"));
         Assert.Contains("text-transform: uppercase", css, StringComparison.Ordinal);
+        Assert.Contains(".media-group-tile__artwork", css, StringComparison.Ordinal);
+        Assert.Contains("inset: clamp(12px, 2.4cqw, 18px);", css, StringComparison.Ordinal);
     }
 
     [Fact]
