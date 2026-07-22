@@ -201,6 +201,9 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
     [JsonPropertyName("artwork_palette")]
     public ArtworkPalette ArtworkPalette { get; init; } = ArtworkPalette.TuvimaDefault();
 
+    [JsonPropertyName("person")]
+    public CollectionCatalogPersonDto? Person { get; init; }
+
     public static CollectionManagementCatalogDto FromDomain(
         Collection collection,
         int itemCount,
@@ -209,7 +212,8 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
         CollectionMediaCounts mediaCounts,
         IReadOnlyList<CollectionArtworkItemDto>? artworkItems = null,
         ArtworkPalette? artworkPalette = null,
-        string? displayNameOverride = null)
+        string? displayNameOverride = null,
+        CollectionCatalogPersonDto? person = null)
     {
         var baseDto = FromDomain(collection, itemCount, activeProfile);
         var isGlobal = string.Equals(baseDto.Visibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase);
@@ -267,8 +271,24 @@ public sealed class CollectionManagementCatalogDto : ManagedCollectionDto
             CanToggleGlobal = canManageGlobal && !classification.IsSystem && CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType),
             ArtworkItems = artworkItems ?? [],
             ArtworkPalette = artworkPalette ?? ArtworkPalette.TuvimaDefault(),
+            Person = person,
         };
     }
+}
+
+public sealed class CollectionCatalogPersonDto
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("headshot_url")]
+    public string? HeadshotUrl { get; init; }
+
+    [JsonPropertyName("roles")]
+    public IReadOnlyList<string> Roles { get; init; } = [];
 }
 
 public sealed class CollectionArtworkItemDto

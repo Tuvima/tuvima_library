@@ -63,6 +63,14 @@ public enum MediaTileHoverMode
 
 public sealed record MediaTileMediaCountViewModel(string Icon, string Label, int Count);
 
+public sealed record MediaTilePersonViewModel
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string? ImageUrl { get; init; }
+    public IReadOnlyList<string> Roles { get; init; } = [];
+}
+
 public sealed record MediaTileGroupSummaryViewModel
 {
     public int OwnedCount { get; init; }
@@ -133,6 +141,7 @@ public sealed class MediaTileViewModel
     public double? ProgressPct { get; init; }
     public string? ProgressLabel { get; init; }
     public string? Creator { get; init; }
+    public MediaTilePersonViewModel? Person { get; init; }
     public string? CollectionKey { get; init; }
     public IReadOnlyList<string> Genres { get; init; } = [];
     public int SortYear { get; init; }

@@ -3,7 +3,7 @@
 @inject NavigationManager Nav
 
 <AppCssElement Tag="div" Css="@($"display: contents; {TileStyle}")">
-    <article class="media-group-tile @(AllowsHoverPresentation ? "is-interactive" : "is-static")" aria-label="@Item.Title">
+    <article class="media-group-tile @(AllowsHoverPresentation ? "is-interactive" : "is-static") @(HasPerson ? "has-person" : null)" aria-label="@Item.Title">
         <a class="media-group-tile__surface"
            href="@GroupNavigationUrl"
            aria-label="@AccessibleLabel"
@@ -28,12 +28,33 @@
                 </div>
             }
 
+            @if (HasPerson)
+            {
+                <div class="media-group-tile__person" aria-hidden="true">
+                    @if (!string.IsNullOrWhiteSpace(Item.Person!.ImageUrl))
+                    {
+                        <img src="@Item.Person.ImageUrl" alt="" />
+                    }
+                    else
+                    {
+                        <span class="media-group-tile__person-fallback">
+                            <MudIcon Icon="@Icons.Material.Outlined.Person" />
+                        </span>
+                    }
+                </div>
+            }
+
             <section class="media-group-tile__identity" aria-hidden="true">
                 <div class="media-group-tile__copy">
                     <div class="media-group-tile__headline">
                         <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Class="media-group-tile__mark" />
                         <h3>@Item.Title</h3>
                     </div>
+
+                    @if (!string.IsNullOrWhiteSpace(PersonContextLabel))
+                    {
+                        <div class="media-group-tile__person-context">@PersonContextLabel</div>
+                    }
 
                     <div class="media-group-tile__metadata">
                         @if (!string.IsNullOrWhiteSpace(YearLabel))
@@ -80,6 +101,7 @@
 
     private MediaTileHoverMode EffectiveHoverMode => HoverMode ?? Item.HoverMode;
     private bool AllowsHoverPresentation => EffectiveHoverMode != MediaTileHoverMode.None;
+    private bool HasPerson => Item.Person is not null;
     private int ResolvedTotalCount => Math.Max(Item.GroupSummary?.OwnedCount ?? Item.PreviewTotalCount ?? RepresentativeItems.Count, RepresentativeItems.Count);
 
     // The API orders series previews by progress and canonical position and already caps
@@ -103,6 +125,15 @@
         get
         {
             var details = new List<string> { $"Open {Item.Title}" };
+            if (Item.Person is not null)
+            {
+                details.Add($"person: {Item.Person.Name}");
+                if (Item.Person.Roles.Count > 0)
+                {
+                    details.Add(string.Join(", ", Item.Person.Roles));
+                }
+            }
+
             if (!string.IsNullOrWhiteSpace(YearLabel))
             {
                 details.Add(YearLabel);
@@ -143,8 +174,32 @@
         MediaTilePresentation.BookSeries or MediaTilePresentation.ComicSeries => Icons.Material.Outlined.AutoStories,
         MediaTilePresentation.MovieSeries => Icons.Material.Outlined.VideoLibrary,
         MediaTilePresentation.AudiobookSeries => Icons.Material.Outlined.Headphones,
+        _ when HasPerson => Icons.Material.Outlined.Person,
         _ => Icons.Material.Outlined.CollectionsBookmark,
     };
+
+    private string? PersonContextLabel
+    {
+        get
+        {
+            if (Item.Person is null)
+            {
+                return null;
+            }
+
+            var roles = Item.Person.Roles
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .ToList();
+            var roleLabel = roles.Count == 0 ? null : string.Join(" • ", roles);
+            return Item.Title.Contains(Item.Person.Name, StringComparison.OrdinalIgnoreCase)
+                ? roleLabel
+                : string.IsNullOrWhiteSpace(roleLabel)
+                    ? Item.Person.Name
+                    : $"{Item.Person.Name} • {roleLabel}";
+        }
+    }
 
     private string? YearLabel
     {
@@ -170,7 +225,7 @@
         _ => ResolvedTotalCount == 1 ? "item" : "items",
     };
 
-    private string GroupActionNoun => IsSeries ? "Series" : "Collection";
+    private string GroupActionNoun => HasPerson ? "Person" : IsSeries ? "Series" : "Collection";
 
     private IReadOnlyList<ArtworkStackItem> BuildRepresentativeItems()
     {

@@ -168,6 +168,8 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("SecondaryColor", dtoSource, StringComparison.Ordinal);
         Assert.Contains("AccentColor", dtoSource, StringComparison.Ordinal);
         Assert.Contains("ArtworkItems", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("CollectionCatalogPersonDto", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("[JsonPropertyName(\"person\")]", dtoSource, StringComparison.Ordinal);
         Assert.Contains("CanToggleGlobal", dtoSource, StringComparison.Ordinal);
         Assert.Contains("PrimaryLaneOverride", dtoSource, StringComparison.Ordinal);
         Assert.Contains("SystemLaneForKey(systemKey)", source, StringComparison.Ordinal);
@@ -187,6 +189,12 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains(".Count() >= 2", source, StringComparison.Ordinal);
         Assert.Contains("SelectMany(entry => entry.WorkIds)", source, StringComparison.Ordinal);
         Assert.Contains("ISeriesManifestRepository manifestRepo", source, StringComparison.Ordinal);
+        Assert.Contains("IPersonRepository personRepo", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveCatalogPersonAsync", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionRuleEvaluator.ParseRules(collection.RuleJson)", source, StringComparison.Ordinal);
+        Assert.Contains("FindByQidAsync(reference.LookupValue", source, StringComparison.Ordinal);
+        Assert.Contains("FindByNameAsync(reference.LookupValue", source, StringComparison.Ordinal);
+        Assert.Contains("ApiImageUrls.BuildPersonHeadshotUrl", source, StringComparison.Ordinal);
         Assert.Contains("HasKnownSeriesManifestAsync(collection, ct)", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogAggregation(collection) is null", source, StringComparison.Ordinal);
         Assert.DoesNotContain("collection:{NormalizeCatalogQid(collection.WikidataQid)}", source, StringComparison.Ordinal);

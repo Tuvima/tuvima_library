@@ -1,5 +1,6 @@
 using System.Globalization;
 using Dapper;
+using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Domain;
@@ -20,6 +21,7 @@ public sealed record CollectionItemReadResult(bool Found, bool Forbidden, List<C
 public sealed class CollectionCatalogReadService(
     ICollectionRepository collectionRepo,
     ISeriesManifestRepository manifestRepo,
+    IPersonRepository personRepo,
     IArtworkPaletteService artworkPaletteService,
     ICollectionMediaLookupReadService mediaLookupReadService,
     IDatabaseConnection db)
@@ -109,6 +111,9 @@ public sealed class CollectionCatalogReadService(
             }
 
             var artworkItems = await GetCollectionArtworkItemsAsync(workIds, 12, ct).ConfigureAwait(false);
+            var person = await ResolveCatalogPersonAsync(
+                entries.Select(entry => entry.Collection),
+                ct).ConfigureAwait(false);
             var artworkPalette = await artworkPaletteService.GeneratePaletteAsync(
                 artworkItems
                     .Select(item => new ArtworkPaletteSource
@@ -135,7 +140,8 @@ public sealed class CollectionCatalogReadService(
                 mediaCounts,
                 artworkItems,
                 artworkPalette,
-                entries.Count > 1 ? representative.Grouping?.Label : null));
+                entries.Count > 1 ? representative.Grouping?.Label : null,
+                person));
         }
 
         return dtos
@@ -318,6 +324,161 @@ public sealed class CollectionCatalogReadService(
             .ThenByDescending(entry => entry.ItemCount)
             .ThenBy(entry => entry.Collection.DisplayName, StringComparer.OrdinalIgnoreCase)
             .First();
+
+    private async Task<CollectionCatalogPersonDto?> ResolveCatalogPersonAsync(
+        IEnumerable<Collection> collections,
+        CancellationToken ct)
+    {
+        var references = collections
+            .SelectMany(GetCatalogPersonReferences)
+            .DistinctBy(reference => $"{reference.LookupKind}:{reference.LookupValue}", StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (references.Count == 0)
+        {
+            return null;
+        }
+
+        var resolved = new List<(Person Person, CatalogPersonReference Reference)>();
+        foreach (var reference in references)
+        {
+            var person = string.Equals(reference.LookupKind, "qid", StringComparison.OrdinalIgnoreCase)
+                ? await personRepo.FindByQidAsync(reference.LookupValue, ct).ConfigureAwait(false)
+                : await personRepo.FindByNameAsync(reference.LookupValue, ct).ConfigureAwait(false);
+            if (person is null)
+            {
+                return null;
+            }
+
+            resolved.Add((person, reference));
+        }
+
+        var people = resolved
+            .Select(result => result.Person)
+            .DistinctBy(person => person.Id)
+            .ToList();
+        if (people.Count != 1)
+        {
+            return null;
+        }
+
+        var selected = people[0];
+        var roles = resolved
+            .Select(result => result.Reference.Role)
+            .Concat(selected.Roles)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Select(role => NormalizePersonRole(role!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new CollectionCatalogPersonDto
+        {
+            Id = selected.Id,
+            Name = selected.Name,
+            HeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(
+                selected.Id,
+                selected.LocalHeadshotPath,
+                selected.HeadshotUrl),
+            Roles = roles,
+        };
+    }
+
+    private static IEnumerable<CatalogPersonReference> GetCatalogPersonReferences(Collection collection)
+    {
+        var foundExplicitReference = false;
+        foreach (var rule in CollectionRuleEvaluator.ParseRules(collection.RuleJson))
+        {
+            var field = rule.Field.Trim().ToLowerInvariant();
+            if (!IsExactPersonRule(rule, field))
+            {
+                continue;
+            }
+
+            var values = rule.GetEffectiveValues()
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (values.Count != 1)
+            {
+                continue;
+            }
+
+            foundExplicitReference = true;
+            yield return field == "person_qid"
+                ? new CatalogPersonReference("qid", values[0], null)
+                : new CatalogPersonReference("name", values[0], PersonRoleForRuleField(field));
+        }
+
+        if (!foundExplicitReference
+            && !string.IsNullOrWhiteSpace(collection.DisplayName)
+            && TryGetPersonCollectionRole(collection.CollectionType, out var collectionRole))
+        {
+            var personName = RemoveCollectionSuffix(collection.DisplayName);
+            if (!string.IsNullOrWhiteSpace(personName))
+            {
+                yield return new CatalogPersonReference("name", personName, collectionRole);
+            }
+        }
+    }
+
+    private static bool IsExactPersonRule(CollectionRulePredicate rule, string field)
+        => (string.Equals(rule.Op, "eq", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(rule.Op, "in", StringComparison.OrdinalIgnoreCase))
+            && (field == "person_qid" || PersonRoleForRuleField(field) is not null);
+
+    private static string? PersonRoleForRuleField(string field) => field switch
+    {
+        "author" => "Author",
+        "artist" => "Artist",
+        "director" => "Director",
+        "actor" => "Actor",
+        "narrator" => "Narrator",
+        "composer" => "Composer",
+        "illustrator" => "Illustrator",
+        "performer" => "Performer",
+        "creator" => "Creator",
+        "writer" => "Writer",
+        _ => null,
+    };
+
+    private static bool TryGetPersonCollectionRole(string collectionType, out string? role)
+    {
+        role = collectionType.Trim().ToLowerInvariant() switch
+        {
+            "author" => "Author",
+            "artist" => "Artist",
+            "director" => "Director",
+            "actor" => "Actor",
+            "narrator" => "Narrator",
+            "composer" => "Composer",
+            "illustrator" => "Illustrator",
+            "performer" => "Performer",
+            "creator" => "Creator",
+            "writer" => "Writer",
+            "person" => null,
+            _ => string.Empty,
+        };
+        return role != string.Empty;
+    }
+
+    private static string RemoveCollectionSuffix(string name)
+    {
+        const string suffix = " collection";
+        var trimmed = name.Trim();
+        return trimmed.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+            ? trimmed[..^suffix.Length].Trim()
+            : trimmed;
+    }
+
+    private static string NormalizePersonRole(string role)
+    {
+        var trimmed = role.Trim();
+        return trimmed.Length == 0
+            ? trimmed
+            : char.ToUpperInvariant(trimmed[0]) + trimmed[1..];
+    }
+
+    private sealed record CatalogPersonReference(string LookupKind, string LookupValue, string? Role);
 
     private static CollectionCatalogAggregation? GetCollectionCatalogAggregation(Collection collection)
     {

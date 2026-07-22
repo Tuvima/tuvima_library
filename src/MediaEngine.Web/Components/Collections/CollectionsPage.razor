@@ -219,6 +219,9 @@
 
     private static MediaTileViewModel ToMediaTile(CollectionManagementCatalogViewModel collection)
     {
+        var navigationUrl = collection.Person is null
+            ? $"/collection/{collection.Id:D}"
+            : $"/details/person/{collection.Person.Id:D}";
         var previewImages = collection.ArtworkItems
             .Select(item => MediaTileArtworkUrl.Sized(item.CoverUrl, "s"))
             .Where(url => !string.IsNullOrWhiteSpace(url))
@@ -277,11 +280,20 @@
             HoverImageUrl = primaryMedium,
             HoverImageSrcSet = BuildMediumSrcSet(primaryMedium),
             HeroBackgroundImageUrl = heroMedium,
-            NavigationUrl = $"/collection/{collection.Id:D}",
-            PrimaryNavigationUrl = $"/collection/{collection.Id:D}",
-            DetailsNavigationUrl = $"/collection/{collection.Id:D}",
+            NavigationUrl = navigationUrl,
+            PrimaryNavigationUrl = navigationUrl,
+            DetailsNavigationUrl = navigationUrl,
             PrimaryActionLabel = "Open",
             Creator = null,
+            Person = collection.Person is null
+                ? null
+                : new MediaTilePersonViewModel
+                {
+                    Id = collection.Person.Id,
+                    Name = collection.Person.Name,
+                    ImageUrl = collection.Person.HeadshotUrl,
+                    Roles = collection.Person.Roles,
+                },
             CollectionKey = collection.CollectionType,
             PreviewTotalCount = collection.ItemCount,
             SortYear = collection.LatestYear ?? collection.EarliestYear ?? 0,

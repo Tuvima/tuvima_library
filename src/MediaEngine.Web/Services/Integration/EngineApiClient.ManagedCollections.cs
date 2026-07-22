@@ -113,6 +113,9 @@ public sealed partial class EngineApiClient
         if (collection.SquareArtworkUrl is not null)
             collection.SquareArtworkUrl = AbsoluteUrl(collection.SquareArtworkUrl);
 
+        if (collection.Person?.HeadshotUrl is not null)
+            collection.Person.HeadshotUrl = AbsoluteUrl(collection.Person.HeadshotUrl);
+
         foreach (var artworkItem in collection.ArtworkItems)
         {
             if (artworkItem.CoverUrl is not null)

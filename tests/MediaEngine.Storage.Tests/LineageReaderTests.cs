@@ -213,6 +213,26 @@ public sealed class LineageReaderTests : IDisposable
         Assert.Contains(episodeWorkId, matches);
     }
 
+    [Fact]
+    public async Task CollectionRule_PersonQid_FollowsPersonMediaLinksToOwnedWork()
+    {
+        var (workId, _, assetId) = await BuildStandaloneWorkAsync("Movies");
+        var personRepo = new PersonRepository(_db);
+        var person = await personRepo.CreateAsync(new MediaEngine.Domain.Entities.Person
+        {
+            Id = Guid.NewGuid(),
+            Name = "Christopher Nolan",
+            WikidataQid = "Q25191",
+        });
+        await personRepo.LinkToMediaAssetAsync(assetId, person.Id, "Director");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var matches = evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "person_qid", Op = "eq", Value = "Q25191" }]);
+
+        Assert.Contains(workId, matches);
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     //  Helpers — schema-safe hierarchy builders
     // ────────────────────────────────────────────────────────────────────────

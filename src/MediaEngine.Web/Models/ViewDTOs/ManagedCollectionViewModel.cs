@@ -438,6 +438,9 @@ public sealed class CollectionManagementCatalogViewModel
     [JsonPropertyName("artwork_palette")]
     public ArtworkPalette ArtworkPalette { get; set; } = ArtworkPalette.TuvimaDefault();
 
+    [JsonPropertyName("person")]
+    public CollectionCatalogPersonViewModel? Person { get; set; }
+
     public string ArtworkUrl => SquareArtworkUrl ?? string.Empty;
 
     public string TypeLabel => CollectionType switch
@@ -465,6 +468,21 @@ public sealed class CollectionManagementCatalogViewModel
         string.Equals(Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
 
     public string StatusLabel => !IsEnabled ? "Disabled" : ItemCount == 0 ? "Empty" : "Active";
+}
+
+public sealed class CollectionCatalogPersonViewModel
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("headshot_url")]
+    public string? HeadshotUrl { get; set; }
+
+    [JsonPropertyName("roles")]
+    public List<string> Roles { get; set; } = [];
 }
 
 public sealed class CollectionArtworkItemViewModel

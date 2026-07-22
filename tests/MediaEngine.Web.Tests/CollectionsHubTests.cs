@@ -103,7 +103,13 @@ public sealed class CollectionsHubTests
         Assert.Contains("\"TV\", collection.TvCount", source, StringComparison.Ordinal);
         Assert.Contains("EarliestYear = collection.EarliestYear", source, StringComparison.Ordinal);
         Assert.Contains("LatestYear = collection.LatestYear", source, StringComparison.Ordinal);
-        Assert.Contains("PrimaryNavigationUrl = $\"/collection/{collection.Id:D}\"", source, StringComparison.Ordinal);
+        Assert.Contains("var navigationUrl = collection.Person is null", source, StringComparison.Ordinal);
+        Assert.Contains("$\"/details/person/{collection.Person.Id:D}\"", source, StringComparison.Ordinal);
+        Assert.Contains("PrimaryNavigationUrl = navigationUrl", source, StringComparison.Ordinal);
+        Assert.Contains("Person = collection.Person is null", source, StringComparison.Ordinal);
+        Assert.Contains("media-group-tile__person", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains("GroupActionNoun => HasPerson ? \"Person\"", groupTileSource, StringComparison.Ordinal);
+        Assert.Contains(".media-group-tile.has-person .media-group-tile__identity", groupTileStylesSource, StringComparison.Ordinal);
         Assert.DoesNotContain("READ COLLECTIONS", source, StringComparison.Ordinal);
         Assert.DoesNotContain("LISTEN COLLECTIONS", source, StringComparison.Ordinal);
         Assert.DoesNotContain("WATCH COLLECTIONS", source, StringComparison.Ordinal);

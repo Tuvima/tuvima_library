@@ -410,6 +410,60 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaGroupTile_PersonCollectionShowsPortraitAndOpensPersonDetail()
+    {
+        var personId = Guid.NewGuid();
+        var group = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "Ava DuVernay Collection",
+            MediaKind = "Collection",
+            Shape = MediaTileShape.Landscape,
+            Presentation = MediaTilePresentation.Default,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverMode = MediaTileHoverMode.Expanded,
+            NavigationUrl = $"/details/person/{personId:D}",
+            DetailsNavigationUrl = $"/details/person/{personId:D}",
+            IsCollection = true,
+            UseLandscapeGroupTile = true,
+            PreviewTotalCount = 2,
+            GroupSummary = new MediaTileGroupSummaryViewModel
+            {
+                OwnedCount = 2,
+                EarliestYear = 2014,
+                LatestYear = 2023,
+            },
+            MediaCounts = [new MediaTileMediaCountViewModel(MudBlazor.Icons.Material.Filled.Movie, "Movies", 2)],
+            Person = new MediaTilePersonViewModel
+            {
+                Id = personId,
+                Name = "Ava DuVernay",
+                ImageUrl = $"/persons/{personId:D}/headshot",
+                Roles = ["Director", "Producer"],
+            },
+            ArtworkStackItems =
+            [
+                new ArtworkStackItem { Id = "1", Title = "Selma", ImageUrl = "/covers/selma.jpg", MediaType = "Movie", Shape = ArtworkShape.Portrait },
+                new ArtworkStackItem { Id = "2", Title = "Origin", ImageUrl = "/covers/origin.jpg", MediaType = "Movie", Shape = ArtworkShape.Portrait },
+            ],
+        };
+
+        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
+
+        Assert.Contains("has-person", cut.Find("article.media-group-tile").ClassList);
+        Assert.Equal($"/persons/{personId:D}/headshot", cut.Find(".media-group-tile__person img").GetAttribute("src"));
+        Assert.Equal("Director • Producer", cut.Find(".media-group-tile__person-context").TextContent.Trim());
+        Assert.Equal("Open Person", cut.Find(".media-group-tile__open-cue").TextContent.Trim());
+        Assert.Equal($"/details/person/{personId:D}", cut.Find("a.media-group-tile__surface").GetAttribute("href"));
+        Assert.Equal(2, cut.FindAll(".media-artwork-group-preview__artwork").Count);
+
+        cut.Find("a.media-group-tile__surface").Click();
+        var nav = Services.GetRequiredService<NavigationManager>();
+        Assert.EndsWith($"/details/person/{personId:D}", nav.Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MediaGroupTile_MixedCollectionUsesRepresentativeMediaBreadthWithoutChangingSeriesOrder()
     {
         var collection = new MediaTileViewModel
