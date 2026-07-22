@@ -158,10 +158,34 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
 
         var grid = cut.Find(".media-tile-grid");
         Assert.Contains("is-size-controlled", grid.ClassList);
-        Assert.Contains("--media-grid-tile-size: 168px", grid.GetAttribute("style"), StringComparison.Ordinal);
+        Assert.Contains("media-tile-grid--size-168", grid.ClassList);
+        Assert.Null(grid.GetAttribute("style"));
         Assert.Equal("All of Us Strangers", cut.Find(".media-tile-caption__title").TextContent);
         Assert.Equal("2023", cut.Find(".media-tile-caption__year").TextContent);
         Assert.True(cut.FindComponent<MediaTile>().Instance.ShowCompactCaption);
+    }
+
+    [Fact]
+    public void MediaTileGrid_CanHideRedundantTvShowGroupIndicator()
+    {
+        var show = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "The Expanse",
+            MediaKind = "TV",
+            Shape = MediaTileShape.Portrait,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            IsCollection = true,
+            TileImageUrl = "/art/the-expanse.jpg",
+            NavigationUrl = "/watch/tv/the-expanse",
+        };
+
+        var cut = RenderComponent<MediaTileGrid>(parameters => parameters
+            .Add(component => component.Items, [show])
+            .Add(component => component.HideGroupIndicators, true));
+
+        Assert.Empty(cut.FindAll(".media-tile-group-indicators"));
+        Assert.True(cut.FindComponent<MediaTile>().Instance.HideGroupIndicators);
     }
 
     [Fact]

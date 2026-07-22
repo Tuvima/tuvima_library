@@ -1,6 +1,6 @@
 @namespace MediaEngine.Web.Components.MediaTiles
 
-<AppCssElement Tag="div" Class="@GridClass" Css="@GridStyle">
+<div class="@GridClass">
     @foreach (var item in Items)
     {
         @if (item.UseLandscapeGroupTile)
@@ -16,37 +16,27 @@
                        HoverMode="@HoverMode"
                        HideMediaKindBadge="@HideMediaKindBadges"
                        HideSourceBadge="@HideSourceBadges"
+                       HideGroupIndicators="@HideGroupIndicators"
                        ShowCompactCaption="@ShowCompactCaptions"
                        @key="item.Id" />
         }
     }
-</AppCssElement>
+</div>
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<MediaTileViewModel> Items { get; set; } = [];
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; } = MediaTileHoverMode.GlowOnly;
     [Parameter] public bool HideMediaKindBadges { get; set; }
     [Parameter] public bool HideSourceBadges { get; set; }
+    [Parameter] public bool HideGroupIndicators { get; set; }
     [Parameter] public bool ShowCompactCaptions { get; set; }
     [Parameter] public int? TileSizePx { get; set; }
     [Parameter] public string? Class { get; set; }
 
+    private int? ResolvedTileSizePx => TileSizePx is > 0
+        ? Math.Clamp((int)Math.Round(TileSizePx.Value / 8d, MidpointRounding.AwayFromZero) * 8, 96, 248)
+        : null;
+
     private string GridClass =>
-        $"media-tile-grid {(TileSizePx is > 0 ? "is-size-controlled" : string.Empty)} {Class}".Trim();
-
-    private string? GridStyle
-    {
-        get
-        {
-            if (TileSizePx is not > 0)
-            {
-                return null;
-            }
-
-            var tileSize = Math.Clamp(TileSizePx.Value, 88, 280);
-            var groupWidth = (tileSize * 3) + 40;
-            var groupHeight = (int)Math.Round(groupWidth * 0.52, MidpointRounding.AwayFromZero);
-            return $"--media-grid-tile-size: {tileSize}px; --media-grid-group-width: {groupWidth}px; --media-grid-group-height: {groupHeight}px;";
-        }
-    }
+        $"media-tile-grid {(ResolvedTileSizePx.HasValue ? $"is-size-controlled media-tile-grid--size-{ResolvedTileSizePx.Value}" : string.Empty)} {Class}".Trim();
 }

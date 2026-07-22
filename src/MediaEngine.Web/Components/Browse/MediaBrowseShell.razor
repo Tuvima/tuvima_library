@@ -53,82 +53,177 @@
                 </div>
             }
 
-            <div class="@ToolbarClass">
-                <AppTextField T="string"
-                              @bind-Value="_searchText"
-                              Placeholder="Search your library"
-                              Variant="Variant.Outlined"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Outlined.Search"
-                              Immediate="true"
-                              DebounceInterval="250"
-                              OnDebounceIntervalElapsed="OnSearchChanged"
-                              Class="browse-shell__search" />
+            <div class="browse-shell__filter-surface">
+                <div class="browse-shell__filter-grid">
+                    <AppTextField T="string"
+                                  @bind-Value="_searchText"
+                                  Placeholder="@SearchPlaceholder"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Outlined.Search"
+                                  Immediate="true"
+                                  DebounceInterval="250"
+                                  OnDebounceIntervalElapsed="OnSearchChanged"
+                                  Class="browse-shell__search" />
 
-                @if (GenreFacets.Count > 0 && !IsContainerGrouping)
-                {
-                    <div class="browse-shell__genres" aria-label="Filter by genre">
-                        <span class="browse-shell__filter-label">Genres</span>
-                        @foreach (var genre in GenreFacets.Take(8))
-                        {
-                            <AppNativeButton Type="button"
-                                             @key="genre"
-                                             Class="@GenreChipClass(genre)"
-                                             aria-pressed="@(_selectedGenres.Contains(genre) ? "true" : "false")"
-                                             OnClick="@(() => ToggleGenreAsync(genre))">
-                                @genre
-                                @if (_selectedGenres.Contains(genre))
-                                {
-                                    <MudIcon Icon="@Icons.Material.Outlined.Close" />
-                                }
-                            </AppNativeButton>
-                        }
-                    </div>
-                }
-
-                @if (HasSeriesToggle)
-                {
-                    <label class="browse-shell__filter-toggle">
-                        <AppNativeInput Type="checkbox"
-                                        Checked="@IsSeriesOnly"
-                                        OnChange="OnSeriesOnlyChanged" />
-                        <span>Series only</span>
-                    </label>
-                }
-                else if (CurrentTab.GroupingOptions.Count > 1)
-                {
-                    <div class="browse-shell__groupings" role="group" aria-label="@($"{CurrentTab.Label} grouping")">
-                        @foreach (var option in CurrentTab.GroupingOptions)
-                        {
-                            <AppNativeButton Type="button"
-                                             @key="option.Value"
-                                             Class="@GroupingChipClass(option.Value)"
-                                             AriaLabel="@option.Label"
-                                             aria-pressed="@(string.Equals(_grouping, option.Value, StringComparison.OrdinalIgnoreCase) ? "true" : "false")"
-                                             OnClick="@(() => SwitchGroupingAsync(option.Value))">
-                                <MudIcon Icon="@option.Icon" Class="browse-shell__grouping-icon" />
-                                <span>@option.Label</span>
-                            </AppNativeButton>
-                        }
-                    </div>
-                }
-
-                <div class="browse-shell__controls">
-                    @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
+                    @if (GenreFacets.Count > 0 && SupportsFacetFilters)
                     {
-                        <AppButton Variant="Variant.Outlined"
-                                   Color="Color.Default"
-                                   StartIcon="@Icons.Material.Outlined.Edit"
-                                   OnClick="OpenBatchEditorAsync"
-                                   Class="browse-shell__batch-edit">
-                            Edit @_selectedItems.Count
-                        </AppButton>
+                        <div class="browse-shell__genre-control">
+                            <MudMenu Dense="true"
+                                     Open="@_genreMenuOpen"
+                                     OpenChanged="OnGenreMenuOpenChanged"
+                                     AnchorOrigin="Origin.BottomLeft"
+                                     TransformOrigin="Origin.TopLeft"
+                                     Class="browse-shell__genre-menu"
+                                     PopoverClass="browse-shell__genre-popover">
+                                <ActivatorContent>
+                                    <AppNativeButton Type="button"
+                                                     Class="@GenreTriggerClass"
+                                                     AriaLabel="@GenreAriaLabel"
+                                                     aria-haspopup="listbox"
+                                                     aria-expanded="@(_genreMenuOpen ? "true" : "false")"
+                                                     OnClick="@context.ToggleAsync">
+                                        <MudIcon Icon="@Icons.Material.Outlined.LocalOffer" />
+                                        <span>@GenreButtonLabel</span>
+                                        <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="browse-shell__genre-chevron" />
+                                    </AppNativeButton>
+                                </ActivatorContent>
+                                <ChildContent>
+                                    <div class="browse-shell__genre-panel"
+                                         role="listbox"
+                                         aria-label="Genres"
+                                         aria-multiselectable="true"
+                                         @onclick:stopPropagation="true">
+                                        <label class="browse-shell__genre-search">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" />
+                                            <AppNativeInput Value="@_genreSearchText"
+                                                            OnInput="OnGenreSearchChanged"
+                                                            Placeholder="Search genres..."
+                                                            AriaLabel="Search genres" />
+                                        </label>
+
+                                        <div class="browse-shell__genre-options">
+                                            <AppNativeButton Type="button"
+                                                             Class="@GenreOptionClass(_selectedGenres.Count == 0)"
+                                                             role="option"
+                                                             aria-selected="@(_selectedGenres.Count == 0 ? "true" : "false")"
+                                                             StopPropagation="true"
+                                                             OnClick="ClearGenreFiltersAsync">
+                                                <span class="browse-shell__genre-checkbox" aria-hidden="true">
+                                                    @if (_selectedGenres.Count == 0)
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Check" />
+                                                    }
+                                                </span>
+                                                <span>
+                                                    <strong>All genres</strong>
+                                                    <small>No genre filter applied</small>
+                                                </span>
+                                            </AppNativeButton>
+
+                                            @foreach (var genre in FilteredGenreFacets)
+                                            {
+                                                var selected = _selectedGenres.Contains(genre);
+                                                <AppNativeButton Type="button"
+                                                                 @key="genre"
+                                                                 Class="@GenreOptionClass(selected)"
+                                                                 role="option"
+                                                                 aria-selected="@(selected ? "true" : "false")"
+                                                                 StopPropagation="true"
+                                                                 OnClick="@(() => ToggleGenreAsync(genre))">
+                                                    <span class="browse-shell__genre-checkbox" aria-hidden="true">
+                                                        @if (selected)
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Check" />
+                                                        }
+                                                    </span>
+                                                    <span><strong>@genre</strong></span>
+                                                </AppNativeButton>
+                                            }
+
+                                            @if (FilteredGenreFacets.Count == 0)
+                                            {
+                                                <div class="browse-shell__genre-empty">No matching genres</div>
+                                            }
+                                        </div>
+
+                                        <div class="browse-shell__genre-help">Select one or more genres to filter results.</div>
+                                    </div>
+                                </ChildContent>
+                            </MudMenu>
+                        </div>
+                    }
+
+                    @if (SupportsFacetFilters)
+                    {
+                        <AppSelect T="string"
+                                   Value="@_creator"
+                                   ValueChanged="OnCreatorChanged"
+                                   Label="@CreatorFilterLabel"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="browse-shell__facet-select">
+                            <MudSelectItem T="string" Value="@(string.Empty)">@AllCreatorLabel</MudSelectItem>
+                            @foreach (var creator in CreatorFacets)
+                            {
+                                <MudSelectItem T="string" @key="creator" Value="@creator">@creator</MudSelectItem>
+                            }
+                        </AppSelect>
+
+                        <AppSelect T="string"
+                                   Value="@_year"
+                                   ValueChanged="OnYearChanged"
+                                   Label="Year"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="browse-shell__facet-select browse-shell__facet-select--year">
+                            <MudSelectItem T="string" Value="@(string.Empty)">All years</MudSelectItem>
+                            @foreach (var year in YearFacets)
+                            {
+                                <MudSelectItem T="string" @key="year" Value="@year">@year</MudSelectItem>
+                            }
+                        </AppSelect>
+
+                        <div class="browse-shell__toggle-stack">
+                            <label class="browse-shell__filter-toggle">
+                                <AppNativeInput Type="checkbox"
+                                                Checked="@IsInProgressOnly"
+                                                OnChange="OnInProgressChanged" />
+                                <span>In progress</span>
+                            </label>
+                            @if (HasSeriesToggle)
+                            {
+                                <label class="browse-shell__filter-toggle">
+                                    <AppNativeInput Type="checkbox"
+                                                    Checked="@IsSeriesOnly"
+                                                    OnChange="OnSeriesOnlyChanged" />
+                                    <span>Series only</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    else if (CurrentTab.GroupingOptions.Count > 1)
+                    {
+                        <div class="browse-shell__groupings" role="group" aria-label="@($"{CurrentTab.Label} grouping")">
+                            @foreach (var option in CurrentTab.GroupingOptions)
+                            {
+                                <AppNativeButton Type="button"
+                                                 @key="option.Value"
+                                                 Class="@GroupingChipClass(option.Value)"
+                                                 AriaLabel="@option.Label"
+                                                 aria-pressed="@(string.Equals(_grouping, option.Value, StringComparison.OrdinalIgnoreCase) ? "true" : "false")"
+                                                 OnClick="@(() => SwitchGroupingAsync(option.Value))">
+                                    <MudIcon Icon="@option.Icon" Class="browse-shell__grouping-icon" />
+                                    <span>@option.Label</span>
+                                </AppNativeButton>
+                            }
+                        </div>
                     }
 
                     <AppSelect T="string"
                                Value="@_sortBy"
                                ValueChanged="OnSortChanged"
-                               Label="Sort"
+                               Label="Sort by"
                                Variant="Variant.Outlined"
                                Dense="true"
                                Class="browse-shell__sort">
@@ -141,15 +236,17 @@
                     @if (!UseListLayout)
                     {
                         <label class="browse-shell__tile-size" title="Adjust tile size">
-                            <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectSmall" />
                             <span>Tile size</span>
-                            <AppNativeInput Type="range"
-                                            Value="@TileSizePx"
-                                            Min="@TileSizeMinPx"
-                                            Max="@TileSizeMaxPx"
-                                            Step="8"
-                                            AriaLabel="Tile size"
-                                            OnInput="OnTileSizeChanged" />
+                            <span class="browse-shell__tile-size-control">
+                                <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectSmall" />
+                                <AppNativeInput Type="range"
+                                                Value="@TileSizePx"
+                                                Min="@TileSizeMinPx"
+                                                Max="@TileSizeMaxPx"
+                                                Step="8"
+                                                AriaLabel="Tile size"
+                                                OnInput="OnTileSizeChanged" />
+                            </span>
                         </label>
                     }
 
@@ -176,63 +273,28 @@
                             </AppNativeButton>
                         </div>
                     }
+
+                    @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
+                    {
+                        <AppButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Outlined.Edit"
+                                   OnClick="OpenBatchEditorAsync"
+                                   Class="browse-shell__batch-edit">
+                            Edit @_selectedItems.Count
+                        </AppButton>
+                    }
                 </div>
+
+                @if (HasActiveFilters)
+                {
+                    <AppNativeButton Type="button"
+                                     Class="browse-shell__clear-filters"
+                                     OnClick="ClearFiltersAsync">
+                        Clear all filters
+                    </AppNativeButton>
+                }
             </div>
-
-            @if (ShowFacetControls)
-            {
-                <div class="browse-shell__facet-row">
-                    @if (CreatorFacets.Count > 1)
-                    {
-                        <AppSelect T="string"
-                                   Value="@_creator"
-                                   ValueChanged="OnCreatorChanged"
-                                   Label="@CreatorFilterLabel"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Class="browse-shell__facet-select">
-                            <MudSelectItem T="string" Value="@(string.Empty)">All</MudSelectItem>
-                            @foreach (var creator in CreatorFacets)
-                            {
-                                <MudSelectItem T="string" @key="creator" Value="@creator">@creator</MudSelectItem>
-                            }
-                        </AppSelect>
-                    }
-
-                    @if (YearFacets.Count > 1)
-                    {
-                        <AppSelect T="string"
-                                   Value="@_year"
-                                   ValueChanged="OnYearChanged"
-                                   Label="Year"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Class="browse-shell__facet-select browse-shell__facet-select--year">
-                            <MudSelectItem T="string" Value="@(string.Empty)">All years</MudSelectItem>
-                            @foreach (var year in YearFacets)
-                            {
-                                <MudSelectItem T="string" @key="year" Value="@year">@year</MudSelectItem>
-                            }
-                        </AppSelect>
-                    }
-
-                    <label class="browse-shell__filter-toggle">
-                        <AppNativeInput Type="checkbox"
-                                        Checked="@IsInProgressOnly"
-                                        OnChange="OnInProgressChanged" />
-                        <span>In progress</span>
-                    </label>
-
-                    @if (HasActiveFilters)
-                    {
-                        <AppNativeButton Type="button"
-                                         Class="browse-shell__clear-filters"
-                                         OnClick="ClearFiltersAsync">
-                            Clear all
-                        </AppNativeButton>
-                    }
-                </div>
-            }
         </div>
     </div>
 
@@ -307,6 +369,7 @@
                        HoverMode="@GridHoverMode"
                        HideMediaKindBadges="true"
                        HideSourceBadges="true"
+                       HideGroupIndicators="true"
                        ShowCompactCaptions="true"
                        TileSizePx="@TileSizePx"
                        Class="browse-shell__grid" />
@@ -341,6 +404,8 @@
     private string _activeTabId = string.Empty;
     private string _grouping = "all";
     private string _searchText = string.Empty;
+    private string _genreSearchText = string.Empty;
+    private bool _genreMenuOpen;
     private string _sortBy = "newest";
     private readonly HashSet<string> _selectedGenres = new(StringComparer.OrdinalIgnoreCase);
     private string _creator = string.Empty;
@@ -368,14 +433,13 @@
         $"browse-shell {(Embedded ? "browse-shell--embedded" : string.Empty)}".Trim();
     private bool ShowTabs => ShowTabNavigation && Preset.Tabs.Count > 1;
     private bool ShowHeaderRow => ShowTitleBlock || ShowTabs;
-    private string ToolbarClass =>
-        ShowHeaderRow ? "browse-shell__toolbar" : "browse-shell__toolbar browse-shell__toolbar--standalone";
     private int ActiveBrowseTabIndex => GetSelectedIndex(Preset.Tabs.Select(tab => tab.Id), _activeTabId);
     private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
     private bool IsTvShowsGrouping =>
         string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
         && string.Equals(_grouping, "shows", StringComparison.OrdinalIgnoreCase)
         && string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+    private bool SupportsFacetFilters => !IsContainerGrouping || (IsTvShowsGrouping && !UseListLayout);
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
     private bool HasSeriesToggle => CurrentTab.GroupingOptions.Any(option => option.Value == "series")
@@ -385,7 +449,10 @@
     private IReadOnlyList<string> GenreFacets => _facets?.Genres ?? [];
     private IReadOnlyList<string> CreatorFacets => _facets?.Creators ?? [];
     private IReadOnlyList<string> YearFacets => _facets?.Years ?? [];
-    private bool ShowFacetControls => !IsContainerGrouping && (CreatorFacets.Count > 1 || YearFacets.Count > 1 || HasActiveFilters);
+    private IReadOnlyList<string> FilteredGenreFacets => GenreFacets
+        .Where(genre => string.IsNullOrWhiteSpace(_genreSearchText)
+                        || genre.Contains(_genreSearchText.Trim(), StringComparison.OrdinalIgnoreCase))
+        .ToList();
     private bool HasActiveFilters => !string.IsNullOrWhiteSpace(_searchText)
                                      || _selectedGenres.Count > 0
                                      || !string.IsNullOrWhiteSpace(_creator)
@@ -396,8 +463,31 @@
     {
         "Books" or "Comics" => "Author / creator",
         "Music" or "Audiobooks" => "Artist / author",
+        "TV" => "Creator / network",
         _ => "Director / creator",
     };
+    private string AllCreatorLabel => CurrentTab.MediaType switch
+    {
+        "Books" or "Comics" => "All authors",
+        "Music" or "Audiobooks" => "All artists",
+        _ => "All creators",
+    };
+    private string SearchPlaceholder => CurrentTab.MediaType switch
+    {
+        "Books" => "Search books or authors...",
+        "Comics" => "Search comics or creators...",
+        "Movies" => "Search movies or directors...",
+        "TV" => "Search TV shows or creators...",
+        "Music" => "Search albums or artists...",
+        "Audiobooks" => "Search audiobooks or authors...",
+        _ => $"Search {CurrentTab.Label.ToLowerInvariant()}...",
+    };
+    private const string GenreButtonLabel = "Genres";
+    private string GenreAriaLabel => _selectedGenres.Count == 0
+        ? "Filter by genre"
+        : $"Filter by genre, {_selectedGenres.Count} selected";
+    private string GenreTriggerClass =>
+        $"browse-shell__genre-trigger {(_selectedGenres.Count > 0 ? "is-active" : string.Empty)}";
     private string ContinueTitle => Preset.HeroVariant switch
     {
         BrowseHeroVariant.Read => "Continue Reading",
@@ -914,6 +1004,8 @@
         _layout = ResolveLayout(null, tab, _grouping);
         _sortBy = ResolveSort(null);
         _searchText = string.Empty;
+        _genreSearchText = string.Empty;
+        _genreMenuOpen = false;
         _selectedGenres.Clear();
         _creator = string.Empty;
         _status = string.Empty;
@@ -968,17 +1060,37 @@
         await NavigateAndReloadAsync();
     }
 
-    private string GenreChipClass(string genre) =>
-        $"browse-shell__genre-chip {(_selectedGenres.Contains(genre) ? "is-active" : string.Empty)}";
+    private static string GenreOptionClass(bool selected) =>
+        $"browse-shell__genre-option {(selected ? "is-selected" : string.Empty)}";
+
+    private void OnGenreSearchChanged(ChangeEventArgs args) =>
+        _genreSearchText = args.Value?.ToString() ?? string.Empty;
+
+    private void OnGenreMenuOpenChanged(bool open) => _genreMenuOpen = open;
 
     private async Task ToggleGenreAsync(string genre)
     {
+        var keepMenuOpen = _genreMenuOpen;
         if (!_selectedGenres.Add(genre))
         {
             _selectedGenres.Remove(genre);
         }
 
         await NavigateAndReloadAsync();
+        _genreMenuOpen = keepMenuOpen;
+    }
+
+    private async Task ClearGenreFiltersAsync()
+    {
+        if (_selectedGenres.Count == 0)
+        {
+            return;
+        }
+
+        var keepMenuOpen = _genreMenuOpen;
+        _selectedGenres.Clear();
+        await NavigateAndReloadAsync();
+        _genreMenuOpen = keepMenuOpen;
     }
 
     private Task OnSeriesOnlyChanged(ChangeEventArgs args) =>
@@ -1005,6 +1117,7 @@
     private async Task ClearFiltersAsync()
     {
         _searchText = string.Empty;
+        _genreSearchText = string.Empty;
         _selectedGenres.Clear();
         _creator = string.Empty;
         _status = string.Empty;

@@ -81,7 +81,13 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("ShowTabNavigation=\"false\"", read, StringComparison.Ordinal);
         Assert.Contains("ShowTabNavigation=\"false\"", watch, StringComparison.Ordinal);
         Assert.Contains("GridHoverMode => MediaTileHoverMode.GlowOnly", browseShell, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__filter-surface", browseShell, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__genre-panel", browseShell, StringComparison.Ordinal);
+        Assert.Contains("Search genres...", browseShell, StringComparison.Ordinal);
+        Assert.Contains("All genres", browseShell, StringComparison.Ordinal);
+        Assert.Contains("SupportsFacetFilters => !IsContainerGrouping || (IsTvShowsGrouping && !UseListLayout)", browseShell, StringComparison.Ordinal);
         Assert.Contains("ShowCompactCaptions=\"true\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("HideGroupIndicators=\"true\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__tile-size", browseShell, StringComparison.Ordinal);
         Assert.Contains("TileSizePx", browseShell, StringComparison.Ordinal);
         Assert.Contains("HoverMode => MediaTileHoverMode.Expanded", mediaShelf, StringComparison.Ordinal);

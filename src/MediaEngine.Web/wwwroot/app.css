@@ -3932,6 +3932,26 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     overflow: hidden !important;
 }
 
+.browse-shell__genre-popover.mud-popover {
+    color: var(--tl-text-primary) !important;
+    background: #0c1525 !important;
+    border: 1px solid rgba(128, 146, 180, 0.28) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 22px 52px rgba(0, 0, 0, 0.46) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+.browse-shell__genre-popover .mud-paper,
+.browse-shell__genre-popover .mud-list {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
 .app-overflow-menu__popover.mud-popover {
     color: var(--tl-text-primary) !important;
     background: var(--tl-bg-surface-elevated) !important;

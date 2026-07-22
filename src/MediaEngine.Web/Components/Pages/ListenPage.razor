@@ -156,56 +156,75 @@ else
             else if (IsAlbumsView)
             {
                 <section class="listen-section">
-                    <div class="listen-section__header">
+                    <div class="listen-filter-bar listen-filter-bar--surface">
+                        <label class="listen-filter-search">
+                            <MudIcon Icon="@Icons.Material.Outlined.Search" />
+                            <AppNativeInput Class="listen-filter-input"
+                                            @bind="_albumSearch"
+                                            @bind:event="oninput"
+                                            Placeholder="Search albums or artists..."
+                                            AriaLabel="Search albums or artists" />
+                        </label>
+                        <label class="listen-filter-field listen-filter-field--genre">
+                            <span>Genres</span>
+                            <AppNativeSelect Class="listen-filter-select" @bind="_albumGenreFilter" aria-label="Filter albums by genre">
+                                <option value="all">All genres</option>
+                                @foreach (var genre in SongGenres)
+                                {
+                                    <option value="@genre">@genre</option>
+                                }
+                            </AppNativeSelect>
+                        </label>
+                        <label class="listen-filter-field">
+                            <span>Artist</span>
+                            <AppNativeSelect Class="listen-filter-select" @bind="_albumArtistFilter" aria-label="Filter albums by artist">
+                                <option value="all">All artists</option>
+                                @foreach (var artist in AlbumArtists)
+                                {
+                                    <option value="@artist">@artist</option>
+                                }
+                            </AppNativeSelect>
+                        </label>
+                        <div class="listen-filter-toggle-stack">
+                            <label class="listen-filter-toggle">
+                                <AppNativeInput Type="checkbox" Checked="@_albumFavoriteOnly" OnChange="@((ChangeEventArgs args) => _albumFavoriteOnly = args.Value is true)" />
+                                <span>Favorites</span>
+                            </label>
+                            <label class="listen-filter-toggle">
+                                <AppNativeInput Type="checkbox" Checked="@_albumArtOnly" OnChange="@((ChangeEventArgs args) => _albumArtOnly = args.Value is true)" />
+                                <span>With art</span>
+                            </label>
+                        </div>
+                        <label class="listen-filter-field listen-filter-field--sort">
+                            <span>Sort by</span>
+                            <AppNativeSelect Class="listen-filter-select" @bind="_albumSort" aria-label="Sort albums">
+                                <option value="recent">Recently added</option>
+                                <option value="title">Title</option>
+                                <option value="artist">Artist</option>
+                                <option value="year">Year</option>
+                            </AppNativeSelect>
+                        </label>
+                        <label class="listen-tile-size" title="Adjust album tile size">
+                            <span>Tile size</span>
+                            <span class="listen-tile-size__control">
+                                <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectSmall" />
+                                <AppNativeInput Type="range"
+                                                Value="@_albumTileSizePx"
+                                                Min="96"
+                                                Max="208"
+                                                Step="8"
+                                                AriaLabel="Album tile size"
+                                                OnInput="UpdateAlbumTileSize" />
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="listen-section__header listen-section__header--results">
                         <div>
-                            <div class="listen-kicker">Music</div>
                             <h2>Albums</h2>
                             <p class="listen-section__summary">@Pluralize(FilteredAlbumGroups.Count, "album") ready to browse.</p>
                         </div>
                         <AppNativeButton Type="button" Class="listen-button listen-button--secondary" OnClick="@(() => PlayTracksAsync(_musicWorks, null, " All Music", true))" Disabled="@(_musicWorks.Count == 0)">Shuffle library</AppNativeButton>
-                    </div>
-
-                    <div class="listen-filter-bar">
-                        <AppNativeInput Class="listen-filter-input" @bind="_albumSearch" @bind:event="oninput" Placeholder="Search albums or artists" />
-                        <AppNativeSelect Class="listen-filter-select" @bind="_albumSort">
-                            <option value="recent">Recently added</option>
-                            <option value="title">Title</option>
-                            <option value="artist">Artist</option>
-                            <option value="year">Year</option>
-                        </AppNativeSelect>
-                        <AppNativeSelect Class="listen-filter-select" @bind="_albumArtistFilter">
-                            <option value="all">All artists</option>
-                            @foreach (var artist in AlbumArtists)
-                            {
-                                <option value="@artist">@artist</option>
-                            }
-                        </AppNativeSelect>
-                        <AppNativeSelect Class="listen-filter-select" @bind="_albumGenreFilter">
-                            <option value="all">All genres</option>
-                            @foreach (var genre in SongGenres)
-                            {
-                                <option value="@genre">@genre</option>
-                            }
-                        </AppNativeSelect>
-                        <label class="listen-filter-toggle">
-                            <AppNativeInput Type="checkbox" Checked="@_albumFavoriteOnly" OnChange="@((ChangeEventArgs args) => _albumFavoriteOnly = args.Value is true)" />
-                            <span>Favorites</span>
-                        </label>
-                        <label class="listen-filter-toggle">
-                            <AppNativeInput Type="checkbox" Checked="@_albumArtOnly" OnChange="@((ChangeEventArgs args) => _albumArtOnly = args.Value is true)" />
-                            <span>With art</span>
-                        </label>
-                        <label class="listen-tile-size" title="Adjust album tile size">
-                            <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectSmall" />
-                            <span>Tile size</span>
-                            <AppNativeInput Type="range"
-                                            Value="@_albumTileSizePx"
-                                            Min="96"
-                                            Max="208"
-                                            Step="8"
-                                            AriaLabel="Album tile size"
-                                            OnInput="UpdateAlbumTileSize" />
-                        </label>
                     </div>
 
                     @if (FilteredAlbumGroups.Count == 0)

@@ -81,7 +81,7 @@
                 </div>
             }
 
-            @if (Item.IsCollection)
+            @if (Item.IsCollection && !HideGroupIndicators)
             {
                 <div class="media-tile-group-indicators">
                     <span class="media-tile-group-kind">
@@ -285,6 +285,7 @@
     [Parameter] public MediaTileHoverMode? HoverMode { get; set; }
     [Parameter] public bool HideMediaKindBadge { get; set; }
     [Parameter] public bool HideSourceBadge { get; set; }
+    [Parameter] public bool HideGroupIndicators { get; set; }
     [Parameter] public bool ShowCompactCaption { get; set; }
 
     private bool _hoverRegistered;

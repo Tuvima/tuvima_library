@@ -625,6 +625,7 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".listen-page"));
             Assert.Single(cut.FindAll(".listen-page--audiobooks"));
             Assert.Single(cut.FindAll(".audiobooks-dashboard"));
+            Assert.Single(cut.FindAll(".audiobooks-toolbar"));
             Assert.Empty(cut.FindAll(".browse-shell--embedded"));
             Assert.Contains("Search audiobooks", cut.Markup);
             Assert.Contains("All Audiobooks", cut.Markup);
@@ -760,6 +761,9 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Search albums or artists", cut.Markup);
+            Assert.Single(cut.FindAll(".listen-filter-bar--surface"));
+            Assert.Single(cut.FindAll(".listen-filter-search"));
+            Assert.Contains("Filter albums by genre", cut.Markup);
             Assert.Empty(cut.FindAll(".listen-home"));
             Assert.Empty(cut.FindAll(".media-tile-shelf-scroll"));
             Assert.DoesNotContain("listen-mode-switch", cut.Markup);
@@ -771,6 +775,9 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("ShowCompactCaptions=\"true\"", markup, StringComparison.Ordinal);
         Assert.Contains("TileSizePx=\"@_albumTileSizePx\"", markup, StringComparison.Ordinal);
         Assert.Contains("AriaLabel=\"Album tile size\"", markup, StringComparison.Ordinal);
+        Assert.True(
+            markup.IndexOf("listen-filter-bar--surface", StringComparison.Ordinal)
+            < markup.IndexOf("listen-section__header listen-section__header--results", StringComparison.Ordinal));
         Assert.DoesNotContain("ShowAllAudiobooks", markup, StringComparison.Ordinal);
     }
 
